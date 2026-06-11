@@ -2,23 +2,41 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import { useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 const navItems = [
-  { href: '/', label: '홈', icon: '🏠' },
-  { href: '/tasks', label: '업무 목록', icon: '≡' },
-  { href: '/completed', label: '완료 성과', icon: '🏆' },
-  { href: '/schedule', label: '일정', icon: '📅' },
-  { href: '/meetings', label: '회의록', icon: '💬' },
-  { href: '/one-on-one', label: '1on1', icon: '👤' },
-  { href: '/memos', label: '메모', icon: '📝' },
-  { href: '/learning', label: '학습자료', icon: '📚' },
-  { href: '/settings', label: '설정', icon: '⚙' },
+  { href: '/', label: '홈', icon: '🏠', key: '1' },
+  { href: '/tasks', label: '업무 목록', icon: '≡', key: '2' },
+  { href: '/completed', label: '완료 성과', icon: '🏆', key: '3' },
+  { href: '/meetings', label: '회의록', icon: '💬', key: '4' },
+  { href: '/schedule', label: '일정', icon: '📅', key: '5' },
+  { href: '/memos', label: '메모', icon: '📝', key: '6' },
+  { href: '/one-on-one', label: '1on1', icon: '👤', key: '' },
+  { href: '/learning', label: '학습자료', icon: '📚', key: '' },
+  { href: '/settings', label: '설정', icon: '⚙', key: '' },
 ]
+
+const KEY_ROUTES: Record<string, string> = {
+  '1': '/', '2': '/tasks', '3': '/completed',
+  '4': '/meetings', '5': '/schedule', '6': '/memos',
+}
 
 export default function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.ctrlKey || e.metaKey || e.altKey) return
+      const tag = (e.target as HTMLElement).tagName.toLowerCase()
+      if (['input', 'textarea', 'select'].includes(tag)) return
+      const route = KEY_ROUTES[e.key]
+      if (route) { e.preventDefault(); router.push(route) }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [router])
 
   async function handleLogout() {
     const supabase = createClient()
@@ -47,16 +65,17 @@ export default function Sidebar() {
               : pathname.startsWith(item.href)
             return (
               <li key={item.href}>
-                <Link
-                  href={item.href}
-                  className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors ${
-                    isActive
-                      ? 'bg-orange-50 text-orange-700 font-medium'
-                      : 'text-gray-600 hover:bg-gray-50'
-                  }`}
-                >
-                  <span className="text-base">{item.icon}</span>
-                  {item.label}
+                <Link href={item.href}
+                  className={`flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors ${
+                    isActive ? 'bg-orange-50 text-orange-700 font-medium' : 'text-gray-600 hover:bg-gray-50'
+                  }`}>
+                  <span className="flex items-center gap-2.5">
+                    <span className="text-base">{item.icon}</span>
+                    {item.label}
+                  </span>
+                  {item.key && (
+                    <span className="text-xs text-gray-300 font-mono">{item.key}</span>
+                  )}
                 </Link>
               </li>
             )
@@ -64,11 +83,9 @@ export default function Sidebar() {
         </ul>
       </nav>
       <div className="p-3 border-t border-gray-100">
-        <p className="text-xs text-gray-300 px-3 mb-1">Ctrl+1 업무추가 · Ctrl+2 퀵메모</p>
-        <button
-          onClick={handleLogout}
-          className="w-full text-left px-3 py-2 rounded-lg text-sm text-gray-400 hover:bg-gray-50 hover:text-gray-600 transition-colors"
-        >
+        <p className="text-xs text-gray-300 px-3 mb-1">1-6 페이지이동 · Ctrl+1 업무추가 · Ctrl+2 퀵메모</p>
+        <button onClick={handleLogout}
+          className="w-full text-left px-3 py-2 rounded-lg text-sm text-gray-400 hover:bg-gray-50 hover:text-gray-600 transition-colors">
           로그아웃
         </button>
       </div>

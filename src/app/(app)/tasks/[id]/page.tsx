@@ -118,6 +118,7 @@ export default function TaskDetailPage() {
   const [linkedMeetings, setLinkedMeetings] = useState<Meeting[]>([])
   const [allMeetings, setAllMeetings] = useState<Pick<Meeting, 'id' | 'title' | 'meeting_date'>[]>([])
   const [selectedMeetingId, setSelectedMeetingId] = useState('')
+  const [expandedMeetingIds, setExpandedMeetingIds] = useState<Set<string>>(new Set())
 
   const titleRef = useRef<HTMLInputElement>(null)
   const noteAreaRef = useRef<HTMLTextAreaElement>(null)
@@ -420,33 +421,46 @@ export default function TaskDetailPage() {
             {linkedMeetings.length === 0 ? (
               <p className="text-xs text-gray-300 text-center py-6">연결된 회의록이 없습니다</p>
             ) : (
-              <div className="space-y-4">
-                {linkedMeetings.map(m => (
-                  <div key={m.id} className="border border-gray-100 rounded-xl overflow-hidden group/meeting">
-                    <div className="flex items-center justify-between px-3 py-2.5 bg-gray-50">
-                      <Link href={`/meetings/${m.id}`} className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-700 hover:text-gray-900 truncate">
-                          {m.title || <span className="text-gray-300 italic">제목 없음</span>}
-                        </p>
-                        {m.meeting_date && <p className="text-xs text-gray-400">{formatDate(m.meeting_date)}</p>}
-                      </Link>
-                      <button onClick={() => unlinkMeeting(m.id)}
-                        className="text-xs text-gray-300 hover:text-red-400 ml-2 flex-shrink-0 opacity-0 group-hover/meeting:opacity-100 transition-all">해제</button>
-                    </div>
-                    {m.notes && m.notes.length > 0 ? (
-                      <div className="divide-y divide-gray-50">
-                        {m.notes.map((note, idx) => (
-                          <div key={idx} className="px-3 py-3">
-                            <p className="text-xs font-medium text-gray-500 mb-1.5">{note.title}</p>
-                            <p className="text-xs text-gray-600 whitespace-pre-wrap">{note.content}</p>
+              <div className="space-y-2">
+                {linkedMeetings.map(m => {
+                  const isExp = expandedMeetingIds.has(m.id)
+                  return (
+                    <div key={m.id} className="border border-gray-100 rounded-xl overflow-hidden group/meeting">
+                      <div className="flex items-center justify-between px-3 py-2.5 bg-gray-50">
+                        <button onClick={() => setExpandedMeetingIds(prev => { const s = new Set(prev); isExp ? s.delete(m.id) : s.add(m.id); return s })}
+                          className="flex items-center gap-2 flex-1 min-w-0 text-left">
+                          <span className="text-xs text-gray-400 flex-shrink-0">{isExp ? '▼' : '▶'}</span>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-gray-700 hover:text-gray-900 truncate">
+                              {m.title || <span className="text-gray-300 italic">제목 없음</span>}
+                            </p>
+                            {m.meeting_date && <p className="text-xs text-gray-400">{formatDate(m.meeting_date)}</p>}
                           </div>
-                        ))}
+                        </button>
+                        <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                          <Link href={`/meetings/${m.id}`}
+                            className="text-xs text-gray-300 hover:text-blue-500 opacity-0 group-hover/meeting:opacity-100 transition-all">↗</Link>
+                          <button onClick={() => unlinkMeeting(m.id)}
+                            className="text-xs text-gray-200 hover:text-red-400 opacity-0 group-hover/meeting:opacity-100 transition-all">해제</button>
+                        </div>
                       </div>
-                    ) : (
-                      <p className="text-xs text-gray-300 text-center py-2.5">회의 내용 없음</p>
-                    )}
-                  </div>
-                ))}
+                      {isExp && (
+                        m.notes && m.notes.length > 0 ? (
+                          <div className="divide-y divide-gray-50">
+                            {m.notes.map((note, idx) => (
+                              <div key={idx} className="px-3 py-3">
+                                <p className="text-xs font-medium text-gray-500 mb-1.5">{note.title}</p>
+                                <p className="text-xs text-gray-600 whitespace-pre-wrap">{note.content}</p>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-gray-300 text-center py-2.5">회의 내용 없음</p>
+                        )
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             )}
           </div>

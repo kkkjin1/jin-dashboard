@@ -56,6 +56,7 @@ export default function OneOnOneSessionPage() {
   const [noteTitle, setNoteTitle] = useState(defaultNoteTitle())
   const [openIndexes, setOpenIndexes] = useState<Set<number>>(new Set([0]))
   const [deleting, setDeleting] = useState(false)
+  const [applyingTemplate, setApplyingTemplate] = useState(false)
 
   const titleRef = useRef<HTMLInputElement>(null)
   const noteAreaRef = useRef<HTMLTextAreaElement>(null)
@@ -120,6 +121,17 @@ export default function OneOnOneSessionPage() {
     setOpenIndexes(new Set([0]))
   }
 
+  async function applyTemplate() {
+    if (!session) return
+    setApplyingTemplate(true)
+    const { data } = await supabase.from('one_on_one_template').select('content').limit(1).single()
+    if (data?.content) {
+      setNoteInput((data as { content: string }).content)
+      noteAreaRef.current?.focus()
+    }
+    setApplyingTemplate(false)
+  }
+
   async function deleteSession() {
     if (!confirm('이 1on1 기록을 삭제하시겠습니까?')) return
     setDeleting(true)
@@ -153,6 +165,10 @@ export default function OneOnOneSessionPage() {
         <Link href={`/one-on-one/${memberId}`} className="text-sm text-gray-400 hover:text-gray-600">
           ← {member.name} 1on1 목록
         </Link>
+        <button onClick={applyTemplate} disabled={applyingTemplate}
+          className="text-xs text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-white transition-colors disabled:opacity-40">
+          {applyingTemplate ? '불러오는 중...' : '템플릿 적용'}
+        </button>
         <button onClick={handleDownload}
           className="text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-white transition-colors">
           MD 다운로드

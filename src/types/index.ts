@@ -1,4 +1,4 @@
-export type Part = '코어' | '비즈' | '팀장'
+export type Part = '코어' | '비즈' | '팀장' | '개인'
 export type TaskType = '기획' | '개선' | '운영'
 export type TaskStatus = '진행필요' | '진행중' | '완료'
 export type AttachmentType = '파일' | '링크'

@@ -34,9 +34,9 @@ export default function HomePage() {
     })
     .sort((a, b) => daysUntil(a.end_date!) - daysUntil(b.end_date!))
 
-  // 중간공유 임박: mid_date 있는 모든 미래 업무 (7일 제한 없음)
+  // 중간공유 임박: 오늘~8일 이내
   const midSoonTasks = active
-    .filter(t => hasUpcomingMidDate(t))
+    .filter(t => hasUpcomingMidDate(t) && daysUntil(t.mid_date!) <= 8)
     .sort((a, b) => daysUntil(a.mid_date!) - daysUntil(b.mid_date!))
 
   // 최종마감 임박: end_date 있는 모든 미래 업무 (7일 제한 없음)
