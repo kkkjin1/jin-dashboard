@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -27,15 +27,18 @@ function MemberAvatar({ name }: { name: string }) {
   )
 }
 
+function formatMonth(ym: string): string {
+  const [y, m] = ym.split('-')
+  return `${y}년 ${parseInt(m)}월`
+}
+
 export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [members, setMembers] = useState<Member[]>([])
   const [activePart, setActivePart] = useState<Part | '전체'>('전체')
   const [statusFilter, setStatusFilter] = useState<TaskStatus | '전체'>('전체')
   const [assigneeFilter, setAssigneeFilter] = useState<string>('전체')
-  const [adding, setAdding] = useState<{ part: Part; type: TaskType } | null>(null)
-  const [newTitle, setNewTitle] = useState('')
-  const addInputRef = useRef<HTMLInputElement>(null)
+  const [monthFilter, setMonthFilter] = useState<string>('전체')
   const supabase = createClient()
   const router = useRouter()
 
@@ -45,32 +48,23 @@ export default function TasksPage() {
     })
   }, [])
 
-  useEffect(() => {
-    if (adding) addInputRef.current?.focus()
-  }, [adding])
+  const allMonths = useMemo(() => {
+    const months = new Set<string>()
+    tasks.forEach(t => (t.work_months ?? []).forEach(m => months.add(m)))
+    return Array.from(months).sort().reverse()
+  }, [tasks])
 
   const filteredTasks = tasks.filter(t => {
     if (activePart !== '전체' && t.part !== activePart) return false
     if (statusFilter !== '전체' && t.status !== statusFilter) return false
     if (assigneeFilter !== '전체' && t.assignee_id !== assigneeFilter) return false
+    if (monthFilter !== '전체' && !(t.work_months ?? []).includes(monthFilter)) return false
     return true
   })
 
   async function handleAddTask(part: Part, type: TaskType) {
-    if (!newTitle.trim()) { setAdding(null); return }
-    const { data } = await supabase
-      .from('tasks')
-      .insert({ title: newTitle.trim(), part, type, status: '진행필요' })
-      .select('*, members(id, name, part)')
-      .single()
-    if (data) {
-      setNewTitle('')
-      setAdding(null)
-      router.push(`/tasks/${(data as Task).id}`)
-    } else {
-      setNewTitle('')
-      setAdding(null)
-    }
+    const { data } = await supabase.from('tasks').insert({ title: '', part, type, status: '진행필요' }).select('id').single()
+    if (data) router.push(`/tasks/${(data as { id: string }).id}`)
   }
 
   async function updateStatus(taskId: string, status: TaskStatus) {
@@ -84,38 +78,29 @@ export default function TasksPage() {
     <div className="p-8">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-bold text-gray-900">업무 목록</h1>
-        <div className="flex items-center gap-2">
-          <select
-            value={statusFilter}
-            onChange={e => setStatusFilter(e.target.value as TaskStatus | '전체')}
-            className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-600 focus:outline-none"
-          >
+        <div className="flex items-center gap-2 flex-wrap">
+          <select value={monthFilter} onChange={e => setMonthFilter(e.target.value)}
+            className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-600 focus:outline-none">
+            <option value="전체">전체 작업월</option>
+            {allMonths.map(m => <option key={m} value={m}>{formatMonth(m)}</option>)}
+          </select>
+          <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as TaskStatus | '전체')}
+            className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-600 focus:outline-none">
             <option value="전체">전체 상태</option>
             {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
-          <select
-            value={assigneeFilter}
-            onChange={e => setAssigneeFilter(e.target.value)}
-            className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-600 focus:outline-none"
-          >
+          <select value={assigneeFilter} onChange={e => setAssigneeFilter(e.target.value)}
+            className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-600 focus:outline-none">
             <option value="전체">전체 담당자</option>
             {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
           </select>
         </div>
       </div>
 
-      {/* 파트 탭 */}
       <div className="flex gap-1 mb-6 border-b border-gray-100 pb-0">
         {(['전체', ...PARTS] as const).map(p => (
-          <button
-            key={p}
-            onClick={() => setActivePart(p)}
-            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
-              activePart === p
-                ? 'text-gray-900 border-b-2 border-red-500'
-                : 'text-gray-400 hover:text-gray-600'
-            }`}
-          >
+          <button key={p} onClick={() => setActivePart(p)}
+            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${activePart === p ? 'text-gray-900 border-b-2 border-red-500' : 'text-gray-400 hover:text-gray-600'}`}>
             {p === '전체' ? '전체' : `${p}파트`}
             <span className="ml-1.5 text-xs text-gray-400">
               {p === '전체' ? filteredTasks.length : filteredTasks.filter(t => t.part === p).length}
@@ -124,7 +109,6 @@ export default function TasksPage() {
         ))}
       </div>
 
-      {/* 파트별 섹션 */}
       <div className="space-y-8">
         {partsToShow.map(part => (
           <div key={part}>
@@ -139,22 +123,22 @@ export default function TasksPage() {
                   </div>
                   <div className="space-y-1.5">
                     {sectionTasks.map(task => (
-                      <div key={task.id} className="bg-white rounded-xl border border-gray-100 px-4 py-3 flex items-center gap-4 hover:border-gray-200 transition-colors group">
-                        <select
-                          value={task.status}
-                          onChange={e => updateStatus(task.id, e.target.value as TaskStatus)}
+                      <div key={task.id} className="bg-white rounded-xl border border-gray-100 px-4 py-3 flex items-center gap-4 hover:border-gray-200 transition-colors">
+                        <select value={task.status} onChange={e => updateStatus(task.id, e.target.value as TaskStatus)}
                           onClick={e => e.stopPropagation()}
-                          className={`text-xs px-2 py-1 rounded-full font-medium border-0 cursor-pointer focus:outline-none ${STATUS_COLORS[task.status]}`}
-                        >
+                          className={`text-xs px-2 py-1 rounded-full font-medium border-0 cursor-pointer focus:outline-none ${STATUS_COLORS[task.status]}`}>
                           {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
                         <Link href={`/tasks/${task.id}`} className="flex-1 flex items-center gap-4 min-w-0">
-                          <span className="text-sm text-gray-800 font-medium flex-1 truncate">{task.title}</span>
+                          <span className="text-sm text-gray-800 font-medium flex-1 truncate">
+                            {task.title || <span className="text-gray-300 italic">제목 없음</span>}
+                          </span>
                           <div className="flex items-center gap-2 flex-shrink-0">
+                            {(task.work_months ?? []).length > 0 && (
+                              <span className="text-xs text-gray-300">{formatMonth((task.work_months ?? []).at(-1)!)}</span>
+                            )}
                             {task.mid_date && (
-                              <span className="text-xs bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full">
-                                중간공유 {formatDate(task.mid_date)}
-                              </span>
+                              <span className="text-xs bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full">중간공유 {formatDate(task.mid_date)}</span>
                             )}
                             {task.end_date && (
                               <span className="text-xs text-gray-400">📅 {formatDate(task.end_date)}</span>
@@ -164,31 +148,10 @@ export default function TasksPage() {
                         </Link>
                       </div>
                     ))}
-
-                    {/* 빠른 추가 */}
-                    {adding?.part === part && adding?.type === type ? (
-                      <div className="bg-white rounded-xl border border-blue-200 px-4 py-2">
-                        <input
-                          ref={addInputRef}
-                          value={newTitle}
-                          onChange={e => setNewTitle(e.target.value)}
-                          onKeyDown={e => {
-                            if (e.key === 'Enter') handleAddTask(part, type)
-                            if (e.key === 'Escape') { setAdding(null); setNewTitle('') }
-                          }}
-                          onBlur={() => handleAddTask(part, type)}
-                          placeholder="업무명 입력 후 엔터"
-                          className="w-full text-sm focus:outline-none text-gray-700"
-                        />
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => setAdding({ part, type })}
-                        className="w-full text-left px-4 py-2 text-xs text-gray-300 hover:text-gray-500 hover:bg-white rounded-xl transition-colors"
-                      >
-                        + 업무 추가
-                      </button>
-                    )}
+                    <button onClick={() => handleAddTask(part, type)}
+                      className="w-full text-left px-4 py-2 text-xs text-gray-300 hover:text-gray-500 hover:bg-white rounded-xl transition-colors">
+                      + 업무 추가
+                    </button>
                   </div>
                 </div>
               )

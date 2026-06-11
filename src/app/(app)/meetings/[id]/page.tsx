@@ -4,10 +4,14 @@ import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import type { Meeting, NoteEntry } from '@/types'
-import { format, parseISO } from 'date-fns'
-import { ko } from 'date-fns/locale'
+import type { Meeting, NoteEntry, Task, TaskStatus } from '@/types'
 import { generateMeetingMd, downloadMd } from '@/lib/markdown'
+
+const STATUS_COLORS: Record<TaskStatus, string> = {
+  '진행필요': 'bg-gray-100 text-gray-600',
+  '진행중': 'bg-blue-50 text-blue-600',
+  '완료': 'bg-green-50 text-green-600',
+}
 
 function defaultNoteTitle(): string {
   const now = new Date()
@@ -71,21 +75,29 @@ export default function MeetingDetailPage() {
   const [openIndexes, setOpenIndexes] = useState<Set<number>>(new Set([0]))
   const [deleting, setDeleting] = useState(false)
 
+  // 업무 연동
+  const [linkedTasks, setLinkedTasks] = useState<Task[]>([])
+  const [allTasks, setAllTasks] = useState<Pick<Task, 'id' | 'title' | 'status' | 'part'>[]>([])
+  const [selectedTaskId, setSelectedTaskId] = useState('')
+
   const titleRef = useRef<HTMLInputElement>(null)
   const noteAreaRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
-    supabase
-      .from('meetings')
-      .select('*')
-      .eq('id', id)
-      .single()
-      .then(({ data }) => {
-        if (data) {
-          setMeeting(data as Meeting)
-          setTitleInput((data as Meeting).title)
-        }
-      })
+    async function load() {
+      const [meetingRes, linksRes, tasksRes] = await Promise.all([
+        supabase.from('meetings').select('*').eq('id', id).single(),
+        supabase.from('task_meeting_links').select('task_id, tasks(*, members(id, name, part))').eq('meeting_id', id),
+        supabase.from('tasks').select('id, title, status, part').order('created_at', { ascending: false }),
+      ])
+      if (meetingRes.data) {
+        setMeeting(meetingRes.data as Meeting)
+        setTitleInput((meetingRes.data as Meeting).title)
+      }
+      if (linksRes.data) setLinkedTasks((linksRes.data as any[]).map(l => l.tasks).filter(Boolean) as Task[])
+      if (tasksRes.data) setAllTasks(tasksRes.data as Pick<Task, 'id' | 'title' | 'status' | 'part'>[])
+    }
+    load()
     setTimeout(() => titleRef.current?.focus(), 100)
   }, [id])
 
@@ -121,7 +133,6 @@ export default function MeetingDetailPage() {
     if (!meeting) return
     const updatedNotes = meeting.notes.filter((_, i) => i !== index)
     await updateMeeting({ notes: updatedNotes })
-    // 삭제 후 인덱스 재조정
     setOpenIndexes(new Set([0]))
   }
 
@@ -130,6 +141,32 @@ export default function MeetingDetailPage() {
     setDeleting(true)
     await supabase.from('meetings').delete().eq('id', id)
     router.push('/meetings')
+  }
+
+  async function linkTask() {
+    if (!selectedTaskId) return
+    await supabase.from('task_meeting_links').insert({ task_id: selectedTaskId, meeting_id: id })
+    const found = allTasks.find(t => t.id === selectedTaskId)
+    if (found) setLinkedTasks(prev => [...prev, found as Task])
+    setSelectedTaskId('')
+  }
+
+  async function unlinkTask(taskId: string) {
+    await supabase.from('task_meeting_links').delete().eq('task_id', taskId).eq('meeting_id', id)
+    setLinkedTasks(prev => prev.filter(t => t.id !== taskId))
+  }
+
+  async function createAndLinkTask() {
+    const { data } = await supabase
+      .from('tasks')
+      .insert({ title: '', part: '코어', type: '기획', status: '진행필요' })
+      .select('id')
+      .single()
+    if (data) {
+      const newId = (data as { id: string }).id
+      await supabase.from('task_meeting_links').insert({ task_id: newId, meeting_id: id })
+      router.push(`/tasks/${newId}`)
+    }
   }
 
   function handleDownloadMd() {
@@ -221,7 +258,6 @@ export default function MeetingDetailPage() {
           </div>
         </div>
 
-        {/* 노트 토글 목록 */}
         <div className="space-y-2">
           {meeting.notes.length === 0 ? (
             <p className="text-sm text-gray-300 text-center py-4">아직 기록된 내용이 없습니다</p>
@@ -237,6 +273,65 @@ export default function MeetingDetailPage() {
               />
             ))
           )}
+        </div>
+      </div>
+
+      {/* 연관 업무 */}
+      <div className="mb-8">
+        <h2 className="text-sm font-semibold text-gray-700 mb-3">연관 업무</h2>
+        <div className="space-y-1.5 mb-3">
+          {linkedTasks.length === 0 ? (
+            <p className="text-sm text-gray-300 text-center py-3">연결된 업무가 없습니다</p>
+          ) : (
+            linkedTasks.map(t => (
+              <div key={t.id} className="bg-white rounded-xl border border-gray-100 px-4 py-2.5 flex items-center justify-between group">
+                <Link href={`/tasks/${t.id}`} className="flex items-center gap-2 flex-1 min-w-0">
+                  <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${STATUS_COLORS[t.status]}`}>
+                    {t.status}
+                  </span>
+                  <span className="text-sm text-gray-700 hover:text-gray-900 truncate">
+                    {t.title || <span className="text-gray-300 italic">제목 없음</span>}
+                  </span>
+                  <span className="text-xs text-gray-300 flex-shrink-0">{t.part}파트</span>
+                </Link>
+                <button
+                  onClick={() => unlinkTask(t.id)}
+                  className="text-xs text-gray-200 hover:text-red-400 ml-3 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-all"
+                >
+                  연결 해제
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+        <div className="flex gap-2">
+          <select
+            value={selectedTaskId}
+            onChange={e => setSelectedTaskId(e.target.value)}
+            className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none bg-white text-gray-600"
+          >
+            <option value="">기존 업무 연결...</option>
+            {allTasks
+              .filter(t => !linkedTasks.some(lt => lt.id === t.id))
+              .map(t => (
+                <option key={t.id} value={t.id}>
+                  {t.title || '(제목 없음)'} · {t.part}파트 · {t.status}
+                </option>
+              ))}
+          </select>
+          <button
+            onClick={linkTask}
+            disabled={!selectedTaskId}
+            className="text-xs bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-lg disabled:opacity-30 transition-colors"
+          >
+            연결
+          </button>
+          <button
+            onClick={createAndLinkTask}
+            className="text-xs bg-gray-800 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700 transition-colors whitespace-nowrap"
+          >
+            새 업무
+          </button>
         </div>
       </div>
 

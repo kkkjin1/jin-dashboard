@@ -35,10 +35,14 @@ create table if not exists learning_resources (
   updated_at timestamp with time zone default now()
 );
 
--- 4. RLS 비활성화
-alter table quick_memos disable row level security;
-alter table meetings disable row level security;
-alter table learning_resources disable row level security;
+-- 4. RLS 활성화 + 인증된 사용자만 접근 허용
+alter table quick_memos enable row level security;
+alter table meetings enable row level security;
+alter table learning_resources enable row level security;
+
+create policy "auth_all" on quick_memos for all to authenticated using (true) with check (true);
+create policy "auth_all" on meetings for all to authenticated using (true) with check (true);
+create policy "auth_all" on learning_resources for all to authenticated using (true) with check (true);
 
 -- 5. updated_at 자동 갱신 트리거
 --    update_updated_at() 함수는 schema.sql에 이미 정의됨

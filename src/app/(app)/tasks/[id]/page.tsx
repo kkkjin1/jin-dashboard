@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { fetchMembers, parseTags, formatDate } from '@/lib/tasks'
-import type { Task, Member, Note, Attachment, TaskStatus, Part, TaskType } from '@/types'
+import type { Task, Member, Note, Attachment, TaskStatus, Part, TaskType, Meeting } from '@/types'
 import { format, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { generateTaskMd, downloadMd } from '@/lib/markdown'
@@ -26,7 +26,6 @@ function Toast({ message, onDone }: { message: string; onDone: () => void }) {
   )
 }
 
-// 날짜 기반 노트 제목 생성 (예: "260611 논의")
 function defaultNoteTitle(): string {
   const now = new Date()
   const yy = String(now.getFullYear()).slice(2)
@@ -100,28 +99,34 @@ export default function TaskDetailPage() {
   const [titleInput, setTitleInput] = useState('')
   const [openNoteIds, setOpenNoteIds] = useState<Set<string>>(new Set())
 
+  // 회의록 연동
+  const [linkedMeetings, setLinkedMeetings] = useState<Meeting[]>([])
+  const [allMeetings, setAllMeetings] = useState<Pick<Meeting, 'id' | 'title' | 'meeting_date'>[]>([])
+  const [selectedMeetingId, setSelectedMeetingId] = useState('')
+
   const titleRef = useRef<HTMLInputElement>(null)
   const noteAreaRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
     async function load() {
-      const [{ data: t }, ms, { data: n }, { data: a }] = await Promise.all([
+      const [{ data: t }, ms, { data: n }, { data: a }, { data: links }, { data: meetings }] = await Promise.all([
         supabase.from('tasks').select('*, members(id, name, part)').eq('id', id).single(),
         fetchMembers(),
         supabase.from('notes').select('*').eq('task_id', id).order('created_at', { ascending: false }),
         supabase.from('attachments').select('*').eq('task_id', id).order('created_at', { ascending: false }),
+        supabase.from('task_meeting_links').select('meeting_id, meetings(*)').eq('task_id', id),
+        supabase.from('meetings').select('id, title, meeting_date').order('created_at', { ascending: false }),
       ])
       if (t) { setTask(t as Task); setTitleInput((t as Task).title) }
       setMembers(ms)
       const noteList = (n ?? []) as Note[]
       setNotes(noteList)
-      // 최신 1개만 펼침
-      if (noteList.length > 0) {
-        setOpenNoteIds(new Set([noteList[0].id]))
-      }
+      if (noteList.length > 0) setOpenNoteIds(new Set([noteList[0].id]))
+      setAttachments((a ?? []) as Attachment[])
+      if (links) setLinkedMeetings((links as any[]).map(l => l.meetings).filter(Boolean) as Meeting[])
+      if (meetings) setAllMeetings(meetings as Pick<Meeting, 'id' | 'title' | 'meeting_date'>[])
     }
     load()
-    // 제목 자동 포커스
     setTimeout(() => titleRef.current?.focus(), 100)
   }, [id])
 
@@ -143,7 +148,6 @@ export default function TaskDetailPage() {
     if (!noteInput.trim()) return
     const parsed = parseTags(noteInput)
 
-    // assignee_name → assignee_id 조회
     const taskUpdates: Partial<Task> = {}
     if (parsed.mid_date) taskUpdates.mid_date = parsed.mid_date
     if (parsed.end_date) taskUpdates.end_date = parsed.end_date
@@ -176,6 +180,13 @@ export default function TaskDetailPage() {
       setToast(`${labels.join(', ')}로 설정되었습니다`)
     }
 
+    // 작업월 자동 추가
+    const currentMonth = new Date().toISOString().slice(0, 7)
+    const workMonths = task?.work_months ?? []
+    if (!workMonths.includes(currentMonth)) {
+      await updateTask({ work_months: [...workMonths, currentMonth] })
+    }
+
     setNoteInput('')
     setNoteTitle(defaultNoteTitle())
   }
@@ -205,6 +216,28 @@ export default function TaskDetailPage() {
     setDeleting(true)
     await supabase.from('tasks').delete().eq('id', id)
     router.push('/tasks')
+  }
+
+  async function linkMeeting() {
+    if (!selectedMeetingId) return
+    await supabase.from('task_meeting_links').insert({ task_id: id, meeting_id: selectedMeetingId })
+    const found = allMeetings.find(m => m.id === selectedMeetingId)
+    if (found) setLinkedMeetings(prev => [...prev, found as Meeting])
+    setSelectedMeetingId('')
+  }
+
+  async function unlinkMeeting(meetingId: string) {
+    await supabase.from('task_meeting_links').delete().eq('task_id', id).eq('meeting_id', meetingId)
+    setLinkedMeetings(prev => prev.filter(m => m.id !== meetingId))
+  }
+
+  async function createAndLinkMeeting() {
+    const { data } = await supabase.from('meetings').insert({ title: '' }).select('id').single()
+    if (data) {
+      const newId = (data as { id: string }).id
+      await supabase.from('task_meeting_links').insert({ task_id: id, meeting_id: newId })
+      router.push(`/meetings/${newId}`)
+    }
   }
 
   function handleDownloadMd() {
@@ -250,7 +283,7 @@ export default function TaskDetailPage() {
         </button>
       </div>
 
-      {/* 제목 - 항상 편집 가능, autoFocus */}
+      {/* 제목 */}
       <div className="mb-6 mt-1">
         <input
           ref={titleRef}
@@ -271,13 +304,12 @@ export default function TaskDetailPage() {
 
       {/* 2컬럼 레이아웃 */}
       <div className="flex gap-6">
-        {/* 왼쪽 65%: 노트 + 첨부 */}
+        {/* 왼쪽 65%: 노트 + 첨부 + 연관 회의록 */}
         <div className="flex-[65]">
           {/* 맥락/노트 */}
           <div className="mb-6">
             <h2 className="text-sm font-semibold text-gray-700 mb-3">맥락 / 노트</h2>
             <div className="bg-white rounded-xl border border-gray-100 p-4 mb-3">
-              {/* 노트 제목 (날짜 기반, 수정 가능) */}
               <input
                 value={noteTitle}
                 onChange={e => setNoteTitle(e.target.value)}
@@ -306,7 +338,6 @@ export default function TaskDetailPage() {
               </div>
             </div>
 
-            {/* 노트 토글 목록 */}
             <div className="space-y-2">
               {notes.length === 0 ? (
                 <p className="text-sm text-gray-300 text-center py-4">아직 기록된 맥락이 없습니다</p>
@@ -325,7 +356,7 @@ export default function TaskDetailPage() {
           </div>
 
           {/* 첨부파일 / 링크 */}
-          <div className="mb-8">
+          <div className="mb-6">
             <h2 className="text-sm font-semibold text-gray-700 mb-3">첨부파일 / 링크</h2>
             <div className="bg-white rounded-xl border border-gray-100 p-4 mb-3 flex gap-2">
               <input
@@ -371,6 +402,63 @@ export default function TaskDetailPage() {
             </div>
           </div>
 
+          {/* 연관 회의록 */}
+          <div className="mb-8">
+            <h2 className="text-sm font-semibold text-gray-700 mb-3">연관 회의록</h2>
+            <div className="space-y-1.5 mb-3">
+              {linkedMeetings.length === 0 ? (
+                <p className="text-sm text-gray-300 text-center py-3">연결된 회의록이 없습니다</p>
+              ) : (
+                linkedMeetings.map(m => (
+                  <div key={m.id} className="bg-white rounded-xl border border-gray-100 px-4 py-2.5 flex items-center justify-between group">
+                    <Link href={`/meetings/${m.id}`} className="text-sm text-gray-700 hover:text-gray-900 flex-1 truncate">
+                      {m.title || <span className="text-gray-300 italic">제목 없음</span>}
+                      {m.meeting_date && (
+                        <span className="text-xs text-gray-400 ml-2">{formatDate(m.meeting_date)}</span>
+                      )}
+                    </Link>
+                    <button
+                      onClick={() => unlinkMeeting(m.id)}
+                      className="text-xs text-gray-200 hover:text-red-400 ml-3 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-all"
+                    >
+                      연결 해제
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="flex gap-2">
+              <select
+                value={selectedMeetingId}
+                onChange={e => setSelectedMeetingId(e.target.value)}
+                className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none bg-white text-gray-600"
+              >
+                <option value="">기존 회의록 연결...</option>
+                {allMeetings
+                  .filter(m => !linkedMeetings.some(lm => lm.id === m.id))
+                  .map(m => (
+                    <option key={m.id} value={m.id}>
+                      {m.title || '(제목 없음)'}
+                      {m.meeting_date ? ` · ${m.meeting_date}` : ''}
+                    </option>
+                  ))}
+              </select>
+              <button
+                onClick={linkMeeting}
+                disabled={!selectedMeetingId}
+                className="text-xs bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-lg disabled:opacity-30 transition-colors"
+              >
+                연결
+              </button>
+              <button
+                onClick={createAndLinkMeeting}
+                className="text-xs bg-gray-800 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700 transition-colors whitespace-nowrap"
+              >
+                새 회의록
+              </button>
+            </div>
+          </div>
+
           {/* 삭제 */}
           <div className="border-t border-gray-100 pt-6">
             <button
@@ -388,7 +476,6 @@ export default function TaskDetailPage() {
           <div className="bg-white rounded-xl border border-gray-100 p-5 sticky top-6">
             <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">업무 정보</h3>
             <div className="space-y-4">
-              {/* 상태 */}
               <div>
                 <label className="text-xs text-gray-400 block mb-1">상태</label>
                 <select
@@ -400,7 +487,6 @@ export default function TaskDetailPage() {
                 </select>
               </div>
 
-              {/* 담당자 */}
               <div>
                 <label className="text-xs text-gray-400 block mb-1">담당자</label>
                 <select
@@ -413,7 +499,6 @@ export default function TaskDetailPage() {
                 </select>
               </div>
 
-              {/* 파트 */}
               <div>
                 <label className="text-xs text-gray-400 block mb-1">파트</label>
                 <select
@@ -426,7 +511,6 @@ export default function TaskDetailPage() {
                 </select>
               </div>
 
-              {/* 유형 */}
               <div>
                 <label className="text-xs text-gray-400 block mb-1">유형</label>
                 <select
@@ -441,7 +525,6 @@ export default function TaskDetailPage() {
               </div>
 
               <div className="border-t border-gray-100 pt-3 space-y-3">
-                {/* 시작일 */}
                 <div>
                   <label className="text-xs text-gray-400 block mb-1">
                     시작일
@@ -455,7 +538,6 @@ export default function TaskDetailPage() {
                   />
                 </div>
 
-                {/* 중간공유일 */}
                 <div>
                   <label className="text-xs text-gray-400 block mb-1">
                     중간공유일
@@ -469,7 +551,6 @@ export default function TaskDetailPage() {
                   />
                 </div>
 
-                {/* 최종보고일 */}
                 <div>
                   <label className="text-xs text-gray-400 block mb-1">
                     최종보고일

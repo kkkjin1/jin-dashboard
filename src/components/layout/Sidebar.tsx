@@ -7,9 +7,11 @@ import { createClient } from '@/lib/supabase/client'
 const navItems = [
   { href: '/', label: '홈', icon: '🏠' },
   { href: '/tasks', label: '업무 목록', icon: '≡' },
+  { href: '/completed', label: '완료 성과', icon: '🏆' },
   { href: '/schedule', label: '일정', icon: '📅' },
-  { href: '/memos', label: '메모', icon: '📝' },
   { href: '/meetings', label: '회의록', icon: '💬' },
+  { href: '/one-on-one', label: '1on1', icon: '👤' },
+  { href: '/memos', label: '메모', icon: '📝' },
   { href: '/learning', label: '학습자료', icon: '📚' },
   { href: '/settings', label: '설정', icon: '⚙' },
 ]
@@ -62,6 +64,7 @@ export default function Sidebar() {
         </ul>
       </nav>
       <div className="p-3 border-t border-gray-100">
+        <p className="text-xs text-gray-300 px-3 mb-1">Ctrl+M 퀵메모</p>
         <button
           onClick={handleLogout}
           className="w-full text-left px-3 py-2 rounded-lg text-sm text-gray-400 hover:bg-gray-50 hover:text-gray-600 transition-colors"

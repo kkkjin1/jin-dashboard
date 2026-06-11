@@ -1,7 +1,8 @@
-export type Part = '코어' | '비즈'
+export type Part = '코어' | '비즈' | '팀장'
 export type TaskType = '기획' | '개선' | '운영'
 export type TaskStatus = '진행필요' | '진행중' | '완료'
 export type AttachmentType = '파일' | '링크'
+export type AchievementCategory = '성과' | '개선' | '리소스' | '수명' | '기타'
 
 export interface Member {
   id: string
@@ -20,6 +21,8 @@ export interface Task {
   start_date: string | null
   mid_date: string | null
   end_date: string | null
+  work_months: string[]
+  achievement_category: AchievementCategory | null
   created_at: string
   updated_at: string
   members?: Member
@@ -41,7 +44,7 @@ export interface Attachment {
   created_at: string
 }
 
-export type MemoTag = '업무관련' | '회의관련' | '아이디어'
+export type MemoTag = '업무관련' | '회의관련' | '아이디어' | '공지'
 
 export interface QuickMemo {
   id: string
@@ -70,6 +73,15 @@ export interface LearningResource {
   id: string
   title: string
   source: string
+  notes: NoteEntry[]
+  created_at: string
+  updated_at: string
+}
+
+export interface OneOnOne {
+  id: string
+  member_id: string
+  session_date: string | null
   notes: NoteEntry[]
   created_at: string
   updated_at: string
