@@ -28,6 +28,9 @@ export default function LearningPage() {
   const [showAddInput, setShowAddInput] = useState(false)
   const [addingInCol, setAddingInCol] = useState<string | null>(null)
   const [colAddTitle, setColAddTitle] = useState('')
+  const [colAddSource, setColAddSource] = useState('')
+  const [colAddNote, setColAddNote] = useState('')
+  const [colAddMedia, setColAddMedia] = useState<string>('')
   const supabase = createClient()
 
   useEffect(() => {
@@ -56,17 +59,19 @@ export default function LearningPage() {
   }
 
   async function handleColAdd(tag: string) {
-    if (!colAddTitle.trim()) { setAddingInCol(null); setColAddTitle(''); return }
+    if (!colAddTitle.trim()) { setAddingInCol(null); setColAddTitle(''); setColAddSource(''); setColAddNote(''); setColAddMedia(''); return }
     const initTags = tag === '미분류' ? [] : [tag]
+    const notes = colAddNote.trim()
+      ? [{ title: '노트', content: colAddNote.trim(), created_at: new Date().toISOString() }]
+      : []
     const { data } = await supabase.from('learning_resources')
-      .insert({ title: colAddTitle.trim(), source: '', notes: [], tags: initTags, media_type: null })
+      .insert({ title: colAddTitle.trim(), source: colAddSource.trim(), notes, tags: initTags, media_type: colAddMedia || null })
       .select().single()
-    if (data) {
-      setResources(prev => [data as LearningResource, ...prev])
-    }
-    setColAddTitle('')
-    setAddingInCol(null)
+    if (data) setResources(prev => [data as LearningResource, ...prev])
+    setColAddTitle(''); setColAddSource(''); setColAddNote(''); setColAddMedia(''); setAddingInCol(null)
   }
+
+  function resetColAdd() { setAddingInCol(null); setColAddTitle(''); setColAddSource(''); setColAddNote(''); setColAddMedia('') }
 
   const filtered = resources.filter(r => {
     if (mediaFilter && r.media_type !== mediaFilter) return false
@@ -181,12 +186,30 @@ export default function LearningPage() {
                     </Link>
                   ))}
                   {addingInCol === tag ? (
-                    <div className="bg-white rounded-xl border border-blue-200 px-3 py-2">
+                    <div className="bg-white rounded-xl border border-blue-200 p-3 space-y-2">
                       <input autoFocus value={colAddTitle} onChange={e => setColAddTitle(e.target.value)}
-                        onKeyDown={e => { if (e.key === 'Enter') handleColAdd(tag); if (e.key === 'Escape') { setAddingInCol(null); setColAddTitle('') } }}
-                        onBlur={() => handleColAdd(tag)}
-                        placeholder="제목 입력 후 엔터"
-                        className="w-full text-xs focus:outline-none text-gray-700" />
+                        onKeyDown={e => { if (e.key === 'Escape') resetColAdd() }}
+                        placeholder="제목 *"
+                        className="w-full text-sm font-medium focus:outline-none text-gray-800" />
+                      <input value={colAddSource} onChange={e => setColAddSource(e.target.value)}
+                        placeholder="출처 URL / 제목 (선택)"
+                        className="w-full text-xs focus:outline-none text-gray-500 border-t border-gray-100 pt-2" />
+                      <textarea value={colAddNote} onChange={e => setColAddNote(e.target.value)}
+                        placeholder="내용 노트 (선택)" rows={3}
+                        className="w-full text-xs focus:outline-none resize-none text-gray-500 leading-relaxed" />
+                      <div className="flex gap-1 flex-wrap">
+                        {MEDIA_TYPES.map(type => (
+                          <button key={type} onClick={() => setColAddMedia(colAddMedia === type ? '' : type)}
+                            className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${colAddMedia === type ? 'bg-gray-700 text-white border-gray-700' : 'border-gray-200 text-gray-400 hover:border-gray-400'}`}>
+                            {MEDIA_ICONS[type]} {type}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="flex gap-1 justify-end pt-1">
+                        <button onClick={resetColAdd} className="text-xs text-gray-400 px-2 py-1">취소</button>
+                        <button onClick={() => handleColAdd(tag)} disabled={!colAddTitle.trim()}
+                          className="text-xs bg-gray-800 text-white px-3 py-1 rounded-lg disabled:opacity-30">저장</button>
+                      </div>
                     </div>
                   ) : (
                     <button onClick={() => { setAddingInCol(tag); setColAddTitle('') }}

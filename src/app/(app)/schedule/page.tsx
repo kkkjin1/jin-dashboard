@@ -27,6 +27,8 @@ export default function SchedulePage() {
   const [statusFilter, setStatusFilter] = useState<TaskStatus | '전체'>('전체')
   const [partFilter, setPartFilter] = useState<Part | '전체'>('전체')
   const [viewFilter, setViewFilter] = useState<'전체' | '업무만' | '회의만'>('전체')
+  const [showAnalysis, setShowAnalysis] = useState(false)
+  const [analysisPeriod, setAnalysisPeriod] = useState<'이번주' | '이번달' | '직전월'>('이번달')
   const router = useRouter()
   const supabase = createClient()
 
@@ -86,6 +88,77 @@ export default function SchedulePage() {
 
   const selectedDayTasks = selectedDay ? getDayTasks(selectedDay) : []
   const selectedDayMeetings = selectedDay ? getDayMeetings(selectedDay) : []
+
+  // ── Helper: count weekdays (Mon–Fri) between two dates inclusive
+  function countWeekdays(start: Date, end: Date): number {
+    let count = 0
+    const cur = new Date(start)
+    while (cur <= end) {
+      const dow = cur.getDay()
+      if (dow !== 0 && dow !== 6) count++
+      cur.setDate(cur.getDate() + 1)
+    }
+    return count
+  }
+
+  // ── Helper: get [start, end] for a given analysis period
+  function getPeriodRange(period: '이번주' | '이번달' | '직전월'): [Date, Date] {
+    const today = new Date()
+    if (period === '이번달') {
+      return [startOfMonth(today), endOfMonth(today)]
+    }
+    if (period === '직전월') {
+      const prev = subMonths(today, 1)
+      return [startOfMonth(prev), endOfMonth(prev)]
+    }
+    // 이번주: Mon–Sun of current week
+    const dow = today.getDay() // 0=Sun
+    const diffToMon = (dow === 0 ? -6 : 1 - dow)
+    const mon = new Date(today)
+    mon.setDate(today.getDate() + diffToMon)
+    mon.setHours(0, 0, 0, 0)
+    const sun = new Date(mon)
+    sun.setDate(mon.getDate() + 6)
+    sun.setHours(23, 59, 59, 999)
+    return [mon, sun]
+  }
+
+  // ── Mini month nav: count events for a given month
+  function countMonthEvents(monthDate: Date): { meetings: number; tasks: number } {
+    const mStart = startOfMonth(monthDate)
+    const mEnd = endOfMonth(monthDate)
+    const inRange = (dateStr: string | null | undefined) => {
+      if (!dateStr) return false
+      const d = parseISO(dateStr)
+      return d >= mStart && d <= mEnd
+    }
+    const mtgCount = meetings.filter(m => inRange(m.meeting_date)).length
+    const taskCount = tasks.filter(t => inRange(t.mid_date) || inRange(t.end_date)).length
+    return { meetings: mtgCount, tasks: taskCount }
+  }
+
+  // ── Analysis stats computation
+  function computeAnalysis(period: '이번주' | '이번달' | '직전월') {
+    const [pStart, pEnd] = getPeriodRange(period)
+    const inRange = (dateStr: string | null | undefined) => {
+      if (!dateStr) return false
+      const d = parseISO(dateStr)
+      return d >= pStart && d <= pEnd
+    }
+    const workDays = countWeekdays(pStart, pEnd)
+    const meetingCount = meetings.filter(m => inRange(m.meeting_date)).length
+    const taskDeadlines = tasks.filter(t => inRange(t.mid_date) || inRange(t.end_date)).length
+    const totalHours = workDays * 8
+    const meetingHours = meetingCount * 1
+    const focusHours = Math.max(0, totalHours - meetingHours)
+    return { workDays, meetingCount, taskDeadlines, totalHours, meetingHours, focusHours }
+  }
+
+  const prevMonthNav = subMonths(current, 1)
+  const nextMonthNav = addMonths(current, 1)
+  const prevCounts = countMonthEvents(prevMonthNav)
+  const nextCounts = countMonthEvents(nextMonthNav)
+  const analysis = computeAnalysis(analysisPeriod)
 
   function renderDay(day: Date, isOtherMonth: boolean) {
     const dayTasks = getDayTasks(day)
@@ -194,6 +267,48 @@ export default function SchedulePage() {
         </div>
       </div>
 
+      {/* ── Feature A: Mini month navigation ── */}
+      <div className="flex items-center justify-center gap-2 mb-4">
+        {/* Prev month pill */}
+        <button
+          onClick={() => setCurrent(prevMonthNav)}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs text-gray-500 hover:bg-gray-50 border border-gray-100 transition-colors cursor-pointer"
+        >
+          <span className="text-gray-400">←</span>
+          <span>{format(prevMonthNav, 'M월', { locale: ko })}</span>
+          {(prevCounts.meetings > 0 || prevCounts.tasks > 0) && (
+            <span className="text-gray-400">
+              {[
+                prevCounts.meetings > 0 ? `회의${prevCounts.meetings}` : null,
+                prevCounts.tasks > 0 ? `마감${prevCounts.tasks}` : null,
+              ].filter(Boolean).join(' · ')}
+            </span>
+          )}
+        </button>
+
+        {/* Current month pill (not clickable) */}
+        <div className="px-4 py-1.5 rounded-full text-xs font-semibold text-gray-800 bg-gray-100 border border-gray-200">
+          {format(current, 'M월', { locale: ko })} <span className="font-normal text-gray-400 text-[10px]">현재</span>
+        </div>
+
+        {/* Next month pill */}
+        <button
+          onClick={() => setCurrent(nextMonthNav)}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs text-gray-500 hover:bg-gray-50 border border-gray-100 transition-colors cursor-pointer"
+        >
+          {(nextCounts.meetings > 0 || nextCounts.tasks > 0) && (
+            <span className="text-gray-400">
+              {[
+                nextCounts.meetings > 0 ? `회의${nextCounts.meetings}` : null,
+                nextCounts.tasks > 0 ? `마감${nextCounts.tasks}` : null,
+              ].filter(Boolean).join(' · ')}
+            </span>
+          )}
+          <span>{format(nextMonthNav, 'M월', { locale: ko })}</span>
+          <span className="text-gray-400">→</span>
+        </button>
+      </div>
+
       <div className="grid grid-cols-3 gap-6">
         {/* 캘린더 */}
         <div className="col-span-2 bg-white rounded-xl border border-gray-100 p-5">
@@ -229,7 +344,94 @@ export default function SchedulePage() {
               <div className="w-3 h-2.5 bg-purple-100 rounded border border-purple-300" />
               <span className="text-xs text-gray-400">회의</span>
             </div>
+            <div className="ml-auto">
+              <button
+                onClick={() => setShowAnalysis(v => !v)}
+                className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                  showAnalysis
+                    ? 'bg-purple-600 text-white border-purple-600'
+                    : 'text-gray-500 border-gray-200 hover:bg-gray-50'
+                }`}
+              >
+                ⏱ 시간 분석
+              </button>
+            </div>
           </div>
+
+          {/* ── Feature B: Time analysis panel ── */}
+          {showAnalysis && (
+            <div className="mt-4 pt-4 border-t border-gray-100">
+              {/* Period selector */}
+              <div className="flex items-center gap-2 mb-4">
+                <span className="text-xs text-gray-400 mr-1">기간</span>
+                {(['이번주', '이번달', '직전월'] as const).map(p => (
+                  <button
+                    key={p}
+                    onClick={() => setAnalysisPeriod(p)}
+                    className={`text-xs px-3 py-1 rounded-full transition-colors ${
+                      analysisPeriod === p
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                    }`}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+
+              {/* Stats grid */}
+              <div className="grid grid-cols-3 gap-3 mb-4">
+                <div className="bg-gray-50 rounded-lg p-3 text-center">
+                  <p className="text-xs text-gray-400 mb-1">업무일</p>
+                  <p className="text-lg font-bold text-gray-800">{analysis.workDays}<span className="text-xs font-normal text-gray-400 ml-0.5">일</span></p>
+                </div>
+                <div className="bg-purple-50 rounded-lg p-3 text-center">
+                  <p className="text-xs text-purple-400 mb-1">회의 건수</p>
+                  <p className="text-lg font-bold text-purple-700">{analysis.meetingCount}<span className="text-xs font-normal text-purple-400 ml-0.5">건</span></p>
+                </div>
+                <div className="bg-amber-50 rounded-lg p-3 text-center">
+                  <p className="text-xs text-amber-500 mb-1">업무 마감</p>
+                  <p className="text-lg font-bold text-amber-700">{analysis.taskDeadlines}<span className="text-xs font-normal text-amber-400 ml-0.5">건</span></p>
+                </div>
+              </div>
+
+              {/* Progress bar */}
+              <div className="space-y-2">
+                <div className="flex h-4 rounded-full overflow-hidden bg-gray-100">
+                  {analysis.totalHours > 0 && (
+                    <>
+                      <div
+                        className="bg-purple-400 transition-all"
+                        style={{ width: `${Math.min(100, (analysis.meetingHours / analysis.totalHours) * 100)}%` }}
+                      />
+                      <div
+                        className="bg-blue-200 transition-all"
+                        style={{ width: `${Math.min(100, (analysis.focusHours / analysis.totalHours) * 100)}%` }}
+                      />
+                    </>
+                  )}
+                </div>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-gray-500">
+                    총 <span className="font-semibold text-gray-700">{analysis.totalHours}h</span> 중{' '}
+                    회의 <span className="font-semibold text-purple-600">{analysis.meetingHours}h</span>
+                    {' · '}
+                    집중 업무 <span className="font-semibold text-blue-600">{analysis.focusHours}h</span>
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1">
+                      <div className="w-2.5 h-2.5 rounded-sm bg-purple-400" />
+                      <span className="text-xs text-gray-400">회의</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="w-2.5 h-2.5 rounded-sm bg-blue-200" />
+                      <span className="text-xs text-gray-400">집중</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* 선택한 날 업무 */}

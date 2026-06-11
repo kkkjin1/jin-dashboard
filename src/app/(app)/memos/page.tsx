@@ -95,6 +95,9 @@ export default function MemosPage() {
   const [editing, setEditing] = useState<QuickMemo | null>(null)
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dragOverTag, setDragOverTag] = useState<MemoTag | null>(null)
+  const [inlineTag, setInlineTag] = useState<MemoTag | null>(null)
+  const [inlineTitle, setInlineTitle] = useState('')
+  const [inlineContent, setInlineContent] = useState('')
   const supabase = createClient()
 
   useEffect(() => {
@@ -107,6 +110,15 @@ export default function MemosPage() {
     await supabase.from('quick_memos').update({ title: title.trim(), content: content.trim(), tag }).eq('id', id)
     setMemos(prev => prev.map(m => m.id === id ? { ...m, title: title.trim(), content: content.trim(), tag } : m))
     setEditing(null)
+  }
+
+  async function handleInlineSave(tag: MemoTag) {
+    if (!inlineTitle.trim()) { setInlineTag(null); setInlineTitle(''); setInlineContent(''); return }
+    const { data } = await supabase.from('quick_memos')
+      .insert({ title: inlineTitle.trim(), content: inlineContent.trim(), tag })
+      .select().single()
+    if (data) setMemos(prev => [data as QuickMemo, ...prev])
+    setInlineTag(null); setInlineTitle(''); setInlineContent('')
   }
 
   async function deleteMemo(id: string) {
@@ -152,18 +164,36 @@ export default function MemosPage() {
             <span className="text-xs font-bold text-red-500">📌 공지</span>
             <span className="text-xs text-gray-400">{notices.length}</span>
           </div>
-          {notices.length === 0 ? (
-            <p className="text-xs text-gray-300 py-2">공지 메모를 여기로 드래그하거나 퀵메모에서 '공지'로 추가하세요</p>
-          ) : (
-            <div className="flex gap-3 overflow-x-auto pb-1">
-              {notices.map(memo => (
-                <div key={memo.id} className="flex-shrink-0 w-52">
-                  <MemoCard memo={memo} onEdit={setEditing} onDelete={deleteMemo}
-                    draggable onDragStart={() => setDraggingId(memo.id)} />
+          <div className="flex gap-3 overflow-x-auto pb-1">
+            {notices.map(memo => (
+              <div key={memo.id} className="flex-shrink-0 w-52">
+                <MemoCard memo={memo} onEdit={setEditing} onDelete={deleteMemo}
+                  draggable onDragStart={() => setDraggingId(memo.id)} />
+              </div>
+            ))}
+            {inlineTag === '공지' ? (
+              <div className="flex-shrink-0 w-52 bg-white rounded-xl border border-blue-200 p-3">
+                <input autoFocus value={inlineTitle} onChange={e => setInlineTitle(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) handleInlineSave('공지'); if (e.key === 'Escape') { setInlineTag(null); setInlineTitle(''); setInlineContent('') } }}
+                  placeholder="공지 제목" className="w-full text-sm focus:outline-none mb-1.5 font-medium" />
+                <textarea value={inlineContent} onChange={e => setInlineContent(e.target.value)}
+                  placeholder="내용 (선택)" rows={2}
+                  className="w-full text-xs focus:outline-none resize-none text-gray-500" />
+                <div className="flex gap-1 justify-end mt-1">
+                  <button onClick={() => { setInlineTag(null); setInlineTitle(''); setInlineContent('') }} className="text-xs text-gray-400 px-2 py-1">취소</button>
+                  <button onClick={() => handleInlineSave('공지')} className="text-xs bg-gray-800 text-white px-2 py-1 rounded-lg">저장</button>
                 </div>
-              ))}
-            </div>
-          )}
+              </div>
+            ) : (
+              <button onClick={() => setInlineTag('공지')}
+                className="flex-shrink-0 w-36 text-xs text-gray-300 hover:text-gray-500 border border-dashed border-gray-200 hover:border-gray-300 rounded-xl py-3 transition-colors">
+                + 공지 추가
+              </button>
+            )}
+            {notices.length === 0 && !inlineTag && (
+              <p className="text-xs text-gray-300 py-2 self-center">드래그로 이동하거나 직접 추가하세요</p>
+            )}
+          </div>
         </div>
       </div>
 
@@ -183,13 +213,31 @@ export default function MemosPage() {
                 <span className="text-xs text-gray-400">{colMemos.length}</span>
               </div>
               <div className="space-y-2">
-                {colMemos.length === 0 ? (
-                  <p className="text-xs text-gray-300 text-center py-6">없음</p>
+                {colMemos.length === 0 && inlineTag !== tag && (
+                  <p className="text-xs text-gray-300 text-center py-4">없음</p>
+                )}
+                {colMemos.map(memo => (
+                  <MemoCard key={memo.id} memo={memo} onEdit={setEditing} onDelete={deleteMemo}
+                    draggable onDragStart={() => setDraggingId(memo.id)} />
+                ))}
+                {inlineTag === tag ? (
+                  <div className="bg-white rounded-xl border border-blue-200 p-3">
+                    <input autoFocus value={inlineTitle} onChange={e => setInlineTitle(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) handleInlineSave(tag); if (e.key === 'Escape') { setInlineTag(null); setInlineTitle(''); setInlineContent('') } }}
+                      placeholder="제목" className="w-full text-sm focus:outline-none mb-1.5 font-medium" />
+                    <textarea value={inlineContent} onChange={e => setInlineContent(e.target.value)}
+                      placeholder="내용 (선택)" rows={2}
+                      className="w-full text-xs focus:outline-none resize-none text-gray-500 leading-relaxed" />
+                    <div className="flex gap-1 justify-end mt-1.5">
+                      <button onClick={() => { setInlineTag(null); setInlineTitle(''); setInlineContent('') }} className="text-xs text-gray-400 px-2 py-1">취소</button>
+                      <button onClick={() => handleInlineSave(tag)} className="text-xs bg-gray-800 text-white px-2 py-1 rounded-lg">저장</button>
+                    </div>
+                  </div>
                 ) : (
-                  colMemos.map(memo => (
-                    <MemoCard key={memo.id} memo={memo} onEdit={setEditing} onDelete={deleteMemo}
-                      draggable onDragStart={() => setDraggingId(memo.id)} />
-                  ))
+                  <button onClick={() => setInlineTag(tag)}
+                    className="w-full text-left text-xs text-gray-300 hover:text-gray-500 py-1.5 px-1 transition-colors">
+                    + 메모 추가
+                  </button>
                 )}
               </div>
             </div>
