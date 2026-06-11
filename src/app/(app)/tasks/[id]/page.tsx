@@ -119,6 +119,8 @@ export default function TaskDetailPage() {
   const [allMeetings, setAllMeetings] = useState<Pick<Meeting, 'id' | 'title' | 'meeting_date'>[]>([])
   const [selectedMeetingId, setSelectedMeetingId] = useState('')
   const [expandedMeetingIds, setExpandedMeetingIds] = useState<Set<string>>(new Set())
+  const [showAllNotesMeetingIds, setShowAllNotesMeetingIds] = useState<Set<string>>(new Set())
+  const [openMeetingNoteKeys, setOpenMeetingNoteKeys] = useState<Set<string>>(new Set())
 
   const titleRef = useRef<HTMLInputElement>(null)
   const noteAreaRef = useRef<HTMLTextAreaElement>(null)
@@ -155,6 +157,15 @@ export default function TaskDetailPage() {
 
   function toggleNote(noteId: string) {
     setOpenNoteIds(prev => { const next = new Set(prev); if (next.has(noteId)) next.delete(noteId); else next.add(noteId); return next })
+  }
+
+  function toggleMeetingNote(meetingId: string, idx: number) {
+    const key = `${meetingId}|${idx}`
+    setOpenMeetingNoteKeys(prev => { const s = new Set(prev); s.has(key) ? s.delete(key) : s.add(key); return s })
+  }
+
+  function toggleShowAllMeetingNotes(meetingId: string) {
+    setShowAllNotesMeetingIds(prev => { const s = new Set(prev); s.has(meetingId) ? s.delete(meetingId) : s.add(meetingId); return s })
   }
 
   async function updateTask(updates: Partial<Task>) {
@@ -444,20 +455,52 @@ export default function TaskDetailPage() {
                             className="text-xs text-gray-200 hover:text-red-400 opacity-0 group-hover/meeting:opacity-100 transition-all">해제</button>
                         </div>
                       </div>
-                      {isExp && (
-                        m.notes && m.notes.length > 0 ? (
-                          <div className="divide-y divide-gray-50">
-                            {m.notes.map((note, idx) => (
-                              <div key={idx} className="px-3 py-3">
-                                <p className="text-xs font-medium text-gray-500 mb-1.5">{note.title}</p>
-                                <p className="text-xs text-gray-600 whitespace-pre-wrap">{note.content}</p>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
+                      {isExp && (() => {
+                        const allNotes = m.notes ?? []
+                        if (allNotes.length === 0) return (
                           <p className="text-xs text-gray-300 text-center py-2.5">회의 내용 없음</p>
                         )
-                      )}
+                        const PREVIEW = 3
+                        const showAll = showAllNotesMeetingIds.has(m.id)
+                        const cutoff = Math.max(0, allNotes.length - PREVIEW)
+                        const olderNotes = allNotes.slice(0, cutoff)
+                        const recentNotes = allNotes.slice(cutoff)
+
+                        const renderNoteRow = (note: { title: string; content: string }, globalIdx: number) => {
+                          const noteKey = `${m.id}|${globalIdx}`
+                          const isNoteOpen = openMeetingNoteKeys.has(noteKey)
+                          return (
+                            <div key={globalIdx} className="border-t border-gray-50 first:border-t-0">
+                              <button onClick={() => toggleMeetingNote(m.id, globalIdx)}
+                                className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-gray-50/80 transition-colors">
+                                <span className="text-xs text-gray-300 flex-shrink-0">{isNoteOpen ? '▼' : '▶'}</span>
+                                <span className="text-xs font-medium text-gray-600 truncate flex-1">{note.title || '노트'}</span>
+                                {!isNoteOpen && note.content && (
+                                  <span className="text-xs text-gray-300 truncate max-w-24 flex-shrink-0">{note.content.slice(0, 20)}</span>
+                                )}
+                              </button>
+                              {isNoteOpen && (
+                                <div className="px-3 pb-3 pl-7">
+                                  <p className="text-xs text-gray-600 whitespace-pre-wrap leading-relaxed">{note.content}</p>
+                                </div>
+                              )}
+                            </div>
+                          )
+                        }
+
+                        return (
+                          <div>
+                            {olderNotes.length > 0 && (
+                              <button onClick={() => toggleShowAllMeetingNotes(m.id)}
+                                className="w-full text-center text-xs text-gray-400 hover:text-gray-600 py-1.5 border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                                {showAll ? '▲ 이전 기록 접기' : `▼ 이전 기록 ${olderNotes.length}개 더 보기`}
+                              </button>
+                            )}
+                            {showAll && olderNotes.map((note, i) => renderNoteRow(note, i))}
+                            {recentNotes.map((note, i) => renderNoteRow(note, cutoff + i))}
+                          </div>
+                        )
+                      })()}
                     </div>
                   )
                 })}
