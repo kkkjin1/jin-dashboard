@@ -8,6 +8,9 @@ const navItems = [
   { href: '/', label: '홈', icon: '🏠' },
   { href: '/tasks', label: '업무 목록', icon: '≡' },
   { href: '/schedule', label: '일정', icon: '📅' },
+  { href: '/memos', label: '메모', icon: '📝' },
+  { href: '/meetings', label: '회의록', icon: '💬' },
+  { href: '/learning', label: '학습자료', icon: '📚' },
   { href: '/settings', label: '설정', icon: '⚙' },
 ]
 

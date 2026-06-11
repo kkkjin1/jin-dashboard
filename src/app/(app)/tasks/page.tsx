@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { fetchAllTasks, fetchMembers, formatDate } from '@/lib/tasks'
 import type { Task, Member, TaskStatus, Part, TaskType } from '@/types'
@@ -36,6 +37,7 @@ export default function TasksPage() {
   const [newTitle, setNewTitle] = useState('')
   const addInputRef = useRef<HTMLInputElement>(null)
   const supabase = createClient()
+  const router = useRouter()
 
   useEffect(() => {
     Promise.all([fetchAllTasks(), fetchMembers()]).then(([t, m]) => {
@@ -61,9 +63,14 @@ export default function TasksPage() {
       .insert({ title: newTitle.trim(), part, type, status: '진행필요' })
       .select('*, members(id, name, part)')
       .single()
-    if (data) setTasks(prev => [data as Task, ...prev])
-    setNewTitle('')
-    setAdding(null)
+    if (data) {
+      setNewTitle('')
+      setAdding(null)
+      router.push(`/tasks/${(data as Task).id}`)
+    } else {
+      setNewTitle('')
+      setAdding(null)
+    }
   }
 
   async function updateStatus(taskId: string, status: TaskStatus) {

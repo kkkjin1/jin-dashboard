@@ -40,3 +40,37 @@ export interface Attachment {
   url: string
   created_at: string
 }
+
+export type MemoTag = '업무관련' | '회의관련' | '아이디어'
+
+export interface QuickMemo {
+  id: string
+  title: string
+  content: string
+  tag: MemoTag
+  created_at: string
+}
+
+export interface NoteEntry {
+  title: string
+  content: string
+  created_at: string
+}
+
+export interface Meeting {
+  id: string
+  title: string
+  meeting_date: string | null
+  notes: NoteEntry[]
+  created_at: string
+  updated_at: string
+}
+
+export interface LearningResource {
+  id: string
+  title: string
+  source: string
+  notes: NoteEntry[]
+  created_at: string
+  updated_at: string
+}

@@ -1,25 +1,38 @@
 'use client'
 
 import { useState } from 'react'
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, parseISO, getDay } from 'date-fns'
+import { useRouter } from 'next/navigation'
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, parseISO, getDay } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import type { Task } from '@/types'
 
 interface Props { tasks: Task[] }
 
+interface DayTask {
+  task: Task
+  dateType: 'mid' | 'end'
+}
+
 export default function HomeCalendar({ tasks }: Props) {
   const [current, setCurrent] = useState(new Date())
+  const router = useRouter()
 
   const start = startOfMonth(current)
   const end = endOfMonth(current)
   const days = eachDayOfInterval({ start, end })
   const startDow = getDay(start)
 
-  function getTasksForDay(day: Date) {
-    return tasks.filter(t => {
-      const dates = [t.mid_date, t.end_date].filter(Boolean)
-      return dates.some(d => isSameDay(parseISO(d!), day))
+  function getDayTasks(day: Date): DayTask[] {
+    const result: DayTask[] = []
+    tasks.forEach(t => {
+      if (t.mid_date && isSameDay(parseISO(t.mid_date), day)) {
+        result.push({ task: t, dateType: 'mid' })
+      }
+      if (t.end_date && isSameDay(parseISO(t.end_date), day)) {
+        result.push({ task: t, dateType: 'end' })
+      }
     })
+    return result
   }
 
   return (
@@ -50,15 +63,13 @@ export default function HomeCalendar({ tasks }: Props) {
         ))}
         {Array.from({ length: startDow }).map((_, i) => <div key={`empty-${i}`} />)}
         {days.map(day => {
-          const dayTasks = getTasksForDay(day)
+          const dayTasks = getDayTasks(day)
           const isToday = isSameDay(day, new Date())
-          const hasMid = dayTasks.some(t => t.mid_date && isSameDay(parseISO(t.mid_date), day))
-          const hasEnd = dayTasks.some(t => t.end_date && isSameDay(parseISO(t.end_date), day))
 
           return (
             <div
               key={day.toISOString()}
-              className={`min-h-12 p-1.5 rounded-lg ${isToday ? 'bg-red-50' : 'hover:bg-gray-50'} transition-colors`}
+              className={`min-h-16 p-1 rounded-lg ${isToday ? 'bg-red-50' : 'hover:bg-gray-50'} transition-colors`}
             >
               <p className={`text-xs text-center mb-1 w-6 h-6 flex items-center justify-center rounded-full mx-auto ${
                 isToday ? 'bg-red-500 text-white font-bold' : 'text-gray-600'
@@ -66,8 +77,25 @@ export default function HomeCalendar({ tasks }: Props) {
                 {format(day, 'd')}
               </p>
               <div className="space-y-0.5">
-                {hasMid && <div className="w-full h-1 bg-amber-400 rounded-full" title="중간공유" />}
-                {hasEnd && <div className="w-full h-1 bg-red-400 rounded-full" title="최종보고" />}
+                {dayTasks.slice(0, 3).map((dt, idx) => (
+                  <button
+                    key={`${dt.task.id}-${dt.dateType}-${idx}`}
+                    onClick={() => router.push(`/tasks/${dt.task.id}`)}
+                    className={`w-full text-left rounded px-1 py-0.5 truncate text-xs leading-tight transition-opacity hover:opacity-80 ${
+                      dt.dateType === 'mid'
+                        ? 'bg-amber-100 text-amber-700'
+                        : 'bg-red-100 text-red-700'
+                    }`}
+                    title={`${dt.dateType === 'mid' ? '중간공유' : '최종보고'} | ${dt.task.title}`}
+                  >
+                    <span className="font-medium">{dt.dateType === 'mid' ? '중간공유' : '최종보고'}</span>
+                    {' '}
+                    <span className="truncate">{dt.task.title}</span>
+                  </button>
+                ))}
+                {dayTasks.length > 3 && (
+                  <p className="text-xs text-gray-400 text-center">+{dayTasks.length - 3}</p>
+                )}
               </div>
             </div>
           )
@@ -76,11 +104,11 @@ export default function HomeCalendar({ tasks }: Props) {
 
       <div className="flex items-center gap-4 mt-3 pt-3 border-t border-gray-50">
         <div className="flex items-center gap-1.5">
-          <div className="w-3 h-1.5 bg-amber-400 rounded-full" />
+          <div className="w-3 h-2.5 bg-amber-100 rounded border border-amber-300" />
           <span className="text-xs text-gray-400">중간공유</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="w-3 h-1.5 bg-red-400 rounded-full" />
+          <div className="w-3 h-2.5 bg-red-100 rounded border border-red-300" />
           <span className="text-xs text-gray-400">최종보고</span>
         </div>
       </div>
