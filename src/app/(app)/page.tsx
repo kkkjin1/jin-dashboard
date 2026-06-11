@@ -97,7 +97,7 @@ export default function HomePage() {
     <div className="p-8">
       <div className="flex items-start justify-between mb-6">
         <div>
-          <p className="text-sm text-red-500 font-medium mb-1">
+          <p className="text-sm text-emerald-600 font-medium mb-1">
             {format(new Date(), 'yyyy년 M월 d일 EEEE', { locale: ko })}
           </p>
           <h1 className="text-2xl font-bold text-gray-900">안녕하세요, 팀장님</h1>

@@ -56,7 +56,7 @@ export default function Sidebar() {
     <aside className="w-52 min-h-screen bg-white border-r border-gray-100 flex flex-col">
       <div className="p-4 border-b border-gray-100">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 bg-red-500 rounded-lg flex items-center justify-center text-white font-bold text-xs">인</div>
+          <div className="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center text-white font-bold text-xs">인</div>
           <div>
             <p className="font-semibold text-gray-900 text-sm">인사기획 워크</p>
             <p className="text-xs text-gray-400">인사기획팀 · 업무 보드</p>
@@ -74,7 +74,7 @@ export default function Sidebar() {
               <li key={item.href}>
                 <Link href={item.href}
                   className={`flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors ${
-                    isActive ? 'bg-orange-50 text-orange-700 font-medium' : 'text-gray-600 hover:bg-gray-50'
+                    isActive ? 'bg-emerald-50 text-emerald-700 font-medium' : 'text-gray-600 hover:bg-gray-50'
                   }`}>
                   <span className="flex items-center gap-2.5">
                     <span className="text-base">{item.icon}</span>
