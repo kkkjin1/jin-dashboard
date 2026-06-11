@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 const navItems = [
@@ -25,18 +25,24 @@ const KEY_ROUTES: Record<string, string> = {
 export default function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
+  const routerRef = useRef(router)
+  useEffect(() => { routerRef.current = router }, [router])
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.ctrlKey || e.metaKey || e.altKey) return
-      const tag = (e.target as HTMLElement).tagName.toLowerCase()
+      if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return
+      if (e.isComposing) return
+      const target = e.target as HTMLElement | null
+      if (!target) return
+      const tag = target.tagName.toLowerCase()
       if (['input', 'textarea', 'select'].includes(tag)) return
+      if (target.getAttribute('contenteditable') === 'true') return
       const route = KEY_ROUTES[e.key]
-      if (route) { e.preventDefault(); router.push(route) }
+      if (route) { e.preventDefault(); routerRef.current.push(route) }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [router])
+  }, [])
 
   async function handleLogout() {
     const supabase = createClient()
