@@ -43,6 +43,15 @@ export default function SchedulePage() {
     })
   }, [])
 
+  useEffect(() => {
+    function onMeetingCreated(e: Event) {
+      const m = (e as CustomEvent).detail as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>
+      if (m?.meeting_date) setMeetings(prev => [...prev, m])
+    }
+    window.addEventListener('quick-meeting-created', onMeetingCreated)
+    return () => window.removeEventListener('quick-meeting-created', onMeetingCreated)
+  }, [])
+
   const filtered = tasks.filter(t => {
     if (assigneeFilter !== '전체' && t.assignee_id !== assigneeFilter) return false
     if (statusFilter !== '전체' && t.status !== statusFilter) return false

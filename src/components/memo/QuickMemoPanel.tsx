@@ -71,11 +71,14 @@ export default function QuickMemoPanel() {
       const notes = content.trim()
         ? [{ title: '메모', content: content.trim(), created_at: new Date().toISOString() }]
         : []
-      await supabase.from('meetings').insert({
+      const { data: newMeeting } = await supabase.from('meetings').insert({
         title: title.trim(),
         meeting_date: meetingDate,
         notes,
-      })
+      }).select().single()
+      if (newMeeting) {
+        window.dispatchEvent(new CustomEvent('quick-meeting-created', { detail: newMeeting }))
+      }
       setSavedMsg('📅 일정에 추가됨!')
     } else {
       await supabase.from('quick_memos').insert({ title: title.trim(), content: content.trim(), tag })

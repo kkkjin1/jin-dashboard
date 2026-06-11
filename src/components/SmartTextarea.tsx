@@ -49,10 +49,10 @@ const SmartTextarea = forwardRef<HTMLTextAreaElement, Props>(function SmartTexta
     const line = value.slice(lineStart, lineEnd)
 
     if (e.key === 'Enter' && !e.metaKey && !e.ctrlKey && !e.shiftKey) {
-      const numMatch = line.match(/^(\d+)\. /)
+      const numMatch = line.match(/^(\s*)(\d+)\. /)
       if (numMatch) {
         e.preventDefault()
-        const insert = '\n' + (parseInt(numMatch[1]) + 1) + '. '
+        const insert = '\n' + numMatch[1] + (parseInt(numMatch[2]) + 1) + '. '
         onChange(value.slice(0, start) + insert + value.slice(end))
         pendingCursor.current = start + insert.length
         return
@@ -78,9 +78,9 @@ const SmartTextarea = forwardRef<HTMLTextAreaElement, Props>(function SmartTexta
     if (e.key === 'Tab') {
       e.preventDefault()
       if (!e.shiftKey) {
-        const numMatch = line.match(/^(\d+)\. /)
+        const numMatch = line.match(/^(\s*)(\d+)\. /)
         if (numMatch) {
-          const prefix = '  ■ '
+          const prefix = '    ■ '
           const newLine = prefix + line.slice(numMatch[0].length)
           onChange(value.slice(0, lineStart) + newLine + value.slice(lineEnd))
           pendingCursor.current = lineStart + prefix.length
@@ -108,7 +108,7 @@ const SmartTextarea = forwardRef<HTMLTextAreaElement, Props>(function SmartTexta
         }
         const blackMatch = line.match(/^(\s*)■ /)
         if (blackMatch) {
-          const prefix = '1. '
+          const prefix = '  1. '
           onChange(value.slice(0, lineStart) + prefix + line.slice(blackMatch[0].length) + value.slice(lineEnd))
           pendingCursor.current = lineStart + prefix.length
           return

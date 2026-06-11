@@ -30,6 +30,7 @@ export default function MeetingsPage() {
   const [categoryFilter, setCategoryFilter] = useState('전체')
   const [collapsedMonths, setCollapsedMonths] = useState<Set<string>>(new Set())
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set())
+  const [expandedMeetingIds, setExpandedMeetingIds] = useState<Set<string>>(new Set())
   const supabase = createClient()
   const router = useRouter()
 
@@ -63,6 +64,10 @@ export default function MeetingsPage() {
 
   function toggleMonth(ym: string) {
     setCollapsedMonths(prev => { const s = new Set(prev); s.has(ym) ? s.delete(ym) : s.add(ym); return s })
+  }
+
+  function toggleExpand(id: string) {
+    setExpandedMeetingIds(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s })
   }
 
   const filtered = categoryFilter === '전체' ? meetings : meetings.filter(m => m.category === categoryFilter)
@@ -139,33 +144,60 @@ export default function MeetingsPage() {
                 </button>
                 {!isCollapsed && (
                   <div className="space-y-2">
-                    {list.map(meeting => (
-                      <div key={meeting.id} className="bg-white rounded-xl border border-gray-100 px-4 py-3 hover:border-gray-200 transition-colors flex items-center gap-3">
-                        <input type="checkbox" checked={checkedIds.has(meeting.id)}
-                          onChange={() => toggleCheck(meeting.id)}
-                          onClick={e => e.stopPropagation()}
-                          className="w-4 h-4 rounded accent-gray-700 flex-shrink-0 cursor-pointer" />
-                        <Link href={`/meetings/${meeting.id}`} className="flex-1 flex items-center justify-between min-w-0">
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                              <p className="text-sm font-medium text-gray-800">{meeting.title}</p>
-                              {meeting.category && (
-                                <span className={`text-xs px-2 py-0.5 rounded-full border flex-shrink-0 ${CATEGORY_COLORS[meeting.category] ?? 'bg-gray-50 text-gray-500 border-gray-200'}`}>
-                                  {meeting.category}
-                                </span>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              {meeting.meeting_date && (
-                                <span className="text-xs text-gray-400">{format(parseISO(meeting.meeting_date), 'M월 d일', { locale: ko })}</span>
-                              )}
-                              <span className="text-xs text-gray-300">{meeting.notes.length}개 노트</span>
-                            </div>
+                    {list.map(meeting => {
+                      const isExpanded = expandedMeetingIds.has(meeting.id)
+                      return (
+                        <div key={meeting.id} className="bg-white rounded-xl border border-gray-100 hover:border-gray-200 transition-colors overflow-hidden">
+                          <div className="px-4 py-3 flex items-center gap-3">
+                            <input type="checkbox" checked={checkedIds.has(meeting.id)}
+                              onChange={() => toggleCheck(meeting.id)}
+                              onClick={e => e.stopPropagation()}
+                              className="w-4 h-4 rounded accent-gray-700 flex-shrink-0 cursor-pointer" />
+                            <Link href={`/meetings/${meeting.id}`} className="flex-1 flex items-center justify-between min-w-0">
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <p className="text-sm font-medium text-gray-800">{meeting.title}</p>
+                                  {meeting.category && (
+                                    <span className={`text-xs px-2 py-0.5 rounded-full border flex-shrink-0 ${CATEGORY_COLORS[meeting.category] ?? 'bg-gray-50 text-gray-500 border-gray-200'}`}>
+                                      {meeting.category}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  {meeting.meeting_date && (
+                                    <span className="text-xs text-gray-400">{format(parseISO(meeting.meeting_date), 'M월 d일', { locale: ko })}</span>
+                                  )}
+                                  <span className="text-xs text-gray-300">{meeting.notes.length}개 노트</span>
+                                </div>
+                              </div>
+                              <span className="text-xs text-gray-300 flex-shrink-0">{format(parseISO(meeting.created_at), 'M/d', { locale: ko })}</span>
+                            </Link>
+                            {meeting.notes.length > 0 && (
+                              <button
+                                onClick={e => { e.stopPropagation(); toggleExpand(meeting.id) }}
+                                className="flex-shrink-0 w-6 h-6 flex items-center justify-center text-gray-300 hover:text-gray-600 hover:bg-gray-50 rounded transition-colors"
+                                title={isExpanded ? '노트 접기' : '노트 펼치기'}>
+                                <span className="text-xs">{isExpanded ? '▼' : '▶'}</span>
+                              </button>
+                            )}
                           </div>
-                          <span className="text-xs text-gray-300 flex-shrink-0">{format(parseISO(meeting.created_at), 'M/d', { locale: ko })}</span>
-                        </Link>
-                      </div>
-                    ))}
+                          {isExpanded && meeting.notes.length > 0 && (
+                            <div className="border-t border-gray-50 px-4 pt-2 pb-3 space-y-2">
+                              {meeting.notes.map((note, i) => (
+                                <div key={i} className="bg-gray-50 rounded-lg px-3 py-2">
+                                  {note.title && (
+                                    <p className="text-xs font-semibold text-gray-600 mb-0.5">{note.title}</p>
+                                  )}
+                                  {note.content && (
+                                    <p className="text-xs text-gray-500 whitespace-pre-wrap leading-relaxed">{note.content}</p>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
               </div>
