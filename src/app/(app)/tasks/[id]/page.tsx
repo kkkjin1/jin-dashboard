@@ -174,7 +174,6 @@ export default function TaskDetailPage() {
     load()
   }, [id])
 
-  // Auto-focus title on new task (empty title)
   useEffect(() => {
     if (task && !autoFocused.current) {
       autoFocused.current = true
@@ -232,7 +231,6 @@ export default function TaskDetailPage() {
       setToast(`${labels.join(', ')}로 설정되었습니다`)
     }
 
-    // 작업월 자동 추가
     const currentMonth = new Date().toISOString().slice(0, 7)
     const workMonths = task?.work_months ?? []
     if (!workMonths.includes(currentMonth)) {
@@ -360,10 +358,10 @@ export default function TaskDetailPage() {
         />
       </div>
 
-      {/* 2컬럼 레이아웃 */}
+      {/* 3분할 레이아웃: 노트 | 메타 + 연관회의록 */}
       <div className="flex gap-6">
-        {/* 왼쪽 65%: 노트 + 첨부 + 연관 회의록 */}
-        <div className="flex-[65]">
+        {/* 왼쪽 55%: 맥락/노트 + 첨부 + 삭제 */}
+        <div className="flex-[55]">
           {/* 맥락/노트 */}
           <div className="mb-6">
             <h2 className="text-sm font-semibold text-gray-700 mb-3">맥락 / 노트</h2>
@@ -461,63 +459,6 @@ export default function TaskDetailPage() {
             </div>
           </div>
 
-          {/* 연관 회의록 */}
-          <div className="mb-8">
-            <h2 className="text-sm font-semibold text-gray-700 mb-3">연관 회의록</h2>
-            <div className="space-y-1.5 mb-3">
-              {linkedMeetings.length === 0 ? (
-                <p className="text-sm text-gray-300 text-center py-3">연결된 회의록이 없습니다</p>
-              ) : (
-                linkedMeetings.map(m => (
-                  <div key={m.id} className="bg-white rounded-xl border border-gray-100 px-4 py-2.5 flex items-center justify-between group">
-                    <Link href={`/meetings/${m.id}`} className="text-sm text-gray-700 hover:text-gray-900 flex-1 truncate">
-                      {m.title || <span className="text-gray-300 italic">제목 없음</span>}
-                      {m.meeting_date && (
-                        <span className="text-xs text-gray-400 ml-2">{formatDate(m.meeting_date)}</span>
-                      )}
-                    </Link>
-                    <button
-                      onClick={() => unlinkMeeting(m.id)}
-                      className="text-xs text-gray-200 hover:text-red-400 ml-3 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-all"
-                    >
-                      연결 해제
-                    </button>
-                  </div>
-                ))
-              )}
-            </div>
-            <div className="flex gap-2">
-              <select
-                value={selectedMeetingId}
-                onChange={e => setSelectedMeetingId(e.target.value)}
-                className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none bg-white text-gray-600"
-              >
-                <option value="">기존 회의록 연결...</option>
-                {allMeetings
-                  .filter(m => !linkedMeetings.some(lm => lm.id === m.id))
-                  .map(m => (
-                    <option key={m.id} value={m.id}>
-                      {m.title || '(제목 없음)'}
-                      {m.meeting_date ? ` · ${m.meeting_date}` : ''}
-                    </option>
-                  ))}
-              </select>
-              <button
-                onClick={linkMeeting}
-                disabled={!selectedMeetingId}
-                className="text-xs bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-lg disabled:opacity-30 transition-colors"
-              >
-                연결
-              </button>
-              <button
-                onClick={createAndLinkMeeting}
-                className="text-xs bg-gray-800 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700 transition-colors whitespace-nowrap"
-              >
-                새 회의록
-              </button>
-            </div>
-          </div>
-
           {/* 삭제 */}
           <div className="border-t border-gray-100 pt-6">
             <button
@@ -530,9 +471,10 @@ export default function TaskDetailPage() {
           </div>
         </div>
 
-        {/* 오른쪽 35%: 메타 사이드바 */}
-        <div className="flex-[35]">
-          <div className="bg-white rounded-xl border border-gray-100 p-5 sticky top-6">
+        {/* 오른쪽 45%: 업무 정보 + 연관 회의록 */}
+        <div className="flex-[45] space-y-4">
+          {/* 업무 정보 */}
+          <div className="bg-white rounded-xl border border-gray-100 p-5">
             <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">업무 정보</h3>
             <div className="space-y-4">
               <div>
@@ -624,6 +566,86 @@ export default function TaskDetailPage() {
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* 연관 회의록 — 오른쪽 패널에 내용 인라인 표시 */}
+          <div className="bg-white rounded-xl border border-gray-100 p-5">
+            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">연관 회의록</h3>
+
+            {/* 연결 UI */}
+            <div className="flex gap-2 mb-4">
+              <select
+                value={selectedMeetingId}
+                onChange={e => setSelectedMeetingId(e.target.value)}
+                className="flex-1 text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none bg-white text-gray-600"
+              >
+                <option value="">회의록 연결...</option>
+                {allMeetings
+                  .filter(m => !linkedMeetings.some(lm => lm.id === m.id))
+                  .map(m => (
+                    <option key={m.id} value={m.id}>
+                      {m.title || '(제목 없음)'}
+                      {m.meeting_date ? ` · ${m.meeting_date}` : ''}
+                    </option>
+                  ))}
+              </select>
+              <button
+                onClick={linkMeeting}
+                disabled={!selectedMeetingId}
+                className="text-xs bg-gray-100 hover:bg-gray-200 px-2.5 py-1.5 rounded-lg disabled:opacity-30 transition-colors"
+              >
+                연결
+              </button>
+              <button
+                onClick={createAndLinkMeeting}
+                className="text-xs bg-gray-800 text-white px-2.5 py-1.5 rounded-lg hover:bg-gray-700 transition-colors whitespace-nowrap"
+              >
+                새 회의록
+              </button>
+            </div>
+
+            {/* 연관 회의록 목록 — 내용 인라인 */}
+            {linkedMeetings.length === 0 ? (
+              <p className="text-xs text-gray-300 text-center py-4">연결된 회의록이 없습니다</p>
+            ) : (
+              <div className="space-y-3">
+                {linkedMeetings.map(m => (
+                  <div key={m.id} className="border border-gray-100 rounded-xl overflow-hidden group/meeting">
+                    {/* 회의록 헤더 */}
+                    <div className="flex items-center justify-between px-3 py-2.5 bg-gray-50">
+                      <Link href={`/meetings/${m.id}`} className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-700 hover:text-gray-900 truncate">
+                          {m.title || <span className="text-gray-300 italic">제목 없음</span>}
+                        </p>
+                        {m.meeting_date && (
+                          <p className="text-xs text-gray-400">{formatDate(m.meeting_date)}</p>
+                        )}
+                      </Link>
+                      <button
+                        onClick={() => unlinkMeeting(m.id)}
+                        className="text-xs text-gray-300 hover:text-red-400 ml-2 flex-shrink-0 opacity-0 group-hover/meeting:opacity-100 transition-all"
+                      >
+                        해제
+                      </button>
+                    </div>
+
+                    {/* 회의록 노트 내용 */}
+                    {m.notes && m.notes.length > 0 ? (
+                      <div className="divide-y divide-gray-50">
+                        {m.notes.map((note, idx) => (
+                          <div key={idx} className="px-3 py-2.5">
+                            <p className="text-xs font-medium text-gray-500 mb-1">{note.title}</p>
+                            <p className="text-xs text-gray-600 whitespace-pre-wrap line-clamp-4">{note.content}</p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-300 text-center py-2.5">회의 내용 없음</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

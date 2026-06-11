@@ -64,7 +64,7 @@ export default function Sidebar() {
         </ul>
       </nav>
       <div className="p-3 border-t border-gray-100">
-        <p className="text-xs text-gray-300 px-3 mb-1">Ctrl+M 퀵메모 · Ctrl+N 업무추가</p>
+        <p className="text-xs text-gray-300 px-3 mb-1">Ctrl+1 업무추가 · Ctrl+2 퀵메모</p>
         <button
           onClick={handleLogout}
           className="w-full text-left px-3 py-2 rounded-lg text-sm text-gray-400 hover:bg-gray-50 hover:text-gray-600 transition-colors"

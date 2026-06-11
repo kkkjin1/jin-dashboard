@@ -65,6 +65,7 @@ export interface Meeting {
   id: string
   title: string
   meeting_date: string | null
+  category?: string | null
   notes: NoteEntry[]
   created_at: string
   updated_at: string

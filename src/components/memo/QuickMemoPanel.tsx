@@ -33,12 +33,12 @@ export default function QuickMemoPanel() {
   useEffect(() => {
     async function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape' && open) { setOpen(false); return }
-      if ((e.ctrlKey || e.metaKey) && e.key === 'm') {
+      if ((e.ctrlKey || e.metaKey) && e.key === '2') {
         e.preventDefault()
         setOpen(prev => !prev)
         return
       }
-      if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+      if ((e.ctrlKey || e.metaKey) && e.key === '1') {
         e.preventDefault()
         const { data } = await supabase
           .from('tasks')
@@ -93,7 +93,7 @@ export default function QuickMemoPanel() {
             className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-400 resize-none" />
 
           <div className="flex justify-between items-center mt-3">
-            <span className="text-xs text-gray-300">ESC · Ctrl+M 메모 · Ctrl+N 업무추가</span>
+            <span className="text-xs text-gray-300">ESC · Ctrl+2 메모 · Ctrl+1 업무추가</span>
             <button onClick={handleSave} disabled={!title.trim() || saving}
               className="text-xs bg-gray-800 text-white px-4 py-2 rounded-lg hover:bg-gray-700 disabled:opacity-30 transition-colors">
               {saved ? '저장됨!' : saving ? '저장 중...' : '저장'}
@@ -105,7 +105,7 @@ export default function QuickMemoPanel() {
       {!open && (
         <button onClick={() => setOpen(true)}
           className="fixed bottom-6 right-6 z-50 w-12 h-12 bg-gray-800 text-white rounded-full shadow-lg hover:bg-gray-700 transition-all hover:scale-110 flex items-center justify-center text-xl font-light"
-          title="빠른 메모 (Ctrl+M)">
+          title="빠른 메모 (Ctrl+2)">
           +
         </button>
       )}

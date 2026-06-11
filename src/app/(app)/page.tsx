@@ -7,7 +7,7 @@ import { ko } from 'date-fns/locale'
 import SummaryCards from '@/components/home/SummaryCards'
 import TaskColumn from '@/components/home/TaskColumn'
 import HomeCalendar from '@/components/home/HomeCalendar'
-import { fetchAllTasks, daysUntil, isAnyDateSoon, isEndDateSoon, nearestEventDays } from '@/lib/tasks'
+import { fetchAllTasks, daysUntil, hasUpcomingMidDate, hasUpcomingEndDate } from '@/lib/tasks'
 import type { Task } from '@/types'
 
 export default function HomePage() {
@@ -34,12 +34,14 @@ export default function HomePage() {
     })
     .sort((a, b) => daysUntil(a.end_date!) - daysUntil(b.end_date!))
 
-  const anySoonTasks = active
-    .filter(t => isAnyDateSoon(t))
-    .sort((a, b) => nearestEventDays(a) - nearestEventDays(b))
+  // 중간공유 임박: mid_date 있는 모든 미래 업무 (7일 제한 없음)
+  const midSoonTasks = active
+    .filter(t => hasUpcomingMidDate(t))
+    .sort((a, b) => daysUntil(a.mid_date!) - daysUntil(b.mid_date!))
 
+  // 최종마감 임박: end_date 있는 모든 미래 업무 (7일 제한 없음)
   const endSoonTasks = active
-    .filter(t => isEndDateSoon(t))
+    .filter(t => hasUpcomingEndDate(t))
     .sort((a, b) => daysUntil(a.end_date!) - daysUntil(b.end_date!))
 
   return (
@@ -90,10 +92,10 @@ export default function HomePage() {
           />
           <TaskColumn
             title="중간공유 임박"
-            count={anySoonTasks.length}
-            tasks={anySoonTasks}
+            count={midSoonTasks.length}
+            tasks={midSoonTasks}
             accentColor="bg-amber-400"
-            dateMode="nearest"
+            dateMode="mid_date"
           />
           <TaskColumn
             title="최종마감 임박"

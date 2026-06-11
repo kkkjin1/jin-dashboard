@@ -89,6 +89,17 @@ export function nearestEventDays(task: Task): number {
   return candidates.length > 0 ? Math.min(...candidates) : Infinity
 }
 
+// 홈 컬럼용: 7일 제한 없이 미래 날짜면 모두 표시
+export function hasUpcomingMidDate(task: Task): boolean {
+  if (!task.mid_date) return false
+  return daysUntil(task.mid_date) >= 0
+}
+
+export function hasUpcomingEndDate(task: Task): boolean {
+  if (!task.end_date) return false
+  return daysUntil(task.end_date) >= 0
+}
+
 export function formatDate(dateStr: string | null | undefined): string {
   if (!dateStr) return ''
   try {
