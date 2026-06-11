@@ -15,14 +15,48 @@ const COLUMNS: { key: AchievementCategory | null; label: string; color: string; 
   { key: '기타', label: '기타', color: 'border-gray-200 bg-gray-100', accent: 'bg-gray-500' },
 ]
 
+function getTaskMonth(task: Task): string | null {
+  if ((task.work_months ?? []).length > 0) return (task.work_months ?? []).at(-1)!
+  if (task.end_date) return task.end_date.slice(0, 7)
+  if (task.updated_at) return task.updated_at.slice(0, 7)
+  return null
+}
+
 function formatMonth(ym: string): string {
   const [y, m] = ym.split('-')
   return `${y}년 ${parseInt(m)}월`
 }
 
+type QuickPeriod = '전체' | '당월' | '전월' | '상반기' | '하반기' | '올해'
+
+function getQuickPeriodMonths(period: QuickPeriod): string[] | 'all' {
+  const now = new Date()
+  const y = now.getFullYear()
+  const m = now.getMonth() + 1
+
+  if (period === '전체') return 'all'
+  if (period === '올해') {
+    return Array.from({ length: 12 }, (_, i) => `${y}-${String(i + 1).padStart(2, '0')}`)
+  }
+  if (period === '당월') return [`${y}-${String(m).padStart(2, '0')}`]
+  if (period === '전월') {
+    const pm = m === 1 ? 12 : m - 1
+    const py = m === 1 ? y - 1 : y
+    return [`${py}-${String(pm).padStart(2, '0')}`]
+  }
+  if (period === '상반기') {
+    return Array.from({ length: 6 }, (_, i) => `${y}-${String(i + 1).padStart(2, '0')}`)
+  }
+  if (period === '하반기') {
+    return Array.from({ length: 6 }, (_, i) => `${y}-${String(i + 7).padStart(2, '0')}`)
+  }
+  return 'all'
+}
+
 export default function CompletedPage() {
   const [tasks, setTasks] = useState<Task[]>([])
-  const [monthFilter, setMonthFilter] = useState<string>('전체')
+  const [quickPeriod, setQuickPeriod] = useState<QuickPeriod>('전체')
+  const [monthFilter, setMonthFilter] = useState<string | null>(null)
   const [draggedId, setDraggedId] = useState<string | null>(null)
   const [dragOverCol, setDragOverCol] = useState<string | null>(null)
   const supabase = createClient()
@@ -33,13 +67,37 @@ export default function CompletedPage() {
 
   const allMonths = useMemo(() => {
     const months = new Set<string>()
-    tasks.forEach(t => (t.work_months ?? []).forEach(m => months.add(m)))
+    tasks.forEach(t => {
+      const m = getTaskMonth(t)
+      if (m) months.add(m)
+    })
     return Array.from(months).sort().reverse()
   }, [tasks])
 
-  const filtered = monthFilter === '전체'
-    ? tasks
-    : tasks.filter(t => (t.work_months ?? []).includes(monthFilter))
+  const filtered = useMemo(() => {
+    if (monthFilter) {
+      return tasks.filter(t => {
+        const m = getTaskMonth(t)
+        return m === monthFilter
+      })
+    }
+    const periodMonths = getQuickPeriodMonths(quickPeriod)
+    if (periodMonths === 'all') return tasks
+    return tasks.filter(t => {
+      const m = getTaskMonth(t)
+      return m ? periodMonths.includes(m) : false
+    })
+  }, [tasks, quickPeriod, monthFilter])
+
+  function selectQuick(p: QuickPeriod) {
+    setQuickPeriod(p)
+    setMonthFilter(null)
+  }
+
+  function selectMonth(m: string) {
+    setMonthFilter(m)
+    setQuickPeriod('전체')
+  }
 
   async function handleDrop(category: AchievementCategory | null) {
     if (!draggedId) return
@@ -53,9 +111,10 @@ export default function CompletedPage() {
     return filtered.filter(t => (t.achievement_category ?? null) === key)
   }
 
+  const QUICK_PERIODS: QuickPeriod[] = ['전체', '당월', '전월', '상반기', '하반기', '올해']
+
   return (
     <div className="p-8">
-      {/* 헤더 */}
       <div className="flex items-center justify-between mb-3">
         <div>
           <h1 className="text-xl font-bold text-gray-900">완료 성과</h1>
@@ -80,21 +139,33 @@ export default function CompletedPage() {
         })}
       </div>
 
-      {/* 월 필터 (메인상단 pill 형태) */}
-      <div className="flex gap-2 flex-wrap mb-5">
-        {['전체', ...allMonths].map(m => (
-          <button
-            key={m}
-            onClick={() => setMonthFilter(m)}
-            className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
-              monthFilter === m
-                ? 'bg-gray-800 text-white border-gray-800'
-                : 'border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700'
-            }`}
-          >
-            {m === '전체' ? '전체 기간' : formatMonth(m)}
-          </button>
-        ))}
+      {/* 기간 필터 */}
+      <div className="mb-5 space-y-2">
+        {/* 빠른 선택 */}
+        <div className="flex gap-2 flex-wrap">
+          {QUICK_PERIODS.map(p => (
+            <button key={p} onClick={() => selectQuick(p)}
+              className={`text-xs px-3 py-1.5 rounded-full border transition-colors font-medium ${
+                quickPeriod === p && !monthFilter
+                  ? 'bg-gray-800 text-white border-gray-800'
+                  : 'border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700'
+              }`}>
+              {p}
+            </button>
+          ))}
+          <div className="w-px h-5 bg-gray-200 self-center mx-1" />
+          {/* 월별 선택 */}
+          {allMonths.map(m => (
+            <button key={m} onClick={() => selectMonth(m)}
+              className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                monthFilter === m
+                  ? 'bg-gray-800 text-white border-gray-800'
+                  : 'border-gray-200 text-gray-400 hover:border-gray-400 hover:text-gray-600'
+              }`}>
+              {formatMonth(m)}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* 칸반 */}
@@ -103,13 +174,11 @@ export default function CompletedPage() {
           const colTasks = getColTasks(col.key)
           const colKey = col.key ?? '__null__'
           return (
-            <div
-              key={colKey}
+            <div key={colKey}
               onDragOver={e => { e.preventDefault(); setDragOverCol(colKey) }}
               onDragLeave={() => setDragOverCol(null)}
               onDrop={() => handleDrop(col.key)}
-              className={`flex-shrink-0 w-56 rounded-xl border-2 p-3 transition-colors ${col.color} ${dragOverCol === colKey ? 'opacity-80 scale-[1.01]' : ''}`}
-            >
+              className={`flex-shrink-0 w-56 rounded-xl border-2 p-3 transition-colors ${col.color} ${dragOverCol === colKey ? 'opacity-80 scale-[1.01]' : ''}`}>
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-1.5">
                   <span className={`w-2 h-2 rounded-full ${col.accent}`} />
@@ -119,13 +188,10 @@ export default function CompletedPage() {
               </div>
               <div className="space-y-2 min-h-20">
                 {colTasks.map(task => (
-                  <div
-                    key={task.id}
-                    draggable
+                  <div key={task.id} draggable
                     onDragStart={() => setDraggedId(task.id)}
                     onDragEnd={() => { setDraggedId(null); setDragOverCol(null) }}
-                    className={`bg-white rounded-lg border border-gray-100 p-2.5 cursor-grab active:cursor-grabbing hover:border-gray-200 transition-all ${draggedId === task.id ? 'opacity-50' : ''}`}
-                  >
+                    className={`bg-white rounded-lg border border-gray-100 p-2.5 cursor-grab active:cursor-grabbing hover:border-gray-200 transition-all ${draggedId === task.id ? 'opacity-50' : ''}`}>
                     <Link href={`/tasks/${task.id}`} onClick={e => e.stopPropagation()}>
                       <p className="text-xs font-medium text-gray-800 leading-snug mb-1.5">
                         {task.title || <span className="text-gray-300 italic">제목 없음</span>}
@@ -134,8 +200,8 @@ export default function CompletedPage() {
                     <div className="flex items-center gap-1 flex-wrap">
                       <span className="text-xs text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded">{task.type}</span>
                       <span className="text-xs text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded">{task.part}</span>
-                      {(task.work_months ?? []).length > 0 && (
-                        <span className="text-xs text-gray-300">{formatMonth((task.work_months ?? []).at(-1)!)}</span>
+                      {getTaskMonth(task) && (
+                        <span className="text-xs text-gray-300">{formatMonth(getTaskMonth(task)!)}</span>
                       )}
                     </div>
                   </div>

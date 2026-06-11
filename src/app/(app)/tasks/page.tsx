@@ -49,6 +49,7 @@ export default function TasksPage() {
   const [assigneeFilter, setAssigneeFilter] = useState<string>('전체')
   const [monthFilter, setMonthFilter] = useState<string>('전체')
   const [draggingId, setDraggingId] = useState<string | null>(null)
+  const [hideCompleted, setHideCompleted] = useState(false)
   const supabase = createClient()
   const router = useRouter()
 
@@ -73,6 +74,7 @@ export default function TasksPage() {
   }
 
   const filteredTasks = tasks.filter(t => {
+    if (hideCompleted && t.status === '완료') return false
     if (activePart !== '전체' && t.part !== activePart) return false
     if (statusFilter !== '전체' && t.status !== statusFilter) return false
     if (assigneeFilter !== '전체' && t.assignee_id !== assigneeFilter) return false
@@ -109,6 +111,12 @@ export default function TasksPage() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-bold text-gray-900">업무 목록</h1>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setHideCompleted(prev => !prev)}
+            className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${hideCompleted ? 'bg-gray-800 text-white border-gray-800' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}
+          >
+            {hideCompleted ? '완료 숨김' : '완료 표시'}
+          </button>
           <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as TaskStatus | '전체')}
             className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-600 focus:outline-none">
             <option value="전체">전체 상태</option>

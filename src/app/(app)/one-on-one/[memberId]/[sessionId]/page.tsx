@@ -5,8 +5,6 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import type { OneOnOne, Member, NoteEntry } from '@/types'
-import { format, parseISO } from 'date-fns'
-import { ko } from 'date-fns/locale'
 import SmartTextarea from '@/components/SmartTextarea'
 
 function defaultNoteTitle(): string {
@@ -34,9 +32,7 @@ function NoteAccordion({ note, index, isOpen, onToggle, onDelete }: NoteAccordio
         <div className="flex items-center gap-2 flex-shrink-0">
           {!isOpen && <span className="text-xs text-gray-300 truncate max-w-40">{note.content.slice(0, 40)}</span>}
           <button onClick={e => { e.stopPropagation(); onDelete(index) }}
-            className="text-xs text-gray-200 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-colors">
-            삭제
-          </button>
+            className="text-xs text-gray-200 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-colors">삭제</button>
         </div>
       </button>
       {isOpen && (
@@ -55,22 +51,40 @@ export default function OneOnOneSessionPage() {
 
   const [session, setSession] = useState<OneOnOne | null>(null)
   const [member, setMember] = useState<Member | null>(null)
+  const [titleInput, setTitleInput] = useState('')
   const [noteInput, setNoteInput] = useState('')
   const [noteTitle, setNoteTitle] = useState(defaultNoteTitle())
   const [openIndexes, setOpenIndexes] = useState<Set<number>>(new Set([0]))
   const [deleting, setDeleting] = useState(false)
 
+  const titleRef = useRef<HTMLInputElement>(null)
   const noteAreaRef = useRef<HTMLTextAreaElement>(null)
+  const autoFocused = useRef(false)
 
   useEffect(() => {
     Promise.all([
       supabase.from('one_on_ones').select('*').eq('id', sessionId).single(),
       supabase.from('members').select('*').eq('id', memberId).single(),
     ]).then(([{ data: s }, { data: m }]) => {
-      if (s) setSession(s as OneOnOne)
+      if (s) {
+        const sess = s as OneOnOne
+        setSession(sess)
+        setTitleInput(sess.title ?? '')
+      }
       if (m) setMember(m as Member)
     })
   }, [sessionId, memberId])
+
+  useEffect(() => {
+    if (session && !autoFocused.current) {
+      autoFocused.current = true
+      if (!session.title) {
+        titleRef.current?.focus()
+      } else {
+        noteAreaRef.current?.focus()
+      }
+    }
+  }, [session])
 
   function toggleNote(index: number) {
     setOpenIndexes(prev => {
@@ -117,6 +131,7 @@ export default function OneOnOneSessionPage() {
     if (!session || !member) return
     const lines = [
       `# 1on1: ${member.name}`,
+      `제목: ${session.title ?? ''}`,
       `날짜: ${session.session_date ?? '미지정'}`,
       '',
       ...session.notes.flatMap(n => [`## ${n.title}`, '', n.content, '']),
@@ -144,17 +159,29 @@ export default function OneOnOneSessionPage() {
         </button>
       </div>
 
-      <div className="flex items-center gap-3 mb-4">
-        <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 font-medium">
+      <div className="flex items-start gap-3 mb-6">
+        <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 font-medium flex-shrink-0">
           {member.name[0]}
         </div>
-        <div>
-          <p className="font-bold text-gray-900">{member.name} 1on1</p>
-          <div className="flex items-center gap-2 mt-0.5">
-            <input type="date" value={session.session_date ?? ''}
-              onChange={e => updateSession({ session_date: e.target.value || null })}
-              className="text-xs border border-gray-200 rounded px-2 py-0.5 focus:outline-none" />
-          </div>
+        <div className="flex-1">
+          <p className="text-xs text-gray-400 mb-1">{member.name} 1on1</p>
+          {/* 제목 입력 */}
+          <input
+            ref={titleRef}
+            value={titleInput}
+            onChange={e => setTitleInput(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') { updateSession({ title: titleInput || null }); noteAreaRef.current?.focus() }
+              if (e.key === 'Escape') setTitleInput(session.title ?? '')
+            }}
+            onBlur={() => updateSession({ title: titleInput.trim() || null })}
+            placeholder="1on1 제목 (Enter → 노트로 이동)"
+            className="w-full text-xl font-bold text-gray-900 focus:outline-none border-b-2 border-transparent focus:border-blue-300 pb-0.5 transition-colors bg-transparent mb-2"
+          />
+          {/* 날짜 */}
+          <input type="date" value={session.session_date ?? ''}
+            onChange={e => updateSession({ session_date: e.target.value || null })}
+            className="text-xs border border-gray-200 rounded px-2 py-0.5 focus:outline-none" />
         </div>
       </div>
 
@@ -190,9 +217,7 @@ export default function OneOnOneSessionPage() {
 
       <div className="border-t border-gray-100 pt-6">
         <button onClick={deleteSession} disabled={deleting}
-          className="text-sm text-red-400 hover:text-red-600 transition-colors">
-          이 기록 삭제
-        </button>
+          className="text-sm text-red-400 hover:text-red-600 transition-colors">이 기록 삭제</button>
       </div>
     </div>
   )

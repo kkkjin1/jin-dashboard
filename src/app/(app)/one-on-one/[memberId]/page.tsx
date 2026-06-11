@@ -82,17 +82,22 @@ export default function MemberOneOnOnePage() {
             <Link key={session.id} href={`/one-on-one/${memberId}/${session.id}`}>
               <div className="bg-white rounded-xl border border-gray-100 px-4 py-3 hover:border-gray-200 transition-colors">
                 <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-800">
+                  <div className="flex-1 min-w-0">
+                    {session.title ? (
+                      <p className="text-sm font-medium text-gray-800 mb-0.5">{session.title}</p>
+                    ) : null}
+                    <p className={`${session.title ? 'text-xs text-gray-400' : 'text-sm font-medium text-gray-800'}`}>
                       {session.session_date
                         ? format(parseISO(session.session_date), 'yyyy년 M월 d일 (E)', { locale: ko })
                         : '날짜 미지정'}
                     </p>
                     {session.notes.length > 0 && (
-                      <p className="text-xs text-gray-400 mt-0.5">{session.notes[0].content.slice(0, 60)}...</p>
+                      <p className="text-xs text-gray-400 mt-0.5 truncate">
+                        {session.notes[0].content.slice(0, 60)}...
+                      </p>
                     )}
                   </div>
-                  <span className="text-xs text-gray-300">{session.notes.length}개 노트</span>
+                  <span className="text-xs text-gray-300 flex-shrink-0 ml-3">{session.notes.length}개 노트</span>
                 </div>
               </div>
             </Link>
@@ -100,7 +105,6 @@ export default function MemberOneOnOnePage() {
         </div>
       )}
 
-      {/* 새 1on1 모달 */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setShowModal(false)}>
           <div className="bg-white rounded-2xl shadow-2xl p-6 w-80" onClick={e => e.stopPropagation()}>

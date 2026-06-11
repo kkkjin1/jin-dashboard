@@ -75,6 +75,8 @@ export interface LearningResource {
   id: string
   title: string
   source: string
+  tags?: string[]
+  media_type?: string | null
   notes: NoteEntry[]
   created_at: string
   updated_at: string
@@ -84,6 +86,7 @@ export interface OneOnOne {
   id: string
   member_id: string
   session_date: string | null
+  title?: string | null
   notes: NoteEntry[]
   created_at: string
   updated_at: string

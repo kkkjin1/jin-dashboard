@@ -70,11 +70,19 @@ export default function LearningDetailPage() {
   const [noteTitle, setNoteTitle] = useState(defaultNoteTitle())
   const [openIndexes, setOpenIndexes] = useState<Set<number>>(new Set([0]))
   const [deleting, setDeleting] = useState(false)
+  const [customTags, setCustomTags] = useState<string[]>([])
+
+  const MEDIA_TYPES = ['책', '영상', '아티클', '강의', '기타']
 
   const titleRef = useRef<HTMLInputElement>(null)
   const noteAreaRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
+    try {
+      const raw = localStorage.getItem('learning_custom_tags')
+      setCustomTags(raw ? JSON.parse(raw) : ['HR', '경제', '리더십', '평가보상', '데이터', '조직문화', '기획'])
+    } catch { setCustomTags(['HR', '경제', '리더십', '평가보상', '데이터', '조직문화', '기획']) }
+
     supabase
       .from('learning_resources')
       .select('*')
@@ -90,6 +98,13 @@ export default function LearningDetailPage() {
       })
     setTimeout(() => titleRef.current?.focus(), 100)
   }, [id])
+
+  function toggleTag(tag: string) {
+    if (!resource) return
+    const tags = resource.tags ?? []
+    const updated = tags.includes(tag) ? tags.filter(t => t !== tag) : [...tags, tag]
+    updateResource({ tags: updated })
+  }
 
   function toggleNote(index: number) {
     setOpenIndexes(prev => {
@@ -179,19 +194,41 @@ export default function LearningDetailPage() {
         />
       </div>
 
-      {/* 출처 */}
-      <div className="mb-6">
-        <label className="text-xs text-gray-400 block mb-1">출처 (source)</label>
-        <input
-          value={sourceInput}
-          onChange={e => setSourceInput(e.target.value)}
-          onBlur={() => updateResource({ source: sourceInput })}
-          onKeyDown={e => {
-            if (e.key === 'Enter') updateResource({ source: sourceInput })
-          }}
-          placeholder="URL, 도서명, 강의명 등"
-          className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none w-full max-w-md"
-        />
+      {/* 메타 정보: 출처 + 태그 + 매체 */}
+      <div className="mb-6 space-y-4">
+        <div>
+          <label className="text-xs text-gray-400 block mb-1">출처 (source)</label>
+          <input
+            value={sourceInput}
+            onChange={e => setSourceInput(e.target.value)}
+            onBlur={() => updateResource({ source: sourceInput })}
+            onKeyDown={e => { if (e.key === 'Enter') updateResource({ source: sourceInput }) }}
+            placeholder="URL, 도서명, 강의명 등"
+            className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none w-full max-w-md"
+          />
+        </div>
+        <div>
+          <label className="text-xs text-gray-400 block mb-1.5">매체 구분</label>
+          <div className="flex gap-1.5 flex-wrap">
+            {MEDIA_TYPES.map(type => (
+              <button key={type} onClick={() => updateResource({ media_type: resource?.media_type === type ? null : type })}
+                className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${resource?.media_type === type ? 'bg-gray-800 text-white border-gray-800' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
+                {type}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <label className="text-xs text-gray-400 block mb-1.5">태그</label>
+          <div className="flex gap-1.5 flex-wrap">
+            {customTags.map(tag => (
+              <button key={tag} onClick={() => toggleTag(tag)}
+                className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${(resource?.tags ?? []).includes(tag) ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
+                {tag}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* 노트 입력 */}
