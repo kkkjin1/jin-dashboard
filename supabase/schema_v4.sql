@@ -23,10 +23,21 @@ alter table tasks enable row level security;
 alter table notes enable row level security;
 alter table attachments enable row level security;
 alter table members enable row level security;
-create policy if not exists "auth_all" on tasks for all to authenticated using (true) with check (true);
-create policy if not exists "auth_all" on notes for all to authenticated using (true) with check (true);
-create policy if not exists "auth_all" on attachments for all to authenticated using (true) with check (true);
-create policy if not exists "auth_all" on members for all to authenticated using (true) with check (true);
+do $$
+begin
+  if not exists (select 1 from pg_policies where tablename = 'tasks' and policyname = 'auth_all') then
+    create policy "auth_all" on tasks for all to authenticated using (true) with check (true);
+  end if;
+  if not exists (select 1 from pg_policies where tablename = 'notes' and policyname = 'auth_all') then
+    create policy "auth_all" on notes for all to authenticated using (true) with check (true);
+  end if;
+  if not exists (select 1 from pg_policies where tablename = 'attachments' and policyname = 'auth_all') then
+    create policy "auth_all" on attachments for all to authenticated using (true) with check (true);
+  end if;
+  if not exists (select 1 from pg_policies where tablename = 'members' and policyname = 'auth_all') then
+    create policy "auth_all" on members for all to authenticated using (true) with check (true);
+  end if;
+end $$;
 
 -- 5. 1on1 세션 테이블
 create table if not exists one_on_ones (
