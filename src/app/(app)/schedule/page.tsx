@@ -5,8 +5,9 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, parseIS
 import { ko } from 'date-fns/locale'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 import { fetchAllTasks, fetchMembers } from '@/lib/tasks'
-import type { Task, Member, TaskStatus, Part } from '@/types'
+import type { Task, Member, TaskStatus, Part, Meeting } from '@/types'
 
 const STATUSES: TaskStatus[] = ['진행필요', '진행중', '완료']
 const PARTS: Part[] = ['코어', '비즈']
@@ -19,16 +20,24 @@ interface DayTask {
 export default function SchedulePage() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [members, setMembers] = useState<Member[]>([])
+  const [meetings, setMeetings] = useState<Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>[]>([])
   const [current, setCurrent] = useState(new Date())
   const [selectedDay, setSelectedDay] = useState<Date | null>(null)
   const [assigneeFilter, setAssigneeFilter] = useState<string>('전체')
   const [statusFilter, setStatusFilter] = useState<TaskStatus | '전체'>('전체')
   const [partFilter, setPartFilter] = useState<Part | '전체'>('전체')
+  const [showMeetings, setShowMeetings] = useState(true)
   const router = useRouter()
+  const supabase = createClient()
 
   useEffect(() => {
-    Promise.all([fetchAllTasks(), fetchMembers()]).then(([t, m]) => {
+    Promise.all([
+      fetchAllTasks(),
+      fetchMembers(),
+      supabase.from('meetings').select('id, title, meeting_date, category').not('meeting_date', 'is', null),
+    ]).then(([t, m, { data: mtgs }]) => {
       setTasks(t); setMembers(m)
+      setMeetings((mtgs ?? []) as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>[])
     })
   }, [])
 
@@ -69,10 +78,18 @@ export default function SchedulePage() {
     return result
   }
 
+  function getDayMeetings(day: Date) {
+    if (!showMeetings) return []
+    return meetings.filter(m => m.meeting_date && isSameDay(parseISO(m.meeting_date), day))
+  }
+
   const selectedDayTasks = selectedDay ? getDayTasks(selectedDay) : []
+  const selectedDayMeetings = selectedDay ? getDayMeetings(selectedDay) : []
 
   function renderDay(day: Date, isOtherMonth: boolean) {
     const dayTasks = getDayTasks(day)
+    const dayMeetings = getDayMeetings(day)
+    const allItems = [...dayTasks.map(dt => ({ type: 'task' as const, dt })), ...dayMeetings.map(m => ({ type: 'meeting' as const, m }))]
     const isToday = isSameDay(day, new Date())
     const isSelected = selectedDay && isSameDay(day, selectedDay)
     return (
@@ -87,18 +104,33 @@ export default function SchedulePage() {
           {format(day, 'd')}
         </p>
         <div className="space-y-0.5">
-          {dayTasks.slice(0, 3).map((dt, idx) => (
-            <button key={`${dt.task.id}-${dt.dateType}-${idx}`}
-              onClick={e => { e.stopPropagation(); router.push(`/tasks/${dt.task.id}`) }}
-              className={`w-full text-left rounded px-1 py-0.5 truncate text-xs leading-tight transition-opacity hover:opacity-80 ${
-                dt.dateType === 'mid' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
-              }`}
-              title={`${dt.dateType === 'mid' ? '중간공유' : '최종보고'} | ${dt.task.title}`}>
-              <span className="font-medium">{dt.dateType === 'mid' ? '중간' : '최종'}</span>
-              {' '}<span>{dt.task.title}</span>
-            </button>
-          ))}
-          {dayTasks.length > 3 && <p className="text-xs text-gray-400 text-center">+{dayTasks.length - 3}</p>}
+          {allItems.slice(0, 3).map((item, idx) => {
+            if (item.type === 'task') {
+              const { dt } = item
+              return (
+                <button key={`task-${dt.task.id}-${dt.dateType}-${idx}`}
+                  onClick={e => { e.stopPropagation(); router.push(`/tasks/${dt.task.id}`) }}
+                  className={`w-full text-left rounded px-1 py-0.5 truncate text-xs leading-tight hover:opacity-80 ${
+                    dt.dateType === 'mid' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
+                  }`}
+                  title={`${dt.dateType === 'mid' ? '중간공유' : '최종보고'} | ${dt.task.title}`}>
+                  <span className="font-medium">{dt.dateType === 'mid' ? '중간' : '최종'}</span>
+                  {' '}{dt.task.title}
+                </button>
+              )
+            } else {
+              const { m } = item
+              return (
+                <button key={`meeting-${m.id}-${idx}`}
+                  onClick={e => { e.stopPropagation(); router.push(`/meetings/${m.id}`) }}
+                  className="w-full text-left rounded px-1 py-0.5 truncate text-xs leading-tight bg-purple-100 text-purple-700 hover:opacity-80"
+                  title={`회의 | ${m.title}`}>
+                  💬 {m.title}
+                </button>
+              )
+            }
+          })}
+          {allItems.length > 3 && <p className="text-xs text-gray-400 text-center">+{allItems.length - 3}</p>}
         </div>
       </div>
     )
@@ -143,6 +175,14 @@ export default function SchedulePage() {
             </button>
           ))}
         </div>
+
+        <div className="w-px bg-gray-200 self-stretch" />
+
+        {/* 회의 표시 토글 */}
+        <button onClick={() => setShowMeetings(p => !p)}
+          className={`text-xs px-3 py-1.5 rounded-full transition-colors ${showMeetings ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'}`}>
+          💬 회의 {showMeetings ? '표시' : '숨김'}
+        </button>
       </div>
 
       <div className="grid grid-cols-3 gap-6">
@@ -167,7 +207,7 @@ export default function SchedulePage() {
             {days.map(d => renderDay(d, false))}
             {nextDays.map(d => renderDay(d, true))}
           </div>
-          <div className="flex items-center gap-4 mt-3 pt-3 border-t border-gray-50">
+          <div className="flex items-center gap-4 mt-3 pt-3 border-t border-gray-50 flex-wrap">
             <div className="flex items-center gap-1.5">
               <div className="w-3 h-2.5 bg-amber-100 rounded border border-amber-300" />
               <span className="text-xs text-gray-400">중간공유</span>
@@ -175,6 +215,10 @@ export default function SchedulePage() {
             <div className="flex items-center gap-1.5">
               <div className="w-3 h-2.5 bg-red-100 rounded border border-red-300" />
               <span className="text-xs text-gray-400">최종보고</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-2.5 bg-purple-100 rounded border border-purple-300" />
+              <span className="text-xs text-gray-400">회의</span>
             </div>
           </div>
         </div>
@@ -186,10 +230,21 @@ export default function SchedulePage() {
           </h3>
           {!selectedDay ? (
             <p className="text-sm text-gray-300">캘린더에서 날짜를 클릭하면 해당일 업무를 볼 수 있습니다</p>
-          ) : selectedDayTasks.length === 0 ? (
+          ) : (selectedDayTasks.length === 0 && selectedDayMeetings.length === 0) ? (
             <p className="text-sm text-gray-300">이 날 예정된 일정이 없습니다</p>
           ) : (
             <div className="space-y-2">
+              {selectedDayMeetings.map(m => (
+                <Link key={m.id} href={`/meetings/${m.id}`}>
+                  <div className="bg-purple-50 rounded-xl border border-purple-100 p-3 hover:border-purple-200 transition-colors">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs font-medium text-purple-600">💬 회의</span>
+                    </div>
+                    <p className="text-sm font-medium text-gray-800">{m.title}</p>
+                    {m.category && <span className="text-xs text-purple-400">{m.category}</span>}
+                  </div>
+                </Link>
+              ))}
               {selectedDayTasks.map((dt, idx) => (
                 <Link key={`${dt.task.id}-${dt.dateType}-${idx}`} href={`/tasks/${dt.task.id}`}>
                   <div className="bg-white rounded-xl border border-gray-100 p-3 hover:border-gray-200 transition-colors">

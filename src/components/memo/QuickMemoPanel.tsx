@@ -15,13 +15,22 @@ const TAG_COLORS: Record<MemoTag, string> = {
   '공지': 'bg-red-50 text-red-600 border-red-200',
 }
 
+function parseMeetingDate(text: string): string | null {
+  const year = new Date().getFullYear()
+  const kr = text.match(/(\d{1,2})월\s*(\d{1,2})일/)
+  if (kr) return `${year}-${kr[1].padStart(2, '0')}-${kr[2].padStart(2, '0')}`
+  const slash = text.match(/(\d{1,2})[\/\-](\d{1,2})/)
+  if (slash) return `${year}-${slash[1].padStart(2, '0')}-${slash[2].padStart(2, '0')}`
+  return null
+}
+
 export default function QuickMemoPanel() {
   const [open, setOpen] = useState(false)
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [tag, setTag] = useState<MemoTag>('업무관련')
   const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
+  const [savedMsg, setSavedMsg] = useState('')
   const titleRef = useRef<HTMLInputElement>(null)
   const supabase = createClient()
   const router = useRouter()
@@ -52,13 +61,30 @@ export default function QuickMemoPanel() {
     return () => window.removeEventListener('keydown', onKey)
   }, [open, router])
 
+  const meetingDate = tag === '회의관련' ? parseMeetingDate(title) : null
+
   async function handleSave() {
     if (!title.trim()) return
     setSaving(true)
-    await supabase.from('quick_memos').insert({ title: title.trim(), content: content.trim(), tag })
+
+    if (tag === '회의관련' && meetingDate) {
+      const notes = content.trim()
+        ? [{ title: '메모', content: content.trim(), created_at: new Date().toISOString() }]
+        : []
+      await supabase.from('meetings').insert({
+        title: title.trim(),
+        meeting_date: meetingDate,
+        notes,
+      })
+      setSavedMsg('📅 일정에 추가됨!')
+    } else {
+      await supabase.from('quick_memos').insert({ title: title.trim(), content: content.trim(), tag })
+      setSavedMsg('저장됨!')
+    }
+
     setTitle(''); setContent(''); setTag('업무관련')
-    setSaving(false); setSaved(true)
-    setTimeout(() => { setSaved(false); setOpen(false) }, 1000)
+    setSaving(false)
+    setTimeout(() => { setSavedMsg(''); setOpen(false) }, 1200)
   }
 
   return (
@@ -83,20 +109,26 @@ export default function QuickMemoPanel() {
 
           <input ref={titleRef} value={title} onChange={e => setTitle(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') handleSave() }}
-            placeholder="제목 (엔터로 저장)"
-            className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-400 mb-2" />
+            placeholder={tag === '회의관련' ? '6월15일 미팅(홍길동/업무내용)' : '제목 (엔터로 저장)'}
+            className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-400 mb-1.5" />
+
+          {tag === '회의관련' && (
+            <p className={`text-xs mb-2 px-0.5 ${meetingDate ? 'text-purple-500' : 'text-gray-300'}`}>
+              {meetingDate ? `📅 ${meetingDate} 일정으로 등록됩니다` : '날짜 포함 시 일정탭에 자동 등록 (예: 6월15일 미팅)'}
+            </p>
+          )}
 
           <SmartTextarea value={content} onChange={setContent}
             onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSave() }}
             placeholder="내용 (선택, Ctrl+Enter 저장)"
-            rows={4}
+            rows={3}
             className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-400 resize-none" />
 
           <div className="flex justify-between items-center mt-3">
             <span className="text-xs text-gray-300">ESC · Ctrl+2 메모 · Ctrl+1 업무추가</span>
             <button onClick={handleSave} disabled={!title.trim() || saving}
               className="text-xs bg-gray-800 text-white px-4 py-2 rounded-lg hover:bg-gray-700 disabled:opacity-30 transition-colors">
-              {saved ? '저장됨!' : saving ? '저장 중...' : '저장'}
+              {savedMsg || (saving ? '저장 중...' : (meetingDate ? '일정 등록' : '저장'))}
             </button>
           </div>
         </div>
