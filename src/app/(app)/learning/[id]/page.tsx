@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import type { LearningResource, NoteEntry } from '@/types'
 import { generateLearningMd, downloadMd } from '@/lib/markdown'
+import SmartTextarea from '@/components/SmartTextarea'
 
 function defaultNoteTitle(): string {
   const now = new Date()
@@ -203,10 +204,10 @@ export default function LearningDetailPage() {
             className="w-full text-xs font-medium text-gray-500 focus:outline-none mb-2 border-b border-gray-100 pb-1 bg-transparent"
             placeholder="노트 제목"
           />
-          <textarea
+          <SmartTextarea
             ref={noteAreaRef}
             value={noteInput}
-            onChange={e => setNoteInput(e.target.value)}
+            onChange={setNoteInput}
             onKeyDown={e => {
               if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) saveNote()
             }}

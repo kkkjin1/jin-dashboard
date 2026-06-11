@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { MemoTag } from '@/types'
+import SmartTextarea from '@/components/SmartTextarea'
 
 const TAGS: MemoTag[] = ['업무관련', '회의관련', '아이디어', '공지']
 
@@ -73,7 +74,7 @@ export default function QuickMemoPanel() {
             placeholder="제목 (엔터로 저장)"
             className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-400 mb-2" />
 
-          <textarea value={content} onChange={e => setContent(e.target.value)}
+          <SmartTextarea value={content} onChange={setContent}
             onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSave() }}
             placeholder="내용 (선택, Ctrl+Enter 저장)"
             rows={4}

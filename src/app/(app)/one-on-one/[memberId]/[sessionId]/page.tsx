@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { OneOnOne, Member, NoteEntry } from '@/types'
 import { format, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
+import SmartTextarea from '@/components/SmartTextarea'
 
 function defaultNoteTitle(): string {
   const now = new Date()
@@ -163,7 +164,7 @@ export default function OneOnOneSessionPage() {
           <input value={noteTitle} onChange={e => setNoteTitle(e.target.value)}
             className="w-full text-xs font-medium text-gray-500 focus:outline-none mb-2 border-b border-gray-100 pb-1 bg-transparent"
             placeholder="노트 제목" />
-          <textarea ref={noteAreaRef} value={noteInput} onChange={e => setNoteInput(e.target.value)}
+          <SmartTextarea ref={noteAreaRef} value={noteInput} onChange={setNoteInput}
             onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) saveNote() }}
             placeholder="1on1 내용 입력 (Ctrl+Enter 저장)"
             className="w-full text-sm focus:outline-none resize-none text-gray-700 placeholder:text-gray-300"

@@ -9,6 +9,7 @@ import type { Task, Member, Note, Attachment, TaskStatus, Part, TaskType, Meetin
 import { format, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { generateTaskMd, downloadMd } from '@/lib/markdown'
+import SmartTextarea from '@/components/SmartTextarea'
 
 const STATUSES: TaskStatus[] = ['진행필요', '진행중', '완료']
 const STATUS_COLORS: Record<TaskStatus, string> = {
@@ -39,16 +40,26 @@ interface NoteAccordionProps {
   isOpen: boolean
   onToggle: () => void
   onDelete: (id: string) => void
+  onEdit: (id: string, newContent: string) => void
 }
 
-function NoteAccordion({ note, isOpen, onToggle, onDelete }: NoteAccordionProps) {
+function NoteAccordion({ note, isOpen, onToggle, onDelete, onEdit }: NoteAccordionProps) {
+  const [editing, setEditing] = useState(false)
+  const [editContent, setEditContent] = useState(note.content)
+
   const dateLabel = (() => {
-    try {
-      return format(parseISO(note.created_at), 'M월 d일 HH:mm', { locale: ko })
-    } catch {
-      return ''
-    }
+    try { return format(parseISO(note.created_at), 'M월 d일 HH:mm', { locale: ko }) } catch { return '' }
   })()
+  const editedLabel = note.edited_at ? (() => {
+    try { return `(수정 ${format(parseISO(note.edited_at), 'M/dd HH:mm', { locale: ko })})` } catch { return '' }
+  })() : null
+
+  function handleSaveEdit() {
+    if (editContent.trim()) {
+      onEdit(note.id, editContent.trim())
+    }
+    setEditing(false)
+  }
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 overflow-hidden group">
@@ -58,12 +69,19 @@ function NoteAccordion({ note, isOpen, onToggle, onDelete }: NoteAccordionProps)
       >
         <div className="flex items-center gap-2 min-w-0">
           <span className="text-xs text-gray-400 flex-shrink-0">{isOpen ? '▼' : '▶'}</span>
-          <span className="text-sm font-medium text-gray-700 truncate">{dateLabel}</span>
+          <span className="text-sm font-medium text-gray-700 flex-shrink-0">{dateLabel}</span>
+          {editedLabel && <span className="text-xs text-gray-400 flex-shrink-0">{editedLabel}</span>}
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           <span className="text-xs text-gray-300 truncate max-w-40">
             {!isOpen && note.content.slice(0, 40)}
           </span>
+          <button
+            onClick={e => { e.stopPropagation(); setEditing(true); setEditContent(note.content) }}
+            className="text-xs text-gray-300 hover:text-blue-500 transition-colors opacity-0 group-hover:opacity-100"
+          >
+            수정
+          </button>
           <button
             onClick={e => { e.stopPropagation(); onDelete(note.id) }}
             className="text-xs text-gray-200 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
@@ -74,7 +92,33 @@ function NoteAccordion({ note, isOpen, onToggle, onDelete }: NoteAccordionProps)
       </button>
       {isOpen && (
         <div className="px-4 pb-4 border-t border-gray-50">
-          <p className="text-sm text-gray-700 whitespace-pre-wrap pt-3">{note.content}</p>
+          {editing ? (
+            <>
+              <SmartTextarea
+                value={editContent}
+                onChange={setEditContent}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSaveEdit()
+                  if (e.key === 'Escape') setEditing(false)
+                }}
+                className="w-full text-sm focus:outline-none resize-none text-gray-700 pt-3"
+                style={{ minHeight: '120px' }}
+                autoFocus
+              />
+              <div className="flex justify-end gap-2 mt-2">
+                <button onClick={() => setEditing(false)}
+                  className="text-xs text-gray-400 hover:text-gray-600 px-3 py-1 rounded-lg transition-colors">
+                  취소
+                </button>
+                <button onClick={handleSaveEdit}
+                  className="text-xs bg-gray-800 text-white px-3 py-1 rounded-lg hover:bg-gray-700 transition-colors">
+                  저장
+                </button>
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-gray-700 whitespace-pre-wrap pt-3">{note.content}</p>
+          )}
         </div>
       )}
     </div>
@@ -106,6 +150,7 @@ export default function TaskDetailPage() {
 
   const titleRef = useRef<HTMLInputElement>(null)
   const noteAreaRef = useRef<HTMLTextAreaElement>(null)
+  const autoFocused = useRef(false)
 
   useEffect(() => {
     async function load() {
@@ -127,8 +172,15 @@ export default function TaskDetailPage() {
       if (meetings) setAllMeetings(meetings as Pick<Meeting, 'id' | 'title' | 'meeting_date'>[])
     }
     load()
-    setTimeout(() => titleRef.current?.focus(), 100)
   }, [id])
+
+  // Auto-focus title on new task (empty title)
+  useEffect(() => {
+    if (task && !autoFocused.current) {
+      autoFocused.current = true
+      if (!task.title) titleRef.current?.focus()
+    }
+  }, [task])
 
   function toggleNote(noteId: string) {
     setOpenNoteIds(prev => {
@@ -194,6 +246,12 @@ export default function TaskDetailPage() {
   async function deleteNote(noteId: string) {
     await supabase.from('notes').delete().eq('id', noteId)
     setNotes(prev => prev.filter(n => n.id !== noteId))
+  }
+
+  async function editNote(noteId: string, newContent: string) {
+    const now = new Date().toISOString()
+    await supabase.from('notes').update({ content: newContent, edited_at: now }).eq('id', noteId)
+    setNotes(prev => prev.map(n => n.id === noteId ? { ...n, content: newContent, edited_at: now } : n))
   }
 
   async function addLink() {
@@ -316,10 +374,10 @@ export default function TaskDetailPage() {
                 className="w-full text-xs font-medium text-gray-500 focus:outline-none mb-2 border-b border-gray-100 pb-1 bg-transparent"
                 placeholder="노트 제목"
               />
-              <textarea
+              <SmartTextarea
                 ref={noteAreaRef}
                 value={noteInput}
-                onChange={e => setNoteInput(e.target.value)}
+                onChange={setNoteInput}
                 onKeyDown={e => {
                   if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) saveNote()
                 }}
@@ -349,6 +407,7 @@ export default function TaskDetailPage() {
                     isOpen={openNoteIds.has(note.id)}
                     onToggle={() => toggleNote(note.id)}
                     onDelete={deleteNote}
+                    onEdit={editNote}
                   />
                 ))
               )}

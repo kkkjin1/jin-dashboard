@@ -58,12 +58,35 @@ export function parseTags(content: string): ParsedTags {
   return result
 }
 
+export function daysUntil(dateStr: string): number {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const target = parseISO(dateStr)
+  target.setHours(0, 0, 0, 0)
+  return Math.floor((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+}
+
 export function isMidDateSoon(task: Task): boolean {
   if (!task.mid_date) return false
-  const mid = parseISO(task.mid_date)
-  const today = new Date()
-  const diff = (mid.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
-  return diff >= 0 && diff <= 3
+  const d = daysUntil(task.mid_date)
+  return d >= 0 && d <= 7
+}
+
+export function isEndDateSoon(task: Task): boolean {
+  if (!task.end_date) return false
+  const d = daysUntil(task.end_date)
+  return d >= 0 && d <= 7
+}
+
+export function isAnyDateSoon(task: Task): boolean {
+  return isMidDateSoon(task) || isEndDateSoon(task)
+}
+
+export function nearestEventDays(task: Task): number {
+  const candidates: number[] = []
+  if (task.mid_date) { const d = daysUntil(task.mid_date); if (d >= 0 && d <= 7) candidates.push(d) }
+  if (task.end_date) { const d = daysUntil(task.end_date); if (d >= 0 && d <= 7) candidates.push(d) }
+  return candidates.length > 0 ? Math.min(...candidates) : Infinity
 }
 
 export function formatDate(dateStr: string | null | undefined): string {

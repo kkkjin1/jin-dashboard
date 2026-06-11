@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { format, isToday, isThisWeek, parseISO } from 'date-fns'
+import { format, isToday, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import SummaryCards from '@/components/home/SummaryCards'
 import TaskColumn from '@/components/home/TaskColumn'
 import HomeCalendar from '@/components/home/HomeCalendar'
-import { fetchAllTasks, isMidDateSoon } from '@/lib/tasks'
+import { fetchAllTasks, daysUntil, isAnyDateSoon, isEndDateSoon, nearestEventDays } from '@/lib/tasks'
 import type { Task } from '@/types'
 
 export default function HomePage() {
@@ -21,15 +21,26 @@ export default function HomePage() {
     })
   }, [])
 
-  const todayTasks = tasks.filter(t =>
-    t.status !== '완료' && t.end_date && isToday(parseISO(t.end_date))
-  )
-  const weekTasks = tasks.filter(t =>
-    t.status !== '완료' && t.end_date &&
-    !isToday(parseISO(t.end_date)) &&
-    isThisWeek(parseISO(t.end_date), { weekStartsOn: 1 })
-  )
-  const midSoonTasks = tasks.filter(t => t.status !== '완료' && isMidDateSoon(t))
+  const active = tasks.filter(t => t.status !== '완료')
+
+  const todayTasks = active
+    .filter(t => t.end_date && isToday(parseISO(t.end_date)))
+
+  const weekTasks = active
+    .filter(t => {
+      if (!t.end_date) return false
+      const d = daysUntil(t.end_date)
+      return d >= 1 && d <= 6
+    })
+    .sort((a, b) => daysUntil(a.end_date!) - daysUntil(b.end_date!))
+
+  const anySoonTasks = active
+    .filter(t => isAnyDateSoon(t))
+    .sort((a, b) => nearestEventDays(a) - nearestEventDays(b))
+
+  const endSoonTasks = active
+    .filter(t => isEndDateSoon(t))
+    .sort((a, b) => daysUntil(a.end_date!) - daysUntil(b.end_date!))
 
   return (
     <div className="p-8">
@@ -50,8 +61,8 @@ export default function HomePage() {
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-4 gap-4 mb-6">
-          {[1,2,3,4].map(i => <div key={i} className="bg-white rounded-xl border border-gray-100 p-4 h-20 animate-pulse" />)}
+        <div className="grid grid-cols-5 gap-3 mb-6">
+          {[1,2,3,4,5].map(i => <div key={i} className="bg-white rounded-xl border border-gray-100 p-4 h-20 animate-pulse" />)}
         </div>
       ) : (
         <SummaryCards tasks={tasks} />
@@ -59,27 +70,37 @@ export default function HomePage() {
 
       {loading ? (
         <div className="flex gap-4">
-          {[1,2,3].map(i => <div key={i} className="flex-1 h-40 bg-white rounded-xl border border-gray-100 animate-pulse" />)}
+          {[1,2,3,4].map(i => <div key={i} className="flex-1 h-40 bg-white rounded-xl border border-gray-100 animate-pulse" />)}
         </div>
       ) : (
-        <div className="flex gap-5">
+        <div className="flex gap-4">
           <TaskColumn
             title="오늘 마감"
             count={todayTasks.length}
             tasks={todayTasks}
             accentColor="bg-red-500"
+            dateMode="end_date"
           />
           <TaskColumn
             title="이번주 마감"
             count={weekTasks.length}
             tasks={weekTasks}
             accentColor="bg-blue-400"
+            dateMode="end_date"
           />
           <TaskColumn
             title="중간공유 임박"
-            count={midSoonTasks.length}
-            tasks={midSoonTasks}
+            count={anySoonTasks.length}
+            tasks={anySoonTasks}
             accentColor="bg-amber-400"
+            dateMode="nearest"
+          />
+          <TaskColumn
+            title="최종마감 임박"
+            count={endSoonTasks.length}
+            tasks={endSoonTasks}
+            accentColor="bg-rose-500"
+            dateMode="end_date"
           />
         </div>
       )}
