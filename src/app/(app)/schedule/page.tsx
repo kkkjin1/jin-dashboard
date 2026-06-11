@@ -26,7 +26,7 @@ export default function SchedulePage() {
   const [assigneeFilter, setAssigneeFilter] = useState<string>('전체')
   const [statusFilter, setStatusFilter] = useState<TaskStatus | '전체'>('전체')
   const [partFilter, setPartFilter] = useState<Part | '전체'>('전체')
-  const [showMeetings, setShowMeetings] = useState(true)
+  const [viewFilter, setViewFilter] = useState<'전체' | '업무만' | '회의만'>('전체')
   const router = useRouter()
   const supabase = createClient()
 
@@ -70,6 +70,7 @@ export default function SchedulePage() {
   const nextDays = Array.from({ length: nextCount }, (_, i) => new Date(nextMonth.getFullYear(), nextMonth.getMonth(), i + 1))
 
   function getDayTasks(day: Date): DayTask[] {
+    if (viewFilter === '회의만') return []
     const result: DayTask[] = []
     filtered.forEach(t => {
       if (t.mid_date && isSameDay(parseISO(t.mid_date), day)) result.push({ task: t, dateType: 'mid' })
@@ -79,7 +80,7 @@ export default function SchedulePage() {
   }
 
   function getDayMeetings(day: Date) {
-    if (!showMeetings) return []
+    if (viewFilter === '업무만') return []
     return meetings.filter(m => m.meeting_date && isSameDay(parseISO(m.meeting_date), day))
   }
 
@@ -178,11 +179,19 @@ export default function SchedulePage() {
 
         <div className="w-px bg-gray-200 self-stretch" />
 
-        {/* 회의 표시 토글 */}
-        <button onClick={() => setShowMeetings(p => !p)}
-          className={`text-xs px-3 py-1.5 rounded-full transition-colors ${showMeetings ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'}`}>
-          💬 회의 {showMeetings ? '표시' : '숨김'}
-        </button>
+        {/* 보기 필터 */}
+        <div className="flex gap-1">
+          {(['전체', '업무만', '회의만'] as const).map(v => (
+            <button key={v} onClick={() => setViewFilter(v)}
+              className={`text-xs px-3 py-1.5 rounded-full transition-colors ${
+                viewFilter === v
+                  ? v === '회의만' ? 'bg-purple-600 text-white' : 'bg-gray-800 text-white'
+                  : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+              }`}>
+              {v === '회의만' ? '💬 회의만' : v}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="grid grid-cols-3 gap-6">
