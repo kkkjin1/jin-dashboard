@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { MemoTag } from '@/types'
 import SmartTextarea from '@/components/SmartTextarea'
@@ -23,22 +24,33 @@ export default function QuickMemoPanel() {
   const [saved, setSaved] = useState(false)
   const titleRef = useRef<HTMLInputElement>(null)
   const supabase = createClient()
+  const router = useRouter()
 
   useEffect(() => {
     if (open) setTimeout(() => titleRef.current?.focus(), 100)
   }, [open])
 
   useEffect(() => {
-    function onKey(e: KeyboardEvent) {
+    async function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape' && open) { setOpen(false); return }
       if ((e.ctrlKey || e.metaKey) && e.key === 'm') {
         e.preventDefault()
         setOpen(prev => !prev)
+        return
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+        e.preventDefault()
+        const { data } = await supabase
+          .from('tasks')
+          .insert({ title: '', part: '코어', type: '기획', status: '진행필요' })
+          .select('id')
+          .single()
+        if (data) router.push(`/tasks/${(data as { id: string }).id}`)
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [open])
+  }, [open, router])
 
   async function handleSave() {
     if (!title.trim()) return
@@ -81,7 +93,7 @@ export default function QuickMemoPanel() {
             className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-400 resize-none" />
 
           <div className="flex justify-between items-center mt-3">
-            <span className="text-xs text-gray-300">ESC · Ctrl+M 토글</span>
+            <span className="text-xs text-gray-300">ESC · Ctrl+M 메모 · Ctrl+N 업무추가</span>
             <button onClick={handleSave} disabled={!title.trim() || saving}
               className="text-xs bg-gray-800 text-white px-4 py-2 rounded-lg hover:bg-gray-700 disabled:opacity-30 transition-colors">
               {saved ? '저장됨!' : saving ? '저장 중...' : '저장'}
