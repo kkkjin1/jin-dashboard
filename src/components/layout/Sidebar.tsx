@@ -12,14 +12,15 @@ const navItems = [
   { href: '/meetings', label: '회의록', icon: '💬', key: '4' },
   { href: '/schedule', label: '일정', icon: '📅', key: '5' },
   { href: '/memos', label: '메모', icon: '📝', key: '6' },
-  { href: '/one-on-one', label: '1on1', icon: '👤', key: '' },
-  { href: '/learning', label: '학습자료', icon: '📚', key: '' },
+  { href: '/one-on-one', label: '1on1', icon: '👤', key: '7' },
+  { href: '/learning', label: '학습자료', icon: '📚', key: '8' },
   { href: '/settings', label: '설정', icon: '⚙', key: '' },
 ]
 
 const KEY_ROUTES: Record<string, string> = {
   '1': '/', '2': '/tasks', '3': '/completed',
   '4': '/meetings', '5': '/schedule', '6': '/memos',
+  '7': '/one-on-one', '8': '/learning',
 }
 
 export default function Sidebar() {
@@ -89,7 +90,7 @@ export default function Sidebar() {
         </ul>
       </nav>
       <div className="p-3 border-t border-gray-100">
-        <p className="text-xs text-gray-300 px-3 mb-1">1-6 페이지이동 · Ctrl+1 업무추가 · Ctrl+2 퀵메모</p>
+        <p className="text-xs text-gray-300 px-3 mb-1">1-8 페이지이동</p>
         <button onClick={handleLogout}
           className="w-full text-left px-3 py-2 rounded-lg text-sm text-gray-400 hover:bg-gray-50 hover:text-gray-600 transition-colors">
           로그아웃
