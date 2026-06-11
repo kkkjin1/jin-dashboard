@@ -27,8 +27,12 @@ export default function SchedulePage() {
   const [statusFilter, setStatusFilter] = useState<TaskStatus | '전체'>('전체')
   const [partFilter, setPartFilter] = useState<Part | '전체'>('전체')
   const [viewFilter, setViewFilter] = useState<'전체' | '업무만' | '회의만'>('전체')
-  const [showAnalysis, setShowAnalysis] = useState(false)
+  const [showAnalysis, setShowAnalysis] = useState(true)
   const [analysisPeriod, setAnalysisPeriod] = useState<'이번주' | '이번달' | '직전월'>('이번달')
+  const [showRepeatModal, setShowRepeatModal] = useState(false)
+  const [repeatTitle, setRepeatTitle] = useState('')
+  const [repeatDay, setRepeatDay] = useState('15')
+  const [repeatMonthCount, setRepeatMonthCount] = useState('3')
   const router = useRouter()
   const supabase = createClient()
 
@@ -163,6 +167,24 @@ export default function SchedulePage() {
     return { workDays, meetingCount, taskDeadlines, totalHours, meetingHours, focusHours }
   }
 
+  async function handleCreateRepeating() {
+    if (!repeatTitle.trim()) return
+    const day = Math.max(1, Math.min(31, parseInt(repeatDay) || 15))
+    const count = parseInt(repeatMonthCount) || 3
+    const today = new Date()
+    const newMeetings: typeof meetings = []
+    for (let i = 0; i < count; i++) {
+      const month = new Date(today.getFullYear(), today.getMonth() + i, 1)
+      const actualDay = Math.min(day, getDaysInMonth(month))
+      const dateStr = `${month.getFullYear()}-${String(month.getMonth()+1).padStart(2,'0')}-${String(actualDay).padStart(2,'0')}`
+      const { data } = await supabase.from('meetings').insert({ title: repeatTitle.trim(), meeting_date: dateStr, notes: [] }).select('id, title, meeting_date, category').single()
+      if (data) newMeetings.push(data as typeof meetings[0])
+    }
+    setMeetings(prev => [...prev, ...newMeetings])
+    setRepeatTitle(''); setRepeatDay('15'); setRepeatMonthCount('3')
+    setShowRepeatModal(false)
+  }
+
   const prevMonthNav = subMonths(current, 1)
   const nextMonthNav = addMonths(current, 1)
   const prevCounts = countMonthEvents(prevMonthNav)
@@ -274,6 +296,11 @@ export default function SchedulePage() {
             </button>
           ))}
         </div>
+
+        <button onClick={() => setShowRepeatModal(true)}
+          className="text-xs border border-dashed border-gray-300 text-gray-400 hover:border-gray-500 hover:text-gray-600 px-3 py-1.5 rounded-lg transition-colors">
+          🔄 반복 추가
+        </button>
       </div>
 
       {/* ── Feature A: Mini month navigation ── */}
@@ -482,6 +509,70 @@ export default function SchedulePage() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* 미니 캘린더 */}
+      <div className="grid grid-cols-2 gap-4 mt-4">
+        <MiniCal monthDate={prevMonthNav} onClick={() => setCurrent(prevMonthNav)} />
+        <MiniCal monthDate={nextMonthNav} onClick={() => setCurrent(nextMonthNav)} />
+      </div>
+
+      {showRepeatModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setShowRepeatModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-80" onClick={e => e.stopPropagation()}>
+            <h3 className="font-semibold text-gray-800 mb-4">반복 일정 추가</h3>
+            <div className="space-y-3">
+              <input value={repeatTitle} onChange={e => setRepeatTitle(e.target.value)}
+                placeholder="일정 제목" className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none" />
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500 whitespace-nowrap">매월</span>
+                <input value={repeatDay} onChange={e => setRepeatDay(e.target.value.replace(/\D/g, ''))}
+                  placeholder="15" className="w-16 text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none text-center" />
+                <span className="text-xs text-gray-500">일</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500 whitespace-nowrap">이번달부터</span>
+                <select value={repeatMonthCount} onChange={e => setRepeatMonthCount(e.target.value)}
+                  className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none bg-white">
+                  {[1,2,3,4,5,6].map(n => <option key={n} value={n}>{n}개월</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <button onClick={() => setShowRepeatModal(false)} className="text-xs text-gray-400 hover:text-gray-600 px-3 py-1.5">취소</button>
+              <button onClick={handleCreateRepeating} disabled={!repeatTitle.trim()}
+                className="text-xs bg-gray-800 text-white px-4 py-1.5 rounded-lg hover:bg-gray-700 disabled:opacity-30">
+                {repeatMonthCount}개 일정 생성
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function MiniCal({ monthDate, onClick }: { monthDate: Date; onClick: () => void }) {
+  const mStart = startOfMonth(monthDate)
+  const mEnd = endOfMonth(monthDate)
+  const mDays = eachDayOfInterval({ start: mStart, end: mEnd })
+  const mStartDow = getDay(mStart)
+  const today = new Date()
+  return (
+    <div className="bg-white rounded-xl border border-gray-100 p-4 cursor-pointer hover:border-gray-200 transition-colors" onClick={onClick}>
+      <p className="text-xs font-semibold text-gray-600 text-center mb-2">
+        {format(monthDate, 'yyyy년 M월', { locale: ko })}
+      </p>
+      <div className="grid grid-cols-7 gap-px text-center">
+        {['일','월','화','수','목','금','토'].map(d => (
+          <div key={d} className="text-xs text-gray-300 py-0.5">{d}</div>
+        ))}
+        {Array.from({ length: mStartDow }, (_, i) => <div key={`p${i}`} />)}
+        {mDays.map(d => (
+          <div key={d.toISOString()} className={`text-xs py-0.5 rounded-full ${isSameDay(d, today) ? 'bg-red-500 text-white font-bold' : 'text-gray-500'}`}>
+            {format(d, 'd')}
+          </div>
+        ))}
       </div>
     </div>
   )

@@ -115,6 +115,11 @@ export default function TaskDetailPage() {
   const [titleInput, setTitleInput] = useState('')
   const [openNoteIds, setOpenNoteIds] = useState<Set<string>>(new Set())
 
+  const [showRetroModal, setShowRetroModal] = useState(false)
+  const [retroGood, setRetroGood] = useState('')
+  const [retroBad, setRetroBad] = useState('')
+  const [retroImprovement, setRetroImprovement] = useState('')
+
   const [linkedMeetings, setLinkedMeetings] = useState<Meeting[]>([])
   const [allMeetings, setAllMeetings] = useState<Pick<Meeting, 'id' | 'title' | 'meeting_date'>[]>([])
   const [selectedMeetingId, setSelectedMeetingId] = useState('')
@@ -171,6 +176,21 @@ export default function TaskDetailPage() {
   async function updateTask(updates: Partial<Task>) {
     await supabase.from('tasks').update(updates).eq('id', id)
     setTask(prev => prev ? { ...prev, ...updates } : prev)
+  }
+
+  async function saveRetro(skip: boolean) {
+    const updates: Partial<Task> = { status: '완료' }
+    if (!skip) {
+      updates.retrospective = {
+        good: retroGood.trim(),
+        bad: retroBad.trim(),
+        improvement: retroImprovement.trim(),
+      }
+    }
+    await updateTask(updates)
+    setShowRetroModal(false)
+    setRetroGood(''); setRetroBad(''); setRetroImprovement('')
+    setToast('완료로 변경되었습니다')
   }
 
   async function saveNote() {
@@ -286,6 +306,45 @@ export default function TaskDetailPage() {
     <div className="p-8 max-w-6xl">
       {toast && <Toast message={toast} onDone={() => setToast('')} />}
 
+      {showRetroModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-[480px] max-w-[90vw]">
+            <h3 className="font-bold text-gray-900 mb-1">업무 완료 회고</h3>
+            <p className="text-xs text-gray-400 mb-4">인사이트를 남기면 나중에 검색할 수 있습니다.</p>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-semibold text-green-600 mb-1 block">좋았던 점</label>
+                <textarea value={retroGood} onChange={e => setRetroGood(e.target.value)}
+                  placeholder="잘 됐던 부분, 긍정적인 결과물..."
+                  rows={2} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none resize-none" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-amber-600 mb-1 block">아쉬웠던 점</label>
+                <textarea value={retroBad} onChange={e => setRetroBad(e.target.value)}
+                  placeholder="더 잘할 수 있었던 부분, 아쉬운 결과..."
+                  rows={2} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none resize-none" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-red-600 mb-1 block">개선 필요한 점</label>
+                <textarea value={retroImprovement} onChange={e => setRetroImprovement(e.target.value)}
+                  placeholder="다음엔 어떻게 바꿀지, 구체적인 개선 액션..."
+                  rows={2} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none resize-none" />
+              </div>
+            </div>
+            <div className="flex justify-between items-center mt-4">
+              <button onClick={() => saveRetro(true)} className="text-xs text-gray-400 hover:text-gray-600">건너뛰기</button>
+              <div className="flex gap-2">
+                <button onClick={() => setShowRetroModal(false)} className="text-xs text-gray-400 hover:text-gray-600 px-3 py-1.5">취소</button>
+                <button onClick={() => saveRetro(false)}
+                  className="text-xs bg-green-600 text-white px-4 py-1.5 rounded-lg hover:bg-green-700">
+                  저장하고 완료
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 뒤로가기 + MD 다운로드 */}
       <div className="flex items-center justify-between mb-4">
         <Link href="/tasks" className="text-sm text-gray-400 hover:text-gray-600 inline-flex items-center gap-1">← 업무 목록</Link>
@@ -305,7 +364,14 @@ export default function TaskDetailPage() {
 
       {/* 가로 상태바: 상태 / 담당자 / 파트 / 유형 / 날짜들 */}
       <div className="flex items-center gap-2 mb-5 pb-4 border-b border-gray-100 flex-wrap">
-        <select value={task.status} onChange={e => updateTask({ status: e.target.value as TaskStatus })}
+        <select value={task.status} onChange={e => {
+          const newStatus = e.target.value as TaskStatus
+          if (newStatus === '완료') {
+            setShowRetroModal(true)
+          } else {
+            updateTask({ status: newStatus })
+          }
+        }}
           className={`text-xs px-3 py-1.5 rounded-full font-medium border-0 cursor-pointer focus:outline-none ${STATUS_COLORS[task.status]}`}>
           {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
         </select>

@@ -3,6 +3,7 @@ export type TaskType = '기획' | '개선' | '운영'
 export type TaskStatus = '진행필요' | '진행중' | '완료'
 export type AttachmentType = '파일' | '링크'
 export type AchievementCategory = '성과' | '개선' | '리소스' | '수명' | '기타'
+export type FeedbackType = '긍정' | '부정' | '요구사항' | '일반'
 
 export interface Member {
   id: string
@@ -23,6 +24,7 @@ export interface Task {
   end_date: string | null
   work_months: string[]
   achievement_category: AchievementCategory | null
+  retrospective?: { good: string; bad: string; improvement: string } | null
   created_at: string
   updated_at: string
   members?: Member
@@ -90,4 +92,12 @@ export interface OneOnOne {
   notes: NoteEntry[]
   created_at: string
   updated_at: string
+}
+
+export interface MyFeedback {
+  id: string
+  month: string
+  content: string
+  feedback_type: FeedbackType
+  created_at: string
 }
