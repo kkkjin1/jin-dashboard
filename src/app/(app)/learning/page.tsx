@@ -22,6 +22,7 @@ export default function LearningPage() {
   const [loading, setLoading] = useState(true)
   const [customTags, setCustomTags] = useState<string[]>([])
   const [mediaFilter, setMediaFilter] = useState<string | null>(null)
+  const [tagFilter, setTagFilter] = useState<string | null>(null)
   const [managingTags, setManagingTags] = useState(false)
   const [newTagInput, setNewTagInput] = useState('')
   const [addingTitle, setAddingTitle] = useState('')
@@ -111,6 +112,7 @@ export default function LearningPage() {
 
   const filtered = resources.filter(r => {
     if (mediaFilter && r.media_type !== mediaFilter) return false
+    if (tagFilter && !(r.tags ?? []).includes(tagFilter)) return false
     return true
   })
 
@@ -252,6 +254,20 @@ export default function LearningPage() {
           </button>
         ))}
       </div>
+
+      {/* 태그 필터 */}
+      {customTags.length > 0 && (
+        <div className="flex gap-2 flex-wrap mb-5">
+          {customTags.map(tag => (
+            <button key={tag} onClick={() => setTagFilter(tagFilter === tag ? null : tag)}
+              className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                tagFilter === tag ? 'bg-[#5DBD97] text-white border-[#5DBD97]' : 'border-gray-200 text-gray-400 hover:border-gray-400 bg-white'
+              }`}>
+              {tag}
+            </button>
+          ))}
+        </div>
+      )}
 
       {loading ? (
         <div className="grid grid-cols-3 gap-4">

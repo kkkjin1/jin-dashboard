@@ -266,6 +266,17 @@ export default function SchedulePage() {
   const nextCounts = countMonthEvents(nextMonthNav)
   const analysis = computeAnalysis(analysisPeriod)
 
+  function getMeetingColor(category: string | null | undefined): string {
+    switch (category) {
+      case '코어': return 'bg-[#EBF7F2] text-[#5DBD97]'
+      case '비즈': return 'bg-amber-50 text-amber-600'
+      case '경영진': return 'bg-indigo-50 text-indigo-500'
+      case '본부장': return 'bg-purple-50 text-purple-500'
+      case '타팀': return 'bg-sky-50 text-sky-500'
+      default: return 'bg-[#EBF7F2] text-[#5DBD97]'
+    }
+  }
+
   function renderDay(day: Date, isOtherMonth: boolean) {
     const dayTasks = getDayTasks(day)
     const dayMeetings = getDayMeetings(day)
@@ -275,9 +286,7 @@ export default function SchedulePage() {
     return (
       <div key={day.toISOString()}
         onClick={() => setSelectedDay(isSameDay(day, selectedDay ?? new Date(0)) ? null : day)}
-        className={`min-h-24 p-1.5 rounded-lg cursor-pointer transition-colors ${
-          isSelected ? 'bg-gray-100' : isToday ? 'bg-[#EBF7F2]' : isOtherMonth ? 'bg-gray-50/50 opacity-50' : 'hover:bg-gray-50'
-        }`}>
+        className={`min-h-24 p-1.5 rounded-lg cursor-pointer transition-colors ${isToday ? 'ring-1 ring-[#5DBD97]/60 ring-inset' : ''} ${isSelected ? 'bg-gray-100' : isOtherMonth ? 'bg-gray-50/50 opacity-50' : 'hover:bg-gray-50'}`}>
         <p className={`text-xs text-center mb-1.5 w-6 h-6 flex items-center justify-center rounded-full mx-auto ${
           isToday ? 'bg-[#5DBD97] text-white font-bold' : isOtherMonth ? 'text-gray-300' : 'text-gray-600'
         }`}>
@@ -303,7 +312,7 @@ export default function SchedulePage() {
               return (
                 <button key={`meeting-${m.id}-${idx}`}
                   onClick={e => { e.stopPropagation(); router.push(`/meetings/${m.id}`) }}
-                  className="w-full text-left rounded-md px-1.5 py-1 truncate text-[11px] leading-tight bg-[#EBF7F2] text-[#5DBD97] hover:opacity-80 font-medium"
+                  className={`w-full text-left rounded-md px-1.5 py-1 truncate text-[11px] leading-tight hover:opacity-80 font-medium ${getMeetingColor(m.category)}`}
                   title={`회의 | ${m.title}`}>
                   {m.title}
                 </button>
@@ -446,8 +455,12 @@ export default function SchedulePage() {
               <span className="text-xs text-gray-400">최종보고</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <div className="w-3 h-2.5 bg-[#EBF7F2] rounded border border-[#5DBD97]/30" />
-              <span className="text-xs text-gray-400">회의</span>
+              <div className="flex gap-0.5">
+                <div className="w-2 h-2.5 bg-[#EBF7F2] rounded border border-[#5DBD97]/30" />
+                <div className="w-2 h-2.5 bg-amber-50 rounded border border-amber-200" />
+                <div className="w-2 h-2.5 bg-indigo-50 rounded border border-indigo-200" />
+              </div>
+              <span className="text-xs text-gray-400">회의 (카테고리별)</span>
             </div>
             <div className="ml-auto">
               <button
