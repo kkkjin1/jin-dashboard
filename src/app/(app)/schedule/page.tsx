@@ -54,13 +54,14 @@ export default function SchedulePage() {
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
+      if (e.isComposing) return
       const tag = (e.target as HTMLElement).tagName
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
       if (e.ctrlKey || e.metaKey || e.altKey) return
-      if (e.key === 'q') setPartFilter(p => p === '전체' ? '코어' : p === '코어' ? '비즈' : '전체')
-      if (e.key === 'w') setStatusFilter(s => s === '전체' ? '진행필요' : s === '진행필요' ? '진행중' : s === '진행중' ? '완료' : '전체')
-      if (e.key === 'e') setReportFilter(r => r === '전체' ? '중간공유' : r === '중간공유' ? '최종보고' : '전체')
-      if (e.key === 'r') setViewFilter(v => v === '전체' ? '업무만' : v === '업무만' ? '회의만' : '전체')
+      if (e.code === 'KeyQ') setPartFilter(p => p === '전체' ? '코어' : p === '코어' ? '비즈' : '전체')
+      if (e.code === 'KeyW') setStatusFilter(s => s === '전체' ? '진행필요' : s === '진행필요' ? '진행중' : s === '진행중' ? '완료' : '전체')
+      if (e.code === 'KeyE') setReportFilter(r => r === '전체' ? '중간공유' : r === '중간공유' ? '최종보고' : '전체')
+      if (e.code === 'KeyR') setViewFilter(v => v === '전체' ? '업무만' : v === '업무만' ? '회의만' : '전체')
       if (e.key === 'Tab') { e.preventDefault(); assigneeRef.current?.focus() }
     }
     window.addEventListener('keydown', onKey)

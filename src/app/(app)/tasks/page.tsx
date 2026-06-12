@@ -73,22 +73,22 @@ export default function TasksPage() {
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
+      if (e.isComposing) return
       const tag = (e.target as HTMLElement).tagName
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
       if (e.ctrlKey || e.metaKey || e.altKey) return
-      if (e.key === 'q') setStatusFilter(prev => prev === '전체' ? '진행필요' : prev === '진행필요' ? '진행중' : prev === '진행중' ? '완료' : '전체')
-      if (e.key === 'w') setHideCompleted(prev => !prev)
-      if (e.key === 'e') setMonthFilter(prev => {
+      if (e.code === 'KeyQ') setStatusFilter(prev => prev === '전체' ? '진행필요' : prev === '진행필요' ? '진행중' : prev === '진행중' ? '완료' : '전체')
+      if (e.code === 'KeyW') setHideCompleted(prev => !prev)
+      if (e.code === 'KeyE') setMonthFilter(prev => {
         if (prev === '전체') return allMonths[0] ?? '전체'
         const idx = allMonths.indexOf(prev)
         return idx < allMonths.length - 1 ? allMonths[idx + 1] : '전체'
       })
-      if (e.key === 'r') setViewMode('parts')
-      if (e.key === 't') setViewMode('monthly')
+      if (e.code === 'KeyT') setViewMode(prev => prev === 'monthly' ? 'parts' : 'monthly')
       if (e.key === 'Tab') { e.preventDefault(); assigneeRef.current?.focus() }
     }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
   }, [allMonths])
 
   const filteredTasks = tasks.filter(t => {
@@ -187,12 +187,7 @@ export default function TasksPage() {
           {monthFilter === '전체' ? '전체 월' : formatMonth(monthFilter)}<span className="ml-1.5 opacity-40 font-normal">[e]</span>
         </button>
         <button
-          onClick={() => setViewMode('parts')}
-          className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${viewMode === 'parts' ? 'bg-gray-800 text-white border-gray-800' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
-          파트별<span className="ml-1.5 opacity-40 font-normal">[r]</span>
-        </button>
-        <button
-          onClick={() => { setViewMode('monthly'); if (monthFilter === '전체' && allMonths.length > 0) setMonthFilter(allMonths[0]) }}
+          onClick={() => { setViewMode(prev => prev === 'monthly' ? 'parts' : 'monthly'); if (viewMode === 'parts' && monthFilter === '전체' && allMonths.length > 0) setMonthFilter(allMonths[0]) }}
           className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${viewMode === 'monthly' ? 'bg-gray-800 text-white border-gray-800' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
           월별 칸반<span className="ml-1.5 opacity-40 font-normal">[t]</span>
         </button>
