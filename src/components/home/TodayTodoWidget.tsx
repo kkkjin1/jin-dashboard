@@ -71,7 +71,7 @@ export default function TodayTodoWidget() {
     <div className="bg-white rounded-xl border border-gray-100 p-4 h-full">
       <div className="flex items-center gap-2 mb-3">
         <h3 className="text-sm font-semibold text-gray-800">오늘 할 일</h3>
-        <span className="text-xs text-gray-400">Ctrl+1 빠른 추가</span>
+        <span className="text-xs text-gray-400">Ctrl+2 빠른 추가</span>
       </div>
 
       {/* 인라인 입력 */}

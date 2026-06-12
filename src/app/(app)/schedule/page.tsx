@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, parseISO, getDay, addMonths, subMonths, getDaysInMonth } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { useRouter } from 'next/navigation'
@@ -38,6 +38,7 @@ export default function SchedulePage() {
   const [dragOverId, setDragOverId] = useState<string | null>(null)
   const [dayOrder, setDayOrder] = useState<Record<string, string[]>>({})
   const router = useRouter()
+  const assigneeRef = useRef<HTMLSelectElement>(null)
   const supabase = createClient()
 
   useEffect(() => {
@@ -60,6 +61,7 @@ export default function SchedulePage() {
       if (e.key === 'w') setStatusFilter(s => s === '전체' ? '진행필요' : s === '진행필요' ? '진행중' : s === '진행중' ? '완료' : '전체')
       if (e.key === 'e') setReportFilter(r => r === '전체' ? '중간공유' : r === '중간공유' ? '최종보고' : '전체')
       if (e.key === 'r') setViewFilter(v => v === '전체' ? '업무만' : v === '업무만' ? '회의만' : '전체')
+      if (e.key === 'Tab') { e.preventDefault(); assigneeRef.current?.focus() }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -319,48 +321,52 @@ export default function SchedulePage() {
 
       {/* 필터 사이클 버튼 행 */}
       <div className="flex items-center gap-2 flex-wrap mb-4">
-        {/* 파트 사이클: 전체파트 → 코어파트 → 비즈파트 → 전체파트 */}
+        {/* q: 파트 */}
         <button
           onClick={() => setPartFilter(p => p === '전체' ? '코어' : p === '코어' ? '비즈' : '전체')}
           className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-colors ${
             partFilter !== '전체' ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
           }`}>
           {partFilter === '전체' ? '전체 파트' : `${partFilter}파트`}
+          <span className="ml-1.5 opacity-40 font-normal">[q]</span>
         </button>
 
-        {/* 담당자 - 옵션 많아서 드롭다운 유지 */}
-        <select value={assigneeFilter} onChange={e => setAssigneeFilter(e.target.value)}
-          className="text-xs border border-gray-200 rounded-full px-3 py-1.5 focus:outline-none bg-white text-gray-500">
-          <option value="전체">전체 담당자</option>
-          {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-        </select>
-
-        {/* 상태 사이클: 전체 → 진행필요 → 진행중 → 완료 → 전체 */}
+        {/* w: 상태 */}
         <button
           onClick={() => setStatusFilter(s => s === '전체' ? '진행필요' : s === '진행필요' ? '진행중' : s === '진행중' ? '완료' : '전체')}
           className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-colors ${
             statusFilter !== '전체' ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
           }`}>
           {statusFilter === '전체' ? '전체 상태' : statusFilter}
+          <span className="ml-1.5 opacity-40 font-normal">[w]</span>
         </button>
 
-        {/* 보고구분 사이클: 전체 → 중간공유 → 최종보고 → 전체 */}
+        {/* e: 보고구분 */}
         <button
           onClick={() => setReportFilter(r => r === '전체' ? '중간공유' : r === '중간공유' ? '최종보고' : '전체')}
           className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-colors ${
             reportFilter !== '전체' ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
           }`}>
           {reportFilter === '전체' ? '보고구분' : reportFilter}
+          <span className="ml-1.5 opacity-40 font-normal">[e]</span>
         </button>
 
-        {/* 업무/회의 사이클: 전체 → 업무만 → 회의만 → 전체 */}
+        {/* r: 업무/회의 */}
         <button
           onClick={() => setViewFilter(v => v === '전체' ? '업무만' : v === '업무만' ? '회의만' : '전체')}
           className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-colors ${
             viewFilter !== '전체' ? 'bg-purple-500 text-white border-purple-500' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
           }`}>
           {viewFilter === '전체' ? '업무+회의' : viewFilter}
+          <span className="ml-1.5 opacity-40 font-normal">[r]</span>
         </button>
+
+        {/* Tab: 담당자 select */}
+        <select ref={assigneeRef} value={assigneeFilter} onChange={e => setAssigneeFilter(e.target.value)}
+          className="text-xs border border-gray-200 rounded-full px-3 py-1.5 focus:outline-none focus:border-gray-400 bg-white text-gray-500">
+          <option value="전체">전체 담당자 [Tab]</option>
+          {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+        </select>
 
         {/* 반복 추가 버튼 유지 */}
         <button onClick={() => setShowRepeatModal(true)}

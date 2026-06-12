@@ -161,22 +161,17 @@ export default function TaskDetailPage() {
   const noteTitleRef = useRef<HTMLInputElement>(null)
   const noteAreaRef = useRef<HTMLTextAreaElement>(null)
   const autoFocused = useRef(false)
-  const contentRef = useRef<HTMLDivElement>(null)
 
-  function startResize(e: React.MouseEvent) {
-    e.preventDefault()
-    const startX = e.clientX
-    const startW = contentRef.current?.offsetWidth ?? 900
-    const onMove = (ev: MouseEvent) => {
-      setContentWidth(Math.max(480, Math.min(1600, startW + (ev.clientX - startX))))
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const tag = (e.target as HTMLElement).tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      if (e.ctrlKey || e.metaKey || e.altKey) return
+      if (e.key === 'q') setContentWidth(prev => prev ? null : 720)
     }
-    const onUp = () => {
-      document.removeEventListener('mousemove', onMove)
-      document.removeEventListener('mouseup', onUp)
-    }
-    document.addEventListener('mousemove', onMove)
-    document.addEventListener('mouseup', onUp)
-  }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [])
 
   useEffect(() => {
     async function load() {
@@ -355,12 +350,10 @@ export default function TaskDetailPage() {
   const member = members.find(m => m.id === task.assignee_id)
 
   return (
-    <div className="flex items-stretch min-h-full">
-      <div
-        ref={contentRef}
-        className="p-8 min-w-0"
-        style={contentWidth ? { width: `${contentWidth}px`, flexShrink: 0 } : { flex: 1 }}
-      >
+    <div
+      className="p-8"
+      style={contentWidth ? { width: `${contentWidth}px` } : {}}
+    >
       {toast && <Toast message={toast} onDone={() => setToast('')} />}
 
       {showRetroModal && (
@@ -410,7 +403,7 @@ export default function TaskDetailPage() {
             onClick={() => setContentWidth(prev => prev ? null : 720)}
             className={`text-xs border rounded-lg px-3 py-1.5 transition-colors ${contentWidth ? 'border-blue-200 text-blue-500 bg-blue-50 hover:bg-blue-100' : 'border-gray-200 text-gray-400 hover:bg-white'}`}
           >
-            {contentWidth ? `↔ 전체 너비 (${contentWidth}px)` : '⟵ 좁게 보기'}
+            {contentWidth ? '↔ 전체 너비' : '⟵ 좁게 보기'} <span className="opacity-50">[q]</span>
           </button>
           <button onClick={handleDownloadMd} className="text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-white transition-colors">
             MD 다운로드
@@ -494,8 +487,12 @@ export default function TaskDetailPage() {
               <FormattingToolbar textareaRef={noteAreaRef} value={noteInput} onChange={setNoteInput} />
               <SmartTextarea ref={noteAreaRef} value={noteInput} onChange={setNoteInput}
                 onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) saveNote() }}
-                placeholder={`노트 입력 (Ctrl+Enter 저장)\n\n날짜 태그: [중간공유 6/20] [최종보고 7/10] [시작 6/1]\n확장 태그: [담당자 김다슬] [유형 기획] [상태 진행중] [파트 코어]`}
+                placeholder="노트 입력 (Ctrl+Enter 저장)"
                 className="w-full text-sm focus:outline-none resize-none text-gray-700 placeholder:text-gray-300" style={{ minHeight: '200px' }} />
+              <div className="text-[11px] text-gray-200 mt-2 leading-relaxed select-none pointer-events-none">
+                날짜: [중간공유 6/20] · [최종보고 7/10] · [시작 6/1]<br />
+                확장: [담당자 김다슬] · [유형 기획] · [상태 진행중] · [파트 코어]
+              </div>
               <div className="flex justify-end mt-2">
                 <button onClick={saveNote} disabled={!noteInput.trim()}
                   className="text-xs bg-gray-800 text-white px-4 py-1.5 rounded-lg hover:bg-gray-700 disabled:opacity-30 transition-colors">
@@ -674,19 +671,6 @@ export default function TaskDetailPage() {
               </div>
             )}
           </div>
-        </div>
-      </div>
-      </div>
-      {/* 오른쪽 드래그 핸들 */}
-      <div
-        onMouseDown={startResize}
-        className="w-3 flex-shrink-0 cursor-ew-resize border-l border-gray-100 hover:border-blue-200 hover:bg-blue-50 transition-colors group flex items-center justify-center"
-        title="드래그하여 너비 조절"
-      >
-        <div className="flex flex-col gap-1 opacity-30 group-hover:opacity-100 transition-opacity">
-          <div className="w-0.5 h-4 bg-gray-400 group-hover:bg-blue-400 rounded-full transition-colors" />
-          <div className="w-0.5 h-4 bg-gray-400 group-hover:bg-blue-400 rounded-full transition-colors" />
-          <div className="w-0.5 h-4 bg-gray-400 group-hover:bg-blue-400 rounded-full transition-colors" />
         </div>
       </div>
     </div>
