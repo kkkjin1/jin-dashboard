@@ -38,7 +38,7 @@ export default function HomeCalendar({ tasks, meetings }: Props) {
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 p-5">
+    <div className="bg-white rounded-xl border border-gray-100 p-5 flex flex-col h-full">
       <div className="flex items-center justify-between mb-4">
         <h2 className="font-semibold text-gray-800 text-sm">
           {format(current, 'yyyy년 M월', { locale: ko })}
@@ -59,7 +59,7 @@ export default function HomeCalendar({ tasks, meetings }: Props) {
         </div>
       </div>
 
-      <div className="grid grid-cols-7 gap-px">
+      <div className="grid grid-cols-7 gap-px flex-1">
         {['일', '월', '화', '수', '목', '금', '토'].map(d => (
           <div key={d} className="text-center text-xs text-gray-400 font-medium py-2">{d}</div>
         ))}

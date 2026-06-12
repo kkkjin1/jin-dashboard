@@ -4,17 +4,18 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { Home, ClipboardList, Trophy, MessageSquare, CalendarDays, StickyNote, Users, BookOpen, Settings } from 'lucide-react'
 
 const navItems = [
-  { href: '/', label: '홈', key: '1' },
-  { href: '/tasks', label: '업무 목록', key: '2' },
-  { href: '/completed', label: '완료 성과', key: '3' },
-  { href: '/meetings', label: '회의록', key: '4' },
-  { href: '/schedule', label: '일정', key: '5' },
-  { href: '/memos', label: '메모', key: '6' },
-  { href: '/one-on-one', label: '1on1', key: '7' },
-  { href: '/learning', label: '학습자료', key: '8' },
-  { href: '/settings', label: '설정', key: '' },
+  { href: '/', label: '홈', key: '1', icon: Home },
+  { href: '/tasks', label: '업무 목록', key: '2', icon: ClipboardList },
+  { href: '/completed', label: '완료 성과', key: '3', icon: Trophy },
+  { href: '/meetings', label: '회의록', key: '4', icon: MessageSquare },
+  { href: '/schedule', label: '일정', key: '5', icon: CalendarDays },
+  { href: '/memos', label: '메모', key: '6', icon: StickyNote },
+  { href: '/one-on-one', label: '1on1', key: '7', icon: Users },
+  { href: '/learning', label: '학습자료', key: '8', icon: BookOpen },
+  { href: '/settings', label: '설정', key: '', icon: Settings },
 ]
 
 const KEY_ROUTES: Record<string, string> = {
@@ -73,11 +74,12 @@ export default function Sidebar() {
             return (
               <li key={item.href}>
                 <Link href={item.href}
-                  className={`flex items-center px-3 py-2 rounded-lg text-sm transition-colors ${
+                  className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors ${
                     isActive
                       ? 'bg-[#5DBD97]/15 text-[#5DBD97] font-medium'
                       : 'text-slate-300 hover:bg-white/5 hover:text-white'
                   }`}>
+                  <item.icon size={15} strokeWidth={1.75} className="flex-shrink-0" />
                   <span>{item.label}</span>
                 </Link>
               </li>

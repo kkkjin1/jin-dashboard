@@ -71,7 +71,7 @@ export default function LearningPage() {
 
   async function handleColAdd(tag: string) {
     if (!colAddTitle.trim()) { setAddingInCol(null); setColAddTitle(''); setColAddSource(''); setColAddNote(''); setColAddMedia(''); return }
-    const initTags = tag === '미분류' ? [] : [tag]
+    const initTags = (tag === '미분류' || tag === '__new__') ? [] : [tag]
     const notes = colAddNote.trim()
       ? [{ title: '노트', content: colAddNote.trim(), created_at: new Date().toISOString() }]
       : []
@@ -114,19 +114,6 @@ export default function LearningPage() {
     return true
   })
 
-  // Group by first tag (or '미분류')
-  const tagColumns = ['미분류', ...customTags]
-  const grouped: Record<string, LearningResource[]> = {}
-  tagColumns.forEach(t => { grouped[t] = [] })
-  filtered.forEach(r => {
-    const tags = r.tags ?? []
-    const firstTag = tags.find(t => customTags.includes(t))
-    const key = firstTag ?? '미분류'
-    if (!grouped[key]) grouped[key] = []
-    grouped[key].push(r)
-  })
-  const activeColumns = tagColumns
-
   return (
     <div className="p-8">
       <div className="flex items-center justify-between mb-5">
@@ -136,7 +123,7 @@ export default function LearningPage() {
             className={`text-xs px-3 py-2 rounded-lg border transition-colors ${managingTags ? 'bg-[#5DBD97] text-white border-[#5DBD97]' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
             태그 관리
           </button>
-          <button onClick={() => setShowAddInput(true)}
+          <button onClick={() => setAddingInCol('__new__')}
             className="text-sm bg-[#5DBD97] text-white px-4 py-2 rounded-lg hover:bg-[#4aab84] transition-colors">
             + 새 자료
           </button>
@@ -167,14 +154,32 @@ export default function LearningPage() {
         </div>
       )}
 
-      {/* 인라인 추가 */}
-      {showAddInput && (
-        <div className="bg-white rounded-xl border border-blue-200 px-4 py-3 mb-5">
-          <input autoFocus value={addingTitle} onChange={e => setAddingTitle(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') { setShowAddInput(false); setAddingTitle('') } }}
-            onBlur={handleAdd}
-            placeholder="학습자료 제목 입력 후 엔터"
-            className="w-full text-sm focus:outline-none text-gray-700" />
+      {/* 새 자료 추가 폼 */}
+      {addingInCol === '__new__' && (
+        <div className="bg-white rounded-xl border border-[#5DBD97]/30 p-5 mb-5 shadow-sm">
+          <input autoFocus value={colAddTitle} onChange={e => setColAddTitle(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Escape') resetColAdd() }}
+            placeholder="제목 *"
+            className="w-full text-sm font-semibold focus:outline-none text-gray-800 mb-3 border-b border-gray-100 pb-2" />
+          <input value={colAddSource} onChange={e => setColAddSource(e.target.value)}
+            placeholder="출처 URL / 제목 (선택)"
+            className="w-full text-xs focus:outline-none text-gray-500 mb-2" />
+          <textarea value={colAddNote} onChange={e => setColAddNote(e.target.value)}
+            placeholder="노트 내용 (선택)" rows={2}
+            className="w-full text-xs focus:outline-none resize-none text-gray-500 leading-relaxed border-b border-gray-100 pb-2 mb-3" />
+          <div className="flex items-center gap-2 flex-wrap">
+            {MEDIA_TYPES.map(type => (
+              <button key={type} onClick={() => setColAddMedia(colAddMedia === type ? '' : type)}
+                className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${colAddMedia === type ? 'bg-[#5DBD97] text-white border-[#5DBD97]' : 'border-gray-200 text-gray-400 hover:border-gray-400'}`}>
+                {MEDIA_ICONS[type]} {type}
+              </button>
+            ))}
+            <div className="ml-auto flex gap-2">
+              <button onClick={resetColAdd} className="text-xs text-gray-400 px-3 py-1.5">취소</button>
+              <button onClick={() => handleColAdd('__new__')} disabled={!colAddTitle.trim()}
+                className="text-xs bg-[#5DBD97] text-white px-4 py-1.5 rounded-lg disabled:opacity-30">저장</button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -249,74 +254,42 @@ export default function LearningPage() {
       </div>
 
       {loading ? (
-        <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="bg-white rounded-xl border border-gray-100 h-16 animate-pulse" />)}</div>
+        <div className="grid grid-cols-3 gap-4">
+          {[1,2,3,4,5,6].map(i => <div key={i} className="bg-white rounded-xl border border-gray-100 h-32 animate-pulse" />)}
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-16">
+          <p className="text-gray-300 text-sm">{mediaFilter ? `${mediaFilter} 자료가 없습니다` : '학습자료가 없습니다'}</p>
+        </div>
       ) : (
-        <div className="flex gap-4 overflow-x-auto pb-4">
-          {activeColumns.map(tag => {
-            const colResources = grouped[tag] ?? []
-            return (
-              <div key={tag} className="flex-shrink-0 w-80">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-xs font-semibold text-gray-600">{tag}</span>
-                  <span className="text-xs text-gray-400">{colResources.length}</span>
-                </div>
-                <div className="space-y-2">
-                  {colResources.length === 0 && (
-                    <p className="text-xs text-gray-300 text-center py-4 bg-gray-50 rounded-xl border border-gray-100 border-dashed">없음</p>
-                  )}
-                  {colResources.map(r => (
-                    <Link key={r.id} href={`/learning/${r.id}`}>
-                      <div className="bg-white rounded-xl border border-gray-100 px-3 py-4 hover:border-gray-200 transition-colors overflow-hidden">
-                        {r.media_type && <p className="text-xs text-gray-400 mb-0.5 truncate">{MEDIA_ICONS[r.media_type] ?? ''} {r.media_type}</p>}
-                        <p className="text-sm font-medium text-gray-800 leading-snug line-clamp-2">{r.title}</p>
-                        {r.source && <p className="text-xs text-gray-400 mt-0.5 truncate">출처: {r.source}</p>}
-                        <div className="flex items-center justify-between mt-1">
-                          <div className="flex gap-1 flex-wrap">
-                            {(r.tags ?? []).map(t => (
-                              <span key={t} className="text-xs bg-[#EBF7F2] text-[#5DBD97] px-1.5 py-0.5 rounded-full">{t}</span>
-                            ))}
-                          </div>
-                          <span className="text-xs text-gray-300 flex-shrink-0">{r.notes.length}노트</span>
-                        </div>
-                      </div>
-                    </Link>
+        <div className="grid grid-cols-3 gap-4">
+          {filtered.map(r => (
+            <Link key={r.id} href={`/learning/${r.id}`}>
+              <div className="bg-white rounded-xl border border-gray-100 hover:border-gray-200 px-5 py-5 transition-colors h-full">
+                {r.media_type && (
+                  <span className={`inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full mb-3 ${
+                    r.media_type === '책' ? 'bg-amber-50 text-amber-600' :
+                    r.media_type === '영상' ? 'bg-rose-50 text-rose-500' :
+                    r.media_type === '아티클' ? 'bg-[#EBF7F2] text-[#5DBD97]' :
+                    r.media_type === '강의' ? 'bg-[#1C2B3A]/5 text-[#1C2B3A]' :
+                    'bg-gray-50 text-gray-500'
+                  }`}>
+                    {MEDIA_ICONS[r.media_type]} {r.media_type}
+                  </span>
+                )}
+                <p className="text-sm font-semibold text-gray-800 leading-snug mb-1">{r.title}</p>
+                {r.source && <p className="text-xs text-gray-400 truncate mb-2">출처: {r.source}</p>}
+                <div className="flex items-center gap-1.5 flex-wrap mt-auto">
+                  {(r.tags ?? []).slice(0, 3).map(t => (
+                    <span key={t} className="text-xs bg-[#EBF7F2] text-[#5DBD97] px-1.5 py-0.5 rounded-full">{t}</span>
                   ))}
-                  {addingInCol === tag ? (
-                    <div className="bg-white rounded-xl border border-blue-200 p-3 space-y-2">
-                      <input autoFocus value={colAddTitle} onChange={e => setColAddTitle(e.target.value)}
-                        onKeyDown={e => { if (e.key === 'Escape') resetColAdd() }}
-                        placeholder="제목 *"
-                        className="w-full text-sm font-medium focus:outline-none text-gray-800" />
-                      <input value={colAddSource} onChange={e => setColAddSource(e.target.value)}
-                        placeholder="출처 URL / 제목 (선택)"
-                        className="w-full text-xs focus:outline-none text-gray-500 border-t border-gray-100 pt-2" />
-                      <textarea value={colAddNote} onChange={e => setColAddNote(e.target.value)}
-                        placeholder="내용 노트 (선택)" rows={3}
-                        className="w-full text-xs focus:outline-none resize-none text-gray-500 leading-relaxed" />
-                      <div className="flex gap-1 flex-wrap">
-                        {MEDIA_TYPES.map(type => (
-                          <button key={type} onClick={() => setColAddMedia(colAddMedia === type ? '' : type)}
-                            className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${colAddMedia === type ? 'bg-[#5DBD97] text-white border-[#5DBD97]' : 'border-gray-200 text-gray-400 hover:border-gray-400'}`}>
-                            {MEDIA_ICONS[type]} {type}
-                          </button>
-                        ))}
-                      </div>
-                      <div className="flex gap-1 justify-end pt-1">
-                        <button onClick={resetColAdd} className="text-xs text-gray-400 px-2 py-1">취소</button>
-                        <button onClick={() => handleColAdd(tag)} disabled={!colAddTitle.trim()}
-                          className="text-xs bg-[#5DBD97] text-white px-3 py-1 rounded-lg disabled:opacity-30">저장</button>
-                      </div>
-                    </div>
-                  ) : (
-                    <button onClick={() => { setAddingInCol(tag); setColAddTitle('') }}
-                      className="w-full text-left px-2 py-1.5 text-xs text-gray-300 hover:text-gray-500 hover:bg-gray-50 rounded-lg transition-colors">
-                      + 추가
-                    </button>
+                  {r.notes.length > 0 && (
+                    <span className="text-xs text-gray-300 ml-auto">{r.notes.length}노트</span>
                   )}
                 </div>
               </div>
-            )
-          })}
+            </Link>
+          ))}
         </div>
       )}
     </div>

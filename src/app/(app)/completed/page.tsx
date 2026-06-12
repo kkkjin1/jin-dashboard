@@ -139,16 +139,16 @@ export default function CompletedPage() {
       </div>
 
       {/* 성과 요약 바 */}
-      <div className="grid grid-cols-6 gap-2 mb-4">
+      <div className="grid grid-cols-6 gap-3 mb-5">
         {COLUMNS.map(col => {
           const count = getColTasks(col.key).length
           return (
-            <div key={col.key ?? '__null__'} className={`rounded-xl p-3 text-center ${col.bg}`}>
-              <div className="flex items-center justify-center gap-1 mb-1">
-                <span className={`w-2 h-2 rounded-full ${col.accent}`} />
-                <p className="text-xs font-medium text-gray-500">{col.label}</p>
+            <div key={col.key ?? '__null__'} className={`rounded-xl px-3 py-5 text-center ${col.bg}`}>
+              <div className="flex items-center justify-center gap-1.5 mb-2">
+                <span className={`w-2.5 h-2.5 rounded-full ${col.accent}`} />
+                <p className="text-sm font-semibold text-gray-600">{col.label}</p>
               </div>
-              <p className="text-xl font-bold text-gray-800">{count}</p>
+              <p className="text-3xl font-bold text-gray-800">{count}</p>
             </div>
           )
         })}
@@ -202,7 +202,7 @@ export default function CompletedPage() {
               onDragOver={e => { e.preventDefault(); setDragOverCol(colKey) }}
               onDragLeave={() => setDragOverCol(null)}
               onDrop={() => handleDrop(col.key)}
-              className={`flex-shrink-0 w-56 rounded-xl p-3 transition-colors ${col.bg} ${dragOverCol === colKey ? 'opacity-90 scale-[1.01]' : ''}`}>
+              className={`flex-shrink-0 w-64 rounded-xl p-4 transition-colors ${col.bg} ${dragOverCol === colKey ? 'opacity-90 scale-[1.01]' : ''}`}>
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-1.5">
                   <span className={`w-2 h-2 rounded-full ${col.accent}`} />
@@ -240,9 +240,11 @@ export default function CompletedPage() {
       </div>
 
       {/* 회고 기록 (인사이트) */}
-      <div className="mt-8">
-        <h2 className="text-sm font-bold text-gray-800 mb-1">회고 기록</h2>
-        <p className="text-xs text-gray-400 mb-4">완료 업무의 잘한점 · 아쉬운점 · 개선점</p>
+      <div className="mt-6">
+        <div className="flex items-center gap-2 mb-3">
+          <h2 className="text-sm font-bold text-gray-800">회고 기록</h2>
+          <span className="text-xs text-gray-400">완료 업무의 잘한점 · 아쉬운점 · 개선점</span>
+        </div>
         {filtered.length === 0 ? (
           <p className="text-sm text-gray-300 text-center py-8">해당 기간에 완료된 업무가 없습니다</p>
         ) : (
