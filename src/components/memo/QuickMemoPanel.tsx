@@ -31,9 +31,35 @@ export default function QuickMemoPanel() {
   const [tag, setTag] = useState<MemoTag>('업무관련')
   const [saving, setSaving] = useState(false)
   const [savedMsg, setSavedMsg] = useState('')
+  const [panelWidth, setPanelWidth] = useState(384) // w-96 = 384px
+  const [panelHeight, setPanelHeight] = useState(400)
+  const isResizingW = useRef(false)
+  const isResizingH = useRef(false)
   const titleRef = useRef<HTMLInputElement>(null)
   const supabase = createClient()
   const router = useRouter()
+
+  // draft 복원
+  useEffect(() => {
+    const saved = localStorage.getItem('quick_memo_draft')
+    if (saved) {
+      try {
+        const { title: t, content: c, tag: tg } = JSON.parse(saved)
+        if (t) setTitle(t)
+        if (c) setContent(c)
+        if (tg) setTag(tg)
+      } catch {}
+    }
+  }, [])
+
+  // draft 저장
+  useEffect(() => {
+    if (title || content) {
+      localStorage.setItem('quick_memo_draft', JSON.stringify({ title, content, tag }))
+    } else {
+      localStorage.removeItem('quick_memo_draft')
+    }
+  }, [title, content, tag])
 
   useEffect(() => {
     if (open) setTimeout(() => titleRef.current?.focus(), 100)
@@ -61,6 +87,42 @@ export default function QuickMemoPanel() {
     return () => window.removeEventListener('keydown', onKey)
   }, [open, router])
 
+  function startResizeW(e: React.MouseEvent) {
+    e.preventDefault()
+    isResizingW.current = true
+    const startX = e.clientX
+    const startW = panelWidth
+    const onMove = (ev: MouseEvent) => {
+      if (!isResizingW.current) return
+      setPanelWidth(Math.max(280, Math.min(800, startW - (ev.clientX - startX))))
+    }
+    const onUp = () => {
+      isResizingW.current = false
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+    }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }
+
+  function startResizeH(e: React.MouseEvent) {
+    e.preventDefault()
+    isResizingH.current = true
+    const startY = e.clientY
+    const startH = panelHeight
+    const onMove = (ev: MouseEvent) => {
+      if (!isResizingH.current) return
+      setPanelHeight(Math.max(200, Math.min(800, startH - (ev.clientY - startY))))
+    }
+    const onUp = () => {
+      isResizingH.current = false
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+    }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }
+
   const meetingDate = tag === '회의관련' ? parseMeetingDate(title) : null
 
   async function handleSave() {
@@ -85,6 +147,7 @@ export default function QuickMemoPanel() {
       setSavedMsg('저장됨!')
     }
 
+    localStorage.removeItem('quick_memo_draft')
     setTitle(''); setContent(''); setTag('업무관련')
     setSaving(false)
     setTimeout(() => { setSavedMsg(''); setOpen(false) }, 1200)
@@ -94,8 +157,21 @@ export default function QuickMemoPanel() {
     <>
       {open && <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />}
 
-      <div className={`fixed bottom-0 right-6 z-50 w-96 bg-white rounded-t-2xl shadow-2xl border border-gray-200 transition-transform duration-300 ${open ? 'translate-y-0' : 'translate-y-full'}`}>
-        <div className="p-5">
+      <div
+        style={{ width: `${panelWidth}px`, height: open ? `${panelHeight}px` : undefined }}
+        className={`fixed bottom-0 right-6 z-50 bg-white rounded-t-2xl shadow-2xl border border-gray-200 transition-transform duration-300 overflow-hidden ${open ? 'translate-y-0' : 'translate-y-full'}`}>
+
+        {/* 상단 리사이즈 핸들 (높이 조절) */}
+        <div
+          onMouseDown={startResizeH}
+          className="absolute top-0 left-0 right-0 h-1.5 cursor-ns-resize hover:bg-gray-200 transition-colors rounded-t-2xl z-10" />
+
+        {/* 왼쪽 리사이즈 핸들 (너비 조절) */}
+        <div
+          onMouseDown={startResizeW}
+          className="absolute top-0 left-0 bottom-0 w-1.5 cursor-ew-resize hover:bg-gray-200 transition-colors z-10" />
+
+        <div className="p-5 h-full overflow-y-auto">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-gray-800 text-sm">빠른 메모</h3>
             <button onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-600 text-lg leading-none">×</button>

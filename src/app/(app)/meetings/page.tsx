@@ -31,7 +31,7 @@ export default function MeetingsPage() {
   const [collapsedMonths, setCollapsedMonths] = useState<Set<string>>(new Set())
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set())
   const [expandedMeetingIds, setExpandedMeetingIds] = useState<Set<string>>(new Set())
-  const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list')
+  const [viewMode, setViewMode] = useState<'list' | 'kanban'>('kanban')
   const supabase = createClient()
   const router = useRouter()
 

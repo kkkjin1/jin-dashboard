@@ -155,10 +155,31 @@ export default function TaskDetailPage() {
   const [showAllNotesMeetingIds, setShowAllNotesMeetingIds] = useState<Set<string>>(new Set())
   const [openMeetingNoteKeys, setOpenMeetingNoteKeys] = useState<Set<string>>(new Set())
 
+  const [contentWidth, setContentWidth] = useState<number | null>(null)
+  const isResizing = useRef(false)
+
   const titleRef = useRef<HTMLInputElement>(null)
   const noteTitleRef = useRef<HTMLInputElement>(null)
   const noteAreaRef = useRef<HTMLTextAreaElement>(null)
   const autoFocused = useRef(false)
+
+  function startResize(e: React.MouseEvent) {
+    e.preventDefault()
+    isResizing.current = true
+    const startX = e.clientX
+    const startW = contentWidth ?? (e.currentTarget.parentElement?.offsetWidth ?? 900)
+    const onMove = (ev: MouseEvent) => {
+      if (!isResizing.current) return
+      setContentWidth(Math.max(480, Math.min(1400, startW + (ev.clientX - startX))))
+    }
+    const onUp = () => {
+      isResizing.current = false
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+    }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }
 
   useEffect(() => {
     async function load() {
@@ -337,6 +358,7 @@ export default function TaskDetailPage() {
   const member = members.find(m => m.id === task.assignee_id)
 
   return (
+    <div className="relative" style={contentWidth ? { width: `${contentWidth}px` } : undefined}>
     <div className="p-8 max-w-6xl">
       {toast && <Toast message={toast} onDone={() => setToast('')} />}
 
@@ -645,6 +667,12 @@ export default function TaskDetailPage() {
           </div>
         </div>
       </div>
+    </div>
+      {/* 오른쪽 리사이즈 핸들 */}
+      <div
+        onMouseDown={startResize}
+        className="absolute top-0 right-0 bottom-0 w-1.5 cursor-ew-resize hover:bg-blue-200 transition-colors opacity-0 hover:opacity-100"
+        title="드래그하여 너비 조절" />
     </div>
   )
 }

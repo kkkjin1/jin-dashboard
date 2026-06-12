@@ -10,7 +10,6 @@ import { fetchAllTasks, fetchMembers } from '@/lib/tasks'
 import type { Task, Member, TaskStatus, Part, Meeting } from '@/types'
 
 const STATUSES: TaskStatus[] = ['진행필요', '진행중', '완료']
-const PARTS: Part[] = ['코어', '비즈']
 
 interface DayTask {
   task: Task
@@ -27,6 +26,9 @@ export default function SchedulePage() {
   const [statusFilter, setStatusFilter] = useState<TaskStatus | '전체'>('전체')
   const [partFilter, setPartFilter] = useState<Part | '전체'>('전체')
   const [viewFilter, setViewFilter] = useState<'전체' | '업무만' | '회의만'>('전체')
+  const [reportFilter, setReportFilter] = useState<'전체' | '중간공유' | '최종보고'>('전체')
+  const [showPrevCal, setShowPrevCal] = useState(false)
+  const [showNextCal, setShowNextCal] = useState(false)
   const [showAnalysis, setShowAnalysis] = useState(true)
   const [analysisPeriod, setAnalysisPeriod] = useState<'이번주' | '이번달' | '직전월'>('이번달')
   const [showRepeatModal, setShowRepeatModal] = useState(false)
@@ -88,8 +90,14 @@ export default function SchedulePage() {
     if (viewFilter === '회의만') return []
     const result: DayTask[] = []
     filtered.forEach(t => {
-      if (t.mid_date && isSameDay(parseISO(t.mid_date), day)) result.push({ task: t, dateType: 'mid' })
-      if (t.end_date && isSameDay(parseISO(t.end_date), day)) result.push({ task: t, dateType: 'end' })
+      if (t.mid_date && isSameDay(parseISO(t.mid_date), day)) {
+        if (reportFilter === '전체' || reportFilter === '중간공유')
+          result.push({ task: t, dateType: 'mid' })
+      }
+      if (t.end_date && isSameDay(parseISO(t.end_date), day)) {
+        if (reportFilter === '전체' || reportFilter === '최종보고')
+          result.push({ task: t, dateType: 'end' })
+      }
     })
     return result
   }
@@ -245,58 +253,41 @@ export default function SchedulePage() {
     <div className="p-8">
       <h1 className="text-xl font-bold text-gray-900 mb-5">일정</h1>
 
-      {/* 필터 영역 */}
-      <div className="flex flex-wrap gap-3 mb-5">
-        {/* 파트 필터 */}
-        <div className="flex gap-1.5">
-          {(['전체', ...PARTS] as const).map(p => (
-            <button key={p} onClick={() => setPartFilter(p)}
-              className={`text-xs px-3 py-1.5 rounded-full transition-colors ${partFilter === p ? 'bg-emerald-100 text-emerald-700 font-medium' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
-              {p === '전체' ? '전체 파트' : `${p}파트`}
-            </button>
-          ))}
-        </div>
-
-        <div className="w-px bg-gray-200 self-stretch" />
-
-        {/* 담당자 드롭박스 */}
+      {/* 필터 드롭다운 행 */}
+      <div className="flex items-center gap-2 flex-wrap mb-4">
+        {/* 파트 */}
+        <select value={partFilter} onChange={e => setPartFilter(e.target.value as Part | '전체')}
+          className="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none bg-white text-gray-600">
+          <option value="전체">전체 파트</option>
+          <option value="코어">코어파트</option>
+          <option value="비즈">비즈파트</option>
+        </select>
+        {/* 담당자 */}
         <select value={assigneeFilter} onChange={e => setAssigneeFilter(e.target.value)}
-          className="text-xs border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-600 focus:outline-none">
+          className="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none bg-white text-gray-600">
           <option value="전체">전체 담당자</option>
-          <option value="me">나</option>
           {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
         </select>
-
-        {/* 상태 필터 */}
-        <div className="flex gap-1.5">
-          <button onClick={() => setStatusFilter('전체')}
-            className={`text-xs px-3 py-1.5 rounded-full transition-colors ${statusFilter === '전체' ? 'bg-emerald-100 text-emerald-700 font-medium' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
-            전체 상태
-          </button>
-          {STATUSES.map(s => (
-            <button key={s} onClick={() => setStatusFilter(s)}
-              className={`text-xs px-3 py-1.5 rounded-full transition-colors ${statusFilter === s ? 'bg-emerald-100 text-emerald-700 font-medium' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
-              {s}
-            </button>
-          ))}
-        </div>
-
-        <div className="w-px bg-gray-200 self-stretch" />
-
-        {/* 보기 필터 */}
-        <div className="flex gap-1">
-          {(['전체', '업무만', '회의만'] as const).map(v => (
-            <button key={v} onClick={() => setViewFilter(v)}
-              className={`text-xs px-3 py-1.5 rounded-full transition-colors ${
-                viewFilter === v
-                  ? v === '회의만' ? 'bg-purple-600 text-white' : 'bg-emerald-100 text-emerald-700 font-medium'
-                  : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-              }`}>
-              {v === '회의만' ? '💬 회의만' : v}
-            </button>
-          ))}
-        </div>
-
+        {/* 상태 */}
+        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as TaskStatus | '전체')}
+          className="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none bg-white text-gray-600">
+          <option value="전체">전체 상태</option>
+          {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+        {/* 보고구분 */}
+        <select value={reportFilter} onChange={e => setReportFilter(e.target.value as '전체' | '중간공유' | '최종보고')}
+          className="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none bg-white text-gray-600">
+          <option value="전체">전체 보고</option>
+          <option value="중간공유">중간공유</option>
+          <option value="최종보고">최종보고</option>
+        </select>
+        {/* 업무/회의 */}
+        <select value={viewFilter} onChange={e => setViewFilter(e.target.value as '전체' | '업무만' | '회의만')}
+          className="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none bg-white text-gray-600">
+          <option value="전체">업무+회의</option>
+          <option value="업무만">업무만</option>
+          <option value="회의만">회의만</option>
+        </select>
         <button onClick={() => setShowRepeatModal(true)}
           className="text-xs border border-dashed border-gray-300 text-gray-400 hover:border-gray-500 hover:text-gray-600 px-3 py-1.5 rounded-lg transition-colors">
           🔄 반복 추가
@@ -510,10 +501,36 @@ export default function SchedulePage() {
           )}
         </div>
 
-        {/* 미니 캘린더 (전월/익월) */}
-        <div className="space-y-3 mt-2">
-          <MiniCal monthDate={prevMonthNav} onClick={() => setCurrent(prevMonthNav)} />
-          <MiniCal monthDate={nextMonthNav} onClick={() => setCurrent(nextMonthNav)} />
+        {/* 미니 캘린더 (전월/익월) 토글 */}
+        <div className="mt-3 space-y-2">
+          {/* 전월 토글 */}
+          <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+            <button
+              className="w-full flex items-center justify-between px-3 py-2 text-xs text-gray-500 hover:bg-gray-50"
+              onClick={() => setShowPrevCal(v => !v)}>
+              <span>{format(prevMonthNav, 'yy년 M월', { locale: ko })} (전월)</span>
+              <span>{showPrevCal ? '▲' : '▼'}</span>
+            </button>
+            {showPrevCal && (
+              <div className="p-2">
+                <MiniCalInline monthDate={prevMonthNav} onClick={() => setCurrent(prevMonthNav)} />
+              </div>
+            )}
+          </div>
+          {/* 익월 토글 */}
+          <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+            <button
+              className="w-full flex items-center justify-between px-3 py-2 text-xs text-gray-500 hover:bg-gray-50"
+              onClick={() => setShowNextCal(v => !v)}>
+              <span>{format(nextMonthNav, 'yy년 M월', { locale: ko })} (익월)</span>
+              <span>{showNextCal ? '▲' : '▼'}</span>
+            </button>
+            {showNextCal && (
+              <div className="p-2">
+                <MiniCalInline monthDate={nextMonthNav} onClick={() => setCurrent(nextMonthNav)} />
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -568,33 +585,29 @@ function isKoreanHoliday(d: Date): boolean {
   return KR_HOLIDAYS.has(format(d, 'yyyy-MM-dd'))
 }
 
-function MiniCal({ monthDate, onClick }: { monthDate: Date; onClick: () => void }) {
+function MiniCalInline({ monthDate, onClick }: { monthDate: Date; onClick: () => void }) {
   const mStart = startOfMonth(monthDate)
   const mEnd = endOfMonth(monthDate)
   const mDays = eachDayOfInterval({ start: mStart, end: mEnd })
   const mStartDow = getDay(mStart)
   const today = new Date()
   return (
-    <div className="bg-white rounded-xl border border-gray-100 p-2 cursor-pointer hover:border-gray-200 transition-colors" onClick={onClick}>
-      <p className="text-[10px] font-semibold text-gray-500 text-center mb-0.5">
-        {format(monthDate, 'yy년 M월', { locale: ko })}
-      </p>
-      <div className="grid grid-cols-7 text-center">
-        {['일','월','화','수','목','금','토'].map((d, i) => (
-          <div key={d} className={`text-[9px] pb-0.5 ${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-gray-300'}`}>{d}</div>
-        ))}
-        {Array.from({ length: mStartDow }, (_, i) => <div key={`p${i}`} />)}
-        {mDays.map(d => {
-          const dow = getDay(d)
-          const holiday = isKoreanHoliday(d)
-          const isToday_ = isSameDay(d, today)
-          return (
-            <div key={d.toISOString()} className={`text-[9px] leading-4 rounded-full ${isToday_ ? 'bg-red-500 text-white font-bold' : (dow === 0 || holiday) ? 'text-red-400' : dow === 6 ? 'text-blue-400' : 'text-gray-400'}`}>
-              {format(d, 'd')}
-            </div>
-          )
-        })}
-      </div>
+    <div className="grid grid-cols-7 text-center cursor-pointer" onClick={onClick}>
+      {['일','월','화','수','목','금','토'].map((d, i) => (
+        <div key={d} className={`text-[9px] pb-0.5 ${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-gray-300'}`}>{d}</div>
+      ))}
+      {Array.from({ length: mStartDow }, (_, i) => <div key={`p${i}`} />)}
+      {mDays.map(d => {
+        const dow = getDay(d)
+        const holiday = isKoreanHoliday(d)
+        const isToday_ = isSameDay(d, today)
+        return (
+          <div key={d.toISOString()} className={`text-[9px] leading-4 rounded-full ${isToday_ ? 'bg-red-500 text-white font-bold' : (dow === 0 || holiday) ? 'text-red-400' : dow === 6 ? 'text-blue-400' : 'text-gray-400'}`}>
+            {format(d, 'd')}
+          </div>
+        )
+      })}
     </div>
   )
 }
+
