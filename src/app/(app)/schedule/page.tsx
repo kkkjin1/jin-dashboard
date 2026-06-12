@@ -251,7 +251,7 @@ export default function SchedulePage() {
         <div className="flex gap-1.5">
           {(['전체', ...PARTS] as const).map(p => (
             <button key={p} onClick={() => setPartFilter(p)}
-              className={`text-xs px-3 py-1.5 rounded-full transition-colors ${partFilter === p ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+              className={`text-xs px-3 py-1.5 rounded-full transition-colors ${partFilter === p ? 'bg-emerald-100 text-emerald-700 font-medium' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
               {p === '전체' ? '전체 파트' : `${p}파트`}
             </button>
           ))}
@@ -270,12 +270,12 @@ export default function SchedulePage() {
         {/* 상태 필터 */}
         <div className="flex gap-1.5">
           <button onClick={() => setStatusFilter('전체')}
-            className={`text-xs px-3 py-1.5 rounded-full transition-colors ${statusFilter === '전체' ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+            className={`text-xs px-3 py-1.5 rounded-full transition-colors ${statusFilter === '전체' ? 'bg-emerald-100 text-emerald-700 font-medium' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
             전체 상태
           </button>
           {STATUSES.map(s => (
             <button key={s} onClick={() => setStatusFilter(s)}
-              className={`text-xs px-3 py-1.5 rounded-full transition-colors ${statusFilter === s ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+              className={`text-xs px-3 py-1.5 rounded-full transition-colors ${statusFilter === s ? 'bg-emerald-100 text-emerald-700 font-medium' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
               {s}
             </button>
           ))}
@@ -289,7 +289,7 @@ export default function SchedulePage() {
             <button key={v} onClick={() => setViewFilter(v)}
               className={`text-xs px-3 py-1.5 rounded-full transition-colors ${
                 viewFilter === v
-                  ? v === '회의만' ? 'bg-purple-600 text-white' : 'bg-gray-800 text-white'
+                  ? v === '회의만' ? 'bg-purple-600 text-white' : 'bg-emerald-100 text-emerald-700 font-medium'
                   : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
               }`}>
               {v === '회의만' ? '💬 회의만' : v}
@@ -509,12 +509,12 @@ export default function SchedulePage() {
             </div>
           )}
         </div>
-      </div>
 
-      {/* 미니 캘린더 */}
-      <div className="grid grid-cols-2 gap-4 mt-4">
-        <MiniCal monthDate={prevMonthNav} onClick={() => setCurrent(prevMonthNav)} />
-        <MiniCal monthDate={nextMonthNav} onClick={() => setCurrent(nextMonthNav)} />
+        {/* 미니 캘린더 (전월/익월) */}
+        <div className="space-y-3 mt-2">
+          <MiniCal monthDate={prevMonthNav} onClick={() => setCurrent(prevMonthNav)} />
+          <MiniCal monthDate={nextMonthNav} onClick={() => setCurrent(nextMonthNav)} />
+        </div>
       </div>
 
       {showRepeatModal && (
@@ -552,6 +552,22 @@ export default function SchedulePage() {
   )
 }
 
+const KR_HOLIDAYS = new Set([
+  '2025-01-01', '2025-01-28', '2025-01-29', '2025-01-30',
+  '2025-03-01', '2025-05-05', '2025-06-06', '2025-08-15',
+  '2025-10-03', '2025-10-05', '2025-10-06', '2025-10-07', '2025-10-08', '2025-10-09',
+  '2025-12-25',
+  '2026-01-01', '2026-02-16', '2026-02-17', '2026-02-18',
+  '2026-03-01', '2026-03-02', '2026-05-05',
+  '2026-06-06', '2026-08-15',
+  '2026-09-23', '2026-09-24', '2026-09-25',
+  '2026-10-03', '2026-10-09',
+  '2026-12-25',
+])
+function isKoreanHoliday(d: Date): boolean {
+  return KR_HOLIDAYS.has(format(d, 'yyyy-MM-dd'))
+}
+
 function MiniCal({ monthDate, onClick }: { monthDate: Date; onClick: () => void }) {
   const mStart = startOfMonth(monthDate)
   const mEnd = endOfMonth(monthDate)
@@ -559,20 +575,25 @@ function MiniCal({ monthDate, onClick }: { monthDate: Date; onClick: () => void 
   const mStartDow = getDay(mStart)
   const today = new Date()
   return (
-    <div className="bg-white rounded-xl border border-gray-100 p-4 cursor-pointer hover:border-gray-200 transition-colors" onClick={onClick}>
-      <p className="text-xs font-semibold text-gray-600 text-center mb-2">
-        {format(monthDate, 'yyyy년 M월', { locale: ko })}
+    <div className="bg-white rounded-xl border border-gray-100 p-2 cursor-pointer hover:border-gray-200 transition-colors" onClick={onClick}>
+      <p className="text-[10px] font-semibold text-gray-500 text-center mb-0.5">
+        {format(monthDate, 'yy년 M월', { locale: ko })}
       </p>
-      <div className="grid grid-cols-7 gap-px text-center">
-        {['일','월','화','수','목','금','토'].map(d => (
-          <div key={d} className="text-xs text-gray-300 py-0.5">{d}</div>
+      <div className="grid grid-cols-7 text-center">
+        {['일','월','화','수','목','금','토'].map((d, i) => (
+          <div key={d} className={`text-[9px] pb-0.5 ${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-gray-300'}`}>{d}</div>
         ))}
         {Array.from({ length: mStartDow }, (_, i) => <div key={`p${i}`} />)}
-        {mDays.map(d => (
-          <div key={d.toISOString()} className={`text-xs py-0.5 rounded-full ${isSameDay(d, today) ? 'bg-red-500 text-white font-bold' : 'text-gray-500'}`}>
-            {format(d, 'd')}
-          </div>
-        ))}
+        {mDays.map(d => {
+          const dow = getDay(d)
+          const holiday = isKoreanHoliday(d)
+          const isToday_ = isSameDay(d, today)
+          return (
+            <div key={d.toISOString()} className={`text-[9px] leading-4 rounded-full ${isToday_ ? 'bg-red-500 text-white font-bold' : (dow === 0 || holiday) ? 'text-red-400' : dow === 6 ? 'text-blue-400' : 'text-gray-400'}`}>
+              {format(d, 'd')}
+            </div>
+          )
+        })}
       </div>
     </div>
   )

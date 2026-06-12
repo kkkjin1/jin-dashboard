@@ -31,12 +31,23 @@ export default function LearningPage() {
   const [colAddSource, setColAddSource] = useState('')
   const [colAddNote, setColAddNote] = useState('')
   const [colAddMedia, setColAddMedia] = useState<string>('')
+  const [siteShortcuts, setSiteShortcuts] = useState<{id: string; title: string; url: string}[]>([])
+  const [showAddSite, setShowAddSite] = useState(false)
+  const [newSiteTitle, setNewSiteTitle] = useState('')
+  const [newSiteUrl, setNewSiteUrl] = useState('')
+  const [editingSiteId, setEditingSiteId] = useState<string | null>(null)
+  const [editSiteTitle, setEditSiteTitle] = useState('')
+  const [editSiteUrl, setEditSiteUrl] = useState('')
   const supabase = createClient()
 
   useEffect(() => {
     setCustomTags(loadCustomTags())
     supabase.from('learning_resources').select('*').order('created_at', { ascending: false })
       .then(({ data }) => { setResources((data ?? []) as LearningResource[]); setLoading(false) })
+    try {
+      const saved = localStorage.getItem('learning_site_shortcuts')
+      if (saved) setSiteShortcuts(JSON.parse(saved))
+    } catch {}
   }, [])
 
   function updateCustomTags(tags: string[]) { setCustomTags(tags); saveCustomTags(tags) }
@@ -72,6 +83,31 @@ export default function LearningPage() {
   }
 
   function resetColAdd() { setAddingInCol(null); setColAddTitle(''); setColAddSource(''); setColAddNote(''); setColAddMedia('') }
+
+  function saveSiteShortcuts(list: {id: string; title: string; url: string}[]) {
+    setSiteShortcuts(list)
+    localStorage.setItem('learning_site_shortcuts', JSON.stringify(list))
+  }
+
+  function addSiteShortcut() {
+    if (!newSiteUrl.trim()) return
+    const url = newSiteUrl.startsWith('http') ? newSiteUrl : 'https://' + newSiteUrl
+    const title = newSiteTitle.trim() || url
+    saveSiteShortcuts([...siteShortcuts, { id: Date.now().toString(), title, url }])
+    setNewSiteTitle(''); setNewSiteUrl(''); setShowAddSite(false)
+  }
+
+  function removeSiteShortcut(id: string) {
+    saveSiteShortcuts(siteShortcuts.filter(s => s.id !== id))
+  }
+
+  function saveEditSiteShortcut() {
+    if (!editSiteUrl.trim() || !editingSiteId) return
+    const url = editSiteUrl.startsWith('http') ? editSiteUrl : 'https://' + editSiteUrl
+    const title = editSiteTitle.trim() || url
+    saveSiteShortcuts(siteShortcuts.map(s => s.id === editingSiteId ? { ...s, title, url } : s))
+    setEditingSiteId(null); setEditSiteTitle(''); setEditSiteUrl('')
+  }
 
   const filtered = resources.filter(r => {
     if (mediaFilter && r.media_type !== mediaFilter) return false
@@ -142,6 +178,66 @@ export default function LearningPage() {
         </div>
       )}
 
+      {/* 자주 가는 사이트 */}
+      <div className="mb-5">
+        <p className="text-xs font-semibold text-gray-400 mb-2">자주 가는 사이트</p>
+        <div className="flex gap-2 flex-wrap items-center">
+          {siteShortcuts.map(s => {
+            if (editingSiteId === s.id) {
+              return (
+                <div key={s.id} className="bg-white rounded-xl border border-blue-300 p-2.5 w-44 shadow-sm">
+                  <input value={editSiteTitle} onChange={e => setEditSiteTitle(e.target.value)}
+                    placeholder="이름" autoFocus
+                    className="text-sm font-medium text-gray-800 w-full focus:outline-none border-b border-gray-200 pb-1 mb-1 bg-transparent" />
+                  <input value={editSiteUrl} onChange={e => setEditSiteUrl(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') saveEditSiteShortcut(); if (e.key === 'Escape') setEditingSiteId(null) }}
+                    placeholder="URL"
+                    className="text-xs text-gray-400 w-full focus:outline-none bg-transparent" />
+                  <div className="flex gap-1 mt-2 justify-end">
+                    <button onClick={() => setEditingSiteId(null)} className="text-xs text-gray-400 px-2 py-0.5">취소</button>
+                    <button onClick={saveEditSiteShortcut} className="text-xs bg-gray-800 text-white px-2 py-0.5 rounded-lg">저장</button>
+                  </div>
+                </div>
+              )
+            }
+            return (
+              <div key={s.id} className="group relative">
+                <a href={s.url} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-full px-3 py-1.5 hover:border-gray-400 hover:shadow-sm transition-all">
+                  <span className="text-xs font-medium text-gray-700 truncate max-w-28">🔗 {s.title}</span>
+                </a>
+                <div className="absolute -top-1.5 -right-1 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                  <button onClick={() => { setEditingSiteId(s.id); setEditSiteTitle(s.title); setEditSiteUrl(s.url); setShowAddSite(false) }}
+                    className="w-4 h-4 bg-blue-500 text-white rounded-full text-[9px] flex items-center justify-center hover:bg-blue-600">✎</button>
+                  <button onClick={() => removeSiteShortcut(s.id)}
+                    className="w-4 h-4 bg-gray-400 text-white rounded-full text-[9px] flex items-center justify-center hover:bg-red-500">×</button>
+                </div>
+              </div>
+            )
+          })}
+          {showAddSite ? (
+            <div className="bg-white rounded-xl border border-blue-300 p-2.5 w-44 shadow-sm">
+              <input value={newSiteTitle} onChange={e => setNewSiteTitle(e.target.value)}
+                placeholder="이름 (필수)" autoFocus
+                className="text-sm font-medium text-gray-800 w-full focus:outline-none border-b border-gray-200 pb-1 mb-1 bg-transparent" />
+              <input value={newSiteUrl} onChange={e => setNewSiteUrl(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') addSiteShortcut(); if (e.key === 'Escape') setShowAddSite(false) }}
+                placeholder="URL"
+                className="text-xs text-gray-400 w-full focus:outline-none bg-transparent" />
+              <div className="flex gap-1 mt-2 justify-end">
+                <button onClick={() => setShowAddSite(false)} className="text-xs text-gray-400 px-2 py-0.5">취소</button>
+                <button onClick={addSiteShortcut} className="text-xs bg-gray-800 text-white px-2 py-0.5 rounded-lg">추가</button>
+              </div>
+            </div>
+          ) : (
+            <button onClick={() => { setShowAddSite(true); setEditingSiteId(null) }}
+              className="text-xs text-gray-300 hover:text-gray-500 border border-dashed border-gray-200 hover:border-gray-300 rounded-full px-3 py-1.5 transition-colors">
+              + 사이트 추가
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* 매체 필터 */}
       <div className="flex gap-1.5 flex-wrap mb-5">
         {MEDIA_TYPES.map(type => (
@@ -170,9 +266,9 @@ export default function LearningPage() {
                   )}
                   {colResources.map(r => (
                     <Link key={r.id} href={`/learning/${r.id}`}>
-                      <div className="bg-white rounded-xl border border-gray-100 px-3 py-2.5 hover:border-gray-200 transition-colors">
-                        {r.media_type && <p className="text-xs text-gray-400 mb-0.5">{MEDIA_ICONS[r.media_type] ?? ''} {r.media_type}</p>}
-                        <p className="text-sm font-medium text-gray-800 leading-snug">{r.title}</p>
+                      <div className="bg-white rounded-xl border border-gray-100 px-3 py-2.5 hover:border-gray-200 transition-colors overflow-hidden">
+                        {r.media_type && <p className="text-xs text-gray-400 mb-0.5 truncate">{MEDIA_ICONS[r.media_type] ?? ''} {r.media_type}</p>}
+                        <p className="text-sm font-medium text-gray-800 leading-snug line-clamp-2">{r.title}</p>
                         {r.source && <p className="text-xs text-gray-400 mt-0.5 truncate">출처: {r.source}</p>}
                         <div className="flex items-center justify-between mt-1">
                           <div className="flex gap-1 flex-wrap">

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -22,18 +22,41 @@ interface NoteAccordionProps {
   isOpen: boolean
   onToggle: () => void
   onDelete: (index: number) => void
+  onEditTitle: (index: number, newTitle: string) => void
 }
 
-function NoteAccordion({ note, index, isOpen, onToggle, onDelete }: NoteAccordionProps) {
+function NoteAccordion({ note, index, isOpen, onToggle, onDelete, onEditTitle }: NoteAccordionProps) {
+  const [editingTitle, setEditingTitle] = useState(false)
+  const [editTitle, setEditTitle] = useState(note.title)
+
+  function handleSaveTitle() {
+    onEditTitle(index, editTitle.trim() || note.title)
+    setEditingTitle(false)
+  }
+
   return (
     <div className="bg-white rounded-xl border border-gray-100 overflow-hidden group">
-      <button
-        onClick={onToggle}
-        className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50 transition-colors"
-      >
-        <div className="flex items-center gap-2 min-w-0">
+      <div className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors">
+        <div className="flex items-center gap-2 min-w-0 flex-1 cursor-pointer" onClick={onToggle}>
           <span className="text-xs text-gray-400 flex-shrink-0">{isOpen ? '▼' : '▶'}</span>
-          <span className="text-sm font-medium text-gray-700 truncate">{note.title}</span>
+          {editingTitle ? (
+            <input
+              autoFocus
+              value={editTitle}
+              onChange={e => setEditTitle(e.target.value)}
+              onBlur={handleSaveTitle}
+              onKeyDown={e => { if (e.key === 'Enter') handleSaveTitle(); if (e.key === 'Escape') { setEditTitle(note.title); setEditingTitle(false) } }}
+              onClick={e => e.stopPropagation()}
+              className="text-sm font-medium text-gray-700 focus:outline-none border-b border-gray-300 bg-transparent flex-1"
+            />
+          ) : (
+            <span
+              className="text-sm font-medium text-gray-700 truncate hover:text-blue-500 cursor-text"
+              onClick={e => { e.stopPropagation(); setEditingTitle(true); setEditTitle(note.title) }}
+              title="클릭하여 제목 수정">
+              {note.title}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           {!isOpen && (
@@ -48,7 +71,7 @@ function NoteAccordion({ note, index, isOpen, onToggle, onDelete }: NoteAccordio
             삭제
           </button>
         </div>
-      </button>
+      </div>
       {isOpen && (
         <div className="px-4 pb-4 border-t border-gray-50">
           <p className="text-sm text-gray-700 whitespace-pre-wrap pt-3">{note.content}</p>
@@ -139,6 +162,12 @@ export default function LearningDetailPage() {
     const updatedNotes = resource.notes.filter((_, i) => i !== index)
     await updateResource({ notes: updatedNotes })
     setOpenIndexes(new Set([0]))
+  }
+
+  async function editNoteTitle(index: number, newTitle: string) {
+    if (!resource) return
+    const updatedNotes = resource.notes.map((n, i) => i === index ? { ...n, title: newTitle } : n)
+    await updateResource({ notes: updatedNotes })
   }
 
   async function deleteResource() {
@@ -276,6 +305,7 @@ export default function LearningDetailPage() {
                 isOpen={openIndexes.has(idx)}
                 onToggle={() => toggleNote(idx)}
                 onDelete={deleteNote}
+                onEditTitle={editNoteTitle}
               />
             ))
           )}

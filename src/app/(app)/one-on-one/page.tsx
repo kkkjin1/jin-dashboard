@@ -13,10 +13,9 @@ import { ko } from 'date-fns/locale'
 const FEEDBACK_TYPE_STYLE: Record<FeedbackType, string> = {
   긍정: 'bg-green-50 text-green-700',
   부정: 'bg-red-50 text-red-700',
-  요구사항: 'bg-blue-50 text-blue-700',
-  일반: 'bg-gray-100 text-gray-600',
+  요청: 'bg-blue-50 text-blue-700',
 }
-const FEEDBACK_TYPES: FeedbackType[] = ['긍정', '부정', '요구사항', '일반']
+const ANALYSIS_TYPES: FeedbackType[] = ['긍정', '부정', '요청']
 
 function currentMonth(): string {
   const now = new Date()
@@ -29,7 +28,7 @@ function formatMonth(month: string): string {
 }
 
 // ─── 분석 패널 ────────────────────────────────────────────────────────────────
-function AnalysisPanel({ feedbacks }: { feedbacks: MyFeedback[] }) {
+function AnalysisPanel({ feedbacks, onAssignType }: { feedbacks: MyFeedback[]; onAssignType: (id: string, type: FeedbackType | null) => void }) {
   if (feedbacks.length === 0) {
     return (
       <div className="bg-white rounded-xl border border-gray-100 px-5 py-6">
@@ -39,11 +38,11 @@ function AnalysisPanel({ feedbacks }: { feedbacks: MyFeedback[] }) {
     )
   }
 
-  const grouped = FEEDBACK_TYPES.map(type => ({
+  const tagged = feedbacks.filter(f => f.feedback_type != null)
+  const untagged = feedbacks.filter(f => f.feedback_type == null)
+  const grouped = ANALYSIS_TYPES.map(type => ({
     type,
-    items: feedbacks.filter(f => f.feedback_type === type).sort(
-      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    ),
+    items: tagged.filter(f => f.feedback_type === type),
   })).filter(g => g.items.length > 0)
 
   return (
@@ -58,15 +57,37 @@ function AnalysisPanel({ feedbacks }: { feedbacks: MyFeedback[] }) {
               </span>
               <span className="text-xs text-gray-400">{items.length}건</span>
             </div>
-            <ul className="space-y-1 pl-1">
+            <ul className="space-y-1.5 pl-1">
               {items.map(item => (
-                <li key={item.id} className="text-xs text-gray-600 leading-relaxed border-l-2 border-gray-100 pl-2">
-                  {item.content}
+                <li key={item.id} className="group flex items-start gap-2 border-l-2 border-gray-100 pl-2">
+                  <span className="flex-1 text-xs text-gray-600 leading-relaxed">{item.content}</span>
+                  <button onClick={() => onAssignType(item.id, null)}
+                    className="flex-shrink-0 text-xs text-gray-200 hover:text-gray-400 opacity-0 group-hover:opacity-100 transition-all">해제</button>
                 </li>
               ))}
             </ul>
           </div>
         ))}
+        {untagged.length > 0 && (
+          <div>
+            <p className="text-xs text-gray-400 mb-2">미분류 ({untagged.length}건) — 분류하기:</p>
+            <ul className="space-y-2 pl-1">
+              {untagged.map(item => (
+                <li key={item.id} className="border border-gray-100 rounded-lg p-2">
+                  <p className="text-xs text-gray-600 mb-1.5 leading-relaxed">{item.content}</p>
+                  <div className="flex gap-1">
+                    {ANALYSIS_TYPES.map(t => (
+                      <button key={t} onClick={() => onAssignType(item.id, t)}
+                        className={`text-xs px-2 py-0.5 rounded-full border transition-colors hover:opacity-80 ${FEEDBACK_TYPE_STYLE[t]}`}>
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -76,29 +97,29 @@ function AnalysisPanel({ feedbacks }: { feedbacks: MyFeedback[] }) {
 function MyFeedbackView() {
   const supabase = createClient()
   const [feedbacks, setFeedbacks] = useState<MyFeedback[]>([])
+  const [members, setMembers] = useState<Member[]>([])
   const [loading, setLoading] = useState(true)
 
-  // 아코디언 열림 상태: 현재 월은 기본 열림
   const [openMonths, setOpenMonths] = useState<Set<string>>(new Set([currentMonth()]))
-
-  // 인라인 추가 폼: 열려있는 월
   const [addingMonth, setAddingMonth] = useState<string | null>(null)
   const [formContent, setFormContent] = useState('')
-  const [formType, setFormType] = useState<FeedbackType>('일반')
+  const [formMember, setFormMember] = useState('')
+  const [formDate, setFormDate] = useState(new Date().toISOString().slice(0, 10))
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    supabase
-      .from('my_feedback')
-      .select('id, month, content, feedback_type, created_at')
-      .order('created_at', { ascending: false })
-      .then(({ data }) => {
-        setFeedbacks((data ?? []) as MyFeedback[])
-        setLoading(false)
-      })
+    Promise.all([
+      supabase.from('my_feedback')
+        .select('id, month, content, feedback_type, feedback_date, from_member, created_at')
+        .order('created_at', { ascending: false }),
+      fetchMembers(),
+    ]).then(([{ data }, ms]) => {
+      setFeedbacks((data ?? []) as MyFeedback[])
+      setMembers(ms)
+      setLoading(false)
+    })
   }, [])
 
-  // 월 목록: 데이터에 있는 월 + 현재 월 (중복 제거, 최신순)
   const months = useMemo(() => {
     const monthSet = new Set<string>(feedbacks.map(f => f.month))
     monthSet.add(currentMonth())
@@ -117,24 +138,31 @@ function MyFeedbackView() {
   function openAddForm(month: string) {
     setAddingMonth(month)
     setFormContent('')
-    setFormType('일반')
-    // 해당 월 펼치기
+    setFormMember('')
+    setFormDate(new Date().toISOString().slice(0, 10))
     setOpenMonths(prev => new Set([...prev, month]))
   }
 
   function cancelAdd() {
     setAddingMonth(null)
     setFormContent('')
-    setFormType('일반')
+    setFormMember('')
   }
 
   async function saveAdd() {
     if (!addingMonth || !formContent.trim()) return
     setSaving(true)
+    const month = formDate.slice(0, 7)
     const { data, error } = await supabase
       .from('my_feedback')
-      .insert({ month: addingMonth, content: formContent.trim(), feedback_type: formType })
-      .select('id, month, content, feedback_type, created_at')
+      .insert({
+        month,
+        feedback_date: formDate,
+        from_member: formMember.trim() || null,
+        content: formContent.trim(),
+        feedback_type: null,
+      })
+      .select('id, month, content, feedback_type, feedback_date, from_member, created_at')
       .single()
     if (!error && data) {
       setFeedbacks(prev => [data as MyFeedback, ...prev])
@@ -148,23 +176,22 @@ function MyFeedbackView() {
     setFeedbacks(prev => prev.filter(f => f.id !== id))
   }
 
-  if (loading) {
-    return (
-      <div className="p-8 text-sm text-gray-400">불러오는 중...</div>
-    )
+  async function assignType(id: string, type: FeedbackType | null) {
+    await supabase.from('my_feedback').update({ feedback_type: type }).eq('id', id)
+    setFeedbacks(prev => prev.map(f => f.id === id ? { ...f, feedback_type: type } : f))
   }
+
+  if (loading) return <div className="p-8 text-sm text-gray-400">불러오는 중...</div>
 
   return (
     <div className="flex gap-6 w-full">
       {/* LEFT: 월별 아코디언 */}
       <div className="flex-[65] min-w-0">
-        {/* 이번 달 피드백 추가 버튼 (최상단 고정) */}
         {addingMonth !== currentMonth() && (
           <div className="mb-4">
-            <button
-              onClick={() => openAddForm(currentMonth())}
+            <button onClick={() => openAddForm(currentMonth())}
               className="text-xs border border-dashed border-gray-300 text-gray-500 hover:border-gray-400 hover:text-gray-700 rounded-lg px-4 py-2 w-full transition-colors">
-              + 이번 달 피드백 추가 ({formatMonth(currentMonth())})
+              + 피드백 추가 ({formatMonth(currentMonth())})
             </button>
           </div>
         )}
@@ -174,22 +201,17 @@ function MyFeedbackView() {
             const isOpen = openMonths.has(month)
             const items = feedbacks.filter(f => f.month === month)
             const isAddingHere = addingMonth === month
-
             return (
               <div key={month} className="bg-white rounded-xl border border-gray-100">
-                {/* 월 헤더 */}
                 <div className="flex items-center justify-between px-4 py-3">
-                  <button
-                    onClick={() => toggleMonth(month)}
-                    className="flex items-center gap-2 flex-1 text-left">
+                  <button onClick={() => toggleMonth(month)} className="flex items-center gap-2 flex-1 text-left">
                     <span className="text-sm font-bold text-gray-700">
                       {isOpen ? '▼' : '▶'} {formatMonth(month)}
                     </span>
                     <span className="text-xs text-gray-400">{items.length}건</span>
                   </button>
                   {!isAddingHere && (
-                    <button
-                      onClick={() => openAddForm(month)}
+                    <button onClick={() => openAddForm(month)}
                       className="text-xs text-gray-400 hover:text-gray-700 border border-gray-200 rounded-lg px-2.5 py-1 hover:bg-gray-50 transition-colors">
                       + 추가
                     </button>
@@ -198,38 +220,36 @@ function MyFeedbackView() {
 
                 {/* 인라인 추가 폼 */}
                 {isAddingHere && (
-                  <div className="px-4 pb-3 border-t border-gray-50">
+                  <div className="px-4 pb-4 border-t border-gray-50">
                     <div className="pt-3 space-y-2">
-                      <textarea
-                        value={formContent}
-                        onChange={e => setFormContent(e.target.value)}
-                        placeholder="피드백 내용을 입력하세요"
-                        rows={3}
-                        className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:border-gray-400"
-                      />
-                      <div className="flex items-center gap-2">
-                        {FEEDBACK_TYPES.map(type => (
-                          <button
-                            key={type}
-                            onClick={() => setFormType(type)}
-                            className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
-                              formType === type
-                                ? `${FEEDBACK_TYPE_STYLE[type]} border-transparent font-semibold`
-                                : 'border-gray-200 text-gray-500 hover:bg-gray-50'
-                            }`}>
-                            {type}
-                          </button>
-                        ))}
+                      <div className="flex gap-2">
+                        <div className="flex-1">
+                          <label className="text-xs text-gray-400 mb-1 block">날짜</label>
+                          <input type="date" value={formDate} onChange={e => setFormDate(e.target.value)}
+                            className="text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none w-full" />
+                        </div>
+                        <div className="flex-1">
+                          <label className="text-xs text-gray-400 mb-1 block">피드백 준 팀원</label>
+                          <select value={formMember} onChange={e => setFormMember(e.target.value)}
+                            className="text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none w-full bg-white text-gray-600">
+                            <option value="">선택 (선택)</option>
+                            {members.filter(m => m.part !== '팀장').map(m => (
+                              <option key={m.id} value={m.name}>{m.name}</option>
+                            ))}
+                          </select>
+                        </div>
                       </div>
+                      <textarea autoFocus value={formContent} onChange={e => setFormContent(e.target.value)}
+                        placeholder="피드백 내용을 자유롭게 입력하세요"
+                        rows={3}
+                        className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:border-gray-400" />
+                      <p className="text-xs text-gray-400">분류(긍정/부정/요청)는 오른쪽 분석 패널에서 지정합니다</p>
                       <div className="flex gap-2 justify-end">
-                        <button
-                          onClick={cancelAdd}
+                        <button onClick={cancelAdd}
                           className="text-xs text-gray-400 hover:text-gray-600 px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
                           취소
                         </button>
-                        <button
-                          onClick={saveAdd}
-                          disabled={saving || !formContent.trim()}
+                        <button onClick={saveAdd} disabled={saving || !formContent.trim()}
                           className="text-xs bg-gray-800 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-40">
                           {saving ? '저장 중...' : '저장'}
                         </button>
@@ -242,15 +262,25 @@ function MyFeedbackView() {
                 {isOpen && items.length > 0 && (
                   <div className="px-4 pb-3 space-y-2 border-t border-gray-50">
                     {items
-                      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                      .sort((a, b) => {
+                        const da = a.feedback_date ?? a.created_at
+                        const db = b.feedback_date ?? b.created_at
+                        return db.localeCompare(da)
+                      })
                       .map(item => (
                         <div key={item.id} className="group flex items-start gap-2 pt-2">
-                          <span className={`flex-shrink-0 text-xs px-2 py-0.5 rounded-full mt-0.5 ${FEEDBACK_TYPE_STYLE[item.feedback_type]}`}>
-                            {item.feedback_type}
-                          </span>
-                          <p className="flex-1 text-sm text-gray-700 leading-relaxed">{item.content}</p>
-                          <button
-                            onClick={() => deleteFeedback(item.id)}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 mb-0.5">
+                              {item.from_member && (
+                                <span className="text-xs font-medium text-gray-500">{item.from_member}</span>
+                              )}
+                              {item.feedback_date && (
+                                <span className="text-xs text-gray-400">{item.feedback_date.slice(5).replace('-', '/')}</span>
+                              )}
+                            </div>
+                            <p className="text-sm text-gray-700 leading-relaxed">{item.content}</p>
+                          </div>
+                          <button onClick={() => deleteFeedback(item.id)}
                             className="flex-shrink-0 text-xs text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all px-1 py-0.5">
                             삭제
                           </button>
@@ -272,7 +302,7 @@ function MyFeedbackView() {
 
       {/* RIGHT: 분석 패널 */}
       <div className="flex-[35] min-w-0">
-        <AnalysisPanel feedbacks={feedbacks} />
+        <AnalysisPanel feedbacks={feedbacks} onAssignType={assignType} />
       </div>
     </div>
   )

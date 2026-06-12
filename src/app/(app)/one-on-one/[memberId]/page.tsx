@@ -83,21 +83,31 @@ export default function MemberOneOnOnePage() {
               <div className="bg-white rounded-xl border border-gray-100 px-4 py-3 hover:border-gray-200 transition-colors">
                 <div className="flex items-center justify-between">
                   <div className="flex-1 min-w-0">
-                    {session.title ? (
-                      <p className="text-sm font-medium text-gray-800 mb-0.5">{session.title}</p>
-                    ) : null}
-                    <p className={`${session.title ? 'text-xs text-gray-400' : 'text-sm font-medium text-gray-800'}`}>
-                      {session.session_date
-                        ? format(parseISO(session.session_date), 'yyyy년 M월 d일 (E)', { locale: ko })
-                        : '날짜 미지정'}
+                    <p className="text-sm font-medium text-gray-800">
+                      {session.title
+                        ? session.title
+                        : session.session_date
+                          ? format(parseISO(session.session_date), 'yyyy년 M월 d일 (E)', { locale: ko })
+                          : '날짜 미지정'}
                     </p>
-                    {session.notes.length > 0 && (
+                    {session.title && session.session_date && (
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {format(parseISO(session.session_date), 'yyyy년 M월 d일 (E)', { locale: ko })}
+                      </p>
+                    )}
+                    {session.notes[0]?.content && (
                       <p className="text-xs text-gray-400 mt-0.5 truncate">
-                        {session.notes[0].content.slice(0, 60)}...
+                        {session.notes[0].content.slice(0, 70)}
                       </p>
                     )}
                   </div>
-                  <span className="text-xs text-gray-300 flex-shrink-0 ml-3">{session.notes.length}개 노트</span>
+                  <div className="flex flex-col items-end gap-1 ml-3 flex-shrink-0">
+                    {session.next_appointment && (
+                      <span className="text-xs bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full whitespace-nowrap">
+                        약속 있음
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             </Link>

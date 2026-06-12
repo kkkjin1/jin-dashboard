@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { format, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
@@ -98,6 +98,7 @@ export default function MemosPage() {
   const [inlineTag, setInlineTag] = useState<MemoTag | null>(null)
   const [inlineTitle, setInlineTitle] = useState('')
   const [inlineContent, setInlineContent] = useState('')
+  const inlineContentRef = useRef<HTMLTextAreaElement>(null)
   const supabase = createClient()
 
   useEffect(() => {
@@ -174,9 +175,10 @@ export default function MemosPage() {
             {inlineTag === '공지' ? (
               <div className="flex-shrink-0 w-52 bg-white rounded-xl border border-blue-200 p-3">
                 <input autoFocus value={inlineTitle} onChange={e => setInlineTitle(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) handleInlineSave('공지'); if (e.key === 'Escape') { setInlineTag(null); setInlineTitle(''); setInlineContent('') } }}
+                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); inlineContentRef.current?.focus() } if (e.key === 'Escape') { setInlineTag(null); setInlineTitle(''); setInlineContent('') } }}
                   placeholder="공지 제목" className="w-full text-sm focus:outline-none mb-1.5 font-medium" />
-                <textarea value={inlineContent} onChange={e => setInlineContent(e.target.value)}
+                <textarea ref={inlineContentRef} value={inlineContent} onChange={e => setInlineContent(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleInlineSave('공지') }}
                   placeholder="내용 (선택)" rows={2}
                   className="w-full text-xs focus:outline-none resize-none text-gray-500" />
                 <div className="flex gap-1 justify-end mt-1">
@@ -223,10 +225,11 @@ export default function MemosPage() {
                 {inlineTag === tag ? (
                   <div className="bg-white rounded-xl border border-blue-200 p-3">
                     <input autoFocus value={inlineTitle} onChange={e => setInlineTitle(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) handleInlineSave(tag); if (e.key === 'Escape') { setInlineTag(null); setInlineTitle(''); setInlineContent('') } }}
+                      onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); inlineContentRef.current?.focus() } if (e.key === 'Escape') { setInlineTag(null); setInlineTitle(''); setInlineContent('') } }}
                       placeholder="제목" className="w-full text-sm focus:outline-none mb-1.5 font-medium" />
-                    <textarea value={inlineContent} onChange={e => setInlineContent(e.target.value)}
-                      placeholder="내용 (선택)" rows={2}
+                    <textarea ref={inlineContentRef} value={inlineContent} onChange={e => setInlineContent(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleInlineSave(tag) }}
+                      placeholder="내용 (선택, Ctrl+Enter 저장)" rows={2}
                       className="w-full text-xs focus:outline-none resize-none text-gray-500 leading-relaxed" />
                     <div className="flex gap-1 justify-end mt-1.5">
                       <button onClick={() => { setInlineTag(null); setInlineTitle(''); setInlineContent('') }} className="text-xs text-gray-400 px-2 py-1">취소</button>

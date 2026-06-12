@@ -41,15 +41,19 @@ interface NoteAccordionProps {
   onToggle: () => void
   onDelete: (id: string) => void
   onEdit: (id: string, newContent: string) => void
+  onEditTitle: (id: string, newTitle: string) => void
 }
 
-function NoteAccordion({ note, isOpen, onToggle, onDelete, onEdit }: NoteAccordionProps) {
+function NoteAccordion({ note, isOpen, onToggle, onDelete, onEdit, onEditTitle }: NoteAccordionProps) {
   const [editing, setEditing] = useState(false)
   const [editContent, setEditContent] = useState(note.content)
+  const [editingTitle, setEditingTitle] = useState(false)
+  const [editTitle, setEditTitle] = useState(note.title ?? '')
 
   const dateLabel = (() => {
     try { return format(parseISO(note.created_at), 'M월 d일 HH:mm', { locale: ko }) } catch { return '' }
   })()
+  const displayTitle = note.title || dateLabel
   const editedLabel = note.edited_at ? (() => {
     try { return `(수정 ${format(parseISO(note.edited_at), 'M/dd HH:mm', { locale: ko })})` } catch { return '' }
   })() : null
@@ -59,13 +63,34 @@ function NoteAccordion({ note, isOpen, onToggle, onDelete, onEdit }: NoteAccordi
     setEditing(false)
   }
 
+  function handleSaveTitle() {
+    onEditTitle(note.id, editTitle.trim())
+    setEditingTitle(false)
+  }
+
   return (
     <div className="bg-white rounded-xl border border-gray-100 overflow-hidden group">
-      <button onClick={onToggle}
-        className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50 transition-colors">
-        <div className="flex items-center gap-2 min-w-0">
+      <div className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors">
+        <div className="flex items-center gap-2 min-w-0 flex-1 cursor-pointer" onClick={onToggle}>
           <span className="text-xs text-gray-400 flex-shrink-0">{isOpen ? '▼' : '▶'}</span>
-          <span className="text-sm font-medium text-gray-700 flex-shrink-0">{dateLabel}</span>
+          {editingTitle ? (
+            <input
+              autoFocus
+              value={editTitle}
+              onChange={e => setEditTitle(e.target.value)}
+              onBlur={handleSaveTitle}
+              onKeyDown={e => { if (e.key === 'Enter') handleSaveTitle(); if (e.key === 'Escape') { setEditTitle(note.title ?? ''); setEditingTitle(false) } }}
+              onClick={e => e.stopPropagation()}
+              className="text-sm font-medium text-gray-700 focus:outline-none border-b border-gray-300 bg-transparent flex-1"
+            />
+          ) : (
+            <span
+              className="text-sm font-medium text-gray-700 flex-shrink-0 hover:text-blue-500 cursor-text"
+              onClick={e => { e.stopPropagation(); setEditingTitle(true); setEditTitle(note.title ?? '') }}
+              title="클릭하여 제목 수정">
+              {displayTitle}
+            </span>
+          )}
           {editedLabel && <span className="text-xs text-gray-400 flex-shrink-0">{editedLabel}</span>}
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
@@ -75,7 +100,7 @@ function NoteAccordion({ note, isOpen, onToggle, onDelete, onEdit }: NoteAccordi
           <button onClick={e => { e.stopPropagation(); onDelete(note.id) }}
             className="text-xs text-gray-200 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100">삭제</button>
         </div>
-      </button>
+      </div>
       {isOpen && (
         <div className="px-4 pb-4 border-t border-gray-50">
           {editing ? (
@@ -119,6 +144,7 @@ export default function TaskDetailPage() {
   const [retroGood, setRetroGood] = useState('')
   const [retroBad, setRetroBad] = useState('')
   const [retroImprovement, setRetroImprovement] = useState('')
+  const [showRetro, setShowRetro] = useState(false)
 
   const [linkedMeetings, setLinkedMeetings] = useState<Meeting[]>([])
   const [allMeetings, setAllMeetings] = useState<Pick<Meeting, 'id' | 'title' | 'meeting_date'>[]>([])
@@ -128,6 +154,7 @@ export default function TaskDetailPage() {
   const [openMeetingNoteKeys, setOpenMeetingNoteKeys] = useState<Set<string>>(new Set())
 
   const titleRef = useRef<HTMLInputElement>(null)
+  const noteTitleRef = useRef<HTMLInputElement>(null)
   const noteAreaRef = useRef<HTMLTextAreaElement>(null)
   const autoFocused = useRef(false)
 
@@ -207,7 +234,7 @@ export default function TaskDetailPage() {
       const found = members.find(m => m.name === parsed.assignee_name)
       if (found) taskUpdates.assignee_id = found.id
     }
-    const { data } = await supabase.from('notes').insert({ task_id: id, content: noteInput }).select().single()
+    const { data } = await supabase.from('notes').insert({ task_id: id, title: noteTitle.trim() || null, content: noteInput }).select().single()
     if (data) {
       const newNote = data as Note
       setNotes(prev => [newNote, ...prev])
@@ -241,6 +268,11 @@ export default function TaskDetailPage() {
     const now = new Date().toISOString()
     await supabase.from('notes').update({ content: newContent, edited_at: now }).eq('id', noteId)
     setNotes(prev => prev.map(n => n.id === noteId ? { ...n, content: newContent, edited_at: now } : n))
+  }
+
+  async function editNoteTitle(noteId: string, newTitle: string) {
+    await supabase.from('notes').update({ title: newTitle || null }).eq('id', noteId)
+    setNotes(prev => prev.map(n => n.id === noteId ? { ...n, title: newTitle || null } : n))
   }
 
   async function addLink() {
@@ -292,7 +324,7 @@ export default function TaskDetailPage() {
       title: task.title, status: task.status, assignee: member?.name,
       part: task.part, type: task.type,
       start_date: task.start_date, mid_date: task.mid_date, end_date: task.end_date,
-      notes: notes.map(n => ({ title: format(parseISO(n.created_at), 'yyMMdd 논의', { locale: ko }), content: n.content, created_at: n.created_at })),
+      notes: notes.map(n => ({ title: n.title || format(parseISO(n.created_at), 'yyMMdd 논의', { locale: ko }), content: n.content, created_at: n.created_at })),
       attachments: attachments.map(a => ({ name: a.name, url: a.url })),
     })
     downloadMd(md, task.title)
@@ -356,7 +388,7 @@ export default function TaskDetailPage() {
       {/* 제목 */}
       <div className="mb-4 mt-1">
         <input ref={titleRef} value={titleInput} onChange={e => setTitleInput(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') { updateTask({ title: titleInput }); noteAreaRef.current?.focus() } if (e.key === 'Escape') setTitleInput(task.title) }}
+          onKeyDown={e => { if (e.key === 'Tab') { e.preventDefault(); noteTitleRef.current?.focus() } if (e.key === 'Enter') { updateTask({ title: titleInput }); noteAreaRef.current?.focus() } if (e.key === 'Escape') setTitleInput(task.title) }}
           onBlur={() => { if (titleInput.trim()) updateTask({ title: titleInput }) }}
           placeholder="업무 제목"
           className="text-2xl font-bold text-gray-900 w-full focus:outline-none border-b-2 border-transparent focus:border-red-300 pb-1 transition-colors bg-transparent" />
@@ -423,7 +455,8 @@ export default function TaskDetailPage() {
           <div className="mb-6">
             <h2 className="text-sm font-semibold text-gray-700 mb-3">맥락 / 노트</h2>
             <div className="bg-white rounded-xl border border-gray-100 p-4 mb-3">
-              <input value={noteTitle} onChange={e => setNoteTitle(e.target.value)}
+              <input ref={noteTitleRef} value={noteTitle} onChange={e => setNoteTitle(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Tab') { e.preventDefault(); noteAreaRef.current?.focus() } }}
                 className="w-full text-xs font-medium text-gray-500 focus:outline-none mb-2 border-b border-gray-100 pb-1 bg-transparent" placeholder="노트 제목" />
               <SmartTextarea ref={noteAreaRef} value={noteInput} onChange={setNoteInput}
                 onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) saveNote() }}
@@ -442,7 +475,7 @@ export default function TaskDetailPage() {
               ) : (
                 notes.map(note => (
                   <NoteAccordion key={note.id} note={note} isOpen={openNoteIds.has(note.id)}
-                    onToggle={() => toggleNote(note.id)} onDelete={deleteNote} onEdit={editNote} />
+                    onToggle={() => toggleNote(note.id)} onDelete={deleteNote} onEdit={editNote} onEditTitle={editNoteTitle} />
                 ))
               )}
             </div>
@@ -470,6 +503,40 @@ export default function TaskDetailPage() {
               )}
             </div>
           </div>
+
+          {/* 완료 회고 */}
+          {task.retrospective && (task.retrospective.good || task.retrospective.bad || task.retrospective.improvement) && (
+            <div className="mb-6">
+              <button onClick={() => setShowRetro(prev => !prev)}
+                className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-3 hover:text-gray-900 transition-colors">
+                <span className="text-xs text-gray-400">{showRetro ? '▼' : '▶'}</span>
+                완료 회고
+                {!showRetro && <span className="text-xs font-normal text-gray-400">보기</span>}
+              </button>
+              {showRetro && (
+                <div className="bg-white rounded-xl border border-gray-100 p-4 space-y-3">
+                  {task.retrospective.good && (
+                    <div>
+                      <p className="text-xs font-semibold text-green-600 mb-1">좋았던 점</p>
+                      <p className="text-sm text-gray-700 whitespace-pre-wrap">{task.retrospective.good}</p>
+                    </div>
+                  )}
+                  {task.retrospective.bad && (
+                    <div>
+                      <p className="text-xs font-semibold text-amber-600 mb-1">아쉬웠던 점</p>
+                      <p className="text-sm text-gray-700 whitespace-pre-wrap">{task.retrospective.bad}</p>
+                    </div>
+                  )}
+                  {task.retrospective.improvement && (
+                    <div>
+                      <p className="text-xs font-semibold text-red-600 mb-1">개선 필요한 점</p>
+                      <p className="text-sm text-gray-700 whitespace-pre-wrap">{task.retrospective.improvement}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="border-t border-gray-100 pt-6">
             <button onClick={deleteTask} disabled={deleting} className="text-sm text-red-400 hover:text-red-600 transition-colors">이 업무 삭제</button>

@@ -25,6 +25,9 @@ export default function HomePage() {
   const [showAddShortcut, setShowAddShortcut] = useState(false)
   const [newShortcutTitle, setNewShortcutTitle] = useState('')
   const [newShortcutUrl, setNewShortcutUrl] = useState('')
+  const [editingShortcutId, setEditingShortcutId] = useState<string | null>(null)
+  const [editShortcutTitle, setEditShortcutTitle] = useState('')
+  const [editShortcutUrl, setEditShortcutUrl] = useState('')
 
   useEffect(() => {
     fetchAllTasks().then(data => { setTasks(data); setLoading(false) })
@@ -61,6 +64,21 @@ export default function HomePage() {
 
   function removeShortcut(id: string) {
     saveShortcuts(shortcuts.filter(s => s.id !== id))
+  }
+
+  function startEditShortcut(s: {id: string; title: string; url: string}) {
+    setEditingShortcutId(s.id)
+    setEditShortcutTitle(s.title)
+    setEditShortcutUrl(s.url)
+    setShowAddShortcut(false)
+  }
+
+  function saveEditShortcut() {
+    if (!editShortcutUrl.trim() || !editingShortcutId) return
+    const url = editShortcutUrl.startsWith('http') ? editShortcutUrl : 'https://' + editShortcutUrl
+    const title = editShortcutTitle.trim() || url
+    saveShortcuts(shortcuts.map(s => s.id === editingShortcutId ? { ...s, title, url } : s))
+    setEditingShortcutId(null); setEditShortcutTitle(''); setEditShortcutUrl('')
   }
 
   async function handleSearchChange(val: string) {
@@ -171,35 +189,67 @@ export default function HomePage() {
       </div>
 
       {/* 바로가기 */}
-      <div className="mb-4">
-        <div className="flex items-center gap-3 flex-wrap">
-          {shortcuts.map(s => (
-            <div key={s.id} className="group relative">
-              <a href={s.url} target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-xs text-gray-600 bg-white border border-gray-200 rounded-lg px-3 py-1.5 hover:border-gray-400 hover:text-gray-800 transition-colors">
-                <span className="text-gray-400">🔗</span>
-                <span>{s.title}</span>
-              </a>
-              <button onClick={() => removeShortcut(s.id)}
-                className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-gray-400 text-white rounded-full text-xs leading-none items-center justify-center hidden group-hover:flex hover:bg-red-500 transition-colors">
-                ×
-              </button>
-            </div>
-          ))}
+      <div className="mb-5">
+        <p className="text-xs font-semibold text-gray-400 mb-2">바로가기</p>
+        <div className="flex gap-3 flex-wrap items-start">
+          {shortcuts.map(s => {
+            if (editingShortcutId === s.id) {
+              return (
+                <div key={s.id} className="bg-white rounded-xl border border-blue-300 p-3 w-44 shadow-sm">
+                  <input value={editShortcutTitle} onChange={e => setEditShortcutTitle(e.target.value)}
+                    placeholder="이름" autoFocus
+                    className="text-sm font-medium text-gray-800 w-full focus:outline-none border-b border-gray-200 pb-1 mb-1.5 bg-transparent" />
+                  <input value={editShortcutUrl} onChange={e => setEditShortcutUrl(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') saveEditShortcut(); if (e.key === 'Escape') setEditingShortcutId(null) }}
+                    placeholder="URL"
+                    className="text-xs text-gray-400 w-full focus:outline-none bg-transparent" />
+                  <div className="flex gap-1 mt-2 justify-end">
+                    <button onClick={() => setEditingShortcutId(null)} className="text-xs text-gray-400 px-2 py-1">취소</button>
+                    <button onClick={saveEditShortcut} className="text-xs bg-gray-800 text-white px-2 py-1 rounded-lg">저장</button>
+                  </div>
+                </div>
+              )
+            }
+            return (
+              <div key={s.id} className="group relative">
+                <a href={s.url} target="_blank" rel="noopener noreferrer"
+                  className="flex flex-col bg-white border border-gray-200 rounded-xl px-4 py-3 w-40 hover:border-gray-400 hover:shadow-sm transition-all">
+                  <span className="text-sm font-semibold text-gray-800 truncate">🔗 {s.title}</span>
+                  <span className="text-xs text-gray-400 truncate mt-0.5">
+                    {s.url.replace(/^https?:\/\//, '').slice(0, 28)}
+                  </span>
+                </a>
+                <div className="absolute -top-1.5 -right-1.5 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button onClick={() => startEditShortcut(s)}
+                    className="w-5 h-5 bg-blue-500 text-white rounded-full text-xs flex items-center justify-center hover:bg-blue-600">
+                    ✎
+                  </button>
+                  <button onClick={() => removeShortcut(s.id)}
+                    className="w-5 h-5 bg-gray-400 text-white rounded-full text-xs flex items-center justify-center hover:bg-red-500">
+                    ×
+                  </button>
+                </div>
+              </div>
+            )
+          })}
           {showAddShortcut ? (
-            <div className="flex items-center gap-1.5">
+            <div className="bg-white rounded-xl border border-blue-300 p-3 w-44 shadow-sm">
               <input value={newShortcutTitle} onChange={e => setNewShortcutTitle(e.target.value)}
-                placeholder="이름 (선택)" className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 w-24 focus:outline-none" />
+                placeholder="이름 (필수)" autoFocus
+                className="text-sm font-medium text-gray-800 w-full focus:outline-none border-b border-gray-200 pb-1 mb-1.5 bg-transparent" />
               <input value={newShortcutUrl} onChange={e => setNewShortcutUrl(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') addShortcut(); if (e.key === 'Escape') setShowAddShortcut(false) }}
-                placeholder="URL" className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 w-36 focus:outline-none" autoFocus />
-              <button onClick={addShortcut} className="text-xs bg-gray-800 text-white px-2 py-1.5 rounded-lg">추가</button>
-              <button onClick={() => setShowAddShortcut(false)} className="text-xs text-gray-400">취소</button>
+                placeholder="URL"
+                className="text-xs text-gray-400 w-full focus:outline-none bg-transparent" />
+              <div className="flex gap-1 mt-2 justify-end">
+                <button onClick={() => setShowAddShortcut(false)} className="text-xs text-gray-400 px-2 py-1">취소</button>
+                <button onClick={addShortcut} className="text-xs bg-gray-800 text-white px-2 py-1 rounded-lg">추가</button>
+              </div>
             </div>
           ) : (
-            <button onClick={() => setShowAddShortcut(true)}
-              className="text-xs text-gray-300 hover:text-gray-500 border border-dashed border-gray-200 hover:border-gray-300 rounded-lg px-3 py-1.5 transition-colors">
-              + 바로가기
+            <button onClick={() => { setShowAddShortcut(true); setEditingShortcutId(null) }}
+              className="flex flex-col items-center justify-center w-40 h-16 border border-dashed border-gray-200 hover:border-gray-300 rounded-xl text-gray-300 hover:text-gray-400 transition-colors text-xs">
+              + 바로가기 추가
             </button>
           )}
         </div>
