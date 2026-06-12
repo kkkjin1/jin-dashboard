@@ -6,15 +6,15 @@ import { useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 const navItems = [
-  { href: '/', label: '홈', icon: '🏠', key: '1' },
-  { href: '/tasks', label: '업무 목록', icon: '≡', key: '2' },
-  { href: '/completed', label: '완료 성과', icon: '🏆', key: '3' },
-  { href: '/meetings', label: '회의록', icon: '💬', key: '4' },
-  { href: '/schedule', label: '일정', icon: '📅', key: '5' },
-  { href: '/memos', label: '메모', icon: '📝', key: '6' },
-  { href: '/one-on-one', label: '1on1', icon: '👤', key: '7' },
-  { href: '/learning', label: '학습자료', icon: '📚', key: '8' },
-  { href: '/settings', label: '설정', icon: '⚙', key: '' },
+  { href: '/', label: '홈', key: '1' },
+  { href: '/tasks', label: '업무 목록', key: '2' },
+  { href: '/completed', label: '완료 성과', key: '3' },
+  { href: '/meetings', label: '회의록', key: '4' },
+  { href: '/schedule', label: '일정', key: '5' },
+  { href: '/memos', label: '메모', key: '6' },
+  { href: '/one-on-one', label: '1on1', key: '7' },
+  { href: '/learning', label: '학습자료', key: '8' },
+  { href: '/settings', label: '설정', key: '' },
 ]
 
 const KEY_ROUTES: Record<string, string> = {
@@ -78,10 +78,7 @@ export default function Sidebar() {
                       ? 'bg-[#5DBD97]/15 text-[#5DBD97] font-medium'
                       : 'text-slate-300 hover:bg-white/5 hover:text-white'
                   }`}>
-                  <span className="flex items-center gap-2.5">
-                    <span className="text-base">{item.icon}</span>
-                    {item.label}
-                  </span>
+                  <span>{item.label}</span>
                   {item.key && (
                     <span className="text-xs text-slate-500 font-mono">{item.key}</span>
                   )}

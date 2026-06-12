@@ -71,10 +71,10 @@ export default function HomeCalendar({ tasks, meetings }: Props) {
           return (
             <div
               key={day.toISOString()}
-              className={`min-h-16 p-1 rounded-lg ${isToday ? 'bg-red-50' : 'hover:bg-gray-50'} transition-colors`}
+              className={`min-h-16 p-1 rounded-lg ${isToday ? 'bg-[#EBF7F2]' : 'hover:bg-gray-50'} transition-colors`}
             >
               <p className={`text-xs text-center mb-1 w-6 h-6 flex items-center justify-center rounded-full mx-auto ${
-                isToday ? 'bg-red-500 text-white font-bold' : 'text-gray-600'
+                isToday ? 'bg-[#5DBD97] text-white font-bold' : 'text-gray-600'
               }`}>
                 {format(day, 'd')}
               </p>
@@ -85,8 +85,8 @@ export default function HomeCalendar({ tasks, meetings }: Props) {
                     onClick={() => router.push(ev.type === 'meeting' ? `/meetings/${ev.meeting.id}` : `/tasks/${ev.task.id}`)}
                     className={`w-full text-left rounded px-1 py-0.5 truncate text-xs leading-tight transition-opacity hover:opacity-80 ${
                       ev.type === 'mid' ? 'bg-amber-100 text-amber-700' :
-                      ev.type === 'end' ? 'bg-red-100 text-red-700' :
-                      'bg-purple-100 text-purple-700'
+                      ev.type === 'end' ? 'bg-[#1C2B3A]/10 text-[#1C2B3A]' :
+                      'bg-[#EBF7F2] text-[#5DBD97]'
                     }`}
                     title={ev.type === 'meeting' ? ev.meeting.title : `${ev.type === 'mid' ? '중간공유' : '최종보고'} | ${ev.task.title}`}
                   >
@@ -110,11 +110,11 @@ export default function HomeCalendar({ tasks, meetings }: Props) {
           <span className="text-xs text-gray-400">중간공유</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="w-3 h-2.5 bg-red-100 rounded border border-red-300" />
+          <div className="w-3 h-2.5 bg-[#1C2B3A]/10 rounded border border-[#1C2B3A]/20" />
           <span className="text-xs text-gray-400">최종보고</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="w-3 h-2.5 bg-purple-100 rounded border border-purple-300" />
+          <div className="w-3 h-2.5 bg-[#EBF7F2] rounded border border-[#5DBD97]/30" />
           <span className="text-xs text-gray-400">회의</span>
         </div>
       </div>

@@ -16,8 +16,8 @@ import FormattingToolbar from '@/components/FormattingToolbar'
 const STATUSES: TaskStatus[] = ['진행필요', '진행중', '완료']
 const STATUS_COLORS: Record<TaskStatus, string> = {
   '진행필요': 'bg-gray-100 text-gray-600',
-  '진행중': 'bg-blue-50 text-blue-600',
-  '완료': 'bg-green-50 text-green-600',
+  '진행중': 'bg-[#EBF7F2] text-[#5DBD97]',
+  '완료': 'bg-[#EBF7F2]/60 text-[#4aab84]',
 }
 
 function Toast({ message, onDone }: { message: string; onDone: () => void }) {

@@ -12,25 +12,25 @@ const TYPES: TaskType[] = ['기획', '개선', '운영']
 const STATUSES: TaskStatus[] = ['진행필요', '진행중', '완료']
 
 const STATUS_COLORS: Record<TaskStatus, string> = {
-  '진행필요': 'bg-gray-100 text-gray-600',
-  '진행중': 'bg-blue-50 text-blue-600',
-  '완료': 'bg-green-50 text-green-600',
+  '진행필요': 'bg-gray-100 text-gray-500',
+  '진행중': 'bg-[#EBF7F2] text-[#5DBD97]',
+  '완료': 'bg-[#EBF7F2]/60 text-[#4aab84]',
 }
 
 const STATUS_BG: Record<TaskStatus, string> = {
   '진행필요': 'bg-gray-50 border-gray-200',
-  '진행중': 'bg-blue-50 border-blue-100',
-  '완료': 'bg-green-50 border-green-100',
+  '진행중': 'bg-[#EBF7F2]/50 border-[#5DBD97]/25',
+  '완료': 'bg-gray-50 border-gray-200',
 }
 
 const PART_ACCENT: Record<string, string> = {
-  '코어': 'border-t-indigo-400',
-  '비즈': 'border-t-emerald-400',
-  '개인': 'border-t-amber-400',
+  '코어': 'border-t-[#5DBD97]',
+  '비즈': 'border-t-[#F4A35A]',
+  '개인': 'border-t-slate-400',
 }
 
 function MemberAvatar({ name }: { name: string }) {
-  const colors = ['bg-red-400','bg-blue-400','bg-green-400','bg-purple-400','bg-amber-400','bg-pink-400','bg-indigo-400','bg-teal-400']
+  const colors = ['bg-[#5DBD97]','bg-[#F4A35A]','bg-[#1C2B3A]','bg-slate-400','bg-teal-400','bg-stone-400','bg-[#4aab84]','bg-slate-500']
   const color = colors[name.charCodeAt(0) % colors.length]
   return (
     <div className={`w-5 h-5 rounded-full ${color} flex items-center justify-center text-white text-xs font-medium`}>
@@ -55,11 +55,12 @@ export default function TasksPage() {
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set())
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set())
+  const [assigneeOpen, setAssigneeOpen] = useState(false)
   const currentYear = new Date().getFullYear()
   const [showPicker, setShowPicker] = useState(false)
   const [pickerYear, setPickerYear] = useState(currentYear)
   const [pickerFocusMonth, setPickerFocusMonth] = useState(new Date().getMonth() + 1)
-  const assigneeRef = useRef<HTMLSelectElement>(null)
+  const assigneeDropdownRef = useRef<HTMLDivElement>(null)
   const pickerRef = useRef<HTMLDivElement>(null)
   const showPickerRef = useRef(false)
   const pickerYearRef = useRef(currentYear)
@@ -106,11 +107,17 @@ export default function TasksPage() {
       if (e.ctrlKey || e.metaKey || e.altKey) return
       if (e.code === 'KeyQ') setStatusFilter(prev => prev === '전체' ? '진행필요' : prev === '진행필요' ? '진행중' : prev === '진행중' ? '완료' : '전체')
       if (e.code === 'KeyW') setHideCompleted(prev => !prev)
-      if (e.code === 'KeyT') {
-        if (viewModeRef.current === 'monthly') setViewMode('parts')
-        else setShowPicker(true)
+      if (e.code === 'KeyE') {
+        if (viewModeRef.current === 'monthly') {
+          setViewMode('parts')
+        } else {
+          const nowM = new Date().getMonth() + 1
+          setPickerFocusMonth(nowM)
+          setPickerYear(new Date().getFullYear())
+          setShowPicker(true)
+        }
       }
-      if (e.key === 'Tab') { e.preventDefault(); assigneeRef.current?.focus() }
+      if (e.key === 'Tab') { e.preventDefault(); setAssigneeOpen(prev => !prev) }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -124,6 +131,15 @@ export default function TasksPage() {
     document.addEventListener('mousedown', onClickOutside)
     return () => document.removeEventListener('mousedown', onClickOutside)
   }, [showPicker])
+
+  useEffect(() => {
+    if (!assigneeOpen) return
+    function onClickOutside(e: MouseEvent) {
+      if (assigneeDropdownRef.current && !assigneeDropdownRef.current.contains(e.target as Node)) setAssigneeOpen(false)
+    }
+    document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [assigneeOpen])
 
   const filteredTasks = tasks.filter(t => {
     if (hideCompleted && t.status === '완료') return false
@@ -247,11 +263,27 @@ export default function TasksPage() {
             </div>
           )}
         </div>
-        <select ref={assigneeRef} value={assigneeFilter} onChange={e => setAssigneeFilter(e.target.value)}
-          className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-600 focus:outline-none">
-          <option value="전체">전체 담당자</option>
-          {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-        </select>
+        <div className="relative" ref={assigneeDropdownRef}>
+          <button onClick={() => setAssigneeOpen(prev => !prev)}
+            className={`text-xs px-3 py-1.5 rounded-lg border transition-colors flex items-center gap-1 ${assigneeFilter !== '전체' ? 'bg-[#5DBD97] text-white border-[#5DBD97]' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
+            {assigneeFilter === '전체' ? '전체 담당자' : (members.find(m => m.id === assigneeFilter)?.name ?? '담당자')}
+            <span className="text-[10px] opacity-60">▾</span>
+          </button>
+          {assigneeOpen && (
+            <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-gray-200 rounded-xl shadow-lg py-1.5 min-w-36">
+              <button onClick={() => { setAssigneeFilter('전체'); setAssigneeOpen(false) }}
+                className={`w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 transition-colors ${assigneeFilter === '전체' ? 'text-[#5DBD97] font-medium' : 'text-gray-600'}`}>
+                전체 담당자
+              </button>
+              {members.map(m => (
+                <button key={m.id} onClick={() => { setAssigneeFilter(m.id); setAssigneeOpen(false) }}
+                  className={`w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 transition-colors ${assigneeFilter === m.id ? 'text-[#5DBD97] font-medium' : 'text-gray-600'}`}>
+                  {m.name}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* 월별 칸반 */}

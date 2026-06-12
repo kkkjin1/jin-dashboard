@@ -276,10 +276,10 @@ export default function SchedulePage() {
       <div key={day.toISOString()}
         onClick={() => setSelectedDay(isSameDay(day, selectedDay ?? new Date(0)) ? null : day)}
         className={`min-h-16 p-1 rounded-lg cursor-pointer transition-colors ${
-          isSelected ? 'bg-gray-100' : isToday ? 'bg-red-50' : isOtherMonth ? 'bg-gray-50/50 opacity-50' : 'hover:bg-gray-50'
+          isSelected ? 'bg-gray-100' : isToday ? 'bg-[#EBF7F2]' : isOtherMonth ? 'bg-gray-50/50 opacity-50' : 'hover:bg-gray-50'
         }`}>
         <p className={`text-xs text-center mb-1 w-6 h-6 flex items-center justify-center rounded-full mx-auto ${
-          isToday ? 'bg-red-500 text-white font-bold' : isOtherMonth ? 'text-gray-300' : 'text-gray-600'
+          isToday ? 'bg-[#5DBD97] text-white font-bold' : isOtherMonth ? 'text-gray-300' : 'text-gray-600'
         }`}>
           {format(day, 'd')}
         </p>
@@ -291,7 +291,7 @@ export default function SchedulePage() {
                 <button key={`task-${dt.task.id}-${dt.dateType}-${idx}`}
                   onClick={e => { e.stopPropagation(); router.push(`/tasks/${dt.task.id}`) }}
                   className={`w-full text-left rounded px-1 py-0.5 truncate text-xs leading-tight hover:opacity-80 ${
-                    dt.dateType === 'mid' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
+                    dt.dateType === 'mid' ? 'bg-amber-100 text-amber-700' : 'bg-[#1C2B3A]/10 text-[#1C2B3A]'
                   }`}
                   title={`${dt.dateType === 'mid' ? '중간공유' : '최종보고'} | ${dt.task.title}`}>
                   <span className="font-medium">{dt.dateType === 'mid' ? '중간' : '최종'}</span>
@@ -303,9 +303,9 @@ export default function SchedulePage() {
               return (
                 <button key={`meeting-${m.id}-${idx}`}
                   onClick={e => { e.stopPropagation(); router.push(`/meetings/${m.id}`) }}
-                  className="w-full text-left rounded px-1 py-0.5 truncate text-xs leading-tight bg-purple-100 text-purple-700 hover:opacity-80"
+                  className="w-full text-left rounded px-1 py-0.5 truncate text-xs leading-tight bg-[#EBF7F2] text-[#5DBD97] hover:opacity-80"
                   title={`회의 | ${m.title}`}>
-                  💬 {m.title}
+                  {m.title}
                 </button>
               )
             }
