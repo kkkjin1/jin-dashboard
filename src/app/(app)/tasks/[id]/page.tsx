@@ -362,8 +362,8 @@ export default function TaskDetailPage() {
   return (
     <div
       ref={contentRef}
-      className="p-8"
-      style={contentWidth ? { maxWidth: `${contentWidth}px` } : {}}
+      className="p-8 relative"
+      style={contentWidth ? { width: `${contentWidth}px` } : {}}
     >
       {toast && <Toast message={toast} onDone={() => setToast('')} />}
 
@@ -672,11 +672,10 @@ export default function TaskDetailPage() {
           </div>
         </div>
       </div>
-      {/* 너비 조절 핸들 - 항상 보이는 고정 위치 */}
+      {/* 너비 조절 핸들 */}
       <div
         onMouseDown={startResize}
-        className="fixed right-1 top-1/2 -translate-y-1/2 z-30 flex flex-col gap-1 cursor-ew-resize p-1.5 rounded-lg bg-gray-100 hover:bg-blue-100 transition-colors opacity-40 hover:opacity-100"
-        title="드래그하여 너비 조절"
+        className="absolute right-0 top-0 bottom-0 w-3 cursor-ew-resize z-30 flex flex-col items-center justify-center gap-1 opacity-0 hover:opacity-100 hover:bg-blue-50 transition-all rounded-l-lg"
       >
         <div className="w-1 h-3 bg-gray-400 rounded-full" />
         <div className="w-1 h-3 bg-gray-400 rounded-full" />

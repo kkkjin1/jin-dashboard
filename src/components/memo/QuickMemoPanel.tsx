@@ -123,6 +123,29 @@ export default function QuickMemoPanel() {
     document.addEventListener('mouseup', onUp)
   }
 
+  function startResizeBoth(e: React.MouseEvent) {
+    e.preventDefault()
+    isResizingW.current = true
+    isResizingH.current = true
+    const startX = e.clientX
+    const startY = e.clientY
+    const startW = panelWidth
+    const startH = panelHeight
+    const onMove = (ev: MouseEvent) => {
+      if (!isResizingW.current) return
+      setPanelWidth(Math.max(280, Math.min(800, startW - (ev.clientX - startX))))
+      setPanelHeight(Math.max(200, Math.min(800, startH - (ev.clientY - startY))))
+    }
+    const onUp = () => {
+      isResizingW.current = false
+      isResizingH.current = false
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+    }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }
+
   const meetingDate = tag === '회의관련' ? parseMeetingDate(title) : null
 
   async function handleSave() {
@@ -170,6 +193,14 @@ export default function QuickMemoPanel() {
         <div
           onMouseDown={startResizeW}
           className="absolute top-0 left-0 bottom-0 w-1.5 cursor-ew-resize hover:bg-gray-200 transition-colors z-10" />
+
+        {/* 왼쪽 상단 대각선 리사이즈 핸들 */}
+        <div
+          onMouseDown={startResizeBoth}
+          className="absolute top-0 left-0 w-5 h-5 cursor-nwse-resize z-20 flex items-center justify-center hover:bg-gray-200 transition-colors rounded-tl-2xl"
+          title="대각선 크기 조절">
+          <span className="text-gray-300 text-[8px] leading-none select-none">◤</span>
+        </div>
 
         <div className="p-5 h-full overflow-y-auto">
           <div className="flex items-center justify-between mb-4">

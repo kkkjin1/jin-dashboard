@@ -71,7 +71,10 @@ export default function TaskColumn({ title, count, tasks, accentColor = 'bg-red-
       </div>
       <div className="space-y-2">
         {tasks.length === 0 ? (
-          <p className="text-sm text-gray-400 py-4 text-center">해당 업무가 없습니다</p>
+          <div className="py-4 text-center">
+            <p className="text-sm text-gray-400">해당 없음</p>
+            <p className="text-xs text-gray-300 mt-1">업무 상세에서 마감일을 설정하면 표시됩니다</p>
+          </div>
         ) : (
           tasks.map(task => {
             const days = getRelevantDays(task, dateMode)

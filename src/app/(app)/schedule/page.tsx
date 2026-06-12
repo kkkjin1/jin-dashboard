@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, parseISO, getDay, addMonths, subMonths, getDaysInMonth } from 'date-fns'
 import { ko } from 'date-fns/locale'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { fetchAllTasks, fetchMembers } from '@/lib/tasks'
@@ -35,6 +34,9 @@ export default function SchedulePage() {
   const [repeatTitle, setRepeatTitle] = useState('')
   const [repeatDay, setRepeatDay] = useState('15')
   const [repeatMonthCount, setRepeatMonthCount] = useState('3')
+  const [dragItemId, setDragItemId] = useState<string | null>(null)
+  const [dragOverId, setDragOverId] = useState<string | null>(null)
+  const [dayOrder, setDayOrder] = useState<Record<string, string[]>>({})
   const router = useRouter()
   const supabase = createClient()
 
@@ -56,6 +58,13 @@ export default function SchedulePage() {
     }
     window.addEventListener('quick-meeting-created', onMeetingCreated)
     return () => window.removeEventListener('quick-meeting-created', onMeetingCreated)
+  }, [])
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('schedule_day_order')
+      if (saved) setDayOrder(JSON.parse(saved))
+    } catch {}
   }, [])
 
   const filtered = tasks.filter(t => {
@@ -109,6 +118,47 @@ export default function SchedulePage() {
 
   const selectedDayTasks = selectedDay ? getDayTasks(selectedDay) : []
   const selectedDayMeetings = selectedDay ? getDayMeetings(selectedDay) : []
+
+  type DayListItem =
+    | { itemId: string; type: 'task'; data: DayTask }
+    | { itemId: string; type: 'meeting'; data: Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'> }
+
+  function getOrderedDayItems(): DayListItem[] {
+    const all: DayListItem[] = [
+      ...selectedDayMeetings.map(m => ({ itemId: `meeting-${m.id}`, type: 'meeting' as const, data: m })),
+      ...selectedDayTasks.map(dt => ({ itemId: `task-${dt.task.id}-${dt.dateType}`, type: 'task' as const, data: dt })),
+    ]
+    if (!selectedDay) return all
+    const key = format(selectedDay, 'yyyy-MM-dd')
+    const savedOrder = dayOrder[key]
+    if (!savedOrder || savedOrder.length === 0) return all
+    const itemMap = new Map(all.map(item => [item.itemId, item]))
+    const ordered: DayListItem[] = []
+    for (const id of savedOrder) {
+      const item = itemMap.get(id)
+      if (item) { ordered.push(item); itemMap.delete(id) }
+    }
+    ordered.push(...itemMap.values())
+    return ordered
+  }
+
+  function handleDayDrop(targetId: string) {
+    if (!dragItemId || !selectedDay || dragItemId === targetId) return
+    const key = format(selectedDay, 'yyyy-MM-dd')
+    const items = getOrderedDayItems()
+    const ids = items.map(i => i.itemId)
+    const fromIdx = ids.indexOf(dragItemId)
+    const toIdx = ids.indexOf(targetId)
+    if (fromIdx === -1 || toIdx === -1) return
+    const newIds = [...ids]
+    newIds.splice(fromIdx, 1)
+    newIds.splice(toIdx, 0, dragItemId)
+    const newOrder = { ...dayOrder, [key]: newIds }
+    setDayOrder(newOrder)
+    localStorage.setItem('schedule_day_order', JSON.stringify(newOrder))
+    setDragItemId(null)
+    setDragOverId(null)
+  }
 
   // ── Helper: count weekdays (Mon–Fri) between two dates inclusive
   function countWeekdays(start: Date, end: Date): number {
@@ -515,30 +565,48 @@ export default function SchedulePage() {
             <p className="text-sm text-gray-300">이 날 예정된 일정이 없습니다</p>
           ) : (
             <div className="space-y-2">
-              {selectedDayMeetings.map(m => (
-                <Link key={m.id} href={`/meetings/${m.id}`}>
-                  <div className="bg-purple-50 rounded-xl border border-purple-100 p-3 hover:border-purple-200 transition-colors">
-                    <div className="flex items-center gap-2 mb-1">
+              {getOrderedDayItems().map(item => (
+                <div
+                  key={item.itemId}
+                  draggable
+                  onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; setDragItemId(item.itemId) }}
+                  onDragEnd={() => { setDragItemId(null); setDragOverId(null) }}
+                  onDragOver={e => { e.preventDefault(); if (dragItemId !== item.itemId) setDragOverId(item.itemId) }}
+                  onDrop={e => { e.preventDefault(); handleDayDrop(item.itemId) }}
+                  onClick={() => router.push(item.type === 'meeting' ? `/meetings/${(item.data as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>).id}` : `/tasks/${(item.data as DayTask).task.id}`)}
+                  className={`rounded-xl border p-3 transition-all cursor-grab active:cursor-grabbing select-none ${
+                    item.type === 'meeting' ? 'bg-purple-50 border-purple-100 hover:border-purple-200' : 'bg-white border-gray-100 hover:border-gray-200'
+                  } ${dragItemId === item.itemId ? 'opacity-40 scale-95' : ''} ${
+                    dragOverId === item.itemId && dragItemId !== item.itemId ? 'border-blue-300 shadow-sm -translate-y-0.5' : ''
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-gray-300 text-xs">⠿</span>
+                    {item.type === 'meeting' ? (
                       <span className="text-xs font-medium text-purple-600">💬 회의</span>
-                    </div>
-                    <p className="text-sm font-medium text-gray-800">{m.title}</p>
-                    {m.category && <span className="text-xs text-purple-400">{m.category}</span>}
-                  </div>
-                </Link>
-              ))}
-              {selectedDayTasks.map((dt, idx) => (
-                <Link key={`${dt.task.id}-${dt.dateType}-${idx}`} href={`/tasks/${dt.task.id}`}>
-                  <div className="bg-white rounded-xl border border-gray-100 p-3 hover:border-gray-200 transition-colors">
-                    <p className="text-sm font-medium text-gray-800 mb-1">{dt.task.title}</p>
-                    <div className="flex flex-wrap gap-1">
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${dt.dateType === 'mid' ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-500'}`}>
-                        {dt.dateType === 'mid' ? '중간공유' : '최종보고'}
+                    ) : (
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${(item.data as DayTask).dateType === 'mid' ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-500'}`}>
+                        {(item.data as DayTask).dateType === 'mid' ? '중간공유' : '최종보고'}
                       </span>
-                      <span className="text-xs text-gray-400">{dt.task.part}</span>
-                      {dt.task.members?.name && <span className="text-xs text-gray-400">{dt.task.members.name}</span>}
-                    </div>
+                    )}
                   </div>
-                </Link>
+                  <p className="text-sm font-medium text-gray-800">
+                    {item.type === 'meeting'
+                      ? (item.data as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>).title
+                      : (item.data as DayTask).task.title}
+                  </p>
+                  {item.type === 'meeting' && (item.data as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>).category && (
+                    <span className="text-xs text-purple-400">{(item.data as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>).category}</span>
+                  )}
+                  {item.type === 'task' && (
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      <span className="text-xs text-gray-400">{(item.data as DayTask).task.part}</span>
+                      {(item.data as DayTask).task.members?.name && (
+                        <span className="text-xs text-gray-400">{(item.data as DayTask).task.members?.name}</span>
+                      )}
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
           )}

@@ -102,7 +102,7 @@ export default function HomePage() {
   const active = tasks.filter(t => t.status !== '완료')
   const todayTasks = active.filter(t => t.end_date && isToday(parseISO(t.end_date)))
   const weekTasks = active
-    .filter(t => { if (!t.end_date) return false; const d = daysUntil(t.end_date); return d >= 1 && d <= 6 })
+    .filter(t => { if (!t.end_date) return false; const d = daysUntil(t.end_date); return d >= 1 && d <= 7 })
     .sort((a, b) => daysUntil(a.end_date!) - daysUntil(b.end_date!))
   const midSoonTasks = active
     .filter(t => hasUpcomingMidDate(t) && daysUntil(t.mid_date!) <= 8)
