@@ -329,8 +329,7 @@ export default function SchedulePage() {
             partFilter !== '전체' ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
           }`}>
           {partFilter === '전체' ? '전체 파트' : `${partFilter}파트`}
-          <span className="ml-1.5 opacity-40 font-normal">[q]</span>
-        </button>
+                  </button>
 
         {/* w: 상태 */}
         <button
@@ -339,8 +338,7 @@ export default function SchedulePage() {
             statusFilter !== '전체' ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
           }`}>
           {statusFilter === '전체' ? '전체 상태' : statusFilter}
-          <span className="ml-1.5 opacity-40 font-normal">[w]</span>
-        </button>
+                  </button>
 
         {/* e: 보고구분 */}
         <button
@@ -349,8 +347,7 @@ export default function SchedulePage() {
             reportFilter !== '전체' ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
           }`}>
           {reportFilter === '전체' ? '보고구분' : reportFilter}
-          <span className="ml-1.5 opacity-40 font-normal">[e]</span>
-        </button>
+                  </button>
 
         {/* r: 업무/회의 */}
         <button
@@ -359,13 +356,12 @@ export default function SchedulePage() {
             viewFilter !== '전체' ? 'bg-purple-500 text-white border-purple-500' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
           }`}>
           {viewFilter === '전체' ? '업무+회의' : viewFilter}
-          <span className="ml-1.5 opacity-40 font-normal">[r]</span>
-        </button>
+                  </button>
 
         {/* Tab: 담당자 select */}
         <select ref={assigneeRef} value={assigneeFilter} onChange={e => setAssigneeFilter(e.target.value)}
           className="text-xs border border-gray-200 rounded-full px-3 py-1.5 focus:outline-none focus:border-gray-400 bg-white text-gray-500">
-          <option value="전체">전체 담당자 [Tab]</option>
+          <option value="전체">전체 담당자</option>
           {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
         </select>
 

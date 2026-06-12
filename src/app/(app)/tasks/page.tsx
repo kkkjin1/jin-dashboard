@@ -55,7 +55,20 @@ export default function TasksPage() {
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set())
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set())
+  const currentYear = new Date().getFullYear()
+  const [showPicker, setShowPicker] = useState(false)
+  const [pickerYear, setPickerYear] = useState(currentYear)
+  const [pickerFocusMonth, setPickerFocusMonth] = useState(new Date().getMonth() + 1)
   const assigneeRef = useRef<HTMLSelectElement>(null)
+  const pickerRef = useRef<HTMLDivElement>(null)
+  const showPickerRef = useRef(false)
+  const pickerYearRef = useRef(currentYear)
+  const pickerFocusMonthRef = useRef(new Date().getMonth() + 1)
+  const viewModeRef = useRef<'parts' | 'monthly'>('parts')
+  showPickerRef.current = showPicker
+  pickerYearRef.current = pickerYear
+  pickerFocusMonthRef.current = pickerFocusMonth
+  viewModeRef.current = viewMode
   const supabase = createClient()
   const router = useRouter()
 
@@ -74,22 +87,43 @@ export default function TasksPage() {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.isComposing) return
+      if (showPickerRef.current) {
+        if (e.code === 'ArrowLeft') { e.preventDefault(); setPickerYear(y => y - 1) }
+        if (e.code === 'ArrowRight') { e.preventDefault(); setPickerYear(y => y + 1) }
+        if (e.code === 'ArrowUp') { e.preventDefault(); setPickerFocusMonth(m => m > 1 ? m - 1 : 12) }
+        if (e.code === 'ArrowDown') { e.preventDefault(); setPickerFocusMonth(m => m < 12 ? m + 1 : 1) }
+        if (e.key === 'Enter') {
+          const ym = `${pickerYearRef.current}-${String(pickerFocusMonthRef.current).padStart(2, '0')}`
+          setMonthFilter(ym)
+          setViewMode('monthly')
+          setShowPicker(false)
+        }
+        if (e.key === 'Escape') setShowPicker(false)
+        return
+      }
       const tag = (e.target as HTMLElement).tagName
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
       if (e.ctrlKey || e.metaKey || e.altKey) return
       if (e.code === 'KeyQ') setStatusFilter(prev => prev === '전체' ? '진행필요' : prev === '진행필요' ? '진행중' : prev === '진행중' ? '완료' : '전체')
       if (e.code === 'KeyW') setHideCompleted(prev => !prev)
-      if (e.code === 'KeyE') setMonthFilter(prev => {
-        if (prev === '전체') return allMonths[0] ?? '전체'
-        const idx = allMonths.indexOf(prev)
-        return idx < allMonths.length - 1 ? allMonths[idx + 1] : '전체'
-      })
-      if (e.code === 'KeyT') setViewMode(prev => prev === 'monthly' ? 'parts' : 'monthly')
+      if (e.code === 'KeyT') {
+        if (viewModeRef.current === 'monthly') setViewMode('parts')
+        else setShowPicker(true)
+      }
       if (e.key === 'Tab') { e.preventDefault(); assigneeRef.current?.focus() }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [allMonths])
+  }, [])
+
+  useEffect(() => {
+    if (!showPicker) return
+    function onClickOutside(e: MouseEvent) {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) setShowPicker(false)
+    }
+    document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [showPicker])
 
   const filteredTasks = tasks.filter(t => {
     if (hideCompleted && t.status === '완료') return false
@@ -170,30 +204,52 @@ export default function TasksPage() {
         <button
           onClick={() => setStatusFilter(prev => prev === '전체' ? '진행필요' : prev === '진행필요' ? '진행중' : prev === '진행중' ? '완료' : '전체')}
           className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${statusFilter !== '전체' ? 'bg-gray-800 text-white border-gray-800' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
-          {statusFilter === '전체' ? '전체 상태' : statusFilter}<span className="ml-1.5 opacity-40 font-normal">[q]</span>
+          {statusFilter === '전체' ? '전체 상태' : statusFilter}
         </button>
         <button
           onClick={() => setHideCompleted(prev => !prev)}
           className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${hideCompleted ? 'bg-gray-800 text-white border-gray-800' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
-          {hideCompleted ? '완료 숨김' : '완료 표시'}<span className="ml-1.5 opacity-40 font-normal">[w]</span>
+          {hideCompleted ? '완료 숨김' : '완료 표시'}
         </button>
-        <button
-          onClick={() => setMonthFilter(prev => {
-            if (prev === '전체') return allMonths[0] ?? '전체'
-            const idx = allMonths.indexOf(prev)
-            return idx < allMonths.length - 1 ? allMonths[idx + 1] : '전체'
-          })}
-          className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${monthFilter !== '전체' ? 'bg-gray-800 text-white border-gray-800' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
-          {monthFilter === '전체' ? '전체 월' : formatMonth(monthFilter)}<span className="ml-1.5 opacity-40 font-normal">[e]</span>
-        </button>
-        <button
-          onClick={() => { setViewMode(prev => prev === 'monthly' ? 'parts' : 'monthly'); if (viewMode === 'parts' && monthFilter === '전체' && allMonths.length > 0) setMonthFilter(allMonths[0]) }}
-          className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${viewMode === 'monthly' ? 'bg-gray-800 text-white border-gray-800' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
-          월별 칸반<span className="ml-1.5 opacity-40 font-normal">[t]</span>
-        </button>
+        <div className="relative flex items-center gap-1">
+          <button
+            onClick={() => setShowPicker(prev => !prev)}
+            className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${viewMode === 'monthly' ? 'bg-gray-800 text-white border-gray-800' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
+            {viewMode === 'monthly' && monthFilter !== '전체' ? formatMonth(monthFilter) : '월별 칸반'}
+          </button>
+          {viewMode === 'monthly' && (
+            <button
+              onClick={() => { setViewMode('parts'); setShowPicker(false) }}
+              className="text-gray-300 hover:text-gray-600 text-sm px-0.5 leading-none transition-colors">
+              ×
+            </button>
+          )}
+          {showPicker && (
+            <div ref={pickerRef} className="absolute top-full left-0 mt-1 z-50 bg-white border border-gray-200 rounded-xl shadow-lg p-4 w-56">
+              <div className="flex items-center justify-between mb-3">
+                <button onClick={() => setPickerYear(y => y - 1)} className="w-7 h-7 flex items-center justify-center rounded hover:bg-gray-100 transition-colors text-gray-500 text-lg">‹</button>
+                <span className="text-sm font-semibold text-gray-800">{pickerYear}년</span>
+                <button onClick={() => setPickerYear(y => y + 1)} className="w-7 h-7 flex items-center justify-center rounded hover:bg-gray-100 transition-colors text-gray-500 text-lg">›</button>
+              </div>
+              <div className="grid grid-cols-4 gap-1">
+                {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                  <button key={m}
+                    onClick={() => {
+                      const ym = `${pickerYear}-${String(m).padStart(2, '0')}`
+                      setMonthFilter(ym); setViewMode('monthly'); setShowPicker(false)
+                    }}
+                    className={`text-xs py-1.5 rounded-lg transition-colors ${pickerFocusMonth === m ? 'bg-gray-800 text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
+                    {m}월
+                  </button>
+                ))}
+              </div>
+              <p className="text-[10px] text-gray-300 mt-3 text-center">↑↓ 월 · ←→ 년 · Enter 선택</p>
+            </div>
+          )}
+        </div>
         <select ref={assigneeRef} value={assigneeFilter} onChange={e => setAssigneeFilter(e.target.value)}
           className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-600 focus:outline-none">
-          <option value="전체">전체 담당자 [Tab]</option>
+          <option value="전체">전체 담당자</option>
           {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
         </select>
       </div>
