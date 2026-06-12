@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -55,6 +55,7 @@ export default function TasksPage() {
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set())
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set())
+  const assigneeRef = useRef<HTMLSelectElement>(null)
   const supabase = createClient()
   const router = useRouter()
 
@@ -69,6 +70,26 @@ export default function TasksPage() {
     tasks.forEach(t => (t.work_months ?? []).forEach(m => months.add(m)))
     return Array.from(months).sort().reverse()
   }, [tasks])
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const tag = (e.target as HTMLElement).tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      if (e.ctrlKey || e.metaKey || e.altKey) return
+      if (e.key === 'q') setStatusFilter(prev => prev === '전체' ? '진행필요' : prev === '진행필요' ? '진행중' : prev === '진행중' ? '완료' : '전체')
+      if (e.key === 'w') setHideCompleted(prev => !prev)
+      if (e.key === 'e') setMonthFilter(prev => {
+        if (prev === '전체') return allMonths[0] ?? '전체'
+        const idx = allMonths.indexOf(prev)
+        return idx < allMonths.length - 1 ? allMonths[idx + 1] : '전체'
+      })
+      if (e.key === 'r') setViewMode('parts')
+      if (e.key === 't') setViewMode('monthly')
+      if (e.key === 'Tab') { e.preventDefault(); assigneeRef.current?.focus() }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [allMonths])
 
   const filteredTasks = tasks.filter(t => {
     if (hideCompleted && t.status === '완료') return false
@@ -146,35 +167,40 @@ export default function TasksPage() {
 
       {/* 필터 바 */}
       <div className="flex items-center gap-2 mb-5 flex-wrap">
-        <select value={monthFilter} onChange={e => setMonthFilter(e.target.value)}
-          className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-600 focus:outline-none">
-          <option value="전체">전체 작업월</option>
-          {allMonths.map(m => <option key={m} value={m}>{formatMonth(m)}</option>)}
-        </select>
-        <button onClick={() => setHideCompleted(prev => !prev)}
-          className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${hideCompleted ? 'bg-gray-800 text-white border-gray-800' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
-          {hideCompleted ? '완료 숨김' : '완료 표시'}
+        <button
+          onClick={() => setStatusFilter(prev => prev === '전체' ? '진행필요' : prev === '진행필요' ? '진행중' : prev === '진행중' ? '완료' : '전체')}
+          className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${statusFilter !== '전체' ? 'bg-gray-800 text-white border-gray-800' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
+          {statusFilter === '전체' ? '전체 상태' : statusFilter}<span className="ml-1.5 opacity-40 font-normal">[q]</span>
         </button>
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as TaskStatus | '전체')}
+        <button
+          onClick={() => setHideCompleted(prev => !prev)}
+          className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${hideCompleted ? 'bg-gray-800 text-white border-gray-800' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
+          {hideCompleted ? '완료 숨김' : '완료 표시'}<span className="ml-1.5 opacity-40 font-normal">[w]</span>
+        </button>
+        <button
+          onClick={() => setMonthFilter(prev => {
+            if (prev === '전체') return allMonths[0] ?? '전체'
+            const idx = allMonths.indexOf(prev)
+            return idx < allMonths.length - 1 ? allMonths[idx + 1] : '전체'
+          })}
+          className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${monthFilter !== '전체' ? 'bg-gray-800 text-white border-gray-800' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
+          {monthFilter === '전체' ? '전체 월' : formatMonth(monthFilter)}<span className="ml-1.5 opacity-40 font-normal">[e]</span>
+        </button>
+        <button
+          onClick={() => setViewMode('parts')}
+          className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${viewMode === 'parts' ? 'bg-gray-800 text-white border-gray-800' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
+          파트별<span className="ml-1.5 opacity-40 font-normal">[r]</span>
+        </button>
+        <button
+          onClick={() => { setViewMode('monthly'); if (monthFilter === '전체' && allMonths.length > 0) setMonthFilter(allMonths[0]) }}
+          className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${viewMode === 'monthly' ? 'bg-gray-800 text-white border-gray-800' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
+          월별 칸반<span className="ml-1.5 opacity-40 font-normal">[t]</span>
+        </button>
+        <select ref={assigneeRef} value={assigneeFilter} onChange={e => setAssigneeFilter(e.target.value)}
           className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-600 focus:outline-none">
-          <option value="전체">전체 상태</option>
-          {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-        </select>
-        <select value={assigneeFilter} onChange={e => setAssigneeFilter(e.target.value)}
-          className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-600 focus:outline-none">
-          <option value="전체">전체 담당자</option>
+          <option value="전체">전체 담당자 [Tab]</option>
           {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
         </select>
-        <div className="flex gap-1 ml-2">
-          <button onClick={() => setViewMode('parts')}
-            className={`text-xs px-3 py-1.5 rounded-lg transition-colors ${viewMode === 'parts' ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
-            파트별
-          </button>
-          <button onClick={() => { setViewMode('monthly'); if (monthFilter === '전체' && allMonths.length > 0) setMonthFilter(allMonths[0]) }}
-            className={`text-xs px-3 py-1.5 rounded-lg transition-colors ${viewMode === 'monthly' ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
-            월별 칸반
-          </button>
-        </div>
       </div>
 
       {/* 월별 칸반 */}

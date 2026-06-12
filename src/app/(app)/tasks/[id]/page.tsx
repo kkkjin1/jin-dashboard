@@ -168,6 +168,7 @@ export default function TaskDetailPage() {
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
       if (e.ctrlKey || e.metaKey || e.altKey) return
       if (e.key === 'q') setContentWidth(prev => prev ? null : 720)
+      if (e.key === 'Tab') { e.preventDefault(); titleRef.current?.focus() }
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)

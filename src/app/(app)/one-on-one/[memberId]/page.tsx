@@ -8,6 +8,50 @@ import type { Member, OneOnOne } from '@/types'
 import { format, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
 
+function SessionDetail({ session, memberId }: { session: OneOnOne; memberId: string }) {
+  const dateLabel = session.session_date
+    ? format(parseISO(session.session_date), 'yyyy년 M월 d일 (E)', { locale: ko })
+    : '날짜 미지정'
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-100 p-5 h-full flex flex-col gap-4">
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-xs text-gray-400 mb-1">{dateLabel}</p>
+          <p className="text-base font-semibold text-gray-800">{session.title || dateLabel}</p>
+        </div>
+        <Link
+          href={`/one-on-one/${memberId}/${session.id}`}
+          className="text-xs text-gray-400 hover:text-gray-700 border border-gray-200 rounded-lg px-2.5 py-1 hover:bg-gray-50 transition-colors flex-shrink-0 ml-3">
+          편집 →
+        </Link>
+      </div>
+
+      {session.next_appointment && (
+        <div className="bg-amber-50 rounded-lg px-4 py-3">
+          <p className="text-xs font-semibold text-amber-600 mb-1">약속 내용</p>
+          <p className="text-sm text-amber-800 leading-relaxed whitespace-pre-wrap">{session.next_appointment}</p>
+        </div>
+      )}
+
+      {session.notes.length > 0 ? (
+        <div className="flex-1 overflow-y-auto space-y-4">
+          {session.notes.map((note, i) => (
+            <div key={i}>
+              {note.title && (
+                <p className="text-xs font-semibold text-gray-500 mb-1.5">{note.title}</p>
+              )}
+              <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{note.content}</p>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-gray-300 text-center py-6">노트가 없습니다</p>
+      )}
+    </div>
+  )
+}
+
 export default function MemberOneOnOnePage() {
   const { memberId } = useParams<{ memberId: string }>()
   const router = useRouter()
@@ -15,6 +59,7 @@ export default function MemberOneOnOnePage() {
 
   const [member, setMember] = useState<Member | null>(null)
   const [sessions, setSessions] = useState<OneOnOne[]>([])
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [creating, setCreating] = useState(false)
 
@@ -24,7 +69,9 @@ export default function MemberOneOnOnePage() {
       supabase.from('one_on_ones').select('*').eq('member_id', memberId).order('session_date', { ascending: false }),
     ]).then(([{ data: m }, { data: s }]) => {
       if (m) setMember(m as Member)
-      setSessions((s ?? []) as OneOnOne[])
+      const list = (s ?? []) as OneOnOne[]
+      setSessions(list)
+      if (list.length > 0) setSelectedSessionId(list[0].id)
     })
   }, [memberId])
 
@@ -52,8 +99,10 @@ export default function MemberOneOnOnePage() {
 
   if (!member) return <div className="p-8 text-gray-400 text-sm animate-pulse">불러오는 중...</div>
 
+  const selectedSession = sessions.find(s => s.id === selectedSessionId) ?? null
+
   return (
-    <div className="p-8 max-w-2xl">
+    <div className="p-8">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <Link href="/one-on-one" className="text-sm text-gray-400 hover:text-gray-600">← 목록</Link>
@@ -77,41 +126,43 @@ export default function MemberOneOnOnePage() {
           <p className="text-gray-300 text-sm">아직 1on1 기록이 없습니다</p>
         </div>
       ) : (
-        <div className="space-y-2">
-          {sessions.map(session => (
-            <Link key={session.id} href={`/one-on-one/${memberId}/${session.id}`}>
-              <div className="bg-white rounded-xl border border-gray-100 px-4 py-3 hover:border-gray-200 transition-colors">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-800">
-                      {session.title
-                        ? session.title
-                        : session.session_date
-                          ? format(parseISO(session.session_date), 'yyyy년 M월 d일 (E)', { locale: ko })
-                          : '날짜 미지정'}
-                    </p>
-                    {session.title && session.session_date && (
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        {format(parseISO(session.session_date), 'yyyy년 M월 d일 (E)', { locale: ko })}
-                      </p>
-                    )}
-                    {session.notes[0]?.content && (
-                      <p className="text-xs text-gray-400 mt-0.5 truncate">
-                        {session.notes[0].content.slice(0, 70)}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex flex-col items-end gap-1 ml-3 flex-shrink-0">
+        <div className="flex gap-5">
+          {/* LEFT: 세션 목록 */}
+          <div className="w-72 flex-shrink-0 space-y-1.5 overflow-y-auto max-h-[calc(100vh-200px)]">
+            {sessions.map(session => {
+              const isSelected = session.id === selectedSessionId
+              const dateLabel = session.session_date
+                ? format(parseISO(session.session_date), 'yyyy.M.d (E)', { locale: ko })
+                : '날짜 미지정'
+              return (
+                <div
+                  key={session.id}
+                  onClick={() => setSelectedSessionId(session.id)}
+                  className={`rounded-xl border px-4 py-3 cursor-pointer transition-colors ${isSelected ? 'bg-gray-800 border-gray-800 text-white' : 'bg-white border-gray-100 hover:border-gray-200'}`}>
+                  <p className={`text-sm font-medium truncate ${isSelected ? 'text-white' : 'text-gray-800'}`}>
+                    {session.title || dateLabel}
+                  </p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <p className={`text-xs truncate ${isSelected ? 'text-gray-300' : 'text-gray-400'}`}>{dateLabel}</p>
                     {session.next_appointment && (
-                      <span className="text-xs bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full whitespace-nowrap">
-                        약속 있음
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0 ${isSelected ? 'bg-amber-400 text-white' : 'bg-amber-50 text-amber-600'}`}>
+                        약속
                       </span>
                     )}
                   </div>
                 </div>
-              </div>
-            </Link>
-          ))}
+              )
+            })}
+          </div>
+
+          {/* RIGHT: 세션 상세 */}
+          <div className="flex-1 min-w-0 max-h-[calc(100vh-200px)] overflow-y-auto">
+            {selectedSession ? (
+              <SessionDetail session={selectedSession} memberId={memberId} />
+            ) : (
+              <div className="text-center py-16 text-gray-300 text-sm">세션을 선택하세요</div>
+            )}
+          </div>
         </div>
       )}
 
