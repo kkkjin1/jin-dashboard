@@ -353,7 +353,7 @@ export default function SchedulePage() {
         <button
           onClick={() => setViewFilter(v => v === '전체' ? '업무만' : v === '업무만' ? '회의만' : '전체')}
           className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-colors ${
-            viewFilter !== '전체' ? 'bg-purple-500 text-white border-purple-500' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+            viewFilter !== '전체' ? 'bg-[#1C2B3A] text-white border-[#1C2B3A]' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
           }`}>
           {viewFilter === '전체' ? '업무+회의' : viewFilter}
                   </button>
@@ -442,11 +442,11 @@ export default function SchedulePage() {
               <span className="text-xs text-gray-400">중간공유</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <div className="w-3 h-2.5 bg-red-100 rounded border border-red-300" />
+              <div className="w-3 h-2.5 bg-[#1C2B3A]/10 rounded border border-[#1C2B3A]/20" />
               <span className="text-xs text-gray-400">최종보고</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <div className="w-3 h-2.5 bg-purple-100 rounded border border-purple-300" />
+              <div className="w-3 h-2.5 bg-[#EBF7F2] rounded border border-[#5DBD97]/30" />
               <span className="text-xs text-gray-400">회의</span>
             </div>
             <div className="ml-auto">
@@ -454,7 +454,7 @@ export default function SchedulePage() {
                 onClick={() => setShowAnalysis(v => !v)}
                 className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
                   showAnalysis
-                    ? 'bg-purple-600 text-white border-purple-600'
+                    ? 'bg-[#5DBD97] text-white border-[#5DBD97]'
                     : 'text-gray-500 border-gray-200 hover:bg-gray-50'
                 }`}
               >
@@ -475,7 +475,7 @@ export default function SchedulePage() {
                     onClick={() => setAnalysisPeriod(p)}
                     className={`text-xs px-3 py-1 rounded-full transition-colors ${
                       analysisPeriod === p
-                        ? 'bg-purple-600 text-white'
+                        ? 'bg-[#5DBD97] text-white'
                         : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                     }`}
                   >
@@ -490,13 +490,13 @@ export default function SchedulePage() {
                   <p className="text-xs text-gray-400 mb-1">업무일</p>
                   <p className="text-lg font-bold text-gray-800">{analysis.workDays}<span className="text-xs font-normal text-gray-400 ml-0.5">일</span></p>
                 </div>
-                <div className="bg-purple-50 rounded-lg p-3 text-center">
-                  <p className="text-xs text-purple-400 mb-1">회의 건수</p>
-                  <p className="text-lg font-bold text-purple-700">{analysis.meetingCount}<span className="text-xs font-normal text-purple-400 ml-0.5">건</span></p>
+                <div className="bg-rose-50 rounded-lg p-3 text-center">
+                  <p className="text-xs text-rose-400 mb-1">회의 건수</p>
+                  <p className="text-lg font-bold text-rose-600">{analysis.meetingCount}<span className="text-xs font-normal text-rose-400 ml-0.5">건</span></p>
                 </div>
-                <div className="bg-amber-50 rounded-lg p-3 text-center">
-                  <p className="text-xs text-amber-500 mb-1">업무 마감</p>
-                  <p className="text-lg font-bold text-amber-700">{analysis.taskDeadlines}<span className="text-xs font-normal text-amber-400 ml-0.5">건</span></p>
+                <div className="bg-slate-50 rounded-lg p-3 text-center">
+                  <p className="text-xs text-slate-400 mb-1">업무 마감</p>
+                  <p className="text-lg font-bold text-slate-600">{analysis.taskDeadlines}<span className="text-xs font-normal text-slate-400 ml-0.5">건</span></p>
                 </div>
               </div>
 
@@ -506,11 +506,11 @@ export default function SchedulePage() {
                   {analysis.totalHours > 0 && (
                     <>
                       <div
-                        className="bg-purple-400 transition-all"
+                        className="bg-rose-300 transition-all"
                         style={{ width: `${Math.min(100, (analysis.meetingHours / analysis.totalHours) * 100)}%` }}
                       />
                       <div
-                        className="bg-blue-200 transition-all"
+                        className="bg-[#EBF7F2] transition-all"
                         style={{ width: `${Math.min(100, (analysis.focusHours / analysis.totalHours) * 100)}%` }}
                       />
                     </>
@@ -519,17 +519,17 @@ export default function SchedulePage() {
                 <div className="flex items-center justify-between">
                   <p className="text-xs text-gray-500">
                     총 <span className="font-semibold text-gray-700">{analysis.totalHours}h</span> 중{' '}
-                    회의 <span className="font-semibold text-purple-600">{analysis.meetingHours}h</span>
+                    회의 <span className="font-semibold text-rose-500">{analysis.meetingHours}h</span>
                     {' · '}
-                    집중 업무 <span className="font-semibold text-blue-600">{analysis.focusHours}h</span>
+                    집중 업무 <span className="font-semibold text-[#5DBD97]">{analysis.focusHours}h</span>
                   </p>
                   <div className="flex items-center gap-3">
                     <div className="flex items-center gap-1">
-                      <div className="w-2.5 h-2.5 rounded-sm bg-purple-400" />
+                      <div className="w-2.5 h-2.5 rounded-sm bg-rose-300" />
                       <span className="text-xs text-gray-400">회의</span>
                     </div>
                     <div className="flex items-center gap-1">
-                      <div className="w-2.5 h-2.5 rounded-sm bg-blue-200" />
+                      <div className="w-2.5 h-2.5 rounded-sm bg-[#EBF7F2]" />
                       <span className="text-xs text-gray-400">집중</span>
                     </div>
                   </div>
@@ -594,17 +594,17 @@ export default function SchedulePage() {
                   onDrop={e => { e.preventDefault(); handleDayDrop(item.itemId) }}
                   onClick={() => router.push(item.type === 'meeting' ? `/meetings/${(item.data as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>).id}` : `/tasks/${(item.data as DayTask).task.id}`)}
                   className={`rounded-xl border p-3 transition-all cursor-grab active:cursor-grabbing select-none ${
-                    item.type === 'meeting' ? 'bg-purple-50 border-purple-100 hover:border-purple-200' : 'bg-white border-gray-100 hover:border-gray-200'
+                    item.type === 'meeting' ? 'bg-[#EBF7F2]/50 border-[#5DBD97]/20 hover:border-[#5DBD97]/40' : 'bg-white border-gray-100 hover:border-gray-200'
                   } ${dragItemId === item.itemId ? 'opacity-40 scale-95' : ''} ${
-                    dragOverId === item.itemId && dragItemId !== item.itemId ? 'border-blue-300 shadow-sm -translate-y-0.5' : ''
+                    dragOverId === item.itemId && dragItemId !== item.itemId ? 'border-[#5DBD97] shadow-sm -translate-y-0.5' : ''
                   }`}
                 >
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-gray-300 text-xs">⠿</span>
                     {item.type === 'meeting' ? (
-                      <span className="text-xs font-medium text-purple-600">💬 회의</span>
+                      <span className="text-xs font-medium text-[#5DBD97]">💬 회의</span>
                     ) : (
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${(item.data as DayTask).dateType === 'mid' ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-500'}`}>
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${(item.data as DayTask).dateType === 'mid' ? 'bg-amber-50 text-amber-600' : 'bg-[#1C2B3A]/10 text-[#1C2B3A]'}`}>
                         {(item.data as DayTask).dateType === 'mid' ? '중간공유' : '최종보고'}
                       </span>
                     )}
@@ -615,7 +615,7 @@ export default function SchedulePage() {
                       : (item.data as DayTask).task.title}
                   </p>
                   {item.type === 'meeting' && (item.data as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>).category && (
-                    <span className="text-xs text-purple-400">{(item.data as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>).category}</span>
+                    <span className="text-xs text-[#5DBD97]">{(item.data as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>).category}</span>
                   )}
                   {item.type === 'task' && (
                     <div className="flex flex-wrap gap-1 mt-1">

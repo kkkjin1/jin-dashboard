@@ -6,13 +6,13 @@ import { createClient } from '@/lib/supabase/client'
 import { fetchAllTasks } from '@/lib/tasks'
 import type { Task, AchievementCategory } from '@/types'
 
-const COLUMNS: { key: AchievementCategory | null; label: string; color: string; accent: string }[] = [
-  { key: null, label: '미분류', color: 'border-gray-200 bg-gray-50', accent: 'bg-gray-300' },
-  { key: '성과', label: '성과', color: 'border-[#5DBD97]/30 bg-[#EBF7F2]', accent: 'bg-[#5DBD97]' },
-  { key: '개선', label: '개선', color: 'border-[#F4A35A]/30 bg-amber-50', accent: 'bg-[#F4A35A]' },
-  { key: '리소스', label: '리소스', color: 'border-slate-200 bg-slate-50', accent: 'bg-slate-400' },
-  { key: '수명', label: '수명', color: 'border-[#1C2B3A]/15 bg-[#1C2B3A]/5', accent: 'bg-[#1C2B3A]' },
-  { key: '기타', label: '기타', color: 'border-gray-200 bg-gray-100', accent: 'bg-gray-400' },
+const COLUMNS: { key: AchievementCategory | null; label: string; bg: string; accent: string }[] = [
+  { key: null, label: '미분류', bg: 'bg-gray-50', accent: 'bg-gray-200' },
+  { key: '성과', label: '성과', bg: 'bg-[#EBF7F2]/60', accent: 'bg-[#5DBD97]/60' },
+  { key: '개선', label: '개선', bg: 'bg-amber-50/60', accent: 'bg-[#F4A35A]/60' },
+  { key: '리소스', label: '리소스', bg: 'bg-slate-50', accent: 'bg-slate-200' },
+  { key: '수명', label: '수명', bg: 'bg-[#1C2B3A]/5', accent: 'bg-[#1C2B3A]/30' },
+  { key: '기타', label: '기타', bg: 'bg-gray-100/60', accent: 'bg-gray-200' },
 ]
 
 function getTaskMonth(task: Task): string | null {
@@ -143,7 +143,7 @@ export default function CompletedPage() {
         {COLUMNS.map(col => {
           const count = getColTasks(col.key).length
           return (
-            <div key={col.key ?? '__null__'} className={`rounded-xl border-2 p-3 text-center ${col.color}`}>
+            <div key={col.key ?? '__null__'} className={`rounded-xl p-3 text-center ${col.bg}`}>
               <div className="flex items-center justify-center gap-1 mb-1">
                 <span className={`w-2 h-2 rounded-full ${col.accent}`} />
                 <p className="text-xs font-medium text-gray-500">{col.label}</p>
@@ -202,7 +202,7 @@ export default function CompletedPage() {
               onDragOver={e => { e.preventDefault(); setDragOverCol(colKey) }}
               onDragLeave={() => setDragOverCol(null)}
               onDrop={() => handleDrop(col.key)}
-              className={`flex-shrink-0 w-56 rounded-xl border-2 p-3 transition-colors ${col.color} ${dragOverCol === colKey ? 'opacity-80 scale-[1.01]' : ''}`}>
+              className={`flex-shrink-0 w-56 rounded-xl p-3 transition-colors ${col.bg} ${dragOverCol === colKey ? 'opacity-90 scale-[1.01]' : ''}`}>
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-1.5">
                   <span className={`w-2 h-2 rounded-full ${col.accent}`} />

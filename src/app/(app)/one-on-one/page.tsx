@@ -373,9 +373,9 @@ export default function OneOnOnePage() {
   }, [memberStats])
 
   function daysBadgeClass(daysSince: number | null): string {
-    if (daysSince === null || daysSince >= 30) return 'bg-red-100 text-red-700'
-    if (daysSince >= 14) return 'bg-orange-100 text-orange-700'
-    return 'bg-green-100 text-green-700'
+    if (daysSince === null || daysSince >= 30) return 'bg-amber-100 text-[#F4A35A]'
+    if (daysSince >= 14) return 'bg-orange-50 text-orange-500'
+    return 'bg-[#EBF7F2] text-[#5DBD97]'
   }
 
   function daysLabel(daysSince: number | null): string {
@@ -483,20 +483,20 @@ export default function OneOnOnePage() {
           {/* RIGHT: alert panel */}
           <div className="flex-[40] min-w-0 flex flex-col gap-4">
             {urgentStat ? (
-              <div className="bg-white rounded-xl border-2 border-red-300 px-5 py-4">
-                <p className="text-xs font-semibold text-red-500 mb-3">30일 미진행 긴급</p>
+              <div className="bg-amber-50 rounded-xl border border-[#F4A35A]/30 px-5 py-4">
+                <p className="text-xs font-semibold text-[#F4A35A] mb-3">30일 미진행 긴급</p>
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <p className="text-lg font-bold text-gray-900">{urgentStat.member.name}</p>
                     <p className="text-xs text-gray-500 mt-0.5">{urgentStat.member.part}</p>
-                    <p className="text-sm text-red-600 mt-2">
+                    <p className="text-sm text-[#F4A35A] mt-2">
                       마지막 1on1:{' '}
                       {urgentStat.daysSince === null ? '기록 없음' : `${urgentStat.daysSince}일 전`}
                     </p>
                   </div>
                   <button
                     onClick={() => createSession(urgentStat.member.id)}
-                    className="flex-shrink-0 text-xs bg-red-600 text-white px-3 py-1.5 rounded-lg hover:bg-red-700 transition-colors whitespace-nowrap">
+                    className="flex-shrink-0 text-xs bg-[#F4A35A] text-white px-3 py-1.5 rounded-lg hover:bg-[#e08f48] transition-colors whitespace-nowrap">
                     + 바로 진행
                   </button>
                 </div>

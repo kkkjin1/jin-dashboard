@@ -10,10 +10,10 @@ import type { Meeting } from '@/types'
 
 const CATEGORIES = ['전체', '코어', '비즈', '경영진', '본부장', '타팀'] as const
 const CATEGORY_COLORS: Record<string, string> = {
-  '코어': 'bg-indigo-50 text-indigo-600 border-indigo-200',
-  '비즈': 'bg-emerald-50 text-emerald-600 border-emerald-200',
-  '경영진': 'bg-red-50 text-red-600 border-red-200',
-  '본부장': 'bg-purple-50 text-purple-600 border-purple-200',
+  '코어': 'bg-[#EBF7F2] text-[#5DBD97] border-[#5DBD97]/20',
+  '비즈': 'bg-amber-50 text-[#F4A35A] border-[#F4A35A]/20',
+  '경영진': 'bg-[#1C2B3A]/5 text-[#1C2B3A] border-[#1C2B3A]/15',
+  '본부장': 'bg-slate-100 text-slate-500 border-slate-200',
   '타팀': 'bg-gray-50 text-gray-500 border-gray-200',
 }
 
@@ -132,14 +132,14 @@ export default function MeetingsPage() {
       </div>
 
       {/* 카테고리 필터 */}
-      <div className="flex gap-2 mb-5 flex-wrap">
+      <div className="grid grid-cols-6 gap-2 mb-5">
         {CATEGORIES.map(cat => (
           <button key={cat} onClick={() => setCategoryFilter(cat)}
-            className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
-              categoryFilter === cat ? 'bg-[#5DBD97] text-white border-[#5DBD97]' : 'border-gray-200 text-gray-500 hover:border-gray-400'
+            className={`text-xs px-3 py-2.5 rounded-xl border transition-colors text-center ${
+              categoryFilter === cat ? 'bg-[#5DBD97] text-white border-[#5DBD97]' : 'border-gray-200 text-gray-500 hover:border-gray-400 bg-white'
             }`}>
             {cat}
-            {cat !== '전체' && <span className="ml-1 text-gray-300">{meetings.filter(m => m.category === cat).length}</span>}
+            {cat !== '전체' && <span className={`ml-1 ${categoryFilter === cat ? 'text-white/70' : 'text-gray-300'}`}>{meetings.filter(m => m.category === cat).length}</span>}
           </button>
         ))}
       </div>
@@ -269,7 +269,7 @@ export default function MeetingsPage() {
                             <div className="space-y-1.5">
                               {list.map(meeting => (
                                 <Link key={meeting.id} href={`/meetings/${meeting.id}`}>
-                                  <div className="bg-white rounded-lg border border-gray-100 hover:border-gray-200 px-3 py-2.5 transition-colors">
+                                  <div className="bg-white rounded-lg border border-gray-100 hover:border-gray-200 px-3 py-4 transition-colors">
                                     <p className="text-xs font-medium text-gray-800 line-clamp-2 mb-1">{meeting.title}</p>
                                     <div className="flex items-center gap-1.5 flex-wrap">
                                       {meeting.meeting_date && (

@@ -9,17 +9,17 @@ import type { QuickMemo, MemoTag } from '@/types'
 const NON_NOTICE_TAGS: MemoTag[] = ['업무관련', '회의관련', '아이디어']
 
 const TAG_COLORS: Record<MemoTag, string> = {
-  '공지': 'border-t-rose-400',
-  '업무관련': 'border-t-[#5DBD97]',
-  '회의관련': 'border-t-[#F4A35A]',
-  '아이디어': 'border-t-[#1C2B3A]',
+  '공지': 'border-t-rose-200',
+  '업무관련': 'border-t-emerald-200',
+  '회의관련': 'border-t-amber-200',
+  '아이디어': 'border-t-slate-200',
 }
 
 const TAG_BADGE: Record<MemoTag, string> = {
-  '공지': 'bg-rose-50 text-rose-600',
+  '공지': 'bg-rose-50 text-rose-400',
   '업무관련': 'bg-[#EBF7F2] text-[#5DBD97]',
   '회의관련': 'bg-amber-50 text-[#F4A35A]',
-  '아이디어': 'bg-slate-100 text-slate-600',
+  '아이디어': 'bg-slate-100 text-slate-400',
 }
 
 interface MemoCardProps {

@@ -239,10 +239,10 @@ export default function LearningPage() {
       </div>
 
       {/* 매체 필터 */}
-      <div className="flex gap-1.5 flex-wrap mb-5">
+      <div className="grid grid-cols-5 gap-2 mb-5">
         {MEDIA_TYPES.map(type => (
           <button key={type} onClick={() => setMediaFilter(mediaFilter === type ? null : type)}
-            className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${mediaFilter === type ? 'bg-gray-700 text-white border-gray-700' : 'border-gray-200 text-gray-400 hover:border-gray-400'}`}>
+            className={`text-xs px-2.5 py-2.5 rounded-xl border transition-colors text-center ${mediaFilter === type ? 'bg-[#5DBD97] text-white border-[#5DBD97]' : 'border-gray-200 text-gray-400 hover:border-gray-400 bg-white'}`}>
             {MEDIA_ICONS[type]} {type}
           </button>
         ))}
@@ -255,7 +255,7 @@ export default function LearningPage() {
           {activeColumns.map(tag => {
             const colResources = grouped[tag] ?? []
             return (
-              <div key={tag} className="flex-shrink-0 w-60">
+              <div key={tag} className="flex-shrink-0 w-80">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-xs font-semibold text-gray-600">{tag}</span>
                   <span className="text-xs text-gray-400">{colResources.length}</span>
@@ -266,14 +266,14 @@ export default function LearningPage() {
                   )}
                   {colResources.map(r => (
                     <Link key={r.id} href={`/learning/${r.id}`}>
-                      <div className="bg-white rounded-xl border border-gray-100 px-3 py-2.5 hover:border-gray-200 transition-colors overflow-hidden">
+                      <div className="bg-white rounded-xl border border-gray-100 px-3 py-4 hover:border-gray-200 transition-colors overflow-hidden">
                         {r.media_type && <p className="text-xs text-gray-400 mb-0.5 truncate">{MEDIA_ICONS[r.media_type] ?? ''} {r.media_type}</p>}
                         <p className="text-sm font-medium text-gray-800 leading-snug line-clamp-2">{r.title}</p>
                         {r.source && <p className="text-xs text-gray-400 mt-0.5 truncate">출처: {r.source}</p>}
                         <div className="flex items-center justify-between mt-1">
                           <div className="flex gap-1 flex-wrap">
                             {(r.tags ?? []).map(t => (
-                              <span key={t} className="text-xs bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded-full">{t}</span>
+                              <span key={t} className="text-xs bg-[#EBF7F2] text-[#5DBD97] px-1.5 py-0.5 rounded-full">{t}</span>
                             ))}
                           </div>
                           <span className="text-xs text-gray-300 flex-shrink-0">{r.notes.length}노트</span>
@@ -296,7 +296,7 @@ export default function LearningPage() {
                       <div className="flex gap-1 flex-wrap">
                         {MEDIA_TYPES.map(type => (
                           <button key={type} onClick={() => setColAddMedia(colAddMedia === type ? '' : type)}
-                            className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${colAddMedia === type ? 'bg-gray-700 text-white border-gray-700' : 'border-gray-200 text-gray-400 hover:border-gray-400'}`}>
+                            className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${colAddMedia === type ? 'bg-[#5DBD97] text-white border-[#5DBD97]' : 'border-gray-200 text-gray-400 hover:border-gray-400'}`}>
                             {MEDIA_ICONS[type]} {type}
                           </button>
                         ))}

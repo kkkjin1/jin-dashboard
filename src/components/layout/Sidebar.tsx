@@ -73,15 +73,12 @@ export default function Sidebar() {
             return (
               <li key={item.href}>
                 <Link href={item.href}
-                  className={`flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors ${
+                  className={`flex items-center px-3 py-2 rounded-lg text-sm transition-colors ${
                     isActive
                       ? 'bg-[#5DBD97]/15 text-[#5DBD97] font-medium'
                       : 'text-slate-300 hover:bg-white/5 hover:text-white'
                   }`}>
                   <span>{item.label}</span>
-                  {item.key && (
-                    <span className="text-xs text-slate-500 font-mono">{item.key}</span>
-                  )}
                 </Link>
               </li>
             )
@@ -89,7 +86,6 @@ export default function Sidebar() {
         </ul>
       </nav>
       <div className="p-3 border-t border-white/10">
-        <p className="text-xs text-slate-500 px-3 mb-1">1-8 페이지이동</p>
         <button onClick={handleLogout}
           className="w-full text-left px-3 py-2 rounded-lg text-sm text-slate-400 hover:bg-white/5 hover:text-slate-200 transition-colors">
           로그아웃
