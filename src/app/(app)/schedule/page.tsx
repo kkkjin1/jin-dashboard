@@ -253,44 +253,55 @@ export default function SchedulePage() {
     <div className="p-8">
       <h1 className="text-xl font-bold text-gray-900 mb-5">일정</h1>
 
-      {/* 필터 드롭다운 행 */}
+      {/* 필터 사이클 버튼 행 */}
       <div className="flex items-center gap-2 flex-wrap mb-4">
-        {/* 파트 */}
-        <select value={partFilter} onChange={e => setPartFilter(e.target.value as Part | '전체')}
-          className="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none bg-white text-gray-600">
-          <option value="전체">전체 파트</option>
-          <option value="코어">코어파트</option>
-          <option value="비즈">비즈파트</option>
-        </select>
-        {/* 담당자 */}
+        {/* 파트 사이클: 전체파트 → 코어파트 → 비즈파트 → 전체파트 */}
+        <button
+          onClick={() => setPartFilter(p => p === '전체' ? '코어' : p === '코어' ? '비즈' : '전체')}
+          className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-colors ${
+            partFilter !== '전체' ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+          }`}>
+          {partFilter === '전체' ? '전체 파트' : `${partFilter}파트`}
+        </button>
+
+        {/* 담당자 - 옵션 많아서 드롭다운 유지 */}
         <select value={assigneeFilter} onChange={e => setAssigneeFilter(e.target.value)}
-          className="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none bg-white text-gray-600">
+          className="text-xs border border-gray-200 rounded-full px-3 py-1.5 focus:outline-none bg-white text-gray-500">
           <option value="전체">전체 담당자</option>
           {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
         </select>
-        {/* 상태 */}
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as TaskStatus | '전체')}
-          className="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none bg-white text-gray-600">
-          <option value="전체">전체 상태</option>
-          {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-        </select>
-        {/* 보고구분 */}
-        <select value={reportFilter} onChange={e => setReportFilter(e.target.value as '전체' | '중간공유' | '최종보고')}
-          className="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none bg-white text-gray-600">
-          <option value="전체">전체 보고</option>
-          <option value="중간공유">중간공유</option>
-          <option value="최종보고">최종보고</option>
-        </select>
-        {/* 업무/회의 */}
-        <select value={viewFilter} onChange={e => setViewFilter(e.target.value as '전체' | '업무만' | '회의만')}
-          className="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none bg-white text-gray-600">
-          <option value="전체">업무+회의</option>
-          <option value="업무만">업무만</option>
-          <option value="회의만">회의만</option>
-        </select>
+
+        {/* 상태 사이클: 전체 → 진행필요 → 진행중 → 완료 → 전체 */}
+        <button
+          onClick={() => setStatusFilter(s => s === '전체' ? '진행필요' : s === '진행필요' ? '진행중' : s === '진행중' ? '완료' : '전체')}
+          className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-colors ${
+            statusFilter !== '전체' ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+          }`}>
+          {statusFilter === '전체' ? '전체 상태' : statusFilter}
+        </button>
+
+        {/* 보고구분 사이클: 전체 → 중간공유 → 최종보고 → 전체 */}
+        <button
+          onClick={() => setReportFilter(r => r === '전체' ? '중간공유' : r === '중간공유' ? '최종보고' : '전체')}
+          className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-colors ${
+            reportFilter !== '전체' ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+          }`}>
+          {reportFilter === '전체' ? '보고구분' : reportFilter}
+        </button>
+
+        {/* 업무/회의 사이클: 전체 → 업무만 → 회의만 → 전체 */}
+        <button
+          onClick={() => setViewFilter(v => v === '전체' ? '업무만' : v === '업무만' ? '회의만' : '전체')}
+          className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-colors ${
+            viewFilter !== '전체' ? 'bg-purple-500 text-white border-purple-500' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+          }`}>
+          {viewFilter === '전체' ? '업무+회의' : viewFilter}
+        </button>
+
+        {/* 반복 추가 버튼 유지 */}
         <button onClick={() => setShowRepeatModal(true)}
-          className="text-xs border border-dashed border-gray-300 text-gray-400 hover:border-gray-500 hover:text-gray-600 px-3 py-1.5 rounded-lg transition-colors">
-          🔄 반복 추가
+          className="text-xs px-3 py-1.5 rounded-full border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 ml-auto">
+          ↺ 반복 추가
         </button>
       </div>
 
@@ -461,6 +472,38 @@ export default function SchedulePage() {
           )}
         </div>
 
+        {/* 미니 캘린더 (전월/익월) 토글 */}
+        <div className="space-y-2">
+          {/* 전월 토글 */}
+          <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+            <button
+              className="w-full flex items-center justify-between px-3 py-2 text-xs text-gray-500 hover:bg-gray-50"
+              onClick={() => setShowPrevCal(v => !v)}>
+              <span>{format(prevMonthNav, 'yy년 M월', { locale: ko })} (전월)</span>
+              <span>{showPrevCal ? '▲' : '▼'}</span>
+            </button>
+            {showPrevCal && (
+              <div className="p-2">
+                <MiniCalInline monthDate={prevMonthNav} onClick={() => setCurrent(prevMonthNav)} />
+              </div>
+            )}
+          </div>
+          {/* 익월 토글 */}
+          <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+            <button
+              className="w-full flex items-center justify-between px-3 py-2 text-xs text-gray-500 hover:bg-gray-50"
+              onClick={() => setShowNextCal(v => !v)}>
+              <span>{format(nextMonthNav, 'yy년 M월', { locale: ko })} (익월)</span>
+              <span>{showNextCal ? '▲' : '▼'}</span>
+            </button>
+            {showNextCal && (
+              <div className="p-2">
+                <MiniCalInline monthDate={nextMonthNav} onClick={() => setCurrent(nextMonthNav)} />
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* 선택한 날 업무 */}
         <div>
           <h3 className="text-sm font-semibold text-gray-600 mb-3">
@@ -499,38 +542,6 @@ export default function SchedulePage() {
               ))}
             </div>
           )}
-        </div>
-
-        {/* 미니 캘린더 (전월/익월) 토글 */}
-        <div className="mt-3 space-y-2">
-          {/* 전월 토글 */}
-          <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-            <button
-              className="w-full flex items-center justify-between px-3 py-2 text-xs text-gray-500 hover:bg-gray-50"
-              onClick={() => setShowPrevCal(v => !v)}>
-              <span>{format(prevMonthNav, 'yy년 M월', { locale: ko })} (전월)</span>
-              <span>{showPrevCal ? '▲' : '▼'}</span>
-            </button>
-            {showPrevCal && (
-              <div className="p-2">
-                <MiniCalInline monthDate={prevMonthNav} onClick={() => setCurrent(prevMonthNav)} />
-              </div>
-            )}
-          </div>
-          {/* 익월 토글 */}
-          <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-            <button
-              className="w-full flex items-center justify-between px-3 py-2 text-xs text-gray-500 hover:bg-gray-50"
-              onClick={() => setShowNextCal(v => !v)}>
-              <span>{format(nextMonthNav, 'yy년 M월', { locale: ko })} (익월)</span>
-              <span>{showNextCal ? '▲' : '▼'}</span>
-            </button>
-            {showNextCal && (
-              <div className="p-2">
-                <MiniCalInline monthDate={nextMonthNav} onClick={() => setCurrent(nextMonthNav)} />
-              </div>
-            )}
-          </div>
         </div>
       </div>
 

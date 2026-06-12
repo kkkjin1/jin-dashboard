@@ -157,6 +157,7 @@ export default function TaskDetailPage() {
 
   const [contentWidth, setContentWidth] = useState<number | null>(null)
   const isResizing = useRef(false)
+  const contentRef = useRef<HTMLDivElement>(null)
 
   const titleRef = useRef<HTMLInputElement>(null)
   const noteTitleRef = useRef<HTMLInputElement>(null)
@@ -167,10 +168,11 @@ export default function TaskDetailPage() {
     e.preventDefault()
     isResizing.current = true
     const startX = e.clientX
-    const startW = contentWidth ?? (e.currentTarget.parentElement?.offsetWidth ?? 900)
+    const startW = contentRef.current?.offsetWidth ?? 900
     const onMove = (ev: MouseEvent) => {
       if (!isResizing.current) return
-      setContentWidth(Math.max(480, Math.min(1400, startW + (ev.clientX - startX))))
+      const newW = Math.max(480, Math.min(1400, startW + (ev.clientX - startX)))
+      setContentWidth(newW)
     }
     const onUp = () => {
       isResizing.current = false
@@ -358,8 +360,11 @@ export default function TaskDetailPage() {
   const member = members.find(m => m.id === task.assignee_id)
 
   return (
-    <div className="relative" style={contentWidth ? { width: `${contentWidth}px` } : undefined}>
-    <div className="p-8 max-w-6xl">
+    <div
+      ref={contentRef}
+      className="p-8"
+      style={contentWidth ? { maxWidth: `${contentWidth}px` } : {}}
+    >
       {toast && <Toast message={toast} onDone={() => setToast('')} />}
 
       {showRetroModal && (
@@ -667,12 +672,16 @@ export default function TaskDetailPage() {
           </div>
         </div>
       </div>
-    </div>
-      {/* 오른쪽 리사이즈 핸들 */}
+      {/* 너비 조절 핸들 - 항상 보이는 고정 위치 */}
       <div
         onMouseDown={startResize}
-        className="absolute top-0 right-0 bottom-0 w-1.5 cursor-ew-resize hover:bg-blue-200 transition-colors opacity-0 hover:opacity-100"
-        title="드래그하여 너비 조절" />
+        className="fixed right-1 top-1/2 -translate-y-1/2 z-30 flex flex-col gap-1 cursor-ew-resize p-1.5 rounded-lg bg-gray-100 hover:bg-blue-100 transition-colors opacity-40 hover:opacity-100"
+        title="드래그하여 너비 조절"
+      >
+        <div className="w-1 h-3 bg-gray-400 rounded-full" />
+        <div className="w-1 h-3 bg-gray-400 rounded-full" />
+        <div className="w-1 h-3 bg-gray-400 rounded-full" />
+      </div>
     </div>
   )
 }

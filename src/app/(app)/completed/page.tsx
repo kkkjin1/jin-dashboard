@@ -65,7 +65,6 @@ export default function CompletedPage() {
   }, [])
   const [fromMonth, setFromMonth] = useState<string>(nowYM)
   const [toMonth, setToMonth] = useState<string>(nowYM)
-  const [useCustomRange, setUseCustomRange] = useState(false)
   const supabase = createClient()
 
   useEffect(() => {
@@ -88,30 +87,31 @@ export default function CompletedPage() {
         return m === monthFilter
       })
     }
-    if (useCustomRange && fromMonth && toMonth) {
+    if (fromMonth && toMonth) {
       return tasks.filter(t => {
         const m = getTaskMonth(t)
         return m ? m >= fromMonth && m <= toMonth : false
       })
     }
-    const periodMonths = getQuickPeriodMonths(quickPeriod)
-    if (periodMonths === 'all') return tasks
-    return tasks.filter(t => {
-      const m = getTaskMonth(t)
-      return m ? periodMonths.includes(m) : false
-    })
-  }, [tasks, quickPeriod, monthFilter, useCustomRange, fromMonth, toMonth])
+    return tasks
+  }, [tasks, monthFilter, fromMonth, toMonth])
 
   function selectQuick(p: QuickPeriod) {
     setQuickPeriod(p)
     setMonthFilter(null)
-    setUseCustomRange(false)
+    const months = getQuickPeriodMonths(p)
+    if (months === 'all') {
+      setFromMonth('')
+      setToMonth('')
+    } else if (months.length > 0) {
+      setFromMonth(months[0])
+      setToMonth(months[months.length - 1])
+    }
   }
 
   function selectMonth(m: string) {
     setMonthFilter(m)
     setQuickPeriod('전체')
-    setUseCustomRange(false)
   }
 
   async function handleDrop(category: AchievementCategory | null) {
@@ -156,14 +156,14 @@ export default function CompletedPage() {
 
       {/* 기간 필터 */}
       <div className="mb-5 space-y-2">
-        {/* 빠른 선택 */}
+        {/* 빠른 선택 버튼 */}
         <div className="flex gap-2 flex-wrap">
           {QUICK_PERIODS.map(p => (
             <button key={p} onClick={() => selectQuick(p)}
               className={`text-xs px-3 py-1.5 rounded-full border transition-colors font-medium ${
-                quickPeriod === p && !monthFilter && !useCustomRange
+                quickPeriod === p && !monthFilter
                   ? 'bg-gray-800 text-white border-gray-800'
-                  : 'border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700'
+                  : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
               }`}>
               {p}
             </button>
@@ -181,21 +181,14 @@ export default function CompletedPage() {
             </button>
           ))}
         </div>
-        {/* 직접 선택 */}
+        {/* 직접 기간 입력 (항상 표시) */}
         <div className="flex items-center gap-2">
-          <button onClick={() => setUseCustomRange(v => !v)}
-            className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-colors ${useCustomRange ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}>
-            직접 선택
-          </button>
-          {useCustomRange && (
-            <>
-              <input type="month" value={fromMonth} onChange={e => setFromMonth(e.target.value)}
-                className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none" />
-              <span className="text-xs text-gray-400">~</span>
-              <input type="month" value={toMonth} onChange={e => setToMonth(e.target.value)}
-                className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none" />
-            </>
-          )}
+          <span className="text-xs text-gray-400">기간</span>
+          <input type="month" value={fromMonth} onChange={e => { setFromMonth(e.target.value); setQuickPeriod('전체'); setMonthFilter(null) }}
+            className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none" />
+          <span className="text-xs text-gray-400">~</span>
+          <input type="month" value={toMonth} onChange={e => { setToMonth(e.target.value); setQuickPeriod('전체'); setMonthFilter(null) }}
+            className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none" />
         </div>
       </div>
 
@@ -246,51 +239,50 @@ export default function CompletedPage() {
         })}
       </div>
 
-      {/* 회고 기록 */}
-      {filtered.filter(t => t.retrospective?.good || t.retrospective?.bad || t.retrospective?.improvement).length > 0 && (
-        <div className="mt-8">
-          <h2 className="text-sm font-bold text-gray-800 mb-4">회고 기록</h2>
+      {/* 회고 기록 (인사이트) */}
+      <div className="mt-8">
+        <h2 className="text-sm font-bold text-gray-800 mb-1">회고 기록</h2>
+        <p className="text-xs text-gray-400 mb-4">완료 업무의 잘한점 · 아쉬운점 · 개선점</p>
+        {filtered.length === 0 ? (
+          <p className="text-sm text-gray-300 text-center py-8">해당 기간에 완료된 업무가 없습니다</p>
+        ) : (
           <div className="grid grid-cols-1 gap-3">
-            {filtered
-              .filter(t => t.retrospective?.good || t.retrospective?.bad || t.retrospective?.improvement)
-              .map(task => (
-                <Link key={task.id} href={`/tasks/${task.id}`}
-                  className="bg-white rounded-xl border border-gray-100 p-4 hover:border-gray-200 transition-colors">
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <p className="text-sm font-medium text-gray-800">{task.title || '제목 없음'}</p>
-                      <div className="flex gap-1.5 mt-1">
-                        {task.part && <span className="text-xs text-gray-400">{task.part}</span>}
-                        {task.type && <span className="text-xs text-gray-400">· {task.type}</span>}
-                      </div>
+            {filtered.map(task => (
+              <Link key={task.id} href={`/tasks/${task.id}`}
+                className="bg-white rounded-xl border border-gray-100 p-4 hover:border-gray-200 transition-colors">
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <p className="text-sm font-medium text-gray-800">{task.title || '제목 없음'}</p>
+                    <div className="flex gap-1.5 mt-1">
+                      {task.part && <span className="text-xs text-gray-400">{task.part}</span>}
+                      {task.type && <span className="text-xs text-gray-400">· {task.type}</span>}
                     </div>
-                    <span className="text-xs text-gray-300">{getTaskMonth(task) ?? ''}</span>
                   </div>
+                  <span className="text-xs text-gray-300">{getTaskMonth(task) ?? ''}</span>
+                </div>
+                {(task.retrospective?.good || task.retrospective?.bad || task.retrospective?.improvement) ? (
                   <div className="grid grid-cols-3 gap-3">
-                    {task.retrospective?.good && (
-                      <div className="bg-green-50 rounded-lg p-3">
-                        <p className="text-[10px] font-semibold text-green-600 mb-1">잘한점</p>
-                        <p className="text-xs text-gray-700 leading-relaxed">{task.retrospective.good}</p>
-                      </div>
-                    )}
-                    {task.retrospective?.bad && (
-                      <div className="bg-red-50 rounded-lg p-3">
-                        <p className="text-[10px] font-semibold text-red-500 mb-1">아쉬운점</p>
-                        <p className="text-xs text-gray-700 leading-relaxed">{task.retrospective.bad}</p>
-                      </div>
-                    )}
-                    {task.retrospective?.improvement && (
-                      <div className="bg-blue-50 rounded-lg p-3">
-                        <p className="text-[10px] font-semibold text-blue-500 mb-1">개선점</p>
-                        <p className="text-xs text-gray-700 leading-relaxed">{task.retrospective.improvement}</p>
-                      </div>
-                    )}
+                    <div className={`rounded-lg p-3 ${task.retrospective?.good ? 'bg-green-50' : 'bg-gray-50'}`}>
+                      <p className="text-[10px] font-semibold text-green-600 mb-1">잘한점</p>
+                      <p className="text-xs text-gray-600 leading-relaxed">{task.retrospective?.good || <span className="text-gray-300">없음</span>}</p>
+                    </div>
+                    <div className={`rounded-lg p-3 ${task.retrospective?.bad ? 'bg-red-50' : 'bg-gray-50'}`}>
+                      <p className="text-[10px] font-semibold text-red-500 mb-1">아쉬운점</p>
+                      <p className="text-xs text-gray-600 leading-relaxed">{task.retrospective?.bad || <span className="text-gray-300">없음</span>}</p>
+                    </div>
+                    <div className={`rounded-lg p-3 ${task.retrospective?.improvement ? 'bg-blue-50' : 'bg-gray-50'}`}>
+                      <p className="text-[10px] font-semibold text-blue-500 mb-1">개선점</p>
+                      <p className="text-xs text-gray-600 leading-relaxed">{task.retrospective?.improvement || <span className="text-gray-300">없음</span>}</p>
+                    </div>
                   </div>
-                </Link>
-              ))}
+                ) : (
+                  <p className="text-xs text-gray-300 italic">회고 미작성 → 업무 상세에서 작성 가능</p>
+                )}
+              </Link>
+            ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }
