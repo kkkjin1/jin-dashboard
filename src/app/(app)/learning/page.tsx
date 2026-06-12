@@ -264,8 +264,8 @@ export default function LearningPage() {
       ) : (
         <div className="grid grid-cols-3 gap-4">
           {filtered.map(r => (
-            <Link key={r.id} href={`/learning/${r.id}`}>
-              <div className="bg-white rounded-xl border border-gray-100 hover:border-gray-200 px-5 py-5 transition-colors h-full">
+            <Link key={r.id} href={`/learning/${r.id}`} className="block h-full">
+              <div className="bg-white rounded-xl border border-gray-200 hover:border-[#5DBD97]/40 hover:shadow-sm px-5 py-5 transition-all h-full flex flex-col">
                 {r.media_type && (
                   <span className={`inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full mb-3 ${
                     r.media_type === '책' ? 'bg-amber-50 text-amber-600' :

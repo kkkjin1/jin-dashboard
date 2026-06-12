@@ -9,17 +9,17 @@ import type { QuickMemo, MemoTag } from '@/types'
 const NON_NOTICE_TAGS: MemoTag[] = ['업무관련', '회의관련', '아이디어']
 
 const TAG_COLORS: Record<MemoTag, string> = {
-  '공지': 'border-t-rose-200',
-  '업무관련': 'border-t-emerald-200',
-  '회의관련': 'border-t-amber-200',
-  '아이디어': 'border-t-slate-200',
+  '공지': 'border-t-[#5DBD97]/50',
+  '업무관련': 'border-t-[#5DBD97]',
+  '회의관련': 'border-t-[#4aab84]',
+  '아이디어': 'border-t-teal-300',
 }
 
 const TAG_BADGE: Record<MemoTag, string> = {
-  '공지': 'bg-rose-50 text-rose-400',
+  '공지': 'bg-[#EBF7F2] text-[#5DBD97]',
   '업무관련': 'bg-[#EBF7F2] text-[#5DBD97]',
-  '회의관련': 'bg-amber-50 text-[#F4A35A]',
-  '아이디어': 'bg-slate-100 text-slate-400',
+  '회의관련': 'bg-emerald-50 text-emerald-600',
+  '아이디어': 'bg-teal-50 text-teal-500',
 }
 
 interface MemoCardProps {
@@ -160,9 +160,9 @@ export default function MemosPage() {
         onDragOver={e => { e.preventDefault(); setDragOverTag('공지') }}
         onDragLeave={() => setDragOverTag(null)}
         onDrop={() => handleDropOnTag('공지')}>
-        <div className={`border-2 border-t-4 ${TAG_COLORS['공지']} rounded-xl p-4 transition-colors ${dragOverTag === '공지' ? 'border-red-300 bg-red-50/30' : 'border-gray-100'}`}>
+        <div className={`border-2 border-t-4 ${TAG_COLORS['공지']} rounded-xl p-4 transition-colors ${dragOverTag === '공지' ? 'border-[#5DBD97]/50 bg-[#EBF7F2]/30' : 'border-gray-100'}`}>
           <div className="flex items-center gap-2 mb-3">
-            <span className="text-xs font-bold text-red-500">📌 공지</span>
+            <span className="text-xs font-bold text-[#5DBD97]">📌 공지</span>
             <span className="text-xs text-gray-400">{notices.length}</span>
           </div>
           <div className="flex gap-3 overflow-x-auto pb-1">
@@ -209,7 +209,7 @@ export default function MemosPage() {
               onDragOver={e => { e.preventDefault(); setDragOverTag(tag) }}
               onDragLeave={() => setDragOverTag(null)}
               onDrop={() => handleDropOnTag(tag)}
-              className={`border-2 border-t-4 ${TAG_COLORS[tag]} rounded-xl p-4 min-h-48 transition-colors ${isOver ? 'bg-blue-50/20 border-blue-200' : 'border-gray-100'}`}>
+              className={`border-2 border-t-4 ${TAG_COLORS[tag]} rounded-xl p-4 min-h-48 transition-colors ${isOver ? 'bg-[#EBF7F2]/30 border-[#5DBD97]/40' : 'border-gray-100'}`}>
               <div className="flex items-center gap-2 mb-3">
                 <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${TAG_BADGE[tag]}`}>{tag}</span>
                 <span className="text-xs text-gray-400">{colMemos.length}</span>

@@ -250,8 +250,8 @@ export default function MeetingsPage() {
                     <p className="text-xs text-gray-300 text-center py-8 bg-gray-50/60 rounded-xl border border-dashed border-gray-100">없음</p>
                   ) : (
                     colMeetings.map(meeting => (
-                      <Link key={meeting.id} href={`/meetings/${meeting.id}`}>
-                        <div className="bg-white rounded-xl border border-gray-100 hover:border-gray-200 px-4 py-5 transition-colors">
+                      <Link key={meeting.id} href={`/meetings/${meeting.id}`} className="block">
+                        <div className="bg-white rounded-xl border border-gray-200 hover:border-[#5DBD97]/40 hover:shadow-sm px-4 py-5 transition-all">
                           <p className="text-sm font-medium text-gray-800 line-clamp-2 mb-2">{meeting.title}</p>
                           <div className="flex items-center gap-2 flex-wrap">
                             {meeting.meeting_date && (

@@ -275,26 +275,26 @@ export default function SchedulePage() {
     return (
       <div key={day.toISOString()}
         onClick={() => setSelectedDay(isSameDay(day, selectedDay ?? new Date(0)) ? null : day)}
-        className={`min-h-16 p-1 rounded-lg cursor-pointer transition-colors ${
+        className={`min-h-24 p-1.5 rounded-lg cursor-pointer transition-colors ${
           isSelected ? 'bg-gray-100' : isToday ? 'bg-[#EBF7F2]' : isOtherMonth ? 'bg-gray-50/50 opacity-50' : 'hover:bg-gray-50'
         }`}>
-        <p className={`text-xs text-center mb-1 w-6 h-6 flex items-center justify-center rounded-full mx-auto ${
+        <p className={`text-xs text-center mb-1.5 w-6 h-6 flex items-center justify-center rounded-full mx-auto ${
           isToday ? 'bg-[#5DBD97] text-white font-bold' : isOtherMonth ? 'text-gray-300' : 'text-gray-600'
         }`}>
           {format(day, 'd')}
         </p>
-        <div className="space-y-0.5">
-          {allItems.slice(0, 3).map((item, idx) => {
+        <div className="space-y-1">
+          {allItems.slice(0, 4).map((item, idx) => {
             if (item.type === 'task') {
               const { dt } = item
               return (
                 <button key={`task-${dt.task.id}-${dt.dateType}-${idx}`}
                   onClick={e => { e.stopPropagation(); router.push(`/tasks/${dt.task.id}`) }}
-                  className={`w-full text-left rounded px-1 py-0.5 truncate text-xs leading-tight hover:opacity-80 ${
+                  className={`w-full text-left rounded-md px-1.5 py-1 truncate text-[11px] leading-tight hover:opacity-80 font-medium ${
                     dt.dateType === 'mid' ? 'bg-amber-100 text-amber-700' : 'bg-[#1C2B3A]/10 text-[#1C2B3A]'
                   }`}
                   title={`${dt.dateType === 'mid' ? '중간공유' : '최종보고'} | ${dt.task.title}`}>
-                  <span className="font-medium">{dt.dateType === 'mid' ? '중간' : '최종'}</span>
+                  <span className="opacity-70">{dt.dateType === 'mid' ? '중간' : '최종'}</span>
                   {' '}{dt.task.title}
                 </button>
               )
@@ -303,21 +303,21 @@ export default function SchedulePage() {
               return (
                 <button key={`meeting-${m.id}-${idx}`}
                   onClick={e => { e.stopPropagation(); router.push(`/meetings/${m.id}`) }}
-                  className="w-full text-left rounded px-1 py-0.5 truncate text-xs leading-tight bg-[#EBF7F2] text-[#5DBD97] hover:opacity-80"
+                  className="w-full text-left rounded-md px-1.5 py-1 truncate text-[11px] leading-tight bg-[#EBF7F2] text-[#5DBD97] hover:opacity-80 font-medium"
                   title={`회의 | ${m.title}`}>
                   {m.title}
                 </button>
               )
             }
           })}
-          {allItems.length > 3 && <p className="text-xs text-gray-400 text-center">+{allItems.length - 3}</p>}
+          {allItems.length > 4 && <p className="text-[10px] text-gray-400 text-center">+{allItems.length - 4}</p>}
         </div>
       </div>
     )
   }
 
   return (
-    <div className="p-8">
+    <div className="p-8 flex-1 flex flex-col">
       <h1 className="text-xl font-bold text-gray-900 mb-5">일정</h1>
 
       {/* 필터 사이클 버튼 행 */}
@@ -414,9 +414,9 @@ export default function SchedulePage() {
         </button>
       </div>
 
-      <div className="grid grid-cols-3 gap-6">
+      <div className="grid grid-cols-3 gap-6 flex-1 min-h-0">
         {/* 캘린더 */}
-        <div className="col-span-2 bg-white rounded-xl border border-gray-100 p-5">
+        <div className="col-span-2 bg-white rounded-xl border border-gray-100 p-5 flex flex-col">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-semibold text-gray-800">{format(current, 'yyyy년 M월', { locale: ko })}</h2>
             <div className="flex gap-1">
@@ -428,7 +428,7 @@ export default function SchedulePage() {
                 className="px-2 py-1 text-sm text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg">→</button>
             </div>
           </div>
-          <div className="grid grid-cols-7 gap-px">
+          <div className="grid grid-cols-7 gap-px flex-1">
             {['일','월','화','수','목','금','토'].map(d => (
               <div key={d} className="text-center text-xs text-gray-400 font-medium py-2">{d}</div>
             ))}

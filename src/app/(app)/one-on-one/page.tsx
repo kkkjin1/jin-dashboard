@@ -483,7 +483,7 @@ export default function OneOnOnePage() {
           {/* RIGHT: alert panel */}
           <div className="flex-[40] min-w-0 flex flex-col gap-4">
             {urgentStat ? (
-              <div className="bg-amber-50 rounded-xl border border-[#F4A35A]/30 px-5 py-4">
+              <div className="bg-orange-50 rounded-xl px-5 py-4">
                 <p className="text-xs font-semibold text-[#F4A35A] mb-3">30일 미진행 긴급</p>
                 <div className="flex items-start justify-between gap-2">
                   <div>
