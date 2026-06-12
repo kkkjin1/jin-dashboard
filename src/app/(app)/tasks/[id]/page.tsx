@@ -161,6 +161,22 @@ export default function TaskDetailPage() {
   const noteTitleRef = useRef<HTMLInputElement>(null)
   const noteAreaRef = useRef<HTMLTextAreaElement>(null)
   const autoFocused = useRef(false)
+  const contentRef = useRef<HTMLDivElement>(null)
+
+  function startResize(e: React.MouseEvent) {
+    e.preventDefault()
+    const startX = e.clientX
+    const startW = contentRef.current?.offsetWidth ?? 900
+    const onMove = (ev: MouseEvent) => {
+      setContentWidth(Math.max(480, Math.min(1600, startW + (ev.clientX - startX))))
+    }
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+    }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }
 
   useEffect(() => {
     async function load() {
@@ -339,10 +355,12 @@ export default function TaskDetailPage() {
   const member = members.find(m => m.id === task.assignee_id)
 
   return (
-    <div
-      className="p-8"
-      style={contentWidth ? { width: `${contentWidth}px` } : {}}
-    >
+    <div className="flex items-stretch min-h-full">
+      <div
+        ref={contentRef}
+        className="p-8 min-w-0"
+        style={contentWidth ? { width: `${contentWidth}px`, flexShrink: 0 } : { flex: 1 }}
+      >
       {toast && <Toast message={toast} onDone={() => setToast('')} />}
 
       {showRetroModal && (
@@ -656,6 +674,19 @@ export default function TaskDetailPage() {
               </div>
             )}
           </div>
+        </div>
+      </div>
+      </div>
+      {/* 오른쪽 드래그 핸들 */}
+      <div
+        onMouseDown={startResize}
+        className="w-2 flex-shrink-0 cursor-ew-resize hover:bg-blue-100 transition-colors group flex items-center justify-center"
+        title="드래그하여 너비 조절"
+      >
+        <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="w-0.5 h-4 bg-blue-400 rounded-full" />
+          <div className="w-0.5 h-4 bg-blue-400 rounded-full" />
+          <div className="w-0.5 h-4 bg-blue-400 rounded-full" />
         </div>
       </div>
     </div>

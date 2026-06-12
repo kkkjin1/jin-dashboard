@@ -1,0 +1,118 @@
+'use client'
+
+import { useState, useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
+import type { Task, Meeting } from '@/types'
+
+const STATUS_COLORS: Record<string, string> = {
+  '진행필요': 'bg-gray-100 text-gray-500',
+  '진행중': 'bg-blue-50 text-blue-600',
+  '완료': 'bg-green-50 text-green-600',
+}
+
+export default function GlobalSearch() {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const [tasks, setTasks] = useState<Task[]>([])
+  const [meetings, setMeetings] = useState<Pick<Meeting, 'id' | 'title'>[]>([])
+  const [loaded, setLoaded] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const router = useRouter()
+  const supabase = createClient()
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault()
+        setOpen(prev => !prev)
+      }
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [])
+
+  useEffect(() => {
+    if (open) {
+      setTimeout(() => inputRef.current?.focus(), 50)
+      if (!loaded) {
+        Promise.all([
+          supabase.from('tasks').select('id, title, status, part, type').order('created_at', { ascending: false }),
+          supabase.from('meetings').select('id, title').order('created_at', { ascending: false }),
+        ]).then(([{ data: t }, { data: m }]) => {
+          setTasks((t ?? []) as Task[])
+          setMeetings((m ?? []) as Pick<Meeting, 'id' | 'title'>[])
+          setLoaded(true)
+        })
+      }
+    }
+  }, [open])
+
+  const q = query.trim().toLowerCase()
+  const matchedTasks = q ? tasks.filter(t => t.title?.toLowerCase().includes(q)).slice(0, 6) : []
+  const matchedMeetings = q ? meetings.filter(m => m.title?.toLowerCase().includes(q)).slice(0, 4) : []
+  const hasResults = matchedTasks.length > 0 || matchedMeetings.length > 0
+
+  if (!open) return null
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/30 z-[60]" onClick={() => { setOpen(false); setQuery('') }} />
+      <div className="fixed top-[20%] left-1/2 -translate-x-1/2 w-[560px] max-w-[90vw] bg-white rounded-2xl shadow-2xl z-[60] overflow-hidden">
+        <div className="flex items-center gap-3 px-4 py-3.5 border-b border-gray-100">
+          <span className="text-gray-400 text-sm">🔍</span>
+          <input
+            ref={inputRef}
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder="업무 · 회의록 검색..."
+            className="flex-1 text-sm text-gray-700 focus:outline-none bg-transparent"
+          />
+          <kbd className="text-[10px] text-gray-300 bg-gray-100 px-2 py-0.5 rounded">ESC</kbd>
+        </div>
+        <div className="max-h-[400px] overflow-y-auto">
+          {!q ? (
+            <p className="text-xs text-gray-300 text-center py-6">검색어를 입력하세요</p>
+          ) : !hasResults ? (
+            <p className="text-xs text-gray-400 text-center py-6">검색 결과 없음</p>
+          ) : (
+            <div className="divide-y divide-gray-50">
+              {matchedTasks.length > 0 && (
+                <div className="px-3 py-2">
+                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">업무</p>
+                  {matchedTasks.map(t => (
+                    <Link key={t.id} href={`/tasks/${t.id}`} onClick={() => { setOpen(false); setQuery('') }}>
+                      <div className="py-2 px-2 hover:bg-gray-50 rounded-lg flex items-center gap-2.5">
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0 ${STATUS_COLORS[t.status] ?? 'bg-gray-100 text-gray-500'}`}>{t.status}</span>
+                        <span className="text-sm text-gray-800 truncate">{t.title || '제목 없음'}</span>
+                        <span className="text-xs text-gray-300 ml-auto flex-shrink-0">{t.part} · {t.type}</span>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+              {matchedMeetings.length > 0 && (
+                <div className="px-3 py-2">
+                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">회의록</p>
+                  {matchedMeetings.map(m => (
+                    <Link key={m.id} href={`/meetings/${m.id}`} onClick={() => { setOpen(false); setQuery('') }}>
+                      <div className="py-2 px-2 hover:bg-gray-50 rounded-lg flex items-center gap-2">
+                        <span className="text-xs text-purple-400">💬</span>
+                        <span className="text-sm text-gray-800 truncate">{m.title || '제목 없음'}</span>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+        <div className="px-4 py-2 border-t border-gray-50 flex items-center gap-3">
+          <span className="text-[10px] text-gray-300">Ctrl+K 열기/닫기 · ESC 닫기 · Enter 이동</span>
+        </div>
+      </div>
+    </>
+  )
+}

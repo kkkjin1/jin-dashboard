@@ -7,6 +7,7 @@ import { ko } from 'date-fns/locale'
 import SummaryCards from '@/components/home/SummaryCards'
 import TaskColumn from '@/components/home/TaskColumn'
 import HomeCalendar from '@/components/home/HomeCalendar'
+import TodayTodoWidget from '@/components/home/TodayTodoWidget'
 import { fetchAllTasks, daysUntil, hasUpcomingMidDate, hasUpcomingEndDate } from '@/lib/tasks'
 import { createClient } from '@/lib/supabase/client'
 import type { Task, Meeting } from '@/types'
@@ -14,6 +15,7 @@ import type { Task, Meeting } from '@/types'
 export default function HomePage() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
+  const [meetings, setMeetings] = useState<Pick<Meeting, 'id' | 'title' | 'meeting_date'>[]>([])
   const [search, setSearch] = useState('')
   const [searchMeetings, setSearchMeetings] = useState<Pick<Meeting, 'id' | 'title'>[]>([])
   const [meetingsLoaded, setMeetingsLoaded] = useState(false)
@@ -30,7 +32,14 @@ export default function HomePage() {
   const [editShortcutUrl, setEditShortcutUrl] = useState('')
 
   useEffect(() => {
-    fetchAllTasks().then(data => { setTasks(data); setLoading(false) })
+    Promise.all([
+      fetchAllTasks(),
+      supabase.from('meetings').select('id, title, meeting_date').order('meeting_date', { ascending: true })
+    ]).then(([taskData, { data: meetingData }]) => {
+      setTasks(taskData)
+      setMeetings((meetingData ?? []) as Pick<Meeting, 'id' | 'title' | 'meeting_date'>[])
+      setLoading(false)
+    })
   }, [])
 
   useEffect(() => {
@@ -276,7 +285,14 @@ export default function HomePage() {
         </div>
       )}
 
-      <HomeCalendar tasks={tasks} />
+      <div className="grid grid-cols-3 gap-4 mt-6">
+        <div className="col-span-2">
+          <HomeCalendar tasks={tasks} meetings={meetings} />
+        </div>
+        <div>
+          <TodayTodoWidget />
+        </div>
+      </div>
     </div>
   )
 }
