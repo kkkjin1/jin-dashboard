@@ -71,7 +71,7 @@ export default function HomeCalendar({ tasks, meetings }: Props) {
           return (
             <div
               key={day.toISOString()}
-              className={`min-h-16 p-1 rounded-lg ${isToday ? 'bg-[#EBF7F2]' : 'hover:bg-gray-50'} transition-colors`}
+              className={`min-h-16 p-1 rounded-lg ${isToday ? 'ring-1 ring-[#5DBD97]/60 ring-inset' : 'hover:bg-gray-50'} transition-colors`}
             >
               <p className={`text-xs text-center mb-1 w-6 h-6 flex items-center justify-center rounded-full mx-auto ${
                 isToday ? 'bg-[#5DBD97] text-white font-bold' : 'text-gray-600'

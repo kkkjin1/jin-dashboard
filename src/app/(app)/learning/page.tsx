@@ -244,10 +244,10 @@ export default function LearningPage() {
       </div>
 
       {/* 매체 필터 */}
-      <div className="grid grid-cols-5 gap-2 mb-5">
+      <div className="flex gap-2 mb-5">
         {MEDIA_TYPES.map(type => (
           <button key={type} onClick={() => setMediaFilter(mediaFilter === type ? null : type)}
-            className={`text-xs px-2.5 py-2.5 rounded-xl border transition-colors text-center ${mediaFilter === type ? 'bg-[#5DBD97] text-white border-[#5DBD97]' : 'border-gray-200 text-gray-400 hover:border-gray-400 bg-white'}`}>
+            className={`text-xs px-4 py-2.5 rounded-xl border transition-colors ${mediaFilter === type ? 'bg-[#5DBD97] text-white border-[#5DBD97]' : 'border-gray-200 text-gray-400 hover:border-gray-400 bg-white'}`}>
             {MEDIA_ICONS[type]} {type}
           </button>
         ))}
@@ -277,7 +277,7 @@ export default function LearningPage() {
                     {MEDIA_ICONS[r.media_type]} {r.media_type}
                   </span>
                 )}
-                <p className="text-sm font-semibold text-gray-800 leading-snug mb-1">{r.title}</p>
+                <p className="text-sm font-semibold text-gray-800 leading-snug mb-1 line-clamp-2 break-all">{r.title}</p>
                 {r.source && <p className="text-xs text-gray-400 truncate mb-2">출처: {r.source}</p>}
                 <div className="flex items-center gap-1.5 flex-wrap mt-auto">
                   {(r.tags ?? []).slice(0, 3).map(t => (

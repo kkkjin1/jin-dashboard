@@ -236,11 +236,11 @@ export default function MeetingsPage() {
         </div>
       ) : (
         /* 칸반 뷰 */
-        <div className="flex gap-4 overflow-x-auto pb-4">
+        <div className="grid grid-cols-6 gap-3 pb-4">
           {kanbanCols.map(cat => {
             const colMeetings = kanbanGroups[cat]
             return (
-              <div key={cat} className="flex-shrink-0 w-72">
+              <div key={cat} className="min-w-0">
                 <div className="flex items-center justify-between mb-3 px-1">
                   <h3 className="text-sm font-semibold text-gray-600">{cat}</h3>
                   <span className="text-xs text-gray-400">{colMeetings.length}건</span>
