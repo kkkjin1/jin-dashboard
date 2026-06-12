@@ -37,9 +37,14 @@ interface NoteAccordionProps {
   isOpen: boolean
   onToggle: () => void
   onDelete: (index: number) => void
+  onEdit: (index: number, newContent: string) => void
+  onFullscreen: (content: string) => void
 }
 
-function NoteAccordion({ note, index, isOpen, onToggle, onDelete }: NoteAccordionProps) {
+function NoteAccordion({ note, index, isOpen, onToggle, onDelete, onEdit, onFullscreen }: NoteAccordionProps) {
+  const [editing, setEditing] = useState(false)
+  const [editContent, setEditContent] = useState(note.content)
+
   return (
     <div className="bg-white rounded-xl border border-gray-100 overflow-hidden group">
       <button onClick={onToggle}
@@ -47,16 +52,45 @@ function NoteAccordion({ note, index, isOpen, onToggle, onDelete }: NoteAccordio
         <div className="flex items-center gap-2 min-w-0">
           <span className="text-xs text-gray-400 flex-shrink-0">{isOpen ? '▼' : '▶'}</span>
           <span className="text-sm font-medium text-gray-700 truncate">{note.title}</span>
+          {note.edited_at && (
+            <span className="text-xs text-gray-400 flex-shrink-0 ml-1">수정됨</span>
+          )}
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           {!isOpen && <span className="text-xs text-gray-300 truncate max-w-40">{note.content.slice(0, 40)}</span>}
+          <button onClick={e => { e.stopPropagation(); onFullscreen(note.content) }}
+            className="text-xs text-gray-300 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-all"
+            title="크게보기">⛶</button>
           <button onClick={e => { e.stopPropagation(); onDelete(index) }}
             className="text-xs text-gray-200 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100">삭제</button>
         </div>
       </button>
       {isOpen && (
         <div className="px-4 pb-4 border-t border-gray-50">
-          <p className="text-sm text-gray-700 whitespace-pre-wrap pt-3">{note.content}</p>
+          {editing ? (
+            <>
+              <SmartTextarea
+                autoFocus
+                value={editContent}
+                onChange={setEditContent}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { onEdit(index, editContent.trim()); setEditing(false) }
+                  if (e.key === 'Escape') setEditing(false)
+                }}
+                className="w-full text-sm focus:outline-none resize-none text-gray-700 pt-3"
+                style={{ minHeight: '120px' }}
+              />
+              <div className="flex gap-2 justify-end mt-2">
+                <button onClick={() => setEditing(false)} className="text-xs text-gray-400 px-3 py-1 rounded-lg">취소</button>
+                <button onClick={() => { onEdit(index, editContent.trim()); setEditing(false) }} className="text-xs bg-gray-800 text-white px-3 py-1 rounded-lg">저장</button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-gray-700 whitespace-pre-wrap pt-3">{note.content}</p>
+              <button onClick={() => { setEditContent(note.content); setEditing(true) }} className="text-xs text-gray-300 hover:text-blue-500 mt-2">수정</button>
+            </>
+          )}
         </div>
       )}
     </div>
@@ -141,6 +175,8 @@ export default function MeetingDetailPage() {
   const [noteTitle, setNoteTitle] = useState(defaultNoteTitle())
   const [openIndexes, setOpenIndexes] = useState<Set<number>>(new Set([0]))
   const [deleting, setDeleting] = useState(false)
+  const [showFullscreen, setShowFullscreen] = useState(false)
+  const [fullscreenContent, setFullscreenContent] = useState('')
 
   const [linkedTasks, setLinkedTasks] = useState<Task[]>([])
   const [allTasks, setAllTasks] = useState<Pick<Task, 'id' | 'title' | 'status' | 'part'>[]>([])
@@ -199,6 +235,14 @@ export default function MeetingDetailPage() {
     const updatedNotes = meeting.notes.filter((_, i) => i !== index)
     await updateMeeting({ notes: updatedNotes })
     setOpenIndexes(new Set([0]))
+  }
+
+  async function editNote(index: number, newContent: string) {
+    if (!meeting || !newContent.trim()) return
+    const updatedNotes = meeting.notes.map((n, i) =>
+      i === index ? { ...n, content: newContent, edited_at: new Date().toISOString() } : n
+    )
+    await updateMeeting({ notes: updatedNotes })
   }
 
   async function deleteMeeting() {
@@ -314,7 +358,8 @@ export default function MeetingDetailPage() {
               ) : (
                 meeting.notes.map((note, idx) => (
                   <NoteAccordion key={`${note.created_at}-${idx}`} note={note} index={idx}
-                    isOpen={openIndexes.has(idx)} onToggle={() => toggleNote(idx)} onDelete={deleteNote} />
+                    isOpen={openIndexes.has(idx)} onToggle={() => toggleNote(idx)} onDelete={deleteNote}
+                    onEdit={editNote} onFullscreen={(content) => { setFullscreenContent(content); setShowFullscreen(true) }} />
                 ))
               )}
             </div>
@@ -362,6 +407,19 @@ export default function MeetingDetailPage() {
           </div>
         </div>
       </div>
+
+      {showFullscreen && (
+        <div className="fixed inset-0 z-50 bg-black/90 flex items-start justify-center p-8 overflow-auto"
+          onClick={() => setShowFullscreen(false)}>
+          <div className="bg-white rounded-2xl p-8 max-w-4xl w-full" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-6">
+              <p className="text-xs text-gray-400">크게보기 모드 (클릭하면 닫힘)</p>
+              <button onClick={() => setShowFullscreen(false)} className="text-gray-400 hover:text-gray-600 text-xl">×</button>
+            </div>
+            <p className="text-lg text-gray-800 whitespace-pre-wrap leading-relaxed">{fullscreenContent}</p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

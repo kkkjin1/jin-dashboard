@@ -10,6 +10,8 @@ import { format, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { generateTaskMd, downloadMd } from '@/lib/markdown'
 import SmartTextarea from '@/components/SmartTextarea'
+import MarkdownContent from '@/components/MarkdownContent'
+import FormattingToolbar from '@/components/FormattingToolbar'
 
 const STATUSES: TaskStatus[] = ['진행필요', '진행중', '완료']
 const STATUS_COLORS: Record<TaskStatus, string> = {
@@ -114,7 +116,7 @@ function NoteAccordion({ note, isOpen, onToggle, onDelete, onEdit, onEditTitle }
               </div>
             </>
           ) : (
-            <p className="text-sm text-gray-700 whitespace-pre-wrap pt-3">{note.content}</p>
+            <MarkdownContent content={note.content} className="pt-3" />
           )}
         </div>
       )}
@@ -458,6 +460,7 @@ export default function TaskDetailPage() {
               <input ref={noteTitleRef} value={noteTitle} onChange={e => setNoteTitle(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Tab') { e.preventDefault(); noteAreaRef.current?.focus() } }}
                 className="w-full text-xs font-medium text-gray-500 focus:outline-none mb-2 border-b border-gray-100 pb-1 bg-transparent" placeholder="노트 제목" />
+              <FormattingToolbar textareaRef={noteAreaRef} value={noteInput} onChange={setNoteInput} />
               <SmartTextarea ref={noteAreaRef} value={noteInput} onChange={setNoteInput}
                 onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) saveNote() }}
                 placeholder={`노트 입력 (Ctrl+Enter 저장)\n\n날짜 태그: [중간공유 6/20] [최종보고 7/10] [시작 6/1]\n확장 태그: [담당자 김다슬] [유형 기획] [상태 진행중] [파트 코어]`}

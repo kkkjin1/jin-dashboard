@@ -62,6 +62,7 @@ export interface NoteEntry {
   title: string
   content: string
   created_at: string
+  edited_at?: string
 }
 
 export interface Meeting {

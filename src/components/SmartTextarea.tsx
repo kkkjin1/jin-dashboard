@@ -18,6 +18,15 @@ function getLineEnd(text: string, pos: number): number {
   return idx === -1 ? text.length : idx
 }
 
+function getNextNum(value: string, lineStart: number): number {
+  const lines = value.slice(0, lineStart).split('\n').reverse()
+  for (const ln of lines) {
+    const m = ln.match(/^(\s*)(\d+)[.)]\s/)
+    if (m) return parseInt(m[2]) + 1
+  }
+  return 1
+}
+
 const SmartTextarea = forwardRef<HTMLTextAreaElement, Props>(function SmartTextarea(
   { value, onChange, onKeyDown, ...props },
   forwardedRef
@@ -57,6 +66,14 @@ const SmartTextarea = forwardRef<HTMLTextAreaElement, Props>(function SmartTexta
         pendingCursor.current = start + insert.length
         return
       }
+      const parenMatch = line.match(/^(\s*)(\d+)\) /)
+      if (parenMatch) {
+        e.preventDefault()
+        const insert = '\n' + parenMatch[1] + (parseInt(parenMatch[2]) + 1) + ') '
+        onChange(value.slice(0, start) + insert + value.slice(end))
+        pendingCursor.current = start + insert.length
+        return
+      }
       const blackMatch = line.match(/^(\s*)■ /)
       if (blackMatch) {
         e.preventDefault()
@@ -80,8 +97,17 @@ const SmartTextarea = forwardRef<HTMLTextAreaElement, Props>(function SmartTexta
       if (!e.shiftKey) {
         const numMatch = line.match(/^(\s*)(\d+)\. /)
         if (numMatch) {
-          const prefix = '    ■ '
+          const n = parseInt(numMatch[2])
+          const prefix = numMatch[1] + n + ') '
           const newLine = prefix + line.slice(numMatch[0].length)
+          onChange(value.slice(0, lineStart) + newLine + value.slice(lineEnd))
+          pendingCursor.current = lineStart + prefix.length
+          return
+        }
+        const parenMatch = line.match(/^(\s*)(\d+)\) /)
+        if (parenMatch) {
+          const prefix = parenMatch[1] + '■ '
+          const newLine = prefix + line.slice(parenMatch[0].length)
           onChange(value.slice(0, lineStart) + newLine + value.slice(lineEnd))
           pendingCursor.current = lineStart + prefix.length
           return
@@ -108,8 +134,17 @@ const SmartTextarea = forwardRef<HTMLTextAreaElement, Props>(function SmartTexta
         }
         const blackMatch = line.match(/^(\s*)■ /)
         if (blackMatch) {
-          const prefix = '  1. '
+          const n = getNextNum(value, lineStart)
+          const prefix = blackMatch[1] + n + ') '
           onChange(value.slice(0, lineStart) + prefix + line.slice(blackMatch[0].length) + value.slice(lineEnd))
+          pendingCursor.current = lineStart + prefix.length
+          return
+        }
+        const parenMatch = line.match(/^(\s*)(\d+)\) /)
+        if (parenMatch) {
+          const n = parseInt(parenMatch[2])
+          const prefix = parenMatch[1] + n + '. '
+          onChange(value.slice(0, lineStart) + prefix + line.slice(parenMatch[0].length) + value.slice(lineEnd))
           pendingCursor.current = lineStart + prefix.length
           return
         }

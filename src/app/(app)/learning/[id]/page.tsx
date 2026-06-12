@@ -7,6 +7,8 @@ import { createClient } from '@/lib/supabase/client'
 import type { LearningResource, NoteEntry } from '@/types'
 import { generateLearningMd, downloadMd } from '@/lib/markdown'
 import SmartTextarea from '@/components/SmartTextarea'
+import MarkdownContent from '@/components/MarkdownContent'
+import FormattingToolbar from '@/components/FormattingToolbar'
 
 function defaultNoteTitle(): string {
   const now = new Date()
@@ -74,7 +76,7 @@ function NoteAccordion({ note, index, isOpen, onToggle, onDelete, onEditTitle }:
       </div>
       {isOpen && (
         <div className="px-4 pb-4 border-t border-gray-50">
-          <p className="text-sm text-gray-700 whitespace-pre-wrap pt-3">{note.content}</p>
+          <MarkdownContent content={note.content} className="pt-3" />
         </div>
       )}
     </div>
@@ -270,6 +272,7 @@ export default function LearningDetailPage() {
             className="w-full text-xs font-medium text-gray-500 focus:outline-none mb-2 border-b border-gray-100 pb-1 bg-transparent"
             placeholder="노트 제목"
           />
+          <FormattingToolbar textareaRef={noteAreaRef} value={noteInput} onChange={setNoteInput} />
           <SmartTextarea
             ref={noteAreaRef}
             value={noteInput}
