@@ -156,32 +156,11 @@ export default function TaskDetailPage() {
   const [openMeetingNoteKeys, setOpenMeetingNoteKeys] = useState<Set<string>>(new Set())
 
   const [contentWidth, setContentWidth] = useState<number | null>(null)
-  const isResizing = useRef(false)
-  const contentRef = useRef<HTMLDivElement>(null)
 
   const titleRef = useRef<HTMLInputElement>(null)
   const noteTitleRef = useRef<HTMLInputElement>(null)
   const noteAreaRef = useRef<HTMLTextAreaElement>(null)
   const autoFocused = useRef(false)
-
-  function startResize(e: React.MouseEvent) {
-    e.preventDefault()
-    isResizing.current = true
-    const startX = e.clientX
-    const startW = contentRef.current?.offsetWidth ?? 900
-    const onMove = (ev: MouseEvent) => {
-      if (!isResizing.current) return
-      const newW = Math.max(480, Math.min(1400, startW + (ev.clientX - startX)))
-      setContentWidth(newW)
-    }
-    const onUp = () => {
-      isResizing.current = false
-      document.removeEventListener('mousemove', onMove)
-      document.removeEventListener('mouseup', onUp)
-    }
-    document.addEventListener('mousemove', onMove)
-    document.addEventListener('mouseup', onUp)
-  }
 
   useEffect(() => {
     async function load() {
@@ -360,9 +339,7 @@ export default function TaskDetailPage() {
   const member = members.find(m => m.id === task.assignee_id)
 
   return (
-    <div className="relative">
     <div
-      ref={contentRef}
       className="p-8"
       style={contentWidth ? { width: `${contentWidth}px` } : {}}
     >
@@ -407,12 +384,20 @@ export default function TaskDetailPage() {
         </div>
       )}
 
-      {/* 뒤로가기 + MD 다운로드 */}
+      {/* 뒤로가기 + 너비조절 + MD 다운로드 */}
       <div className="flex items-center justify-between mb-4">
         <Link href="/tasks" className="text-sm text-gray-400 hover:text-gray-600 inline-flex items-center gap-1">← 업무 목록</Link>
-        <button onClick={handleDownloadMd} className="text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-white transition-colors">
-          MD 다운로드
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setContentWidth(prev => prev ? null : 720)}
+            className={`text-xs border rounded-lg px-3 py-1.5 transition-colors ${contentWidth ? 'border-blue-200 text-blue-500 bg-blue-50 hover:bg-blue-100' : 'border-gray-200 text-gray-400 hover:bg-white'}`}
+          >
+            {contentWidth ? `↔ 전체 너비 (${contentWidth}px)` : '⟵ 좁게 보기'}
+          </button>
+          <button onClick={handleDownloadMd} className="text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-white transition-colors">
+            MD 다운로드
+          </button>
+        </div>
       </div>
 
       {/* 제목 */}
@@ -674,16 +659,5 @@ export default function TaskDetailPage() {
         </div>
       </div>
     </div>
-    {/* 너비 조절 핸들 - 콘텐츠 오른쪽 경계에 부착 */}
-    <div
-      onMouseDown={startResize}
-      className="absolute top-0 bottom-0 w-4 cursor-ew-resize z-30 flex flex-col items-center justify-center gap-1 opacity-20 hover:opacity-100 hover:bg-blue-50 transition-all rounded-lg"
-      style={contentWidth ? { left: `${contentWidth - 2}px` } : { right: 2 }}
-    >
-      <div className="w-1 h-3 bg-gray-400 rounded-full" />
-      <div className="w-1 h-3 bg-gray-400 rounded-full" />
-      <div className="w-1 h-3 bg-gray-400 rounded-full" />
-    </div>
-  </div>
   )
 }
