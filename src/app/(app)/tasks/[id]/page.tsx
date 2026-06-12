@@ -579,8 +579,8 @@ export default function TaskDetailPage() {
 
         {/* 오른쪽 50%: 연관 회의록 전체 내용 */}
         <div className="flex-[50]">
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">연관 회의록</h3>
           <div className="bg-white rounded-xl border border-gray-100 p-5">
-            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">연관 회의록</h3>
 
             <div className="flex gap-2 mb-4">
               <select value={selectedMeetingId} onChange={e => setSelectedMeetingId(e.target.value)}
@@ -680,13 +680,13 @@ export default function TaskDetailPage() {
       {/* 오른쪽 드래그 핸들 */}
       <div
         onMouseDown={startResize}
-        className="w-2 flex-shrink-0 cursor-ew-resize hover:bg-blue-100 transition-colors group flex items-center justify-center"
+        className="w-3 flex-shrink-0 cursor-ew-resize border-l border-gray-100 hover:border-blue-200 hover:bg-blue-50 transition-colors group flex items-center justify-center"
         title="드래그하여 너비 조절"
       >
-        <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          <div className="w-0.5 h-4 bg-blue-400 rounded-full" />
-          <div className="w-0.5 h-4 bg-blue-400 rounded-full" />
-          <div className="w-0.5 h-4 bg-blue-400 rounded-full" />
+        <div className="flex flex-col gap-1 opacity-30 group-hover:opacity-100 transition-opacity">
+          <div className="w-0.5 h-4 bg-gray-400 group-hover:bg-blue-400 rounded-full transition-colors" />
+          <div className="w-0.5 h-4 bg-gray-400 group-hover:bg-blue-400 rounded-full transition-colors" />
+          <div className="w-0.5 h-4 bg-gray-400 group-hover:bg-blue-400 rounded-full transition-colors" />
         </div>
       </div>
     </div>

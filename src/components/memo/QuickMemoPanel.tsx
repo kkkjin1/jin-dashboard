@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { MemoTag } from '@/types'
 import SmartTextarea from '@/components/SmartTextarea'
@@ -36,6 +37,7 @@ export default function QuickMemoPanel() {
   const isResizingH = useRef(false)
   const titleRef = useRef<HTMLInputElement>(null)
   const supabase = createClient()
+  const router = useRouter()
 
   // draft 복원
   useEffect(() => {
@@ -64,7 +66,7 @@ export default function QuickMemoPanel() {
   }, [open])
 
   useEffect(() => {
-    function onKey(e: KeyboardEvent) {
+    async function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape' && open) { setOpen(false); return }
       if ((e.ctrlKey || e.metaKey) && e.key === '2') {
         e.preventDefault()
@@ -73,8 +75,13 @@ export default function QuickMemoPanel() {
       }
       if ((e.ctrlKey || e.metaKey) && e.key === '1') {
         e.preventDefault()
-        setTag('업무관련')
-        setOpen(true)
+        const supabaseClient = createClient()
+        const { data } = await supabaseClient
+          .from('tasks')
+          .insert({ title: '', part: '코어', type: '기획', status: '진행필요' })
+          .select('id')
+          .single()
+        if (data) router.push(`/tasks/${(data as { id: string }).id}`)
       }
     }
     window.addEventListener('keydown', onKey)

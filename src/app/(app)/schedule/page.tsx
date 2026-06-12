@@ -52,6 +52,20 @@ export default function SchedulePage() {
   }, [])
 
   useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const tag = (e.target as HTMLElement).tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      if (e.ctrlKey || e.metaKey || e.altKey) return
+      if (e.key === 'q') setPartFilter(p => p === '전체' ? '코어' : p === '코어' ? '비즈' : '전체')
+      if (e.key === 'w') setStatusFilter(s => s === '전체' ? '진행필요' : s === '진행필요' ? '진행중' : s === '진행중' ? '완료' : '전체')
+      if (e.key === 'e') setReportFilter(r => r === '전체' ? '중간공유' : r === '중간공유' ? '최종보고' : '전체')
+      if (e.key === 'r') setViewFilter(v => v === '전체' ? '업무만' : v === '업무만' ? '회의만' : '전체')
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  useEffect(() => {
     function onMeetingCreated(e: Event) {
       const m = (e as CustomEvent).detail as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>
       if (m?.meeting_date) setMeetings(prev => [...prev, m])
