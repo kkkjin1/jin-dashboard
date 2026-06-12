@@ -89,10 +89,20 @@ export default function TasksPage() {
     function onKey(e: KeyboardEvent) {
       if (e.isComposing) return
       if (showPickerRef.current) {
-        if (e.code === 'ArrowLeft') { e.preventDefault(); setPickerYear(y => y - 1) }
-        if (e.code === 'ArrowRight') { e.preventDefault(); setPickerYear(y => y + 1) }
-        if (e.code === 'ArrowUp') { e.preventDefault(); setPickerFocusMonth(m => m > 1 ? m - 1 : 12) }
-        if (e.code === 'ArrowDown') { e.preventDefault(); setPickerFocusMonth(m => m < 12 ? m + 1 : 1) }
+        if (e.code === 'ArrowLeft') {
+          e.preventDefault()
+          const m = pickerFocusMonthRef.current
+          if (m > 1) { setPickerFocusMonth(m - 1) }
+          else { setPickerFocusMonth(12); setPickerYear(pickerYearRef.current - 1) }
+        }
+        if (e.code === 'ArrowRight') {
+          e.preventDefault()
+          const m = pickerFocusMonthRef.current
+          if (m < 12) { setPickerFocusMonth(m + 1) }
+          else { setPickerFocusMonth(1); setPickerYear(pickerYearRef.current + 1) }
+        }
+        if (e.code === 'ArrowUp') { e.preventDefault(); setPickerFocusMonth(m => m > 4 ? m - 4 : m) }
+        if (e.code === 'ArrowDown') { e.preventDefault(); setPickerFocusMonth(m => m < 9 ? m + 4 : m) }
         if (e.key === 'Enter') {
           const ym = `${pickerYearRef.current}-${String(pickerFocusMonthRef.current).padStart(2, '0')}`
           setMonthFilter(ym)
