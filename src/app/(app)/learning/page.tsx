@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
@@ -133,11 +133,11 @@ export default function LearningPage() {
         <h1 className="text-xl font-bold text-gray-900">학습자료</h1>
         <div className="flex gap-2">
           <button onClick={() => setManagingTags(p => !p)}
-            className={`text-xs px-3 py-2 rounded-lg border transition-colors ${managingTags ? 'bg-gray-800 text-white border-gray-800' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
+            className={`text-xs px-3 py-2 rounded-lg border transition-colors ${managingTags ? 'bg-[#5DBD97] text-white border-[#5DBD97]' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
             태그 관리
           </button>
           <button onClick={() => setShowAddInput(true)}
-            className="text-sm bg-gray-800 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors">
+            className="text-sm bg-[#5DBD97] text-white px-4 py-2 rounded-lg hover:bg-[#4aab84] transition-colors">
             + 새 자료
           </button>
         </div>
@@ -162,7 +162,7 @@ export default function LearningPage() {
               placeholder="새 태그 입력 후 엔터"
               className="flex-1 text-xs border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none bg-white" />
             <button onClick={addCustomTag}
-              className="text-xs bg-gray-800 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700">추가</button>
+              className="text-xs bg-[#5DBD97] text-white px-3 py-1.5 rounded-lg hover:bg-[#4aab84]">추가</button>
           </div>
         </div>
       )}
@@ -195,7 +195,7 @@ export default function LearningPage() {
                     className="text-xs text-gray-400 w-full focus:outline-none bg-transparent" />
                   <div className="flex gap-1 mt-2 justify-end">
                     <button onClick={() => setEditingSiteId(null)} className="text-xs text-gray-400 px-2 py-0.5">취소</button>
-                    <button onClick={saveEditSiteShortcut} className="text-xs bg-gray-800 text-white px-2 py-0.5 rounded-lg">저장</button>
+                    <button onClick={saveEditSiteShortcut} className="text-xs bg-[#5DBD97] text-white px-2 py-0.5 rounded-lg">저장</button>
                   </div>
                 </div>
               )
@@ -226,7 +226,7 @@ export default function LearningPage() {
                 className="text-xs text-gray-400 w-full focus:outline-none bg-transparent" />
               <div className="flex gap-1 mt-2 justify-end">
                 <button onClick={() => setShowAddSite(false)} className="text-xs text-gray-400 px-2 py-0.5">취소</button>
-                <button onClick={addSiteShortcut} className="text-xs bg-gray-800 text-white px-2 py-0.5 rounded-lg">추가</button>
+                <button onClick={addSiteShortcut} className="text-xs bg-[#5DBD97] text-white px-2 py-0.5 rounded-lg">추가</button>
               </div>
             </div>
           ) : (
@@ -304,7 +304,7 @@ export default function LearningPage() {
                       <div className="flex gap-1 justify-end pt-1">
                         <button onClick={resetColAdd} className="text-xs text-gray-400 px-2 py-1">취소</button>
                         <button onClick={() => handleColAdd(tag)} disabled={!colAddTitle.trim()}
-                          className="text-xs bg-gray-800 text-white px-3 py-1 rounded-lg disabled:opacity-30">저장</button>
+                          className="text-xs bg-[#5DBD97] text-white px-3 py-1 rounded-lg disabled:opacity-30">저장</button>
                       </div>
                     </div>
                   ) : (

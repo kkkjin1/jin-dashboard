@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
@@ -108,13 +108,13 @@ export default function MeetingsPage() {
             <button
               onClick={() => setViewMode('list')}
               title="리스트 보기"
-              className={`px-2.5 py-1.5 text-sm transition-colors ${viewMode === 'list' ? 'bg-gray-800 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
+              className={`px-2.5 py-1.5 text-sm transition-colors ${viewMode === 'list' ? 'bg-[#5DBD97] text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
               ≡
             </button>
             <button
               onClick={() => setViewMode('kanban')}
               title="칸반 보기"
-              className={`px-2.5 py-1.5 text-sm transition-colors ${viewMode === 'kanban' ? 'bg-gray-800 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
+              className={`px-2.5 py-1.5 text-sm transition-colors ${viewMode === 'kanban' ? 'bg-[#5DBD97] text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
               ⊞
             </button>
           </div>
@@ -125,7 +125,7 @@ export default function MeetingsPage() {
             </button>
           )}
           <button onClick={() => setAdding(true)}
-            className="text-sm bg-gray-800 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors">
+            className="text-sm bg-[#5DBD97] text-white px-4 py-2 rounded-lg hover:bg-[#4aab84] transition-colors">
             + 새 회의록
           </button>
         </div>
@@ -136,7 +136,7 @@ export default function MeetingsPage() {
         {CATEGORIES.map(cat => (
           <button key={cat} onClick={() => setCategoryFilter(cat)}
             className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
-              categoryFilter === cat ? 'bg-gray-800 text-white border-gray-800' : 'border-gray-200 text-gray-500 hover:border-gray-400'
+              categoryFilter === cat ? 'bg-[#5DBD97] text-white border-[#5DBD97]' : 'border-gray-200 text-gray-500 hover:border-gray-400'
             }`}>
             {cat}
             {cat !== '전체' && <span className="ml-1 text-gray-300">{meetings.filter(m => m.category === cat).length}</span>}

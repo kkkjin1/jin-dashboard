@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
@@ -250,7 +250,7 @@ function MyFeedbackView() {
                           취소
                         </button>
                         <button onClick={saveAdd} disabled={saving || !formContent.trim()}
-                          className="text-xs bg-gray-800 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-40">
+                          className="text-xs bg-[#5DBD97] text-white px-3 py-1.5 rounded-lg hover:bg-[#4aab84] transition-colors disabled:opacity-40">
                           {saving ? '저장 중...' : '저장'}
                         </button>
                       </div>
@@ -455,7 +455,7 @@ export default function OneOnOnePage() {
                               </Link>
                             )}
                             <button onClick={() => createSession(member.id)}
-                              className="text-xs bg-gray-800 text-white px-3 py-1 rounded-lg hover:bg-gray-700 transition-colors">
+                              className="text-xs bg-[#5DBD97] text-white px-3 py-1 rounded-lg hover:bg-[#4aab84] transition-colors">
                               + 새 1on1
                             </button>
                           </div>

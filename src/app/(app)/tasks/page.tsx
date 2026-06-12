@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState, useMemo, useRef } from 'react'
 import Link from 'next/link'
@@ -203,18 +203,18 @@ export default function TasksPage() {
       <div className="flex items-center gap-2 mb-5 flex-wrap">
         <button
           onClick={() => setStatusFilter(prev => prev === '전체' ? '진행필요' : prev === '진행필요' ? '진행중' : prev === '진행중' ? '완료' : '전체')}
-          className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${statusFilter !== '전체' ? 'bg-gray-800 text-white border-gray-800' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
+          className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${statusFilter !== '전체' ? 'bg-[#5DBD97] text-white border-[#5DBD97]' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
           {statusFilter === '전체' ? '전체 상태' : statusFilter}
         </button>
         <button
           onClick={() => setHideCompleted(prev => !prev)}
-          className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${hideCompleted ? 'bg-gray-800 text-white border-gray-800' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
+          className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${hideCompleted ? 'bg-[#5DBD97] text-white border-[#5DBD97]' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
           {hideCompleted ? '완료 숨김' : '완료 표시'}
         </button>
         <div className="relative flex items-center gap-1">
           <button
             onClick={() => setShowPicker(prev => !prev)}
-            className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${viewMode === 'monthly' ? 'bg-gray-800 text-white border-gray-800' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
+            className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${viewMode === 'monthly' ? 'bg-[#5DBD97] text-white border-[#5DBD97]' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
             {viewMode === 'monthly' && monthFilter !== '전체' ? formatMonth(monthFilter) : '월별 칸반'}
           </button>
           {viewMode === 'monthly' && (
@@ -238,7 +238,7 @@ export default function TasksPage() {
                       const ym = `${pickerYear}-${String(m).padStart(2, '0')}`
                       setMonthFilter(ym); setViewMode('monthly'); setShowPicker(false)
                     }}
-                    className={`text-xs py-1.5 rounded-lg transition-colors ${pickerFocusMonth === m ? 'bg-gray-800 text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
+                    className={`text-xs py-1.5 rounded-lg transition-colors ${pickerFocusMonth === m ? 'bg-[#5DBD97] text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
                     {m}월
                   </button>
                 ))}

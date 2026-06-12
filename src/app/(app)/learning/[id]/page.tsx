@@ -243,7 +243,7 @@ export default function LearningDetailPage() {
           <div className="flex gap-1.5 flex-wrap">
             {MEDIA_TYPES.map(type => (
               <button key={type} onClick={() => updateResource({ media_type: resource?.media_type === type ? null : type })}
-                className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${resource?.media_type === type ? 'bg-gray-800 text-white border-gray-800' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
+                className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${resource?.media_type === type ? 'bg-[#5DBD97] text-white border-[#5DBD97]' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
                 {type}
               </button>
             ))}
@@ -288,7 +288,7 @@ export default function LearningDetailPage() {
             <button
               onClick={saveNote}
               disabled={!noteInput.trim()}
-              className="text-xs bg-gray-800 text-white px-4 py-1.5 rounded-lg hover:bg-gray-700 disabled:opacity-30 transition-colors"
+              className="text-xs bg-[#5DBD97] text-white px-4 py-1.5 rounded-lg hover:bg-[#4aab84] disabled:opacity-30 transition-colors"
             >
               저장 (Ctrl+Enter)
             </button>

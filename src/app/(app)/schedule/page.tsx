@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useRef, useState } from 'react'
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, parseISO, getDay, addMonths, subMonths, getDaysInMonth } from 'date-fns'
@@ -326,7 +326,7 @@ export default function SchedulePage() {
         <button
           onClick={() => setPartFilter(p => p === '전체' ? '코어' : p === '코어' ? '비즈' : '전체')}
           className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-colors ${
-            partFilter !== '전체' ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+            partFilter !== '전체' ? 'bg-[#5DBD97] text-white border-[#5DBD97]' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
           }`}>
           {partFilter === '전체' ? '전체 파트' : `${partFilter}파트`}
                   </button>
@@ -335,7 +335,7 @@ export default function SchedulePage() {
         <button
           onClick={() => setStatusFilter(s => s === '전체' ? '진행필요' : s === '진행필요' ? '진행중' : s === '진행중' ? '완료' : '전체')}
           className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-colors ${
-            statusFilter !== '전체' ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+            statusFilter !== '전체' ? 'bg-[#5DBD97] text-white border-[#5DBD97]' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
           }`}>
           {statusFilter === '전체' ? '전체 상태' : statusFilter}
                   </button>
@@ -657,7 +657,7 @@ export default function SchedulePage() {
             <div className="flex justify-end gap-2 mt-4">
               <button onClick={() => setShowRepeatModal(false)} className="text-xs text-gray-400 hover:text-gray-600 px-3 py-1.5">취소</button>
               <button onClick={handleCreateRepeating} disabled={!repeatTitle.trim()}
-                className="text-xs bg-gray-800 text-white px-4 py-1.5 rounded-lg hover:bg-gray-700 disabled:opacity-30">
+                className="text-xs bg-[#5DBD97] text-white px-4 py-1.5 rounded-lg hover:bg-[#4aab84] disabled:opacity-30">
                 {repeatMonthCount}개 일정 생성
               </button>
             </div>

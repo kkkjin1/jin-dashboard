@@ -23,7 +23,7 @@ const STATUS_COLORS: Record<TaskStatus, string> = {
 function Toast({ message, onDone }: { message: string; onDone: () => void }) {
   useEffect(() => { const t = setTimeout(onDone, 3000); return () => clearTimeout(t) }, [onDone])
   return (
-    <div className="fixed bottom-6 right-20 bg-gray-800 text-white text-sm px-4 py-2.5 rounded-xl shadow-lg z-50">
+    <div className="fixed bottom-6 right-20 bg-[#5DBD97] text-white text-sm px-4 py-2.5 rounded-xl shadow-lg z-50">
       ✓ {message}
     </div>
   )
@@ -112,7 +112,7 @@ function NoteAccordion({ note, isOpen, onToggle, onDelete, onEdit, onEditTitle }
                 className="w-full text-sm focus:outline-none resize-none text-gray-700 pt-3" style={{ minHeight: '120px' }} autoFocus />
               <div className="flex justify-end gap-2 mt-2">
                 <button onClick={() => setEditing(false)} className="text-xs text-gray-400 hover:text-gray-600 px-3 py-1 rounded-lg">취소</button>
-                <button onClick={handleSaveEdit} className="text-xs bg-gray-800 text-white px-3 py-1 rounded-lg hover:bg-gray-700">저장</button>
+                <button onClick={handleSaveEdit} className="text-xs bg-[#5DBD97] text-white px-3 py-1 rounded-lg hover:bg-[#4aab84]">저장</button>
               </div>
             </>
           ) : (
@@ -496,7 +496,7 @@ export default function TaskDetailPage() {
               </div>
               <div className="flex justify-end mt-2">
                 <button onClick={saveNote} disabled={!noteInput.trim()}
-                  className="text-xs bg-gray-800 text-white px-4 py-1.5 rounded-lg hover:bg-gray-700 disabled:opacity-30 transition-colors">
+                  className="text-xs bg-[#5DBD97] text-white px-4 py-1.5 rounded-lg hover:bg-[#4aab84] disabled:opacity-30 transition-colors">
                   저장 (Ctrl+Enter)
                 </button>
               </div>
@@ -591,7 +591,7 @@ export default function TaskDetailPage() {
               <button onClick={linkMeeting} disabled={!selectedMeetingId}
                 className="text-xs bg-gray-100 hover:bg-gray-200 px-2.5 py-1.5 rounded-lg disabled:opacity-30 transition-colors">연결</button>
               <button onClick={createAndLinkMeeting}
-                className="text-xs bg-gray-800 text-white px-2.5 py-1.5 rounded-lg hover:bg-gray-700 transition-colors whitespace-nowrap">새 회의록</button>
+                className="text-xs bg-[#5DBD97] text-white px-2.5 py-1.5 rounded-lg hover:bg-[#4aab84] transition-colors whitespace-nowrap">새 회의록</button>
             </div>
 
             {linkedMeetings.length === 0 ? (

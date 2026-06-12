@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
@@ -162,7 +162,7 @@ export default function CompletedPage() {
             <button key={p} onClick={() => selectQuick(p)}
               className={`text-xs px-3 py-1.5 rounded-full border transition-colors font-medium ${
                 quickPeriod === p && !monthFilter
-                  ? 'bg-gray-800 text-white border-gray-800'
+                  ? 'bg-[#5DBD97] text-white border-[#5DBD97]'
                   : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
               }`}>
               {p}
@@ -174,7 +174,7 @@ export default function CompletedPage() {
             <button key={m} onClick={() => selectMonth(m)}
               className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
                 monthFilter === m
-                  ? 'bg-gray-800 text-white border-gray-800'
+                  ? 'bg-[#5DBD97] text-white border-[#5DBD97]'
                   : 'border-gray-200 text-gray-400 hover:border-gray-400 hover:text-gray-600'
               }`}>
               {formatMonth(m)}

@@ -50,6 +50,11 @@
 
 :root {
   --background: oklch(1 0 0);
+  --brand: #5DBD97;
+  --brand-light: #EBF7F2;
+  --brand-amber: #F4A35A;
+  --page-bg: #F8F7F4;
+  --navy: #1C2B3A;
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);

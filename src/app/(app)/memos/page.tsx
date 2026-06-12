@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -67,7 +67,7 @@ function EditModal({ memo, onSave, onClose }: EditModalProps) {
         <div className="flex gap-1.5 mb-3">
           {(['업무관련','회의관련','아이디어','공지'] as MemoTag[]).map(t => (
             <button key={t} onClick={() => setTag(t)}
-              className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${tag === t ? 'bg-gray-800 text-white border-gray-800' : 'border-gray-200 text-gray-400'}`}>
+              className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${tag === t ? 'bg-[#5DBD97] text-white border-[#5DBD97]' : 'border-gray-200 text-gray-400'}`}>
               {t}
             </button>
           ))}
@@ -82,7 +82,7 @@ function EditModal({ memo, onSave, onClose }: EditModalProps) {
         <div className="flex justify-end gap-2 mt-3">
           <button onClick={onClose} className="text-xs text-gray-400 hover:text-gray-600 px-3 py-1.5">취소</button>
           <button onClick={() => onSave(memo.id, title, content, tag)}
-            className="text-xs bg-gray-800 text-white px-4 py-1.5 rounded-lg hover:bg-gray-700">저장</button>
+            className="text-xs bg-[#5DBD97] text-white px-4 py-1.5 rounded-lg hover:bg-[#4aab84]">저장</button>
         </div>
       </div>
     </div>
@@ -183,7 +183,7 @@ export default function MemosPage() {
                   className="w-full text-xs focus:outline-none resize-none text-gray-500" />
                 <div className="flex gap-1 justify-end mt-1">
                   <button onClick={() => { setInlineTag(null); setInlineTitle(''); setInlineContent('') }} className="text-xs text-gray-400 px-2 py-1">취소</button>
-                  <button onClick={() => handleInlineSave('공지')} className="text-xs bg-gray-800 text-white px-2 py-1 rounded-lg">저장</button>
+                  <button onClick={() => handleInlineSave('공지')} className="text-xs bg-[#5DBD97] text-white px-2 py-1 rounded-lg">저장</button>
                 </div>
               </div>
             ) : (
@@ -233,7 +233,7 @@ export default function MemosPage() {
                       className="w-full text-xs focus:outline-none resize-none text-gray-500 leading-relaxed" />
                     <div className="flex gap-1 justify-end mt-1.5">
                       <button onClick={() => { setInlineTag(null); setInlineTitle(''); setInlineContent('') }} className="text-xs text-gray-400 px-2 py-1">취소</button>
-                      <button onClick={() => handleInlineSave(tag)} className="text-xs bg-gray-800 text-white px-2 py-1 rounded-lg">저장</button>
+                      <button onClick={() => handleInlineSave(tag)} className="text-xs bg-[#5DBD97] text-white px-2 py-1 rounded-lg">저장</button>
                     </div>
                   </div>
                 ) : (

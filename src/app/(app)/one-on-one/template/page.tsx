@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
@@ -42,7 +42,7 @@ export default function OneOnOneTemplatePage() {
           <h1 className="text-xl font-bold text-gray-900">1on1 템플릿</h1>
         </div>
         <button onClick={handleSave} disabled={saving}
-          className="text-sm bg-gray-800 text-white px-4 py-2 rounded-lg hover:bg-gray-700 disabled:opacity-50 transition-colors">
+          className="text-sm bg-[#5DBD97] text-white px-4 py-2 rounded-lg hover:bg-[#4aab84] disabled:opacity-50 transition-colors">
           {saved ? '저장됨!' : saving ? '저장 중...' : '저장'}
         </button>
       </div>

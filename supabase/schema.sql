@@ -77,3 +77,4 @@ insert into members (name, part) values
   ('여도현', '비즈'),
   ('문혜윤', '비즈')
 on conflict do nothing;
+

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
@@ -239,7 +239,7 @@ export default function QuickMemoPanel() {
           <div className="flex justify-between items-center mt-3">
             <span className="text-xs text-gray-300">ESC · Ctrl+2 메모 · Ctrl+1 업무추가</span>
             <button onClick={handleSave} disabled={!title.trim() || saving}
-              className="text-xs bg-gray-800 text-white px-4 py-2 rounded-lg hover:bg-gray-700 disabled:opacity-30 transition-colors">
+              className="text-xs bg-[#5DBD97] text-white px-4 py-2 rounded-lg hover:bg-[#4aab84] disabled:opacity-30 transition-colors">
               {savedMsg || (saving ? '저장 중...' : (meetingDate ? '일정 등록' : '저장'))}
             </button>
           </div>
@@ -248,7 +248,7 @@ export default function QuickMemoPanel() {
 
       {!open && (
         <button onClick={() => setOpen(true)}
-          className="fixed bottom-6 right-6 z-50 w-12 h-12 bg-gray-800 text-white rounded-full shadow-lg hover:bg-gray-700 transition-all hover:scale-110 flex items-center justify-center text-xl font-light"
+          className="fixed bottom-6 right-6 z-50 w-12 h-12 bg-[#5DBD97] text-white rounded-full shadow-lg hover:bg-[#4aab84] transition-all hover:scale-110 flex items-center justify-center text-xl font-light"
           title="빠른 메모 (Ctrl+2)">
           +
         </button>

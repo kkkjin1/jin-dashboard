@@ -82,7 +82,7 @@ function NoteAccordion({ note, index, isOpen, onToggle, onDelete, onEdit, onFull
               />
               <div className="flex gap-2 justify-end mt-2">
                 <button onClick={() => setEditing(false)} className="text-xs text-gray-400 px-3 py-1 rounded-lg">취소</button>
-                <button onClick={() => { onEdit(index, editContent.trim()); setEditing(false) }} className="text-xs bg-gray-800 text-white px-3 py-1 rounded-lg">저장</button>
+                <button onClick={() => { onEdit(index, editContent.trim()); setEditing(false) }} className="text-xs bg-[#5DBD97] text-white px-3 py-1 rounded-lg">저장</button>
               </div>
             </>
           ) : (
@@ -346,7 +346,7 @@ export default function MeetingDetailPage() {
                 style={{ minHeight: '200px' }} />
               <div className="flex justify-end mt-2">
                 <button onClick={saveNote} disabled={!noteInput.trim()}
-                  className="text-xs bg-gray-800 text-white px-4 py-1.5 rounded-lg hover:bg-gray-700 disabled:opacity-30 transition-colors">
+                  className="text-xs bg-[#5DBD97] text-white px-4 py-1.5 rounded-lg hover:bg-[#4aab84] disabled:opacity-30 transition-colors">
                   저장 (Ctrl+Enter)
                 </button>
               </div>
@@ -391,7 +391,7 @@ export default function MeetingDetailPage() {
               <button onClick={linkTask} disabled={!selectedTaskId}
                 className="text-xs bg-gray-100 hover:bg-gray-200 px-2.5 py-1.5 rounded-lg disabled:opacity-30 transition-colors">연결</button>
               <button onClick={createAndLinkTask}
-                className="text-xs bg-gray-800 text-white px-2.5 py-1.5 rounded-lg hover:bg-gray-700 transition-colors whitespace-nowrap">새 업무</button>
+                className="text-xs bg-[#5DBD97] text-white px-2.5 py-1.5 rounded-lg hover:bg-[#4aab84] transition-colors whitespace-nowrap">새 업무</button>
             </div>
 
             {linkedTasks.length === 0 ? (
