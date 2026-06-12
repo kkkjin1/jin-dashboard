@@ -105,7 +105,7 @@ export default function HomePage() {
     .filter(t => { if (!t.end_date) return false; const d = daysUntil(t.end_date); return d >= 1 && d <= 7 })
     .sort((a, b) => daysUntil(a.end_date!) - daysUntil(b.end_date!))
   const midSoonTasks = active
-    .filter(t => hasUpcomingMidDate(t) && daysUntil(t.mid_date!) <= 8)
+    .filter(t => hasUpcomingMidDate(t) && daysUntil(t.mid_date!) <= 14)
     .sort((a, b) => daysUntil(a.mid_date!) - daysUntil(b.mid_date!))
   const endSoonTasks = active
     .filter(t => hasUpcomingEndDate(t))

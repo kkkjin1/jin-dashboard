@@ -522,40 +522,42 @@ export default function SchedulePage() {
           )}
         </div>
 
-        {/* 미니 캘린더 (전월/익월) 토글 */}
-        <div className="space-y-2">
-          {/* 전월 토글 */}
-          <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-            <button
-              className="w-full flex items-center justify-between px-3 py-2 text-xs text-gray-500 hover:bg-gray-50"
-              onClick={() => setShowPrevCal(v => !v)}>
-              <span>{format(prevMonthNav, 'yy년 M월', { locale: ko })} (전월)</span>
-              <span>{showPrevCal ? '▲' : '▼'}</span>
-            </button>
-            {showPrevCal && (
-              <div className="p-2">
-                <MiniCalInline monthDate={prevMonthNav} onClick={() => setCurrent(prevMonthNav)} />
-              </div>
-            )}
+        {/* 우측 패널: 미니 캘린더 + 선택한 날 업무 */}
+        <div className="space-y-3">
+          {/* 미니 캘린더 (전월/익월) 토글 */}
+          <div className="space-y-2">
+            {/* 전월 토글 */}
+            <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+              <button
+                className="w-full flex items-center justify-between px-3 py-2 text-xs text-gray-500 hover:bg-gray-50"
+                onClick={() => setShowPrevCal(v => !v)}>
+                <span>{format(prevMonthNav, 'yy년 M월', { locale: ko })} (전월)</span>
+                <span>{showPrevCal ? '▲' : '▼'}</span>
+              </button>
+              {showPrevCal && (
+                <div className="p-2">
+                  <MiniCalInline monthDate={prevMonthNav} onClick={() => setCurrent(prevMonthNav)} />
+                </div>
+              )}
+            </div>
+            {/* 익월 토글 */}
+            <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+              <button
+                className="w-full flex items-center justify-between px-3 py-2 text-xs text-gray-500 hover:bg-gray-50"
+                onClick={() => setShowNextCal(v => !v)}>
+                <span>{format(nextMonthNav, 'yy년 M월', { locale: ko })} (익월)</span>
+                <span>{showNextCal ? '▲' : '▼'}</span>
+              </button>
+              {showNextCal && (
+                <div className="p-2">
+                  <MiniCalInline monthDate={nextMonthNav} onClick={() => setCurrent(nextMonthNav)} />
+                </div>
+              )}
+            </div>
           </div>
-          {/* 익월 토글 */}
-          <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-            <button
-              className="w-full flex items-center justify-between px-3 py-2 text-xs text-gray-500 hover:bg-gray-50"
-              onClick={() => setShowNextCal(v => !v)}>
-              <span>{format(nextMonthNav, 'yy년 M월', { locale: ko })} (익월)</span>
-              <span>{showNextCal ? '▲' : '▼'}</span>
-            </button>
-            {showNextCal && (
-              <div className="p-2">
-                <MiniCalInline monthDate={nextMonthNav} onClick={() => setCurrent(nextMonthNav)} />
-              </div>
-            )}
-          </div>
-        </div>
 
-        {/* 선택한 날 업무 */}
-        <div>
+          {/* 선택한 날 업무 */}
+          <div className="bg-white rounded-xl border border-gray-100 p-3">
           <h3 className="text-sm font-semibold text-gray-600 mb-3">
             {selectedDay ? `${format(selectedDay, 'M월 d일', { locale: ko })} 일정` : '날짜를 선택하세요'}
           </h3>
@@ -610,6 +612,7 @@ export default function SchedulePage() {
               ))}
             </div>
           )}
+          </div>
         </div>
       </div>
 

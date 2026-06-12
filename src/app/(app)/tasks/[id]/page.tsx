@@ -360,9 +360,10 @@ export default function TaskDetailPage() {
   const member = members.find(m => m.id === task.assignee_id)
 
   return (
+    <div className="relative">
     <div
       ref={contentRef}
-      className="p-8 relative"
+      className="p-8"
       style={contentWidth ? { width: `${contentWidth}px` } : {}}
     >
       {toast && <Toast message={toast} onDone={() => setToast('')} />}
@@ -672,15 +673,17 @@ export default function TaskDetailPage() {
           </div>
         </div>
       </div>
-      {/* 너비 조절 핸들 */}
-      <div
-        onMouseDown={startResize}
-        className="absolute right-0 top-0 bottom-0 w-3 cursor-ew-resize z-30 flex flex-col items-center justify-center gap-1 opacity-0 hover:opacity-100 hover:bg-blue-50 transition-all rounded-l-lg"
-      >
-        <div className="w-1 h-3 bg-gray-400 rounded-full" />
-        <div className="w-1 h-3 bg-gray-400 rounded-full" />
-        <div className="w-1 h-3 bg-gray-400 rounded-full" />
-      </div>
     </div>
+    {/* 너비 조절 핸들 - 콘텐츠 오른쪽 경계에 부착 */}
+    <div
+      onMouseDown={startResize}
+      className="absolute top-0 bottom-0 w-4 cursor-ew-resize z-30 flex flex-col items-center justify-center gap-1 opacity-20 hover:opacity-100 hover:bg-blue-50 transition-all rounded-lg"
+      style={contentWidth ? { left: `${contentWidth - 2}px` } : { right: 2 }}
+    >
+      <div className="w-1 h-3 bg-gray-400 rounded-full" />
+      <div className="w-1 h-3 bg-gray-400 rounded-full" />
+      <div className="w-1 h-3 bg-gray-400 rounded-full" />
+    </div>
+  </div>
   )
 }
