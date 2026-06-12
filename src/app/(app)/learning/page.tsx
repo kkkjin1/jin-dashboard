@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { format, parseISO } from 'date-fns'
@@ -110,11 +110,27 @@ export default function LearningPage() {
     setEditingSiteId(null); setEditSiteTitle(''); setEditSiteUrl('')
   }
 
-  const filtered = resources.filter(r => {
-    if (mediaFilter && r.media_type !== mediaFilter) return false
-    if (tagFilter && !(r.tags ?? []).includes(tagFilter)) return false
-    return true
-  })
+  const filtered = resources.filter(r => !mediaFilter || r.media_type === mediaFilter)
+
+  const tagCols = [...customTags, '미분류']
+
+  const tagKanbanGroups = useMemo(() => {
+    const cols = [...customTags, '미분류']
+    const result: Record<string, LearningResource[]> = {}
+    cols.forEach(tag => { result[tag] = [] })
+    const base = resources.filter(r => !mediaFilter || r.media_type === mediaFilter)
+    base.forEach(r => {
+      const tags = r.tags ?? []
+      if (tagFilter) {
+        if (tags.includes(tagFilter)) result[tagFilter]?.push(r)
+      } else {
+        const firstKnown = tags.find(t => customTags.includes(t))
+        const col = firstKnown ?? '미분류'
+        ;(result[col] ?? result['미분류']).push(r)
+      }
+    })
+    return result
+  }, [resources, mediaFilter, tagFilter, customTags])
 
   return (
     <div className="p-8">
@@ -255,59 +271,78 @@ export default function LearningPage() {
         ))}
       </div>
 
-      {/* 태그 필터 */}
+      {/* 태그 필터 (full-width, meetings style) */}
       {customTags.length > 0 && (
-        <div className="flex gap-2 flex-wrap mb-5">
+        <div className="flex gap-2 mb-5">
+          <button onClick={() => setTagFilter(null)}
+            className={`flex-1 text-sm px-2 py-3 rounded-xl border transition-colors text-center font-medium ${
+              tagFilter === null ? 'bg-[#5DBD97] text-white border-[#5DBD97]' : 'border-gray-200 text-gray-500 hover:border-gray-400 bg-white'
+            }`}>
+            전체
+            <span className={`ml-1 text-xs ${tagFilter === null ? 'text-white/70' : 'text-gray-300'}`}>{resources.length}</span>
+          </button>
           {customTags.map(tag => (
             <button key={tag} onClick={() => setTagFilter(tagFilter === tag ? null : tag)}
-              className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
-                tagFilter === tag ? 'bg-[#5DBD97] text-white border-[#5DBD97]' : 'border-gray-200 text-gray-400 hover:border-gray-400 bg-white'
+              className={`flex-1 text-sm px-2 py-3 rounded-xl border transition-colors text-center font-medium ${
+                tagFilter === tag ? 'bg-[#5DBD97] text-white border-[#5DBD97]' : 'border-gray-200 text-gray-500 hover:border-gray-400 bg-white'
               }`}>
               {tag}
+              <span className={`ml-1 text-xs ${tagFilter === tag ? 'text-white/70' : 'text-gray-300'}`}>{resources.filter(r => (r.tags ?? []).includes(tag)).length}</span>
             </button>
           ))}
         </div>
       )}
 
       {loading ? (
-        <div className="grid grid-cols-3 gap-4">
-          {[1,2,3,4,5,6].map(i => <div key={i} className="bg-white rounded-xl border border-gray-100 h-32 animate-pulse" />)}
+        <div className="flex gap-3 overflow-x-auto pb-4">
+          {tagCols.map((_, i) => <div key={i} className="flex-shrink-0 w-40 bg-white rounded-xl border border-gray-100 h-32 animate-pulse" />)}
         </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-16">
           <p className="text-gray-300 text-sm">{mediaFilter ? `${mediaFilter} 자료가 없습니다` : '학습자료가 없습니다'}</p>
         </div>
       ) : (
-        <div className="grid grid-cols-3 gap-4">
-          {filtered.map(r => (
-            <Link key={r.id} href={`/learning/${r.id}`} className="block h-full">
-              <div className="bg-white rounded-xl border border-gray-200 hover:border-[#5DBD97]/40 hover:shadow-sm px-5 py-5 transition-all h-full flex flex-col">
-                {r.media_type && (
-                  <span className={`inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full mb-3 ${
-                    r.media_type === '책' ? 'bg-amber-50 text-amber-600' :
-                    r.media_type === '영상' ? 'bg-rose-50 text-rose-500' :
-                    r.media_type === '아티클' ? 'bg-[#EBF7F2] text-[#5DBD97]' :
-                    r.media_type === '강의' ? 'bg-[#1C2B3A]/5 text-[#1C2B3A]' :
-                    'bg-gray-50 text-gray-500'
-                  }`}>
-                    {MEDIA_ICONS[r.media_type]} {r.media_type}
-                  </span>
-                )}
-                <p className="text-sm font-semibold text-gray-800 leading-snug mb-1 line-clamp-2 break-all">{r.title}</p>
-                {r.source && <p className="text-xs text-gray-400 truncate mb-2">출처: {r.source}</p>}
-                <div className="flex items-center gap-1.5 flex-wrap mt-auto">
-                  {(r.tags ?? []).slice(0, 3).map(t => (
-                    <span key={t} className="text-xs bg-[#EBF7F2] text-[#5DBD97] px-1.5 py-0.5 rounded-full">{t}</span>
-                  ))}
-                  {r.notes.length > 0 && (
-                    <span className="text-xs text-gray-300 ml-auto">{r.notes.length}노트</span>
-                  )}
+        <div className="overflow-x-auto pb-4">
+          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${tagCols.length}, minmax(160px, 1fr))`, gap: '12px' }}>
+            {tagCols.map(tag => {
+              const colItems = tagKanbanGroups[tag] ?? []
+              return (
+                <div key={tag}>
+                  <div className="flex items-center justify-between mb-3 px-1">
+                    <h3 className="text-sm font-semibold text-gray-600">{tag}</h3>
+                    <span className="text-xs text-gray-400">{colItems.length}건</span>
+                  </div>
+                  <div className="space-y-2">
+                    {colItems.length === 0 ? (
+                      <p className="text-xs text-gray-300 text-center py-8 bg-gray-50/60 rounded-xl border border-dashed border-gray-100">없음</p>
+                    ) : colItems.map(r => (
+                      <Link key={r.id} href={`/learning/${r.id}`} className="block">
+                        <div className="bg-white rounded-xl border border-gray-200 hover:border-[#5DBD97]/40 hover:shadow-sm px-3 py-4 transition-all">
+                          {r.media_type && (
+                            <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full mb-2 ${
+                              r.media_type === '책' ? 'bg-amber-50 text-amber-600' :
+                              r.media_type === '영상' ? 'bg-rose-50 text-rose-500' :
+                              r.media_type === '아티클' ? 'bg-[#EBF7F2] text-[#5DBD97]' :
+                              r.media_type === '강의' ? 'bg-[#1C2B3A]/5 text-[#1C2B3A]' :
+                              'bg-gray-50 text-gray-500'
+                            }`}>
+                              {MEDIA_ICONS[r.media_type]} {r.media_type}
+                            </span>
+                          )}
+                          <p className="text-sm font-semibold text-gray-800 leading-snug line-clamp-2 break-all mb-1">{r.title}</p>
+                          {r.source && <p className="text-xs text-gray-400 truncate">출처: {r.source}</p>}
+                          {r.notes.length > 0 && <p className="text-xs text-gray-300 mt-1">{r.notes.length}노트</p>}
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            </Link>
-          ))}
+              )
+            })}
+          </div>
         </div>
       )}
     </div>
   )
 }
+
