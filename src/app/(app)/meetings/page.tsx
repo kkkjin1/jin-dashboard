@@ -27,11 +27,12 @@ export default function MeetingsPage() {
   const [loading, setLoading] = useState(true)
   const [newTitle, setNewTitle] = useState('')
   const [adding, setAdding] = useState(false)
-  const [categoryFilter, setCategoryFilter] = useState('전체')
   const [collapsedMonths, setCollapsedMonths] = useState<Set<string>>(new Set())
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set())
   const [expandedMeetingIds, setExpandedMeetingIds] = useState<Set<string>>(new Set())
   const [viewMode, setViewMode] = useState<'list' | 'kanban'>('kanban')
+  const [addingInColMeeting, setAddingInColMeeting] = useState<string | null>(null)
+  const [newColTitle, setNewColTitle] = useState('')
   const supabase = createClient()
   const router = useRouter()
 
@@ -71,7 +72,19 @@ export default function MeetingsPage() {
     setExpandedMeetingIds(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s })
   }
 
-  const filtered = categoryFilter === '전체' ? meetings : meetings.filter(m => m.category === categoryFilter)
+  async function handleColAdd(cat: string) {
+    if (!newColTitle.trim()) { setAddingInColMeeting(null); setNewColTitle(''); return }
+    const today = format(new Date(), 'yyyy-MM-dd')
+    const { data } = await supabase.from('meetings')
+      .insert({ title: newColTitle.trim(), meeting_date: today, notes: [], ...(cat !== '기타' ? { category: cat } : {}) }).select().single()
+    if (data) {
+      setNewColTitle('')
+      setAddingInColMeeting(null)
+      router.push(`/meetings/${(data as Meeting).id}`)
+    }
+  }
+
+  const filtered = meetings
 
   const grouped = useMemo(() => {
     const map = new Map<string, Meeting[]>()
@@ -130,19 +143,6 @@ export default function MeetingsPage() {
         </div>
       </div>
 
-      {/* 카테고리 필터 */}
-      <div className="grid grid-cols-6 gap-2 mb-5">
-        {CATEGORIES.map(cat => (
-          <button key={cat} onClick={() => setCategoryFilter(cat)}
-            className={`text-sm px-3 py-3 rounded-xl border transition-colors text-center font-medium ${
-              categoryFilter === cat ? 'bg-[#5DBD97] text-white border-[#5DBD97]' : 'border-gray-200 text-gray-500 hover:border-gray-400 bg-white'
-            }`}>
-            {cat}
-            {cat !== '전체' && <span className={`ml-1 ${categoryFilter === cat ? 'text-white/70' : 'text-gray-300'}`}>{meetings.filter(m => m.category === cat).length}</span>}
-          </button>
-        ))}
-      </div>
-
       {/* 빠른 추가 */}
       {adding && (
         <div className="bg-white rounded-xl border border-blue-200 px-4 py-3 mb-4">
@@ -156,9 +156,9 @@ export default function MeetingsPage() {
 
       {loading ? (
         <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="bg-white rounded-xl border border-gray-100 p-4 h-16 animate-pulse" />)}</div>
-      ) : filtered.length === 0 ? (
+      ) : meetings.length === 0 ? (
         <div className="text-center py-16">
-          <p className="text-gray-300 text-sm">{categoryFilter === '전체' ? '회의록이 없습니다' : `${categoryFilter} 회의록이 없습니다`}</p>
+          <p className="text-gray-300 text-sm">회의록이 없습니다</p>
         </div>
       ) : viewMode === 'list' ? (
         <div className="space-y-4">
@@ -243,24 +243,35 @@ export default function MeetingsPage() {
               <div key={cat} className="min-w-0">
                 <div className="flex items-center justify-between mb-3 px-1">
                   <h3 className="text-sm font-semibold text-gray-600">{cat}</h3>
-                  <span className="text-xs text-gray-400">{colMeetings.length}건</span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-gray-400">{colMeetings.length}건</span>
+                    <button
+                      onClick={() => setAddingInColMeeting(addingInColMeeting === cat ? null : cat)}
+                      className="w-5 h-5 flex items-center justify-center text-gray-300 hover:text-[#5DBD97] hover:bg-[#EBF7F2] rounded transition-colors text-sm leading-none">
+                      +
+                    </button>
+                  </div>
                 </div>
                 <div className="space-y-2">
-                  {colMeetings.length === 0 ? (
+                  {addingInColMeeting === cat && (
+                    <div className="bg-white rounded-xl border border-[#5DBD97]/40 px-3 py-2.5 shadow-sm">
+                      <input autoFocus value={newColTitle} onChange={e => setNewColTitle(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') handleColAdd(cat); if (e.key === 'Escape') { setAddingInColMeeting(null); setNewColTitle('') } }}
+                        onBlur={() => { if (!newColTitle.trim()) { setAddingInColMeeting(null); setNewColTitle('') } }}
+                        placeholder="회의 제목"
+                        className="w-full text-sm focus:outline-none text-gray-700" />
+                    </div>
+                  )}
+                  {colMeetings.length === 0 && addingInColMeeting !== cat ? (
                     <p className="text-xs text-gray-300 text-center py-8 bg-gray-50/60 rounded-xl border border-dashed border-gray-100">없음</p>
                   ) : (
                     colMeetings.map(meeting => (
                       <Link key={meeting.id} href={`/meetings/${meeting.id}`} className="block">
-                        <div className="bg-white rounded-xl border border-gray-200 hover:border-[#5DBD97]/40 hover:shadow-sm px-4 py-5 transition-all">
+                        <div className="bg-white rounded-xl border border-gray-200 hover:border-[#5DBD97]/40 hover:shadow-sm px-4 py-4 transition-all">
                           <p className="text-sm font-medium text-gray-800 line-clamp-2 mb-2">{meeting.title}</p>
                           <div className="flex items-center gap-2 flex-wrap">
                             {meeting.meeting_date && (
                               <span className="text-xs text-gray-400">{format(parseISO(meeting.meeting_date), 'yyyy.M.d', { locale: ko })}</span>
-                            )}
-                            {meeting.category && (
-                              <span className={`text-xs px-2 py-0.5 rounded-full border ${CATEGORY_COLORS[meeting.category] ?? 'bg-gray-50 text-gray-500 border-gray-200'}`}>
-                                {meeting.category}
-                              </span>
                             )}
                             {meeting.notes.length > 0 && (
                               <span className="text-xs text-gray-300 ml-auto">{meeting.notes.length}개 노트</span>
