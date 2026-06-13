@@ -21,7 +21,7 @@ export default function LearningPage() {
   const [resources, setResources] = useState<LearningResource[]>([])
   const [loading, setLoading] = useState(true)
   const [customTags, setCustomTags] = useState<string[]>([])
-  const [colMediaFilter, setColMediaFilter] = useState<Record<string, string | null>>({})
+  const [collapsedColMedia, setCollapsedColMedia] = useState<Set<string>>(new Set())
   const [managingTags, setManagingTags] = useState(false)
   const [newTagInput, setNewTagInput] = useState('')
   const [addingTitle, setAddingTitle] = useState('')
@@ -83,6 +83,10 @@ export default function LearningPage() {
   }
 
   function resetColAdd() { setAddingInCol(null); setColAddTitle(''); setColAddSource(''); setColAddNote(''); setColAddMedia('') }
+
+  function toggleColMedia(key: string) {
+    setCollapsedColMedia(prev => { const s = new Set(prev); s.has(key) ? s.delete(key) : s.add(key); return s })
+  }
 
   function saveSiteShortcuts(list: {id: string; title: string; url: string}[]) {
     setSiteShortcuts(list)
@@ -266,38 +270,41 @@ export default function LearningPage() {
           <div style={{ display: 'grid', gridTemplateColumns: `repeat(${tagCols.length}, minmax(160px, 1fr))`, gap: '12px' }}>
             {tagCols.map(tag => {
               const allColItems = tagKanbanGroups[tag] ?? []
-              const activeMf = colMediaFilter[tag] ?? null
-              const colItems = activeMf ? allColItems.filter(r => r.media_type === activeMf) : allColItems
+              // 매체 타입별 그룹핑
+              const mediaGroups = (() => {
+                const map = new Map<string, LearningResource[]>()
+                allColItems.forEach(r => {
+                  const mt = r.media_type ?? '미지정'
+                  if (!map.has(mt)) map.set(mt, [])
+                  map.get(mt)!.push(r)
+                })
+                // 정해진 순서로 정렬, 없는 타입은 건너뜀
+                const result: [string, LearningResource[]][] = []
+                ;[...MEDIA_TYPES, '미지정'].forEach(mt => {
+                  if (map.has(mt)) result.push([mt, map.get(mt)!])
+                })
+                map.forEach((list, mt) => {
+                  if (![...MEDIA_TYPES, '미지정'].includes(mt)) result.push([mt, list])
+                })
+                return result
+              })()
               return (
                 <div key={tag}>
                   {/* 컬럼 헤더 — A 스타일 버튼형 */}
-                  <div className="py-2.5 px-3 rounded-xl border border-gray-200 bg-white mb-2">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-semibold text-gray-700">{tag}</span>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-xs text-gray-400">{allColItems.length}</span>
-                        <button
-                          onClick={() => setAddingInCol(addingInCol === tag ? null : tag)}
-                          className="w-5 h-5 flex items-center justify-center text-gray-300 hover:text-[#5DBD97] hover:bg-[#EBF7F2] rounded transition-colors text-sm leading-none">
-                          +
-                        </button>
-                      </div>
-                    </div>
-                    <div className="flex gap-1 flex-wrap">
-                      {MEDIA_TYPES.map(mt => (
-                        <button key={mt}
-                          onClick={() => setColMediaFilter(prev => ({ ...prev, [tag]: prev[tag] === mt ? null : mt }))}
-                          className={`text-xs px-2 py-0.5 rounded-lg border transition-colors ${
-                            activeMf === mt ? 'bg-[#5DBD97] text-white border-[#5DBD97]' : 'border-gray-200 text-gray-400 bg-gray-50 hover:border-gray-300'
-                          }`}>
-                          {MEDIA_ICONS[mt]}
-                        </button>
-                      ))}
+                  <div className="flex items-center justify-between py-2.5 px-3 rounded-xl border border-gray-200 bg-white mb-2">
+                    <span className="text-sm font-semibold text-gray-700">{tag}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs text-gray-400">{allColItems.length}</span>
+                      <button
+                        onClick={() => setAddingInCol(addingInCol === tag ? null : tag)}
+                        className="w-5 h-5 flex items-center justify-center text-gray-300 hover:text-[#5DBD97] hover:bg-[#EBF7F2] rounded transition-colors text-sm leading-none">
+                        +
+                      </button>
                     </div>
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-1">
                     {addingInCol === tag && (
-                      <div className="bg-white rounded-xl border border-[#5DBD97]/30 px-3 py-3 shadow-sm">
+                      <div className="bg-white rounded-xl border border-[#5DBD97]/30 px-3 py-3 shadow-sm mb-2">
                         <input autoFocus value={colAddTitle} onChange={e => setColAddTitle(e.target.value)}
                           onKeyDown={e => { if (e.key === 'Escape') resetColAdd() }}
                           placeholder="제목 *"
@@ -320,28 +327,38 @@ export default function LearningPage() {
                         </div>
                       </div>
                     )}
-                    {colItems.length === 0 && addingInCol !== tag ? (
+                    {allColItems.length === 0 && addingInCol !== tag ? (
                       <p className="text-xs text-gray-300 text-center py-8 bg-gray-50/60 rounded-xl border border-dashed border-gray-100">없음</p>
-                    ) : colItems.map(r => (
-                      <Link key={r.id} href={`/learning/${r.id}`} className="block">
-                        <div className="bg-white rounded-xl border border-gray-200 hover:border-[#5DBD97]/40 hover:shadow-sm px-3 py-4 transition-all">
-                          {r.media_type && (
-                            <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full mb-2 ${
-                              r.media_type === '책' ? 'bg-amber-50 text-amber-600' :
-                              r.media_type === '영상' ? 'bg-rose-50 text-rose-500' :
-                              r.media_type === '아티클' ? 'bg-[#EBF7F2] text-[#5DBD97]' :
-                              r.media_type === '강의' ? 'bg-[#1C2B3A]/5 text-[#1C2B3A]' :
-                              'bg-gray-50 text-gray-500'
-                            }`}>
-                              {MEDIA_ICONS[r.media_type]} {r.media_type}
-                            </span>
-                          )}
-                          <p className="text-sm font-semibold text-gray-800 leading-snug line-clamp-2 break-all mb-1">{r.title}</p>
-                          {r.source && <p className="text-xs text-gray-400 truncate">출처: {r.source}</p>}
-                          {r.notes.length > 0 && <p className="text-xs text-gray-300 mt-1">{r.notes.length}노트</p>}
-                        </div>
-                      </Link>
-                    ))}
+                    ) : (
+                      mediaGroups.map(([mt, list]) => {
+                        const mediaKey = `${tag}-${mt}`
+                        const isCollapsed = collapsedColMedia.has(mediaKey)
+                        const icon = MEDIA_ICONS[mt] ?? '📌'
+                        return (
+                          <div key={mt} className="mb-1">
+                            <button onClick={() => toggleColMedia(mediaKey)}
+                              className="flex items-center gap-1 text-[11px] text-gray-400 hover:text-gray-600 w-full py-1 px-1 rounded transition-colors">
+                              <span className="text-[9px]">{isCollapsed ? '▶' : '▼'}</span>
+                              <span>{icon} {mt}</span>
+                              <span className="text-gray-300">({list.length})</span>
+                            </button>
+                            {!isCollapsed && (
+                              <div className="space-y-1.5 mt-1">
+                                {list.map(r => (
+                                  <Link key={r.id} href={`/learning/${r.id}`} className="block">
+                                    <div className="bg-white rounded-xl border border-gray-200 hover:border-[#5DBD97]/40 hover:shadow-sm px-3 py-3 transition-all">
+                                      <p className="text-sm font-semibold text-gray-800 leading-snug line-clamp-2 break-all mb-1">{r.title}</p>
+                                      {r.source && <p className="text-xs text-gray-400 truncate">출처: {r.source}</p>}
+                                      {r.notes.length > 0 && <p className="text-xs text-gray-300 mt-1">{r.notes.length}노트</p>}
+                                    </div>
+                                  </Link>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })
+                    )}
                   </div>
                 </div>
               )
