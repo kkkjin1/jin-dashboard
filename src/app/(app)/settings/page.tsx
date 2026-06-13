@@ -65,7 +65,7 @@ export default function SettingsPage() {
             {PARTS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
           </select>
           <button onClick={addMember}
-            className="text-sm bg-[#5DBD97] text-white px-4 py-2 rounded-lg hover:bg-[#4aab84] transition-colors">
+            className="text-sm bg-[#6366F1] text-white px-4 py-2 rounded-lg hover:bg-[#4F46E5] transition-colors">
             추가
           </button>
         </div>

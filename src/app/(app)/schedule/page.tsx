@@ -268,12 +268,12 @@ export default function SchedulePage() {
 
   function getMeetingColor(category: string | null | undefined): string {
     switch (category) {
-      case '코어': return 'bg-[#EBF7F2] text-[#5DBD97]'
+      case '코어': return 'bg-[#EEF2FF] text-[#6366F1]'
       case '비즈': return 'bg-amber-50 text-amber-600'
       case '경영진': return 'bg-indigo-50 text-indigo-500'
       case '본부장': return 'bg-purple-50 text-purple-500'
       case '타팀': return 'bg-sky-50 text-sky-500'
-      default: return 'bg-[#EBF7F2] text-[#5DBD97]'
+      default: return 'bg-[#EEF2FF] text-[#6366F1]'
     }
   }
 
@@ -286,9 +286,9 @@ export default function SchedulePage() {
     return (
       <div key={day.toISOString()}
         onClick={() => setSelectedDay(isSameDay(day, selectedDay ?? new Date(0)) ? null : day)}
-        className={`min-h-24 p-1.5 rounded-lg cursor-pointer transition-colors ${isToday ? 'ring-1 ring-[#5DBD97]/60 ring-inset' : ''} ${isSelected ? 'bg-gray-100' : isOtherMonth ? 'bg-gray-50/50 opacity-50' : 'hover:bg-gray-50'}`}>
+        className={`min-h-24 p-1.5 rounded-lg cursor-pointer transition-colors ${isToday ? 'ring-1 ring-[#6366F1]/60 ring-inset' : ''} ${isSelected ? 'bg-gray-100' : isOtherMonth ? 'bg-gray-50/50 opacity-50' : 'hover:bg-gray-50'}`}>
         <p className={`text-xs text-center mb-1.5 w-6 h-6 flex items-center justify-center rounded-full mx-auto ${
-          isToday ? 'bg-[#5DBD97] text-white font-bold' : isOtherMonth ? 'text-gray-300' : 'text-gray-600'
+          isToday ? 'bg-[#6366F1] text-white font-bold' : isOtherMonth ? 'text-gray-300' : 'text-gray-600'
         }`}>
           {format(day, 'd')}
         </p>
@@ -335,7 +335,7 @@ export default function SchedulePage() {
         <button
           onClick={() => setPartFilter(p => p === '전체' ? '코어' : p === '코어' ? '비즈' : '전체')}
           className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-colors ${
-            partFilter !== '전체' ? 'bg-[#5DBD97] text-white border-[#5DBD97]' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+            partFilter !== '전체' ? 'bg-[#6366F1] text-white border-[#6366F1]' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
           }`}>
           {partFilter === '전체' ? '전체 파트' : `${partFilter}파트`}
                   </button>
@@ -344,7 +344,7 @@ export default function SchedulePage() {
         <button
           onClick={() => setStatusFilter(s => s === '전체' ? '진행필요' : s === '진행필요' ? '진행중' : s === '진행중' ? '완료' : '전체')}
           className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-colors ${
-            statusFilter !== '전체' ? 'bg-[#5DBD97] text-white border-[#5DBD97]' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+            statusFilter !== '전체' ? 'bg-[#6366F1] text-white border-[#6366F1]' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
           }`}>
           {statusFilter === '전체' ? '전체 상태' : statusFilter}
                   </button>
@@ -456,7 +456,7 @@ export default function SchedulePage() {
             </div>
             <div className="flex items-center gap-1.5">
               <div className="flex gap-0.5">
-                <div className="w-2 h-2.5 bg-[#EBF7F2] rounded border border-[#5DBD97]/30" />
+                <div className="w-2 h-2.5 bg-[#EEF2FF] rounded border border-[#6366F1]/30" />
                 <div className="w-2 h-2.5 bg-amber-50 rounded border border-amber-200" />
                 <div className="w-2 h-2.5 bg-indigo-50 rounded border border-indigo-200" />
               </div>
@@ -467,7 +467,7 @@ export default function SchedulePage() {
                 onClick={() => setShowAnalysis(v => !v)}
                 className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
                   showAnalysis
-                    ? 'bg-[#5DBD97] text-white border-[#5DBD97]'
+                    ? 'bg-[#6366F1] text-white border-[#6366F1]'
                     : 'text-gray-500 border-gray-200 hover:bg-gray-50'
                 }`}
               >
@@ -488,7 +488,7 @@ export default function SchedulePage() {
                     onClick={() => setAnalysisPeriod(p)}
                     className={`text-xs px-3 py-1 rounded-full transition-colors ${
                       analysisPeriod === p
-                        ? 'bg-[#5DBD97] text-white'
+                        ? 'bg-[#6366F1] text-white'
                         : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                     }`}
                   >
@@ -523,7 +523,7 @@ export default function SchedulePage() {
                         style={{ width: `${Math.min(100, (analysis.meetingHours / analysis.totalHours) * 100)}%` }}
                       />
                       <div
-                        className="bg-[#EBF7F2] transition-all"
+                        className="bg-[#EEF2FF] transition-all"
                         style={{ width: `${Math.min(100, (analysis.focusHours / analysis.totalHours) * 100)}%` }}
                       />
                     </>
@@ -534,7 +534,7 @@ export default function SchedulePage() {
                     총 <span className="font-semibold text-gray-700">{analysis.totalHours}h</span> 중{' '}
                     회의 <span className="font-semibold text-rose-500">{analysis.meetingHours}h</span>
                     {' · '}
-                    집중 업무 <span className="font-semibold text-[#5DBD97]">{analysis.focusHours}h</span>
+                    집중 업무 <span className="font-semibold text-[#6366F1]">{analysis.focusHours}h</span>
                   </p>
                   <div className="flex items-center gap-3">
                     <div className="flex items-center gap-1">
@@ -542,7 +542,7 @@ export default function SchedulePage() {
                       <span className="text-xs text-gray-400">회의</span>
                     </div>
                     <div className="flex items-center gap-1">
-                      <div className="w-2.5 h-2.5 rounded-sm bg-[#EBF7F2]" />
+                      <div className="w-2.5 h-2.5 rounded-sm bg-[#EEF2FF]" />
                       <span className="text-xs text-gray-400">집중</span>
                     </div>
                   </div>
@@ -607,15 +607,15 @@ export default function SchedulePage() {
                   onDrop={e => { e.preventDefault(); handleDayDrop(item.itemId) }}
                   onClick={() => router.push(item.type === 'meeting' ? `/meetings/${(item.data as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>).id}` : `/tasks/${(item.data as DayTask).task.id}`)}
                   className={`rounded-xl border p-3 transition-all cursor-grab active:cursor-grabbing select-none ${
-                    item.type === 'meeting' ? 'bg-[#EBF7F2]/50 border-[#5DBD97]/20 hover:border-[#5DBD97]/40' : 'bg-white border-gray-100 hover:border-gray-200'
+                    item.type === 'meeting' ? 'bg-[#EEF2FF]/50 border-[#6366F1]/20 hover:border-[#6366F1]/40' : 'bg-white border-gray-100 hover:border-gray-200'
                   } ${dragItemId === item.itemId ? 'opacity-40 scale-95' : ''} ${
-                    dragOverId === item.itemId && dragItemId !== item.itemId ? 'border-[#5DBD97] shadow-sm -translate-y-0.5' : ''
+                    dragOverId === item.itemId && dragItemId !== item.itemId ? 'border-[#6366F1] shadow-sm -translate-y-0.5' : ''
                   }`}
                 >
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-gray-300 text-xs">⠿</span>
                     {item.type === 'meeting' ? (
-                      <span className="text-xs font-medium text-[#5DBD97]">💬 회의</span>
+                      <span className="text-xs font-medium text-[#6366F1]">💬 회의</span>
                     ) : (
                       <span className={`text-xs px-2 py-0.5 rounded-full ${(item.data as DayTask).dateType === 'mid' ? 'bg-amber-50 text-amber-600' : 'bg-[#1C2B3A]/10 text-[#1C2B3A]'}`}>
                         {(item.data as DayTask).dateType === 'mid' ? '중간공유' : '최종보고'}
@@ -628,7 +628,7 @@ export default function SchedulePage() {
                       : (item.data as DayTask).task.title}
                   </p>
                   {item.type === 'meeting' && (item.data as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>).category && (
-                    <span className="text-xs text-[#5DBD97]">{(item.data as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>).category}</span>
+                    <span className="text-xs text-[#6366F1]">{(item.data as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>).category}</span>
                   )}
                   {item.type === 'task' && (
                     <div className="flex flex-wrap gap-1 mt-1">
@@ -670,7 +670,7 @@ export default function SchedulePage() {
             <div className="flex justify-end gap-2 mt-4">
               <button onClick={() => setShowRepeatModal(false)} className="text-xs text-gray-400 hover:text-gray-600 px-3 py-1.5">취소</button>
               <button onClick={handleCreateRepeating} disabled={!repeatTitle.trim()}
-                className="text-xs bg-[#5DBD97] text-white px-4 py-1.5 rounded-lg hover:bg-[#4aab84] disabled:opacity-30">
+                className="text-xs bg-[#6366F1] text-white px-4 py-1.5 rounded-lg hover:bg-[#4F46E5] disabled:opacity-30">
                 {repeatMonthCount}개 일정 생성
               </button>
             </div>

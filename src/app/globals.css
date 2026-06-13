@@ -50,10 +50,10 @@
 
 :root {
   --background: oklch(1 0 0);
-  --brand: #5DBD97;
-  --brand-light: #EBF7F2;
+  --brand: #6366F1;
+  --brand-light: #EEF2FF;
   --brand-amber: #F4A35A;
-  --page-bg: #F8F7F4;
+  --page-bg: #F8FAFC;
   --navy: #1C2B3A;
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -77,7 +77,7 @@
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
+  --radius: 0.75rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);

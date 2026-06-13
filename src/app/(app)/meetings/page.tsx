@@ -10,7 +10,7 @@ import type { Meeting } from '@/types'
 
 const CATEGORIES = ['전체', '코어', '비즈', '경영진', '본부장', '타팀'] as const
 const CATEGORY_COLORS: Record<string, string> = {
-  '코어': 'bg-[#EBF7F2] text-[#5DBD97] border-[#5DBD97]/20',
+  '코어': 'bg-[#EEF2FF] text-[#6366F1] border-[#6366F1]/20',
   '비즈': 'bg-amber-50 text-[#F4A35A] border-[#F4A35A]/20',
   '경영진': 'bg-[#1C2B3A]/5 text-[#1C2B3A] border-[#1C2B3A]/15',
   '본부장': 'bg-slate-100 text-slate-500 border-slate-200',
@@ -125,13 +125,13 @@ export default function MeetingsPage() {
             <button
               onClick={() => setViewMode('list')}
               title="리스트 보기"
-              className={`px-2.5 py-1.5 text-sm transition-colors ${viewMode === 'list' ? 'bg-[#5DBD97] text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
+              className={`px-2.5 py-1.5 text-sm transition-colors ${viewMode === 'list' ? 'bg-[#6366F1] text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
               ≡
             </button>
             <button
               onClick={() => setViewMode('kanban')}
               title="칸반 보기"
-              className={`px-2.5 py-1.5 text-sm transition-colors ${viewMode === 'kanban' ? 'bg-[#5DBD97] text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
+              className={`px-2.5 py-1.5 text-sm transition-colors ${viewMode === 'kanban' ? 'bg-[#6366F1] text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
               ⊞
             </button>
           </div>
@@ -142,7 +142,7 @@ export default function MeetingsPage() {
             </button>
           )}
           <button onClick={() => setAdding(true)}
-            className="text-sm bg-[#5DBD97] text-white px-4 py-2 rounded-lg hover:bg-[#4aab84] transition-colors">
+            className="text-sm bg-[#6366F1] text-white px-4 py-2 rounded-lg hover:bg-[#4F46E5] transition-colors">
             + 새 회의록
           </button>
         </div>
@@ -263,14 +263,14 @@ export default function MeetingsPage() {
                     <span className="text-xs text-gray-400">{colMeetings.length}</span>
                     <button
                       onClick={() => setAddingInColMeeting(addingInColMeeting === cat ? null : cat)}
-                      className="w-5 h-5 flex items-center justify-center text-gray-300 hover:text-[#5DBD97] hover:bg-[#EBF7F2] rounded transition-colors text-sm leading-none">
+                      className="w-5 h-5 flex items-center justify-center text-gray-300 hover:text-[#6366F1] hover:bg-[#EEF2FF] rounded transition-colors text-sm leading-none">
                       +
                     </button>
                   </div>
                 </div>
                 <div className="space-y-1">
                   {addingInColMeeting === cat && (
-                    <div className="bg-white rounded-xl border border-[#5DBD97]/40 px-3 py-2.5 shadow-sm mb-2">
+                    <div className="bg-white rounded-xl border border-[#6366F1]/40 px-3 py-2.5 shadow-sm mb-2">
                       <input autoFocus value={newColTitle} onChange={e => setNewColTitle(e.target.value)}
                         onKeyDown={e => { if (e.key === 'Enter') handleColAdd(cat); if (e.key === 'Escape') { setAddingInColMeeting(null); setNewColTitle('') } }}
                         onBlur={() => { if (!newColTitle.trim()) { setAddingInColMeeting(null); setNewColTitle('') } }}
@@ -300,7 +300,7 @@ export default function MeetingsPage() {
                             <div className="space-y-1.5 mt-1">
                               {list.map(meeting => (
                                 <Link key={meeting.id} href={`/meetings/${meeting.id}`} className="block">
-                                  <div className="bg-white rounded-xl border border-gray-200 hover:border-[#5DBD97]/40 hover:shadow-sm px-3 py-3 transition-all">
+                                  <div className="bg-white rounded-xl border border-gray-200 hover:border-[#6366F1]/40 hover:shadow-sm px-3 py-3 transition-all">
                                     <p className="text-sm font-medium text-gray-800 line-clamp-2 mb-1.5">{meeting.title}</p>
                                     <div className="flex items-center gap-2 flex-wrap">
                                       {meeting.meeting_date && (

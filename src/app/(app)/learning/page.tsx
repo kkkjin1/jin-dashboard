@@ -134,11 +134,11 @@ export default function LearningPage() {
         <h1 className="text-xl font-bold text-gray-900">학습자료</h1>
         <div className="flex gap-2">
           <button onClick={() => setManagingTags(p => !p)}
-            className={`text-xs px-3 py-2 rounded-lg border transition-colors ${managingTags ? 'bg-[#5DBD97] text-white border-[#5DBD97]' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
+            className={`text-xs px-3 py-2 rounded-lg border transition-colors ${managingTags ? 'bg-[#6366F1] text-white border-[#6366F1]' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
             태그 관리
           </button>
           <button onClick={() => setAddingInCol('__new__')}
-            className="text-sm bg-[#5DBD97] text-white px-4 py-2 rounded-lg hover:bg-[#4aab84] transition-colors">
+            className="text-sm bg-[#6366F1] text-white px-4 py-2 rounded-lg hover:bg-[#4F46E5] transition-colors">
             + 새 자료
           </button>
         </div>
@@ -163,14 +163,14 @@ export default function LearningPage() {
               placeholder="새 태그 입력 후 엔터"
               className="flex-1 text-xs border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none bg-white" />
             <button onClick={addCustomTag}
-              className="text-xs bg-[#5DBD97] text-white px-3 py-1.5 rounded-lg hover:bg-[#4aab84]">추가</button>
+              className="text-xs bg-[#6366F1] text-white px-3 py-1.5 rounded-lg hover:bg-[#4F46E5]">추가</button>
           </div>
         </div>
       )}
 
       {/* 새 자료 추가 폼 */}
       {addingInCol === '__new__' && (
-        <div className="bg-white rounded-xl border border-[#5DBD97]/30 p-5 mb-5 shadow-sm">
+        <div className="bg-white rounded-xl border border-[#6366F1]/30 p-5 mb-5 shadow-sm">
           <input autoFocus value={colAddTitle} onChange={e => setColAddTitle(e.target.value)}
             onKeyDown={e => { if (e.key === 'Escape') resetColAdd() }}
             placeholder="제목 *"
@@ -184,14 +184,14 @@ export default function LearningPage() {
           <div className="flex items-center gap-2 flex-wrap">
             {MEDIA_TYPES.map(type => (
               <button key={type} onClick={() => setColAddMedia(colAddMedia === type ? '' : type)}
-                className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${colAddMedia === type ? 'bg-[#5DBD97] text-white border-[#5DBD97]' : 'border-gray-200 text-gray-400 hover:border-gray-400'}`}>
+                className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${colAddMedia === type ? 'bg-[#6366F1] text-white border-[#6366F1]' : 'border-gray-200 text-gray-400 hover:border-gray-400'}`}>
                 {MEDIA_ICONS[type]} {type}
               </button>
             ))}
             <div className="ml-auto flex gap-2">
               <button onClick={resetColAdd} className="text-xs text-gray-400 px-3 py-1.5">취소</button>
               <button onClick={() => handleColAdd('__new__')} disabled={!colAddTitle.trim()}
-                className="text-xs bg-[#5DBD97] text-white px-4 py-1.5 rounded-lg disabled:opacity-30">저장</button>
+                className="text-xs bg-[#6366F1] text-white px-4 py-1.5 rounded-lg disabled:opacity-30">저장</button>
             </div>
           </div>
         </div>
@@ -214,7 +214,7 @@ export default function LearningPage() {
                     className="text-xs text-gray-400 w-full focus:outline-none bg-transparent" />
                   <div className="flex gap-1 mt-2 justify-end">
                     <button onClick={() => setEditingSiteId(null)} className="text-xs text-gray-400 px-2 py-0.5">취소</button>
-                    <button onClick={saveEditSiteShortcut} className="text-xs bg-[#5DBD97] text-white px-2 py-0.5 rounded-lg">저장</button>
+                    <button onClick={saveEditSiteShortcut} className="text-xs bg-[#6366F1] text-white px-2 py-0.5 rounded-lg">저장</button>
                   </div>
                 </div>
               )
@@ -245,7 +245,7 @@ export default function LearningPage() {
                 className="text-xs text-gray-400 w-full focus:outline-none bg-transparent" />
               <div className="flex gap-1 mt-2 justify-end">
                 <button onClick={() => setShowAddSite(false)} className="text-xs text-gray-400 px-2 py-0.5">취소</button>
-                <button onClick={addSiteShortcut} className="text-xs bg-[#5DBD97] text-white px-2 py-0.5 rounded-lg">추가</button>
+                <button onClick={addSiteShortcut} className="text-xs bg-[#6366F1] text-white px-2 py-0.5 rounded-lg">추가</button>
               </div>
             </div>
           ) : (
@@ -296,7 +296,7 @@ export default function LearningPage() {
                   </div>
                   <div className="space-y-1">
                     {addingInCol === tag && (
-                      <div className="bg-white rounded-xl border border-[#5DBD97]/30 px-3 py-3 shadow-sm mb-2">
+                      <div className="bg-white rounded-xl border border-[#6366F1]/30 px-3 py-3 shadow-sm mb-2">
                         <input autoFocus value={colAddTitle} onChange={e => setColAddTitle(e.target.value)}
                           onKeyDown={e => { if (e.key === 'Escape') resetColAdd() }}
                           placeholder="제목 *"
@@ -307,7 +307,7 @@ export default function LearningPage() {
                         <div className="flex items-center gap-1 flex-wrap mb-2">
                           {MEDIA_TYPES.map(type => (
                             <button key={type} onClick={() => setColAddMedia(colAddMedia === type ? '' : type)}
-                              className={`text-[10px] px-1.5 py-0.5 rounded-full border transition-colors ${colAddMedia === type ? 'bg-[#5DBD97] text-white border-[#5DBD97]' : 'border-gray-200 text-gray-400'}`}>
+                              className={`text-[10px] px-1.5 py-0.5 rounded-full border transition-colors ${colAddMedia === type ? 'bg-[#6366F1] text-white border-[#6366F1]' : 'border-gray-200 text-gray-400'}`}>
                               {MEDIA_ICONS[type]} {type}
                             </button>
                           ))}
@@ -315,7 +315,7 @@ export default function LearningPage() {
                         <div className="flex gap-1 justify-end">
                           <button onClick={resetColAdd} className="text-xs text-gray-400 px-2 py-1">취소</button>
                           <button onClick={() => handleColAdd(tag)} disabled={!colAddTitle.trim()}
-                            className="text-xs bg-[#5DBD97] text-white px-2 py-1 rounded-lg disabled:opacity-30">저장</button>
+                            className="text-xs bg-[#6366F1] text-white px-2 py-1 rounded-lg disabled:opacity-30">저장</button>
                         </div>
                       </div>
                     )}
@@ -338,7 +338,7 @@ export default function LearningPage() {
                               <div className="space-y-1.5 mt-1">
                                 {list.map(r => (
                                   <Link key={r.id} href={`/learning/${r.id}`} className="block">
-                                    <div className="bg-white rounded-xl border border-gray-200 hover:border-[#5DBD97]/40 hover:shadow-sm px-3 py-3 transition-all">
+                                    <div className="bg-white rounded-xl border border-gray-200 hover:border-[#6366F1]/40 hover:shadow-sm px-3 py-3 transition-all">
                                       <p className="text-sm font-semibold text-gray-800 leading-snug line-clamp-2 break-all mb-1">{r.title}</p>
                                       {r.source && <p className="text-xs text-gray-400 truncate">출처: {r.source}</p>}
                                       {r.notes.length > 0 && <p className="text-xs text-gray-300 mt-1">{r.notes.length}노트</p>}

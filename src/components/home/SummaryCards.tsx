@@ -1,4 +1,4 @@
-import type { Task } from '@/types'
+﻿import type { Task } from '@/types'
 import { isMidDateSoon, isEndDateSoon } from '@/lib/tasks'
 
 interface Props { tasks: Task[] }
@@ -15,8 +15,8 @@ export default function SummaryCards({ tasks }: Props) {
 
   const cards = [
     { label: '진행필요', value: counts.진행필요, color: 'text-gray-500', dot: 'bg-gray-300' },
-    { label: '진행중', value: counts.진행중, color: 'text-[#5DBD97]', dot: 'bg-[#5DBD97]' },
-    { label: '완료', value: counts.완료, color: 'text-[#4aab84]', dot: 'bg-[#4aab84]' },
+    { label: '진행중', value: counts.진행중, color: 'text-[#6366F1]', dot: 'bg-[#6366F1]' },
+    { label: '완료', value: counts.완료, color: 'text-[#4F46E5]', dot: 'bg-[#4F46E5]' },
     { label: '중간공유 임박', value: counts.중간공유, color: 'text-amber-600', dot: 'bg-amber-400', suffix: '건' },
     { label: '최종마감 임박', value: counts.최종마감, color: 'text-red-600', dot: 'bg-red-400', suffix: '건' },
   ]

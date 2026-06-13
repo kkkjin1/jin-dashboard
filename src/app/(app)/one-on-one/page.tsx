@@ -250,7 +250,7 @@ function MyFeedbackView() {
                           취소
                         </button>
                         <button onClick={saveAdd} disabled={saving || !formContent.trim()}
-                          className="text-xs bg-[#5DBD97] text-white px-3 py-1.5 rounded-lg hover:bg-[#4aab84] transition-colors disabled:opacity-40">
+                          className="text-xs bg-[#6366F1] text-white px-3 py-1.5 rounded-lg hover:bg-[#4F46E5] transition-colors disabled:opacity-40">
                           {saving ? '저장 중...' : '저장'}
                         </button>
                       </div>
@@ -375,7 +375,7 @@ export default function OneOnOnePage() {
   function daysBadgeClass(daysSince: number | null): string {
     if (daysSince === null || daysSince >= 30) return 'bg-amber-100 text-[#F4A35A]'
     if (daysSince >= 14) return 'bg-orange-50 text-orange-500'
-    return 'bg-[#EBF7F2] text-[#5DBD97]'
+    return 'bg-[#EEF2FF] text-[#6366F1]'
   }
 
   function daysLabel(daysSince: number | null): string {
@@ -455,7 +455,7 @@ export default function OneOnOnePage() {
                               </Link>
                             )}
                             <button onClick={() => createSession(member.id)}
-                              className="text-xs bg-[#5DBD97] text-white px-3 py-1 rounded-lg hover:bg-[#4aab84] transition-colors">
+                              className="text-xs bg-[#6366F1] text-white px-3 py-1 rounded-lg hover:bg-[#4F46E5] transition-colors">
                               + 새 1on1
                             </button>
                           </div>

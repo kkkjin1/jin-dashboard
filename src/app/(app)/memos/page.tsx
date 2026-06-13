@@ -9,15 +9,15 @@ import type { QuickMemo, MemoTag } from '@/types'
 const NON_NOTICE_TAGS: MemoTag[] = ['업무관련', '회의관련', '아이디어']
 
 const TAG_COLORS: Record<MemoTag, string> = {
-  '공지': 'border-t-[#5DBD97]/50',
-  '업무관련': 'border-t-[#5DBD97]',
-  '회의관련': 'border-t-[#4aab84]',
+  '공지': 'border-t-[#6366F1]/50',
+  '업무관련': 'border-t-[#6366F1]',
+  '회의관련': 'border-t-[#4F46E5]',
   '아이디어': 'border-t-teal-300',
 }
 
 const TAG_BADGE: Record<MemoTag, string> = {
-  '공지': 'bg-[#EBF7F2] text-[#5DBD97]',
-  '업무관련': 'bg-[#EBF7F2] text-[#5DBD97]',
+  '공지': 'bg-[#EEF2FF] text-[#6366F1]',
+  '업무관련': 'bg-[#EEF2FF] text-[#6366F1]',
   '회의관련': 'bg-emerald-50 text-emerald-600',
   '아이디어': 'bg-teal-50 text-teal-500',
 }
@@ -67,7 +67,7 @@ function EditModal({ memo, onSave, onClose }: EditModalProps) {
         <div className="flex gap-1.5 mb-3">
           {(['업무관련','회의관련','아이디어','공지'] as MemoTag[]).map(t => (
             <button key={t} onClick={() => setTag(t)}
-              className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${tag === t ? 'bg-[#5DBD97] text-white border-[#5DBD97]' : 'border-gray-200 text-gray-400'}`}>
+              className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${tag === t ? 'bg-[#6366F1] text-white border-[#6366F1]' : 'border-gray-200 text-gray-400'}`}>
               {t}
             </button>
           ))}
@@ -82,7 +82,7 @@ function EditModal({ memo, onSave, onClose }: EditModalProps) {
         <div className="flex justify-end gap-2 mt-3">
           <button onClick={onClose} className="text-xs text-gray-400 hover:text-gray-600 px-3 py-1.5">취소</button>
           <button onClick={() => onSave(memo.id, title, content, tag)}
-            className="text-xs bg-[#5DBD97] text-white px-4 py-1.5 rounded-lg hover:bg-[#4aab84]">저장</button>
+            className="text-xs bg-[#6366F1] text-white px-4 py-1.5 rounded-lg hover:bg-[#4F46E5]">저장</button>
         </div>
       </div>
     </div>
@@ -160,9 +160,9 @@ export default function MemosPage() {
         onDragOver={e => { e.preventDefault(); setDragOverTag('공지') }}
         onDragLeave={() => setDragOverTag(null)}
         onDrop={() => handleDropOnTag('공지')}>
-        <div className={`border-2 border-t-4 ${TAG_COLORS['공지']} rounded-xl p-4 transition-colors ${dragOverTag === '공지' ? 'border-[#5DBD97]/50 bg-[#EBF7F2]/30' : 'border-gray-100'}`}>
+        <div className={`border-2 border-t-4 ${TAG_COLORS['공지']} rounded-xl p-4 transition-colors ${dragOverTag === '공지' ? 'border-[#6366F1]/50 bg-[#EEF2FF]/30' : 'border-gray-100'}`}>
           <div className="flex items-center gap-2 mb-3">
-            <span className="text-xs font-bold text-[#5DBD97]">📌 공지</span>
+            <span className="text-xs font-bold text-[#6366F1]">📌 공지</span>
             <span className="text-xs text-gray-400">{notices.length}</span>
           </div>
           <div className="flex gap-3 overflow-x-auto pb-1">
@@ -183,7 +183,7 @@ export default function MemosPage() {
                   className="w-full text-xs focus:outline-none resize-none text-gray-500" />
                 <div className="flex gap-1 justify-end mt-1">
                   <button onClick={() => { setInlineTag(null); setInlineTitle(''); setInlineContent('') }} className="text-xs text-gray-400 px-2 py-1">취소</button>
-                  <button onClick={() => handleInlineSave('공지')} className="text-xs bg-[#5DBD97] text-white px-2 py-1 rounded-lg">저장</button>
+                  <button onClick={() => handleInlineSave('공지')} className="text-xs bg-[#6366F1] text-white px-2 py-1 rounded-lg">저장</button>
                 </div>
               </div>
             ) : (
@@ -209,7 +209,7 @@ export default function MemosPage() {
               onDragOver={e => { e.preventDefault(); setDragOverTag(tag) }}
               onDragLeave={() => setDragOverTag(null)}
               onDrop={() => handleDropOnTag(tag)}
-              className={`border-2 border-t-4 ${TAG_COLORS[tag]} rounded-xl p-4 min-h-48 transition-colors ${isOver ? 'bg-[#EBF7F2]/30 border-[#5DBD97]/40' : 'border-gray-100'}`}>
+              className={`border-2 border-t-4 ${TAG_COLORS[tag]} rounded-xl p-4 min-h-48 transition-colors ${isOver ? 'bg-[#EEF2FF]/30 border-[#6366F1]/40' : 'border-gray-100'}`}>
               <div className="flex items-center gap-2 mb-3">
                 <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${TAG_BADGE[tag]}`}>{tag}</span>
                 <span className="text-xs text-gray-400">{colMemos.length}</span>
@@ -233,7 +233,7 @@ export default function MemosPage() {
                       className="w-full text-xs focus:outline-none resize-none text-gray-500 leading-relaxed" />
                     <div className="flex gap-1 justify-end mt-1.5">
                       <button onClick={() => { setInlineTag(null); setInlineTitle(''); setInlineContent('') }} className="text-xs text-gray-400 px-2 py-1">취소</button>
-                      <button onClick={() => handleInlineSave(tag)} className="text-xs bg-[#5DBD97] text-white px-2 py-1 rounded-lg">저장</button>
+                      <button onClick={() => handleInlineSave(tag)} className="text-xs bg-[#6366F1] text-white px-2 py-1 rounded-lg">저장</button>
                     </div>
                   </div>
                 ) : (

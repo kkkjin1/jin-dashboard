@@ -8,7 +8,7 @@ import type { Task, AchievementCategory } from '@/types'
 
 const COLUMNS: { key: AchievementCategory | null; label: string; bg: string; accent: string }[] = [
   { key: null, label: '미분류', bg: 'bg-gray-50', accent: 'bg-gray-200' },
-  { key: '성과', label: '성과', bg: 'bg-[#EBF7F2]/60', accent: 'bg-[#5DBD97]/60' },
+  { key: '성과', label: '성과', bg: 'bg-[#EEF2FF]/60', accent: 'bg-[#6366F1]/60' },
   { key: '개선', label: '개선', bg: 'bg-amber-50/60', accent: 'bg-[#F4A35A]/60' },
   { key: '리소스', label: '리소스', bg: 'bg-slate-50', accent: 'bg-slate-200' },
   { key: '수명', label: '수명', bg: 'bg-[#1C2B3A]/5', accent: 'bg-[#1C2B3A]/30' },
@@ -162,7 +162,7 @@ export default function CompletedPage() {
             <button key={p} onClick={() => selectQuick(p)}
               className={`text-xs px-3 py-1.5 rounded-full border transition-colors font-medium ${
                 quickPeriod === p && !monthFilter
-                  ? 'bg-[#5DBD97] text-white border-[#5DBD97]'
+                  ? 'bg-[#6366F1] text-white border-[#6366F1]'
                   : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
               }`}>
               {p}
@@ -174,7 +174,7 @@ export default function CompletedPage() {
             <button key={m} onClick={() => selectMonth(m)}
               className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
                 monthFilter === m
-                  ? 'bg-[#5DBD97] text-white border-[#5DBD97]'
+                  ? 'bg-[#6366F1] text-white border-[#6366F1]'
                   : 'border-gray-200 text-gray-400 hover:border-gray-400 hover:text-gray-600'
               }`}>
               {formatMonth(m)}
@@ -264,8 +264,8 @@ export default function CompletedPage() {
                 </div>
                 {(task.retrospective?.good || task.retrospective?.bad || task.retrospective?.improvement) ? (
                   <div className="grid grid-cols-3 gap-3">
-                    <div className={`rounded-lg p-3 ${task.retrospective?.good ? 'bg-[#EBF7F2]' : 'bg-gray-50'}`}>
-                      <p className="text-[10px] font-semibold text-[#5DBD97] mb-1">잘한점</p>
+                    <div className={`rounded-lg p-3 ${task.retrospective?.good ? 'bg-[#EEF2FF]' : 'bg-gray-50'}`}>
+                      <p className="text-[10px] font-semibold text-[#6366F1] mb-1">잘한점</p>
                       <p className="text-xs text-gray-600 leading-relaxed">{task.retrospective?.good || <span className="text-gray-300">없음</span>}</p>
                     </div>
                     <div className={`rounded-lg p-3 ${task.retrospective?.bad ? 'bg-rose-50' : 'bg-gray-50'}`}>

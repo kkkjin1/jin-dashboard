@@ -13,24 +13,24 @@ const STATUSES: TaskStatus[] = ['진행필요', '진행중', '완료']
 
 const STATUS_COLORS: Record<TaskStatus, string> = {
   '진행필요': 'bg-gray-100 text-gray-500',
-  '진행중': 'bg-[#EBF7F2] text-[#5DBD97]',
-  '완료': 'bg-[#EBF7F2]/60 text-[#4aab84]',
+  '진행중': 'bg-[#EEF2FF] text-[#6366F1]',
+  '완료': 'bg-[#EEF2FF]/60 text-[#4F46E5]',
 }
 
 const STATUS_BG: Record<TaskStatus, string> = {
   '진행필요': 'bg-gray-50 border-gray-200',
-  '진행중': 'bg-[#EBF7F2]/50 border-[#5DBD97]/25',
+  '진행중': 'bg-[#EEF2FF]/50 border-[#6366F1]/25',
   '완료': 'bg-gray-50 border-gray-200',
 }
 
 const PART_ACCENT: Record<string, string> = {
-  '코어': 'border-t-[#5DBD97]',
+  '코어': 'border-t-[#6366F1]',
   '비즈': 'border-t-[#F4A35A]',
   '개인': 'border-t-slate-400',
 }
 
 function MemberAvatar({ name }: { name: string }) {
-  const colors = ['bg-[#5DBD97]','bg-[#F4A35A]','bg-[#1C2B3A]','bg-slate-400','bg-teal-400','bg-stone-400','bg-[#4aab84]','bg-slate-500']
+  const colors = ['bg-[#6366F1]','bg-[#F4A35A]','bg-[#1C2B3A]','bg-slate-400','bg-teal-400','bg-stone-400','bg-[#4F46E5]','bg-slate-500']
   const color = colors[name.charCodeAt(0) % colors.length]
   return (
     <div className={`w-5 h-5 rounded-full ${color} flex items-center justify-center text-white text-xs font-medium`}>
@@ -229,18 +229,18 @@ export default function TasksPage() {
       <div className="flex items-center gap-2 mb-5 flex-wrap">
         <button
           onClick={() => setStatusFilter(prev => prev === '전체' ? '진행필요' : prev === '진행필요' ? '진행중' : prev === '진행중' ? '완료' : '전체')}
-          className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${statusFilter !== '전체' ? 'bg-[#5DBD97] text-white border-[#5DBD97]' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
+          className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${statusFilter !== '전체' ? 'bg-[#6366F1] text-white border-[#6366F1]' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
           {statusFilter === '전체' ? '전체 상태' : statusFilter}
         </button>
         <button
           onClick={() => setHideCompleted(prev => !prev)}
-          className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${hideCompleted ? 'bg-[#5DBD97] text-white border-[#5DBD97]' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
+          className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${hideCompleted ? 'bg-[#6366F1] text-white border-[#6366F1]' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
           {hideCompleted ? '완료 숨김' : '완료 표시'}
         </button>
         <div className="relative flex items-center gap-1">
           <button
             onClick={() => setShowPicker(prev => !prev)}
-            className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${viewMode === 'monthly' ? 'bg-[#5DBD97] text-white border-[#5DBD97]' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
+            className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${viewMode === 'monthly' ? 'bg-[#6366F1] text-white border-[#6366F1]' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
             {viewMode === 'monthly' && monthFilter !== '전체' ? formatMonth(monthFilter) : '월별 칸반'}
           </button>
           {viewMode === 'monthly' && (
@@ -264,7 +264,7 @@ export default function TasksPage() {
                       const ym = `${pickerYear}-${String(m).padStart(2, '0')}`
                       setMonthFilter(ym); setViewMode('monthly'); setShowPicker(false)
                     }}
-                    className={`text-xs py-1.5 rounded-lg transition-colors ${pickerFocusMonth === m ? 'bg-[#5DBD97] text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
+                    className={`text-xs py-1.5 rounded-lg transition-colors ${pickerFocusMonth === m ? 'bg-[#6366F1] text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
                     {m}월
                   </button>
                 ))}
@@ -275,19 +275,19 @@ export default function TasksPage() {
         </div>
         <div className="relative" ref={assigneeDropdownRef}>
           <button onClick={() => setAssigneeOpen(prev => !prev)}
-            className={`text-xs px-3 py-1.5 rounded-lg border transition-colors flex items-center gap-1 ${assigneeFilter !== '전체' ? 'bg-[#5DBD97] text-white border-[#5DBD97]' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
+            className={`text-xs px-3 py-1.5 rounded-lg border transition-colors flex items-center gap-1 ${assigneeFilter !== '전체' ? 'bg-[#6366F1] text-white border-[#6366F1]' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
             {assigneeFilter === '전체' ? '전체 담당자' : (members.find(m => m.id === assigneeFilter)?.name ?? '담당자')}
             <span className="text-[10px] opacity-60">▾</span>
           </button>
           {assigneeOpen && (
             <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-gray-200 rounded-xl shadow-lg py-1.5 min-w-36">
               <button onClick={() => { setAssigneeFilter('전체'); setAssigneeOpen(false) }}
-                className={`w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 transition-colors ${assigneeFilter === '전체' ? 'text-[#5DBD97] font-medium' : 'text-gray-600'}`}>
+                className={`w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 transition-colors ${assigneeFilter === '전체' ? 'text-[#6366F1] font-medium' : 'text-gray-600'}`}>
                 전체 담당자
               </button>
               {members.map(m => (
                 <button key={m.id} onClick={() => { setAssigneeFilter(m.id); setAssigneeOpen(false) }}
-                  className={`w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 transition-colors ${assigneeFilter === m.id ? 'text-[#5DBD97] font-medium' : 'text-gray-600'}`}>
+                  className={`w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 transition-colors ${assigneeFilter === m.id ? 'text-[#6366F1] font-medium' : 'text-gray-600'}`}>
                   {m.name}
                 </button>
               ))}
