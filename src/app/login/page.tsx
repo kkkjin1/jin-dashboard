@@ -27,10 +27,10 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 w-full max-w-sm">
+    <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #f0faf5 0%, #e8f5f0 50%, #eef7f2 100%)' }}>
+      <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm border border-[#5DBD97]/20 p-8 w-full max-w-sm">
         <div className="flex items-center gap-3 mb-8">
-          <div className="w-9 h-9 bg-red-500 rounded-lg flex items-center justify-center text-white font-bold text-sm">인</div>
+          <div className="w-9 h-9 bg-[#5DBD97] rounded-lg flex items-center justify-center text-white font-bold text-sm">인</div>
           <div>
             <p className="font-semibold text-gray-900 text-sm">인사기획 워크</p>
             <p className="text-xs text-gray-400">인사기획팀 · 업무 보드</p>
@@ -43,7 +43,7 @@ export default function LoginPage() {
               type="email"
               value={email}
               onChange={e => setEmail(e.target.value)}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5DBD97]/50 bg-white"
               placeholder="이메일 입력"
               required
             />
@@ -54,7 +54,7 @@ export default function LoginPage() {
               type="password"
               value={password}
               onChange={e => setPassword(e.target.value)}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5DBD97]/50 bg-white"
               placeholder="비밀번호 입력"
               required
             />
@@ -63,7 +63,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-red-500 hover:bg-red-600 text-white rounded-lg py-2 text-sm font-medium transition-colors disabled:opacity-50"
+            className="w-full bg-[#5DBD97] hover:bg-[#4aab84] text-white rounded-lg py-2 text-sm font-medium transition-colors disabled:opacity-50"
           >
             {loading ? '로그인 중...' : '로그인'}
           </button>
