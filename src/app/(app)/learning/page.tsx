@@ -290,17 +290,9 @@ export default function LearningPage() {
               })()
               return (
                 <div key={tag}>
-                  {/* 컬럼 헤더 — A 스타일 버튼형 */}
-                  <div className="flex items-center justify-between py-2.5 px-3 rounded-xl border border-gray-200 bg-white mb-2">
+                  {/* 컬럼 헤더 — 태그명만 */}
+                  <div className="py-2 px-1 mb-2">
                     <span className="text-sm font-semibold text-gray-700">{tag}</span>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs text-gray-400">{allColItems.length}</span>
-                      <button
-                        onClick={() => setAddingInCol(addingInCol === tag ? null : tag)}
-                        className="w-5 h-5 flex items-center justify-center text-gray-300 hover:text-[#5DBD97] hover:bg-[#EBF7F2] rounded transition-colors text-sm leading-none">
-                        +
-                      </button>
-                    </div>
                   </div>
                   <div className="space-y-1">
                     {addingInCol === tag && (
