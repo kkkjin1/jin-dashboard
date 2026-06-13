@@ -28,7 +28,7 @@ export default function SchedulePage() {
   const [reportFilter, setReportFilter] = useState<'전체' | '중간공유' | '최종보고'>('전체')
   const [showPrevCal, setShowPrevCal] = useState(false)
   const [showNextCal, setShowNextCal] = useState(false)
-  const [showAnalysis, setShowAnalysis] = useState(true)
+  const [showAnalysis, setShowAnalysis] = useState(false)
   const [analysisPeriod, setAnalysisPeriod] = useState<'이번주' | '이번달' | '직전월'>('이번달')
   const [showRepeatModal, setShowRepeatModal] = useState(false)
   const [repeatTitle, setRepeatTitle] = useState('')
@@ -381,48 +381,6 @@ export default function SchedulePage() {
         </button>
       </div>
 
-      {/* ── Feature A: Mini month navigation ── */}
-      <div className="flex items-center justify-center gap-2 mb-4">
-        {/* Prev month pill */}
-        <button
-          onClick={() => setCurrent(prevMonthNav)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs text-gray-500 hover:bg-gray-50 border border-gray-100 transition-colors cursor-pointer"
-        >
-          <span className="text-gray-400">←</span>
-          <span>{format(prevMonthNav, 'M월', { locale: ko })}</span>
-          {(prevCounts.meetings > 0 || prevCounts.tasks > 0) && (
-            <span className="text-gray-400">
-              {[
-                prevCounts.meetings > 0 ? `회의${prevCounts.meetings}` : null,
-                prevCounts.tasks > 0 ? `마감${prevCounts.tasks}` : null,
-              ].filter(Boolean).join(' · ')}
-            </span>
-          )}
-        </button>
-
-        {/* Current month pill (not clickable) */}
-        <div className="px-4 py-1.5 rounded-full text-xs font-semibold text-gray-800 bg-gray-100 border border-gray-200">
-          {format(current, 'M월', { locale: ko })} <span className="font-normal text-gray-400 text-[10px]">현재</span>
-        </div>
-
-        {/* Next month pill */}
-        <button
-          onClick={() => setCurrent(nextMonthNav)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs text-gray-500 hover:bg-gray-50 border border-gray-100 transition-colors cursor-pointer"
-        >
-          {(nextCounts.meetings > 0 || nextCounts.tasks > 0) && (
-            <span className="text-gray-400">
-              {[
-                nextCounts.meetings > 0 ? `회의${nextCounts.meetings}` : null,
-                nextCounts.tasks > 0 ? `마감${nextCounts.tasks}` : null,
-              ].filter(Boolean).join(' · ')}
-            </span>
-          )}
-          <span>{format(nextMonthNav, 'M월', { locale: ko })}</span>
-          <span className="text-gray-400">→</span>
-        </button>
-      </div>
-
       <div className="grid grid-cols-3 gap-6 flex-1 min-h-0">
         {/* 캘린더 */}
         <div className="col-span-2 bg-white rounded-xl border border-gray-100 p-5 flex flex-col">
@@ -714,7 +672,7 @@ function MiniCalInline({ monthDate, onClick }: { monthDate: Date; onClick: () =>
         const holiday = isKoreanHoliday(d)
         const isToday_ = isSameDay(d, today)
         return (
-          <div key={d.toISOString()} className={`text-[9px] leading-4 rounded-full ${isToday_ ? 'bg-red-500 text-white font-bold' : (dow === 0 || holiday) ? 'text-red-400' : dow === 6 ? 'text-blue-400' : 'text-gray-400'}`}>
+          <div key={d.toISOString()} className={`text-[10px] h-6 flex items-center justify-center rounded-full ${isToday_ ? 'bg-red-500 text-white font-bold' : (dow === 0 || holiday) ? 'text-red-400' : dow === 6 ? 'text-blue-400' : 'text-gray-400'}`}>
             {format(d, 'd')}
           </div>
         )

@@ -8,6 +8,16 @@ import { ko } from 'date-fns/locale'
 import type { LearningResource } from '@/types'
 
 const DEFAULT_TAGS = ['HR', '경제', '리더십', '평가보상', '데이터', '조직문화', '기획']
+const TAG_STYLE: Record<string, string> = {
+  'HR':   'bg-emerald-50 text-emerald-700',
+  '경제': 'bg-blue-50 text-blue-700',
+  '리더십': 'bg-violet-50 text-violet-700',
+  '평가보상': 'bg-amber-50 text-amber-700',
+  '데이터': 'bg-cyan-50 text-cyan-700',
+  '조직문화': 'bg-teal-50 text-teal-700',
+  '기획': 'bg-slate-100 text-slate-600',
+  '미분류': 'bg-gray-100 text-gray-500',
+}
 const MEDIA_TYPES = ['책', '영상', '아티클', '강의', '기타']
 const LS_KEY = 'learning_custom_tags'
 const MEDIA_ICONS: Record<string, string> = { '책': '📚', '영상': '🎬', '아티클': '📄', '강의': '🎓', '기타': '📌' }
@@ -290,9 +300,12 @@ export default function LearningPage() {
               })()
               return (
                 <div key={tag}>
-                  {/* 컬럼 헤더 — 태그명만 */}
-                  <div className="py-2 px-1 mb-2">
-                    <span className="text-sm font-semibold text-gray-700">{tag}</span>
+                  {/* 컬럼 헤더 */}
+                  <div className="py-1.5 px-2 mb-3">
+                    <span className={`inline-block text-xs font-semibold px-2.5 py-1 rounded-full ${TAG_STYLE[tag] ?? 'bg-gray-100 text-gray-500'}`}>
+                      {tag}
+                    </span>
+                    <span className="ml-2 text-xs text-gray-400">{allColItems.length}</span>
                   </div>
                   <div className="space-y-1">
                     {addingInCol === tag && (
@@ -329,7 +342,7 @@ export default function LearningPage() {
                         return (
                           <div key={mt} className="mb-1">
                             <button onClick={() => toggleColMedia(mediaKey)}
-                              className="flex items-center gap-1 text-[11px] text-gray-400 hover:text-gray-600 w-full py-1 px-1 rounded transition-colors">
+                              className="flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-700 w-full py-1 px-1 rounded transition-colors">
                               <span className="text-[9px]">{isCollapsed ? '▶' : '▼'}</span>
                               <span>{icon} {mt}</span>
                               <span className="text-gray-300">({list.length})</span>

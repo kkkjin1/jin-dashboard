@@ -22,6 +22,13 @@ const TAG_BADGE: Record<MemoTag, string> = {
   '아이디어': 'bg-teal-50 text-teal-500',
 }
 
+const TAG_DOT: Record<string, string> = {
+  '공지':   'bg-amber-400',
+  '업무관련': 'bg-[#10B981]',
+  '회의관련': 'bg-[#3B82F6]',
+  '아이디어': 'bg-teal-400',
+}
+
 interface MemoCardProps {
   memo: QuickMemo
   onEdit: (m: QuickMemo) => void
@@ -155,16 +162,17 @@ export default function MemosPage() {
         <span className="text-sm text-gray-400">총 {memos.length}개</span>
       </div>
 
-      {/* 상단: 공지 구역 (칸반 수평) */}
-      <div className="mb-6"
+      {/* 공지 */}
+      <div className="mb-8"
         onDragOver={e => { e.preventDefault(); setDragOverTag('공지') }}
         onDragLeave={() => setDragOverTag(null)}
         onDrop={() => handleDropOnTag('공지')}>
-        <div className={`border-2 border-t-4 ${TAG_COLORS['공지']} rounded-xl p-4 transition-colors ${dragOverTag === '공지' ? 'border-[#10B981]/50 bg-[#ECFDF5]/30' : 'border-gray-100'}`}>
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-xs font-bold text-[#10B981]">📌 공지</span>
-            <span className="text-xs text-gray-400">{notices.length}</span>
-          </div>
+        <div className="flex items-center gap-2 mb-3">
+          <span className="w-2 h-2 rounded-full bg-amber-400" />
+          <span className="text-sm font-semibold text-gray-700">공지</span>
+          <span className="text-xs text-gray-400">{notices.length}</span>
+        </div>
+        <div className={`bg-amber-50/50 rounded-xl border p-4 transition-colors ${dragOverTag === '공지' ? 'border-amber-300' : 'border-amber-100'}`}>
           <div className="flex gap-3 overflow-x-auto pb-1">
             {notices.map(memo => (
               <div key={memo.id} className="flex-shrink-0 w-52">
@@ -173,7 +181,7 @@ export default function MemosPage() {
               </div>
             ))}
             {inlineTag === '공지' ? (
-              <div className="flex-shrink-0 w-52 bg-white rounded-xl border border-blue-200 p-3">
+              <div className="flex-shrink-0 w-52 bg-white rounded-xl border border-amber-200 p-3">
                 <input autoFocus value={inlineTitle} onChange={e => setInlineTitle(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); inlineContentRef.current?.focus() } if (e.key === 'Escape') { setInlineTag(null); setInlineTitle(''); setInlineContent('') } }}
                   placeholder="공지 제목" className="w-full text-sm focus:outline-none mb-1.5 font-medium" />
@@ -188,18 +196,18 @@ export default function MemosPage() {
               </div>
             ) : (
               <button onClick={() => setInlineTag('공지')}
-                className="flex-shrink-0 w-36 text-xs text-gray-300 hover:text-gray-500 border border-dashed border-gray-200 hover:border-gray-300 rounded-xl py-3 transition-colors">
+                className="flex-shrink-0 w-36 text-xs text-gray-400 hover:text-gray-600 border border-dashed border-amber-200 hover:border-amber-300 rounded-xl py-3 transition-colors">
                 + 공지 추가
               </button>
             )}
             {notices.length === 0 && !inlineTag && (
-              <p className="text-xs text-gray-300 py-2 self-center">드래그로 이동하거나 직접 추가하세요</p>
+              <p className="text-xs text-gray-400 py-2 self-center">드래그로 이동하거나 직접 추가하세요</p>
             )}
           </div>
         </div>
       </div>
 
-      {/* 하단: 3-column 칸반 */}
+      {/* 3-column 칸반 */}
       <div className="grid grid-cols-3 gap-4">
         {NON_NOTICE_TAGS.map(tag => {
           const colMemos = memos.filter(m => m.tag === tag)
@@ -208,40 +216,42 @@ export default function MemosPage() {
             <div key={tag}
               onDragOver={e => { e.preventDefault(); setDragOverTag(tag) }}
               onDragLeave={() => setDragOverTag(null)}
-              onDrop={() => handleDropOnTag(tag)}
-              className={`border-2 border-t-4 ${TAG_COLORS[tag]} rounded-xl p-4 min-h-48 transition-colors ${isOver ? 'bg-[#ECFDF5]/30 border-[#10B981]/40' : 'border-gray-100'}`}>
+              onDrop={() => handleDropOnTag(tag)}>
               <div className="flex items-center gap-2 mb-3">
-                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${TAG_BADGE[tag]}`}>{tag}</span>
+                <span className={`w-2 h-2 rounded-full ${TAG_DOT[tag]}`} />
+                <span className="text-sm font-semibold text-gray-700">{tag}</span>
                 <span className="text-xs text-gray-400">{colMemos.length}</span>
               </div>
-              <div className="space-y-2">
-                {colMemos.length === 0 && inlineTag !== tag && (
-                  <p className="text-xs text-gray-300 text-center py-4">없음</p>
-                )}
-                {colMemos.map(memo => (
-                  <MemoCard key={memo.id} memo={memo} onEdit={setEditing} onDelete={deleteMemo}
-                    draggable onDragStart={() => setDraggingId(memo.id)} />
-                ))}
-                {inlineTag === tag ? (
-                  <div className="bg-white rounded-xl border border-blue-200 p-3">
-                    <input autoFocus value={inlineTitle} onChange={e => setInlineTitle(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); inlineContentRef.current?.focus() } if (e.key === 'Escape') { setInlineTag(null); setInlineTitle(''); setInlineContent('') } }}
-                      placeholder="제목" className="w-full text-sm focus:outline-none mb-1.5 font-medium" />
-                    <textarea ref={inlineContentRef} value={inlineContent} onChange={e => setInlineContent(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleInlineSave(tag) }}
-                      placeholder="내용 (선택, Ctrl+Enter 저장)" rows={2}
-                      className="w-full text-xs focus:outline-none resize-none text-gray-500 leading-relaxed" />
-                    <div className="flex gap-1 justify-end mt-1.5">
-                      <button onClick={() => { setInlineTag(null); setInlineTitle(''); setInlineContent('') }} className="text-xs text-gray-400 px-2 py-1">취소</button>
-                      <button onClick={() => handleInlineSave(tag)} className="text-xs bg-gray-900 text-white px-2 py-1 rounded-lg">저장</button>
+              <div className={`bg-white rounded-xl border p-3 min-h-48 transition-colors ${isOver ? 'border-[#10B981]/40 bg-[#ECFDF5]/20' : 'border-gray-100'}`}>
+                <div className="space-y-2">
+                  {colMemos.length === 0 && inlineTag !== tag && (
+                    <p className="text-xs text-gray-300 text-center py-4">없음</p>
+                  )}
+                  {colMemos.map(memo => (
+                    <MemoCard key={memo.id} memo={memo} onEdit={setEditing} onDelete={deleteMemo}
+                      draggable onDragStart={() => setDraggingId(memo.id)} />
+                  ))}
+                  {inlineTag === tag ? (
+                    <div className="bg-white rounded-xl border border-gray-200 p-3">
+                      <input autoFocus value={inlineTitle} onChange={e => setInlineTitle(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); inlineContentRef.current?.focus() } if (e.key === 'Escape') { setInlineTag(null); setInlineTitle(''); setInlineContent('') } }}
+                        placeholder="제목" className="w-full text-sm focus:outline-none mb-1.5 font-medium" />
+                      <textarea ref={inlineContentRef} value={inlineContent} onChange={e => setInlineContent(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleInlineSave(tag) }}
+                        placeholder="내용 (선택, Ctrl+Enter 저장)" rows={2}
+                        className="w-full text-xs focus:outline-none resize-none text-gray-500 leading-relaxed" />
+                      <div className="flex gap-1 justify-end mt-1.5">
+                        <button onClick={() => { setInlineTag(null); setInlineTitle(''); setInlineContent('') }} className="text-xs text-gray-400 px-2 py-1">취소</button>
+                        <button onClick={() => handleInlineSave(tag)} className="text-xs bg-gray-900 text-white px-2 py-1 rounded-lg">저장</button>
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  <button onClick={() => setInlineTag(tag)}
-                    className="w-full text-left text-xs text-gray-300 hover:text-gray-500 py-1.5 px-1 transition-colors">
-                    + 메모 추가
-                  </button>
-                )}
+                  ) : (
+                    <button onClick={() => setInlineTag(tag)}
+                      className="w-full text-left text-xs text-gray-300 hover:text-gray-500 py-1.5 px-1 transition-colors">
+                      + 메모 추가
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           )

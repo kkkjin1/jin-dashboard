@@ -373,8 +373,8 @@ export default function OneOnOnePage() {
   }, [memberStats])
 
   function daysBadgeClass(daysSince: number | null): string {
-    if (daysSince === null || daysSince >= 30) return 'bg-amber-100 text-[#F4A35A]'
-    if (daysSince >= 14) return 'bg-orange-50 text-orange-500'
+    if (daysSince === null || daysSince >= 30) return 'bg-red-50 text-red-500'
+    if (daysSince >= 14) return 'bg-amber-50 text-amber-600'
     return 'bg-[#ECFDF5] text-[#10B981]'
   }
 
@@ -483,27 +483,27 @@ export default function OneOnOnePage() {
           {/* RIGHT: alert panel */}
           <div className="flex-[40] min-w-0 flex flex-col gap-4">
             {urgentStat ? (
-              <div className="bg-orange-50 rounded-xl px-5 py-4">
-                <p className="text-xs font-semibold text-[#F4A35A] mb-3">30일 미진행 긴급</p>
+              <div className="bg-red-50 rounded-xl px-5 py-4">
+                <p className="text-xs font-semibold text-red-500 mb-3">30일 미진행 긴급</p>
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <p className="text-lg font-bold text-gray-900">{urgentStat.member.name}</p>
                     <p className="text-xs text-gray-500 mt-0.5">{urgentStat.member.part}</p>
-                    <p className="text-sm text-[#F4A35A] mt-2">
+                    <p className="text-sm text-red-500 mt-2">
                       마지막 1on1:{' '}
                       {urgentStat.daysSince === null ? '기록 없음' : `${urgentStat.daysSince}일 전`}
                     </p>
                   </div>
                   <button
                     onClick={() => createSession(urgentStat.member.id)}
-                    className="flex-shrink-0 text-xs bg-[#F4A35A] text-white px-3 py-1.5 rounded-lg hover:bg-[#e08f48] transition-colors whitespace-nowrap">
+                    className="flex-shrink-0 text-xs bg-gray-900 text-white px-3 py-1.5 rounded-lg hover:bg-gray-800 transition-colors whitespace-nowrap">
                     + 바로 진행
                   </button>
                 </div>
               </div>
             ) : (
-              <div className="bg-white rounded-xl border-2 border-green-300 px-5 py-4">
-                <p className="text-sm font-semibold text-green-600">✓ 이번 달 모두 진행됨</p>
+              <div className="bg-emerald-50 rounded-xl border border-emerald-200 px-5 py-4">
+                <p className="text-sm font-semibold text-emerald-600">✓ 이번 달 모두 진행됨</p>
               </div>
             )}
 

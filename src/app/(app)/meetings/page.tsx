@@ -9,6 +9,14 @@ import { ko } from 'date-fns/locale'
 import type { Meeting } from '@/types'
 
 const CATEGORIES = ['전체', '코어', '비즈', '경영진', '본부장', '타팀'] as const
+const KANBAN_COL_STYLE: Record<string, { header: string; bg: string }> = {
+  '코어':   { header: 'bg-emerald-50 border-emerald-200 text-emerald-700', bg: 'bg-emerald-50/40 border-emerald-100' },
+  '비즈':   { header: 'bg-amber-50 border-amber-200 text-amber-700',       bg: 'bg-amber-50/40 border-amber-100' },
+  '경영진': { header: 'bg-slate-100 border-slate-200 text-slate-600',      bg: 'bg-slate-50/60 border-slate-100' },
+  '본부장': { header: 'bg-blue-50 border-blue-200 text-blue-700',          bg: 'bg-blue-50/40 border-blue-100' },
+  '타팀':   { header: 'bg-gray-100 border-gray-200 text-gray-600',         bg: 'bg-gray-50 border-gray-200' },
+  '기타':   { header: 'bg-white border-gray-200 text-gray-500',            bg: 'bg-white border-gray-100' },
+}
 const CATEGORY_COLORS: Record<string, string> = {
   '코어': 'bg-[#ECFDF5] text-[#10B981] border-[#10B981]/20',
   '비즈': 'bg-amber-50 text-[#F4A35A] border-[#F4A35A]/20',
@@ -255,10 +263,10 @@ export default function MeetingsPage() {
               return Array.from(map.entries()).sort(([a], [b]) => b.localeCompare(a))
             })()
             return (
-              <div key={cat} className="min-w-0">
+              <div key={cat} className={`min-w-0 rounded-xl border p-3 ${KANBAN_COL_STYLE[cat]?.bg ?? 'bg-white border-gray-100'}`}>
                 {/* 컬럼 헤더 — A 스타일 버튼형 */}
-                <div className="flex items-center justify-between py-2.5 px-3 rounded-xl border border-gray-200 bg-white mb-3">
-                  <span className="text-sm font-semibold text-gray-700">{cat}</span>
+                <div className={`flex items-center justify-between py-2.5 px-3 rounded-xl border mb-3 ${KANBAN_COL_STYLE[cat]?.header ?? 'bg-white border-gray-200 text-gray-700'}`}>
+                  <span className="text-sm font-semibold">{cat}</span>
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs text-gray-400">{colMeetings.length}</span>
                     <button
