@@ -270,11 +270,12 @@ export default function LearningPage() {
               const colItems = activeMf ? allColItems.filter(r => r.media_type === activeMf) : allColItems
               return (
                 <div key={tag}>
-                  <div className="mb-3 px-1">
+                  {/* 컬럼 헤더 — A 스타일 버튼형 */}
+                  <div className="py-2.5 px-3 rounded-xl border border-gray-200 bg-white mb-2">
                     <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-sm font-semibold text-gray-600">{tag}</h3>
-                      <div className="flex items-center gap-1">
-                        <span className="text-xs text-gray-400">{allColItems.length}건</span>
+                      <span className="text-sm font-semibold text-gray-700">{tag}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs text-gray-400">{allColItems.length}</span>
                         <button
                           onClick={() => setAddingInCol(addingInCol === tag ? null : tag)}
                           className="w-5 h-5 flex items-center justify-center text-gray-300 hover:text-[#5DBD97] hover:bg-[#EBF7F2] rounded transition-colors text-sm leading-none">
@@ -286,8 +287,8 @@ export default function LearningPage() {
                       {MEDIA_TYPES.map(mt => (
                         <button key={mt}
                           onClick={() => setColMediaFilter(prev => ({ ...prev, [tag]: prev[tag] === mt ? null : mt }))}
-                          className={`text-[10px] px-1.5 py-0.5 rounded-full transition-colors ${
-                            activeMf === mt ? 'bg-[#5DBD97] text-white' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+                          className={`text-xs px-2 py-0.5 rounded-lg border transition-colors ${
+                            activeMf === mt ? 'bg-[#5DBD97] text-white border-[#5DBD97]' : 'border-gray-200 text-gray-400 bg-gray-50 hover:border-gray-300'
                           }`}>
                           {MEDIA_ICONS[mt]}
                         </button>

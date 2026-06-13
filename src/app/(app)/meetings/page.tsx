@@ -33,6 +33,7 @@ export default function MeetingsPage() {
   const [viewMode, setViewMode] = useState<'list' | 'kanban'>('kanban')
   const [addingInColMeeting, setAddingInColMeeting] = useState<string | null>(null)
   const [newColTitle, setNewColTitle] = useState('')
+  const [collapsedColMonths, setCollapsedColMonths] = useState<Set<string>>(new Set())
   const supabase = createClient()
   const router = useRouter()
 
@@ -70,6 +71,10 @@ export default function MeetingsPage() {
 
   function toggleExpand(id: string) {
     setExpandedMeetingIds(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s })
+  }
+
+  function toggleColMonth(key: string) {
+    setCollapsedColMonths(prev => { const s = new Set(prev); s.has(key) ? s.delete(key) : s.add(key); return s })
   }
 
   async function handleColAdd(cat: string) {
@@ -239,12 +244,23 @@ export default function MeetingsPage() {
         <div className="grid grid-cols-6 gap-3 pb-4">
           {kanbanCols.map(cat => {
             const colMeetings = kanbanGroups[cat]
+            // 월별 그룹핑
+            const monthGroups = (() => {
+              const map = new Map<string, typeof colMeetings>()
+              colMeetings.forEach(m => {
+                const ym = m.meeting_date ? m.meeting_date.slice(0, 7) : '날짜없음'
+                if (!map.has(ym)) map.set(ym, [])
+                map.get(ym)!.push(m)
+              })
+              return Array.from(map.entries()).sort(([a], [b]) => b.localeCompare(a))
+            })()
             return (
               <div key={cat} className="min-w-0">
-                <div className="flex items-center justify-between mb-3 px-1">
-                  <h3 className="text-sm font-semibold text-gray-600">{cat}</h3>
-                  <div className="flex items-center gap-1">
-                    <span className="text-xs text-gray-400">{colMeetings.length}건</span>
+                {/* 컬럼 헤더 — A 스타일 버튼형 */}
+                <div className="flex items-center justify-between py-2.5 px-3 rounded-xl border border-gray-200 bg-white mb-3">
+                  <span className="text-sm font-semibold text-gray-700">{cat}</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-gray-400">{colMeetings.length}</span>
                     <button
                       onClick={() => setAddingInColMeeting(addingInColMeeting === cat ? null : cat)}
                       className="w-5 h-5 flex items-center justify-center text-gray-300 hover:text-[#5DBD97] hover:bg-[#EBF7F2] rounded transition-colors text-sm leading-none">
@@ -252,9 +268,9 @@ export default function MeetingsPage() {
                     </button>
                   </div>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1">
                   {addingInColMeeting === cat && (
-                    <div className="bg-white rounded-xl border border-[#5DBD97]/40 px-3 py-2.5 shadow-sm">
+                    <div className="bg-white rounded-xl border border-[#5DBD97]/40 px-3 py-2.5 shadow-sm mb-2">
                       <input autoFocus value={newColTitle} onChange={e => setNewColTitle(e.target.value)}
                         onKeyDown={e => { if (e.key === 'Enter') handleColAdd(cat); if (e.key === 'Escape') { setAddingInColMeeting(null); setNewColTitle('') } }}
                         onBlur={() => { if (!newColTitle.trim()) { setAddingInColMeeting(null); setNewColTitle('') } }}
@@ -265,21 +281,43 @@ export default function MeetingsPage() {
                   {colMeetings.length === 0 && addingInColMeeting !== cat ? (
                     <p className="text-xs text-gray-300 text-center py-8 bg-gray-50/60 rounded-xl border border-dashed border-gray-100">없음</p>
                   ) : (
-                    colMeetings.map(meeting => (
-                      <Link key={meeting.id} href={`/meetings/${meeting.id}`} className="block">
-                        <div className="bg-white rounded-xl border border-gray-200 hover:border-[#5DBD97]/40 hover:shadow-sm px-4 py-4 transition-all">
-                          <p className="text-sm font-medium text-gray-800 line-clamp-2 mb-2">{meeting.title}</p>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            {meeting.meeting_date && (
-                              <span className="text-xs text-gray-400">{format(parseISO(meeting.meeting_date), 'yyyy.M.d', { locale: ko })}</span>
-                            )}
-                            {meeting.notes.length > 0 && (
-                              <span className="text-xs text-gray-300 ml-auto">{meeting.notes.length}개 노트</span>
-                            )}
-                          </div>
+                    monthGroups.map(([ym, list]) => {
+                      const monthKey = `${cat}-${ym}`
+                      const isCollapsed = collapsedColMonths.has(monthKey)
+                      const label = ym === '날짜없음' ? '날짜 없음' : (() => {
+                        const [y, m] = ym.split('-')
+                        return `${y}.${parseInt(m)}`
+                      })()
+                      return (
+                        <div key={ym} className="mb-1">
+                          <button onClick={() => toggleColMonth(monthKey)}
+                            className="flex items-center gap-1 text-[11px] text-gray-400 hover:text-gray-600 w-full py-1 px-1 rounded transition-colors">
+                            <span className="text-[9px]">{isCollapsed ? '▶' : '▼'}</span>
+                            <span>{label}</span>
+                            <span className="text-gray-300">({list.length})</span>
+                          </button>
+                          {!isCollapsed && (
+                            <div className="space-y-1.5 mt-1">
+                              {list.map(meeting => (
+                                <Link key={meeting.id} href={`/meetings/${meeting.id}`} className="block">
+                                  <div className="bg-white rounded-xl border border-gray-200 hover:border-[#5DBD97]/40 hover:shadow-sm px-3 py-3 transition-all">
+                                    <p className="text-sm font-medium text-gray-800 line-clamp-2 mb-1.5">{meeting.title}</p>
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      {meeting.meeting_date && (
+                                        <span className="text-xs text-gray-400">{format(parseISO(meeting.meeting_date), 'M.d', { locale: ko })}</span>
+                                      )}
+                                      {meeting.notes.length > 0 && (
+                                        <span className="text-xs text-gray-300 ml-auto">{meeting.notes.length}개 노트</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </Link>
+                              ))}
+                            </div>
+                          )}
                         </div>
-                      </Link>
-                    ))
+                      )
+                    })
                   )}
                 </div>
               </div>
