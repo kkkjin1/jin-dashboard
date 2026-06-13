@@ -42,7 +42,7 @@ export default function OneOnOneTemplatePage() {
           <h1 className="text-xl font-bold text-gray-900">1on1 템플릿</h1>
         </div>
         <button onClick={handleSave} disabled={saving}
-          className="text-sm bg-[#6366F1] text-white px-4 py-2 rounded-lg hover:bg-[#4F46E5] disabled:opacity-50 transition-colors">
+          className="text-sm bg-gray-900 text-white px-4 py-2 rounded-lg hover:bg-gray-800 disabled:opacity-50 transition-colors">
           {saved ? '저장됨!' : saving ? '저장 중...' : '저장'}
         </button>
       </div>

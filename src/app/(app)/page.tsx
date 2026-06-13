@@ -214,7 +214,7 @@ export default function HomePage() {
                     className="text-xs text-gray-400 w-full focus:outline-none bg-transparent" />
                   <div className="flex gap-1 mt-2 justify-end">
                     <button onClick={() => setEditingShortcutId(null)} className="text-xs text-gray-400 px-2 py-1">취소</button>
-                    <button onClick={saveEditShortcut} className="text-xs bg-[#6366F1] text-white px-2 py-1 rounded-lg">저장</button>
+                    <button onClick={saveEditShortcut} className="text-xs bg-gray-900 text-white px-2 py-1 rounded-lg">저장</button>
                   </div>
                 </div>
               )
@@ -252,7 +252,7 @@ export default function HomePage() {
                 className="text-xs text-gray-400 w-full focus:outline-none bg-transparent" />
               <div className="flex gap-1 mt-2 justify-end">
                 <button onClick={() => setShowAddShortcut(false)} className="text-xs text-gray-400 px-2 py-1">취소</button>
-                <button onClick={addShortcut} className="text-xs bg-[#6366F1] text-white px-2 py-1 rounded-lg">추가</button>
+                <button onClick={addShortcut} className="text-xs bg-gray-900 text-white px-2 py-1 rounded-lg">추가</button>
               </div>
             </div>
           ) : (

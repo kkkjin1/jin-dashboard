@@ -239,7 +239,7 @@ export default function QuickMemoPanel() {
           <div className="flex justify-between items-center mt-3">
             <span className="text-xs text-gray-300">ESC · Ctrl+2 메모 · Ctrl+1 업무추가</span>
             <button onClick={handleSave} disabled={!title.trim() || saving}
-              className="text-xs bg-[#6366F1] text-white px-4 py-2 rounded-lg hover:bg-[#4F46E5] disabled:opacity-30 transition-colors">
+              className="text-xs bg-gray-900 text-white px-4 py-2 rounded-lg hover:bg-gray-800 disabled:opacity-30 transition-colors">
               {savedMsg || (saving ? '저장 중...' : (meetingDate ? '일정 등록' : '저장'))}
             </button>
           </div>
@@ -248,7 +248,7 @@ export default function QuickMemoPanel() {
 
       {!open && (
         <button onClick={() => setOpen(true)}
-          className="fixed bottom-6 right-6 z-50 w-12 h-12 bg-[#6366F1] text-white rounded-full shadow-lg hover:bg-[#4F46E5] transition-all hover:scale-110 flex items-center justify-center text-xl font-light"
+          className="fixed bottom-6 right-6 z-50 w-12 h-12 bg-[#10B981] text-white rounded-full shadow-lg hover:bg-[#059669] transition-all hover:scale-110 flex items-center justify-center text-xl font-light"
           title="빠른 메모 (Ctrl+2)">
           +
         </button>

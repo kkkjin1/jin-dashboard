@@ -116,7 +116,7 @@ export default function MemberOneOnOnePage() {
           </div>
         </div>
         <button onClick={() => setShowModal(true)}
-          className="text-sm bg-[#5DBD97] text-white px-4 py-2 rounded-lg hover:bg-[#4aab84] transition-colors">
+          className="text-sm bg-gray-900 text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors">
           + 새 1on1
         </button>
       </div>
@@ -138,7 +138,7 @@ export default function MemberOneOnOnePage() {
                 <div
                   key={session.id}
                   onClick={() => setSelectedSessionId(session.id)}
-                  className={`rounded-xl border px-4 py-3 cursor-pointer transition-colors ${isSelected ? 'bg-[#5DBD97] border-[#5DBD97] text-white' : 'bg-white border-gray-100 hover:border-gray-200'}`}>
+                  className={`rounded-xl border px-4 py-3 cursor-pointer transition-colors ${isSelected ? 'bg-[#10B981] border-[#10B981] text-white' : 'bg-white border-gray-100 hover:border-gray-200'}`}>
                   <p className={`text-sm font-medium truncate ${isSelected ? 'text-white' : 'text-gray-800'}`}>
                     {session.title || dateLabel}
                   </p>

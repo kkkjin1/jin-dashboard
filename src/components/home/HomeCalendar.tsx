@@ -71,10 +71,10 @@ export default function HomeCalendar({ tasks, meetings }: Props) {
           return (
             <div
               key={day.toISOString()}
-              className={`min-h-16 p-1 rounded-lg ${isToday ? 'ring-1 ring-[#6366F1]/60 ring-inset' : 'hover:bg-gray-50'} transition-colors`}
+              className={`min-h-16 p-1 rounded-lg ${isToday ? 'ring-1 ring-[#10B981]/60 ring-inset' : 'hover:bg-gray-50'} transition-colors`}
             >
               <p className={`text-xs text-center mb-1 w-6 h-6 flex items-center justify-center rounded-full mx-auto ${
-                isToday ? 'bg-[#6366F1] text-white font-bold' : 'text-gray-600'
+                isToday ? 'bg-[#10B981] text-white font-bold' : 'text-gray-600'
               }`}>
                 {format(day, 'd')}
               </p>
@@ -86,7 +86,7 @@ export default function HomeCalendar({ tasks, meetings }: Props) {
                     className={`w-full text-left rounded px-1 py-0.5 truncate text-xs leading-tight transition-opacity hover:opacity-80 ${
                       ev.type === 'mid' ? 'bg-amber-100 text-amber-700' :
                       ev.type === 'end' ? 'bg-[#1C2B3A]/10 text-[#1C2B3A]' :
-                      'bg-[#EEF2FF] text-[#6366F1]'
+                      'bg-[#ECFDF5] text-[#10B981]'
                     }`}
                     title={ev.type === 'meeting' ? ev.meeting.title : `${ev.type === 'mid' ? '중간공유' : '최종보고'} | ${ev.task.title}`}
                   >
@@ -114,7 +114,7 @@ export default function HomeCalendar({ tasks, meetings }: Props) {
           <span className="text-xs text-gray-400">최종보고</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="w-3 h-2.5 bg-[#EEF2FF] rounded border border-[#6366F1]/30" />
+          <div className="w-3 h-2.5 bg-[#ECFDF5] rounded border border-[#10B981]/30" />
           <span className="text-xs text-gray-400">회의</span>
         </div>
       </div>

@@ -99,7 +99,7 @@ export default function GlobalSearch() {
                   {matchedMeetings.map(m => (
                     <Link key={m.id} href={`/meetings/${m.id}`} onClick={() => { setOpen(false); setQuery('') }}>
                       <div className="py-2 px-2 hover:bg-gray-50 rounded-lg flex items-center gap-2">
-                        <span className="text-xs text-purple-400">💬</span>
+                        <span className="text-xs text-emerald-400">💬</span>
                         <span className="text-sm text-gray-800 truncate">{m.title || '제목 없음'}</span>
                       </div>
                     </Link>

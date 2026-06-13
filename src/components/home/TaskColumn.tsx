@@ -11,7 +11,7 @@ const STATUS_COLORS: Record<string, string> = {
 }
 
 const PART_COLORS: Record<string, string> = {
-  '코어': 'text-indigo-500',
+  '코어': 'text-emerald-500',
   '비즈': 'text-emerald-500',
 }
 
@@ -48,7 +48,7 @@ interface Props {
 }
 
 function MemberAvatar({ name }: { name: string }) {
-  const colors = ['bg-red-400', 'bg-blue-400', 'bg-green-400', 'bg-purple-400', 'bg-amber-400', 'bg-pink-400', 'bg-indigo-400', 'bg-teal-400']
+  const colors = ['bg-red-400', 'bg-blue-400', 'bg-green-400', 'bg-emerald-400', 'bg-amber-400', 'bg-pink-400', 'bg-teal-400', 'bg-slate-400']
   const color = colors[name.charCodeAt(0) % colors.length]
   return (
     <div className={`w-7 h-7 rounded-full ${color} flex items-center justify-center text-white text-xs font-medium flex-shrink-0`}>
