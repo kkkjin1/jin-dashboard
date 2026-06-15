@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { MemoTag } from '@/types'
 
@@ -19,9 +18,9 @@ export default function MobileMemoSheet() {
   const [content, setContent] = useState('')
   const [tag, setTag] = useState<MemoTag>('업무관련')
   const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
   const titleRef = useRef<HTMLInputElement>(null)
   const supabase = createClient()
-  const router = useRouter()
 
   useEffect(() => {
     // 모바일(768px 미만)에서만 표시
@@ -34,17 +33,12 @@ export default function MobileMemoSheet() {
   async function handleSave() {
     if (!title.trim()) { titleRef.current?.focus(); return }
     setSaving(true)
-    const { data } = await supabase
+    await supabase
       .from('quick_memos')
       .insert({ title: title.trim(), content: content.trim(), tag })
-      .select().single()
     setSaving(false)
-    if (data) {
-      // 저장 후 메모 페이지로 이동하며 해당 메모 열기
-      localStorage.setItem('memos_open_id', data.id)
-      setVisible(false)
-      router.push('/memos')
-    }
+    setSaved(true)
+    setTimeout(() => setVisible(false), 800)
   }
 
   function handleClose() {
@@ -110,9 +104,11 @@ export default function MobileMemoSheet() {
           {/* 저장 버튼 */}
           <button
             onClick={handleSave}
-            disabled={saving || !title.trim()}
-            className="w-full py-3.5 bg-[#1C2B3A] text-white text-sm font-semibold rounded-2xl disabled:opacity-40 transition-opacity active:scale-[0.98]">
-            {saving ? '저장 중...' : '저장하기'}
+            disabled={saving || saved || !title.trim()}
+            className={`w-full py-3.5 text-white text-sm font-semibold rounded-2xl transition-all active:scale-[0.98] ${
+              saved ? 'bg-[#10B981]' : 'bg-[#1C2B3A] disabled:opacity-40'
+            }`}>
+            {saved ? '✓ 저장됐어요' : saving ? '저장 중...' : '저장하기'}
           </button>
         </div>
       </div>

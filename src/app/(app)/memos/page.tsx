@@ -149,7 +149,11 @@ export default function MemosPage() {
     const { data } = await supabase.from('quick_memos')
       .insert({ title: inlineTitle.trim(), content: inlineContent.trim(), tag })
       .select().single()
-    if (data) setMemos(prev => [data as QuickMemo, ...prev])
+    if (data) {
+      const newMemo = data as QuickMemo
+      setMemos(prev => [newMemo, ...prev])
+      setEditing(newMemo)
+    }
     setInlineTag(null); setInlineTitle(''); setInlineContent('')
   }
 
