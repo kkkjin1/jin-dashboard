@@ -182,13 +182,13 @@ export default function MemosPage() {
   const notices = memos.filter(m => m.tag === '공지')
 
   if (loading) return (
-    <div className="p-8">
+    <div className="p-4 md:p-8">
       <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="bg-white rounded-xl border border-gray-100 h-20 animate-pulse" />)}</div>
     </div>
   )
 
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-8">
       {editing && <EditModal memo={editing} onSave={saveEdit} onClose={() => setEditing(null)} />}
 
       <div className="flex items-center justify-between mb-5">
@@ -251,7 +251,7 @@ export default function MemosPage() {
       </div>
 
       {/* 3-column 칸반 */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {NON_NOTICE_TAGS.map(tag => {
           const colMemos = memos.filter(m => m.tag === tag)
           const isOver = dragOverTag === tag

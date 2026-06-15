@@ -101,14 +101,14 @@ export default function CompletedPage() {
   const retroCount  = filtered.filter(t => t.retrospective?.good || t.retrospective?.bad || t.retrospective?.improvement).length
 
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-8">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-bold text-gray-900">완료 성과</h1>
         <span className="text-sm text-gray-400">총 {filtered.length}건</span>
       </div>
 
       {/* 탭 바 */}
-      <div className="flex items-center gap-0.5 bg-gray-100 rounded-xl p-1 mb-6 w-fit">
+      <div className="flex items-center gap-0.5 bg-gray-100 rounded-xl p-1 mb-6 overflow-x-auto scrollbar-hide w-fit max-w-full">
         {QUICK_PERIODS.map(p => (
           <button key={p} onClick={() => selectQuick(p)}
             className={`text-sm px-4 py-2 rounded-lg font-medium transition-all ${
@@ -137,7 +137,7 @@ export default function CompletedPage() {
       </div>
 
       {/* 4 stat cards */}
-      <div className="grid grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
           <p className="text-xs text-gray-400 font-medium mb-2">총 완료</p>
           <p className="text-4xl font-bold text-gray-800 mb-1">{filtered.length}</p>

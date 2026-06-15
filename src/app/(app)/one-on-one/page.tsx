@@ -383,7 +383,7 @@ export default function OneOnOnePage() {
   }
 
   return (
-    <div className="p-8 w-full">
+    <div className="p-4 md:p-8 w-full">
       {/* 헤더: 제목 + 탭 + 템플릿 관리 */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
@@ -420,7 +420,7 @@ export default function OneOnOnePage() {
 
       {/* 팀원 1on1 뷰 */}
       {view === 'team' && (
-        <div className="flex gap-6 w-full">
+        <div className="flex flex-col md:flex-row gap-6 w-full">
           {/* LEFT: grouped member list */}
           <div className="flex-[60] min-w-0">
             {grouped.map(({ label, list }) => (
