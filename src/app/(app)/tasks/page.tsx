@@ -212,7 +212,7 @@ export default function TasksPage() {
   }
 
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-8">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-bold text-gray-900">업무 목록</h1>
         <div className="flex items-center gap-2">
@@ -298,7 +298,7 @@ export default function TasksPage() {
 
       {/* 월별 칸반 */}
       {viewMode === 'monthly' && (
-        <div className="flex gap-4">
+        <div className="flex flex-col md:flex-row gap-4">
           {STATUSES.map(status => {
             const colTasks = monthlyTasks.filter(t => t.status === status)
             return (
@@ -338,7 +338,7 @@ export default function TasksPage() {
 
       {/* 파트별 3-column */}
       {viewMode === 'parts' && (
-        <div className="grid grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           {PARTS.map(part => {
             const partTasks = filteredTasks.filter(t => t.part === part)
             const allPartIds = partTasks.map(t => t.id)

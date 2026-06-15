@@ -49,6 +49,7 @@
 }
 
 :root {
+  color-scheme: light;
   --background: oklch(1 0 0);
   --brand: #10B981;
   --brand-light: #ECFDF5;
