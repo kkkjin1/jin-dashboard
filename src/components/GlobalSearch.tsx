@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import type { Task, Meeting } from '@/types'
+import type { Task, Meeting, QuickMemo } from '@/types'
 
 const STATUS_COLORS: Record<string, string> = {
   '진행필요': 'bg-gray-100 text-gray-500',
@@ -17,6 +17,7 @@ export default function GlobalSearch() {
   const [query, setQuery] = useState('')
   const [tasks, setTasks] = useState<Task[]>([])
   const [meetings, setMeetings] = useState<Pick<Meeting, 'id' | 'title'>[]>([])
+  const [memos, setMemos] = useState<Pick<QuickMemo, 'id' | 'title' | 'tag'>[]>([])
   const [loaded, setLoaded] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
@@ -41,9 +42,11 @@ export default function GlobalSearch() {
         Promise.all([
           supabase.from('tasks').select('id, title, status, part, type').order('created_at', { ascending: false }),
           supabase.from('meetings').select('id, title').order('created_at', { ascending: false }),
-        ]).then(([{ data: t }, { data: m }]) => {
+          supabase.from('quick_memos').select('id, title, tag').order('created_at', { ascending: false }),
+        ]).then(([{ data: t }, { data: m }, { data: memo }]) => {
           setTasks((t ?? []) as Task[])
           setMeetings((m ?? []) as Pick<Meeting, 'id' | 'title'>[])
+          setMemos((memo ?? []) as Pick<QuickMemo, 'id' | 'title' | 'tag'>[])
           setLoaded(true)
         })
       }
@@ -51,9 +54,10 @@ export default function GlobalSearch() {
   }, [open])
 
   const q = query.trim().toLowerCase()
-  const matchedTasks = q ? tasks.filter(t => t.title?.toLowerCase().includes(q)).slice(0, 6) : []
+  const matchedTasks = q ? tasks.filter(t => t.title?.toLowerCase().includes(q)).slice(0, 5) : []
   const matchedMeetings = q ? meetings.filter(m => m.title?.toLowerCase().includes(q)).slice(0, 4) : []
-  const hasResults = matchedTasks.length > 0 || matchedMeetings.length > 0
+  const matchedMemos = q ? memos.filter(m => m.title?.toLowerCase().includes(q)).slice(0, 4) : []
+  const hasResults = matchedTasks.length > 0 || matchedMeetings.length > 0 || matchedMemos.length > 0
 
   if (!open) return null
 
@@ -67,7 +71,7 @@ export default function GlobalSearch() {
             ref={inputRef}
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder="업무 · 회의록 검색..."
+            placeholder="업무 · 회의록 · 메모 검색..."
             className="flex-1 text-sm text-gray-700 focus:outline-none bg-transparent"
           />
           <kbd className="text-[10px] text-gray-300 bg-gray-100 px-2 py-0.5 rounded">ESC</kbd>
@@ -101,6 +105,21 @@ export default function GlobalSearch() {
                       <div className="py-2 px-2 hover:bg-gray-50 rounded-lg flex items-center gap-2">
                         <span className="text-xs text-emerald-400">💬</span>
                         <span className="text-sm text-gray-800 truncate">{m.title || '제목 없음'}</span>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+              {matchedMemos.length > 0 && (
+                <div className="px-3 py-2">
+                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">메모</p>
+                  {matchedMemos.map(m => (
+                    <Link key={m.id} href="/memos"
+                      onClick={() => { localStorage.setItem('memos_open_id', m.id); setOpen(false); setQuery('') }}>
+                      <div className="py-2 px-2 hover:bg-gray-50 rounded-lg flex items-center gap-2">
+                        <span className="text-xs text-gray-400">📝</span>
+                        <span className="text-sm text-gray-800 truncate">{m.title || '제목 없음'}</span>
+                        <span className="text-[10px] text-gray-300 ml-auto flex-shrink-0">{m.tag}</span>
                       </div>
                     </Link>
                   ))}
