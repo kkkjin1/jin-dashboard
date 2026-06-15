@@ -51,6 +51,8 @@ export default function QuickMemoPanel() {
     moved: boolean
   } | null>(null)
   const latestPos = useRef<BtnPos>({ right: 16, bottom: 80 })
+  const wasMovedRef = useRef(false)
+  const justOpenedRef = useRef(false)
 
   // 버튼 위치 초기화 (localStorage → 모바일/데스크톱 기본값)
   useEffect(() => {
@@ -71,6 +73,7 @@ export default function QuickMemoPanel() {
 
   function handlePointerDown(e: React.PointerEvent<HTMLButtonElement>) {
     btnRef.current?.setPointerCapture(e.pointerId)
+    wasMovedRef.current = false
     dragRef.current = {
       startX: e.clientX,
       startY: e.clientY,
@@ -86,6 +89,7 @@ export default function QuickMemoPanel() {
     const dy = e.clientY - dragRef.current.startY
     if (!dragRef.current.moved && Math.abs(dx) < 8 && Math.abs(dy) < 8) return
     dragRef.current.moved = true
+    wasMovedRef.current = true
     const newRight = Math.max(8, Math.min(window.innerWidth - 56, dragRef.current.startRight - dx))
     const newBottom = Math.max(8, Math.min(window.innerHeight - 56, dragRef.current.startBottom - dy))
     const newPos = { right: newRight, bottom: newBottom }
@@ -97,10 +101,15 @@ export default function QuickMemoPanel() {
     if (!dragRef.current) return
     if (dragRef.current.moved) {
       localStorage.setItem('quick_memo_btn_pos', JSON.stringify(latestPos.current))
-    } else {
-      setOpen(true)
     }
     dragRef.current = null
+  }
+
+  function handleBtnClick() {
+    if (wasMovedRef.current) return
+    justOpenedRef.current = true
+    setOpen(true)
+    setTimeout(() => { justOpenedRef.current = false }, 150)
   }
 
   // draft 복원
@@ -244,7 +253,7 @@ export default function QuickMemoPanel() {
 
   return (
     <>
-      {open && <div className="fixed inset-0 z-[62]" onClick={() => setOpen(false)} />}
+      {open && <div className="fixed inset-0 z-[62]" onClick={() => { if (!justOpenedRef.current) setOpen(false) }} />}
 
       {/* 빠른메모 패널 — 모바일에서 bottom-20(하단탭 위), 데스크톱은 bottom-0 */}
       <div
@@ -326,10 +335,10 @@ export default function QuickMemoPanel() {
           type="button"
           ref={btnRef}
           style={{ right: btnPos.right, bottom: btnPos.bottom }}
-          onPointerDown={e => { e.preventDefault(); handlePointerDown(e) }}
+          onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
-          onClick={() => { if (!dragRef.current?.moved) setOpen(true) }}
+          onClick={handleBtnClick}
           className="fixed z-[64] w-12 h-12 bg-[#10B981] text-white rounded-full shadow-lg hover:bg-[#059669] transition-colors flex items-center justify-center text-xl font-light touch-none select-none cursor-grab active:cursor-grabbing"
           title="빠른 메모 (Ctrl+2) — 길게 드래그해 위치 이동"
         >
