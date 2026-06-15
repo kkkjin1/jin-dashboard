@@ -99,7 +99,7 @@ export default function Sidebar() {
 
       {/* 모바일 하단 네비게이션 */}
       <nav
-        className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#1C2B3A] border-t border-white/10"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-[60] bg-[#1C2B3A] border-t border-white/10"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         <div className="flex overflow-x-auto scrollbar-hide">

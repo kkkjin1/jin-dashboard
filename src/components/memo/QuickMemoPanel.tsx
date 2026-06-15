@@ -253,7 +253,7 @@ export default function QuickMemoPanel() {
           height: open ? `${panelHeight}px` : undefined,
           right: btnPos?.right ?? 16,
         }}
-        className={`fixed bottom-20 md:bottom-0 z-50 bg-white rounded-t-2xl shadow-2xl border border-gray-200 transition-transform duration-300 overflow-hidden ${open ? 'translate-y-0' : 'translate-y-full'}`}>
+        className={`fixed bottom-0 z-[55] bg-white rounded-t-2xl shadow-2xl border border-gray-200 transition-transform duration-300 overflow-hidden ${open ? 'translate-y-0 pointer-events-auto' : 'translate-y-full pointer-events-none'}`}>
 
         {/* 상단 리사이즈 핸들 (높이 조절) */}
         <div
@@ -273,7 +273,7 @@ export default function QuickMemoPanel() {
           <span className="text-gray-300 text-[8px] leading-none select-none">◤</span>
         </div>
 
-        <div className="p-5 h-full flex flex-col">
+        <div className="p-5 pb-20 md:pb-5 h-full flex flex-col">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-gray-800 text-sm">빠른 메모</h3>
             <button onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-600 text-lg leading-none">×</button>
