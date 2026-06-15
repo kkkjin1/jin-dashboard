@@ -299,7 +299,7 @@ export default function LearningPage() {
                 return result
               })()
               return (
-                <div key={tag}>
+                <div key={tag} className="flex flex-col" style={{ minHeight: 'calc(100vh - 200px)' }}>
                   {/* 컬럼 헤더 */}
                   <div className="py-1.5 px-2 mb-3">
                     <span className={`inline-block text-xs font-semibold px-2.5 py-1 rounded-full ${TAG_STYLE[tag] ?? 'bg-gray-100 text-gray-500'}`}>
@@ -307,7 +307,7 @@ export default function LearningPage() {
                     </span>
                     <span className="ml-2 text-xs text-gray-400">{allColItems.length}</span>
                   </div>
-                  <div className="space-y-1">
+                  <div className="space-y-1 flex-1">
                     {addingInCol === tag && (
                       <div className="bg-white rounded-xl border border-[#10B981]/30 px-3 py-3 shadow-sm mb-2">
                         <input autoFocus value={colAddTitle} onChange={e => setColAddTitle(e.target.value)}
