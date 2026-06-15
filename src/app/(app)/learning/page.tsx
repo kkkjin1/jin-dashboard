@@ -276,7 +276,37 @@ export default function LearningPage() {
           <p className="text-gray-300 text-sm">학습자료가 없습니다</p>
         </div>
       ) : (
-        <div className="overflow-x-auto pb-4">
+        <>
+          {/* 모바일: 태그별 세로 섹션 */}
+          <div className="md:hidden space-y-3 pb-4">
+            {tagCols.map(tag => {
+              const colItems = tagKanbanGroups[tag] ?? []
+              return (
+                <div key={tag} className="bg-white rounded-xl border border-gray-100 p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${TAG_STYLE[tag] ?? 'bg-gray-100 text-gray-500'}`}>{tag}</span>
+                    <span className="text-xs text-gray-400">{colItems.length}</span>
+                  </div>
+                  {colItems.length === 0 ? (
+                    <p className="text-xs text-gray-300 text-center py-3">없음</p>
+                  ) : (
+                    <div className="space-y-1.5">
+                      {colItems.map(r => (
+                        <Link key={r.id} href={`/learning/${r.id}`} className="block">
+                          <div className="bg-gray-50 rounded-lg px-3 py-2.5">
+                            <p className="text-sm font-medium text-gray-800 leading-snug break-words">{r.title}</p>
+                            {r.media_type && <p className="text-xs text-gray-400 mt-0.5">{MEDIA_ICONS[r.media_type]} {r.media_type}</p>}
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+          {/* 데스크톱: 가로 칸반 */}
+          <div className="hidden md:block overflow-x-auto pb-4">
           <div style={{ display: 'grid', gridTemplateColumns: `repeat(${tagCols.length}, 160px)`, gap: '12px' }}>
             {tagCols.map(tag => {
               const allColItems = tagKanbanGroups[tag] ?? []
@@ -369,7 +399,8 @@ export default function LearningPage() {
               )
             })}
           </div>
-        </div>
+          </div>
+        </>
       )}
     </div>
   )
