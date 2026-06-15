@@ -100,7 +100,12 @@ export default function TodayTodoWidget() {
           memos.map(m => (
             <div key={m.id} className="group flex items-start gap-2 py-1.5 px-2 rounded-lg hover:bg-gray-50 transition-colors">
               <span className="text-gray-300 mt-0.5 text-xs flex-shrink-0">◦</span>
-              <span className="text-sm text-gray-700 flex-1 min-w-0 leading-snug">{m.title}</span>
+              <button
+                className="flex-1 min-w-0 text-left"
+                onClick={() => { localStorage.setItem('memos_open_id', m.id); router.push('/memos') }}>
+                <p className="text-sm text-gray-700 leading-snug truncate">{m.title}</p>
+                {m.content && <p className="text-xs text-gray-400 truncate mt-0.5">{m.content}</p>}
+              </button>
               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
                 <button
                   onClick={() => convertToTask(m)}

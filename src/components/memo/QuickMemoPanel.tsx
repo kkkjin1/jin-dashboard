@@ -204,7 +204,7 @@ export default function QuickMemoPanel() {
           <span className="text-gray-300 text-[8px] leading-none select-none">◤</span>
         </div>
 
-        <div className="p-5 h-full overflow-y-auto">
+        <div className="p-5 h-full flex flex-col">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-gray-800 text-sm">빠른 메모</h3>
             <button onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-600 text-lg leading-none">×</button>
@@ -233,8 +233,8 @@ export default function QuickMemoPanel() {
           <SmartTextarea value={content} onChange={setContent}
             onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSave() }}
             placeholder="내용 (선택, Ctrl+Enter 저장)"
-            rows={3}
-            className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-400 resize-none" />
+            className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-400 resize-none flex-1"
+            style={{ minHeight: '80px', resize: 'none' }} />
 
           <div className="flex justify-between items-center mt-3">
             <span className="text-xs text-gray-300">ESC · Ctrl+2 메모 · Ctrl+1 업무추가</span>

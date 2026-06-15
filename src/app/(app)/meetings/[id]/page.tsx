@@ -227,6 +227,16 @@ export default function MeetingDetailPage() {
     setTimeout(() => titleRef.current?.focus(), 100)
   }, [id])
 
+  useEffect(() => {
+    function onEsc(e: KeyboardEvent) {
+      if (e.key === 'Escape') setShowFullscreen(false)
+    }
+    if (showFullscreen) {
+      window.addEventListener('keydown', onEsc)
+      return () => window.removeEventListener('keydown', onEsc)
+    }
+  }, [showFullscreen])
+
   function toggleNote(index: number) {
     setOpenIndexes(prev => {
       const next = new Set(prev)

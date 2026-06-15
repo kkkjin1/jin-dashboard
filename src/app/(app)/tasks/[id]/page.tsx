@@ -135,7 +135,14 @@ function NoteAccordion({ note, isOpen, onToggle, onDelete, onEdit, onEditTitle }
               </div>
             </>
           ) : (
-            <MarkdownContent content={note.content} className="pt-3" />
+            <>
+              <MarkdownContent content={note.content} className="pt-3" />
+              <button
+                onClick={() => { setEditing(true); setEditContent(note.content) }}
+                className="text-xs text-gray-400 hover:text-blue-500 mt-2 transition-colors">
+                ✏ 편집
+              </button>
+            </>
           )}
         </div>
       )}

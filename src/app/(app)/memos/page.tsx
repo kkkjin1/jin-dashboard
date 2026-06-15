@@ -110,7 +110,17 @@ export default function MemosPage() {
 
   useEffect(() => {
     supabase.from('quick_memos').select('*').order('created_at', { ascending: false })
-      .then(({ data }) => { setMemos((data ?? []) as QuickMemo[]); setLoading(false) })
+      .then(({ data }) => {
+        const list = (data ?? []) as QuickMemo[]
+        setMemos(list)
+        setLoading(false)
+        const openId = localStorage.getItem('memos_open_id')
+        if (openId) {
+          localStorage.removeItem('memos_open_id')
+          const target = list.find(m => m.id === openId)
+          if (target) setEditing(target)
+        }
+      })
   }, [])
 
   async function saveEdit(id: string, title: string, content: string, tag: MemoTag) {
