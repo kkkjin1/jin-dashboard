@@ -35,16 +35,22 @@ interface MemoCardProps {
   onDelete: (id: string) => void
   draggable?: boolean
   onDragStart?: () => void
+  selected?: boolean
+  onToggleSelect?: (id: string) => void
 }
 
-function MemoCard({ memo, onEdit, onDelete, draggable: drag, onDragStart }: MemoCardProps) {
+function MemoCard({ memo, onEdit, onDelete, draggable: drag, onDragStart, selected, onToggleSelect }: MemoCardProps) {
   return (
     <div
       draggable={drag}
       onDragStart={onDragStart}
-      className="bg-white rounded-xl border border-gray-100 p-3 group hover:border-gray-200 transition-colors cursor-pointer select-none"
+      className={`bg-white rounded-xl border p-3 group transition-colors cursor-pointer select-none ${selected ? 'border-[#10B981]/40 bg-[#ECFDF5]/20' : 'border-gray-100 hover:border-gray-200'}`}
       onClick={() => onEdit(memo)}>
-      <div className="flex items-start justify-between gap-2">
+      <div className="flex items-start gap-2">
+        <input type="checkbox" checked={selected ?? false}
+          onChange={e => { e.stopPropagation(); onToggleSelect?.(memo.id) }}
+          onClick={e => e.stopPropagation()}
+          className="w-3.5 h-3.5 mt-0.5 rounded accent-gray-700 flex-shrink-0 cursor-pointer" />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-gray-800 mb-0.5 leading-snug">{memo.title}</p>
           {memo.content && <p className="text-xs text-gray-500 whitespace-pre-wrap line-clamp-3">{memo.content}</p>}
@@ -102,6 +108,7 @@ export default function MemosPage() {
   const [editing, setEditing] = useState<QuickMemo | null>(null)
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dragOverTag, setDragOverTag] = useState<MemoTag | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [inlineTag, setInlineTag] = useState<MemoTag | null>(null)
   const [inlineTitle, setInlineTitle] = useState('')
   const [inlineContent, setInlineContent] = useState('')
@@ -145,6 +152,18 @@ export default function MemosPage() {
     setMemos(prev => prev.filter(m => m.id !== id))
   }
 
+  async function deleteSelected() {
+    if (selectedIds.size === 0) return
+    if (!confirm(`선택한 ${selectedIds.size}개 메모를 삭제하시겠습니까?`)) return
+    await supabase.from('quick_memos').delete().in('id', Array.from(selectedIds))
+    setMemos(prev => prev.filter(m => !selectedIds.has(m.id)))
+    setSelectedIds(new Set())
+  }
+
+  function toggleSelect(id: string) {
+    setSelectedIds(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s })
+  }
+
   async function handleDropOnTag(tag: MemoTag) {
     if (!draggingId) return
     const memo = memos.find(m => m.id === draggingId)
@@ -169,7 +188,15 @@ export default function MemosPage() {
 
       <div className="flex items-center justify-between mb-5">
         <h1 className="text-xl font-bold text-gray-900">메모</h1>
-        <span className="text-sm text-gray-400">총 {memos.length}개</span>
+        <div className="flex items-center gap-2">
+          {selectedIds.size > 0 && (
+            <button onClick={deleteSelected}
+              className="text-sm bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors">
+              {selectedIds.size}개 삭제
+            </button>
+          )}
+          <span className="text-sm text-gray-400">총 {memos.length}개</span>
+        </div>
       </div>
 
       {/* 공지 */}
@@ -187,7 +214,8 @@ export default function MemosPage() {
             {notices.map(memo => (
               <div key={memo.id} className="flex-shrink-0 w-52">
                 <MemoCard memo={memo} onEdit={setEditing} onDelete={deleteMemo}
-                  draggable onDragStart={() => setDraggingId(memo.id)} />
+                  draggable onDragStart={() => setDraggingId(memo.id)}
+                  selected={selectedIds.has(memo.id)} onToggleSelect={toggleSelect} />
               </div>
             ))}
             {inlineTag === '공지' ? (
@@ -239,7 +267,8 @@ export default function MemosPage() {
                   )}
                   {colMemos.map(memo => (
                     <MemoCard key={memo.id} memo={memo} onEdit={setEditing} onDelete={deleteMemo}
-                      draggable onDragStart={() => setDraggingId(memo.id)} />
+                      draggable onDragStart={() => setDraggingId(memo.id)}
+                      selected={selectedIds.has(memo.id)} onToggleSelect={toggleSelect} />
                   ))}
                   {inlineTag === tag ? (
                     <div className="bg-white rounded-xl border border-gray-200 p-3">

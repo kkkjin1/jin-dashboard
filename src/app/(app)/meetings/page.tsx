@@ -307,19 +307,24 @@ export default function MeetingsPage() {
                           {!isCollapsed && (
                             <div className="space-y-1.5 mt-1">
                               {list.map(meeting => (
-                                <Link key={meeting.id} href={`/meetings/${meeting.id}`} className="block">
-                                  <div className="bg-white rounded-xl border border-gray-200 hover:border-[#10B981]/40 hover:shadow-sm px-3 py-3 transition-all">
-                                    <p className="text-sm font-medium text-gray-800 line-clamp-2 mb-1.5">{meeting.title}</p>
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                      {meeting.meeting_date && (
-                                        <span className="text-xs text-gray-400">{format(parseISO(meeting.meeting_date), 'M.d', { locale: ko })}</span>
-                                      )}
-                                      {meeting.notes.length > 0 && (
-                                        <span className="text-xs text-gray-300 ml-auto">{meeting.notes.length}개 노트</span>
-                                      )}
-                                    </div>
+                                <div key={meeting.id} className={`bg-white rounded-xl border hover:shadow-sm transition-all ${checkedIds.has(meeting.id) ? 'border-[#10B981]/40 bg-[#ECFDF5]/20' : 'border-gray-200 hover:border-[#10B981]/40'}`}>
+                                  <div className="flex items-start gap-2 px-3 py-3">
+                                    <input type="checkbox" checked={checkedIds.has(meeting.id)}
+                                      onChange={() => toggleCheck(meeting.id)}
+                                      className="w-3.5 h-3.5 mt-0.5 rounded accent-gray-700 flex-shrink-0 cursor-pointer" />
+                                    <Link href={`/meetings/${meeting.id}`} className="flex-1 min-w-0">
+                                      <p className="text-sm font-medium text-gray-800 line-clamp-2 mb-1.5">{meeting.title}</p>
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        {meeting.meeting_date && (
+                                          <span className="text-xs text-gray-400">{format(parseISO(meeting.meeting_date), 'M.d', { locale: ko })}</span>
+                                        )}
+                                        {meeting.notes.length > 0 && (
+                                          <span className="text-xs text-gray-300 ml-auto">{meeting.notes.length}개 노트</span>
+                                        )}
+                                      </div>
+                                    </Link>
                                   </div>
-                                </Link>
+                                </div>
                               ))}
                             </div>
                           )}

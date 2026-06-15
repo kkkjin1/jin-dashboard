@@ -222,8 +222,8 @@ export default function QuickMemoPanel() {
 
           <input ref={titleRef} value={title} onChange={e => setTitle(e.target.value)}
             onKeyDown={e => {
-              if (e.key === 'Enter') { e.preventDefault(); contentRef.current?.focus() }
-              if ((e.ctrlKey || e.metaKey) && e.key === 'f') { e.preventDefault(); handleSave() }
+              if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey) { e.preventDefault(); contentRef.current?.focus() }
+              if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); handleSave() }
             }}
             placeholder={tag === '회의관련' ? '6월15일 미팅(홍길동/업무내용)' : '제목 (엔터로 저장)'}
             className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-400 mb-1.5" />
@@ -236,14 +236,14 @@ export default function QuickMemoPanel() {
 
           <SmartTextarea ref={contentRef} value={content} onChange={setContent}
             onKeyDown={e => {
-              if ((e.ctrlKey || e.metaKey) && (e.key === 'Enter' || e.key === 'f')) { e.preventDefault(); handleSave() }
+              if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); handleSave() }
             }}
-            placeholder="내용 (선택, Ctrl+F 저장)"
+            placeholder="내용 (선택, Ctrl+Enter 저장)"
             className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-400 resize-none flex-1"
             style={{ minHeight: '80px', resize: 'none' }} />
 
           <div className="flex justify-between items-center mt-3">
-            <span className="text-xs text-gray-300">ESC 닫기 · Enter 내용으로 · Ctrl+F 저장</span>
+            <span className="text-xs text-gray-300">ESC 닫기 · Enter 내용으로 · Ctrl+Enter 저장</span>
             <button onClick={handleSave} disabled={!title.trim() || saving}
               className="text-xs bg-gray-900 text-white px-4 py-2 rounded-lg hover:bg-gray-800 disabled:opacity-30 transition-colors">
               {savedMsg || (saving ? '저장 중...' : (meetingDate ? '일정 등록' : '저장'))}
