@@ -244,7 +244,7 @@ export default function QuickMemoPanel() {
 
   return (
     <>
-      {open && <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />}
+      {open && <div className="fixed inset-0 z-[62]" onClick={() => setOpen(false)} />}
 
       {/* 빠른메모 패널 — 모바일에서 bottom-20(하단탭 위), 데스크톱은 bottom-0 */}
       <div
@@ -253,7 +253,7 @@ export default function QuickMemoPanel() {
           height: open ? `${panelHeight}px` : undefined,
           right: btnPos?.right ?? 16,
         }}
-        className={`fixed bottom-0 z-[55] bg-white rounded-t-2xl shadow-2xl border border-gray-200 transition-transform duration-300 overflow-hidden ${open ? 'translate-y-0 pointer-events-auto' : 'translate-y-full pointer-events-none'}`}>
+        className={`fixed bottom-0 z-[63] bg-white rounded-t-2xl shadow-2xl border border-gray-200 transition-transform duration-300 overflow-hidden ${open ? 'translate-y-0 pointer-events-auto' : 'translate-y-full pointer-events-none'}`}>
 
         {/* 상단 리사이즈 핸들 (높이 조절) */}
         <div
@@ -323,12 +323,14 @@ export default function QuickMemoPanel() {
       {/* + 버튼 — 드래그로 위치 이동, 탭/클릭으로 열기 */}
       {!open && btnPos && (
         <button
+          type="button"
           ref={btnRef}
           style={{ right: btnPos.right, bottom: btnPos.bottom }}
-          onPointerDown={handlePointerDown}
+          onPointerDown={e => { e.preventDefault(); handlePointerDown(e) }}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
-          className="fixed z-50 w-12 h-12 bg-[#10B981] text-white rounded-full shadow-lg hover:bg-[#059669] transition-colors flex items-center justify-center text-xl font-light touch-none select-none cursor-grab active:cursor-grabbing"
+          onClick={() => { if (!dragRef.current?.moved) setOpen(true) }}
+          className="fixed z-[64] w-12 h-12 bg-[#10B981] text-white rounded-full shadow-lg hover:bg-[#059669] transition-colors flex items-center justify-center text-xl font-light touch-none select-none cursor-grab active:cursor-grabbing"
           title="빠른 메모 (Ctrl+2) — 길게 드래그해 위치 이동"
         >
           +
