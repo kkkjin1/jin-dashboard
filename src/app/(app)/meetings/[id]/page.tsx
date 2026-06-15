@@ -7,6 +7,8 @@ import { createClient } from '@/lib/supabase/client'
 import type { Meeting, NoteEntry, Task, TaskStatus, Note } from '@/types'
 import { generateMeetingMd, downloadMd } from '@/lib/markdown'
 import SmartTextarea from '@/components/SmartTextarea'
+import FormattingToolbar from '@/components/FormattingToolbar'
+import MarkdownContent from '@/components/MarkdownContent'
 
 const CATEGORIES = ['코어', '비즈', '경영진', '본부장', '타팀'] as const
 const CATEGORY_COLORS: Record<string, string> = {
@@ -44,6 +46,21 @@ interface NoteAccordionProps {
 function NoteAccordion({ note, index, isOpen, onToggle, onDelete, onEdit, onFullscreen }: NoteAccordionProps) {
   const [editing, setEditing] = useState(false)
   const [editContent, setEditContent] = useState(note.content)
+  const [autoSaved, setAutoSaved] = useState(false)
+  const editRef = useRef<HTMLTextAreaElement | null>(null)
+  const saveTimer = useRef<ReturnType<typeof setTimeout>>()
+
+  function handleChange(val: string) {
+    setEditContent(val)
+    clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(() => {
+      if (val.trim()) {
+        onEdit(index, val.trim())
+        setAutoSaved(true)
+        setTimeout(() => setAutoSaved(false), 2000)
+      }
+    }, 1500)
+  }
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 overflow-hidden group">
@@ -69,26 +86,33 @@ function NoteAccordion({ note, index, isOpen, onToggle, onDelete, onEdit, onFull
         <div className="px-4 pb-4 border-t border-gray-50">
           {editing ? (
             <>
+              <FormattingToolbar textareaRef={editRef} value={editContent} onChange={handleChange} />
               <SmartTextarea
+                ref={editRef}
                 autoFocus
                 value={editContent}
-                onChange={setEditContent}
+                onChange={handleChange}
                 onKeyDown={e => {
                   if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { onEdit(index, editContent.trim()); setEditing(false) }
                   if (e.key === 'Escape') setEditing(false)
                 }}
-                className="w-full text-sm focus:outline-none resize-none text-gray-700 pt-3"
+                className="w-full text-sm focus:outline-none resize-none text-gray-700 pt-2"
                 style={{ minHeight: '120px' }}
               />
-              <div className="flex gap-2 justify-end mt-2">
-                <button onClick={() => setEditing(false)} className="text-xs text-gray-400 px-3 py-1 rounded-lg">취소</button>
-                <button onClick={() => { onEdit(index, editContent.trim()); setEditing(false) }} className="text-xs bg-[#5DBD97] text-white px-3 py-1 rounded-lg">저장</button>
+              <div className="flex items-center justify-between mt-2">
+                <span className={`text-xs transition-opacity ${autoSaved ? 'text-emerald-500 opacity-100' : 'opacity-0'}`}>자동저장됨</span>
+                <div className="flex gap-2">
+                  <button onClick={() => setEditing(false)} className="text-xs text-gray-400 px-3 py-1 rounded-lg">취소</button>
+                  <button onClick={() => { onEdit(index, editContent.trim()); setEditing(false) }}
+                    className="text-xs bg-gray-900 text-white px-3 py-1 rounded-lg">저장</button>
+                </div>
               </div>
             </>
           ) : (
             <>
-              <p className="text-sm text-gray-700 whitespace-pre-wrap pt-3">{note.content}</p>
-              <button onClick={() => { setEditContent(note.content); setEditing(true) }} className="text-xs text-gray-300 hover:text-blue-500 mt-2">수정</button>
+              <MarkdownContent content={note.content} className="pt-3" />
+              <button onClick={() => { setEditContent(note.content); setEditing(true) }}
+                className="text-xs text-gray-300 hover:text-blue-500 mt-2 block">수정</button>
             </>
           )}
         </div>
@@ -339,6 +363,7 @@ export default function MeetingDetailPage() {
               <input value={noteTitle} onChange={e => setNoteTitle(e.target.value)}
                 className="w-full text-xs font-medium text-gray-500 focus:outline-none mb-2 border-b border-gray-100 pb-1 bg-transparent"
                 placeholder="노트 제목" />
+              <FormattingToolbar textareaRef={noteAreaRef} value={noteInput} onChange={setNoteInput} />
               <SmartTextarea ref={noteAreaRef} value={noteInput} onChange={setNoteInput}
                 onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) saveNote() }}
                 placeholder="회의 내용 입력 (Ctrl+Enter 저장)"
@@ -346,7 +371,7 @@ export default function MeetingDetailPage() {
                 style={{ minHeight: '200px' }} />
               <div className="flex justify-end mt-2">
                 <button onClick={saveNote} disabled={!noteInput.trim()}
-                  className="text-xs bg-[#5DBD97] text-white px-4 py-1.5 rounded-lg hover:bg-[#4aab84] disabled:opacity-30 transition-colors">
+                  className="text-xs bg-gray-900 text-white px-4 py-1.5 rounded-lg hover:bg-gray-800 disabled:opacity-30 transition-colors">
                   저장 (Ctrl+Enter)
                 </button>
               </div>

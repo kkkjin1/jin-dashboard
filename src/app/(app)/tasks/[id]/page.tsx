@@ -51,6 +51,9 @@ function NoteAccordion({ note, isOpen, onToggle, onDelete, onEdit, onEditTitle }
   const [editContent, setEditContent] = useState(note.content)
   const [editingTitle, setEditingTitle] = useState(false)
   const [editTitle, setEditTitle] = useState(note.title ?? '')
+  const [autoSaved, setAutoSaved] = useState(false)
+  const editRef = useRef<HTMLTextAreaElement | null>(null)
+  const saveTimer = useRef<ReturnType<typeof setTimeout>>()
 
   const dateLabel = (() => {
     try { return format(parseISO(note.created_at), 'M월 d일 HH:mm', { locale: ko }) } catch { return '' }
@@ -59,6 +62,18 @@ function NoteAccordion({ note, isOpen, onToggle, onDelete, onEdit, onEditTitle }
   const editedLabel = note.edited_at ? (() => {
     try { return `(수정 ${format(parseISO(note.edited_at), 'M/dd HH:mm', { locale: ko })})` } catch { return '' }
   })() : null
+
+  function handleContentChange(val: string) {
+    setEditContent(val)
+    clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(() => {
+      if (val.trim()) {
+        onEdit(note.id, val.trim())
+        setAutoSaved(true)
+        setTimeout(() => setAutoSaved(false), 2000)
+      }
+    }, 1500)
+  }
 
   function handleSaveEdit() {
     if (editContent.trim()) onEdit(note.id, editContent.trim())
@@ -107,12 +122,16 @@ function NoteAccordion({ note, isOpen, onToggle, onDelete, onEdit, onEditTitle }
         <div className="px-4 pb-4 border-t border-gray-50">
           {editing ? (
             <>
-              <SmartTextarea value={editContent} onChange={setEditContent}
+              <FormattingToolbar textareaRef={editRef} value={editContent} onChange={handleContentChange} />
+              <SmartTextarea ref={editRef} value={editContent} onChange={handleContentChange}
                 onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSaveEdit(); if (e.key === 'Escape') setEditing(false) }}
-                className="w-full text-sm focus:outline-none resize-none text-gray-700 pt-3" style={{ minHeight: '120px' }} autoFocus />
-              <div className="flex justify-end gap-2 mt-2">
-                <button onClick={() => setEditing(false)} className="text-xs text-gray-400 hover:text-gray-600 px-3 py-1 rounded-lg">취소</button>
-                <button onClick={handleSaveEdit} className="text-xs bg-[#5DBD97] text-white px-3 py-1 rounded-lg hover:bg-[#4aab84]">저장</button>
+                className="w-full text-sm focus:outline-none resize-none text-gray-700 pt-2" style={{ minHeight: '120px' }} autoFocus />
+              <div className="flex items-center justify-between mt-2">
+                <span className={`text-xs transition-opacity ${autoSaved ? 'text-emerald-500 opacity-100' : 'opacity-0'}`}>자동저장됨</span>
+                <div className="flex gap-2">
+                  <button onClick={() => setEditing(false)} className="text-xs text-gray-400 hover:text-gray-600 px-3 py-1 rounded-lg">취소</button>
+                  <button onClick={handleSaveEdit} className="text-xs bg-gray-900 text-white px-3 py-1 rounded-lg hover:bg-gray-800">저장</button>
+                </div>
               </div>
             </>
           ) : (

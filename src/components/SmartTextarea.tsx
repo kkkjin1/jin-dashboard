@@ -8,6 +8,9 @@ type Props = Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, 'onChange' | 'val
   onChange: (value: string) => void
 }
 
+const INDENT_SIZE = 5
+const KOREAN = '가나다라마바사아자차카타파하'.split('')
+
 function getLineStart(text: string, pos: number): number {
   const idx = text.lastIndexOf('\n', pos - 1)
   return idx === -1 ? 0 : idx + 1
@@ -18,13 +21,77 @@ function getLineEnd(text: string, pos: number): number {
   return idx === -1 ? text.length : idx
 }
 
-function getNextNum(value: string, lineStart: number): number {
-  const lines = value.slice(0, lineStart).split('\n').reverse()
-  for (const ln of lines) {
-    const m = ln.match(/^(\s*)(\d+)[.)]\s/)
-    if (m) return parseInt(m[2]) + 1
+type ListType = 'number' | 'korean' | 'paren' | 'bullet' | 'none'
+
+interface LineInfo {
+  type: ListType
+  seq: number | string
+  indentLevel: number
+  prefix: string
+  content: string
+}
+
+function parseLineInfo(line: string): LineInfo {
+  const m = line.match(/^( *)/)
+  const spaces = m?.[1].length ?? 0
+  const indentLevel = Math.floor(spaces / INDENT_SIZE)
+  const trimmed = line.slice(spaces)
+  let n: RegExpMatchArray | null
+
+  n = trimmed.match(/^(\d+)\. (.*)$/)
+  if (n) return { type: 'number', seq: parseInt(n[1]), indentLevel, prefix: ' '.repeat(indentLevel * INDENT_SIZE) + n[1] + '. ', content: n[2] }
+
+  n = trimmed.match(/^([가나다라마바사아자차카타파하])\. (.*)$/)
+  if (n) return { type: 'korean', seq: n[1], indentLevel, prefix: ' '.repeat(indentLevel * INDENT_SIZE) + n[1] + '. ', content: n[2] }
+
+  n = trimmed.match(/^(\d+)\) (.*)$/)
+  if (n) return { type: 'paren', seq: parseInt(n[1]), indentLevel, prefix: ' '.repeat(indentLevel * INDENT_SIZE) + n[1] + ') ', content: n[2] }
+
+  n = trimmed.match(/^● (.*)$/)
+  if (n) return { type: 'bullet', seq: 0, indentLevel, prefix: ' '.repeat(indentLevel * INDENT_SIZE) + '● ', content: n[1] }
+
+  return { type: 'none', seq: 0, indentLevel, prefix: '', content: line }
+}
+
+function makePrefix(type: ListType, seq: number | string, indentLevel: number): string {
+  const ind = ' '.repeat(indentLevel * INDENT_SIZE)
+  if (type === 'number') return ind + seq + '. '
+  if (type === 'korean') return ind + seq + '. '
+  if (type === 'paren') return ind + seq + ') '
+  if (type === 'bullet') return ind + '● '
+  return ind
+}
+
+function advance(type: ListType, seq: number | string): number | string {
+  if (type === 'number' || type === 'paren') return (seq as number) + 1
+  if (type === 'korean') {
+    const i = KOREAN.indexOf(seq as string)
+    return i >= 0 && i < KOREAN.length - 1 ? KOREAN[i + 1] : '가'
   }
-  return 1
+  return seq
+}
+
+function findNextSeq(lines: string[], beforeIdx: number, type: ListType, indentLevel: number): number | string {
+  for (let i = beforeIdx - 1; i >= 0; i--) {
+    const info = parseLineInfo(lines[i])
+    if (info.indentLevel < indentLevel) break
+    if (info.indentLevel === indentLevel && info.type === type) return advance(type, info.seq)
+  }
+  return type === 'korean' ? '가' : 1
+}
+
+function renumberForward(lines: string[], fromIdx: number, indentLevel: number, type: ListType, startSeq: number | string): string[] {
+  if (type === 'bullet' || type === 'none') return lines
+  let seq = startSeq
+  const result = [...lines]
+  for (let i = fromIdx; i < result.length; i++) {
+    const info = parseLineInfo(result[i])
+    if (info.indentLevel < indentLevel) break
+    if (info.indentLevel !== indentLevel || info.type !== type) continue
+    result[i] = makePrefix(type, seq, indentLevel) + info.content
+    seq = advance(type, seq)
+  }
+  return result
 }
 
 const SmartTextarea = forwardRef<HTMLTextAreaElement, Props>(function SmartTextarea(
@@ -56,102 +123,78 @@ const SmartTextarea = forwardRef<HTMLTextAreaElement, Props>(function SmartTexta
     const lineStart = getLineStart(value, start)
     const lineEnd = getLineEnd(value, start)
     const line = value.slice(lineStart, lineEnd)
+    const info = parseLineInfo(line)
 
     if (e.key === 'Enter' && !e.metaKey && !e.ctrlKey && !e.shiftKey) {
-      const numMatch = line.match(/^(\s*)(\d+)\. /)
-      if (numMatch) {
-        e.preventDefault()
-        const insert = '\n' + numMatch[1] + (parseInt(numMatch[2]) + 1) + '. '
-        onChange(value.slice(0, start) + insert + value.slice(end))
-        pendingCursor.current = start + insert.length
+      if (info.type === 'none') { onKeyDown?.(e); return }
+      e.preventDefault()
+
+      // Empty list item → exit list
+      if (!info.content.trim()) {
+        onChange(value.slice(0, lineStart) + value.slice(lineEnd))
+        pendingCursor.current = lineStart
         return
       }
-      const parenMatch = line.match(/^(\s*)(\d+)\) /)
-      if (parenMatch) {
-        e.preventDefault()
-        const insert = '\n' + parenMatch[1] + (parseInt(parenMatch[2]) + 1) + ') '
-        onChange(value.slice(0, start) + insert + value.slice(end))
-        pendingCursor.current = start + insert.length
-        return
-      }
-      const blackMatch = line.match(/^(\s*)■ /)
-      if (blackMatch) {
-        e.preventDefault()
-        const insert = '\n' + blackMatch[1] + '■ '
-        onChange(value.slice(0, start) + insert + value.slice(end))
-        pendingCursor.current = start + insert.length
-        return
-      }
-      const whiteMatch = line.match(/^(\s*)□ /)
-      if (whiteMatch) {
-        e.preventDefault()
-        const insert = '\n' + whiteMatch[1] + '□ '
-        onChange(value.slice(0, start) + insert + value.slice(end))
-        pendingCursor.current = start + insert.length
-        return
-      }
+
+      const nSeq = advance(info.type, info.seq)
+      const newPrefix = makePrefix(info.type, nSeq, info.indentLevel)
+      const insert = '\n' + newPrefix
+      const newValueRaw = value.slice(0, start) + insert + value.slice(end)
+
+      // Cascade renumber lines after the newly inserted line
+      const lineIdxOfNew = newValueRaw.slice(0, start + insert.length).split('\n').length - 1
+      let lines = newValueRaw.split('\n')
+      lines = renumberForward(lines, lineIdxOfNew + 1, info.indentLevel, info.type, advance(info.type, nSeq))
+
+      onChange(lines.join('\n'))
+      pendingCursor.current = start + insert.length
+      return
     }
 
     if (e.key === 'Tab') {
       e.preventDefault()
+      const lines = value.split('\n')
+      const lineIdx = value.slice(0, lineStart).split('\n').length - 1
+
       if (!e.shiftKey) {
-        const numMatch = line.match(/^(\s*)(\d+)\. /)
-        if (numMatch) {
-          const n = parseInt(numMatch[2])
-          const prefix = numMatch[1] + n + ') '
-          const newLine = prefix + line.slice(numMatch[0].length)
-          onChange(value.slice(0, lineStart) + newLine + value.slice(lineEnd))
-          pendingCursor.current = lineStart + prefix.length
+        // Demote: number→korean→paren→bullet
+        const demoteMap: Partial<Record<ListType, ListType>> = {
+          number: 'korean', korean: 'paren', paren: 'bullet',
+        }
+        const newType = demoteMap[info.type]
+        if (!newType) {
+          onChange(value.slice(0, start) + ' '.repeat(INDENT_SIZE) + value.slice(end))
+          pendingCursor.current = start + INDENT_SIZE
           return
         }
-        const parenMatch = line.match(/^(\s*)(\d+)\) /)
-        if (parenMatch) {
-          const prefix = parenMatch[1] + '■ '
-          const newLine = prefix + line.slice(parenMatch[0].length)
-          onChange(value.slice(0, lineStart) + newLine + value.slice(lineEnd))
-          pendingCursor.current = lineStart + prefix.length
-          return
-        }
-        const blackMatch = line.match(/^(\s*)■ /)
-        if (blackMatch) {
-          const prefix = blackMatch[1] + '  □ '
-          const newLine = prefix + line.slice(blackMatch[0].length)
-          onChange(value.slice(0, lineStart) + newLine + value.slice(lineEnd))
-          pendingCursor.current = lineStart + prefix.length
-          return
-        }
-        onChange(value.slice(0, start) + '  ' + value.slice(end))
-        pendingCursor.current = start + 2
+        const newIndent = info.indentLevel + 1
+        const seq = findNextSeq(lines, lineIdx, newType, newIndent)
+        const newPrefix = makePrefix(newType, seq, newIndent)
+        const newLines = [...lines]
+        newLines[lineIdx] = newPrefix + info.content
+        onChange(newLines.join('\n'))
+        pendingCursor.current = lineStart + newPrefix.length
       } else {
-        const whiteMatch = line.match(/^(\s*)□ /)
-        if (whiteMatch) {
-          const indent = whiteMatch[1].length >= 2 ? whiteMatch[1].slice(0, -2) : ''
-          const prefix = indent + '■ '
-          const newLine = prefix + line.slice(whiteMatch[0].length)
-          onChange(value.slice(0, lineStart) + newLine + value.slice(lineEnd))
-          pendingCursor.current = lineStart + prefix.length
+        // Promote: bullet→paren→korean→number + cascade renumber
+        const promoteMap: Partial<Record<ListType, ListType>> = {
+          bullet: 'paren', paren: 'korean', korean: 'number',
+        }
+        const newType = promoteMap[info.type]
+        if (!newType) {
+          if (line.startsWith(' '.repeat(INDENT_SIZE))) {
+            onChange(value.slice(0, lineStart) + line.slice(INDENT_SIZE) + value.slice(lineEnd))
+            pendingCursor.current = Math.max(lineStart, start - INDENT_SIZE)
+          }
           return
         }
-        const blackMatch = line.match(/^(\s*)■ /)
-        if (blackMatch) {
-          const n = getNextNum(value, lineStart)
-          const prefix = blackMatch[1] + n + ') '
-          onChange(value.slice(0, lineStart) + prefix + line.slice(blackMatch[0].length) + value.slice(lineEnd))
-          pendingCursor.current = lineStart + prefix.length
-          return
-        }
-        const parenMatch = line.match(/^(\s*)(\d+)\) /)
-        if (parenMatch) {
-          const n = parseInt(parenMatch[2])
-          const prefix = parenMatch[1] + n + '. '
-          onChange(value.slice(0, lineStart) + prefix + line.slice(parenMatch[0].length) + value.slice(lineEnd))
-          pendingCursor.current = lineStart + prefix.length
-          return
-        }
-        if (line.startsWith('  ')) {
-          onChange(value.slice(0, lineStart) + line.slice(2) + value.slice(lineEnd))
-          pendingCursor.current = Math.max(lineStart, start - 2)
-        }
+        const newIndent = Math.max(0, info.indentLevel - 1)
+        const seq = findNextSeq(lines, lineIdx, newType, newIndent)
+        const newPrefix = makePrefix(newType, seq, newIndent)
+        let newLines = [...lines]
+        newLines[lineIdx] = newPrefix + info.content
+        newLines = renumberForward(newLines, lineIdx + 1, newIndent, newType, advance(newType, seq))
+        onChange(newLines.join('\n'))
+        pendingCursor.current = lineStart + newPrefix.length
       }
       return
     }
