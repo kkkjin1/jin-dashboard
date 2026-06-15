@@ -174,7 +174,7 @@ export default function HomePage() {
     .sort((a, b) => daysUntil(a.end_date!) - daysUntil(b.end_date!))
 
   return (
-    <div className="p-6 flex flex-col h-full overflow-hidden gap-4">
+    <div className="p-4 md:p-6 flex flex-col md:h-full md:overflow-hidden gap-4">
 
       {/* Row 1: 헤더 */}
       <div className="flex items-center justify-between flex-shrink-0">
@@ -184,7 +184,7 @@ export default function HomePage() {
           </p>
           <h1 className="text-xl font-bold text-gray-900">안녕하세요, 팀장님</h1>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="hidden sm:flex items-center gap-2">
           <div ref={searchRef} className="relative">
             <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2 bg-white focus-within:border-gray-400 transition-colors">
               <span className="text-gray-400 text-sm">🔍</span>
@@ -311,11 +311,11 @@ export default function HomePage() {
 
       {/* Row 3: 컴팩트 업무 현황 */}
       {loading ? (
-        <div className="flex-shrink-0 grid grid-cols-4 gap-3">
+        <div className="flex-shrink-0 grid grid-cols-2 md:grid-cols-4 gap-3">
           {[1,2,3,4].map(i => <div key={i} className="bg-white rounded-xl border border-gray-100 h-20 animate-pulse" />)}
         </div>
       ) : (
-        <div className="flex-shrink-0 grid grid-cols-4 gap-3">
+        <div className="flex-shrink-0 grid grid-cols-2 md:grid-cols-4 gap-3">
           <CompactCol title="오늘 마감" count={todayTasks.length} tasks={todayTasks} dot="bg-red-500" dateMode="end_date" />
           <CompactCol title="이번주 마감" count={weekTasks.length} tasks={weekTasks} dot="bg-blue-400" dateMode="end_date" />
           <CompactCol title="중간공유 임박" count={midSoonTasks.length} tasks={midSoonTasks} dot="bg-amber-400" dateMode="mid_date" />
@@ -324,11 +324,11 @@ export default function HomePage() {
       )}
 
       {/* Row 4: 캘린더 + 오늘할일 */}
-      <div className="flex-1 min-h-0 grid grid-cols-3 gap-4">
-        <div className="col-span-2 min-h-0 overflow-hidden">
+      <div className="md:flex-1 md:min-h-0 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="md:col-span-2 md:overflow-hidden">
           <HomeCalendar tasks={tasks} meetings={meetings} />
         </div>
-        <div className="min-h-0 overflow-hidden">
+        <div className="md:overflow-hidden">
           <TodayTodoWidget />
         </div>
       </div>

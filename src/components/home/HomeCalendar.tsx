@@ -38,7 +38,7 @@ export default function HomeCalendar({ tasks, meetings }: Props) {
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 p-5 flex flex-col h-full">
+    <div className="bg-white rounded-xl border border-gray-100 p-5 flex flex-col h-auto md:h-full">
       <div className="flex items-center justify-between mb-4">
         <h2 className="font-semibold text-gray-800 text-sm">
           {format(current, 'yyyy년 M월', { locale: ko })}
