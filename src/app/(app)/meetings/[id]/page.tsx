@@ -48,7 +48,7 @@ function NoteAccordion({ note, index, isOpen, onToggle, onDelete, onEdit, onFull
   const [editContent, setEditContent] = useState(note.content)
   const [autoSaved, setAutoSaved] = useState(false)
   const editRef = useRef<HTMLTextAreaElement | null>(null)
-  const saveTimer = useRef<ReturnType<typeof setTimeout>>()
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   function handleChange(val: string) {
     setEditContent(val)

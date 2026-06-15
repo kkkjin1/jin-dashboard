@@ -53,7 +53,7 @@ function NoteAccordion({ note, isOpen, onToggle, onDelete, onEdit, onEditTitle }
   const [editTitle, setEditTitle] = useState(note.title ?? '')
   const [autoSaved, setAutoSaved] = useState(false)
   const editRef = useRef<HTMLTextAreaElement | null>(null)
-  const saveTimer = useRef<ReturnType<typeof setTimeout>>()
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   const dateLabel = (() => {
     try { return format(parseISO(note.created_at), 'M월 d일 HH:mm', { locale: ko }) } catch { return '' }
