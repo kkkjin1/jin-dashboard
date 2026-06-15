@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
@@ -24,6 +24,8 @@ function parseMeetingDate(text: string): string | null {
   return null
 }
 
+type BtnPos = { right: number; bottom: number }
+
 export default function QuickMemoPanel() {
   const [open, setOpen] = useState(false)
   const [title, setTitle] = useState('')
@@ -31,7 +33,7 @@ export default function QuickMemoPanel() {
   const [tag, setTag] = useState<MemoTag>('업무관련')
   const [saving, setSaving] = useState(false)
   const [savedMsg, setSavedMsg] = useState('')
-  const [panelWidth, setPanelWidth] = useState(384) // w-96 = 384px
+  const [panelWidth, setPanelWidth] = useState(384)
   const [panelHeight, setPanelHeight] = useState(400)
   const isResizingW = useRef(false)
   const isResizingH = useRef(false)
@@ -39,6 +41,67 @@ export default function QuickMemoPanel() {
   const contentRef = useRef<HTMLTextAreaElement | null>(null)
   const supabase = createClient()
   const router = useRouter()
+
+  // 드래그 가능한 버튼 위치
+  const [btnPos, setBtnPos] = useState<BtnPos | null>(null)
+  const btnRef = useRef<HTMLButtonElement>(null)
+  const dragRef = useRef<{
+    startX: number; startY: number
+    startRight: number; startBottom: number
+    moved: boolean
+  } | null>(null)
+  const latestPos = useRef<BtnPos>({ right: 16, bottom: 80 })
+
+  // 버튼 위치 초기화 (localStorage → 모바일/데스크톱 기본값)
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('quick_memo_btn_pos')
+      if (saved) {
+        const p = JSON.parse(saved) as BtnPos
+        setBtnPos(p)
+        latestPos.current = p
+        return
+      }
+    } catch {}
+    const isMobile = window.innerWidth < 768
+    const defaultPos: BtnPos = { right: 16, bottom: isMobile ? 80 : 24 }
+    setBtnPos(defaultPos)
+    latestPos.current = defaultPos
+  }, [])
+
+  function handlePointerDown(e: React.PointerEvent<HTMLButtonElement>) {
+    btnRef.current?.setPointerCapture(e.pointerId)
+    dragRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      startRight: latestPos.current.right,
+      startBottom: latestPos.current.bottom,
+      moved: false,
+    }
+  }
+
+  function handlePointerMove(e: React.PointerEvent<HTMLButtonElement>) {
+    if (!dragRef.current) return
+    const dx = e.clientX - dragRef.current.startX
+    const dy = e.clientY - dragRef.current.startY
+    if (!dragRef.current.moved && Math.abs(dx) < 8 && Math.abs(dy) < 8) return
+    dragRef.current.moved = true
+    const newRight = Math.max(8, Math.min(window.innerWidth - 56, dragRef.current.startRight - dx))
+    const newBottom = Math.max(8, Math.min(window.innerHeight - 56, dragRef.current.startBottom - dy))
+    const newPos = { right: newRight, bottom: newBottom }
+    latestPos.current = newPos
+    setBtnPos(newPos)
+  }
+
+  function handlePointerUp() {
+    if (!dragRef.current) return
+    if (dragRef.current.moved) {
+      localStorage.setItem('quick_memo_btn_pos', JSON.stringify(latestPos.current))
+    } else {
+      setOpen(true)
+    }
+    dragRef.current = null
+  }
 
   // draft 복원
   useEffect(() => {
@@ -183,9 +246,14 @@ export default function QuickMemoPanel() {
     <>
       {open && <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />}
 
+      {/* 빠른메모 패널 — 모바일에서 bottom-20(하단탭 위), 데스크톱은 bottom-0 */}
       <div
-        style={{ width: `${panelWidth}px`, height: open ? `${panelHeight}px` : undefined }}
-        className={`fixed bottom-0 right-6 z-50 bg-white rounded-t-2xl shadow-2xl border border-gray-200 transition-transform duration-300 overflow-hidden ${open ? 'translate-y-0' : 'translate-y-full'}`}>
+        style={{
+          width: `${panelWidth}px`,
+          height: open ? `${panelHeight}px` : undefined,
+          right: btnPos?.right ?? 16,
+        }}
+        className={`fixed bottom-20 md:bottom-0 z-50 bg-white rounded-t-2xl shadow-2xl border border-gray-200 transition-transform duration-300 overflow-hidden ${open ? 'translate-y-0' : 'translate-y-full'}`}>
 
         {/* 상단 리사이즈 핸들 (높이 조절) */}
         <div
@@ -252,10 +320,17 @@ export default function QuickMemoPanel() {
         </div>
       </div>
 
-      {!open && (
-        <button onClick={() => setOpen(true)}
-          className="fixed bottom-6 right-6 z-50 w-12 h-12 bg-[#10B981] text-white rounded-full shadow-lg hover:bg-[#059669] transition-all hover:scale-110 flex items-center justify-center text-xl font-light"
-          title="빠른 메모 (Ctrl+2)">
+      {/* + 버튼 — 드래그로 위치 이동, 탭/클릭으로 열기 */}
+      {!open && btnPos && (
+        <button
+          ref={btnRef}
+          style={{ right: btnPos.right, bottom: btnPos.bottom }}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          className="fixed z-50 w-12 h-12 bg-[#10B981] text-white rounded-full shadow-lg hover:bg-[#059669] transition-colors flex items-center justify-center text-xl font-light touch-none select-none cursor-grab active:cursor-grabbing"
+          title="빠른 메모 (Ctrl+2) — 길게 드래그해 위치 이동"
+        >
           +
         </button>
       )}
