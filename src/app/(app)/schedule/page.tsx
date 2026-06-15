@@ -326,7 +326,7 @@ export default function SchedulePage() {
   }
 
   return (
-    <div className="p-8 flex-1 flex flex-col">
+    <div className="p-4 md:p-8 flex-1 flex flex-col">
       <h1 className="text-xl font-bold text-gray-900 mb-5">일정</h1>
 
       {/* 필터 사이클 버튼 행 */}
@@ -381,9 +381,9 @@ export default function SchedulePage() {
         </button>
       </div>
 
-      <div className="grid grid-cols-3 gap-6 flex-1 min-h-0">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:flex-1 md:min-h-0">
         {/* 캘린더 */}
-        <div className="col-span-2 bg-white rounded-xl border border-gray-100 p-5 flex flex-col">
+        <div className="md:col-span-2 bg-white rounded-xl border border-gray-100 p-5 flex flex-col">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-semibold text-gray-800">{format(current, 'yyyy년 M월', { locale: ko })}</h2>
             <div className="flex gap-1">
@@ -395,7 +395,7 @@ export default function SchedulePage() {
                 className="px-2 py-1 text-sm text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg">→</button>
             </div>
           </div>
-          <div className="grid grid-cols-7 gap-px flex-1">
+          <div className="grid grid-cols-7 gap-px md:flex-1">
             {['일','월','화','수','목','금','토'].map(d => (
               <div key={d} className="text-center text-xs text-gray-400 font-medium py-2">{d}</div>
             ))}

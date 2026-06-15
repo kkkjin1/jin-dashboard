@@ -422,7 +422,7 @@ export default function OneOnOnePage() {
       {view === 'team' && (
         <div className="flex flex-col md:flex-row gap-6 w-full">
           {/* LEFT: grouped member list */}
-          <div className="flex-[60] min-w-0">
+          <div className="min-w-0 md:flex-[60]">
             {grouped.map(({ label, list }) => (
               <div key={label} className="mb-8">
                 <h2 className="text-sm font-semibold text-gray-500 mb-3">{label}</h2>
@@ -481,7 +481,7 @@ export default function OneOnOnePage() {
           </div>
 
           {/* RIGHT: alert panel */}
-          <div className="flex-[40] min-w-0 flex flex-col gap-4">
+          <div className="min-w-0 md:flex-[40] flex flex-col gap-4">
             {urgentStat ? (
               <div className="bg-red-50 rounded-xl px-5 py-4">
                 <p className="text-xs font-semibold text-red-500 mb-3">30일 미진행 긴급</p>

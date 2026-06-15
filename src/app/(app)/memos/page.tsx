@@ -44,7 +44,7 @@ function MemoCard({ memo, onEdit, onDelete, draggable: drag, onDragStart, select
     <div
       draggable={drag}
       onDragStart={onDragStart}
-      className={`bg-white rounded-xl border p-3 group transition-colors cursor-pointer select-none ${selected ? 'border-[#10B981]/40 bg-[#ECFDF5]/20' : 'border-gray-100 hover:border-gray-200'}`}
+      className={`bg-white rounded-xl border p-3 group transition-colors cursor-pointer select-none overflow-hidden ${selected ? 'border-[#10B981]/40 bg-[#ECFDF5]/20' : 'border-gray-100 hover:border-gray-200'}`}
       onClick={() => onEdit(memo)}>
       <div className="flex items-start gap-2">
         <input type="checkbox" checked={selected ?? false}
@@ -52,8 +52,8 @@ function MemoCard({ memo, onEdit, onDelete, draggable: drag, onDragStart, select
           onClick={e => e.stopPropagation()}
           className="w-3.5 h-3.5 mt-0.5 rounded accent-gray-700 flex-shrink-0 cursor-pointer" />
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-gray-800 mb-0.5 leading-snug">{memo.title}</p>
-          {memo.content && <p className="text-xs text-gray-500 whitespace-pre-wrap line-clamp-3">{memo.content}</p>}
+          <p className="text-sm font-medium text-gray-800 mb-0.5 leading-snug break-words">{memo.title}</p>
+          {memo.content && <p className="text-xs text-gray-500 whitespace-pre-wrap line-clamp-3 break-words">{memo.content}</p>}
           <p className="text-xs text-gray-300 mt-1">{format(parseISO(memo.created_at), 'M/d HH:mm', { locale: ko })}</p>
         </div>
         <button onClick={e => { e.stopPropagation(); onDelete(memo.id) }}
