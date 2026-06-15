@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { fetchAllTasks, fetchMembers, formatDate } from '@/lib/tasks'
+import { TaskPageSkeleton } from '@/components/ui/Skeleton'
 import type { Task, Member, TaskStatus, Part, TaskType } from '@/types'
 
 const PARTS: Part[] = ['코어', '비즈', '개인']
@@ -47,6 +48,7 @@ function formatMonth(ym: string): string {
 export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [members, setMembers] = useState<Member[]>([])
+  const [loadingTasks, setLoadingTasks] = useState(true)
   const [viewMode, setViewMode] = useState<'parts' | 'monthly'>('parts')
   const [statusFilter, setStatusFilter] = useState<TaskStatus | '전체'>('전체')
   const [assigneeFilter, setAssigneeFilter] = useState<string>('전체')
@@ -75,7 +77,7 @@ export default function TasksPage() {
 
   useEffect(() => {
     Promise.all([fetchAllTasks(), fetchMembers()]).then(([t, m]) => {
-      setTasks(t); setMembers(m)
+      setTasks(t); setMembers(m); setLoadingTasks(false)
     })
   }, [])
 
@@ -210,6 +212,8 @@ export default function TasksPage() {
     setTasks(prev => prev.filter(t => !checkedIds.has(t.id)))
     setCheckedIds(new Set())
   }
+
+  if (loadingTasks) return <TaskPageSkeleton />
 
   return (
     <div className="p-4 md:p-8">

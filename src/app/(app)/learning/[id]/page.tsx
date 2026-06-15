@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { useUserSetting } from '@/hooks/useUserSetting'
 import type { LearningResource, NoteEntry } from '@/types'
 import { generateLearningMd, downloadMd } from '@/lib/markdown'
 import SmartTextarea from '@/components/SmartTextarea'
@@ -95,7 +96,7 @@ export default function LearningDetailPage() {
   const [noteTitle, setNoteTitle] = useState(defaultNoteTitle())
   const [openIndexes, setOpenIndexes] = useState<Set<number>>(new Set([0]))
   const [deleting, setDeleting] = useState(false)
-  const [customTags, setCustomTags] = useState<string[]>([])
+  const { value: customTags } = useUserSetting<string[]>('learning_custom_tags', ['HR', '경제', '리더십', '평가보상', '데이터', '조직문화', '기획'])
 
   const MEDIA_TYPES = ['책', '영상', '아티클', '강의', '기타']
 
@@ -103,11 +104,6 @@ export default function LearningDetailPage() {
   const noteAreaRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem('learning_custom_tags')
-      setCustomTags(raw ? JSON.parse(raw) : ['HR', '경제', '리더십', '평가보상', '데이터', '조직문화', '기획'])
-    } catch { setCustomTags(['HR', '경제', '리더십', '평가보상', '데이터', '조직문화', '기획']) }
-
     supabase
       .from('learning_resources')
       .select('*')

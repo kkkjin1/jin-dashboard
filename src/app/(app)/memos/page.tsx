@@ -1,6 +1,8 @@
 ﻿'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { MemoPageSkeleton } from '@/components/ui/Skeleton'
+import { EmptyState } from '@/components/ui/EmptyState'
 import { createClient } from '@/lib/supabase/client'
 import { format, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
@@ -181,11 +183,7 @@ export default function MemosPage() {
 
   const notices = memos.filter(m => m.tag === '공지')
 
-  if (loading) return (
-    <div className="p-4 md:p-8">
-      <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="bg-white rounded-xl border border-gray-100 h-20 animate-pulse" />)}</div>
-    </div>
-  )
+  if (loading) return <MemoPageSkeleton />
 
   return (
     <div className="p-4 md:p-8">
@@ -244,7 +242,7 @@ export default function MemosPage() {
               </button>
             )}
             {notices.length === 0 && !inlineTag && (
-              <p className="text-xs text-gray-400 py-2 self-center">드래그로 이동하거나 직접 추가하세요</p>
+              <p className="text-xs text-gray-300 py-2 self-center">공지를 추가하거나 다른 태그에서 드래그해오세요</p>
             )}
           </div>
         </div>
@@ -268,7 +266,7 @@ export default function MemosPage() {
               <div className={`bg-white rounded-xl border p-3 min-h-48 transition-colors ${isOver ? 'border-[#10B981]/40 bg-[#ECFDF5]/20' : 'border-gray-100'}`}>
                 <div className="space-y-2">
                   {colMemos.length === 0 && inlineTag !== tag && (
-                    <p className="text-xs text-gray-300 text-center py-4">없음</p>
+                    <p className="text-xs text-gray-200 text-center py-6 border border-dashed border-gray-100 rounded-xl">+ 버튼으로 추가하세요</p>
                   )}
                   {colMemos.map(memo => (
                     <MemoCard key={memo.id} memo={memo} onEdit={setEditing} onDelete={deleteMemo}

@@ -8,6 +8,8 @@ import HomeCalendar from '@/components/home/HomeCalendar'
 import TodayTodoWidget from '@/components/home/TodayTodoWidget'
 import { fetchAllTasks, daysUntil, hasUpcomingMidDate, hasUpcomingEndDate } from '@/lib/tasks'
 import { createClient } from '@/lib/supabase/client'
+import { useUserSetting } from '@/hooks/useUserSetting'
+import { HomePageSkeleton } from '@/components/ui/Skeleton'
 import type { Task, Meeting } from '@/types'
 
 function ddayColor(d: number): string {
@@ -76,7 +78,8 @@ export default function HomePage() {
   const searchRef = useRef<HTMLDivElement>(null)
   const supabase = createClient()
 
-  const [shortcuts, setShortcuts] = useState<{id: string; title: string; url: string}[]>([])
+  type Shortcut = { id: string; title: string; url: string }
+  const { value: shortcuts, save: saveShortcutsRemote } = useUserSetting<Shortcut[]>('home_shortcuts', [])
   const [showAddShortcut, setShowAddShortcut] = useState(false)
   const [newShortcutTitle, setNewShortcutTitle] = useState('')
   const [newShortcutUrl, setNewShortcutUrl] = useState('')
@@ -96,13 +99,6 @@ export default function HomePage() {
   }, [])
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem('home_shortcuts')
-      if (saved) setShortcuts(JSON.parse(saved))
-    } catch {}
-  }, [])
-
-  useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (searchRef.current && !searchRef.current.contains(e.target as Node)) setSearchOpen(false)
     }
@@ -110,9 +106,8 @@ export default function HomePage() {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
-  function saveShortcuts(list: typeof shortcuts) {
-    setShortcuts(list)
-    localStorage.setItem('home_shortcuts', JSON.stringify(list))
+  function saveShortcuts(list: Shortcut[]) {
+    saveShortcutsRemote(list)
   }
 
   function addShortcut() {
@@ -172,6 +167,8 @@ export default function HomePage() {
   const endSoonTasks = active
     .filter(t => hasUpcomingEndDate(t))
     .sort((a, b) => daysUntil(a.end_date!) - daysUntil(b.end_date!))
+
+  if (loading) return <HomePageSkeleton />
 
   return (
     <div className="p-4 md:p-6 flex flex-col md:h-full md:overflow-hidden gap-4">

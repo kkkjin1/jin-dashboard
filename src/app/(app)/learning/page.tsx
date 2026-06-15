@@ -5,6 +5,8 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { format, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
+import { useUserSetting } from '@/hooks/useUserSetting'
+import { EmptyState } from '@/components/ui/EmptyState'
 import type { LearningResource } from '@/types'
 
 const DEFAULT_TAGS = ['HR', '경제', '리더십', '평가보상', '데이터', '조직문화', '기획']
@@ -19,18 +21,14 @@ const TAG_STYLE: Record<string, string> = {
   '미분류': 'bg-gray-100 text-gray-500',
 }
 const MEDIA_TYPES = ['책', '영상', '아티클', '강의', '기타']
-const LS_KEY = 'learning_custom_tags'
 const MEDIA_ICONS: Record<string, string> = { '책': '📚', '영상': '🎬', '아티클': '📄', '강의': '🎓', '기타': '📌' }
 
-function loadCustomTags(): string[] {
-  try { const r = localStorage.getItem(LS_KEY); return r ? JSON.parse(r) : DEFAULT_TAGS } catch { return DEFAULT_TAGS }
-}
-function saveCustomTags(t: string[]) { localStorage.setItem(LS_KEY, JSON.stringify(t)) }
+type SiteShortcut = { id: string; title: string; url: string }
 
 export default function LearningPage() {
   const [resources, setResources] = useState<LearningResource[]>([])
   const [loading, setLoading] = useState(true)
-  const [customTags, setCustomTags] = useState<string[]>([])
+  const { value: customTags, save: saveCustomTagsRemote } = useUserSetting<string[]>('learning_custom_tags', DEFAULT_TAGS)
   const [collapsedColMedia, setCollapsedColMedia] = useState<Set<string>>(new Set())
   const [managingTags, setManagingTags] = useState(false)
   const [newTagInput, setNewTagInput] = useState('')
@@ -41,7 +39,7 @@ export default function LearningPage() {
   const [colAddSource, setColAddSource] = useState('')
   const [colAddNote, setColAddNote] = useState('')
   const [colAddMedia, setColAddMedia] = useState<string>('')
-  const [siteShortcuts, setSiteShortcuts] = useState<{id: string; title: string; url: string}[]>([])
+  const { value: siteShortcuts, save: saveSiteShortcutsRemote } = useUserSetting<SiteShortcut[]>('learning_site_shortcuts', [])
   const [showAddSite, setShowAddSite] = useState(false)
   const [newSiteTitle, setNewSiteTitle] = useState('')
   const [newSiteUrl, setNewSiteUrl] = useState('')
@@ -51,16 +49,11 @@ export default function LearningPage() {
   const supabase = createClient()
 
   useEffect(() => {
-    setCustomTags(loadCustomTags())
     supabase.from('learning_resources').select('*').order('created_at', { ascending: false })
       .then(({ data }) => { setResources((data ?? []) as LearningResource[]); setLoading(false) })
-    try {
-      const saved = localStorage.getItem('learning_site_shortcuts')
-      if (saved) setSiteShortcuts(JSON.parse(saved))
-    } catch {}
   }, [])
 
-  function updateCustomTags(tags: string[]) { setCustomTags(tags); saveCustomTags(tags) }
+  function updateCustomTags(tags: string[]) { saveCustomTagsRemote(tags) }
   function addCustomTag() {
     const t = newTagInput.trim()
     if (!t || customTags.includes(t)) return
@@ -98,9 +91,8 @@ export default function LearningPage() {
     setCollapsedColMedia(prev => { const s = new Set(prev); s.has(key) ? s.delete(key) : s.add(key); return s })
   }
 
-  function saveSiteShortcuts(list: {id: string; title: string; url: string}[]) {
-    setSiteShortcuts(list)
-    localStorage.setItem('learning_site_shortcuts', JSON.stringify(list))
+  function saveSiteShortcuts(list: SiteShortcut[]) {
+    saveSiteShortcutsRemote(list)
   }
 
   function addSiteShortcut() {
@@ -272,9 +264,11 @@ export default function LearningPage() {
           {tagCols.map((_, i) => <div key={i} className="flex-shrink-0 w-40 bg-white rounded-xl border border-gray-100 h-32 animate-pulse" />)}
         </div>
       ) : resources.length === 0 ? (
-        <div className="text-center py-16">
-          <p className="text-gray-300 text-sm">학습자료가 없습니다</p>
-        </div>
+        <EmptyState
+          icon="learning"
+          title="아직 학습 자료가 없어요"
+          description="책, 아티클, 강의 등 기록하고 싶은 자료를 추가해보세요"
+        />
       ) : (
         <>
           {/* 모바일: 태그별 세로 섹션 */}
