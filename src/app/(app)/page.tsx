@@ -1,16 +1,69 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { format, isToday, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
-import SummaryCards from '@/components/home/SummaryCards'
-import TaskColumn from '@/components/home/TaskColumn'
 import HomeCalendar from '@/components/home/HomeCalendar'
 import TodayTodoWidget from '@/components/home/TodayTodoWidget'
 import { fetchAllTasks, daysUntil, hasUpcomingMidDate, hasUpcomingEndDate } from '@/lib/tasks'
 import { createClient } from '@/lib/supabase/client'
 import type { Task, Meeting } from '@/types'
+
+function ddayColor(d: number): string {
+  if (d === 0) return 'bg-red-100 text-red-700 font-bold'
+  if (d <= 2) return 'bg-orange-100 text-orange-600'
+  if (d <= 4) return 'bg-amber-50 text-amber-600'
+  return 'bg-yellow-50 text-yellow-600'
+}
+
+interface CompactColProps {
+  title: string
+  count: number
+  tasks: Task[]
+  dot: string
+  dateMode: 'end_date' | 'mid_date'
+}
+
+function CompactCol({ title, count, tasks, dot, dateMode }: CompactColProps) {
+  return (
+    <div className="bg-white rounded-xl border border-gray-100 p-3 min-w-0">
+      <div className="flex items-center gap-1.5 mb-2">
+        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${dot}`} />
+        <span className="text-xs font-semibold text-gray-700">{title}</span>
+        {count > 0 && (
+          <span className="ml-auto text-[10px] bg-red-500 text-white w-4 h-4 rounded-full flex items-center justify-center font-medium flex-shrink-0">
+            {count > 9 ? '9+' : count}
+          </span>
+        )}
+      </div>
+      {tasks.length === 0 ? (
+        <p className="text-xs text-gray-300 text-center py-1">해당 없음</p>
+      ) : (
+        <div className="space-y-0.5">
+          {tasks.slice(0, 4).map(t => {
+            const d = dateMode === 'mid_date'
+              ? (t.mid_date ? daysUntil(t.mid_date) : null)
+              : (t.end_date ? daysUntil(t.end_date) : null)
+            return (
+              <Link key={t.id} href={`/tasks/${t.id}`}>
+                <div className="flex items-center gap-1.5 py-0.5 px-1 hover:bg-gray-50 rounded transition-colors">
+                  {d !== null && (
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded flex-shrink-0 ${ddayColor(d)}`}>D-{d}</span>
+                  )}
+                  <span className="text-xs text-gray-700 truncate">{t.title || '제목 없음'}</span>
+                </div>
+              </Link>
+            )
+          })}
+          {tasks.length > 4 && (
+            <p className="text-[10px] text-gray-300 px-1 pt-0.5">+{tasks.length - 4}건 더</p>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function HomePage() {
   const [tasks, setTasks] = useState<Task[]>([])
@@ -121,17 +174,17 @@ export default function HomePage() {
     .sort((a, b) => daysUntil(a.end_date!) - daysUntil(b.end_date!))
 
   return (
-    <div className="p-8 flex-1 flex flex-col">
-      <div className="flex items-start justify-between mb-6">
+    <div className="p-6 flex flex-col h-full overflow-hidden gap-4">
+
+      {/* Row 1: 헤더 */}
+      <div className="flex items-center justify-between flex-shrink-0">
         <div>
-          <p className="text-sm text-emerald-600 font-medium mb-1">
+          <p className="text-xs text-emerald-600 font-medium">
             {format(new Date(), 'yyyy년 M월 d일 EEEE', { locale: ko })}
           </p>
-          <h1 className="text-2xl font-bold text-gray-900">안녕하세요, 팀장님</h1>
-          <p className="text-sm text-gray-400 mt-1">오늘과 이번주 마감을 한눈에 확인하세요.</p>
+          <h1 className="text-xl font-bold text-gray-900">안녕하세요, 팀장님</h1>
         </div>
         <div className="flex items-center gap-2">
-          {/* 검색 */}
           <div ref={searchRef} className="relative">
             <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2 bg-white focus-within:border-gray-400 transition-colors">
               <span className="text-gray-400 text-sm">🔍</span>
@@ -191,30 +244,29 @@ export default function HomePage() {
             )}
           </div>
           <Link href="/tasks"
-            className="text-sm text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg px-4 py-2 transition-colors hover:bg-white whitespace-nowrap">
-            전체 업무 보기 →
+            className="text-sm text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg px-3 py-2 transition-colors hover:bg-white whitespace-nowrap">
+            전체 업무 →
           </Link>
         </div>
       </div>
 
-      {/* 바로가기 */}
-      <div className="mb-5">
-        <p className="text-xs font-semibold text-gray-400 mb-2">바로가기</p>
-        <div className="flex gap-3 flex-wrap items-start">
+      {/* Row 2: 바로가기 */}
+      <div className="flex-shrink-0">
+        <div className="flex gap-2 flex-wrap items-center">
           {shortcuts.map(s => {
             if (editingShortcutId === s.id) {
               return (
-                <div key={s.id} className="bg-white rounded-xl border border-blue-300 p-3 w-44 shadow-sm">
+                <div key={s.id} className="bg-white rounded-xl border border-blue-300 p-2.5 w-40 shadow-sm">
                   <input value={editShortcutTitle} onChange={e => setEditShortcutTitle(e.target.value)}
                     placeholder="이름" autoFocus
-                    className="text-sm font-medium text-gray-800 w-full focus:outline-none border-b border-gray-200 pb-1 mb-1.5 bg-transparent" />
+                    className="text-xs font-medium text-gray-800 w-full focus:outline-none border-b border-gray-200 pb-1 mb-1 bg-transparent" />
                   <input value={editShortcutUrl} onChange={e => setEditShortcutUrl(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter') saveEditShortcut(); if (e.key === 'Escape') setEditingShortcutId(null) }}
                     placeholder="URL"
                     className="text-xs text-gray-400 w-full focus:outline-none bg-transparent" />
-                  <div className="flex gap-1 mt-2 justify-end">
-                    <button onClick={() => setEditingShortcutId(null)} className="text-xs text-gray-400 px-2 py-1">취소</button>
-                    <button onClick={saveEditShortcut} className="text-xs bg-gray-900 text-white px-2 py-1 rounded-lg">저장</button>
+                  <div className="flex gap-1 mt-1.5 justify-end">
+                    <button onClick={() => setEditingShortcutId(null)} className="text-xs text-gray-400 px-2 py-0.5">취소</button>
+                    <button onClick={saveEditShortcut} className="text-xs bg-gray-900 text-white px-2 py-0.5 rounded-lg">저장</button>
                   </div>
                 </div>
               )
@@ -222,74 +274,61 @@ export default function HomePage() {
             return (
               <div key={s.id} className="group relative">
                 <a href={s.url} target="_blank" rel="noopener noreferrer"
-                  className="flex flex-col bg-white border border-gray-200 rounded-xl px-4 py-3 w-40 hover:border-gray-400 hover:shadow-sm transition-all">
-                  <span className="text-sm font-semibold text-gray-800 truncate">🔗 {s.title}</span>
-                  <span className="text-xs text-gray-400 truncate mt-0.5">
-                    {s.url.replace(/^https?:\/\//, '').slice(0, 28)}
-                  </span>
+                  className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-xl px-3 py-2 hover:border-gray-400 hover:shadow-sm transition-all">
+                  <span className="text-xs font-medium text-gray-700 truncate max-w-28">🔗 {s.title}</span>
                 </a>
                 <div className="absolute -top-1.5 -right-1.5 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button onClick={() => startEditShortcut(s)}
-                    className="w-5 h-5 bg-blue-500 text-white rounded-full text-xs flex items-center justify-center hover:bg-blue-600">
-                    ✎
-                  </button>
+                    className="w-4 h-4 bg-blue-500 text-white rounded-full text-[9px] flex items-center justify-center hover:bg-blue-600">✎</button>
                   <button onClick={() => removeShortcut(s.id)}
-                    className="w-5 h-5 bg-gray-400 text-white rounded-full text-xs flex items-center justify-center hover:bg-red-500">
-                    ×
-                  </button>
+                    className="w-4 h-4 bg-gray-400 text-white rounded-full text-[9px] flex items-center justify-center hover:bg-red-500">×</button>
                 </div>
               </div>
             )
           })}
           {showAddShortcut ? (
-            <div className="bg-white rounded-xl border border-blue-300 p-3 w-44 shadow-sm">
+            <div className="bg-white rounded-xl border border-blue-300 p-2.5 w-40 shadow-sm">
               <input value={newShortcutTitle} onChange={e => setNewShortcutTitle(e.target.value)}
-                placeholder="이름 (필수)" autoFocus
-                className="text-sm font-medium text-gray-800 w-full focus:outline-none border-b border-gray-200 pb-1 mb-1.5 bg-transparent" />
+                placeholder="이름" autoFocus
+                className="text-xs font-medium text-gray-800 w-full focus:outline-none border-b border-gray-200 pb-1 mb-1 bg-transparent" />
               <input value={newShortcutUrl} onChange={e => setNewShortcutUrl(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') addShortcut(); if (e.key === 'Escape') setShowAddShortcut(false) }}
                 placeholder="URL"
                 className="text-xs text-gray-400 w-full focus:outline-none bg-transparent" />
-              <div className="flex gap-1 mt-2 justify-end">
-                <button onClick={() => setShowAddShortcut(false)} className="text-xs text-gray-400 px-2 py-1">취소</button>
-                <button onClick={addShortcut} className="text-xs bg-gray-900 text-white px-2 py-1 rounded-lg">추가</button>
+              <div className="flex gap-1 mt-1.5 justify-end">
+                <button onClick={() => setShowAddShortcut(false)} className="text-xs text-gray-400 px-2 py-0.5">취소</button>
+                <button onClick={addShortcut} className="text-xs bg-gray-900 text-white px-2 py-0.5 rounded-lg">추가</button>
               </div>
             </div>
           ) : (
             <button onClick={() => { setShowAddShortcut(true); setEditingShortcutId(null) }}
-              className="flex flex-col items-center justify-center w-40 h-16 border border-dashed border-gray-200 hover:border-gray-300 rounded-xl text-gray-300 hover:text-gray-400 transition-colors text-xs">
-              + 바로가기 추가
+              className="flex items-center justify-center border border-dashed border-gray-200 hover:border-gray-300 rounded-xl px-3 py-2 text-gray-300 hover:text-gray-400 transition-colors text-xs">
+              + 바로가기
             </button>
           )}
         </div>
       </div>
 
+      {/* Row 3: 컴팩트 업무 현황 */}
       {loading ? (
-        <div className="grid grid-cols-5 gap-3 mb-6">
-          {[1,2,3,4,5].map(i => <div key={i} className="bg-white rounded-xl border border-gray-100 p-4 h-20 animate-pulse" />)}
+        <div className="flex-shrink-0 grid grid-cols-4 gap-3">
+          {[1,2,3,4].map(i => <div key={i} className="bg-white rounded-xl border border-gray-100 h-20 animate-pulse" />)}
         </div>
       ) : (
-        <SummaryCards tasks={tasks} />
-      )}
-
-      {loading ? (
-        <div className="flex gap-4">
-          {[1,2,3,4].map(i => <div key={i} className="flex-1 h-40 bg-white rounded-xl border border-gray-100 animate-pulse" />)}
-        </div>
-      ) : (
-        <div className="flex gap-4">
-          <TaskColumn title="오늘 마감" count={todayTasks.length} tasks={todayTasks} accentColor="bg-red-500" dateMode="end_date" />
-          <TaskColumn title="이번주 마감" count={weekTasks.length} tasks={weekTasks} accentColor="bg-blue-400" dateMode="end_date" />
-          <TaskColumn title="중간공유 임박" count={midSoonTasks.length} tasks={midSoonTasks} accentColor="bg-amber-400" dateMode="mid_date" />
-          <TaskColumn title="최종마감 임박" count={endSoonTasks.length} tasks={endSoonTasks} accentColor="bg-rose-500" dateMode="end_date" />
+        <div className="flex-shrink-0 grid grid-cols-4 gap-3">
+          <CompactCol title="오늘 마감" count={todayTasks.length} tasks={todayTasks} dot="bg-red-500" dateMode="end_date" />
+          <CompactCol title="이번주 마감" count={weekTasks.length} tasks={weekTasks} dot="bg-blue-400" dateMode="end_date" />
+          <CompactCol title="중간공유 임박" count={midSoonTasks.length} tasks={midSoonTasks} dot="bg-amber-400" dateMode="mid_date" />
+          <CompactCol title="최종마감 임박" count={endSoonTasks.length} tasks={endSoonTasks} dot="bg-rose-500" dateMode="end_date" />
         </div>
       )}
 
-      <div className="grid grid-cols-3 gap-4 mt-6 flex-1 min-h-0">
-        <div className="col-span-2">
+      {/* Row 4: 캘린더 + 오늘할일 */}
+      <div className="flex-1 min-h-0 grid grid-cols-3 gap-4">
+        <div className="col-span-2 min-h-0 overflow-hidden">
           <HomeCalendar tasks={tasks} meetings={meetings} />
         </div>
-        <div>
+        <div className="min-h-0 overflow-hidden">
           <TodayTodoWidget />
         </div>
       </div>

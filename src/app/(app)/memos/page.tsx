@@ -73,6 +73,11 @@ function EditModal({ memo, onSave, onClose }: EditModalProps) {
   const [title, setTitle] = useState(memo.title)
   const [content, setContent] = useState(memo.content)
   const [tag, setTag] = useState<MemoTag>(memo.tag)
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl p-6 w-96" onClick={e => e.stopPropagation()}>
