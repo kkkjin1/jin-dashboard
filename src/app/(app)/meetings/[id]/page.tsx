@@ -50,6 +50,7 @@ function NoteAccordion({ note, index, isOpen, onToggle, onDelete, onEdit, onFull
   const [editContent, setEditContent] = useState(note.content)
   const [autoSaved, setAutoSaved] = useState(false)
   const [fullscreen, setFullscreen] = useState(false)
+  const [copied, setCopied] = useState(false)
   const editRef = useRef<HTMLTextAreaElement | null>(null)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
@@ -78,6 +79,10 @@ function NoteAccordion({ note, index, isOpen, onToggle, onDelete, onEdit, onFull
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           {!isOpen && <span className="text-xs text-gray-300 truncate max-w-40">{note.content.slice(0, 40)}</span>}
+          <button onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(note.content).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000) }) }}
+            className="text-xs text-gray-300 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-all">
+            {copied ? '✓' : '복사'}
+          </button>
           <button onClick={e => { e.stopPropagation(); onFullscreen(note.content) }}
             className="text-xs text-gray-300 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-all"
             title="크게보기">⛶</button>
@@ -222,8 +227,6 @@ export default function MeetingDetailPage() {
   const [linkUrl, setLinkUrl] = useState('')
   const [linkName, setLinkName] = useState('')
   const [uploading, setUploading] = useState(false)
-  const [copiedAll, setCopiedAll] = useState(false)
-
   const [linkedTasks, setLinkedTasks] = useState<Task[]>([])
   const [allTasks, setAllTasks] = useState<Pick<Task, 'id' | 'title' | 'status' | 'part'>[]>([])
   const [selectedTaskId, setSelectedTaskId] = useState('')
@@ -357,15 +360,6 @@ export default function MeetingDetailPage() {
     setAttachments(prev => prev.filter(a => a.id !== att.id))
   }
 
-  function copyAllNotes() {
-    if (!meeting) return
-    const text = meeting.notes.map(n => `## ${n.title}\n${n.content}`).join('\n\n')
-    navigator.clipboard.writeText(text).then(() => {
-      setCopiedAll(true)
-      setTimeout(() => setCopiedAll(false), 2000)
-    })
-  }
-
   async function createAndLinkTask() {
     const { data } = await supabase.from('tasks')
       .insert({ title: '', part: '코어', type: '기획', status: '진행필요' })
@@ -389,16 +383,10 @@ export default function MeetingDetailPage() {
     <div className="p-8">
       <div className="flex items-center justify-between mb-4">
         <Link href="/meetings" className="text-sm text-gray-400 hover:text-gray-600 inline-flex items-center gap-1">← 회의록 목록</Link>
-        <div className="flex items-center gap-2">
-          <button onClick={copyAllNotes} disabled={!meeting?.notes.length}
-            className="text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-white transition-colors disabled:opacity-30">
-            {copiedAll ? '✓ 복사됨' : '📋 전체 복사'}
-          </button>
-          <button onClick={handleDownloadMd}
-            className="text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-white transition-colors">
-            MD 다운로드
-          </button>
-        </div>
+        <button onClick={handleDownloadMd}
+          className="text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-white transition-colors">
+          MD 다운로드
+        </button>
       </div>
 
       <div className="mb-4 mt-1">

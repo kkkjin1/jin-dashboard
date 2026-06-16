@@ -54,6 +54,7 @@ function NoteAccordion({ note, isOpen, onToggle, onDelete, onEdit, onEditTitle }
   const [editTitle, setEditTitle] = useState(note.title ?? '')
   const [autoSaved, setAutoSaved] = useState(false)
   const [fullscreen, setFullscreen] = useState(false)
+  const [copied, setCopied] = useState(false)
   const editRef = useRef<HTMLTextAreaElement | null>(null)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
@@ -114,6 +115,10 @@ function NoteAccordion({ note, isOpen, onToggle, onDelete, onEdit, onEditTitle }
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           <span className="text-xs text-gray-300 truncate max-w-40">{!isOpen && note.content.slice(0, 40)}</span>
+          <button onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(note.content).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000) }) }}
+            className="text-xs text-gray-300 hover:text-gray-600 transition-colors opacity-0 group-hover:opacity-100">
+            {copied ? '✓' : '복사'}
+          </button>
           <button onClick={e => { e.stopPropagation(); setEditing(true); setEditContent(note.content) }}
             className="text-xs text-gray-300 hover:text-blue-500 transition-colors opacity-0 group-hover:opacity-100">수정</button>
           <button onClick={e => { e.stopPropagation(); onDelete(note.id) }}
@@ -183,7 +188,6 @@ export default function TaskDetailPage() {
   const [linkUrl, setLinkUrl] = useState('')
   const [linkName, setLinkName] = useState('')
   const [uploading, setUploading] = useState(false)
-  const [copiedAll, setCopiedAll] = useState(false)
   const [toast, setToast] = useState('')
   const [deleting, setDeleting] = useState(false)
   const [titleInput, setTitleInput] = useState('')
@@ -401,14 +405,6 @@ export default function TaskDetailPage() {
     }
   }
 
-  function copyAllNotes() {
-    const text = notes.map(n => `## ${n.title ?? ''}\n${n.content}`).join('\n\n')
-    navigator.clipboard.writeText(text).then(() => {
-      setCopiedAll(true)
-      setTimeout(() => setCopiedAll(false), 2000)
-    })
-  }
-
   function handleDownloadMd() {
     if (!task) return
     const member = members.find(m => m.id === task.assignee_id)
@@ -481,10 +477,6 @@ export default function TaskDetailPage() {
             className={`text-xs border rounded-lg px-3 py-1.5 transition-colors ${contentWidth ? 'border-blue-200 text-blue-500 bg-blue-50 hover:bg-blue-100' : 'border-gray-200 text-gray-400 hover:bg-white'}`}
           >
             {contentWidth ? '↔ 전체 너비' : '⟵ 좁게 보기'} <span className="opacity-50">[q]</span>
-          </button>
-          <button onClick={copyAllNotes} disabled={!notes.length}
-            className="text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-white transition-colors disabled:opacity-30">
-            {copiedAll ? '✓ 복사됨' : '📋 전체 복사'}
           </button>
           <button onClick={handleDownloadMd} className="text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-white transition-colors">
             MD 다운로드
