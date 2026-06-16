@@ -12,9 +12,10 @@ interface Props {
   textareaRef: React.RefObject<HTMLTextAreaElement | null>
   value: string
   onChange: (value: string) => void
+  onExpand?: () => void
 }
 
-export default function FormattingToolbar({ textareaRef, value, onChange }: Props) {
+export default function FormattingToolbar({ textareaRef, value, onChange, onExpand }: Props) {
   function wrap(open: string, close: string) {
     const el = textareaRef.current
     if (!el) return
@@ -67,6 +68,11 @@ export default function FormattingToolbar({ textareaRef, value, onChange }: Prop
           className={`w-4 h-4 rounded-full ${COLOR_BG[color]} hover:opacity-70 flex-shrink-0`}
           title={color} />
       ))}
+      {onExpand && (
+        <button type="button" onClick={onExpand}
+          className="ml-auto text-xs px-1.5 py-1 rounded hover:bg-gray-100 text-gray-400"
+          title="크게 쓰기">⛶</button>
+      )}
     </div>
   )
 }

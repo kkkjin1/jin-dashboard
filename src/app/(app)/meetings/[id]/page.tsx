@@ -9,6 +9,7 @@ import { generateMeetingMd, downloadMd } from '@/lib/markdown'
 import SmartTextarea from '@/components/SmartTextarea'
 import FormattingToolbar from '@/components/FormattingToolbar'
 import MarkdownContent from '@/components/MarkdownContent'
+import FullscreenNoteEditor from '@/components/FullscreenNoteEditor'
 
 const CATEGORIES = ['코어', '비즈', '경영진', '본부장', '타팀'] as const
 const CATEGORY_COLORS: Record<string, string> = {
@@ -47,6 +48,7 @@ function NoteAccordion({ note, index, isOpen, onToggle, onDelete, onEdit, onFull
   const [editing, setEditing] = useState(false)
   const [editContent, setEditContent] = useState(note.content)
   const [autoSaved, setAutoSaved] = useState(false)
+  const [fullscreen, setFullscreen] = useState(false)
   const editRef = useRef<HTMLTextAreaElement | null>(null)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
@@ -82,11 +84,20 @@ function NoteAccordion({ note, index, isOpen, onToggle, onDelete, onEdit, onFull
             className="text-xs text-gray-200 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100">삭제</button>
         </div>
       </button>
+      {fullscreen && (
+        <FullscreenNoteEditor
+          value={editContent}
+          onChange={handleChange}
+          onSave={() => { onEdit(index, editContent.trim()); setEditing(false) }}
+          onClose={() => setFullscreen(false)}
+          title={note.title}
+        />
+      )}
       {isOpen && (
         <div className="px-4 pb-4 border-t border-gray-50">
           {editing ? (
             <>
-              <FormattingToolbar textareaRef={editRef} value={editContent} onChange={handleChange} />
+              <FormattingToolbar textareaRef={editRef} value={editContent} onChange={handleChange} onExpand={() => setFullscreen(true)} />
               <SmartTextarea
                 ref={editRef}
                 autoFocus
@@ -111,8 +122,12 @@ function NoteAccordion({ note, index, isOpen, onToggle, onDelete, onEdit, onFull
           ) : (
             <>
               <MarkdownContent content={note.content} className="pt-3" />
-              <button onClick={() => { setEditContent(note.content); setEditing(true) }}
-                className="text-xs text-gray-300 hover:text-blue-500 mt-2 block">수정</button>
+              <div className="flex items-center gap-3 mt-2">
+                <button onClick={() => { setEditContent(note.content); setEditing(true) }}
+                  className="text-xs text-gray-300 hover:text-blue-500 transition-colors">수정</button>
+                <button onClick={() => { setEditContent(note.content); setFullscreen(true) }}
+                  className="text-xs text-gray-300 hover:text-blue-500 transition-colors">⛶ 크게 편집</button>
+              </div>
             </>
           )}
         </div>
@@ -201,6 +216,7 @@ export default function MeetingDetailPage() {
   const [deleting, setDeleting] = useState(false)
   const [showFullscreen, setShowFullscreen] = useState(false)
   const [fullscreenContent, setFullscreenContent] = useState('')
+  const [showFullscreenNew, setShowFullscreenNew] = useState(false)
 
   const [linkedTasks, setLinkedTasks] = useState<Task[]>([])
   const [allTasks, setAllTasks] = useState<Pick<Task, 'id' | 'title' | 'status' | 'part'>[]>([])
@@ -373,7 +389,7 @@ export default function MeetingDetailPage() {
               <input value={noteTitle} onChange={e => setNoteTitle(e.target.value)}
                 className="w-full text-xs font-medium text-gray-500 focus:outline-none mb-2 border-b border-gray-100 pb-1 bg-transparent"
                 placeholder="노트 제목" />
-              <FormattingToolbar textareaRef={noteAreaRef} value={noteInput} onChange={setNoteInput} />
+              <FormattingToolbar textareaRef={noteAreaRef} value={noteInput} onChange={setNoteInput} onExpand={() => setShowFullscreenNew(true)} />
               <SmartTextarea ref={noteAreaRef} value={noteInput} onChange={setNoteInput}
                 onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) saveNote() }}
                 placeholder="회의 내용 입력 (Ctrl+Enter 저장)"
@@ -386,6 +402,15 @@ export default function MeetingDetailPage() {
                 </button>
               </div>
             </div>
+            {showFullscreenNew && (
+              <FullscreenNoteEditor
+                value={noteInput}
+                onChange={setNoteInput}
+                onSave={() => { saveNote(); setShowFullscreenNew(false) }}
+                onClose={() => setShowFullscreenNew(false)}
+                title="회의 내용 입력"
+              />
+            )}
 
             <div className="space-y-2">
               {meeting.notes.length === 0 ? (

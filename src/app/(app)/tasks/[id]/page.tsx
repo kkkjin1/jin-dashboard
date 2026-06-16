@@ -12,6 +12,7 @@ import { generateTaskMd, downloadMd } from '@/lib/markdown'
 import SmartTextarea from '@/components/SmartTextarea'
 import MarkdownContent from '@/components/MarkdownContent'
 import FormattingToolbar from '@/components/FormattingToolbar'
+import FullscreenNoteEditor from '@/components/FullscreenNoteEditor'
 
 const STATUSES: TaskStatus[] = ['진행필요', '진행중', '완료']
 const STATUS_COLORS: Record<TaskStatus, string> = {
@@ -52,6 +53,7 @@ function NoteAccordion({ note, isOpen, onToggle, onDelete, onEdit, onEditTitle }
   const [editingTitle, setEditingTitle] = useState(false)
   const [editTitle, setEditTitle] = useState(note.title ?? '')
   const [autoSaved, setAutoSaved] = useState(false)
+  const [fullscreen, setFullscreen] = useState(false)
   const editRef = useRef<HTMLTextAreaElement | null>(null)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
@@ -118,11 +120,20 @@ function NoteAccordion({ note, isOpen, onToggle, onDelete, onEdit, onEditTitle }
             className="text-xs text-gray-200 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100">삭제</button>
         </div>
       </div>
+      {fullscreen && (
+        <FullscreenNoteEditor
+          value={editContent}
+          onChange={handleContentChange}
+          onSave={() => { if (editContent.trim()) onEdit(note.id, editContent.trim()); setEditing(false) }}
+          onClose={() => setFullscreen(false)}
+          title={note.title ?? '노트'}
+        />
+      )}
       {isOpen && (
         <div className="px-4 pb-4 border-t border-gray-50">
           {editing ? (
             <>
-              <FormattingToolbar textareaRef={editRef} value={editContent} onChange={handleContentChange} />
+              <FormattingToolbar textareaRef={editRef} value={editContent} onChange={handleContentChange} onExpand={() => setFullscreen(true)} />
               <SmartTextarea ref={editRef} value={editContent} onChange={handleContentChange}
                 onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSaveEdit(); if (e.key === 'Escape') setEditing(false) }}
                 className="w-full text-sm focus:outline-none resize-none text-gray-700 pt-2" style={{ minHeight: '160px' }} autoFocus />
@@ -137,11 +148,18 @@ function NoteAccordion({ note, isOpen, onToggle, onDelete, onEdit, onEditTitle }
           ) : (
             <>
               <MarkdownContent content={note.content} className="pt-3" />
-              <button
-                onClick={() => { setEditing(true); setEditContent(note.content) }}
-                className="text-xs text-gray-400 hover:text-blue-500 mt-2 transition-colors">
-                ✏ 편집
-              </button>
+              <div className="flex items-center gap-3 mt-2">
+                <button
+                  onClick={() => { setEditing(true); setEditContent(note.content) }}
+                  className="text-xs text-gray-400 hover:text-blue-500 transition-colors">
+                  ✏ 편집
+                </button>
+                <button
+                  onClick={() => { setEditContent(note.content); setFullscreen(true) }}
+                  className="text-xs text-gray-400 hover:text-blue-500 transition-colors">
+                  ⛶ 크게 편집
+                </button>
+              </div>
             </>
           )}
         </div>
@@ -161,6 +179,7 @@ export default function TaskDetailPage() {
   const [attachments, setAttachments] = useState<Attachment[]>([])
   const [noteInput, setNoteInput] = useState('')
   const [noteTitle, setNoteTitle] = useState(defaultNoteTitle())
+  const [showFullscreenNew, setShowFullscreenNew] = useState(false)
   const [linkUrl, setLinkUrl] = useState('')
   const [linkName, setLinkName] = useState('')
   const [toast, setToast] = useState('')
@@ -511,7 +530,7 @@ export default function TaskDetailPage() {
               <input ref={noteTitleRef} value={noteTitle} onChange={e => setNoteTitle(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Tab') { e.preventDefault(); noteAreaRef.current?.focus() } }}
                 className="w-full text-xs font-medium text-gray-500 focus:outline-none mb-2 border-b border-gray-100 pb-1 bg-transparent" placeholder="노트 제목" />
-              <FormattingToolbar textareaRef={noteAreaRef} value={noteInput} onChange={setNoteInput} />
+              <FormattingToolbar textareaRef={noteAreaRef} value={noteInput} onChange={setNoteInput} onExpand={() => setShowFullscreenNew(true)} />
               <SmartTextarea ref={noteAreaRef} value={noteInput} onChange={setNoteInput}
                 onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) saveNote() }}
                 placeholder="노트 입력 (Ctrl+Enter 저장)"
@@ -527,6 +546,15 @@ export default function TaskDetailPage() {
                 </button>
               </div>
             </div>
+            {showFullscreenNew && (
+              <FullscreenNoteEditor
+                value={noteInput}
+                onChange={setNoteInput}
+                onSave={() => { saveNote(); setShowFullscreenNew(false) }}
+                onClose={() => setShowFullscreenNew(false)}
+                title="노트 입력"
+              />
+            )}
             <div className="space-y-2">
               {notes.length === 0 ? (
                 <p className="text-sm text-gray-300 text-center py-4">아직 기록된 맥락이 없습니다</p>
