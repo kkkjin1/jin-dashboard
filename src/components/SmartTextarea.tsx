@@ -168,7 +168,19 @@ const SmartTextarea = forwardRef<HTMLTextAreaElement, Props>(function SmartTexta
       if (linePos === 1 && line === '-') {
         e.preventDefault()
         onChange(value.slice(0, lineStart) + '● ' + value.slice(lineStart + 1))
-        pendingCursor.current = lineStart + 3
+        pendingCursor.current = lineStart + 2
+        return
+      }
+    }
+
+    // '->' → '→', '-<' → '←' auto-conversion
+    if ((e.key === '>' || e.key === '<') && !e.ctrlKey && !e.metaKey && !e.shiftKey && start === end) {
+      const prevChar = value.slice(start - 1, start)
+      if (prevChar === '-') {
+        e.preventDefault()
+        const arrow = e.key === '>' ? '→' : '←'
+        onChange(value.slice(0, start - 1) + arrow + value.slice(end))
+        pendingCursor.current = start
         return
       }
     }
