@@ -47,11 +47,12 @@ function parseLineInfo(line: string): LineInfo {
   n = trimmed.match(/^(\d+)\) (.*)$/)
   if (n) return { type: 'paren', seq: parseInt(n[1]), indentLevel, prefix: ' '.repeat(indentLevel * INDENT_SIZE) + n[1] + ') ', content: n[2] }
 
-  n = trimmed.match(/^● (.*)$/)
-  if (n) return { type: 'bullet', seq: 0, indentLevel, prefix: ' '.repeat(indentLevel * INDENT_SIZE) + '● ', content: n[1] }
+  // Accept both old (●○) and new (▪▫) bullet symbols
+  n = trimmed.match(/^[●▪] (.*)$/)
+  if (n) return { type: 'bullet', seq: 0, indentLevel, prefix: ' '.repeat(indentLevel * INDENT_SIZE) + '▪ ', content: n[1] }
 
-  n = trimmed.match(/^○ (.*)$/)
-  if (n) return { type: 'subbullet', seq: 0, indentLevel, prefix: ' '.repeat(indentLevel * INDENT_SIZE) + '○ ', content: n[1] }
+  n = trimmed.match(/^[○▫] (.*)$/)
+  if (n) return { type: 'subbullet', seq: 0, indentLevel, prefix: ' '.repeat(indentLevel * INDENT_SIZE) + '▫ ', content: n[1] }
 
   return { type: 'none', seq: 0, indentLevel, prefix: '', content: line }
 }
@@ -61,8 +62,8 @@ function makePrefix(type: ListType, seq: number | string, indentLevel: number): 
   if (type === 'number') return ind + seq + '. '
   if (type === 'korean') return ind + seq + '. '
   if (type === 'paren') return ind + seq + ') '
-  if (type === 'bullet') return ind + '● '
-  if (type === 'subbullet') return ind + '○ '
+  if (type === 'bullet') return ind + '▪ '
+  if (type === 'subbullet') return ind + '▫ '
   return ind
 }
 
@@ -93,7 +94,7 @@ function renumberSequential(lines: string[]): string[] {
     const info = parseLineInfo(result[i])
 
     if (info.type === 'none') {
-      if (!info.content.trim()) lastSeq.clear() // empty line resets list scope
+      if (!info.content.trim()) lastSeq.clear()
       continue
     }
     if (info.type === 'bullet' || info.type === 'subbullet') continue
@@ -168,11 +169,9 @@ const SmartTextarea = forwardRef<HTMLTextAreaElement, Props>(function SmartTexta
 
     if (e.key === 'Enter' && !e.metaKey && !e.ctrlKey && !e.shiftKey) {
       if (info.type === 'none') { onKeyDown?.(e); return }
-      // Skip during IME composition (Korean/Japanese/Chinese input)
       if (e.nativeEvent.isComposing) { onKeyDown?.(e); return }
       e.preventDefault()
 
-      // Empty list item → exit list
       if (!info.content.trim()) {
         onChange(value.slice(0, lineStart) + value.slice(lineEnd))
         pendingCursor.current = lineStart
@@ -182,39 +181,39 @@ const SmartTextarea = forwardRef<HTMLTextAreaElement, Props>(function SmartTexta
       const nSeq = advance(info.type, info.seq)
       const newPrefix = makePrefix(info.type, nSeq, info.indentLevel)
       const insert = '\n' + newPrefix
-      // Insert at lineEnd (not cursor pos) so current line content is never split
       const newValueRaw = value.slice(0, lineEnd) + insert + value.slice(lineEnd)
 
-      // Renumber subsequent lines of same type/indent
       const currentLineIdx = value.slice(0, lineStart).split('\n').length - 1
       const lineIdxOfNew = currentLineIdx + 1
       let lines = newValueRaw.split('\n')
       lines = renumberForward(lines, lineIdxOfNew + 1, info.indentLevel, info.type, advance(info.type, nSeq))
 
-      onChange(lines.join('\n'))
+      onChange(renumberSequential(lines).join('\n'))
       pendingCursor.current = lineEnd + insert.length
       return
     }
 
-    // '- ' → '● ' auto-conversion (Space after dash at line start)
+    // '- ' → '▪ ' auto-conversion (Space after dash at line start)
     if (e.key === ' ' && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
       const linePos = start - lineStart
       if (linePos === 1 && line === '-') {
         e.preventDefault()
-        onChange(value.slice(0, lineStart) + '● ' + value.slice(lineStart + 1))
+        onChange(value.slice(0, lineStart) + '▪ ' + value.slice(lineStart + 1))
         pendingCursor.current = lineStart + 2
         return
       }
     }
 
-    // '->' → '→', '-<' → '←' auto-conversion
+    // '->' → ' → ', '-<' → ' ← ' (with space before if not already present)
     if ((e.key === '>' || e.key === '<') && !e.ctrlKey && !e.metaKey && !e.shiftKey && start === end) {
       const prevChar = value.slice(start - 1, start)
       if (prevChar === '-') {
         e.preventDefault()
-        const arrow = e.key === '>' ? '→' : '←'
+        const prevPrev = start >= 2 ? value.slice(start - 2, start - 1) : ''
+        const lead = prevPrev === ' ' ? '' : ' '
+        const arrow = e.key === '>' ? `${lead}→ ` : `${lead}← `
         onChange(value.slice(0, start - 1) + arrow + value.slice(end))
-        pendingCursor.current = start
+        pendingCursor.current = start - 1 + arrow.length
         return
       }
     }
@@ -259,10 +258,11 @@ const SmartTextarea = forwardRef<HTMLTextAreaElement, Props>(function SmartTexta
         const newPrefix = makePrefix(newType, seq, newIndent)
         const newLines = [...lines]
         newLines[lineIdx] = newPrefix + info.content
-        onChange(newLines.join('\n'))
+        // Apply renumberSequential so numbers before this line also renumber immediately
+        onChange(renumberSequential(newLines).join('\n'))
         pendingCursor.current = lineStart + newPrefix.length
       } else {
-        // Promote: subbullet→bullet→paren→korean→number + cascade renumber
+        // Promote: subbullet→bullet→paren→korean→number
         const promoteMap: Partial<Record<ListType, ListType>> = {
           subbullet: 'bullet', bullet: 'paren', paren: 'korean', korean: 'number',
         }
@@ -277,10 +277,9 @@ const SmartTextarea = forwardRef<HTMLTextAreaElement, Props>(function SmartTexta
         const newIndent = Math.max(0, info.indentLevel - 1)
         const seq = findNextSeq(lines, lineIdx, newType, newIndent)
         const newPrefix = makePrefix(newType, seq, newIndent)
-        let newLines = [...lines]
+        const newLines = [...lines]
         newLines[lineIdx] = newPrefix + info.content
-        newLines = renumberForward(newLines, lineIdx + 1, newIndent, newType, advance(newType, seq))
-        onChange(newLines.join('\n'))
+        onChange(renumberSequential(newLines).join('\n'))
         pendingCursor.current = lineStart + newPrefix.length
       }
       return
@@ -289,11 +288,33 @@ const SmartTextarea = forwardRef<HTMLTextAreaElement, Props>(function SmartTexta
     onKeyDown?.(e)
   }
 
+  function handleNativeChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    const rawValue = e.target.value
+    const cursor = e.target.selectionStart
+    const lines = rawValue.split('\n')
+    const renumbered = renumberSequential(lines)
+    const newValue = renumbered.join('\n')
+    onChange(newValue)
+
+    if (newValue !== rawValue) {
+      // Recalculate cursor accounting for prefix-length changes in lines before cursor
+      let charPos = 0
+      let adjustment = 0
+      for (let i = 0; i < lines.length; i++) {
+        const lineEnd = charPos + lines[i].length
+        if (lineEnd >= cursor) break
+        adjustment += renumbered[i].length - lines[i].length
+        charPos += lines[i].length + 1
+      }
+      pendingCursor.current = cursor + adjustment
+    }
+  }
+
   return (
     <textarea
       ref={setRefs}
       value={value}
-      onChange={e => onChange(renumberSequential(e.target.value.split('\n')).join('\n'))}
+      onChange={handleNativeChange}
       onKeyDown={handleKeyDown}
       {...props}
     />

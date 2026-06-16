@@ -75,25 +75,25 @@ export default function MarkdownContent({ content, className }: { content: strin
           )
         }
 
-        // List: ●
-        const bulletMatch = line.match(/^( *)● (.*)$/)
+        // List: ▪ (or legacy ●)
+        const bulletMatch = line.match(/^( *)[▪●] (.*)$/)
         if (bulletMatch) {
           const lvl = Math.floor(bulletMatch[1].length / INDENT_SIZE)
           return (
             <div key={i} className="flex gap-1.5 text-sm text-gray-700 leading-relaxed" style={{ paddingLeft: `${lvl * 20}px` }}>
-              <span className="text-gray-800 flex-shrink-0 text-[8px] pt-[4px]">●</span>
+              <span className="text-gray-800 flex-shrink-0 text-[9px] pt-[3px]">▪</span>
               <span>{parseInline(bulletMatch[2], `${i}`)}</span>
             </div>
           )
         }
 
-        // List: ○ (sub-bullet)
-        const subBulletMatch = line.match(/^( *)○ (.*)$/)
+        // List: ▫ (or legacy ○)
+        const subBulletMatch = line.match(/^( *)[▫○] (.*)$/)
         if (subBulletMatch) {
           const lvl = Math.floor(subBulletMatch[1].length / INDENT_SIZE)
           return (
             <div key={i} className="flex gap-1.5 text-sm text-gray-600 leading-relaxed" style={{ paddingLeft: `${(lvl + 1) * 20}px` }}>
-              <span className="text-gray-400 flex-shrink-0 text-[8px] pt-[4px]">○</span>
+              <span className="text-gray-400 flex-shrink-0 text-[9px] pt-[3px]">▫</span>
               <span>{parseInline(subBulletMatch[2], `${i}`)}</span>
             </div>
           )
