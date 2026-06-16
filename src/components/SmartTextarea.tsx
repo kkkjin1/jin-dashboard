@@ -116,6 +116,13 @@ const SmartTextarea = forwardRef<HTMLTextAreaElement, Props>(function SmartTexta
     }
   })
 
+  useEffect(() => {
+    const el = localRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = el.scrollHeight + 'px'
+  }, [value])
+
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     const el = e.currentTarget
     const start = el.selectionStart
@@ -149,6 +156,25 @@ const SmartTextarea = forwardRef<HTMLTextAreaElement, Props>(function SmartTexta
       onChange(lines.join('\n'))
       pendingCursor.current = start + insert.length
       return
+    }
+
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey) {
+      const el = e.currentTarget
+      const start = el.selectionStart
+      const end = el.selectionEnd
+      const sel = value.slice(start, end)
+      if (e.key === 'b') {
+        e.preventDefault()
+        onChange(value.slice(0, start) + '**' + sel + '**' + value.slice(end))
+        setTimeout(() => { el.selectionStart = start + 2; el.selectionEnd = end + 2 }, 0)
+        return
+      }
+      if (e.key === 'u') {
+        e.preventDefault()
+        onChange(value.slice(0, start) + '__' + sel + '__' + value.slice(end))
+        setTimeout(() => { el.selectionStart = start + 2; el.selectionEnd = end + 2 }, 0)
+        return
+      }
     }
 
     if (e.key === 'Tab') {
