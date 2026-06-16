@@ -10,40 +10,45 @@ import { fetchAllTasks } from '@/lib/tasks'
 import { createClient } from '@/lib/supabase/client'
 import { useUserSetting } from '@/hooks/useUserSetting'
 import { HomePageSkeleton } from '@/components/ui/Skeleton'
-import type { Task, Meeting } from '@/types'
+import type { Task, Meeting, TaskTodo } from '@/types'
+
+interface TodoColItem { id: string; title: string; taskId: string; taskTitle: string | null }
 
 interface CompactColProps {
   title: string
-  tasks: Task[]
+  items: TodoColItem[]
   dot: string
   badgeCls?: string
 }
 
-function CompactCol({ title, tasks, dot, badgeCls = 'bg-gray-200 text-gray-600' }: CompactColProps) {
+function CompactCol({ title, items, dot, badgeCls = 'bg-gray-200 text-gray-600' }: CompactColProps) {
   return (
     <div className="bg-white rounded-lg border border-gray-100 p-4 min-w-0">
       <div className="flex items-center gap-1.5 mb-2">
         <span className={`w-2 h-2 rounded-full flex-shrink-0 ${dot}`} />
         <span className="text-xs font-semibold text-gray-700">{title}</span>
-        {tasks.length > 0 && (
+        {items.length > 0 && (
           <span className={`ml-auto text-[10px] ${badgeCls} w-4 h-4 rounded-full flex items-center justify-center font-medium flex-shrink-0`}>
-            {tasks.length > 9 ? '9+' : tasks.length}
+            {items.length > 9 ? '9+' : items.length}
           </span>
         )}
       </div>
-      {tasks.length === 0 ? (
-        <p className="text-xs text-gray-300 text-center py-1">해당 없음</p>
+      {items.length === 0 ? (
+        <p className="text-xs text-gray-300 text-center py-1">없음</p>
       ) : (
         <div className="space-y-0.5">
-          {tasks.slice(0, 5).map(t => (
-            <Link key={t.id} href={`/tasks/${t.id}`}>
+          {items.slice(0, 5).map(item => (
+            <Link key={item.id} href={`/tasks/${item.taskId}`}>
               <div className="py-0.5 px-1 hover:bg-gray-50 rounded transition-colors">
-                <span className="text-xs text-gray-700 truncate block">{t.title || '제목 없음'}</span>
+                <span className="text-xs text-gray-800 truncate block">{item.title || '제목 없음'}</span>
+                {item.taskTitle && (
+                  <span className="text-[10px] text-gray-400 truncate block">{item.taskTitle}</span>
+                )}
               </div>
             </Link>
           ))}
-          {tasks.length > 5 && (
-            <p className="text-[10px] text-gray-300 px-1 pt-0.5">+{tasks.length - 5}건 더</p>
+          {items.length > 5 && (
+            <p className="text-[10px] text-gray-300 px-1 pt-0.5">+{items.length - 5}개 더</p>
           )}
         </div>
       )}
@@ -53,6 +58,7 @@ function CompactCol({ title, tasks, dot, badgeCls = 'bg-gray-200 text-gray-600' 
 
 export default function HomePage() {
   const [tasks, setTasks] = useState<Task[]>([])
+  const [todos, setTodos] = useState<TaskTodo[]>([])
   const [loading, setLoading] = useState(true)
   const [meetings, setMeetings] = useState<Pick<Meeting, 'id' | 'title' | 'meeting_date'>[]>([])
   const [search, setSearch] = useState('')
@@ -74,10 +80,12 @@ export default function HomePage() {
   useEffect(() => {
     Promise.all([
       fetchAllTasks(),
-      supabase.from('meetings').select('id, title, meeting_date').order('meeting_date', { ascending: true })
-    ]).then(([taskData, { data: meetingData }]) => {
+      supabase.from('meetings').select('id, title, meeting_date').order('meeting_date', { ascending: true }),
+      supabase.from('task_todos').select('id, title, schedule_tag, task_id, done, tasks(id, title)').eq('done', false),
+    ]).then(([taskData, { data: meetingData }, { data: todosData }]) => {
       setTasks(taskData)
       setMeetings((meetingData ?? []) as Pick<Meeting, 'id' | 'title' | 'meeting_date'>[])
+      setTodos((todosData ?? []) as unknown as TaskTodo[])
       setLoading(false)
     })
   }, [])
@@ -140,11 +148,17 @@ export default function HomePage() {
   const matchedMeetings = q ? searchMeetings.filter(m => m.title.toLowerCase().includes(q)).slice(0, 4) : []
   const hasResults = matchedTasks.length > 0 || matchedMeetings.length > 0
 
-  const active = tasks.filter(t => t.status !== '완료')
-  const todayTasks = active.filter(t => t.schedule_tag === 'today')
-  const tomorrowTasks = active.filter(t => t.schedule_tag === 'tomorrow')
-  const weekTasks = active.filter(t => t.schedule_tag === 'this_week')
-  const untaggedTasks = active.filter(t => !t.schedule_tag)
+  function toColItems(filtered: TaskTodo[]): TodoColItem[] {
+    return filtered.map(t => ({
+      id: t.id,
+      title: t.title,
+      taskId: t.task_id,
+      taskTitle: (t.tasks as { id: string; title: string } | null)?.title ?? null,
+    }))
+  }
+  const todayItems = toColItems(todos.filter(t => t.schedule_tag === 'today'))
+  const tomorrowItems = toColItems(todos.filter(t => t.schedule_tag === 'tomorrow'))
+  const weekItems = toColItems(todos.filter(t => t.schedule_tag === 'this_week'))
 
   if (loading) return <HomePageSkeleton />
 
@@ -286,15 +300,14 @@ export default function HomePage() {
 
       {/* Row 3: 컴팩트 업무 현황 */}
       {loading ? (
-        <div className="flex-shrink-0 grid grid-cols-2 md:grid-cols-4 gap-3">
-          {[1,2,3,4].map(i => <div key={i} className="bg-white rounded-xl border border-gray-100 h-20 animate-pulse" />)}
+        <div className="flex-shrink-0 grid grid-cols-3 gap-3">
+          {[1,2,3].map(i => <div key={i} className="bg-white rounded-xl border border-gray-100 h-20 animate-pulse" />)}
         </div>
       ) : (
-        <div className="flex-shrink-0 grid grid-cols-2 md:grid-cols-4 gap-3">
-          <CompactCol title="오늘" tasks={todayTasks} dot="bg-red-500" badgeCls="bg-red-500 text-white" />
-          <CompactCol title="내일" tasks={tomorrowTasks} dot="bg-orange-400" badgeCls="bg-orange-400 text-white" />
-          <CompactCol title="금주" tasks={weekTasks} dot="bg-blue-400" badgeCls="bg-blue-400 text-white" />
-          <CompactCol title="미지정" tasks={untaggedTasks} dot="bg-gray-300" />
+        <div className="flex-shrink-0 grid grid-cols-3 gap-3">
+          <CompactCol title="오늘" items={todayItems} dot="bg-red-500" badgeCls="bg-red-500 text-white" />
+          <CompactCol title="내일" items={tomorrowItems} dot="bg-orange-400" badgeCls="bg-orange-400 text-white" />
+          <CompactCol title="금주" items={weekItems} dot="bg-blue-400" badgeCls="bg-blue-400 text-white" />
         </div>
       )}
 

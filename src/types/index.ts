@@ -26,10 +26,20 @@ export interface Task {
   work_months: string[]
   achievement_category: AchievementCategory | null
   retrospective?: { good: string; bad: string; improvement: string } | null
-  schedule_tag?: ScheduleTag | null
   created_at: string
   updated_at: string
   members?: Member
+}
+
+export interface TaskTodo {
+  id: string
+  task_id: string
+  title: string
+  schedule_tag?: ScheduleTag | null
+  done: boolean
+  sort_order: number
+  created_at: string
+  tasks?: { id: string; title: string } | null
 }
 
 export interface Note {

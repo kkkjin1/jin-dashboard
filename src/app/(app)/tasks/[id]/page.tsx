@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { fetchMembers, parseTags, formatDate } from '@/lib/tasks'
-import type { Task, Member, Note, Attachment, TaskStatus, Part, TaskType, Meeting } from '@/types'
+import type { Task, Member, Note, Attachment, TaskStatus, Part, TaskType, Meeting, TaskTodo, ScheduleTag } from '@/types'
 import { format, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { generateTaskMd, downloadMd } from '@/lib/markdown'
@@ -19,6 +19,13 @@ const STATUS_COLORS: Record<TaskStatus, string> = {
   '진행필요': 'bg-gray-100 text-gray-600',
   '진행중': 'bg-[#EBF7F2] text-[#5DBD97]',
   '완료': 'bg-[#EBF7F2]/60 text-[#4aab84]',
+}
+
+const TODO_TAG_LABELS: Record<ScheduleTag, string> = { today: '오늘', tomorrow: '내일', this_week: '금주' }
+const TODO_TAG_ACTIVE: Record<ScheduleTag, string> = {
+  today: 'bg-red-100 text-red-600',
+  tomorrow: 'bg-orange-100 text-orange-600',
+  this_week: 'bg-blue-100 text-blue-600',
 }
 
 function Toast({ message, onDone }: { message: string; onDone: () => void }) {
@@ -193,6 +200,9 @@ export default function TaskDetailPage() {
   const [titleInput, setTitleInput] = useState('')
   const [openNoteIds, setOpenNoteIds] = useState<Set<string>>(new Set())
 
+  const [todos, setTodos] = useState<TaskTodo[]>([])
+  const [todoInput, setTodoInput] = useState('')
+
   const [showRetroModal, setShowRetroModal] = useState(false)
   const [retroGood, setRetroGood] = useState('')
   const [retroBad, setRetroBad] = useState('')
@@ -227,13 +237,14 @@ export default function TaskDetailPage() {
 
   useEffect(() => {
     async function load() {
-      const [{ data: t }, ms, { data: n }, { data: a }, { data: links }, { data: meetings }] = await Promise.all([
+      const [{ data: t }, ms, { data: n }, { data: a }, { data: links }, { data: meetings }, { data: todosData }] = await Promise.all([
         supabase.from('tasks').select('*, members(id, name, part)').eq('id', id).single(),
         fetchMembers(),
         supabase.from('notes').select('*').eq('task_id', id).order('created_at', { ascending: false }),
         supabase.from('attachments').select('*').eq('task_id', id).order('created_at', { ascending: false }),
         supabase.from('task_meeting_links').select('meeting_id, meetings(*)').eq('task_id', id),
         supabase.from('meetings').select('id, title, meeting_date').order('created_at', { ascending: false }),
+        supabase.from('task_todos').select('*').eq('task_id', id).order('sort_order').order('created_at'),
       ])
       if (t) { setTask(t as Task); setTitleInput((t as Task).title) }
       setMembers(ms)
@@ -243,6 +254,7 @@ export default function TaskDetailPage() {
       setAttachments((a ?? []) as Attachment[])
       if (links) setLinkedMeetings((links as any[]).map(l => l.meetings).filter(Boolean) as Meeting[])
       if (meetings) setAllMeetings(meetings as Pick<Meeting, 'id' | 'title' | 'meeting_date'>[])
+      setTodos((todosData ?? []) as TaskTodo[])
     }
     load()
   }, [id])
@@ -270,6 +282,30 @@ export default function TaskDetailPage() {
   async function updateTask(updates: Partial<Task>) {
     await supabase.from('tasks').update(updates).eq('id', id)
     setTask(prev => prev ? { ...prev, ...updates } : prev)
+  }
+
+  async function addTodo() {
+    if (!todoInput.trim()) return
+    const { data } = await supabase.from('task_todos').insert({
+      task_id: id, title: todoInput.trim(), sort_order: todos.length,
+    }).select().single()
+    if (data) setTodos(prev => [...prev, data as TaskTodo])
+    setTodoInput('')
+  }
+
+  async function toggleTodoDone(todoId: string, done: boolean) {
+    await supabase.from('task_todos').update({ done }).eq('id', todoId)
+    setTodos(prev => prev.map(t => t.id === todoId ? { ...t, done } : t))
+  }
+
+  async function updateTodoTag(todoId: string, tag: ScheduleTag | null) {
+    await supabase.from('task_todos').update({ schedule_tag: tag }).eq('id', todoId)
+    setTodos(prev => prev.map(t => t.id === todoId ? { ...t, schedule_tag: tag } : t))
+  }
+
+  async function deleteTodo(todoId: string) {
+    await supabase.from('task_todos').delete().eq('id', todoId)
+    setTodos(prev => prev.filter(t => t.id !== todoId))
   }
 
   async function saveRetro(skip: boolean) {
@@ -668,8 +704,54 @@ export default function TaskDetailPage() {
           </div>
         </div>
 
-        {/* 오른쪽 50%: 연관 회의록 전체 내용 */}
+        {/* 오른쪽 50%: 할일 목록 + 연관 회의록 */}
         <div className="flex-[50]">
+
+          {/* 할일 목록 */}
+          <div className="mb-6">
+            <h3 className="text-sm font-semibold text-gray-700 mb-3">할일 목록</h3>
+            <div className="bg-white rounded-lg border border-gray-100 p-4">
+              <div className="flex gap-2 mb-3">
+                <input
+                  value={todoInput}
+                  onChange={e => setTodoInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') addTodo() }}
+                  placeholder="할일 추가 후 Enter"
+                  className="flex-1 text-sm text-gray-700 focus:outline-none border-b border-gray-200 pb-1 bg-transparent placeholder:text-gray-300"
+                />
+              </div>
+              {todos.length === 0 ? (
+                <p className="text-xs text-gray-300 text-center py-2">할일을 추가하세요</p>
+              ) : (
+                <div className="space-y-2">
+                  {todos.map(todo => (
+                    <div key={todo.id} className="flex items-center gap-2 group">
+                      <input type="checkbox" checked={todo.done}
+                        onChange={() => toggleTodoDone(todo.id, !todo.done)}
+                        className="w-3.5 h-3.5 rounded accent-emerald-500 flex-shrink-0 cursor-pointer" />
+                      <span className={`text-sm flex-1 min-w-0 truncate ${todo.done ? 'line-through text-gray-300' : 'text-gray-700'}`}>
+                        {todo.title}
+                      </span>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        {(['today', 'tomorrow', 'this_week'] as const).map(tag => (
+                          <button key={tag}
+                            onClick={() => updateTodoTag(todo.id, todo.schedule_tag === tag ? null : tag)}
+                            className={`text-[10px] px-1.5 py-0.5 rounded transition-colors font-medium ${
+                              todo.schedule_tag === tag ? TODO_TAG_ACTIVE[tag] : 'text-gray-300 hover:text-gray-500'
+                            }`}>
+                            {TODO_TAG_LABELS[tag]}
+                          </button>
+                        ))}
+                        <button onClick={() => deleteTodo(todo.id)}
+                          className="text-gray-200 hover:text-red-400 text-base opacity-0 group-hover:opacity-100 transition-all leading-none ml-0.5">×</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
           <h3 className="text-sm font-semibold text-gray-700 mb-3">연관 회의록</h3>
           <div className="bg-white rounded-lg border border-gray-100 p-5">
 
