@@ -75,6 +75,15 @@ export default function MeetingsPage() {
     setCheckedIds(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s })
   }
 
+  function toggleCheckAll(ids: string[]) {
+    const allChecked = ids.length > 0 && ids.every(id => checkedIds.has(id))
+    setCheckedIds(prev => {
+      const s = new Set(prev)
+      if (allChecked) ids.forEach(id => s.delete(id)); else ids.forEach(id => s.add(id))
+      return s
+    })
+  }
+
   function toggleMonth(key: string) {
     setCollapsedMonths(prev => { const s = new Set(prev); s.has(key) ? s.delete(key) : s.add(key); return s })
   }
@@ -197,7 +206,7 @@ export default function MeetingsPage() {
                             <input type="checkbox" checked={checkedIds.has(meeting.id)}
                               onChange={() => toggleCheck(meeting.id)}
                               onClick={e => e.stopPropagation()}
-                              className="w-4 h-4 rounded accent-gray-700 flex-shrink-0 cursor-pointer" />
+                              className="w-3 h-3 rounded accent-gray-700 flex-shrink-0 cursor-pointer" />
                             <Link href={`/meetings/${meeting.id}`} className="flex-1 flex items-center justify-between min-w-0">
                               <div className="min-w-0">
                                 <div className="flex items-center gap-2">
@@ -268,7 +277,17 @@ export default function MeetingsPage() {
               <div key={cat} className={`min-w-0 rounded-xl border p-3 ${KANBAN_COL_STYLE[cat]?.bg ?? 'bg-white border-gray-100'}`}>
                 {/* 컬럼 헤더 — A 스타일 버튼형 */}
                 <div className={`flex items-center justify-between py-2.5 px-3 rounded-xl border mb-3 ${KANBAN_COL_STYLE[cat]?.header ?? 'bg-white border-gray-200 text-gray-700'}`}>
-                  <span className="text-sm font-semibold">{cat}</span>
+                  <div className="flex items-center gap-2">
+                    {colMeetings.length > 0 && (
+                      <input type="checkbox"
+                        checked={colMeetings.every(m => checkedIds.has(m.id))}
+                        onChange={() => toggleCheckAll(colMeetings.map(m => m.id))}
+                        onClick={e => e.stopPropagation()}
+                        className="w-3 h-3 rounded accent-gray-600 cursor-pointer flex-shrink-0"
+                        title="전체 선택" />
+                    )}
+                    <span className="text-sm font-semibold">{cat}</span>
+                  </div>
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs text-gray-400">{colMeetings.length}</span>
                     <button
@@ -313,7 +332,7 @@ export default function MeetingsPage() {
                                   <div className="flex items-start gap-2 px-3 py-3">
                                     <input type="checkbox" checked={checkedIds.has(meeting.id)}
                                       onChange={() => toggleCheck(meeting.id)}
-                                      className="w-3.5 h-3.5 mt-0.5 rounded accent-gray-700 flex-shrink-0 cursor-pointer" />
+                                      className="w-3 h-3 mt-0.5 rounded accent-gray-700 flex-shrink-0 cursor-pointer" />
                                     <Link href={`/meetings/${meeting.id}`} className="flex-1 min-w-0">
                                       <p className="text-sm font-medium text-gray-800 line-clamp-2 mb-1.5">{meeting.title}</p>
                                       <div className="flex items-center gap-2 flex-wrap">

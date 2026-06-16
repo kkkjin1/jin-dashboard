@@ -357,7 +357,7 @@ export default function TasksPage() {
                   {allPartIds.length > 0 && (
                     <input type="checkbox" checked={allChecked}
                       onChange={() => toggleCheckAll(allPartIds)}
-                      className="w-3.5 h-3.5 rounded accent-gray-600 cursor-pointer" title="전체 선택" />
+                      className="w-3 h-3 rounded accent-gray-600 cursor-pointer" title="전체 선택" />
                   )}
                 </div>
                 {TYPES.map(type => {

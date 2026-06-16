@@ -52,7 +52,7 @@ function MemoCard({ memo, onEdit, onDelete, draggable: drag, onDragStart, select
         <input type="checkbox" checked={selected ?? false}
           onChange={e => { e.stopPropagation(); onToggleSelect?.(memo.id) }}
           onClick={e => e.stopPropagation()}
-          className="w-3.5 h-3.5 mt-0.5 rounded accent-gray-700 flex-shrink-0 cursor-pointer" />
+          className="w-3 h-3 mt-0.5 rounded accent-gray-700 flex-shrink-0 cursor-pointer" />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-gray-800 mb-0.5 leading-snug break-words">{memo.title}</p>
           {memo.content && <p className="text-xs text-gray-500 whitespace-pre-wrap line-clamp-3 break-words">{memo.content}</p>}
@@ -175,6 +175,15 @@ export default function MemosPage() {
     setSelectedIds(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s })
   }
 
+  function toggleSelectAll(ids: string[]) {
+    const allChecked = ids.length > 0 && ids.every(id => selectedIds.has(id))
+    setSelectedIds(prev => {
+      const s = new Set(prev)
+      if (allChecked) ids.forEach(id => s.delete(id)); else ids.forEach(id => s.add(id))
+      return s
+    })
+  }
+
   async function handleDropOnTag(tag: MemoTag) {
     if (!draggingId) return
     const memo = memos.find(m => m.id === draggingId)
@@ -212,6 +221,13 @@ export default function MemosPage() {
         onDragLeave={() => setDragOverTag(null)}
         onDrop={() => handleDropOnTag('공지')}>
         <div className="flex items-center gap-2 mb-3">
+          {notices.length > 0 && (
+            <input type="checkbox"
+              checked={notices.every(m => selectedIds.has(m.id))}
+              onChange={() => toggleSelectAll(notices.map(m => m.id))}
+              className="w-3 h-3 rounded accent-gray-600 cursor-pointer"
+              title="전체 선택" />
+          )}
           <span className="w-2 h-2 rounded-full bg-amber-400" />
           <span className="text-sm font-semibold text-gray-700">공지</span>
           <span className="text-xs text-gray-400">{notices.length}</span>
@@ -263,6 +279,13 @@ export default function MemosPage() {
               onDragLeave={() => setDragOverTag(null)}
               onDrop={() => handleDropOnTag(tag)}>
               <div className="flex items-center gap-2 mb-3">
+                {colMemos.length > 0 && (
+                  <input type="checkbox"
+                    checked={colMemos.every(m => selectedIds.has(m.id))}
+                    onChange={() => toggleSelectAll(colMemos.map(m => m.id))}
+                    className="w-3 h-3 rounded accent-gray-600 cursor-pointer"
+                    title="전체 선택" />
+                )}
                 <span className={`w-2 h-2 rounded-full ${TAG_DOT[tag]}`} />
                 <span className="text-sm font-semibold text-gray-700">{tag}</span>
                 <span className="text-xs text-gray-400">{colMemos.length}</span>
