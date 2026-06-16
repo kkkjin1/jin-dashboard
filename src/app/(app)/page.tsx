@@ -31,17 +31,20 @@ interface CompactColProps {
   onDragOver?: (e: React.DragEvent) => void
   onDragLeave?: () => void
   isDragOver?: boolean
+  onComplete?: (todoId: string) => void
+  maxItems?: number
+  scrollable?: boolean
 }
 
-function CompactCol({ title, items, dot, badgeCls = 'bg-gray-200 text-gray-600', droppable, onDrop, onDragOver, onDragLeave, isDragOver }: CompactColProps) {
+function CompactCol({ title, items, dot, badgeCls = 'bg-gray-200 text-gray-600', droppable, onDrop, onDragOver, onDragLeave, isDragOver, onComplete, maxItems = 5, scrollable }: CompactColProps) {
   return (
     <div
-      className={`bg-white rounded-lg border p-4 min-w-0 transition-colors ${isDragOver && droppable ? 'border-emerald-300 bg-emerald-50/30' : 'border-gray-100'}`}
+      className={`bg-white rounded-lg border p-4 min-w-0 transition-colors flex flex-col ${isDragOver && droppable ? 'border-emerald-300 bg-emerald-50/30' : 'border-gray-100'}`}
       onDragOver={droppable ? onDragOver : undefined}
       onDrop={droppable ? onDrop : undefined}
       onDragLeave={droppable ? onDragLeave : undefined}
     >
-      <div className="flex items-center gap-1.5 mb-2">
+      <div className="flex items-center gap-1.5 mb-2 flex-shrink-0">
         <span className={`w-2 h-2 rounded-full flex-shrink-0 ${dot}`} />
         <span className="text-xs font-semibold text-gray-700">{title}</span>
         {items.length > 0 && (
@@ -53,30 +56,41 @@ function CompactCol({ title, items, dot, badgeCls = 'bg-gray-200 text-gray-600',
       {items.length === 0 ? (
         <p className="text-xs text-gray-300 text-center py-1">{isDragOver && droppable ? '여기에 놓기' : '없음'}</p>
       ) : (
-        <div className="space-y-0.5">
-          {items.slice(0, 5).map(item => (
-            <Link key={item.id} href={`/tasks/${item.taskId}`}>
-              <div
-                className="py-0.5 px-1 hover:bg-gray-50 rounded transition-colors cursor-grab active:cursor-grabbing"
-                draggable
-                onDragStart={e => { e.stopPropagation(); e.dataTransfer.setData('todoId', item.id) }}
-              >
-                <div className="flex items-center gap-1 min-w-0">
-                  {item.taskShortName && (
-                    <span className="text-[9px] font-mono text-gray-400 flex-shrink-0 bg-gray-100 px-1 py-0.5 rounded">
-                      {item.taskShortName}{(item.idxInTask ?? 0) + 1}
-                    </span>
+        <div className={`space-y-0.5 ${scrollable ? 'overflow-y-auto flex-1 min-h-0' : ''}`}>
+          {(scrollable ? items : items.slice(0, maxItems)).map(item => (
+            <div key={item.id} className="group flex items-center gap-1 py-0.5 px-1 hover:bg-gray-50 rounded transition-colors">
+              {onComplete && (
+                <button
+                  onClick={e => { e.stopPropagation(); onComplete(item.id) }}
+                  className="flex-shrink-0 w-3.5 h-3.5 rounded-full border border-gray-200 hover:border-emerald-400 hover:bg-emerald-50 transition-colors opacity-0 group-hover:opacity-100 flex items-center justify-center"
+                  title="완료"
+                >
+                  <span className="text-[8px] text-emerald-500 leading-none">✓</span>
+                </button>
+              )}
+              <Link href={`/tasks/${item.taskId}`} className="flex-1 min-w-0">
+                <div
+                  className="cursor-grab active:cursor-grabbing"
+                  draggable={droppable}
+                  onDragStart={droppable ? e => { e.stopPropagation(); e.dataTransfer.setData('todoId', item.id) } : undefined}
+                >
+                  <div className="flex items-center gap-1 min-w-0">
+                    {item.taskShortName && (
+                      <span className="text-[9px] font-mono text-gray-400 flex-shrink-0 bg-gray-100 px-1 py-0.5 rounded">
+                        {item.taskShortName}{(item.idxInTask ?? 0) + 1}
+                      </span>
+                    )}
+                    <span className="text-xs text-gray-800 truncate">{item.title || '제목 없음'}</span>
+                  </div>
+                  {item.taskTitle && (
+                    <span className="text-[10px] text-gray-400 truncate block">{item.taskTitle}</span>
                   )}
-                  <span className="text-xs text-gray-800 truncate">{item.title || '제목 없음'}</span>
                 </div>
-                {item.taskTitle && (
-                  <span className="text-[10px] text-gray-400 truncate block">{item.taskTitle}</span>
-                )}
-              </div>
-            </Link>
+              </Link>
+            </div>
           ))}
-          {items.length > 5 && (
-            <p className="text-[10px] text-gray-300 px-1 pt-0.5">+{items.length - 5}개 더</p>
+          {!scrollable && items.length > maxItems && (
+            <p className="text-[10px] text-gray-300 px-1 pt-0.5">+{items.length - maxItems}개 더</p>
           )}
         </div>
       )}
@@ -220,6 +234,7 @@ export default function HomePage() {
   const tomorrowItems = toColItemsV2(todos.filter(t => t.target_date === tomorrow))
   const weekItems = toColItemsV2(todos.filter(t => t.target_date && t.target_date > tomorrow && t.target_date <= thisFriday))
   const overdueItems = toColItemsV2(todos.filter(t => t.target_date && t.target_date < today))
+  const unscheduledItems = toColItemsV2(todos.filter(t => !t.target_date))
 
   function handleDragOver(e: React.DragEvent, bucket: string) {
     e.preventDefault()
@@ -235,6 +250,11 @@ export default function HomePage() {
     const targetDate = bucket === 'today' ? t : bucket === 'tomorrow' ? tm : tf
     await supabase.from('task_todos').update({ target_date: targetDate }).eq('id', todoId)
     setTodos(prev => prev.map(todo => todo.id === todoId ? { ...todo, target_date: targetDate } : todo))
+  }
+
+  async function handleCompleteTodo(todoId: string) {
+    await supabase.from('task_todos').update({ done: true }).eq('id', todoId)
+    setTodos(prev => prev.filter(t => t.id !== todoId))
   }
 
   if (loading) return <HomePageSkeleton />
@@ -385,28 +405,38 @@ export default function HomePage() {
           <CompactCol
             title="오늘" items={todayItems} dot="bg-red-500" badgeCls="bg-red-500 text-white"
             droppable onDrop={e => handleDrop(e, 'today')} onDragOver={e => handleDragOver(e, 'today')} onDragLeave={() => setDragOverBucket(null)} isDragOver={dragOverBucket === 'today'}
+            onComplete={handleCompleteTodo}
           />
           <CompactCol
             title="내일" items={tomorrowItems} dot="bg-orange-400" badgeCls="bg-orange-400 text-white"
             droppable onDrop={e => handleDrop(e, 'tomorrow')} onDragOver={e => handleDragOver(e, 'tomorrow')} onDragLeave={() => setDragOverBucket(null)} isDragOver={dragOverBucket === 'tomorrow'}
+            onComplete={handleCompleteTodo}
           />
           <CompactCol
             title="금주" items={weekItems} dot="bg-blue-400" badgeCls="bg-blue-400 text-white"
             droppable onDrop={e => handleDrop(e, 'this_week')} onDragOver={e => handleDragOver(e, 'this_week')} onDragLeave={() => setDragOverBucket(null)} isDragOver={dragOverBucket === 'this_week'}
+            onComplete={handleCompleteTodo}
           />
           <CompactCol
             title="미진행" items={overdueItems} dot="bg-gray-400" badgeCls="bg-red-200 text-red-600"
+            onComplete={handleCompleteTodo}
           />
         </div>
       )}
 
-      {/* Row 4: 캘린더 + 오늘할일 */}
+      {/* Row 4: 캘린더 + 오늘할일 + 미지정백로그 */}
       <div className="md:flex-1 md:min-h-0 grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="md:col-span-2 md:overflow-hidden">
           <HomeCalendar tasks={tasks} meetings={meetings} />
         </div>
-        <div className="md:overflow-hidden">
-          <TodayTodoWidget />
+        <div className="md:overflow-hidden flex flex-col gap-3 min-h-0">
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <TodayTodoWidget />
+          </div>
+          <CompactCol
+            title="미지정 할일" items={unscheduledItems} dot="bg-gray-300"
+            scrollable maxItems={unscheduledItems.length}
+          />
         </div>
       </div>
     </div>
