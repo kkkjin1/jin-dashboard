@@ -138,6 +138,8 @@ const SmartTextarea = forwardRef<HTMLTextAreaElement, Props>(function SmartTexta
 
     if (e.key === 'Enter' && !e.metaKey && !e.ctrlKey && !e.shiftKey) {
       if (info.type === 'none') { onKeyDown?.(e); return }
+      // Skip during IME composition (Korean/Japanese/Chinese input)
+      if (e.nativeEvent.isComposing) { onKeyDown?.(e); return }
       e.preventDefault()
 
       // Empty list item → exit list
@@ -150,15 +152,17 @@ const SmartTextarea = forwardRef<HTMLTextAreaElement, Props>(function SmartTexta
       const nSeq = advance(info.type, info.seq)
       const newPrefix = makePrefix(info.type, nSeq, info.indentLevel)
       const insert = '\n' + newPrefix
-      const newValueRaw = value.slice(0, start) + insert + value.slice(end)
+      // Insert at lineEnd (not cursor pos) so current line content is never split
+      const newValueRaw = value.slice(0, lineEnd) + insert + value.slice(lineEnd)
 
-      // Cascade renumber lines after the newly inserted line
-      const lineIdxOfNew = newValueRaw.slice(0, start + insert.length).split('\n').length - 1
+      // Renumber subsequent lines of same type/indent
+      const currentLineIdx = value.slice(0, lineStart).split('\n').length - 1
+      const lineIdxOfNew = currentLineIdx + 1
       let lines = newValueRaw.split('\n')
       lines = renumberForward(lines, lineIdxOfNew + 1, info.indentLevel, info.type, advance(info.type, nSeq))
 
       onChange(lines.join('\n'))
-      pendingCursor.current = start + insert.length
+      pendingCursor.current = lineEnd + insert.length
       return
     }
 
