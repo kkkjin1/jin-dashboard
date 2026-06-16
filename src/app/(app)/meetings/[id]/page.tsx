@@ -177,7 +177,7 @@ function LinkedTaskCard({ task, onUnlink }: LinkedTaskCardProps) {
               {notes.map(note => (
                 <div key={note.id} className="px-3 py-2.5">
                   <p className="text-xs text-gray-400 mb-1">{note.created_at.slice(0, 10)}</p>
-                  <p className="text-xs text-gray-600 whitespace-pre-wrap">{note.content}</p>
+                  <MarkdownContent content={note.content} className="text-xs text-gray-600" />
                 </div>
               ))}
             </div>
@@ -451,7 +451,7 @@ export default function MeetingDetailPage() {
               <p className="text-xs text-gray-400">크게보기 모드 (클릭하면 닫힘)</p>
               <button onClick={() => setShowFullscreen(false)} className="text-gray-400 hover:text-gray-600 text-xl">×</button>
             </div>
-            <p className="text-lg text-gray-800 whitespace-pre-wrap leading-relaxed">{fullscreenContent}</p>
+            <MarkdownContent content={fullscreenContent} className="text-lg text-gray-800 leading-relaxed" />
           </div>
         </div>
       )}

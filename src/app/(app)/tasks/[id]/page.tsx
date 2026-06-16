@@ -672,7 +672,7 @@ export default function TaskDetailPage() {
                               </button>
                               {isNoteOpen && (
                                 <div className="px-3 pb-3 pl-7">
-                                  <p className="text-xs text-gray-600 whitespace-pre-wrap leading-relaxed">{note.content}</p>
+                                  <MarkdownContent content={note.content} className="text-xs text-gray-600 leading-relaxed" />
                                 </div>
                               )}
                             </div>
