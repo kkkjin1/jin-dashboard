@@ -159,6 +159,7 @@ export default function HomePage() {
   const todayItems = toColItems(todos.filter(t => t.schedule_tag === 'today'))
   const tomorrowItems = toColItems(todos.filter(t => t.schedule_tag === 'tomorrow'))
   const weekItems = toColItems(todos.filter(t => t.schedule_tag === 'this_week'))
+  const untaggedItems = toColItems(todos.filter(t => !t.schedule_tag))
 
   if (loading) return <HomePageSkeleton />
 
@@ -300,14 +301,15 @@ export default function HomePage() {
 
       {/* Row 3: 컴팩트 업무 현황 */}
       {loading ? (
-        <div className="flex-shrink-0 grid grid-cols-3 gap-3">
-          {[1,2,3].map(i => <div key={i} className="bg-white rounded-xl border border-gray-100 h-20 animate-pulse" />)}
+        <div className="flex-shrink-0 grid grid-cols-2 md:grid-cols-4 gap-3">
+          {[1,2,3,4].map(i => <div key={i} className="bg-white rounded-xl border border-gray-100 h-20 animate-pulse" />)}
         </div>
       ) : (
-        <div className="flex-shrink-0 grid grid-cols-3 gap-3">
+        <div className="flex-shrink-0 grid grid-cols-2 md:grid-cols-4 gap-3">
           <CompactCol title="오늘" items={todayItems} dot="bg-red-500" badgeCls="bg-red-500 text-white" />
           <CompactCol title="내일" items={tomorrowItems} dot="bg-orange-400" badgeCls="bg-orange-400 text-white" />
           <CompactCol title="금주" items={weekItems} dot="bg-blue-400" badgeCls="bg-blue-400 text-white" />
+          <CompactCol title="미지정" items={untaggedItems} dot="bg-gray-300" />
         </div>
       )}
 
