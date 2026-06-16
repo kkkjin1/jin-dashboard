@@ -202,6 +202,7 @@ export default function TaskDetailPage() {
 
   const [todos, setTodos] = useState<TaskTodo[]>([])
   const [todoInput, setTodoInput] = useState('')
+  const [shortName, setShortName] = useState('')
 
   const [showRetroModal, setShowRetroModal] = useState(false)
   const [retroGood, setRetroGood] = useState('')
@@ -246,7 +247,7 @@ export default function TaskDetailPage() {
         supabase.from('meetings').select('id, title, meeting_date').order('created_at', { ascending: false }),
         supabase.from('task_todos').select('*').eq('task_id', id).order('sort_order').order('created_at'),
       ])
-      if (t) { setTask(t as Task); setTitleInput((t as Task).title) }
+      if (t) { setTask(t as Task); setTitleInput((t as Task).title); setShortName((t as Task).short_name ?? '') }
       setMembers(ms)
       const noteList = (n ?? []) as Note[]
       setNotes(noteList)
@@ -298,9 +299,37 @@ export default function TaskDetailPage() {
     setTodos(prev => prev.map(t => t.id === todoId ? { ...t, done } : t))
   }
 
-  async function updateTodoTag(todoId: string, tag: ScheduleTag | null) {
-    await supabase.from('task_todos').update({ schedule_tag: tag }).eq('id', todoId)
-    setTodos(prev => prev.map(t => t.id === todoId ? { ...t, schedule_tag: tag } : t))
+  function getTargetDateForBucket(bucket: 'today' | 'tomorrow' | 'this_week'): string {
+    const d = new Date()
+    if (bucket === 'today') return d.toISOString().slice(0, 10)
+    if (bucket === 'tomorrow') { d.setDate(d.getDate() + 1); return d.toISOString().slice(0, 10) }
+    // this_week → 이번 주 금요일
+    const day = d.getDay()
+    const daysToFri = (5 - day + 7) % 7
+    d.setDate(d.getDate() + (daysToFri === 0 ? 0 : daysToFri))
+    return d.toISOString().slice(0, 10)
+  }
+
+  function getTodoBucketFromDate(targetDate: string | null | undefined): 'today' | 'tomorrow' | 'this_week' | null {
+    if (!targetDate) return null
+    const todayStr = new Date().toISOString().slice(0, 10)
+    const d = new Date(); d.setDate(d.getDate() + 1)
+    const tomorrowStr = d.toISOString().slice(0, 10)
+    if (targetDate === todayStr) return 'today'
+    if (targetDate === tomorrowStr) return 'tomorrow'
+    if (targetDate >= todayStr) return 'this_week'
+    return null
+  }
+
+  async function updateTodoDate(todoId: string, bucket: 'today' | 'tomorrow' | 'this_week' | null) {
+    const target_date = bucket ? getTargetDateForBucket(bucket) : null
+    await supabase.from('task_todos').update({ target_date }).eq('id', todoId)
+    setTodos(prev => prev.map(t => t.id === todoId ? { ...t, target_date } : t))
+  }
+
+  async function updateShortName(val: string) {
+    await supabase.from('tasks').update({ short_name: val || null }).eq('id', id)
+    setTask(prev => prev ? { ...prev, short_name: val || null } : prev)
   }
 
   async function deleteTodo(todoId: string) {
@@ -583,53 +612,57 @@ export default function TaskDetailPage() {
         </div>
       </div>
 
-      {/* 2분할: 노트 | 연관 회의록(전체 내용) */}
+      {/* 노트 입력 영역 - 전체 너비 */}
+      <div className="mb-6">
+        <h2 className="text-sm font-semibold text-gray-700 mb-3">맥락 / 노트</h2>
+        <div className="bg-white rounded-lg border border-gray-100 p-4 mb-3">
+          <input ref={noteTitleRef} value={noteTitle} onChange={e => setNoteTitle(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Tab') { e.preventDefault(); noteAreaRef.current?.focus() } }}
+            className="w-full text-xs font-medium text-gray-500 focus:outline-none mb-2 border-b border-gray-100 pb-1 bg-transparent" placeholder="노트 제목" />
+          <FormattingToolbar textareaRef={noteAreaRef} value={noteInput} onChange={setNoteInput} onExpand={() => setShowFullscreenNew(true)} />
+          <SmartTextarea ref={noteAreaRef} value={noteInput} onChange={setNoteInput}
+            onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) saveNote() }}
+            placeholder="노트 입력 (Ctrl+Enter 저장)"
+            className="w-full text-sm focus:outline-none resize-none text-gray-700 placeholder:text-gray-300" style={{ minHeight: '200px' }} />
+          <div className="text-[11px] text-gray-200 mt-2 leading-relaxed select-none pointer-events-none">
+            날짜: [중간공유 6/20] · [최종보고 7/10] · [시작 6/1]<br />
+            확장: [담당자 김다슬] · [유형 기획] · [상태 진행중] · [파트 코어]
+          </div>
+          <div className="flex justify-end mt-2">
+            <button onClick={saveNote} disabled={!noteInput.trim()}
+              className="text-xs bg-[#5DBD97] text-white px-4 py-1.5 rounded-lg hover:bg-[#4aab84] disabled:opacity-30 transition-colors">
+              저장 (Ctrl+Enter)
+            </button>
+          </div>
+        </div>
+        {showFullscreenNew && (
+          <FullscreenNoteEditor
+            value={noteInput}
+            onChange={setNoteInput}
+            onSave={() => { saveNote(); setShowFullscreenNew(false) }}
+            onClose={() => setShowFullscreenNew(false)}
+            title="노트 입력"
+          />
+        )}
+      </div>
+
+      {/* 2분할: 왼쪽=노트목록+첨부+회고+삭제, 오른쪽=할일+회의록 */}
       <div className="flex gap-6">
-        {/* 왼쪽 50%: 맥락/노트 + 첨부 + 삭제 */}
+        {/* 왼쪽 50% */}
         <div className="flex-[50]">
-          <div className="mb-6">
-            <h2 className="text-sm font-semibold text-gray-700 mb-3">맥락 / 노트</h2>
-            <div className="bg-white rounded-lg border border-gray-100 p-4 mb-3">
-              <input ref={noteTitleRef} value={noteTitle} onChange={e => setNoteTitle(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Tab') { e.preventDefault(); noteAreaRef.current?.focus() } }}
-                className="w-full text-xs font-medium text-gray-500 focus:outline-none mb-2 border-b border-gray-100 pb-1 bg-transparent" placeholder="노트 제목" />
-              <FormattingToolbar textareaRef={noteAreaRef} value={noteInput} onChange={setNoteInput} onExpand={() => setShowFullscreenNew(true)} />
-              <SmartTextarea ref={noteAreaRef} value={noteInput} onChange={setNoteInput}
-                onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) saveNote() }}
-                placeholder="노트 입력 (Ctrl+Enter 저장)"
-                className="w-full text-sm focus:outline-none resize-none text-gray-700 placeholder:text-gray-300" style={{ minHeight: '200px' }} />
-              <div className="text-[11px] text-gray-200 mt-2 leading-relaxed select-none pointer-events-none">
-                날짜: [중간공유 6/20] · [최종보고 7/10] · [시작 6/1]<br />
-                확장: [담당자 김다슬] · [유형 기획] · [상태 진행중] · [파트 코어]
-              </div>
-              <div className="flex justify-end mt-2">
-                <button onClick={saveNote} disabled={!noteInput.trim()}
-                  className="text-xs bg-[#5DBD97] text-white px-4 py-1.5 rounded-lg hover:bg-[#4aab84] disabled:opacity-30 transition-colors">
-                  저장 (Ctrl+Enter)
-                </button>
-              </div>
-            </div>
-            {showFullscreenNew && (
-              <FullscreenNoteEditor
-                value={noteInput}
-                onChange={setNoteInput}
-                onSave={() => { saveNote(); setShowFullscreenNew(false) }}
-                onClose={() => setShowFullscreenNew(false)}
-                title="노트 입력"
-              />
+          {/* 저장된 노트 아코디언 리스트 */}
+          <div className="space-y-2 mb-6">
+            {notes.length === 0 ? (
+              <p className="text-sm text-gray-300 text-center py-4">아직 기록된 맥락이 없습니다</p>
+            ) : (
+              notes.map(note => (
+                <NoteAccordion key={note.id} note={note} isOpen={openNoteIds.has(note.id)}
+                  onToggle={() => toggleNote(note.id)} onDelete={deleteNote} onEdit={editNote} onEditTitle={editNoteTitle} />
+              ))
             )}
-            <div className="space-y-2">
-              {notes.length === 0 ? (
-                <p className="text-sm text-gray-300 text-center py-4">아직 기록된 맥락이 없습니다</p>
-              ) : (
-                notes.map(note => (
-                  <NoteAccordion key={note.id} note={note} isOpen={openNoteIds.has(note.id)}
-                    onToggle={() => toggleNote(note.id)} onDelete={deleteNote} onEdit={editNote} onEditTitle={editNoteTitle} />
-                ))
-              )}
-            </div>
           </div>
 
+          {/* 첨부파일/링크 섹션 */}
           <div className="mb-6">
             <h2 className="text-sm font-semibold text-gray-700 mb-3">첨부파일 / 링크</h2>
             <div className="bg-white rounded-lg border border-gray-100 p-4 mb-3 space-y-2">
@@ -665,7 +698,7 @@ export default function TaskDetailPage() {
             </div>
           </div>
 
-          {/* 완료 회고 */}
+          {/* 완료 회고 섹션 */}
           {task.retrospective && (task.retrospective.good || task.retrospective.bad || task.retrospective.improvement) && (
             <div className="mb-6">
               <button onClick={() => setShowRetro(prev => !prev)}
@@ -699,6 +732,7 @@ export default function TaskDetailPage() {
             </div>
           )}
 
+          {/* 삭제 버튼 */}
           <div className="border-t border-gray-100 pt-6">
             <button onClick={deleteTask} disabled={deleting} className="text-sm text-red-400 hover:text-red-600 transition-colors">이 업무 삭제</button>
           </div>
@@ -709,7 +743,17 @@ export default function TaskDetailPage() {
 
           {/* 할일 목록 */}
           <div className="mb-6">
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">할일 목록</h3>
+            <div className="flex items-center gap-2 mb-3">
+              <h3 className="text-sm font-semibold text-gray-700">할일 목록</h3>
+              <input
+                value={shortName}
+                onChange={e => setShortName(e.target.value)}
+                onBlur={e => updateShortName(e.target.value.trim())}
+                onKeyDown={e => { if (e.key === 'Enter') updateShortName(shortName.trim()) }}
+                placeholder="단축명"
+                className="text-xs border-b border-gray-200 focus:outline-none focus:border-gray-400 text-gray-400 placeholder:text-gray-200 w-16 bg-transparent"
+              />
+            </div>
             <div className="bg-white rounded-lg border border-gray-100 p-4">
               <div className="flex gap-2 mb-3">
                 <input
@@ -730,18 +774,24 @@ export default function TaskDetailPage() {
                         onChange={() => toggleTodoDone(todo.id, !todo.done)}
                         className="w-3.5 h-3.5 rounded accent-emerald-500 flex-shrink-0 cursor-pointer" />
                       <span className={`text-sm flex-1 min-w-0 truncate ${todo.done ? 'line-through text-gray-300' : 'text-gray-700'}`}>
+                        {shortName && (
+                          <span className="text-[10px] text-gray-400 font-mono mr-1.5">{shortName}{todos.indexOf(todo) + 1}</span>
+                        )}
                         {todo.title}
                       </span>
                       <div className="flex items-center gap-1 flex-shrink-0">
-                        {(['today', 'tomorrow', 'this_week'] as const).map(tag => (
-                          <button key={tag}
-                            onClick={() => updateTodoTag(todo.id, todo.schedule_tag === tag ? null : tag)}
-                            className={`text-[10px] px-1.5 py-0.5 rounded transition-colors font-medium ${
-                              todo.schedule_tag === tag ? TODO_TAG_ACTIVE[tag] : 'text-gray-300 hover:text-gray-500'
-                            }`}>
-                            {TODO_TAG_LABELS[tag]}
-                          </button>
-                        ))}
+                        {(['today', 'tomorrow', 'this_week'] as const).map(tag => {
+                          const currentBucket = getTodoBucketFromDate(todo.target_date)
+                          return (
+                            <button key={tag}
+                              onClick={() => updateTodoDate(todo.id, currentBucket === tag ? null : tag)}
+                              className={`text-[10px] px-1.5 py-0.5 rounded transition-colors font-medium ${
+                                currentBucket === tag ? TODO_TAG_ACTIVE[tag] : 'text-gray-300 hover:text-gray-500'
+                              }`}>
+                              {TODO_TAG_LABELS[tag]}
+                            </button>
+                          )
+                        })}
                         <button onClick={() => deleteTodo(todo.id)}
                           className="text-gray-200 hover:text-red-400 text-base opacity-0 group-hover:opacity-100 transition-all leading-none ml-0.5">×</button>
                       </div>
@@ -752,6 +802,7 @@ export default function TaskDetailPage() {
             </div>
           </div>
 
+          {/* 연관 회의록 섹션 */}
           <h3 className="text-sm font-semibold text-gray-700 mb-3">연관 회의록</h3>
           <div className="bg-white rounded-lg border border-gray-100 p-5">
 

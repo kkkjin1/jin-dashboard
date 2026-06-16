@@ -12,18 +12,35 @@ import { useUserSetting } from '@/hooks/useUserSetting'
 import { HomePageSkeleton } from '@/components/ui/Skeleton'
 import type { Task, Meeting, TaskTodo } from '@/types'
 
-interface TodoColItem { id: string; title: string; taskId: string; taskTitle: string | null }
+interface TodoColItem {
+  id: string
+  title: string
+  taskId: string
+  taskTitle: string | null
+  taskShortName?: string | null
+  idxInTask?: number
+}
 
 interface CompactColProps {
   title: string
   items: TodoColItem[]
   dot: string
   badgeCls?: string
+  droppable?: boolean
+  onDrop?: (e: React.DragEvent) => void
+  onDragOver?: (e: React.DragEvent) => void
+  onDragLeave?: () => void
+  isDragOver?: boolean
 }
 
-function CompactCol({ title, items, dot, badgeCls = 'bg-gray-200 text-gray-600' }: CompactColProps) {
+function CompactCol({ title, items, dot, badgeCls = 'bg-gray-200 text-gray-600', droppable, onDrop, onDragOver, onDragLeave, isDragOver }: CompactColProps) {
   return (
-    <div className="bg-white rounded-lg border border-gray-100 p-4 min-w-0">
+    <div
+      className={`bg-white rounded-lg border p-4 min-w-0 transition-colors ${isDragOver && droppable ? 'border-emerald-300 bg-emerald-50/30' : 'border-gray-100'}`}
+      onDragOver={droppable ? onDragOver : undefined}
+      onDrop={droppable ? onDrop : undefined}
+      onDragLeave={droppable ? onDragLeave : undefined}
+    >
       <div className="flex items-center gap-1.5 mb-2">
         <span className={`w-2 h-2 rounded-full flex-shrink-0 ${dot}`} />
         <span className="text-xs font-semibold text-gray-700">{title}</span>
@@ -34,13 +51,24 @@ function CompactCol({ title, items, dot, badgeCls = 'bg-gray-200 text-gray-600' 
         )}
       </div>
       {items.length === 0 ? (
-        <p className="text-xs text-gray-300 text-center py-1">없음</p>
+        <p className="text-xs text-gray-300 text-center py-1">{isDragOver && droppable ? '여기에 놓기' : '없음'}</p>
       ) : (
         <div className="space-y-0.5">
           {items.slice(0, 5).map(item => (
             <Link key={item.id} href={`/tasks/${item.taskId}`}>
-              <div className="py-0.5 px-1 hover:bg-gray-50 rounded transition-colors">
-                <span className="text-xs text-gray-800 truncate block">{item.title || '제목 없음'}</span>
+              <div
+                className="py-0.5 px-1 hover:bg-gray-50 rounded transition-colors cursor-grab active:cursor-grabbing"
+                draggable
+                onDragStart={e => { e.stopPropagation(); e.dataTransfer.setData('todoId', item.id) }}
+              >
+                <div className="flex items-center gap-1 min-w-0">
+                  {item.taskShortName && (
+                    <span className="text-[9px] font-mono text-gray-400 flex-shrink-0 bg-gray-100 px-1 py-0.5 rounded">
+                      {item.taskShortName}{(item.idxInTask ?? 0) + 1}
+                    </span>
+                  )}
+                  <span className="text-xs text-gray-800 truncate">{item.title || '제목 없음'}</span>
+                </div>
                 {item.taskTitle && (
                   <span className="text-[10px] text-gray-400 truncate block">{item.taskTitle}</span>
                 )}
@@ -56,10 +84,24 @@ function CompactCol({ title, items, dot, badgeCls = 'bg-gray-200 text-gray-600' 
   )
 }
 
+function getDateStrings() {
+  const todayDate = new Date()
+  const today = todayDate.toISOString().slice(0, 10)
+  const tomorrowDate = new Date(todayDate); tomorrowDate.setDate(todayDate.getDate() + 1)
+  const tomorrow = tomorrowDate.toISOString().slice(0, 10)
+  const thisFriDate = new Date(todayDate)
+  const day = thisFriDate.getDay()
+  const daysToFri = (5 - day + 7) % 7
+  thisFriDate.setDate(thisFriDate.getDate() + (daysToFri === 0 ? 0 : daysToFri))
+  const thisFriday = thisFriDate.toISOString().slice(0, 10)
+  return { today, tomorrow, thisFriday }
+}
+
 export default function HomePage() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [todos, setTodos] = useState<TaskTodo[]>([])
   const [loading, setLoading] = useState(true)
+  const [dragOverBucket, setDragOverBucket] = useState<string | null>(null)
   const [meetings, setMeetings] = useState<Pick<Meeting, 'id' | 'title' | 'meeting_date'>[]>([])
   const [search, setSearch] = useState('')
   const [searchMeetings, setSearchMeetings] = useState<Pick<Meeting, 'id' | 'title'>[]>([])
@@ -81,7 +123,7 @@ export default function HomePage() {
     Promise.all([
       fetchAllTasks(),
       supabase.from('meetings').select('id, title, meeting_date').order('meeting_date', { ascending: true }),
-      supabase.from('task_todos').select('id, title, schedule_tag, task_id, done, tasks(id, title)').eq('done', false),
+      supabase.from('task_todos').select('id, title, target_date, sort_order, task_id, done, tasks(id, title, short_name)').eq('done', false),
     ]).then(([taskData, { data: meetingData }, { data: todosData }]) => {
       setTasks(taskData)
       setMeetings((meetingData ?? []) as Pick<Meeting, 'id' | 'title' | 'meeting_date'>[])
@@ -148,18 +190,52 @@ export default function HomePage() {
   const matchedMeetings = q ? searchMeetings.filter(m => m.title.toLowerCase().includes(q)).slice(0, 4) : []
   const hasResults = matchedTasks.length > 0 || matchedMeetings.length > 0
 
-  function toColItems(filtered: TaskTodo[]): TodoColItem[] {
-    return filtered.map(t => ({
-      id: t.id,
-      title: t.title,
-      taskId: t.task_id,
-      taskTitle: (t.tasks as { id: string; title: string } | null)?.title ?? null,
-    }))
+  const { today, tomorrow, thisFriday } = getDateStrings()
+
+  // task_id별 sort_order 기준 인덱스 계산
+  const taskTodoOrderMap: Record<string, TaskTodo[]> = {}
+  todos.forEach(t => {
+    if (!taskTodoOrderMap[t.task_id]) taskTodoOrderMap[t.task_id] = []
+    taskTodoOrderMap[t.task_id].push(t)
+  })
+  Object.values(taskTodoOrderMap).forEach(arr => arr.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)))
+
+  function toColItemsV2(filtered: TaskTodo[]): TodoColItem[] {
+    return filtered.map(t => {
+      const taskArr = taskTodoOrderMap[t.task_id] ?? []
+      const idxInTask = taskArr.findIndex(x => x.id === t.id)
+      const joinedTask = t.tasks as { id: string; title: string; short_name?: string | null } | null
+      return {
+        id: t.id,
+        title: t.title,
+        taskId: t.task_id,
+        taskTitle: joinedTask?.title ?? null,
+        taskShortName: joinedTask?.short_name ?? null,
+        idxInTask: idxInTask >= 0 ? idxInTask : 0,
+      }
+    })
   }
-  const todayItems = toColItems(todos.filter(t => t.schedule_tag === 'today'))
-  const tomorrowItems = toColItems(todos.filter(t => t.schedule_tag === 'tomorrow'))
-  const weekItems = toColItems(todos.filter(t => t.schedule_tag === 'this_week'))
-  const untaggedItems = toColItems(todos.filter(t => !t.schedule_tag))
+
+  const todayItems = toColItemsV2(todos.filter(t => t.target_date === today))
+  const tomorrowItems = toColItemsV2(todos.filter(t => t.target_date === tomorrow))
+  const weekItems = toColItemsV2(todos.filter(t => t.target_date && t.target_date > tomorrow && t.target_date <= thisFriday))
+  const overdueItems = toColItemsV2(todos.filter(t => t.target_date && t.target_date < today))
+
+  function handleDragOver(e: React.DragEvent, bucket: string) {
+    e.preventDefault()
+    setDragOverBucket(bucket)
+  }
+
+  async function handleDrop(e: React.DragEvent, bucket: 'today' | 'tomorrow' | 'this_week') {
+    e.preventDefault()
+    setDragOverBucket(null)
+    const todoId = e.dataTransfer.getData('todoId')
+    if (!todoId) return
+    const { today: t, tomorrow: tm, thisFriday: tf } = getDateStrings()
+    const targetDate = bucket === 'today' ? t : bucket === 'tomorrow' ? tm : tf
+    await supabase.from('task_todos').update({ target_date: targetDate }).eq('id', todoId)
+    setTodos(prev => prev.map(todo => todo.id === todoId ? { ...todo, target_date: targetDate } : todo))
+  }
 
   if (loading) return <HomePageSkeleton />
 
@@ -306,10 +382,21 @@ export default function HomePage() {
         </div>
       ) : (
         <div className="flex-shrink-0 grid grid-cols-2 md:grid-cols-4 gap-3">
-          <CompactCol title="오늘" items={todayItems} dot="bg-red-500" badgeCls="bg-red-500 text-white" />
-          <CompactCol title="내일" items={tomorrowItems} dot="bg-orange-400" badgeCls="bg-orange-400 text-white" />
-          <CompactCol title="금주" items={weekItems} dot="bg-blue-400" badgeCls="bg-blue-400 text-white" />
-          <CompactCol title="미지정" items={untaggedItems} dot="bg-gray-300" />
+          <CompactCol
+            title="오늘" items={todayItems} dot="bg-red-500" badgeCls="bg-red-500 text-white"
+            droppable onDrop={e => handleDrop(e, 'today')} onDragOver={e => handleDragOver(e, 'today')} onDragLeave={() => setDragOverBucket(null)} isDragOver={dragOverBucket === 'today'}
+          />
+          <CompactCol
+            title="내일" items={tomorrowItems} dot="bg-orange-400" badgeCls="bg-orange-400 text-white"
+            droppable onDrop={e => handleDrop(e, 'tomorrow')} onDragOver={e => handleDragOver(e, 'tomorrow')} onDragLeave={() => setDragOverBucket(null)} isDragOver={dragOverBucket === 'tomorrow'}
+          />
+          <CompactCol
+            title="금주" items={weekItems} dot="bg-blue-400" badgeCls="bg-blue-400 text-white"
+            droppable onDrop={e => handleDrop(e, 'this_week')} onDragOver={e => handleDragOver(e, 'this_week')} onDragLeave={() => setDragOverBucket(null)} isDragOver={dragOverBucket === 'this_week'}
+          />
+          <CompactCol
+            title="미진행" items={overdueItems} dot="bg-gray-400" badgeCls="bg-red-200 text-red-600"
+          />
         </div>
       )}
 

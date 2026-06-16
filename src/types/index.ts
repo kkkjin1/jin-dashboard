@@ -16,6 +16,7 @@ export interface Member {
 export interface Task {
   id: string
   title: string
+  short_name?: string | null
   part: Part
   type: TaskType
   assignee_id: string | null
@@ -36,10 +37,11 @@ export interface TaskTodo {
   task_id: string
   title: string
   schedule_tag?: ScheduleTag | null
+  target_date?: string | null
   done: boolean
   sort_order: number
   created_at: string
-  tasks?: { id: string; title: string } | null
+  tasks?: { id: string; title: string; short_name?: string | null } | null
 }
 
 export interface Note {
