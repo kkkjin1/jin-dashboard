@@ -62,6 +62,7 @@ export default function MemberOneOnOnePage() {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [creating, setCreating] = useState(false)
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     Promise.all([
@@ -97,6 +98,25 @@ export default function MemberOneOnOnePage() {
     if (data) router.push(`/one-on-one/${memberId}/${(data as { id: string }).id}`)
   }
 
+  function toggleCheck(id: string) {
+    setCheckedIds(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s })
+  }
+
+  function toggleCheckAll() {
+    const allIds = sessions.map(s => s.id)
+    const allChecked = allIds.every(id => checkedIds.has(id))
+    setCheckedIds(allChecked ? new Set() : new Set(allIds))
+  }
+
+  async function deleteChecked() {
+    if (checkedIds.size === 0) return
+    if (!confirm(`선택한 ${checkedIds.size}개 1on1을 삭제하시겠습니까?`)) return
+    await supabase.from('one_on_ones').delete().in('id', Array.from(checkedIds))
+    setSessions(prev => prev.filter(s => !checkedIds.has(s.id)))
+    if (selectedSessionId && checkedIds.has(selectedSessionId)) setSelectedSessionId(null)
+    setCheckedIds(new Set())
+  }
+
   if (!member) return <div className="p-8 text-gray-400 text-sm animate-pulse">불러오는 중...</div>
 
   const selectedSession = sessions.find(s => s.id === selectedSessionId) ?? null
@@ -115,10 +135,18 @@ export default function MemberOneOnOnePage() {
             <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{member.part}</span>
           </div>
         </div>
-        <button onClick={() => setShowModal(true)}
-          className="text-sm bg-gray-900 text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors">
-          + 새 1on1
-        </button>
+        <div className="flex items-center gap-2">
+          {checkedIds.size > 0 && (
+            <button onClick={deleteChecked}
+              className="text-xs bg-red-500 text-white px-3 py-1.5 rounded-lg hover:bg-red-600 transition-colors">
+              {checkedIds.size}개 삭제
+            </button>
+          )}
+          <button onClick={() => setShowModal(true)}
+            className="text-sm bg-gray-900 text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors">
+            + 새 1on1
+          </button>
+        </div>
       </div>
 
       {sessions.length === 0 ? (
@@ -128,31 +156,49 @@ export default function MemberOneOnOnePage() {
       ) : (
         <div className="flex gap-5">
           {/* LEFT: 세션 목록 */}
-          <div className="w-72 flex-shrink-0 space-y-1.5 overflow-y-auto max-h-[calc(100vh-200px)]">
-            {sessions.map(session => {
-              const isSelected = session.id === selectedSessionId
-              const dateLabel = session.session_date
-                ? format(parseISO(session.session_date), 'yyyy.M.d (E)', { locale: ko })
-                : '날짜 미지정'
-              return (
-                <div
-                  key={session.id}
-                  onClick={() => setSelectedSessionId(session.id)}
-                  className={`rounded-xl border px-4 py-3 cursor-pointer transition-colors ${isSelected ? 'bg-[#10B981] border-[#10B981] text-white' : 'bg-white border-gray-100 hover:border-gray-200'}`}>
-                  <p className={`text-sm font-medium truncate ${isSelected ? 'text-white' : 'text-gray-800'}`}>
-                    {session.title || dateLabel}
-                  </p>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <p className={`text-xs truncate ${isSelected ? 'text-gray-300' : 'text-gray-400'}`}>{dateLabel}</p>
-                    {session.next_appointment && (
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0 ${isSelected ? 'bg-amber-400 text-white' : 'bg-amber-50 text-amber-600'}`}>
-                        약속
-                      </span>
-                    )}
+          <div className="w-72 flex-shrink-0 overflow-y-auto max-h-[calc(100vh-200px)]">
+            <div className="flex items-center gap-2 px-1 mb-2">
+              <input type="checkbox"
+                checked={sessions.length > 0 && sessions.every(s => checkedIds.has(s.id))}
+                onChange={toggleCheckAll}
+                className="w-3 h-3 rounded accent-gray-600 cursor-pointer"
+                title="전체 선택" />
+              <span className="text-xs text-gray-400">전체 선택</span>
+            </div>
+            <div className="space-y-1.5">
+              {sessions.map(session => {
+                const isSelected = session.id === selectedSessionId
+                const isChecked = checkedIds.has(session.id)
+                const dateLabel = session.session_date
+                  ? format(parseISO(session.session_date), 'yyyy.M.d (E)', { locale: ko })
+                  : '날짜 미지정'
+                return (
+                  <div
+                    key={session.id}
+                    onClick={() => setSelectedSessionId(session.id)}
+                    className={`rounded-xl border px-3 py-3 cursor-pointer transition-colors flex items-center gap-2 ${isSelected ? 'bg-[#10B981] border-[#10B981] text-white' : 'bg-white border-gray-100 hover:border-gray-200'}`}>
+                    <input type="checkbox"
+                      checked={isChecked}
+                      onChange={() => toggleCheck(session.id)}
+                      onClick={e => e.stopPropagation()}
+                      className="w-3 h-3 rounded accent-gray-600 cursor-pointer flex-shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <p className={`text-sm font-medium truncate ${isSelected ? 'text-white' : 'text-gray-800'}`}>
+                        {session.title || dateLabel}
+                      </p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <p className={`text-xs truncate ${isSelected ? 'text-green-100' : 'text-gray-400'}`}>{dateLabel}</p>
+                        {session.next_appointment && (
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0 ${isSelected ? 'bg-amber-400 text-white' : 'bg-amber-50 text-amber-600'}`}>
+                            약속
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              )
-            })}
+                )
+              })}
+            </div>
           </div>
 
           {/* RIGHT: 세션 상세 */}
