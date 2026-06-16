@@ -341,7 +341,7 @@ export default function MeetingsPage() {
                     <div className="bg-white rounded-xl border border-[#10B981]/40 px-3 py-2.5 shadow-sm mt-2">
                       <input autoFocus value={newColTitle} onChange={e => setNewColTitle(e.target.value)}
                         onKeyDown={e => { if (e.key === 'Enter') handleColAdd(cat); if (e.key === 'Escape') { setAddingInColMeeting(null); setNewColTitle('') } }}
-                        onBlur={() => { if (!newColTitle.trim()) { setAddingInColMeeting(null); setNewColTitle('') } }}
+                        onBlur={() => { if (newColTitle.trim()) handleColAdd(cat); else { setAddingInColMeeting(null); setNewColTitle('') } }}
                         placeholder="회의 제목 입력 후 Enter"
                         className="w-full text-sm focus:outline-none text-gray-700" />
                     </div>
