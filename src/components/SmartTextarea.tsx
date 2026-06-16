@@ -84,6 +84,36 @@ function findNextSeq(lines: string[], beforeIdx: number, type: ListType, indentL
   return type === 'korean' ? '가' : 1
 }
 
+// Full sequential renumber: fixes gaps after deletion/paste (empty line = scope boundary)
+function renumberSequential(lines: string[]): string[] {
+  const result = [...lines]
+  const lastSeq: Map<string, number | string> = new Map()
+
+  for (let i = 0; i < result.length; i++) {
+    const info = parseLineInfo(result[i])
+
+    if (info.type === 'none') {
+      if (!info.content.trim()) lastSeq.clear() // empty line resets list scope
+      continue
+    }
+    if (info.type === 'bullet' || info.type === 'subbullet') continue
+
+    // Reset deeper-level sequences when at a shallower level
+    for (const k of [...lastSeq.keys()]) {
+      if (parseInt(k.split('-')[1]) > info.indentLevel) lastSeq.delete(k)
+    }
+
+    const key = `${info.type}-${info.indentLevel}`
+    const nextSeq: number | string = lastSeq.has(key)
+      ? advance(info.type, lastSeq.get(key)!)
+      : (info.type === 'korean' ? '가' : 1)
+
+    result[i] = makePrefix(info.type, nextSeq, info.indentLevel) + info.content
+    lastSeq.set(key, nextSeq)
+  }
+  return result
+}
+
 function renumberForward(lines: string[], fromIdx: number, indentLevel: number, type: ListType, startSeq: number | string): string[] {
   if (type === 'bullet' || type === 'subbullet' || type === 'none') return lines
   let seq = startSeq
@@ -263,7 +293,7 @@ const SmartTextarea = forwardRef<HTMLTextAreaElement, Props>(function SmartTexta
     <textarea
       ref={setRefs}
       value={value}
-      onChange={e => onChange(e.target.value)}
+      onChange={e => onChange(renumberSequential(e.target.value.split('\n')).join('\n'))}
       onKeyDown={handleKeyDown}
       {...props}
     />
