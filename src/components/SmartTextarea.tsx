@@ -21,7 +21,7 @@ function getLineEnd(text: string, pos: number): number {
   return idx === -1 ? text.length : idx
 }
 
-type ListType = 'number' | 'korean' | 'paren' | 'bullet' | 'none'
+type ListType = 'number' | 'korean' | 'paren' | 'bullet' | 'subbullet' | 'none'
 
 interface LineInfo {
   type: ListType
@@ -50,6 +50,9 @@ function parseLineInfo(line: string): LineInfo {
   n = trimmed.match(/^● (.*)$/)
   if (n) return { type: 'bullet', seq: 0, indentLevel, prefix: ' '.repeat(indentLevel * INDENT_SIZE) + '● ', content: n[1] }
 
+  n = trimmed.match(/^○ (.*)$/)
+  if (n) return { type: 'subbullet', seq: 0, indentLevel, prefix: ' '.repeat(indentLevel * INDENT_SIZE) + '○ ', content: n[1] }
+
   return { type: 'none', seq: 0, indentLevel, prefix: '', content: line }
 }
 
@@ -59,6 +62,7 @@ function makePrefix(type: ListType, seq: number | string, indentLevel: number): 
   if (type === 'korean') return ind + seq + '. '
   if (type === 'paren') return ind + seq + ') '
   if (type === 'bullet') return ind + '● '
+  if (type === 'subbullet') return ind + '○ '
   return ind
 }
 
@@ -81,7 +85,7 @@ function findNextSeq(lines: string[], beforeIdx: number, type: ListType, indentL
 }
 
 function renumberForward(lines: string[], fromIdx: number, indentLevel: number, type: ListType, startSeq: number | string): string[] {
-  if (type === 'bullet' || type === 'none') return lines
+  if (type === 'bullet' || type === 'subbullet' || type === 'none') return lines
   let seq = startSeq
   const result = [...lines]
   for (let i = fromIdx; i < result.length; i++) {
@@ -158,6 +162,17 @@ const SmartTextarea = forwardRef<HTMLTextAreaElement, Props>(function SmartTexta
       return
     }
 
+    // '- ' → '● ' auto-conversion (Space after dash at line start)
+    if (e.key === ' ' && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+      const linePos = start - lineStart
+      if (linePos === 1 && line === '-') {
+        e.preventDefault()
+        onChange(value.slice(0, lineStart) + '● ' + value.slice(lineStart + 1))
+        pendingCursor.current = lineStart + 3
+        return
+      }
+    }
+
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey) {
       const el = e.currentTarget
       const start = el.selectionStart
@@ -183,9 +198,9 @@ const SmartTextarea = forwardRef<HTMLTextAreaElement, Props>(function SmartTexta
       const lineIdx = value.slice(0, lineStart).split('\n').length - 1
 
       if (!e.shiftKey) {
-        // Demote: number→korean→paren→bullet
+        // Demote: number→korean→paren→bullet→subbullet
         const demoteMap: Partial<Record<ListType, ListType>> = {
-          number: 'korean', korean: 'paren', paren: 'bullet',
+          number: 'korean', korean: 'paren', paren: 'bullet', bullet: 'subbullet',
         }
         const newType = demoteMap[info.type]
         if (!newType) {
@@ -201,9 +216,9 @@ const SmartTextarea = forwardRef<HTMLTextAreaElement, Props>(function SmartTexta
         onChange(newLines.join('\n'))
         pendingCursor.current = lineStart + newPrefix.length
       } else {
-        // Promote: bullet→paren→korean→number + cascade renumber
+        // Promote: subbullet→bullet→paren→korean→number + cascade renumber
         const promoteMap: Partial<Record<ListType, ListType>> = {
-          bullet: 'paren', paren: 'korean', korean: 'number',
+          subbullet: 'bullet', bullet: 'paren', paren: 'korean', korean: 'number',
         }
         const newType = promoteMap[info.type]
         if (!newType) {

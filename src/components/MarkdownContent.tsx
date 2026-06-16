@@ -87,6 +87,18 @@ export default function MarkdownContent({ content, className }: { content: strin
           )
         }
 
+        // List: ○ (sub-bullet)
+        const subBulletMatch = line.match(/^( *)○ (.*)$/)
+        if (subBulletMatch) {
+          const lvl = Math.floor(subBulletMatch[1].length / INDENT_SIZE)
+          return (
+            <div key={i} className="flex gap-1.5 text-sm text-gray-600 leading-relaxed" style={{ paddingLeft: `${(lvl + 1) * 20}px` }}>
+              <span className="text-gray-400 flex-shrink-0 text-[10px] pt-[3px]">○</span>
+              <span>{parseInline(subBulletMatch[2], `${i}`)}</span>
+            </div>
+          )
+        }
+
         if (line === '') return <div key={i} className="h-2" />
         return <p key={i} className="text-sm text-gray-700 leading-relaxed">{parseInline(line, `${i}`)}</p>
       })}
