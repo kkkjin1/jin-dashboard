@@ -14,7 +14,7 @@ function SessionDetail({ session, memberId }: { session: OneOnOne; memberId: str
     : '날짜 미지정'
 
   return (
-    <div className="bg-white rounded-lg border border-gray-100 p-5 h-full flex flex-col gap-4">
+    <div className="bg-white rounded-xl border border-gray-100 p-5 h-full flex flex-col gap-4">
       <div className="flex items-start justify-between">
         <div>
           <p className="text-xs text-gray-400 mb-1">{dateLabel}</p>
@@ -22,13 +22,13 @@ function SessionDetail({ session, memberId }: { session: OneOnOne; memberId: str
         </div>
         <Link
           href={`/one-on-one/${memberId}/${session.id}`}
-          className="text-xs text-gray-400 hover:text-gray-700 border border-gray-200 rounded-md px-2.5 py-1 hover:bg-gray-50 transition-colors flex-shrink-0 ml-3">
+          className="text-xs text-gray-400 hover:text-gray-700 border border-gray-200 rounded-lg px-2.5 py-1 hover:bg-gray-50 transition-colors flex-shrink-0 ml-3">
           편집 →
         </Link>
       </div>
 
       {session.next_appointment && (
-        <div className="bg-amber-50 rounded-md px-4 py-3">
+        <div className="bg-amber-50 rounded-lg px-4 py-3">
           <p className="text-xs font-semibold text-amber-600 mb-1">약속 내용</p>
           <p className="text-sm text-amber-800 leading-relaxed whitespace-pre-wrap">{session.next_appointment}</p>
         </div>
@@ -122,8 +122,8 @@ export default function MemberOneOnOnePage() {
   const selectedSession = sessions.find(s => s.id === selectedSessionId) ?? null
 
   return (
-    <div className="p-6 md:p-12">
-      <div className="flex items-center justify-between mb-8">
+    <div className="p-8">
+      <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <Link href="/one-on-one" className="text-sm text-gray-400 hover:text-gray-600">← 목록</Link>
           <div className="w-px h-4 bg-gray-200" />
@@ -131,19 +131,19 @@ export default function MemberOneOnOnePage() {
             <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 text-sm font-medium">
               {member.name[0]}
             </div>
-            <h1 className="text-2xl font-bold tracking-tight text-gray-900">{member.name}</h1>
-            <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded">{member.part}</span>
+            <h1 className="text-xl font-bold text-gray-900">{member.name}</h1>
+            <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{member.part}</span>
           </div>
         </div>
         <div className="flex items-center gap-2">
           {checkedIds.size > 0 && (
             <button onClick={deleteChecked}
-              className="text-xs bg-red-500 text-white px-3 py-1.5 rounded-md hover:bg-red-600 transition-colors">
+              className="text-xs bg-red-500 text-white px-3 py-1.5 rounded-lg hover:bg-red-600 transition-colors">
               {checkedIds.size}개 삭제
             </button>
           )}
           <button onClick={() => setShowModal(true)}
-            className="text-sm bg-gray-900 text-white px-4 py-2 rounded-md hover:bg-gray-800 transition-colors">
+            className="text-sm bg-gray-900 text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors">
             + 새 1on1
           </button>
         </div>
@@ -176,7 +176,7 @@ export default function MemberOneOnOnePage() {
                   <div
                     key={session.id}
                     onClick={() => setSelectedSessionId(session.id)}
-                    className={`rounded-lg border px-3 py-3 cursor-pointer transition-colors flex items-center gap-2 ${isSelected ? 'bg-[#10B981] border-[#10B981] text-white' : 'bg-white border-gray-100 hover:border-gray-200'}`}>
+                    className={`rounded-xl border px-3 py-3 cursor-pointer transition-colors flex items-center gap-2 ${isSelected ? 'bg-[#10B981] border-[#10B981] text-white' : 'bg-white border-gray-100 hover:border-gray-200'}`}>
                     <input type="checkbox"
                       checked={isChecked}
                       onChange={() => toggleCheck(session.id)}
@@ -189,7 +189,7 @@ export default function MemberOneOnOnePage() {
                       <div className="flex items-center gap-2 mt-0.5">
                         <p className={`text-xs truncate ${isSelected ? 'text-green-100' : 'text-gray-400'}`}>{dateLabel}</p>
                         {session.next_appointment && (
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded flex-shrink-0 ${isSelected ? 'bg-amber-400 text-white' : 'bg-amber-50 text-amber-600'}`}>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0 ${isSelected ? 'bg-amber-400 text-white' : 'bg-amber-50 text-amber-600'}`}>
                             약속
                           </span>
                         )}
@@ -219,12 +219,12 @@ export default function MemberOneOnOnePage() {
             <p className="text-sm text-gray-500 mb-5">어떻게 시작할까요?</p>
             <div className="space-y-2">
               <button onClick={() => createSession(false)} disabled={creating}
-                className="w-full text-left border border-gray-200 rounded-lg px-4 py-3 hover:bg-gray-50 transition-colors">
+                className="w-full text-left border border-gray-200 rounded-xl px-4 py-3 hover:bg-gray-50 transition-colors">
                 <p className="text-sm font-medium text-gray-800">빈 양식</p>
                 <p className="text-xs text-gray-400">백지 상태로 시작</p>
               </button>
               <button onClick={() => createSession(true)} disabled={creating}
-                className="w-full text-left border border-gray-200 rounded-lg px-4 py-3 hover:bg-gray-50 transition-colors">
+                className="w-full text-left border border-gray-200 rounded-xl px-4 py-3 hover:bg-gray-50 transition-colors">
                 <p className="text-sm font-medium text-gray-800">템플릿 적용</p>
                 <p className="text-xs text-gray-400">저장된 템플릿으로 시작</p>
               </button>

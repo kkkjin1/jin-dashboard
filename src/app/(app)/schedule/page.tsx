@@ -326,15 +326,15 @@ export default function SchedulePage() {
   }
 
   return (
-    <div className="p-6 md:p-12 flex-1 flex flex-col">
-      <h1 className="text-2xl font-bold tracking-tight text-gray-900 mb-8">일정</h1>
+    <div className="p-4 md:p-8 flex-1 flex flex-col">
+      <h1 className="text-xl font-bold text-gray-900 mb-5">일정</h1>
 
       {/* 필터 사이클 버튼 행 */}
       <div className="flex items-center gap-2 flex-wrap mb-4">
         {/* q: 파트 */}
         <button
           onClick={() => setPartFilter(p => p === '전체' ? '코어' : p === '코어' ? '비즈' : '전체')}
-          className={`text-xs px-3 py-1.5 rounded-md border font-medium transition-colors ${
+          className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-colors ${
             partFilter !== '전체' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
           }`}>
           {partFilter === '전체' ? '전체 파트' : `${partFilter}파트`}
@@ -343,7 +343,7 @@ export default function SchedulePage() {
         {/* w: 상태 */}
         <button
           onClick={() => setStatusFilter(s => s === '전체' ? '진행필요' : s === '진행필요' ? '진행중' : s === '진행중' ? '완료' : '전체')}
-          className={`text-xs px-3 py-1.5 rounded-md border font-medium transition-colors ${
+          className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-colors ${
             statusFilter !== '전체' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
           }`}>
           {statusFilter === '전체' ? '전체 상태' : statusFilter}
@@ -352,7 +352,7 @@ export default function SchedulePage() {
         {/* e: 보고구분 */}
         <button
           onClick={() => setReportFilter(r => r === '전체' ? '중간공유' : r === '중간공유' ? '최종보고' : '전체')}
-          className={`text-xs px-3 py-1.5 rounded-md border font-medium transition-colors ${
+          className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-colors ${
             reportFilter !== '전체' ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
           }`}>
           {reportFilter === '전체' ? '보고구분' : reportFilter}
@@ -361,7 +361,7 @@ export default function SchedulePage() {
         {/* r: 업무/회의 */}
         <button
           onClick={() => setViewFilter(v => v === '전체' ? '업무만' : v === '업무만' ? '회의만' : '전체')}
-          className={`text-xs px-3 py-1.5 rounded-md border font-medium transition-colors ${
+          className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-colors ${
             viewFilter !== '전체' ? 'bg-[#1C2B3A] text-white border-[#1C2B3A]' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
           }`}>
           {viewFilter === '전체' ? '업무+회의' : viewFilter}
@@ -369,21 +369,21 @@ export default function SchedulePage() {
 
         {/* Tab: 담당자 select */}
         <select ref={assigneeRef} value={assigneeFilter} onChange={e => setAssigneeFilter(e.target.value)}
-          className="text-xs border border-gray-200 rounded-md px-3 py-1.5 focus:outline-none focus:border-gray-400 bg-white text-gray-500">
+          className="text-xs border border-gray-200 rounded-full px-3 py-1.5 focus:outline-none focus:border-gray-400 bg-white text-gray-500">
           <option value="전체">전체 담당자</option>
           {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
         </select>
 
         {/* 반복 추가 버튼 유지 */}
         <button onClick={() => setShowRepeatModal(true)}
-          className="text-xs px-3 py-1.5 rounded-md border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 ml-auto">
+          className="text-xs px-3 py-1.5 rounded-full border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 ml-auto">
           ↺ 반복 추가
         </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:flex-1 md:min-h-0">
         {/* 캘린더 */}
-        <div className="md:col-span-2 bg-white rounded-lg border border-gray-100 p-5 flex flex-col">
+        <div className="md:col-span-2 bg-white rounded-xl border border-gray-100 p-5 flex flex-col">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-semibold text-gray-800">{format(current, 'yyyy년 M월', { locale: ko })}</h2>
             <div className="flex gap-1">
@@ -423,7 +423,7 @@ export default function SchedulePage() {
             <div className="ml-auto">
               <button
                 onClick={() => setShowAnalysis(v => !v)}
-                className={`text-xs px-3 py-1.5 rounded-md border transition-colors ${
+                className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
                   showAnalysis
                     ? 'bg-gray-900 text-white border-gray-900'
                     : 'text-gray-500 border-gray-200 hover:bg-gray-50'
@@ -444,7 +444,7 @@ export default function SchedulePage() {
                   <button
                     key={p}
                     onClick={() => setAnalysisPeriod(p)}
-                    className={`text-xs px-3 py-1 rounded-md transition-colors ${
+                    className={`text-xs px-3 py-1 rounded-full transition-colors ${
                       analysisPeriod === p
                         ? 'bg-gray-900 text-white'
                         : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
@@ -515,7 +515,7 @@ export default function SchedulePage() {
           {/* 미니 캘린더 (전월/익월) 토글 */}
           <div className="space-y-2">
             {/* 전월 토글 */}
-            <div className="bg-white rounded-lg border border-gray-100 overflow-hidden">
+            <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
               <button
                 className="w-full flex items-center justify-between px-3 py-2 text-xs text-gray-500 hover:bg-gray-50"
                 onClick={() => setShowPrevCal(v => !v)}>
@@ -529,7 +529,7 @@ export default function SchedulePage() {
               )}
             </div>
             {/* 익월 토글 */}
-            <div className="bg-white rounded-lg border border-gray-100 overflow-hidden">
+            <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
               <button
                 className="w-full flex items-center justify-between px-3 py-2 text-xs text-gray-500 hover:bg-gray-50"
                 onClick={() => setShowNextCal(v => !v)}>
@@ -545,7 +545,7 @@ export default function SchedulePage() {
           </div>
 
           {/* 선택한 날 업무 */}
-          <div className="bg-white rounded-lg border border-gray-100 p-3">
+          <div className="bg-white rounded-xl border border-gray-100 p-3">
           <h3 className="text-sm font-semibold text-gray-600 mb-3">
             {selectedDay ? `${format(selectedDay, 'M월 d일', { locale: ko })} 일정` : '날짜를 선택하세요'}
           </h3>
@@ -564,7 +564,7 @@ export default function SchedulePage() {
                   onDragOver={e => { e.preventDefault(); if (dragItemId !== item.itemId) setDragOverId(item.itemId) }}
                   onDrop={e => { e.preventDefault(); handleDayDrop(item.itemId) }}
                   onClick={() => router.push(item.type === 'meeting' ? `/meetings/${(item.data as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>).id}` : `/tasks/${(item.data as DayTask).task.id}`)}
-                  className={`rounded-lg border p-3 transition-all cursor-grab active:cursor-grabbing select-none ${
+                  className={`rounded-xl border p-3 transition-all cursor-grab active:cursor-grabbing select-none ${
                     item.type === 'meeting' ? 'bg-[#ECFDF5]/50 border-[#10B981]/20 hover:border-[#10B981]/40' : 'bg-white border-gray-100 hover:border-gray-200'
                   } ${dragItemId === item.itemId ? 'opacity-40 scale-95' : ''} ${
                     dragOverId === item.itemId && dragItemId !== item.itemId ? 'border-[#10B981] shadow-sm -translate-y-0.5' : ''
@@ -575,7 +575,7 @@ export default function SchedulePage() {
                     {item.type === 'meeting' ? (
                       <span className="text-xs font-medium text-[#10B981]">💬 회의</span>
                     ) : (
-                      <span className={`text-xs px-2 py-0.5 rounded ${(item.data as DayTask).dateType === 'mid' ? 'bg-amber-50 text-amber-600' : 'bg-[#1C2B3A]/10 text-[#1C2B3A]'}`}>
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${(item.data as DayTask).dateType === 'mid' ? 'bg-amber-50 text-amber-600' : 'bg-[#1C2B3A]/10 text-[#1C2B3A]'}`}>
                         {(item.data as DayTask).dateType === 'mid' ? '중간공유' : '최종보고'}
                       </span>
                     )}

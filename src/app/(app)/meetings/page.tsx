@@ -140,9 +140,9 @@ export default function MeetingsPage() {
   const kanbanCols = [...CATEGORIES.slice(1), '기타'] as string[]
 
   return (
-    <div className={viewMode === 'kanban' ? 'p-6 md:p-12' : 'p-6 md:p-12 max-w-3xl'}>
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-2xl font-bold tracking-tight text-gray-900">회의록</h1>
+    <div className={viewMode === 'kanban' ? 'p-4 md:p-8' : 'p-4 md:p-8 max-w-3xl'}>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-xl font-bold text-gray-900">회의록</h1>
         <div className="flex gap-2 items-center">
           {/* 뷰 모드 토글 */}
           <div className="flex rounded-lg border border-gray-200 overflow-hidden">
@@ -161,12 +161,12 @@ export default function MeetingsPage() {
           </div>
           {checkedIds.size > 0 && (
             <button onClick={deleteChecked}
-              className="text-sm bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 transition-colors">
+              className="text-sm bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors">
               {checkedIds.size}개 삭제
             </button>
           )}
           <button onClick={() => setAdding(true)}
-            className="text-sm bg-gray-900 text-white px-4 py-2 rounded-md hover:bg-gray-800 transition-colors">
+            className="text-sm bg-gray-900 text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors">
             + 새 회의록
           </button>
         </div>
@@ -174,7 +174,7 @@ export default function MeetingsPage() {
 
       {/* 빠른 추가 */}
       {adding && (
-        <div className="bg-white rounded-lg border border-blue-200 px-5 py-4 mb-4">
+        <div className="bg-white rounded-xl border border-blue-200 px-4 py-3 mb-4">
           <input autoFocus value={newTitle} onChange={e => setNewTitle(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') { setAdding(false); setNewTitle('') } }}
             onBlur={handleAdd}
@@ -184,7 +184,7 @@ export default function MeetingsPage() {
       )}
 
       {loading ? (
-        <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="bg-white rounded-lg border border-gray-100 p-4 h-16 animate-pulse" />)}</div>
+        <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="bg-white rounded-xl border border-gray-100 p-4 h-16 animate-pulse" />)}</div>
       ) : meetings.length === 0 ? (
         <div className="text-center py-16">
           <p className="text-gray-300 text-sm">회의록이 없습니다</p>
@@ -196,18 +196,18 @@ export default function MeetingsPage() {
             return (
               <div key={ym}>
                 <button onClick={() => toggleMonth(ym)}
-                  className="flex items-center gap-2 mb-2 text-xs font-bold uppercase tracking-wide text-gray-500 hover:text-gray-700 transition-colors">
+                  className="flex items-center gap-2 mb-2 text-xs font-semibold text-gray-500 hover:text-gray-700 transition-colors">
                   <span>{isCollapsed ? '▶' : '▼'}</span>
                   <span>{ym === '날짜 없음' ? '날짜 미지정' : formatMonthLabel(ym)}</span>
                   <span className="font-normal text-gray-400">({list.length}건)</span>
                 </button>
                 {!isCollapsed && (
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     {list.map(meeting => {
                       const isExpanded = expandedMeetingIds.has(meeting.id)
                       return (
-                        <div key={meeting.id} className="bg-white rounded-lg border border-gray-100 hover:border-gray-200 transition-colors overflow-hidden">
-                          <div className="px-5 py-4 flex items-center gap-3">
+                        <div key={meeting.id} className="bg-white rounded-xl border border-gray-100 hover:border-gray-200 transition-colors overflow-hidden">
+                          <div className="px-4 py-3 flex items-center gap-3">
                             <input type="checkbox" checked={checkedIds.has(meeting.id)}
                               onChange={() => toggleCheck(meeting.id)}
                               onClick={e => e.stopPropagation()}
@@ -215,9 +215,9 @@ export default function MeetingsPage() {
                             <Link href={`/meetings/${meeting.id}`} className="flex-1 flex items-center justify-between min-w-0">
                               <div className="min-w-0">
                                 <div className="flex items-center gap-2">
-                                  <p className="text-sm font-semibold text-gray-800">{meeting.title}</p>
+                                  <p className="text-sm font-medium text-gray-800">{meeting.title}</p>
                                   {meeting.category && (
-                                    <span className={`text-xs px-2 py-0.5 rounded border flex-shrink-0 ${CATEGORY_COLORS[meeting.category] ?? 'bg-gray-50 text-gray-500 border-gray-200'}`}>
+                                    <span className={`text-xs px-2 py-0.5 rounded-full border flex-shrink-0 ${CATEGORY_COLORS[meeting.category] ?? 'bg-gray-50 text-gray-500 border-gray-200'}`}>
                                       {meeting.category}
                                     </span>
                                   )}
@@ -265,7 +265,7 @@ export default function MeetingsPage() {
         </div>
       ) : (
         /* 칸반 뷰 */
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-5 pb-4">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-3 pb-4">
           {kanbanCols.map(cat => {
             const colMeetings = kanbanGroups[cat]
             // 월별 그룹핑
@@ -279,9 +279,9 @@ export default function MeetingsPage() {
               return Array.from(map.entries()).sort(([a], [b]) => b.localeCompare(a))
             })()
             return (
-              <div key={cat} className={`min-w-0 rounded-lg border p-4 ${KANBAN_COL_STYLE[cat]?.bg ?? 'bg-white border-gray-100'}`}>
+              <div key={cat} className={`min-w-0 rounded-xl border p-3 ${KANBAN_COL_STYLE[cat]?.bg ?? 'bg-white border-gray-100'}`}>
                 {/* 컬럼 헤더 — A 스타일 버튼형 */}
-                <div className={`flex items-center justify-between py-2.5 px-3 rounded-lg border mb-3 ${KANBAN_COL_STYLE[cat]?.header ?? 'bg-white border-gray-200 text-gray-700'}`}>
+                <div className={`flex items-center justify-between py-2.5 px-3 rounded-xl border mb-3 ${KANBAN_COL_STYLE[cat]?.header ?? 'bg-white border-gray-200 text-gray-700'}`}>
                   <div className="flex items-center gap-2">
                     {colMeetings.length > 0 && (
                       <input type="checkbox"
@@ -291,13 +291,13 @@ export default function MeetingsPage() {
                         className="w-3 h-3 rounded accent-gray-600 cursor-pointer flex-shrink-0"
                         title="전체 선택" />
                     )}
-                    <span className="text-sm font-bold">{cat}</span>
+                    <span className="text-sm font-semibold">{cat}</span>
                   </div>
                   <span className="text-xs text-gray-400">{colMeetings.length}</span>
                 </div>
                 <div className="space-y-1">
                   {colMeetings.length === 0 && addingInColMeeting !== cat ? (
-                    <p className="text-xs text-gray-300 text-center py-8 bg-gray-50/60 rounded-lg border border-dashed border-gray-100">없음</p>
+                    <p className="text-xs text-gray-300 text-center py-8 bg-gray-50/60 rounded-xl border border-dashed border-gray-100">없음</p>
                   ) : (
                     monthGroups.map(([ym, list]) => {
                       const monthKey = `${cat}-${ym}`
@@ -317,13 +317,13 @@ export default function MeetingsPage() {
                           {!isCollapsed && (
                             <div className="space-y-1.5 mt-1">
                               {list.map(meeting => (
-                                <div key={meeting.id} className={`bg-white rounded-lg border hover:shadow-sm transition-all ${checkedIds.has(meeting.id) ? 'border-[#10B981]/40 bg-[#ECFDF5]/20' : 'border-gray-200 hover:border-[#10B981]/40'}`}>
+                                <div key={meeting.id} className={`bg-white rounded-xl border hover:shadow-sm transition-all ${checkedIds.has(meeting.id) ? 'border-[#10B981]/40 bg-[#ECFDF5]/20' : 'border-gray-200 hover:border-[#10B981]/40'}`}>
                                   <div className="flex items-start gap-2 px-3 py-3">
                                     <input type="checkbox" checked={checkedIds.has(meeting.id)}
                                       onChange={() => toggleCheck(meeting.id)}
                                       className="w-3 h-3 mt-0.5 rounded accent-gray-700 flex-shrink-0 cursor-pointer" />
                                     <Link href={`/meetings/${meeting.id}`} className="flex-1 min-w-0">
-                                      <p className="text-sm font-semibold text-gray-800 line-clamp-2 mb-1.5">{meeting.title}</p>
+                                      <p className="text-sm font-medium text-gray-800 line-clamp-2 mb-1.5">{meeting.title}</p>
                                       <div className="flex items-center gap-2 flex-wrap">
                                         {meeting.meeting_date && (
                                           <span className="text-xs text-gray-400">{format(parseISO(meeting.meeting_date), 'M.d', { locale: ko })}</span>
@@ -343,7 +343,7 @@ export default function MeetingsPage() {
                     })
                   )}
                   {addingInColMeeting === cat ? (
-                    <div className="bg-white rounded-lg border border-[#10B981]/40 px-3 py-2.5 shadow-sm mt-2">
+                    <div className="bg-white rounded-xl border border-[#10B981]/40 px-3 py-2.5 shadow-sm mt-2">
                       <input autoFocus value={newColTitle} onChange={e => setNewColTitle(e.target.value)}
                         onKeyDown={e => { if (e.key === 'Enter') handleColAdd(cat); if (e.key === 'Escape') { setAddingInColMeeting(null); setNewColTitle('') } }}
                         onBlur={() => { if (newColTitle.trim()) handleColAdd(cat); else { setAddingInColMeeting(null); setNewColTitle('') } }}
@@ -353,7 +353,7 @@ export default function MeetingsPage() {
                   ) : (
                     <button
                       onClick={() => setAddingInColMeeting(cat)}
-                      className="w-full text-left px-2 py-1.5 text-xs text-gray-300 hover:text-gray-500 hover:bg-gray-50 rounded-md transition-colors mt-1">
+                      className="w-full text-left px-2 py-1.5 text-xs text-gray-300 hover:text-gray-500 hover:bg-gray-50 rounded-lg transition-colors mt-1">
                       + 회의록 추가
                     </button>
                   )}

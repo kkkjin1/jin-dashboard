@@ -89,7 +89,7 @@ function NoteAccordion({ note, isOpen, onToggle, onDelete, onEdit, onEditTitle }
   }
 
   return (
-    <div className="bg-white rounded-lg border border-gray-100 overflow-hidden group">
+    <div className="bg-white rounded-xl border border-gray-100 overflow-hidden group">
       <div className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors">
         <div className="flex items-center gap-2 min-w-0 flex-1 cursor-pointer" onClick={onToggle}>
           <span className="text-xs text-gray-400 flex-shrink-0">{isOpen ? '▼' : '▶'}</span>
@@ -424,7 +424,7 @@ export default function TaskDetailPage() {
 
   return (
     <div
-      className="p-6 md:p-12"
+      className="p-8"
       style={contentWidth ? { width: `${contentWidth}px` } : {}}
     >
       {toast && <Toast message={toast} onDone={() => setToast('')} />}
@@ -469,12 +469,12 @@ export default function TaskDetailPage() {
       )}
 
       {/* 뒤로가기 + 너비조절 + MD 다운로드 */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-4">
         <Link href="/tasks" className="text-sm text-gray-400 hover:text-gray-600 inline-flex items-center gap-1">← 업무 목록</Link>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setContentWidth(prev => prev ? null : 720)}
-            className={`text-xs border rounded-md px-3 py-1.5 transition-colors ${contentWidth ? 'border-blue-200 text-blue-500 bg-blue-50 hover:bg-blue-100' : 'border-gray-200 text-gray-400 hover:bg-white'}`}
+            className={`text-xs border rounded-lg px-3 py-1.5 transition-colors ${contentWidth ? 'border-blue-200 text-blue-500 bg-blue-50 hover:bg-blue-100' : 'border-gray-200 text-gray-400 hover:bg-white'}`}
           >
             {contentWidth ? '↔ 전체 너비' : '⟵ 좁게 보기'} <span className="opacity-50">[q]</span>
           </button>
@@ -503,7 +503,7 @@ export default function TaskDetailPage() {
             updateTask({ status: newStatus })
           }
         }}
-          className={`text-xs px-3 py-1.5 rounded font-medium border-0 cursor-pointer focus:outline-none ${STATUS_COLORS[task.status]}`}>
+          className={`text-xs px-3 py-1.5 rounded-full font-medium border-0 cursor-pointer focus:outline-none ${STATUS_COLORS[task.status]}`}>
           {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
 
@@ -553,7 +553,7 @@ export default function TaskDetailPage() {
         <div className="flex-[50]">
           <div className="mb-6">
             <h2 className="text-sm font-semibold text-gray-700 mb-3">맥락 / 노트</h2>
-            <div className="bg-white rounded-lg border border-gray-100 p-4 mb-3">
+            <div className="bg-white rounded-xl border border-gray-100 p-4 mb-3">
               <input ref={noteTitleRef} value={noteTitle} onChange={e => setNoteTitle(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Tab') { e.preventDefault(); noteAreaRef.current?.focus() } }}
                 className="w-full text-xs font-medium text-gray-500 focus:outline-none mb-2 border-b border-gray-100 pb-1 bg-transparent" placeholder="노트 제목" />
@@ -596,7 +596,7 @@ export default function TaskDetailPage() {
 
           <div className="mb-6">
             <h2 className="text-sm font-semibold text-gray-700 mb-3">첨부파일 / 링크</h2>
-            <div className="bg-white rounded-lg border border-gray-100 p-4 mb-3 space-y-2">
+            <div className="bg-white rounded-xl border border-gray-100 p-4 mb-3 space-y-2">
               <div className="flex gap-2">
                 <label className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg cursor-pointer transition-colors ${uploading ? 'bg-gray-50 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'}`}>
                   📎 {uploading ? '업로드 중...' : '파일 첨부'}
@@ -619,7 +619,7 @@ export default function TaskDetailPage() {
                   const ext = att.name.split('.').pop()?.toLowerCase() ?? ''
                   const icon = att.type === '링크' ? '🔗' : ['jpg','jpeg','png','gif','webp','svg'].includes(ext) ? '🖼️' : ['pdf'].includes(ext) ? '📄' : ['xlsx','xls','csv'].includes(ext) ? '📊' : ['docx','doc'].includes(ext) ? '📝' : ['pptx','ppt'].includes(ext) ? '📊' : ['zip','rar','7z'].includes(ext) ? '📦' : '📎'
                   return (
-                    <div key={att.id} className="bg-white rounded-lg border border-gray-100 px-4 py-2.5 flex items-center justify-between group">
+                    <div key={att.id} className="bg-white rounded-xl border border-gray-100 px-4 py-2.5 flex items-center justify-between group">
                       <a href={att.url} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-500 hover:text-blue-700 hover:underline truncate flex-1">{icon} {att.name}</a>
                       <button onClick={() => deleteAttachment(att)} className="text-xs text-gray-200 hover:text-red-400 ml-3 opacity-0 group-hover:opacity-100 transition-all">삭제</button>
                     </div>
@@ -639,7 +639,7 @@ export default function TaskDetailPage() {
                 {!showRetro && <span className="text-xs font-normal text-gray-400">보기</span>}
               </button>
               {showRetro && (
-                <div className="bg-white rounded-lg border border-gray-100 p-4 space-y-3">
+                <div className="bg-white rounded-xl border border-gray-100 p-4 space-y-3">
                   {task.retrospective.good && (
                     <div>
                       <p className="text-xs font-semibold text-green-600 mb-1">좋았던 점</p>
@@ -671,7 +671,7 @@ export default function TaskDetailPage() {
         {/* 오른쪽 50%: 연관 회의록 전체 내용 */}
         <div className="flex-[50]">
           <h3 className="text-sm font-semibold text-gray-700 mb-3">연관 회의록</h3>
-          <div className="bg-white rounded-lg border border-gray-100 p-5">
+          <div className="bg-white rounded-xl border border-gray-100 p-5">
 
             <div className="flex gap-2 mb-4">
               <select value={selectedMeetingId} onChange={e => setSelectedMeetingId(e.target.value)}
@@ -694,7 +694,7 @@ export default function TaskDetailPage() {
                 {linkedMeetings.map(m => {
                   const isExp = expandedMeetingIds.has(m.id)
                   return (
-                    <div key={m.id} className="border border-gray-100 rounded-lg overflow-hidden group/meeting">
+                    <div key={m.id} className="border border-gray-100 rounded-xl overflow-hidden group/meeting">
                       <div className="flex items-center justify-between px-3 py-2.5 bg-gray-50">
                         <button onClick={() => setExpandedMeetingIds(prev => { const s = new Set(prev); isExp ? s.delete(m.id) : s.add(m.id); return s })}
                           className="flex items-center gap-2 flex-1 min-w-0 text-left">

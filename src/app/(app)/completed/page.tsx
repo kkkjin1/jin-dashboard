@@ -101,9 +101,9 @@ export default function CompletedPage() {
   const retroCount  = filtered.filter(t => t.retrospective?.good || t.retrospective?.bad || t.retrospective?.improvement).length
 
   return (
-    <div className="p-6 md:p-12">
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-2xl font-bold tracking-tight text-gray-900">완료 성과</h1>
+    <div className="p-4 md:p-8">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-xl font-bold text-gray-900">완료 성과</h1>
         <span className="text-sm text-gray-400">총 {filtered.length}건</span>
       </div>
 
@@ -138,22 +138,22 @@ export default function CompletedPage() {
 
       {/* 4 stat cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <div className="bg-white rounded-lg border border-gray-100 p-5 shadow-sm">
+        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
           <p className="text-xs text-gray-400 font-medium mb-2">총 완료</p>
           <p className="text-4xl font-bold text-gray-800 mb-1">{filtered.length}</p>
           <p className="text-xs text-gray-400">건</p>
         </div>
-        <div className="bg-emerald-50 rounded-lg border border-emerald-100 p-5">
+        <div className="bg-emerald-50 rounded-xl border border-emerald-100 p-5">
           <p className="text-xs text-emerald-600 font-medium mb-2">성과</p>
           <p className="text-4xl font-bold text-emerald-700 mb-1">{achieveCount}</p>
           <p className="text-xs text-emerald-500">건</p>
         </div>
-        <div className="bg-amber-50 rounded-lg border border-amber-100 p-5">
+        <div className="bg-amber-50 rounded-xl border border-amber-100 p-5">
           <p className="text-xs text-amber-600 font-medium mb-2">개선</p>
           <p className="text-4xl font-bold text-amber-700 mb-1">{improveCount}</p>
           <p className="text-xs text-amber-500">건</p>
         </div>
-        <div className="bg-blue-50 rounded-lg border border-blue-100 p-5">
+        <div className="bg-blue-50 rounded-xl border border-blue-100 p-5">
           <p className="text-xs text-blue-600 font-medium mb-2">회고 작성</p>
           <p className="text-4xl font-bold text-blue-700 mb-1">{retroCount}</p>
           <p className="text-xs text-blue-500">
@@ -163,7 +163,7 @@ export default function CompletedPage() {
       </div>
 
       {/* 카테고리 칸반 */}
-      <div className="flex gap-5 overflow-x-auto pb-4 mb-8">
+      <div className="flex gap-4 overflow-x-auto pb-4 mb-8">
         {COLUMNS.map(col => {
           const colTasks = getColTasks(col.key)
           const colKey = col.key ?? '__null__'
@@ -172,22 +172,22 @@ export default function CompletedPage() {
               onDragOver={e => { e.preventDefault(); setDragOverCol(colKey) }}
               onDragLeave={() => setDragOverCol(null)}
               onDrop={() => handleDrop(col.key)}
-              className={`flex-shrink-0 w-56 rounded-lg border p-4 transition-all ${col.bg} ${dragOverCol === colKey ? 'scale-[1.02] opacity-90' : ''}`}>
+              className={`flex-shrink-0 w-56 rounded-xl border p-4 transition-all ${col.bg} ${dragOverCol === colKey ? 'scale-[1.02] opacity-90' : ''}`}>
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-1.5">
                   <span className={`w-2 h-2 rounded-full ${col.dot}`} />
-                  <h3 className="text-sm font-bold text-gray-700">{col.label}</h3>
+                  <h3 className="text-sm font-semibold text-gray-700">{col.label}</h3>
                 </div>
-                <span className="text-xs text-gray-400 bg-white px-1.5 py-0.5 rounded border border-gray-100">{colTasks.length}</span>
+                <span className="text-xs text-gray-400 bg-white px-1.5 py-0.5 rounded-full border border-gray-100">{colTasks.length}</span>
               </div>
               <div className="space-y-2 min-h-20">
                 {colTasks.map(task => (
                   <div key={task.id} draggable
                     onDragStart={() => setDraggedId(task.id)}
                     onDragEnd={() => { setDraggedId(null); setDragOverCol(null) }}
-                    className={`bg-white rounded-md border border-gray-100 p-2.5 cursor-grab active:cursor-grabbing hover:border-gray-200 transition-all ${draggedId === task.id ? 'opacity-50' : ''}`}>
+                    className={`bg-white rounded-lg border border-gray-100 p-2.5 cursor-grab active:cursor-grabbing hover:border-gray-200 transition-all ${draggedId === task.id ? 'opacity-50' : ''}`}>
                     <Link href={`/tasks/${task.id}`} onClick={e => e.stopPropagation()}>
-                      <p className="text-xs font-semibold text-gray-800 leading-snug mb-1.5">
+                      <p className="text-xs font-medium text-gray-800 leading-snug mb-1.5">
                         {task.title || <span className="text-gray-300 italic">제목 없음</span>}
                       </p>
                     </Link>
@@ -219,10 +219,10 @@ export default function CompletedPage() {
           <div className="grid grid-cols-1 gap-3">
             {filtered.map(task => (
               <Link key={task.id} href={`/tasks/${task.id}`}
-                className="bg-white rounded-lg border border-gray-100 p-4 hover:border-gray-200 transition-colors">
+                className="bg-white rounded-xl border border-gray-100 p-4 hover:border-gray-200 transition-colors">
                 <div className="flex items-start justify-between mb-3">
                   <div>
-                    <p className="text-sm font-semibold text-gray-800">{task.title || '제목 없음'}</p>
+                    <p className="text-sm font-medium text-gray-800">{task.title || '제목 없음'}</p>
                     <div className="flex gap-1.5 mt-1">
                       {task.part && <span className="text-xs text-gray-400">{task.part}</span>}
                       {task.type && <span className="text-xs text-gray-400">· {task.type}</span>}

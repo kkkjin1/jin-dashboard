@@ -131,16 +131,16 @@ export default function LearningPage() {
   }, [resources, customTags])
 
   return (
-    <div className="p-6 md:p-12">
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-2xl font-bold tracking-tight text-gray-900">학습자료</h1>
+    <div className="p-4 md:p-8">
+      <div className="flex items-center justify-between mb-5">
+        <h1 className="text-xl font-bold text-gray-900">학습자료</h1>
         <div className="flex gap-2">
           <button onClick={() => setManagingTags(p => !p)}
-            className={`text-xs px-3 py-2 rounded-md border transition-colors ${managingTags ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
+            className={`text-xs px-3 py-2 rounded-lg border transition-colors ${managingTags ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
             태그 관리
           </button>
           <button onClick={() => setAddingInCol('__new__')}
-            className="text-sm bg-gray-900 text-white px-4 py-2 rounded-md hover:bg-gray-800 transition-colors">
+            className="text-sm bg-gray-900 text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors">
             + 새 자료
           </button>
         </div>
@@ -148,11 +148,11 @@ export default function LearningPage() {
 
       {/* 태그 관리 */}
       {managingTags && (
-        <div className="bg-gray-50 rounded-lg border border-gray-200 p-4 mb-5">
+        <div className="bg-gray-50 rounded-xl border border-gray-200 p-4 mb-5">
           <p className="text-xs font-semibold text-gray-500 mb-3">커스텀 태그</p>
           <div className="flex flex-wrap gap-1.5 mb-3">
             {customTags.map(tag => (
-              <span key={tag} className="inline-flex items-center gap-1 text-xs bg-white border border-gray-200 rounded px-2.5 py-1">
+              <span key={tag} className="inline-flex items-center gap-1 text-xs bg-white border border-gray-200 rounded-full px-2.5 py-1">
                 {tag}
                 <button onClick={() => updateCustomTags(customTags.filter(t => t !== tag))}
                   className="text-gray-300 hover:text-red-400 leading-none">×</button>
@@ -172,7 +172,7 @@ export default function LearningPage() {
 
       {/* 새 자료 추가 폼 */}
       {addingInCol === '__new__' && (
-        <div className="bg-white rounded-lg border border-[#10B981]/30 p-5 mb-5 shadow-sm">
+        <div className="bg-white rounded-xl border border-[#10B981]/30 p-5 mb-5 shadow-sm">
           <input autoFocus value={colAddTitle} onChange={e => setColAddTitle(e.target.value)}
             onKeyDown={e => { if (e.key === 'Escape') resetColAdd() }}
             placeholder="제목 *"
@@ -186,14 +186,14 @@ export default function LearningPage() {
           <div className="flex items-center gap-2 flex-wrap">
             {MEDIA_TYPES.map(type => (
               <button key={type} onClick={() => setColAddMedia(colAddMedia === type ? '' : type)}
-                className={`text-xs px-2.5 py-1 rounded border transition-colors ${colAddMedia === type ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-400 hover:border-gray-400'}`}>
+                className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${colAddMedia === type ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-400 hover:border-gray-400'}`}>
                 {MEDIA_ICONS[type]} {type}
               </button>
             ))}
             <div className="ml-auto flex gap-2">
               <button onClick={resetColAdd} className="text-xs text-gray-400 px-3 py-1.5">취소</button>
               <button onClick={() => handleColAdd('__new__')} disabled={!colAddTitle.trim()}
-                className="text-xs bg-gray-900 text-white px-4 py-1.5 rounded-md disabled:opacity-30">저장</button>
+                className="text-xs bg-gray-900 text-white px-4 py-1.5 rounded-lg disabled:opacity-30">저장</button>
             </div>
           </div>
         </div>
@@ -224,7 +224,7 @@ export default function LearningPage() {
             return (
               <div key={s.id} className="group relative">
                 <a href={s.url} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-md px-3 py-1.5 hover:border-gray-400 hover:shadow-sm transition-all">
+                  className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-full px-3 py-1.5 hover:border-gray-400 hover:shadow-sm transition-all">
                   <span className="text-xs font-medium text-gray-700 truncate max-w-28">🔗 {s.title}</span>
                 </a>
                 <div className="absolute -top-1.5 -right-1 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
@@ -252,7 +252,7 @@ export default function LearningPage() {
             </div>
           ) : (
             <button onClick={() => { setShowAddSite(true); setEditingSiteId(null) }}
-              className="text-xs text-gray-300 hover:text-gray-500 border border-dashed border-gray-200 hover:border-gray-300 rounded-md px-3 py-1.5 transition-colors">
+              className="text-xs text-gray-300 hover:text-gray-500 border border-dashed border-gray-200 hover:border-gray-300 rounded-full px-3 py-1.5 transition-colors">
               + 사이트 추가
             </button>
           )}
@@ -276,9 +276,9 @@ export default function LearningPage() {
             {tagCols.map(tag => {
               const colItems = tagKanbanGroups[tag] ?? []
               return (
-                <div key={tag} className="bg-white rounded-lg border border-gray-100 p-4">
+                <div key={tag} className="bg-white rounded-xl border border-gray-100 p-3">
                   <div className="flex items-center gap-2 mb-2">
-                    <span className={`text-xs font-semibold px-2.5 py-1 rounded ${TAG_STYLE[tag] ?? 'bg-gray-100 text-gray-500'}`}>{tag}</span>
+                    <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${TAG_STYLE[tag] ?? 'bg-gray-100 text-gray-500'}`}>{tag}</span>
                     <span className="text-xs text-gray-400">{colItems.length}</span>
                   </div>
                   {colItems.length === 0 ? (
@@ -287,7 +287,7 @@ export default function LearningPage() {
                     <div className="space-y-1.5">
                       {colItems.map(r => (
                         <Link key={r.id} href={`/learning/${r.id}`} className="block">
-                          <div className="bg-gray-50 rounded-md px-3 py-2.5">
+                          <div className="bg-gray-50 rounded-lg px-3 py-2.5">
                             <p className="text-sm font-medium text-gray-800 leading-snug break-words">{r.title}</p>
                             {r.media_type && <p className="text-xs text-gray-400 mt-0.5">{MEDIA_ICONS[r.media_type]} {r.media_type}</p>}
                           </div>
@@ -326,14 +326,14 @@ export default function LearningPage() {
                 <div key={tag} className="flex flex-col" style={{ minHeight: 'calc(100vh - 200px)' }}>
                   {/* 컬럼 헤더 */}
                   <div className="py-1.5 px-2 mb-3">
-                    <span className={`inline-block text-xs font-semibold px-2.5 py-1 rounded ${TAG_STYLE[tag] ?? 'bg-gray-100 text-gray-500'}`}>
+                    <span className={`inline-block text-xs font-semibold px-2.5 py-1 rounded-full ${TAG_STYLE[tag] ?? 'bg-gray-100 text-gray-500'}`}>
                       {tag}
                     </span>
                     <span className="ml-2 text-xs text-gray-400">{allColItems.length}</span>
                   </div>
                   <div className="space-y-1 flex-1">
                     {addingInCol === tag && (
-                      <div className="bg-white rounded-lg border border-[#10B981]/30 px-3 py-3 shadow-sm mb-2">
+                      <div className="bg-white rounded-xl border border-[#10B981]/30 px-3 py-3 shadow-sm mb-2">
                         <input autoFocus value={colAddTitle} onChange={e => setColAddTitle(e.target.value)}
                           onKeyDown={e => { if (e.key === 'Escape') resetColAdd() }}
                           placeholder="제목 *"
@@ -357,7 +357,7 @@ export default function LearningPage() {
                       </div>
                     )}
                     {allColItems.length === 0 && addingInCol !== tag ? (
-                      <p className="text-xs text-gray-300 text-center py-8 bg-gray-50/60 rounded-lg border border-dashed border-gray-100">없음</p>
+                      <p className="text-xs text-gray-300 text-center py-8 bg-gray-50/60 rounded-xl border border-dashed border-gray-100">없음</p>
                     ) : (
                       mediaGroups.map(([mt, list]) => {
                         const mediaKey = `${tag}-${mt}`
@@ -375,7 +375,7 @@ export default function LearningPage() {
                               <div className="space-y-1.5 mt-1">
                                 {list.map(r => (
                                   <Link key={r.id} href={`/learning/${r.id}`} className="block">
-                                    <div className="bg-white rounded-lg border border-gray-200 hover:border-[#10B981]/40 hover:shadow-sm px-3 py-3 transition-all">
+                                    <div className="bg-white rounded-xl border border-gray-200 hover:border-[#10B981]/40 hover:shadow-sm px-3 py-3 transition-all">
                                       <p className="text-sm font-semibold text-gray-800 leading-snug line-clamp-2 break-all mb-1">{r.title}</p>
                                       {r.source && <p className="text-xs text-gray-400 truncate">출처: {r.source}</p>}
                                       {r.notes.length > 0 && <p className="text-xs text-gray-300 mt-1">{r.notes.length}노트</p>}

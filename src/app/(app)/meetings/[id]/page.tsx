@@ -67,7 +67,7 @@ function NoteAccordion({ note, index, isOpen, onToggle, onDelete, onEdit, onFull
   }
 
   return (
-    <div className="bg-white rounded-lg border border-gray-100 overflow-hidden group">
+    <div className="bg-white rounded-xl border border-gray-100 overflow-hidden group">
       <button onClick={onToggle}
         className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50 transition-colors">
         <div className="flex items-center gap-2 min-w-0">
@@ -163,11 +163,11 @@ function LinkedTaskCard({ task, onUnlink }: LinkedTaskCardProps) {
   }
 
   return (
-    <div className="border border-gray-100 rounded-lg overflow-hidden group/task">
+    <div className="border border-gray-100 rounded-xl overflow-hidden group/task">
       <div className="flex items-center justify-between px-3 py-2.5 bg-gray-50">
         <button onClick={handleExpand} className="flex items-center gap-2 flex-1 min-w-0 text-left">
           <span className="text-xs text-gray-400 flex-shrink-0">{expanded ? '▼' : '▶'}</span>
-          <span className={`text-xs px-2 py-0.5 rounded flex-shrink-0 ${STATUS_COLORS[task.status]}`}>{task.status}</span>
+          <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${STATUS_COLORS[task.status]}`}>{task.status}</span>
           <span className="text-sm text-gray-700 hover:text-gray-900 truncate">
             {task.title || <span className="text-gray-300 italic">제목 없음</span>}
           </span>
@@ -380,11 +380,11 @@ export default function MeetingDetailPage() {
   if (!meeting) return <div className="p-8 text-gray-400 text-sm animate-pulse">불러오는 중...</div>
 
   return (
-    <div className="p-6 md:p-12">
-      <div className="flex items-center justify-between mb-8">
+    <div className="p-8">
+      <div className="flex items-center justify-between mb-4">
         <Link href="/meetings" className="text-sm text-gray-400 hover:text-gray-600 inline-flex items-center gap-1">← 회의록 목록</Link>
         <button onClick={handleDownloadMd}
-          className="text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded-md px-3 py-1.5 hover:bg-white transition-colors">
+          className="text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-white transition-colors">
           MD 다운로드
         </button>
       </div>
@@ -414,7 +414,7 @@ export default function MeetingDetailPage() {
               <label className="text-xs text-gray-400 block mb-1">구분</label>
               <div className="flex gap-1.5 items-center">
                 {meeting.category && (
-                  <span className={`text-xs px-2.5 py-1 rounded border ${CATEGORY_COLORS[meeting.category] ?? ''}`}>
+                  <span className={`text-xs px-2.5 py-1 rounded-full border ${CATEGORY_COLORS[meeting.category] ?? ''}`}>
                     {meeting.category}
                   </span>
                 )}
@@ -430,7 +430,7 @@ export default function MeetingDetailPage() {
 
           <div className="mb-6">
             <h2 className="text-sm font-semibold text-gray-700 mb-3">회의 내용</h2>
-            <div className="bg-white rounded-lg border border-gray-100 p-4 mb-3">
+            <div className="bg-white rounded-xl border border-gray-100 p-4 mb-3">
               <input value={noteTitle} onChange={e => setNoteTitle(e.target.value)}
                 className="w-full text-xs font-medium text-gray-500 focus:outline-none mb-2 border-b border-gray-100 pb-1 bg-transparent"
                 placeholder="노트 제목" />
@@ -442,7 +442,7 @@ export default function MeetingDetailPage() {
                 style={{ minHeight: '200px' }} />
               <div className="flex justify-end mt-2">
                 <button onClick={saveNote} disabled={!noteInput.trim()}
-                  className="text-xs bg-gray-900 text-white px-4 py-1.5 rounded-md hover:bg-gray-800 disabled:opacity-30 transition-colors">
+                  className="text-xs bg-gray-900 text-white px-4 py-1.5 rounded-lg hover:bg-gray-800 disabled:opacity-30 transition-colors">
                   저장 (Ctrl+Enter)
                 </button>
               </div>
@@ -472,7 +472,7 @@ export default function MeetingDetailPage() {
 
           <div className="mb-6">
             <h2 className="text-sm font-semibold text-gray-700 mb-3">첨부파일 / 링크</h2>
-            <div className="bg-white rounded-lg border border-gray-100 p-4 mb-3 space-y-2">
+            <div className="bg-white rounded-xl border border-gray-100 p-4 mb-3 space-y-2">
               <div className="flex gap-2">
                 <label className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg cursor-pointer transition-colors ${uploading ? 'bg-gray-50 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'}`}>
                   📎 {uploading ? '업로드 중...' : '파일 첨부'}
@@ -495,7 +495,7 @@ export default function MeetingDetailPage() {
                   const ext = att.name.split('.').pop()?.toLowerCase() ?? ''
                   const icon = att.type === '링크' ? '🔗' : ['jpg','jpeg','png','gif','webp','svg'].includes(ext) ? '🖼️' : ['pdf'].includes(ext) ? '📄' : ['xlsx','xls','csv'].includes(ext) ? '📊' : ['docx','doc'].includes(ext) ? '📝' : ['pptx','ppt'].includes(ext) ? '📊' : ['zip','rar','7z'].includes(ext) ? '📦' : '📎'
                   return (
-                    <div key={att.id} className="bg-white rounded-lg border border-gray-100 px-4 py-2.5 flex items-center justify-between group">
+                    <div key={att.id} className="bg-white rounded-xl border border-gray-100 px-4 py-2.5 flex items-center justify-between group">
                       <a href={att.url} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-500 hover:text-blue-700 hover:underline truncate flex-1">{icon} {att.name}</a>
                       <button onClick={() => deleteAttachment(att)} className="text-xs text-gray-200 hover:text-red-400 ml-3 opacity-0 group-hover:opacity-100 transition-all">삭제</button>
                     </div>
@@ -515,7 +515,7 @@ export default function MeetingDetailPage() {
 
         {/* 오른쪽: 연관 업무 (확장 가능) */}
         <div className="flex-[45]">
-          <div className="bg-white rounded-lg border border-gray-100 p-5 sticky top-6">
+          <div className="bg-white rounded-xl border border-gray-100 p-5 sticky top-6">
             <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">연관 업무</h3>
 
             <div className="flex gap-2 mb-4">
