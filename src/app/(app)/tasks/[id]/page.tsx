@@ -182,6 +182,8 @@ export default function TaskDetailPage() {
   const [showFullscreenNew, setShowFullscreenNew] = useState(false)
   const [linkUrl, setLinkUrl] = useState('')
   const [linkName, setLinkName] = useState('')
+  const [uploading, setUploading] = useState(false)
+  const [copiedAll, setCopiedAll] = useState(false)
   const [toast, setToast] = useState('')
   const [deleting, setDeleting] = useState(false)
   const [titleInput, setTitleInput] = useState('')
@@ -344,9 +346,30 @@ export default function TaskDetailPage() {
     setLinkUrl(''); setLinkName('')
   }
 
-  async function deleteAttachment(attId: string) {
-    await supabase.from('attachments').delete().eq('id', attId)
-    setAttachments(prev => prev.filter(a => a.id !== attId))
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? [])
+    if (!files.length) return
+    setUploading(true)
+    for (const file of files) {
+      const safeName = file.name.replace(/[^a-zA-Z0-9가-힣._-]/g, '_')
+      const path = `tasks/${id}/${Date.now()}_${safeName}`
+      const { error } = await supabase.storage.from('attachments').upload(path, file)
+      if (error) { console.error(error); continue }
+      const { data: urlData } = supabase.storage.from('attachments').getPublicUrl(path)
+      const { data } = await supabase.from('attachments').insert({ task_id: id, name: file.name, type: '파일', url: urlData.publicUrl }).select().single()
+      if (data) setAttachments(prev => [data as Attachment, ...prev])
+    }
+    setUploading(false)
+    e.target.value = ''
+  }
+
+  async function deleteAttachment(att: Attachment) {
+    if (att.type === '파일') {
+      const path = att.url.split('/object/public/attachments/')[1]
+      if (path) await supabase.storage.from('attachments').remove([path])
+    }
+    await supabase.from('attachments').delete().eq('id', att.id)
+    setAttachments(prev => prev.filter(a => a.id !== att.id))
   }
 
   async function deleteTask() {
@@ -376,6 +399,14 @@ export default function TaskDetailPage() {
       await supabase.from('task_meeting_links').insert({ task_id: id, meeting_id: newId })
       router.push(`/meetings/${newId}`)
     }
+  }
+
+  function copyAllNotes() {
+    const text = notes.map(n => `## ${n.title ?? ''}\n${n.content}`).join('\n\n')
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedAll(true)
+      setTimeout(() => setCopiedAll(false), 2000)
+    })
   }
 
   function handleDownloadMd() {
@@ -450,6 +481,10 @@ export default function TaskDetailPage() {
             className={`text-xs border rounded-lg px-3 py-1.5 transition-colors ${contentWidth ? 'border-blue-200 text-blue-500 bg-blue-50 hover:bg-blue-100' : 'border-gray-200 text-gray-400 hover:bg-white'}`}
           >
             {contentWidth ? '↔ 전체 너비' : '⟵ 좁게 보기'} <span className="opacity-50">[q]</span>
+          </button>
+          <button onClick={copyAllNotes} disabled={!notes.length}
+            className="text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-white transition-colors disabled:opacity-30">
+            {copiedAll ? '✓ 복사됨' : '📋 전체 복사'}
           </button>
           <button onClick={handleDownloadMd} className="text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-white transition-colors">
             MD 다운로드
@@ -569,23 +604,35 @@ export default function TaskDetailPage() {
 
           <div className="mb-6">
             <h2 className="text-sm font-semibold text-gray-700 mb-3">첨부파일 / 링크</h2>
-            <div className="bg-white rounded-xl border border-gray-100 p-4 mb-3 flex gap-2">
-              <input value={linkUrl} onChange={e => setLinkUrl(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addLink() }}
-                placeholder="링크 URL" className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none" />
-              <input value={linkName} onChange={e => setLinkName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addLink() }}
-                placeholder="표시 이름 (선택)" className="w-36 text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none" />
-              <button onClick={addLink} className="text-xs bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-lg transition-colors">추가</button>
+            <div className="bg-white rounded-xl border border-gray-100 p-4 mb-3 space-y-2">
+              <div className="flex gap-2">
+                <label className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg cursor-pointer transition-colors ${uploading ? 'bg-gray-50 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'}`}>
+                  📎 {uploading ? '업로드 중...' : '파일 첨부'}
+                  <input type="file" multiple className="hidden" onChange={handleFileUpload} disabled={uploading} />
+                </label>
+              </div>
+              <div className="flex gap-2">
+                <input value={linkUrl} onChange={e => setLinkUrl(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addLink() }}
+                  placeholder="링크 URL" className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none" />
+                <input value={linkName} onChange={e => setLinkName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addLink() }}
+                  placeholder="표시 이름 (선택)" className="w-32 text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none" />
+                <button onClick={addLink} className="text-xs bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-lg transition-colors flex-shrink-0">추가</button>
+              </div>
             </div>
             <div className="space-y-1.5">
               {attachments.length === 0 ? (
                 <p className="text-sm text-gray-300 text-center py-3">첨부된 파일이 없습니다</p>
               ) : (
-                attachments.map(att => (
-                  <div key={att.id} className="bg-white rounded-xl border border-gray-100 px-4 py-2.5 flex items-center justify-between group">
-                    <a href={att.url} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-500 hover:text-blue-700 hover:underline truncate flex-1">🔗 {att.name}</a>
-                    <button onClick={() => deleteAttachment(att.id)} className="text-xs text-gray-200 hover:text-red-400 ml-3 opacity-0 group-hover:opacity-100 transition-all">삭제</button>
-                  </div>
-                ))
+                attachments.map(att => {
+                  const ext = att.name.split('.').pop()?.toLowerCase() ?? ''
+                  const icon = att.type === '링크' ? '🔗' : ['jpg','jpeg','png','gif','webp','svg'].includes(ext) ? '🖼️' : ['pdf'].includes(ext) ? '📄' : ['xlsx','xls','csv'].includes(ext) ? '📊' : ['docx','doc'].includes(ext) ? '📝' : ['pptx','ppt'].includes(ext) ? '📊' : ['zip','rar','7z'].includes(ext) ? '📦' : '📎'
+                  return (
+                    <div key={att.id} className="bg-white rounded-xl border border-gray-100 px-4 py-2.5 flex items-center justify-between group">
+                      <a href={att.url} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-500 hover:text-blue-700 hover:underline truncate flex-1">{icon} {att.name}</a>
+                      <button onClick={() => deleteAttachment(att)} className="text-xs text-gray-200 hover:text-red-400 ml-3 opacity-0 group-hover:opacity-100 transition-all">삭제</button>
+                    </div>
+                  )
+                })
               )}
             </div>
           </div>

@@ -41,7 +41,8 @@ export interface Note {
 
 export interface Attachment {
   id: string
-  task_id: string
+  task_id: string | null
+  meeting_id?: string | null
   name: string
   type: AttachmentType
   url: string
