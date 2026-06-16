@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { fetchAllTasks, fetchMembers, formatDate } from '@/lib/tasks'
 import { TaskPageSkeleton } from '@/components/ui/Skeleton'
-import type { Task, Member, TaskStatus, Part, TaskType } from '@/types'
+import type { Task, Member, TaskStatus, Part, TaskType, ScheduleTag } from '@/types'
 
 const PARTS: Part[] = ['코어', '비즈', '개인']
 const TYPES: TaskType[] = ['기획', '개선', '운영']
@@ -22,6 +22,18 @@ const STATUS_BG: Record<TaskStatus, string> = {
   '진행필요': 'bg-gray-50 border-gray-200',
   '진행중': 'bg-blue-50/30 border-blue-100',
   '완료': 'bg-gray-50 border-gray-200',
+}
+
+const SCHEDULE_CYCLE: (ScheduleTag | null)[] = [null, 'today', 'tomorrow', 'this_week']
+const SCHEDULE_LABELS: Record<ScheduleTag, string> = { today: '오늘', tomorrow: '내일', this_week: '금주' }
+const SCHEDULE_STYLE: Record<ScheduleTag, string> = {
+  today: 'bg-red-100 text-red-600',
+  tomorrow: 'bg-orange-100 text-orange-600',
+  this_week: 'bg-blue-100 text-blue-600',
+}
+function cycleTag(current: ScheduleTag | null): ScheduleTag | null {
+  const idx = SCHEDULE_CYCLE.indexOf(current)
+  return SCHEDULE_CYCLE[(idx + 1) % SCHEDULE_CYCLE.length]
 }
 
 const PART_ACCENT: Record<string, string> = {
@@ -174,6 +186,11 @@ export default function TasksPage() {
   async function updateStatus(taskId: string, status: TaskStatus) {
     await supabase.from('tasks').update({ status }).eq('id', taskId)
     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status } : t))
+  }
+
+  async function updateScheduleTag(taskId: string, tag: ScheduleTag | null) {
+    await supabase.from('tasks').update({ schedule_tag: tag }).eq('id', taskId)
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, schedule_tag: tag } : t))
   }
 
   function handleDrop(e: React.DragEvent, status: TaskStatus) {
@@ -386,6 +403,12 @@ export default function TasksPage() {
                                 className={`text-xs px-1.5 py-0.5 rounded font-medium border-0 cursor-pointer focus:outline-none flex-shrink-0 ${STATUS_COLORS[task.status]}`}>
                                 {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                               </select>
+                              <button
+                                onClick={e => { e.stopPropagation(); e.preventDefault(); updateScheduleTag(task.id, cycleTag(task.schedule_tag ?? null)) }}
+                                title={task.schedule_tag ? `${SCHEDULE_LABELS[task.schedule_tag]} (클릭해서 변경)` : '일정 태그 없음 (클릭해서 설정)'}
+                                className={`text-[10px] px-1.5 py-0.5 rounded flex-shrink-0 transition-colors font-medium ${task.schedule_tag ? SCHEDULE_STYLE[task.schedule_tag] : 'text-gray-200 group-hover:text-gray-400'}`}>
+                                {task.schedule_tag ? SCHEDULE_LABELS[task.schedule_tag] : '·'}
+                              </button>
                               <Link href={`/tasks/${task.id}`} className="flex-1 min-w-0 flex items-center justify-between gap-2">
                                 <span className="text-xs text-gray-800 font-medium truncate">
                                   {task.title || <span className="text-gray-300 italic">제목 없음</span>}
@@ -433,6 +456,12 @@ export default function TasksPage() {
                                 className={`text-xs px-1.5 py-0.5 rounded font-medium border-0 cursor-pointer focus:outline-none flex-shrink-0 ${STATUS_COLORS[task.status]}`}>
                                 {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                               </select>
+                              <button
+                                onClick={e => { e.stopPropagation(); e.preventDefault(); updateScheduleTag(task.id, cycleTag(task.schedule_tag ?? null)) }}
+                                title={task.schedule_tag ? `${SCHEDULE_LABELS[task.schedule_tag]} (클릭해서 변경)` : '일정 태그 없음 (클릭해서 설정)'}
+                                className={`text-[10px] px-1.5 py-0.5 rounded flex-shrink-0 transition-colors font-medium ${task.schedule_tag ? SCHEDULE_STYLE[task.schedule_tag] : 'text-gray-200 group-hover:text-gray-400'}`}>
+                                {task.schedule_tag ? SCHEDULE_LABELS[task.schedule_tag] : '·'}
+                              </button>
                               <Link href={`/tasks/${task.id}`} className="flex-1 min-w-0 flex items-center justify-between gap-2">
                                 <span className="text-xs text-gray-800 font-medium truncate">
                                   {task.title || <span className="text-gray-300 italic">제목 없음</span>}

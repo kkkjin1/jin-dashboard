@@ -1,6 +1,7 @@
 export type Part = '코어' | '비즈' | '팀장' | '개인'
 export type TaskType = '기획' | '개선' | '운영'
 export type TaskStatus = '진행필요' | '진행중' | '완료'
+export type ScheduleTag = 'today' | 'tomorrow' | 'this_week'
 export type AttachmentType = '파일' | '링크'
 export type AchievementCategory = '성과' | '개선' | '리소스' | '수명' | '기타'
 export type FeedbackType = '긍정' | '부정' | '요청'
@@ -25,6 +26,7 @@ export interface Task {
   work_months: string[]
   achievement_category: AchievementCategory | null
   retrospective?: { good: string; bad: string; improvement: string } | null
+  schedule_tag?: ScheduleTag | null
   created_at: string
   updated_at: string
   members?: Member

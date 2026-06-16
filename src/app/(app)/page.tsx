@@ -2,40 +2,32 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { format, isToday, parseISO } from 'date-fns'
+import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import HomeCalendar from '@/components/home/HomeCalendar'
 import TodayTodoWidget from '@/components/home/TodayTodoWidget'
-import { fetchAllTasks, daysUntil, hasUpcomingMidDate, hasUpcomingEndDate } from '@/lib/tasks'
+import { fetchAllTasks } from '@/lib/tasks'
 import { createClient } from '@/lib/supabase/client'
 import { useUserSetting } from '@/hooks/useUserSetting'
 import { HomePageSkeleton } from '@/components/ui/Skeleton'
 import type { Task, Meeting } from '@/types'
 
-function ddayColor(d: number): string {
-  if (d === 0) return 'bg-red-100 text-red-700 font-bold'
-  if (d <= 2) return 'bg-orange-100 text-orange-600'
-  if (d <= 4) return 'bg-amber-50 text-amber-600'
-  return 'bg-yellow-50 text-yellow-600'
-}
-
 interface CompactColProps {
   title: string
-  count: number
   tasks: Task[]
   dot: string
-  dateMode: 'end_date' | 'mid_date'
+  badgeCls?: string
 }
 
-function CompactCol({ title, count, tasks, dot, dateMode }: CompactColProps) {
+function CompactCol({ title, tasks, dot, badgeCls = 'bg-gray-200 text-gray-600' }: CompactColProps) {
   return (
     <div className="bg-white rounded-lg border border-gray-100 p-4 min-w-0">
       <div className="flex items-center gap-1.5 mb-2">
         <span className={`w-2 h-2 rounded-full flex-shrink-0 ${dot}`} />
         <span className="text-xs font-semibold text-gray-700">{title}</span>
-        {count > 0 && (
-          <span className="ml-auto text-[10px] bg-red-500 text-white w-4 h-4 rounded-full flex items-center justify-center font-medium flex-shrink-0">
-            {count > 9 ? '9+' : count}
+        {tasks.length > 0 && (
+          <span className={`ml-auto text-[10px] ${badgeCls} w-4 h-4 rounded-full flex items-center justify-center font-medium flex-shrink-0`}>
+            {tasks.length > 9 ? '9+' : tasks.length}
           </span>
         )}
       </div>
@@ -43,23 +35,15 @@ function CompactCol({ title, count, tasks, dot, dateMode }: CompactColProps) {
         <p className="text-xs text-gray-300 text-center py-1">해당 없음</p>
       ) : (
         <div className="space-y-0.5">
-          {tasks.slice(0, 4).map(t => {
-            const d = dateMode === 'mid_date'
-              ? (t.mid_date ? daysUntil(t.mid_date) : null)
-              : (t.end_date ? daysUntil(t.end_date) : null)
-            return (
-              <Link key={t.id} href={`/tasks/${t.id}`}>
-                <div className="flex items-center gap-1.5 py-0.5 px-1 hover:bg-gray-50 rounded transition-colors">
-                  {d !== null && (
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded flex-shrink-0 ${ddayColor(d)}`}>D-{d}</span>
-                  )}
-                  <span className="text-xs text-gray-700 truncate">{t.title || '제목 없음'}</span>
-                </div>
-              </Link>
-            )
-          })}
-          {tasks.length > 4 && (
-            <p className="text-[10px] text-gray-300 px-1 pt-0.5">+{tasks.length - 4}건 더</p>
+          {tasks.slice(0, 5).map(t => (
+            <Link key={t.id} href={`/tasks/${t.id}`}>
+              <div className="py-0.5 px-1 hover:bg-gray-50 rounded transition-colors">
+                <span className="text-xs text-gray-700 truncate block">{t.title || '제목 없음'}</span>
+              </div>
+            </Link>
+          ))}
+          {tasks.length > 5 && (
+            <p className="text-[10px] text-gray-300 px-1 pt-0.5">+{tasks.length - 5}건 더</p>
           )}
         </div>
       )}
@@ -157,16 +141,10 @@ export default function HomePage() {
   const hasResults = matchedTasks.length > 0 || matchedMeetings.length > 0
 
   const active = tasks.filter(t => t.status !== '완료')
-  const todayTasks = active.filter(t => t.end_date && isToday(parseISO(t.end_date)))
-  const weekTasks = active
-    .filter(t => { if (!t.end_date) return false; const d = daysUntil(t.end_date); return d >= 1 && d <= 7 })
-    .sort((a, b) => daysUntil(a.end_date!) - daysUntil(b.end_date!))
-  const midSoonTasks = active
-    .filter(t => hasUpcomingMidDate(t))
-    .sort((a, b) => daysUntil(a.mid_date!) - daysUntil(b.mid_date!))
-  const endSoonTasks = active
-    .filter(t => hasUpcomingEndDate(t))
-    .sort((a, b) => daysUntil(a.end_date!) - daysUntil(b.end_date!))
+  const todayTasks = active.filter(t => t.schedule_tag === 'today')
+  const tomorrowTasks = active.filter(t => t.schedule_tag === 'tomorrow')
+  const weekTasks = active.filter(t => t.schedule_tag === 'this_week')
+  const untaggedTasks = active.filter(t => !t.schedule_tag)
 
   if (loading) return <HomePageSkeleton />
 
@@ -313,10 +291,10 @@ export default function HomePage() {
         </div>
       ) : (
         <div className="flex-shrink-0 grid grid-cols-2 md:grid-cols-4 gap-3">
-          <CompactCol title="오늘 마감" count={todayTasks.length} tasks={todayTasks} dot="bg-red-500" dateMode="end_date" />
-          <CompactCol title="이번주 마감" count={weekTasks.length} tasks={weekTasks} dot="bg-blue-400" dateMode="end_date" />
-          <CompactCol title="중간공유 임박" count={midSoonTasks.length} tasks={midSoonTasks} dot="bg-amber-400" dateMode="mid_date" />
-          <CompactCol title="최종마감 임박" count={endSoonTasks.length} tasks={endSoonTasks} dot="bg-rose-500" dateMode="end_date" />
+          <CompactCol title="오늘" tasks={todayTasks} dot="bg-red-500" badgeCls="bg-red-500 text-white" />
+          <CompactCol title="내일" tasks={tomorrowTasks} dot="bg-orange-400" badgeCls="bg-orange-400 text-white" />
+          <CompactCol title="금주" tasks={weekTasks} dot="bg-blue-400" badgeCls="bg-blue-400 text-white" />
+          <CompactCol title="미지정" tasks={untaggedTasks} dot="bg-gray-300" />
         </div>
       )}
 
