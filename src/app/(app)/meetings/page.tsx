@@ -288,25 +288,9 @@ export default function MeetingsPage() {
                     )}
                     <span className="text-sm font-semibold">{cat}</span>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs text-gray-400">{colMeetings.length}</span>
-                    <button
-                      onClick={() => setAddingInColMeeting(addingInColMeeting === cat ? null : cat)}
-                      className="w-5 h-5 flex items-center justify-center text-gray-300 hover:text-[#10B981] hover:bg-[#ECFDF5] rounded transition-colors text-sm leading-none">
-                      +
-                    </button>
-                  </div>
+                  <span className="text-xs text-gray-400">{colMeetings.length}</span>
                 </div>
                 <div className="space-y-1">
-                  {addingInColMeeting === cat && (
-                    <div className="bg-white rounded-xl border border-[#10B981]/40 px-3 py-2.5 shadow-sm mb-2">
-                      <input autoFocus value={newColTitle} onChange={e => setNewColTitle(e.target.value)}
-                        onKeyDown={e => { if (e.key === 'Enter') handleColAdd(cat); if (e.key === 'Escape') { setAddingInColMeeting(null); setNewColTitle('') } }}
-                        onBlur={() => { if (!newColTitle.trim()) { setAddingInColMeeting(null); setNewColTitle('') } }}
-                        placeholder="회의 제목"
-                        className="w-full text-sm focus:outline-none text-gray-700" />
-                    </div>
-                  )}
                   {colMeetings.length === 0 && addingInColMeeting !== cat ? (
                     <p className="text-xs text-gray-300 text-center py-8 bg-gray-50/60 rounded-xl border border-dashed border-gray-100">없음</p>
                   ) : (
@@ -352,6 +336,21 @@ export default function MeetingsPage() {
                         </div>
                       )
                     })
+                  )}
+                  {addingInColMeeting === cat ? (
+                    <div className="bg-white rounded-xl border border-[#10B981]/40 px-3 py-2.5 shadow-sm mt-2">
+                      <input autoFocus value={newColTitle} onChange={e => setNewColTitle(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') handleColAdd(cat); if (e.key === 'Escape') { setAddingInColMeeting(null); setNewColTitle('') } }}
+                        onBlur={() => { if (!newColTitle.trim()) { setAddingInColMeeting(null); setNewColTitle('') } }}
+                        placeholder="회의 제목 입력 후 Enter"
+                        className="w-full text-sm focus:outline-none text-gray-700" />
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setAddingInColMeeting(cat)}
+                      className="w-full text-left px-2 py-1.5 text-xs text-gray-300 hover:text-gray-500 hover:bg-gray-50 rounded-lg transition-colors mt-1">
+                      + 회의록 추가
+                    </button>
                   )}
                 </div>
               </div>
