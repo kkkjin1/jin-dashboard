@@ -56,7 +56,7 @@ export default function Sidebar() {
   return (
     <>
       {/* 데스크톱 사이드바 */}
-      <aside className="hidden md:flex w-48 min-h-screen bg-[#1C2B3A] flex-col">
+      <aside className="hidden md:flex w-52 min-h-screen bg-[#1C2B3A] flex-col">
         <div className="p-3 border-b border-white/10">
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 bg-[#10B981] rounded-md flex items-center justify-center text-white font-bold text-[10px] flex-shrink-0">인</div>
