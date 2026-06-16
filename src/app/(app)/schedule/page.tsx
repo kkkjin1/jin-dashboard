@@ -326,8 +326,8 @@ export default function SchedulePage() {
   }
 
   return (
-    <div className="p-6 md:p-12 flex-1 flex flex-col">
-      <h1 className="text-2xl font-bold tracking-tight text-gray-900 mb-8">일정</h1>
+    <div className="p-4 md:p-8 flex-1 flex flex-col">
+      <h1 className="text-xl font-bold text-gray-900 mb-8">일정</h1>
 
       {/* 필터 사이클 버튼 행 */}
       <div className="flex items-center gap-2 flex-wrap mb-4">

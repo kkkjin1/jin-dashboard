@@ -199,11 +199,11 @@ export default function MemosPage() {
   if (loading) return <MemoPageSkeleton />
 
   return (
-    <div className="p-6 md:p-12">
+    <div className="p-4 md:p-8">
       {editing && <EditModal memo={editing} onSave={saveEdit} onClose={() => setEditing(null)} />}
 
       <div className="flex items-center justify-between mb-8">
-        <h1 className="text-2xl font-bold tracking-tight text-gray-900">메모</h1>
+        <h1 className="text-xl font-bold text-gray-900">메모</h1>
         <div className="flex items-center gap-2">
           {selectedIds.size > 0 && (
             <button onClick={deleteSelected}

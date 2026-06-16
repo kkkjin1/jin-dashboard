@@ -122,7 +122,7 @@ export default function MemberOneOnOnePage() {
   const selectedSession = sessions.find(s => s.id === selectedSessionId) ?? null
 
   return (
-    <div className="p-6 md:p-12">
+    <div className="p-8">
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-3">
           <Link href="/one-on-one" className="text-sm text-gray-400 hover:text-gray-600">← 목록</Link>
@@ -131,7 +131,7 @@ export default function MemberOneOnOnePage() {
             <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 text-sm font-medium">
               {member.name[0]}
             </div>
-            <h1 className="text-2xl font-bold tracking-tight text-gray-900">{member.name}</h1>
+            <h1 className="text-xl font-bold text-gray-900">{member.name}</h1>
             <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded">{member.part}</span>
           </div>
         </div>

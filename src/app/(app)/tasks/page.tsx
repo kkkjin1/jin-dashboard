@@ -216,9 +216,9 @@ export default function TasksPage() {
   if (loadingTasks) return <TaskPageSkeleton />
 
   return (
-    <div className="p-6 md:p-12">
+    <div className="p-4 md:p-8">
       <div className="flex items-center justify-between mb-8">
-        <h1 className="text-2xl font-bold tracking-tight text-gray-900">업무 목록</h1>
+        <h1 className="text-xl font-bold text-gray-900">업무 목록</h1>
         <div className="flex items-center gap-2">
           {checkedIds.size > 0 && (
             <button onClick={deleteChecked}

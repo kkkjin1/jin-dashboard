@@ -131,9 +131,9 @@ export default function LearningPage() {
   }, [resources, customTags])
 
   return (
-    <div className="p-6 md:p-12">
+    <div className="p-4 md:p-8">
       <div className="flex items-center justify-between mb-8">
-        <h1 className="text-2xl font-bold tracking-tight text-gray-900">학습자료</h1>
+        <h1 className="text-xl font-bold text-gray-900">학습자료</h1>
         <div className="flex gap-2">
           <button onClick={() => setManagingTags(p => !p)}
             className={`text-xs px-3 py-2 rounded-md border transition-colors ${managingTags ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>

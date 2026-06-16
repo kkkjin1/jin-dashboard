@@ -383,11 +383,11 @@ export default function OneOnOnePage() {
   }
 
   return (
-    <div className="p-6 md:p-12 w-full">
+    <div className="p-4 md:p-8 w-full">
       {/* 헤더: 제목 + 탭 + 템플릿 관리 */}
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-4">
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900">1on1</h1>
+          <h1 className="text-xl font-bold text-gray-900">1on1</h1>
           <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
             <button
               onClick={() => setView('team')}

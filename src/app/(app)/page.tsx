@@ -276,7 +276,7 @@ export default function HomePage() {
   if (loading) return <HomePageSkeleton />
 
   return (
-    <div className="p-6 md:p-12 flex flex-col md:h-full md:overflow-hidden gap-4">
+    <div className="p-4 md:p-6 flex flex-col md:h-full md:overflow-hidden gap-4">
 
       {/* Row 1: 헤더 */}
       <div className="flex items-center justify-between flex-shrink-0">
@@ -284,7 +284,7 @@ export default function HomePage() {
           <p className="text-xs text-emerald-600 font-medium">
             {format(new Date(), 'yyyy년 M월 d일 EEEE', { locale: ko })}
           </p>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900">안녕하세요, 팀장님</h1>
+          <h1 className="text-xl font-bold text-gray-900">안녕하세요, 팀장님</h1>
         </div>
         <div className="hidden sm:flex items-center gap-2">
           <div ref={searchRef} className="relative">

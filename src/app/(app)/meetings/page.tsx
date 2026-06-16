@@ -140,9 +140,9 @@ export default function MeetingsPage() {
   const kanbanCols = [...CATEGORIES.slice(1), '기타'] as string[]
 
   return (
-    <div className={viewMode === 'kanban' ? 'p-6 md:p-12' : 'p-6 md:p-12 max-w-3xl'}>
+    <div className={viewMode === 'kanban' ? 'p-4 md:p-8' : 'p-4 md:p-8 max-w-3xl'}>
       <div className="flex items-center justify-between mb-8">
-        <h1 className="text-2xl font-bold tracking-tight text-gray-900">회의록</h1>
+        <h1 className="text-xl font-bold text-gray-900">회의록</h1>
         <div className="flex gap-2 items-center">
           {/* 뷰 모드 토글 */}
           <div className="flex rounded-lg border border-gray-200 overflow-hidden">

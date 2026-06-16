@@ -490,7 +490,7 @@ export default function TaskDetailPage() {
 
   return (
     <div
-      className="p-6 md:p-12"
+      className="p-8"
       style={contentWidth ? { width: `${contentWidth}px` } : {}}
     >
       {toast && <Toast message={toast} onDone={() => setToast('')} />}

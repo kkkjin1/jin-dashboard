@@ -101,9 +101,9 @@ export default function CompletedPage() {
   const retroCount  = filtered.filter(t => t.retrospective?.good || t.retrospective?.bad || t.retrospective?.improvement).length
 
   return (
-    <div className="p-6 md:p-12">
+    <div className="p-4 md:p-8">
       <div className="flex items-center justify-between mb-8">
-        <h1 className="text-2xl font-bold tracking-tight text-gray-900">완료 성과</h1>
+        <h1 className="text-xl font-bold text-gray-900">완료 성과</h1>
         <span className="text-sm text-gray-400">총 {filtered.length}건</span>
       </div>
 
