@@ -126,12 +126,6 @@ function NoteAccordion({ note, isOpen, onToggle, onDelete, onEdit, onEditTitle }
               <SmartTextarea ref={editRef} value={editContent} onChange={handleContentChange}
                 onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSaveEdit(); if (e.key === 'Escape') setEditing(false) }}
                 className="w-full text-sm focus:outline-none resize-none text-gray-700 pt-2" style={{ minHeight: '160px' }} autoFocus />
-              {editContent.trim() && (
-                <div className="mt-3 pt-3 border-t border-dashed border-gray-100">
-                  <p className="text-[10px] text-gray-400 mb-1.5">미리보기</p>
-                  <MarkdownContent content={editContent} className="text-sm text-gray-700" />
-                </div>
-              )}
               <div className="flex items-center justify-between mt-3">
                 <span className={`text-xs transition-opacity ${autoSaved ? 'text-emerald-500 opacity-100' : 'opacity-0'}`}>자동저장됨</span>
                 <div className="flex gap-2">
@@ -522,12 +516,6 @@ export default function TaskDetailPage() {
                 onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) saveNote() }}
                 placeholder="노트 입력 (Ctrl+Enter 저장)"
                 className="w-full text-sm focus:outline-none resize-none text-gray-700 placeholder:text-gray-300" style={{ minHeight: '200px' }} />
-              {noteInput.trim() && (
-                <div className="mt-2 pt-2 border-t border-dashed border-gray-100">
-                  <p className="text-[10px] text-gray-400 mb-1">미리보기</p>
-                  <MarkdownContent content={noteInput} className="text-sm text-gray-700" />
-                </div>
-              )}
               <div className="text-[11px] text-gray-200 mt-2 leading-relaxed select-none pointer-events-none">
                 날짜: [중간공유 6/20] · [최종보고 7/10] · [시작 6/1]<br />
                 확장: [담당자 김다슬] · [유형 기획] · [상태 진행중] · [파트 코어]

@@ -99,12 +99,6 @@ function NoteAccordion({ note, index, isOpen, onToggle, onDelete, onEdit, onFull
                 className="w-full text-sm focus:outline-none resize-none text-gray-700 pt-2"
                 style={{ minHeight: '160px' }}
               />
-              {editContent.trim() && (
-                <div className="mt-3 pt-3 border-t border-dashed border-gray-100">
-                  <p className="text-[10px] text-gray-400 mb-1.5">미리보기</p>
-                  <MarkdownContent content={editContent} className="text-sm text-gray-700" />
-                </div>
-              )}
               <div className="flex items-center justify-between mt-3">
                 <span className={`text-xs transition-opacity ${autoSaved ? 'text-emerald-500 opacity-100' : 'opacity-0'}`}>자동저장됨</span>
                 <div className="flex gap-2">
@@ -385,12 +379,6 @@ export default function MeetingDetailPage() {
                 placeholder="회의 내용 입력 (Ctrl+Enter 저장)"
                 className="w-full text-sm focus:outline-none resize-none text-gray-700 placeholder:text-gray-300"
                 style={{ minHeight: '200px' }} />
-              {noteInput.trim() && (
-                <div className="mt-2 pt-2 border-t border-dashed border-gray-100">
-                  <p className="text-[10px] text-gray-400 mb-1">미리보기</p>
-                  <MarkdownContent content={noteInput} className="text-sm text-gray-700" />
-                </div>
-              )}
               <div className="flex justify-end mt-2">
                 <button onClick={saveNote} disabled={!noteInput.trim()}
                   className="text-xs bg-gray-900 text-white px-4 py-1.5 rounded-lg hover:bg-gray-800 disabled:opacity-30 transition-colors">
