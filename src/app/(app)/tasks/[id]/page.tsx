@@ -295,8 +295,9 @@ export default function TaskDetailPage() {
   }
 
   async function toggleTodoDone(todoId: string, done: boolean) {
-    await supabase.from('task_todos').update({ done }).eq('id', todoId)
-    setTodos(prev => prev.map(t => t.id === todoId ? { ...t, done } : t))
+    const doneAt = done ? new Date().toISOString() : null
+    await supabase.from('task_todos').update({ done, done_at: doneAt }).eq('id', todoId)
+    setTodos(prev => prev.map(t => t.id === todoId ? { ...t, done, done_at: doneAt } : t))
   }
 
   function getTargetDateForBucket(bucket: 'today' | 'tomorrow' | 'this_week'): string {

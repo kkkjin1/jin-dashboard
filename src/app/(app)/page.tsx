@@ -98,6 +98,15 @@ function CompactCol({ title, items, dot, badgeCls = 'bg-gray-200 text-gray-600',
   )
 }
 
+function getThisWeekStart(): string {
+  const d = new Date()
+  const day = d.getDay() // 0=Sun, 1=Mon...6=Sat
+  const daysToMon = day === 0 ? 6 : day - 1
+  d.setDate(d.getDate() - daysToMon)
+  d.setHours(0, 0, 0, 0)
+  return d.toISOString()
+}
+
 function getDateStrings() {
   const todayDate = new Date()
   const today = todayDate.toISOString().slice(0, 10)
@@ -114,6 +123,7 @@ function getDateStrings() {
 export default function HomePage() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [todos, setTodos] = useState<TaskTodo[]>([])
+  const [completedThisWeek, setCompletedThisWeek] = useState<TaskTodo[]>([])
   const [loading, setLoading] = useState(true)
   const [dragOverBucket, setDragOverBucket] = useState<string | null>(null)
   const [meetings, setMeetings] = useState<Pick<Meeting, 'id' | 'title' | 'meeting_date'>[]>([])
@@ -138,10 +148,13 @@ export default function HomePage() {
       fetchAllTasks(),
       supabase.from('meetings').select('id, title, meeting_date').order('meeting_date', { ascending: true }),
       supabase.from('task_todos').select('id, title, target_date, sort_order, task_id, done, tasks(id, title, short_name)').eq('done', false),
-    ]).then(([taskData, { data: meetingData }, { data: todosData }]) => {
+      supabase.from('task_todos').select('id, title, done_at, sort_order, task_id, tasks(id, title, short_name)')
+        .eq('done', true).gte('done_at', getThisWeekStart()).order('done_at', { ascending: false }),
+    ]).then(([taskData, { data: meetingData }, { data: todosData }, { data: completedData }]) => {
       setTasks(taskData)
       setMeetings((meetingData ?? []) as Pick<Meeting, 'id' | 'title' | 'meeting_date'>[])
       setTodos((todosData ?? []) as unknown as TaskTodo[])
+      setCompletedThisWeek((completedData ?? []) as unknown as TaskTodo[])
       setLoading(false)
     })
   }, [])
@@ -253,8 +266,11 @@ export default function HomePage() {
   }
 
   async function handleCompleteTodo(todoId: string) {
-    await supabase.from('task_todos').update({ done: true }).eq('id', todoId)
+    const doneAt = new Date().toISOString()
+    await supabase.from('task_todos').update({ done: true, done_at: doneAt }).eq('id', todoId)
+    const completed = todos.find(t => t.id === todoId)
     setTodos(prev => prev.filter(t => t.id !== todoId))
+    if (completed) setCompletedThisWeek(prev => [{ ...completed, done: true, done_at: doneAt }, ...prev])
   }
 
   if (loading) return <HomePageSkeleton />
@@ -433,10 +449,70 @@ export default function HomePage() {
           <div className="flex-1 min-h-0 overflow-hidden">
             <TodayTodoWidget />
           </div>
-          <CompactCol
-            title="미지정 할일" items={unscheduledItems} dot="bg-gray-300"
-            scrollable maxItems={unscheduledItems.length}
-          />
+          {/* 미지정 할일 + 금주 완료 2분할 */}
+          <div className="bg-white rounded-xl border border-gray-100 flex flex-col overflow-hidden flex-1 min-h-0">
+            <div className="flex border-b border-gray-100 flex-shrink-0">
+              <div className="flex-1 flex items-center gap-1.5 px-3 py-2 border-r border-gray-100">
+                <span className="w-1.5 h-1.5 rounded-full bg-gray-300 flex-shrink-0" />
+                <span className="text-xs font-semibold text-gray-600">미지정</span>
+                {unscheduledItems.length > 0 && (
+                  <span className="ml-auto text-[10px] text-gray-400 font-medium">{unscheduledItems.length}</span>
+                )}
+              </div>
+              <div className="flex-1 flex items-center gap-1.5 px-3 py-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 flex-shrink-0" />
+                <span className="text-xs font-semibold text-gray-600">금주 완료</span>
+                {completedThisWeek.length > 0 && (
+                  <span className="ml-auto text-[10px] text-emerald-500 font-medium">{completedThisWeek.length}</span>
+                )}
+              </div>
+            </div>
+            <div className="flex flex-1 min-h-0 overflow-hidden">
+              {/* 미지정 할일 */}
+              <div className="flex-1 overflow-y-auto p-2 border-r border-gray-50 space-y-0.5">
+                {unscheduledItems.length === 0 ? (
+                  <p className="text-xs text-gray-300 text-center py-3">없음</p>
+                ) : unscheduledItems.map(item => (
+                  <Link key={item.id} href={`/tasks/${item.taskId}`}>
+                    <div className="py-0.5 px-1 hover:bg-gray-50 rounded transition-colors">
+                      <div className="flex items-center gap-1 min-w-0">
+                        {item.taskShortName && (
+                          <span className="text-[9px] font-mono text-gray-400 flex-shrink-0 bg-gray-100 px-1 py-0.5 rounded">
+                            {item.taskShortName}{(item.idxInTask ?? 0) + 1}
+                          </span>
+                        )}
+                        <span className="text-xs text-gray-700 truncate">{item.title}</span>
+                      </div>
+                      {item.taskTitle && <span className="text-[10px] text-gray-400 truncate block">{item.taskTitle}</span>}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+              {/* 금주 완료 */}
+              <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
+                {completedThisWeek.length === 0 ? (
+                  <p className="text-xs text-gray-300 text-center py-3">없음</p>
+                ) : completedThisWeek.map(t => {
+                  const joined = t.tasks as { id: string; title: string; short_name?: string | null } | null
+                  return (
+                    <Link key={t.id} href={`/tasks/${t.task_id}`}>
+                      <div className="py-0.5 px-1 hover:bg-gray-50 rounded transition-colors">
+                        <div className="flex items-center gap-1 min-w-0">
+                          {joined?.short_name && (
+                            <span className="text-[9px] font-mono text-gray-300 flex-shrink-0 bg-gray-50 px-1 py-0.5 rounded line-through">
+                              {joined.short_name}
+                            </span>
+                          )}
+                          <span className="text-xs text-gray-400 truncate line-through">{t.title}</span>
+                        </div>
+                        {joined?.title && <span className="text-[10px] text-gray-300 truncate block">{joined.title}</span>}
+                      </div>
+                    </Link>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

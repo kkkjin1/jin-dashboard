@@ -39,6 +39,7 @@ export interface TaskTodo {
   schedule_tag?: ScheduleTag | null
   target_date?: string | null
   done: boolean
+  done_at?: string | null
   sort_order: number
   created_at: string
   tasks?: { id: string; title: string; short_name?: string | null } | null
