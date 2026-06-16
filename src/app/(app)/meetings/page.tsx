@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -44,6 +44,7 @@ export default function MeetingsPage() {
   const [addingInColMeeting, setAddingInColMeeting] = useState<string | null>(null)
   const [newColTitle, setNewColTitle] = useState('')
   const [collapsedColMonths, setCollapsedColMonths] = useState<Set<string>>(new Set())
+  const colAddInProgress = useRef(false)
   const supabase = createClient()
   const router = useRouter()
 
@@ -97,10 +98,14 @@ export default function MeetingsPage() {
   }
 
   async function handleColAdd(cat: string) {
+    if (colAddInProgress.current) return
     if (!newColTitle.trim()) { setAddingInColMeeting(null); setNewColTitle(''); return }
+    colAddInProgress.current = true
     const today = format(new Date(), 'yyyy-MM-dd')
-    const { data } = await supabase.from('meetings')
+    const { data, error } = await supabase.from('meetings')
       .insert({ title: newColTitle.trim(), meeting_date: today, notes: [], ...(cat !== '기타' ? { category: cat } : {}) }).select().single()
+    colAddInProgress.current = false
+    if (error) { alert('회의록 생성 실패: ' + error.message); return }
     if (data) {
       setNewColTitle('')
       setAddingInColMeeting(null)
