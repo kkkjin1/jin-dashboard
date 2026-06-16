@@ -52,7 +52,7 @@ function AnalysisPanel({ feedbacks, onAssignType }: { feedbacks: MyFeedback[]; o
         {grouped.map(({ type, items }) => (
           <div key={type}>
             <div className="flex items-center gap-2 mb-2">
-              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${FEEDBACK_TYPE_STYLE[type]}`}>
+              <span className={`text-xs font-semibold px-2 py-0.5 rounded ${FEEDBACK_TYPE_STYLE[type]}`}>
                 {type}
               </span>
               <span className="text-xs text-gray-400">{items.length}건</span>
@@ -73,12 +73,12 @@ function AnalysisPanel({ feedbacks, onAssignType }: { feedbacks: MyFeedback[]; o
             <p className="text-xs text-gray-400 mb-2">미분류 ({untagged.length}건) — 분류하기:</p>
             <ul className="space-y-2 pl-1">
               {untagged.map(item => (
-                <li key={item.id} className="border border-gray-100 rounded-lg p-2">
+                <li key={item.id} className="border border-gray-100 rounded-md p-2">
                   <p className="text-xs text-gray-600 mb-1.5 leading-relaxed">{item.content}</p>
                   <div className="flex gap-1">
                     {ANALYSIS_TYPES.map(t => (
                       <button key={t} onClick={() => onAssignType(item.id, t)}
-                        className={`text-xs px-2 py-0.5 rounded-full border transition-colors hover:opacity-80 ${FEEDBACK_TYPE_STYLE[t]}`}>
+                        className={`text-xs px-2 py-0.5 rounded border transition-colors hover:opacity-80 ${FEEDBACK_TYPE_STYLE[t]}`}>
                         {t}
                       </button>
                     ))}
@@ -190,7 +190,7 @@ function MyFeedbackView() {
         {addingMonth !== currentMonth() && (
           <div className="mb-4">
             <button onClick={() => openAddForm(currentMonth())}
-              className="text-xs border border-dashed border-gray-300 text-gray-500 hover:border-gray-400 hover:text-gray-700 rounded-lg px-4 py-2 w-full transition-colors">
+              className="text-xs border border-dashed border-gray-300 text-gray-500 hover:border-gray-400 hover:text-gray-700 rounded-md px-4 py-2 w-full transition-colors">
               + 피드백 추가 ({formatMonth(currentMonth())})
             </button>
           </div>
@@ -202,7 +202,7 @@ function MyFeedbackView() {
             const items = feedbacks.filter(f => f.month === month)
             const isAddingHere = addingMonth === month
             return (
-              <div key={month} className="bg-white rounded-xl border border-gray-100">
+              <div key={month} className="bg-white rounded-lg border border-gray-100">
                 <div className="flex items-center justify-between px-4 py-3">
                   <button onClick={() => toggleMonth(month)} className="flex items-center gap-2 flex-1 text-left">
                     <span className="text-sm font-bold text-gray-700">
@@ -212,7 +212,7 @@ function MyFeedbackView() {
                   </button>
                   {!isAddingHere && (
                     <button onClick={() => openAddForm(month)}
-                      className="text-xs text-gray-400 hover:text-gray-700 border border-gray-200 rounded-lg px-2.5 py-1 hover:bg-gray-50 transition-colors">
+                      className="text-xs text-gray-400 hover:text-gray-700 border border-gray-200 rounded-md px-2.5 py-1 hover:bg-gray-50 transition-colors">
                       + 추가
                     </button>
                   )}
@@ -383,11 +383,11 @@ export default function OneOnOnePage() {
   }
 
   return (
-    <div className="p-4 md:p-8 w-full">
+    <div className="p-6 md:p-12 w-full">
       {/* 헤더: 제목 + 탭 + 템플릿 관리 */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-4">
-          <h1 className="text-xl font-bold text-gray-900">1on1</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-gray-900">1on1</h1>
           <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
             <button
               onClick={() => setView('team')}
@@ -432,14 +432,14 @@ export default function OneOnOnePage() {
                     const months = getSessionMonths(member.id)
                     const memberSessions = sessions.filter(s => s.member_id === member.id)
                     return (
-                      <div key={member.id} className="bg-white rounded-xl border border-gray-100 px-4 py-3">
+                      <div key={member.id} className="bg-white rounded-lg border border-gray-100 px-5 py-4">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
                             <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 text-sm font-medium">
                               {member.name[0]}
                             </div>
                             <div>
-                              <p className="text-sm font-medium text-gray-800">{member.name}</p>
+                              <p className="text-sm font-semibold text-gray-800">{member.name}</p>
                               <p className="text-xs text-gray-400">
                                 {last
                                   ? `마지막: ${last.session_date ? format(parseISO(last.session_date), 'yyyy년 M월 d일', { locale: ko }) : '날짜 미지정'} · 총 ${memberSessions.length}회`
@@ -450,12 +450,12 @@ export default function OneOnOnePage() {
                           <div className="flex items-center gap-2">
                             {memberSessions.length > 0 && (
                               <Link href={`/one-on-one/${member.id}`}
-                                className="text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg px-2.5 py-1 hover:bg-gray-50 transition-colors">
+                                className="text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded-md px-2.5 py-1 hover:bg-gray-50 transition-colors">
                                 목록
                               </Link>
                             )}
                             <button onClick={() => createSession(member.id)}
-                              className="text-xs bg-gray-900 text-white px-3 py-1 rounded-lg hover:bg-gray-800 transition-colors">
+                              className="text-xs bg-gray-900 text-white px-3 py-1 rounded-md hover:bg-gray-800 transition-colors">
                               + 새 1on1
                             </button>
                           </div>
@@ -465,7 +465,7 @@ export default function OneOnOnePage() {
                             {months.slice(0, 6).map(m => {
                               const [y, mo] = m.split('-')
                               return (
-                                <span key={m} className="text-xs bg-gray-50 text-gray-400 px-2 py-0.5 rounded-full">
+                                <span key={m} className="text-xs bg-gray-50 text-gray-400 px-2 py-0.5 rounded">
                                   {y}.{mo}
                                 </span>
                               )
@@ -483,7 +483,7 @@ export default function OneOnOnePage() {
           {/* RIGHT: alert panel */}
           <div className="min-w-0 md:flex-[40] flex flex-col gap-4">
             {urgentStat ? (
-              <div className="bg-red-50 rounded-xl px-5 py-4">
+              <div className="bg-red-50 rounded-lg px-5 py-4">
                 <p className="text-xs font-semibold text-red-500 mb-3">30일 미진행 긴급</p>
                 <div className="flex items-start justify-between gap-2">
                   <div>
@@ -496,18 +496,18 @@ export default function OneOnOnePage() {
                   </div>
                   <button
                     onClick={() => createSession(urgentStat.member.id)}
-                    className="flex-shrink-0 text-xs bg-gray-900 text-white px-3 py-1.5 rounded-lg hover:bg-gray-800 transition-colors whitespace-nowrap">
+                    className="flex-shrink-0 text-xs bg-gray-900 text-white px-3 py-1.5 rounded-md hover:bg-gray-800 transition-colors whitespace-nowrap">
                     + 바로 진행
                   </button>
                 </div>
               </div>
             ) : (
-              <div className="bg-emerald-50 rounded-xl border border-emerald-200 px-5 py-4">
+              <div className="bg-emerald-50 rounded-lg border border-emerald-200 px-5 py-4">
                 <p className="text-sm font-semibold text-emerald-600">✓ 이번 달 모두 진행됨</p>
               </div>
             )}
 
-            <div className="bg-white rounded-xl border border-gray-100 px-5 py-4">
+            <div className="bg-white rounded-lg border border-gray-100 px-5 py-4">
               <p className="text-xs font-semibold text-gray-500 mb-3">전체 현황</p>
               <div className="space-y-2">
                 {memberStats.map(({ member, daysSince }) => (
@@ -519,7 +519,7 @@ export default function OneOnOnePage() {
                       <span className="text-sm font-medium text-gray-800">{member.name}</span>
                       <span className="text-xs text-gray-400 ml-1.5">{member.part}</span>
                     </div>
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0 ${daysBadgeClass(daysSince)}`}>
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded flex-shrink-0 ${daysBadgeClass(daysSince)}`}>
                       {daysLabel(daysSince)}
                     </span>
                     <Link href={`/one-on-one/${member.id}`}

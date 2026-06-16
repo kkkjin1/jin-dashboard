@@ -216,13 +216,13 @@ export default function TasksPage() {
   if (loadingTasks) return <TaskPageSkeleton />
 
   return (
-    <div className="p-4 md:p-8">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-bold text-gray-900">업무 목록</h1>
+    <div className="p-6 md:p-12">
+      <div className="flex items-center justify-between mb-8">
+        <h1 className="text-2xl font-bold tracking-tight text-gray-900">업무 목록</h1>
         <div className="flex items-center gap-2">
           {checkedIds.size > 0 && (
             <button onClick={deleteChecked}
-              className="text-xs bg-red-500 text-white px-3 py-1.5 rounded-lg hover:bg-red-600 transition-colors">
+              className="text-xs bg-red-500 text-white px-3 py-1.5 rounded-md hover:bg-red-600 transition-colors">
               {checkedIds.size}개 삭제
             </button>
           )}
@@ -233,18 +233,18 @@ export default function TasksPage() {
       <div className="flex items-center gap-2 mb-5 flex-wrap">
         <button
           onClick={() => setStatusFilter(prev => prev === '전체' ? '진행필요' : prev === '진행필요' ? '진행중' : prev === '진행중' ? '완료' : '전체')}
-          className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${statusFilter !== '전체' ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
+          className={`text-xs px-3 py-1.5 rounded-md border transition-colors ${statusFilter !== '전체' ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
           {statusFilter === '전체' ? '전체 상태' : statusFilter}
         </button>
         <button
           onClick={() => setHideCompleted(prev => !prev)}
-          className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${hideCompleted ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
+          className={`text-xs px-3 py-1.5 rounded-md border transition-colors ${hideCompleted ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
           {hideCompleted ? '완료 숨김' : '완료 표시'}
         </button>
         <div className="relative flex items-center gap-1">
           <button
             onClick={() => setShowPicker(prev => !prev)}
-            className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${viewMode === 'monthly' ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
+            className={`text-xs px-3 py-1.5 rounded-md border transition-colors ${viewMode === 'monthly' ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
             {viewMode === 'monthly' && monthFilter !== '전체' ? formatMonth(monthFilter) : '월별 칸반'}
           </button>
           {viewMode === 'monthly' && (
@@ -279,7 +279,7 @@ export default function TasksPage() {
         </div>
         <div className="relative" ref={assigneeDropdownRef}>
           <button onClick={() => setAssigneeOpen(prev => !prev)}
-            className={`text-xs px-3 py-1.5 rounded-lg border transition-colors flex items-center gap-1 ${assigneeFilter !== '전체' ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
+            className={`text-xs px-3 py-1.5 rounded-md border transition-colors flex items-center gap-1 ${assigneeFilter !== '전체' ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
             {assigneeFilter === '전체' ? '전체 담당자' : (members.find(m => m.id === assigneeFilter)?.name ?? '담당자')}
             <span className="text-[10px] opacity-60">▾</span>
           </button>
@@ -307,21 +307,21 @@ export default function TasksPage() {
             const colTasks = monthlyTasks.filter(t => t.status === status)
             return (
               <div key={status}
-                className={`flex-1 rounded-xl border p-3 min-h-48 ${STATUS_BG[status]}`}
+                className={`flex-1 rounded-lg border p-4 min-h-48 ${STATUS_BG[status]}`}
                 onDragOver={e => e.preventDefault()}
                 onDrop={e => handleDrop(e, status)}>
                 <div className="flex items-center gap-2 mb-3">
-                  <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${STATUS_COLORS[status]}`}>{status}</span>
+                  <span className={`text-xs font-semibold px-2.5 py-0.5 rounded ${STATUS_COLORS[status]}`}>{status}</span>
                   <span className="text-xs text-gray-400">{colTasks.length}</span>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {colTasks.map(task => (
                     <div key={task.id} draggable
                       onDragStart={() => setDraggingId(task.id)}
                       onDragEnd={() => setDraggingId(null)}
-                      className={`bg-white rounded-xl border border-gray-100 px-3 py-2.5 cursor-grab active:cursor-grabbing select-none ${draggingId === task.id ? 'opacity-40' : ''}`}>
+                      className={`bg-white rounded-lg border border-gray-100 px-3 py-2.5 cursor-grab active:cursor-grabbing select-none ${draggingId === task.id ? 'opacity-40' : ''}`}>
                       <Link href={`/tasks/${task.id}`} onClick={e => e.stopPropagation()}>
-                        <p className="text-sm font-medium text-gray-800 truncate">
+                        <p className="text-sm font-semibold text-gray-800 truncate">
                           {task.title || <span className="text-gray-300 italic text-xs">제목 없음</span>}
                         </p>
                         <div className="flex items-center gap-2 mt-1 flex-wrap">
@@ -348,7 +348,7 @@ export default function TasksPage() {
             const allPartIds = partTasks.map(t => t.id)
             const allChecked = allPartIds.length > 0 && allPartIds.every(id => checkedIds.has(id))
             return (
-              <div key={part} className={`bg-white rounded-xl border border-gray-100 shadow-sm p-4 ${PART_ACCENT[part]}`}>
+              <div key={part} className={`bg-white rounded-lg border border-gray-100 shadow-sm p-4 ${PART_ACCENT[part]}`}>
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
                     <h2 className="text-sm font-bold text-gray-800">{part}파트</h2>
@@ -368,14 +368,14 @@ export default function TasksPage() {
                     <div key={type} className="mb-4">
                       <div className="flex items-center gap-2 mb-1.5 cursor-pointer" onClick={() => toggleSection(sectionKey)}>
                         <span className="text-[10px] text-gray-300">{isCollapsed ? '▶' : '▼'}</span>
-                        <span className="text-xs font-medium text-gray-400 uppercase tracking-wide">{type}</span>
+                        <span className="text-xs font-bold uppercase tracking-wide text-gray-400">{type}</span>
                         <span className="text-xs text-gray-300">{sectionTasks.length}</span>
                       </div>
                       {!isCollapsed && (
                         <div className="space-y-1.5">
                           {sectionTasks.map(task => (
                             <div key={task.id}
-                              className={`bg-gray-50 rounded-lg border px-3 py-2 flex items-center gap-2 hover:bg-white transition-colors cursor-pointer group ${checkedIds.has(task.id) ? 'border-gray-400 bg-white' : 'border-gray-100'}`}>
+                              className={`bg-gray-50 rounded-md border px-3 py-2 flex items-center gap-2 hover:bg-white transition-colors cursor-pointer group ${checkedIds.has(task.id) ? 'border-gray-400 bg-white' : 'border-gray-100'}`}>
                               <input type="checkbox" checked={checkedIds.has(task.id)}
                                 onChange={() => toggleCheck(task.id)}
                                 onClick={e => e.stopPropagation()}
@@ -383,7 +383,7 @@ export default function TasksPage() {
                               <select value={task.status}
                                 onChange={e => { e.stopPropagation(); updateStatus(task.id, e.target.value as TaskStatus) }}
                                 onClick={e => e.stopPropagation()}
-                                className={`text-xs px-1.5 py-0.5 rounded-full font-medium border-0 cursor-pointer focus:outline-none flex-shrink-0 ${STATUS_COLORS[task.status]}`}>
+                                className={`text-xs px-1.5 py-0.5 rounded font-medium border-0 cursor-pointer focus:outline-none flex-shrink-0 ${STATUS_COLORS[task.status]}`}>
                                 {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                               </select>
                               <Link href={`/tasks/${task.id}`} className="flex-1 min-w-0 flex items-center justify-between gap-2">
@@ -391,7 +391,7 @@ export default function TasksPage() {
                                   {task.title || <span className="text-gray-300 italic">제목 없음</span>}
                                 </span>
                                 <div className="flex items-center gap-1.5 flex-shrink-0">
-                                  {task.mid_date && <span className="text-xs bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded-full hidden group-hover:block">중간 {formatDate(task.mid_date)}</span>}
+                                  {task.mid_date && <span className="text-xs bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded hidden group-hover:block">중간 {formatDate(task.mid_date)}</span>}
                                   {task.end_date && <span className="text-xs text-gray-400 hidden group-hover:block">📅 {formatDate(task.end_date)}</span>}
                                   {task.members && <MemberAvatar name={task.members.name} />}
                                 </div>
@@ -399,7 +399,7 @@ export default function TasksPage() {
                             </div>
                           ))}
                           <button onClick={() => handleAddTask(part, type)}
-                            className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:text-gray-500 hover:bg-gray-50 rounded-lg transition-colors">
+                            className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:text-gray-500 hover:bg-gray-50 rounded-md transition-colors">
                             + 업무 추가
                           </button>
                         </div>
@@ -415,14 +415,14 @@ export default function TasksPage() {
                     <div className="mb-4">
                       <div className="flex items-center gap-2 mb-1.5 cursor-pointer" onClick={() => toggleSection(completedKey)}>
                         <span className="text-[10px] text-gray-300">{isCollapsed ? '▶' : '▼'}</span>
-                        <span className="text-xs font-medium text-green-600 uppercase tracking-wide">완료</span>
+                        <span className="text-xs font-bold uppercase tracking-wide text-green-600">완료</span>
                         <span className="text-xs text-gray-300">{completedTasks.length}</span>
                       </div>
                       {!isCollapsed && (
                         <div className="space-y-1.5">
                           {completedTasks.map(task => (
                             <div key={task.id}
-                              className={`bg-gray-50 rounded-lg border px-3 py-2 flex items-center gap-2 hover:bg-white transition-colors cursor-pointer group ${checkedIds.has(task.id) ? 'border-gray-400 bg-white' : 'border-gray-100'}`}>
+                              className={`bg-gray-50 rounded-md border px-3 py-2 flex items-center gap-2 hover:bg-white transition-colors cursor-pointer group ${checkedIds.has(task.id) ? 'border-gray-400 bg-white' : 'border-gray-100'}`}>
                               <input type="checkbox" checked={checkedIds.has(task.id)}
                                 onChange={() => toggleCheck(task.id)}
                                 onClick={e => e.stopPropagation()}
@@ -430,7 +430,7 @@ export default function TasksPage() {
                               <select value={task.status}
                                 onChange={e => { e.stopPropagation(); updateStatus(task.id, e.target.value as TaskStatus) }}
                                 onClick={e => e.stopPropagation()}
-                                className={`text-xs px-1.5 py-0.5 rounded-full font-medium border-0 cursor-pointer focus:outline-none flex-shrink-0 ${STATUS_COLORS[task.status]}`}>
+                                className={`text-xs px-1.5 py-0.5 rounded font-medium border-0 cursor-pointer focus:outline-none flex-shrink-0 ${STATUS_COLORS[task.status]}`}>
                                 {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                               </select>
                               <Link href={`/tasks/${task.id}`} className="flex-1 min-w-0 flex items-center justify-between gap-2">
@@ -438,7 +438,7 @@ export default function TasksPage() {
                                   {task.title || <span className="text-gray-300 italic">제목 없음</span>}
                                 </span>
                                 <div className="flex items-center gap-1.5 flex-shrink-0">
-                                  {task.mid_date && <span className="text-xs bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded-full hidden group-hover:block">중간 {formatDate(task.mid_date)}</span>}
+                                  {task.mid_date && <span className="text-xs bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded hidden group-hover:block">중간 {formatDate(task.mid_date)}</span>}
                                   {task.end_date && <span className="text-xs text-gray-400 hidden group-hover:block">📅 {formatDate(task.end_date)}</span>}
                                   {task.members && <MemberAvatar name={task.members.name} />}
                                 </div>
