@@ -230,6 +230,37 @@ const SmartTextarea = forwardRef<HTMLTextAreaElement, Props>(function SmartTexta
       }
     }
 
+    // Ctrl+Shift+색상키: {color}선택텍스트{/color} 래핑
+    // R=red, L=bLue, G=green, O=orange, P=purple, E=grEy
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey) {
+      const COLOR_MAP: Record<string, string> = { r: 'red', l: 'blue', g: 'green', o: 'orange', p: 'purple', e: 'gray' }
+      const color = COLOR_MAP[e.key.toLowerCase()]
+      if (color) {
+        e.preventDefault()
+        const sel = value.slice(start, end)
+        const open = `{${color}}`, close = `{/${color}}`
+        onChange(value.slice(0, start) + open + sel + close + value.slice(end))
+        setTimeout(() => { el.selectionStart = start + open.length; el.selectionEnd = end + open.length }, 0)
+        return
+      }
+    }
+
+    // Ctrl+1/2/3: 제목 크기 토글 (현재 줄에 적용)
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && ['1', '2', '3'].includes(e.key)) {
+      e.preventDefault()
+      const PREFIXES = ['# ', '## ', '### ']
+      const targetPrefix = PREFIXES[parseInt(e.key) - 1]
+      const existingMatch = line.match(/^(#{1,3} )/)
+      const existingPrefix = existingMatch?.[1] ?? ''
+      const content = line.slice(existingPrefix.length)
+      const newLine = line.startsWith(targetPrefix) ? content : targetPrefix + content
+      const newPrefixLen = line.startsWith(targetPrefix) ? 0 : targetPrefix.length
+      const cursorInContent = Math.max(0, start - lineStart - existingPrefix.length)
+      onChange(value.slice(0, lineStart) + newLine + value.slice(lineEnd))
+      pendingCursor.current = lineStart + newPrefixLen + cursorInContent
+      return
+    }
+
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey) {
       const el = e.currentTarget
       const start = el.selectionStart
