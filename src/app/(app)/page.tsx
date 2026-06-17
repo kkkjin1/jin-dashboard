@@ -39,7 +39,7 @@ interface CompactColProps {
 function CompactCol({ title, items, dot, badgeCls = 'bg-gray-200 text-gray-600', droppable, onDrop, onDragOver, onDragLeave, isDragOver, onComplete, maxItems = 5, scrollable }: CompactColProps) {
   return (
     <div
-      className={`bg-white rounded-lg border p-4 min-w-0 min-h-[150px] transition-colors flex flex-col ${isDragOver && droppable ? 'border-emerald-300 bg-emerald-50/30' : 'border-gray-100'}`}
+      className={`bg-white rounded-lg border p-4 min-w-0 min-h-[200px] transition-colors flex flex-col ${isDragOver && droppable ? 'border-emerald-300 bg-emerald-50/30' : 'border-gray-100'}`}
       onDragOver={droppable ? onDragOver : undefined}
       onDrop={droppable ? onDrop : undefined}
       onDragLeave={droppable ? onDragLeave : undefined}
@@ -441,7 +441,7 @@ export default function HomePage() {
       )}
 
       {/* Row 4: 캘린더 + 오늘할일 + 미지정백로그 */}
-      <div className="md:flex-1 md:min-h-0 grid grid-cols-1 md:grid-cols-3 gap-4" style={{ zoom: 0.88 }}>
+      <div className="md:flex-1 md:min-h-0 grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="md:col-span-2 md:overflow-hidden">
           <HomeCalendar tasks={tasks} meetings={meetings} />
         </div>
@@ -454,16 +454,16 @@ export default function HomePage() {
             <div className="flex border-b border-gray-100 flex-shrink-0">
               <div className="flex-1 flex items-center gap-1.5 px-3 py-2 border-r border-gray-100">
                 <span className="w-1.5 h-1.5 rounded-full bg-gray-300 flex-shrink-0" />
-                <span className="text-xs font-semibold text-gray-600">미지정</span>
+                <span className="text-sm font-semibold text-gray-600">미지정</span>
                 {unscheduledItems.length > 0 && (
-                  <span className="ml-auto text-[10px] text-gray-400 font-medium">{unscheduledItems.length}</span>
+                  <span className="ml-auto text-xs text-gray-400 font-medium">{unscheduledItems.length}</span>
                 )}
               </div>
               <div className="flex-1 flex items-center gap-1.5 px-3 py-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 flex-shrink-0" />
-                <span className="text-xs font-semibold text-gray-600">금주 완료</span>
+                <span className="text-sm font-semibold text-gray-600">금주 완료</span>
                 {completedThisWeek.length > 0 && (
-                  <span className="ml-auto text-[10px] text-emerald-500 font-medium">{completedThisWeek.length}</span>
+                  <span className="ml-auto text-xs text-emerald-500 font-medium">{completedThisWeek.length}</span>
                 )}
               </div>
             </div>
@@ -471,19 +471,19 @@ export default function HomePage() {
               {/* 미지정 할일 */}
               <div className="flex-1 overflow-y-auto p-2 border-r border-gray-50 space-y-0.5">
                 {unscheduledItems.length === 0 ? (
-                  <p className="text-xs text-gray-300 text-center py-3">없음</p>
+                  <p className="text-sm text-gray-300 text-center py-3">없음</p>
                 ) : unscheduledItems.map(item => (
                   <Link key={item.id} href={`/tasks/${item.taskId}`}>
-                    <div className="py-0.5 px-1 hover:bg-gray-50 rounded transition-colors">
+                    <div className="py-1 px-1 hover:bg-gray-50 rounded transition-colors">
                       <div className="flex items-center gap-1 min-w-0">
                         {item.taskShortName && (
-                          <span className="text-[9px] font-mono text-gray-400 flex-shrink-0 bg-gray-100 px-1 py-0.5 rounded">
+                          <span className="text-[10px] font-mono text-gray-400 flex-shrink-0 bg-gray-100 px-1 py-0.5 rounded">
                             {item.taskShortName}{(item.idxInTask ?? 0) + 1}
                           </span>
                         )}
-                        <span className="text-xs text-gray-700 truncate">{item.title}</span>
+                        <span className="text-sm text-gray-700 truncate">{item.title}</span>
                       </div>
-                      {item.taskTitle && <span className="text-[10px] text-gray-400 truncate block">{item.taskTitle}</span>}
+                      {item.taskTitle && <span className="text-xs text-gray-400 truncate block">{item.taskTitle}</span>}
                     </div>
                   </Link>
                 ))}
@@ -491,21 +491,21 @@ export default function HomePage() {
               {/* 금주 완료 */}
               <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
                 {completedThisWeek.length === 0 ? (
-                  <p className="text-xs text-gray-300 text-center py-3">없음</p>
+                  <p className="text-sm text-gray-300 text-center py-3">없음</p>
                 ) : completedThisWeek.map(t => {
                   const joined = t.tasks as { id: string; title: string; short_name?: string | null } | null
                   return (
                     <Link key={t.id} href={`/tasks/${t.task_id}`}>
-                      <div className="py-0.5 px-1 hover:bg-gray-50 rounded transition-colors">
+                      <div className="py-1 px-1 hover:bg-gray-50 rounded transition-colors">
                         <div className="flex items-center gap-1 min-w-0">
                           {joined?.short_name && (
-                            <span className="text-[9px] font-mono text-gray-300 flex-shrink-0 bg-gray-50 px-1 py-0.5 rounded line-through">
+                            <span className="text-[10px] font-mono text-gray-300 flex-shrink-0 bg-gray-50 px-1 py-0.5 rounded line-through">
                               {joined.short_name}
                             </span>
                           )}
-                          <span className="text-xs text-gray-400 truncate line-through">{t.title}</span>
+                          <span className="text-sm text-gray-400 truncate line-through">{t.title}</span>
                         </div>
-                        {joined?.title && <span className="text-[10px] text-gray-300 truncate block">{joined.title}</span>}
+                        {joined?.title && <span className="text-xs text-gray-300 truncate block">{joined.title}</span>}
                       </div>
                     </Link>
                   )
