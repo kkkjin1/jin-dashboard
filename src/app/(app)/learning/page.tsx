@@ -301,7 +301,7 @@ export default function LearningPage() {
           </div>
           {/* 데스크톱: 가로 칸반 */}
           <div className="hidden md:block overflow-x-auto pb-4">
-          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${tagCols.length}, 160px)`, gap: '12px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${tagCols.length}, minmax(150px, 1fr))`, gap: '12px' }}>
             {tagCols.map(tag => {
               const allColItems = tagKanbanGroups[tag] ?? []
               // 매체 타입별 그룹핑
