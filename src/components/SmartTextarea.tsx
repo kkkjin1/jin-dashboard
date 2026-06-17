@@ -129,6 +129,12 @@ function renumberForward(lines: string[], fromIdx: number, indentLevel: number, 
   return result
 }
 
+function replaceRange(el: HTMLTextAreaElement, start: number, end: number, text: string) {
+  el.focus()
+  el.setSelectionRange(start, end)
+  document.execCommand('insertText', false, text)
+}
+
 const SmartTextarea = forwardRef<HTMLTextAreaElement, Props>(function SmartTextarea(
   { value, onChange, onKeyDown, ...props },
   forwardedRef
@@ -180,17 +186,8 @@ const SmartTextarea = forwardRef<HTMLTextAreaElement, Props>(function SmartTexta
 
       const nSeq = advance(info.type, info.seq)
       const newPrefix = makePrefix(info.type, nSeq, info.indentLevel)
-      // Split at cursor: text after cursor moves to new line (not always at lineEnd)
       const textAfterCursor = value.slice(start, lineEnd)
-      const insert = '\n' + newPrefix + textAfterCursor
-      const newValueRaw = value.slice(0, start) + insert + value.slice(lineEnd)
-
-      const currentLineIdx = value.slice(0, lineStart).split('\n').length - 1
-      const lineIdxOfNew = currentLineIdx + 1
-      let lines = newValueRaw.split('\n')
-      lines = renumberForward(lines, lineIdxOfNew + 1, info.indentLevel, info.type, advance(info.type, nSeq))
-
-      onChange(renumberSequential(lines).join('\n'))
+      replaceRange(el, start, lineEnd, '\n' + newPrefix + textAfterCursor)
       pendingCursor.current = start + 1 + newPrefix.length
       return
     }
@@ -200,8 +197,7 @@ const SmartTextarea = forwardRef<HTMLTextAreaElement, Props>(function SmartTexta
       const linePos = start - lineStart
       if (linePos === 1 && line[0] === '-') {
         e.preventDefault()
-        onChange(value.slice(0, lineStart) + '▪ ' + value.slice(lineStart + 1))
-        pendingCursor.current = lineStart + 2
+        replaceRange(el, lineStart, lineStart + 1, '▪ ')
         return
       }
     }
@@ -214,8 +210,7 @@ const SmartTextarea = forwardRef<HTMLTextAreaElement, Props>(function SmartTexta
         const prevPrev = start >= 2 ? value.slice(start - 2, start - 1) : ''
         const lead = prevPrev === ' ' ? '' : ' '
         const arrow = e.key === '>' ? `${lead}→ ` : `${lead}← `
-        onChange(value.slice(0, start - 1) + arrow + value.slice(end))
-        pendingCursor.current = start - 1 + arrow.length
+        replaceRange(el, start - 1, end, arrow)
         return
       }
     }
