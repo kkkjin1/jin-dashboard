@@ -1,10 +1,8 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { format, parseISO } from 'date-fns'
-import { ko } from 'date-fns/locale'
 import { useUserSetting } from '@/hooks/useUserSetting'
 import { EmptyState } from '@/components/ui/EmptyState'
 import type { LearningResource } from '@/types'
@@ -29,11 +27,10 @@ export default function LearningPage() {
   const [resources, setResources] = useState<LearningResource[]>([])
   const [loading, setLoading] = useState(true)
   const { value: customTags, save: saveCustomTagsRemote } = useUserSetting<string[]>('learning_custom_tags', DEFAULT_TAGS)
+  const { value: bucketNames, save: saveBucketNamesRemote } = useUserSetting<string[]>('learning_bucket_names', ['읽을 예정', '읽는 중', '완료'])
   const [collapsedColMedia, setCollapsedColMedia] = useState<Set<string>>(new Set())
   const [managingTags, setManagingTags] = useState(false)
   const [newTagInput, setNewTagInput] = useState('')
-  const [addingTitle, setAddingTitle] = useState('')
-  const [showAddInput, setShowAddInput] = useState(false)
   const [addingInCol, setAddingInCol] = useState<string | null>(null)
   const [colAddTitle, setColAddTitle] = useState('')
   const [colAddSource, setColAddSource] = useState('')
@@ -46,6 +43,9 @@ export default function LearningPage() {
   const [editingSiteId, setEditingSiteId] = useState<string | null>(null)
   const [editSiteTitle, setEditSiteTitle] = useState('')
   const [editSiteUrl, setEditSiteUrl] = useState('')
+  const [editingBucketIdx, setEditingBucketIdx] = useState<number | null>(null)
+  const [editingBucketName, setEditingBucketName] = useState('')
+  const [dragOverCol, setDragOverCol] = useState<string | null>(null)
   const supabase = createClient()
 
   useEffect(() => {
@@ -60,21 +60,9 @@ export default function LearningPage() {
     updateCustomTags([...customTags, t]); setNewTagInput('')
   }
 
-  async function handleAdd() {
-    if (!addingTitle.trim()) { setShowAddInput(false); return }
-    const { data } = await supabase.from('learning_resources')
-      .insert({ title: addingTitle.trim(), source: '', notes: [], tags: [], media_type: null })
-      .select().single()
-    if (data) {
-      setResources(prev => [data as LearningResource, ...prev])
-      setAddingTitle('')
-      setShowAddInput(false)
-    }
-  }
-
   async function handleColAdd(tag: string) {
     if (!colAddTitle.trim()) { setAddingInCol(null); setColAddTitle(''); setColAddSource(''); setColAddNote(''); setColAddMedia(''); return }
-    const initTags = (tag === '미분류' || tag === '__new__') ? [] : [tag]
+    const initTags = (tag === '미분류' || tag === '__new__') ? [] : tag.startsWith('_b') ? [tag] : [tag]
     const notes = colAddNote.trim()
       ? [{ title: '노트', content: colAddNote.trim(), created_at: new Date().toISOString() }]
       : []
@@ -91,10 +79,7 @@ export default function LearningPage() {
     setCollapsedColMedia(prev => { const s = new Set(prev); s.has(key) ? s.delete(key) : s.add(key); return s })
   }
 
-  function saveSiteShortcuts(list: SiteShortcut[]) {
-    saveSiteShortcutsRemote(list)
-  }
-
+  function saveSiteShortcuts(list: SiteShortcut[]) { saveSiteShortcutsRemote(list) }
   function addSiteShortcut() {
     if (!newSiteUrl.trim()) return
     const url = newSiteUrl.startsWith('http') ? newSiteUrl : 'https://' + newSiteUrl
@@ -102,17 +87,37 @@ export default function LearningPage() {
     saveSiteShortcuts([...siteShortcuts, { id: Date.now().toString(), title, url }])
     setNewSiteTitle(''); setNewSiteUrl(''); setShowAddSite(false)
   }
-
-  function removeSiteShortcut(id: string) {
-    saveSiteShortcuts(siteShortcuts.filter(s => s.id !== id))
-  }
-
+  function removeSiteShortcut(id: string) { saveSiteShortcuts(siteShortcuts.filter(s => s.id !== id)) }
   function saveEditSiteShortcut() {
     if (!editSiteUrl.trim() || !editingSiteId) return
     const url = editSiteUrl.startsWith('http') ? editSiteUrl : 'https://' + editSiteUrl
     const title = editSiteTitle.trim() || url
     saveSiteShortcuts(siteShortcuts.map(s => s.id === editingSiteId ? { ...s, title, url } : s))
     setEditingSiteId(null); setEditSiteTitle(''); setEditSiteUrl('')
+  }
+
+  function saveBucketName(idx: number) {
+    const name = editingBucketName.trim()
+    if (!name) { setEditingBucketIdx(null); return }
+    const names = [...(bucketNames ?? ['읽을 예정', '읽는 중', '완료'])]
+    names[idx] = name
+    saveBucketNamesRemote(names)
+    setEditingBucketIdx(null)
+  }
+
+  async function moveToColumn(resourceId: string, targetCol: string) {
+    const resource = resources.find(r => r.id === resourceId)
+    if (!resource) return
+    const currentTags = resource.tags ?? []
+    const otherTags = currentTags.filter(t => !customTags.includes(t) && !t.startsWith('_b'))
+    const newTags = targetCol === '미분류' ? otherTags : [targetCol, ...otherTags]
+    await supabase.from('learning_resources').update({ tags: newTags }).eq('id', resourceId)
+    setResources(prev => prev.map(r => r.id === resourceId ? { ...r, tags: newTags } : r))
+    setDragOverCol(null)
+  }
+
+  function handleDragLeave(e: React.DragEvent) {
+    if (!e.relatedTarget || !e.currentTarget.contains(e.relatedTarget as Node)) setDragOverCol(null)
   }
 
   const tagCols = [...customTags, '미분류']
@@ -123,6 +128,7 @@ export default function LearningPage() {
     cols.forEach(tag => { result[tag] = [] })
     resources.forEach(r => {
       const tags = r.tags ?? []
+      if (tags.some(t => t.startsWith('_b'))) return
       const firstKnown = tags.find(t => customTags.includes(t))
       const col = firstKnown ?? '미분류'
       ;(result[col] ?? result['미분류']).push(r)
@@ -130,9 +136,15 @@ export default function LearningPage() {
     return result
   }, [resources, customTags])
 
+  const bucketGroups = useMemo(() => {
+    return [0, 1, 2].map(i => resources.filter(r => (r.tags ?? []).includes(`_b${i}`)))
+  }, [resources])
+
+  const names = bucketNames ?? ['읽을 예정', '읽는 중', '완료']
+
   return (
     <div className="p-4 md:p-8">
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-bold text-gray-900">학습자료</h1>
         <div className="flex gap-2">
           <button onClick={() => setManagingTags(p => !p)}
@@ -259,11 +271,75 @@ export default function LearningPage() {
         </div>
       </div>
 
+      {/* 3개 버킷 칸반 */}
+      {!loading && (
+        <div className="grid grid-cols-3 gap-4 mb-6">
+          {([0, 1, 2] as const).map(i => {
+            const colId = `_b${i}`
+            const items = bucketGroups[i]
+            const isDragOver = dragOverCol === colId
+            return (
+              <div key={i}
+                className={`rounded-xl border-2 p-4 min-h-[160px] transition-colors flex flex-col ${isDragOver ? 'border-emerald-400 bg-emerald-50/30' : 'bg-white border-gray-100'}`}
+                onDragOver={e => { e.preventDefault(); setDragOverCol(colId) }}
+                onDrop={e => { e.preventDefault(); const id = e.dataTransfer.getData('resourceId'); if (id) moveToColumn(id, colId) }}
+                onDragLeave={handleDragLeave}
+              >
+                <div className="flex items-center gap-2 mb-3 flex-shrink-0">
+                  {editingBucketIdx === i ? (
+                    <input
+                      autoFocus
+                      value={editingBucketName}
+                      onChange={e => setEditingBucketName(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') saveBucketName(i); if (e.key === 'Escape') setEditingBucketIdx(null) }}
+                      onBlur={() => saveBucketName(i)}
+                      className="flex-1 text-sm font-bold text-gray-800 focus:outline-none border-b-2 border-emerald-400 pb-0.5 bg-transparent"
+                    />
+                  ) : (
+                    <button
+                      onClick={() => { setEditingBucketIdx(i); setEditingBucketName(names[i] ?? `버킷 ${i + 1}`) }}
+                      className="flex-1 text-left text-sm font-bold text-gray-800 hover:text-emerald-600 transition-colors group"
+                    >
+                      {names[i] ?? `버킷 ${i + 1}`}
+                      <span className="text-[10px] text-gray-300 ml-1.5 opacity-0 group-hover:opacity-100 transition-opacity">✎</span>
+                    </button>
+                  )}
+                  {items.length > 0 && (
+                    <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full flex-shrink-0">{items.length}</span>
+                  )}
+                </div>
+                <div className="space-y-1.5 flex-1">
+                  {items.length === 0 ? (
+                    <p className="text-xs text-gray-300 text-center py-8">{isDragOver ? '여기에 놓기' : '없음'}</p>
+                  ) : items.map(r => (
+                    <div
+                      key={r.id}
+                      draggable
+                      onDragStart={e => { e.dataTransfer.setData('resourceId', r.id) }}
+                      className="cursor-grab active:cursor-grabbing"
+                    >
+                      <Link href={`/learning/${r.id}`} className="block">
+                        <div className="bg-gray-50 rounded-lg border border-gray-100 hover:border-emerald-200 hover:shadow-sm px-3 py-2.5 transition-all">
+                          <p className="text-sm font-medium text-gray-800 leading-snug line-clamp-2">{r.title}</p>
+                          {r.source && <p className="text-xs text-gray-400 truncate mt-0.5">출처: {r.source}</p>}
+                          {r.notes.length > 0 && <p className="text-xs text-gray-300 mt-0.5">{r.notes.length}노트</p>}
+                        </div>
+                      </Link>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* 태그 칸반 */}
       {loading ? (
         <div className="flex gap-3 overflow-x-auto pb-4">
           {tagCols.map((_, i) => <div key={i} className="flex-shrink-0 w-40 bg-white rounded-xl border border-gray-100 h-32 animate-pulse" />)}
         </div>
-      ) : resources.length === 0 ? (
+      ) : resources.filter(r => !(r.tags ?? []).some(t => t.startsWith('_b'))).length === 0 && bucketGroups.every(g => g.length === 0) ? (
         <EmptyState
           icon="learning"
           title="아직 학습 자료가 없어요"
@@ -299,104 +375,123 @@ export default function LearningPage() {
               )
             })}
           </div>
+
           {/* 데스크톱: 가로 칸반 */}
           <div className="hidden md:block overflow-x-auto pb-4">
-          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${tagCols.length}, minmax(150px, 1fr))`, gap: '12px' }}>
-            {tagCols.map(tag => {
-              const allColItems = tagKanbanGroups[tag] ?? []
-              // 매체 타입별 그룹핑
-              const mediaGroups = (() => {
-                const map = new Map<string, LearningResource[]>()
-                allColItems.forEach(r => {
-                  const mt = r.media_type ?? '미지정'
-                  if (!map.has(mt)) map.set(mt, [])
-                  map.get(mt)!.push(r)
-                })
-                // 정해진 순서로 정렬, 없는 타입은 건너뜀
-                const result: [string, LearningResource[]][] = []
-                ;[...MEDIA_TYPES, '미지정'].forEach(mt => {
-                  if (map.has(mt)) result.push([mt, map.get(mt)!])
-                })
-                map.forEach((list, mt) => {
-                  if (![...MEDIA_TYPES, '미지정'].includes(mt)) result.push([mt, list])
-                })
-                return result
-              })()
-              return (
-                <div key={tag} className="flex flex-col" style={{ minHeight: 'calc(100vh - 200px)' }}>
-                  {/* 컬럼 헤더 */}
-                  <div className="py-1.5 px-2 mb-3">
-                    <span className={`inline-block text-xs font-semibold px-2.5 py-1 rounded ${TAG_STYLE[tag] ?? 'bg-gray-100 text-gray-500'}`}>
-                      {tag}
-                    </span>
-                    <span className="ml-2 text-xs text-gray-400">{allColItems.length}</span>
-                  </div>
-                  <div className="space-y-1 flex-1">
-                    {addingInCol === tag && (
-                      <div className="bg-white rounded-lg border border-[#10B981]/30 px-3 py-3 shadow-sm mb-2">
-                        <input autoFocus value={colAddTitle} onChange={e => setColAddTitle(e.target.value)}
-                          onKeyDown={e => { if (e.key === 'Escape') resetColAdd() }}
-                          placeholder="제목 *"
-                          className="w-full text-sm font-semibold focus:outline-none text-gray-800 mb-2 border-b border-gray-100 pb-1" />
-                        <input value={colAddSource} onChange={e => setColAddSource(e.target.value)}
-                          placeholder="출처 (선택)"
-                          className="w-full text-xs focus:outline-none text-gray-500 mb-2" />
-                        <div className="flex items-center gap-1 flex-wrap mb-2">
-                          {MEDIA_TYPES.map(type => (
-                            <button key={type} onClick={() => setColAddMedia(colAddMedia === type ? '' : type)}
-                              className={`text-[10px] px-1.5 py-0.5 rounded-full border transition-colors ${colAddMedia === type ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-400'}`}>
-                              {MEDIA_ICONS[type]} {type}
-                            </button>
-                          ))}
-                        </div>
-                        <div className="flex gap-1 justify-end">
-                          <button onClick={resetColAdd} className="text-xs text-gray-400 px-2 py-1">취소</button>
-                          <button onClick={() => handleColAdd(tag)} disabled={!colAddTitle.trim()}
-                            className="text-xs bg-gray-900 text-white px-2 py-1 rounded-lg disabled:opacity-30">저장</button>
-                        </div>
-                      </div>
-                    )}
-                    {allColItems.length === 0 && addingInCol !== tag ? (
-                      <p className="text-xs text-gray-300 text-center py-8 bg-gray-50/60 rounded-lg border border-dashed border-gray-100">없음</p>
-                    ) : (
-                      mediaGroups.map(([mt, list]) => {
-                        const mediaKey = `${tag}-${mt}`
-                        const isCollapsed = collapsedColMedia.has(mediaKey)
-                        const icon = MEDIA_ICONS[mt] ?? '📌'
-                        return (
-                          <div key={mt} className="mb-1">
-                            <button onClick={() => toggleColMedia(mediaKey)}
-                              className="flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-700 w-full py-1 px-1 rounded transition-colors">
-                              <span className="text-[9px]">{isCollapsed ? '▶' : '▼'}</span>
-                              <span>{icon} {mt}</span>
-                              <span className="text-gray-300">({list.length})</span>
-                            </button>
-                            {!isCollapsed && (
-                              <div className="space-y-1.5 mt-1">
-                                {list.map(r => (
-                                  <Link key={r.id} href={`/learning/${r.id}`} className="block">
-                                    <div className="bg-white rounded-lg border border-gray-200 hover:border-[#10B981]/40 hover:shadow-sm px-3 py-3 transition-all">
-                                      <p className="text-sm font-semibold text-gray-800 leading-snug line-clamp-2 break-all mb-1">{r.title}</p>
-                                      {r.source && <p className="text-xs text-gray-400 truncate">출처: {r.source}</p>}
-                                      {r.notes.length > 0 && <p className="text-xs text-gray-300 mt-1">{r.notes.length}노트</p>}
-                                    </div>
-                                  </Link>
-                                ))}
-                              </div>
-                            )}
+            <div style={{ display: 'grid', gridTemplateColumns: `repeat(${tagCols.length}, minmax(150px, 1fr))`, gap: '12px' }}>
+              {tagCols.map(tag => {
+                const allColItems = tagKanbanGroups[tag] ?? []
+                const isDragOverTag = dragOverCol === tag
+                const mediaGroups = (() => {
+                  const map = new Map<string, LearningResource[]>()
+                  allColItems.forEach(r => {
+                    const mt = r.media_type ?? '미지정'
+                    if (!map.has(mt)) map.set(mt, [])
+                    map.get(mt)!.push(r)
+                  })
+                  const result: [string, LearningResource[]][] = []
+                  ;[...MEDIA_TYPES, '미지정'].forEach(mt => {
+                    if (map.has(mt)) result.push([mt, map.get(mt)!])
+                  })
+                  map.forEach((list, mt) => {
+                    if (![...MEDIA_TYPES, '미지정'].includes(mt)) result.push([mt, list])
+                  })
+                  return result
+                })()
+                return (
+                  <div key={tag}
+                    className={`flex flex-col rounded-xl transition-colors ${isDragOverTag ? 'bg-emerald-50/40 ring-1 ring-emerald-200' : ''}`}
+                    style={{ minHeight: 'calc(100vh - 280px)' }}
+                    onDragOver={e => { e.preventDefault(); setDragOverCol(tag) }}
+                    onDrop={e => { e.preventDefault(); const id = e.dataTransfer.getData('resourceId'); if (id) moveToColumn(id, tag) }}
+                    onDragLeave={handleDragLeave}
+                  >
+                    <div className="py-1.5 px-2 mb-3">
+                      <span className={`inline-block text-xs font-semibold px-2.5 py-1 rounded ${TAG_STYLE[tag] ?? 'bg-gray-100 text-gray-500'}`}>
+                        {tag}
+                      </span>
+                      <span className="ml-2 text-xs text-gray-400">{allColItems.length}</span>
+                    </div>
+                    <div className="space-y-1 flex-1 px-1">
+                      {addingInCol === tag && (
+                        <div className="bg-white rounded-lg border border-[#10B981]/30 px-3 py-3 shadow-sm mb-2">
+                          <input autoFocus value={colAddTitle} onChange={e => setColAddTitle(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Escape') resetColAdd() }}
+                            placeholder="제목 *"
+                            className="w-full text-sm font-semibold focus:outline-none text-gray-800 mb-2 border-b border-gray-100 pb-1" />
+                          <input value={colAddSource} onChange={e => setColAddSource(e.target.value)}
+                            placeholder="출처 (선택)"
+                            className="w-full text-xs focus:outline-none text-gray-500 mb-2" />
+                          <div className="flex items-center gap-1 flex-wrap mb-2">
+                            {MEDIA_TYPES.map(type => (
+                              <button key={type} onClick={() => setColAddMedia(colAddMedia === type ? '' : type)}
+                                className={`text-[10px] px-1.5 py-0.5 rounded-full border transition-colors ${colAddMedia === type ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-400'}`}>
+                                {MEDIA_ICONS[type]} {type}
+                              </button>
+                            ))}
                           </div>
-                        )
-                      })
-                    )}
+                          <div className="flex gap-1 justify-end">
+                            <button onClick={resetColAdd} className="text-xs text-gray-400 px-2 py-1">취소</button>
+                            <button onClick={() => handleColAdd(tag)} disabled={!colAddTitle.trim()}
+                              className="text-xs bg-gray-900 text-white px-2 py-1 rounded-lg disabled:opacity-30">저장</button>
+                          </div>
+                        </div>
+                      )}
+                      {allColItems.length === 0 && addingInCol !== tag ? (
+                        <p className="text-xs text-gray-300 text-center py-8 bg-gray-50/60 rounded-lg border border-dashed border-gray-100">
+                          {isDragOverTag ? '여기에 놓기' : '없음'}
+                        </p>
+                      ) : (
+                        mediaGroups.map(([mt, list]) => {
+                          const mediaKey = `${tag}-${mt}`
+                          const isCollapsed = collapsedColMedia.has(mediaKey)
+                          const icon = MEDIA_ICONS[mt] ?? '📌'
+                          return (
+                            <div key={mt} className="mb-1">
+                              <button onClick={() => toggleColMedia(mediaKey)}
+                                className="flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-700 w-full py-1 px-1 rounded transition-colors">
+                                <span className="text-[9px]">{isCollapsed ? '▶' : '▼'}</span>
+                                <span>{icon} {mt}</span>
+                                <span className="text-gray-300">({list.length})</span>
+                              </button>
+                              {!isCollapsed && (
+                                <div className="space-y-1.5 mt-1">
+                                  {list.map(r => (
+                                    <div
+                                      key={r.id}
+                                      draggable
+                                      onDragStart={e => { e.dataTransfer.setData('resourceId', r.id) }}
+                                      className="cursor-grab active:cursor-grabbing"
+                                    >
+                                      <Link href={`/learning/${r.id}`} className="block">
+                                        <div className="bg-white rounded-lg border border-gray-200 hover:border-[#10B981]/40 hover:shadow-sm px-3 py-3 transition-all">
+                                          <p className="text-sm font-semibold text-gray-800 leading-snug line-clamp-2 break-all mb-1">{r.title}</p>
+                                          {r.source && <p className="text-xs text-gray-400 truncate">출처: {r.source}</p>}
+                                          {r.notes.length > 0 && <p className="text-xs text-gray-300 mt-1">{r.notes.length}노트</p>}
+                                        </div>
+                                      </Link>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })
+                      )}
+                      {addingInCol !== tag && (
+                        <button onClick={() => setAddingInCol(tag)}
+                          className="w-full text-xs text-gray-300 hover:text-gray-500 py-1.5 rounded-lg hover:bg-gray-50 transition-colors text-center">
+                          + 추가
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              )
-            })}
-          </div>
+                )
+              })}
+            </div>
           </div>
         </>
       )}
     </div>
   )
 }
-
