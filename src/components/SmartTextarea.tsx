@@ -160,9 +160,11 @@ const SmartTextarea = forwardRef<HTMLTextAreaElement, Props>(function SmartTexta
   useEffect(() => {
     const el = localRef.current
     if (!el) return
+    const scrollY = window.scrollY
     el.style.overflow = 'hidden'
     el.style.height = 'auto'
     el.style.height = el.scrollHeight + 'px'
+    window.scrollTo({ top: scrollY, behavior: 'instant' as ScrollBehavior })
   }, [value])
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
