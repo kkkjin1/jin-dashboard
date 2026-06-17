@@ -64,7 +64,7 @@ export interface Attachment {
   created_at: string
 }
 
-export type MemoTag = '업무관련' | '회의관련' | '아이디어' | '공지'
+export type MemoTag = '업무관련' | '회의관련' | '아이디어' | '공지' | '완료'
 
 export interface QuickMemo {
   id: string

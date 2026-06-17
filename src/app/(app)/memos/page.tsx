@@ -8,13 +8,14 @@ import { format, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import type { QuickMemo, MemoTag } from '@/types'
 
-const NON_NOTICE_TAGS: MemoTag[] = ['업무관련', '회의관련', '아이디어']
+const NON_NOTICE_TAGS: MemoTag[] = ['업무관련', '회의관련', '아이디어', '완료']
 
 const TAG_COLORS: Record<MemoTag, string> = {
   '공지':    'border-t-[#F3E482]',
   '업무관련': 'border-t-[#BADEC8]',
   '회의관련': 'border-t-[#90A7D8]',
   '아이디어': 'border-t-[#BFE4B5]',
+  '완료':    'border-t-gray-200',
 }
 
 const TAG_BADGE: Record<MemoTag, string> = {
@@ -22,6 +23,7 @@ const TAG_BADGE: Record<MemoTag, string> = {
   '업무관련': 'bg-[#BADEC8]/40 text-[#2D5A45]',
   '회의관련': 'bg-[#90A7D8]/30 text-[#1E3A6B]',
   '아이디어': 'bg-[#BFE4B5]/40 text-[#2D5A35]',
+  '완료':    'bg-gray-100 text-gray-400',
 }
 
 const TAG_DOT: Record<string, string> = {
@@ -29,6 +31,7 @@ const TAG_DOT: Record<string, string> = {
   '업무관련': 'bg-[#BADEC8]',
   '회의관련': 'bg-[#90A7D8]',
   '아이디어': 'bg-[#BFE4B5]',
+  '완료':    'bg-gray-300',
 }
 
 interface MemoCardProps {
@@ -84,8 +87,8 @@ function EditModal({ memo, onSave, onClose }: EditModalProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl p-6 w-96" onClick={e => e.stopPropagation()}>
         <h3 className="font-semibold text-gray-800 mb-4">메모 수정</h3>
-        <div className="flex gap-1.5 mb-3">
-          {(['업무관련','회의관련','아이디어','공지'] as MemoTag[]).map(t => (
+        <div className="flex gap-1.5 mb-3 flex-wrap">
+          {(['업무관련','회의관련','아이디어','공지','완료'] as MemoTag[]).map(t => (
             <button key={t} onClick={() => setTag(t)}
               className={`text-xs px-2.5 py-1 rounded border transition-colors ${tag === t ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-400'}`}>
               {t}
@@ -268,8 +271,8 @@ export default function MemosPage() {
         </div>
       </div>
 
-      {/* 3-column 칸반 */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+      {/* 4-column 칸반 */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
         {NON_NOTICE_TAGS.map(tag => {
           const colMemos = memos.filter(m => m.tag === tag)
           const isOver = dragOverTag === tag
@@ -290,17 +293,21 @@ export default function MemosPage() {
                 <span className="text-sm font-semibold text-gray-700">{tag}</span>
                 <span className="text-xs text-gray-400">{colMemos.length}</span>
               </div>
-              <div className={`bg-white rounded-lg border p-4 min-h-48 transition-colors ${isOver ? 'border-[#BADEC8]/60 bg-[#BADEC8]/10' : 'border-gray-100'}`}>
+              <div className={`rounded-lg border p-4 min-h-48 transition-colors ${tag === '완료' ? 'bg-gray-50/50' : 'bg-white'} ${isOver ? 'border-[#BADEC8]/60 bg-[#BADEC8]/10' : 'border-gray-100'}`}>
                 <div className="space-y-2">
                   {colMemos.length === 0 && inlineTag !== tag && (
-                    <p className="text-xs text-gray-200 text-center py-6 border border-dashed border-gray-100 rounded-lg">+ 버튼으로 추가하세요</p>
+                    <p className="text-xs text-gray-200 text-center py-6 border border-dashed border-gray-100 rounded-lg">
+                      {tag === '완료' ? '홈의 할일을 체크하면 여기로' : '+ 버튼으로 추가하세요'}
+                    </p>
                   )}
                   {colMemos.map(memo => (
-                    <MemoCard key={memo.id} memo={memo} onEdit={setEditing} onDelete={deleteMemo}
-                      draggable onDragStart={() => setDraggingId(memo.id)}
-                      selected={selectedIds.has(memo.id)} onToggleSelect={toggleSelect} />
+                    <div key={memo.id} className={tag === '완료' ? 'opacity-60' : ''}>
+                      <MemoCard memo={memo} onEdit={setEditing} onDelete={deleteMemo}
+                        draggable onDragStart={() => setDraggingId(memo.id)}
+                        selected={selectedIds.has(memo.id)} onToggleSelect={toggleSelect} />
+                    </div>
                   ))}
-                  {inlineTag === tag ? (
+                  {tag !== '완료' && (inlineTag === tag ? (
                     <div className="bg-white rounded-lg border border-gray-200 p-3">
                       <input autoFocus value={inlineTitle} onChange={e => setInlineTitle(e.target.value)}
                         onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); inlineContentRef.current?.focus() } if (e.key === 'Escape') { setInlineTag(null); setInlineTitle(''); setInlineContent('') } }}
@@ -319,7 +326,7 @@ export default function MemosPage() {
                       className="w-full text-left text-xs text-gray-300 hover:text-gray-500 py-1.5 px-1 transition-colors">
                       + 메모 추가
                     </button>
-                  )}
+                  ))}
                 </div>
               </div>
             </div>
