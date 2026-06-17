@@ -136,6 +136,7 @@ export default function TodayTodoWidget() {
                 />
                 <button
                   className="flex-1 min-w-0 text-left"
+                  title={m.content || undefined}
                   onClick={() => { localStorage.setItem('memos_open_id', m.id); router.push('/memos') }}>
                   <p className="text-sm text-gray-700 leading-snug truncate">{m.title}</p>
                 </button>
