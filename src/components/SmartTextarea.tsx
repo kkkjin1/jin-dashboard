@@ -180,8 +180,10 @@ const SmartTextarea = forwardRef<HTMLTextAreaElement, Props>(function SmartTexta
 
       const nSeq = advance(info.type, info.seq)
       const newPrefix = makePrefix(info.type, nSeq, info.indentLevel)
-      const insert = '\n' + newPrefix
-      const newValueRaw = value.slice(0, lineEnd) + insert + value.slice(lineEnd)
+      // Split at cursor: text after cursor moves to new line (not always at lineEnd)
+      const textAfterCursor = value.slice(start, lineEnd)
+      const insert = '\n' + newPrefix + textAfterCursor
+      const newValueRaw = value.slice(0, start) + insert + value.slice(lineEnd)
 
       const currentLineIdx = value.slice(0, lineStart).split('\n').length - 1
       const lineIdxOfNew = currentLineIdx + 1
@@ -189,14 +191,14 @@ const SmartTextarea = forwardRef<HTMLTextAreaElement, Props>(function SmartTexta
       lines = renumberForward(lines, lineIdxOfNew + 1, info.indentLevel, info.type, advance(info.type, nSeq))
 
       onChange(renumberSequential(lines).join('\n'))
-      pendingCursor.current = lineEnd + insert.length
+      pendingCursor.current = start + 1 + newPrefix.length
       return
     }
 
     // '- ' → '▪ ' auto-conversion (Space after dash at line start)
     if (e.key === ' ' && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
       const linePos = start - lineStart
-      if (linePos === 1 && line === '-') {
+      if (linePos === 1 && line[0] === '-') {
         e.preventDefault()
         onChange(value.slice(0, lineStart) + '▪ ' + value.slice(lineStart + 1))
         pendingCursor.current = lineStart + 2

@@ -249,10 +249,25 @@ export default function MeetingDetailPage() {
       if (linksRes.data) setLinkedTasks((linksRes.data as any[]).map(l => l.tasks).filter(Boolean) as Task[])
       if (tasksRes.data) setAllTasks(tasksRes.data as Pick<Task, 'id' | 'title' | 'status' | 'part'>[])
       setAttachments((attsRes.data ?? []) as Attachment[])
+      // Restore draft if present
+      const draft = localStorage.getItem(`meeting_draft_${id}`)
+      const draftTitle = localStorage.getItem(`meeting_draft_title_${id}`)
+      if (draft) setNoteInput(draft)
+      if (draftTitle) setNoteTitle(draftTitle)
     }
     load()
     setTimeout(() => titleRef.current?.focus(), 100)
   }, [id])
+
+  function handleNoteInputChange(val: string) {
+    setNoteInput(val)
+    localStorage.setItem(`meeting_draft_${id}`, val)
+  }
+
+  function handleNoteTitleChange(val: string) {
+    setNoteTitle(val)
+    localStorage.setItem(`meeting_draft_title_${id}`, val)
+  }
 
   useEffect(() => {
     function onEsc(e: KeyboardEvent) {
@@ -289,6 +304,8 @@ export default function MeetingDetailPage() {
     setOpenIndexes(new Set([0]))
     setNoteInput('')
     setNoteTitle(defaultNoteTitle())
+    localStorage.removeItem(`meeting_draft_${id}`)
+    localStorage.removeItem(`meeting_draft_title_${id}`)
   }
 
   async function deleteNote(index: number) {
@@ -431,11 +448,11 @@ export default function MeetingDetailPage() {
           <div className="mb-6">
             <h2 className="text-sm font-semibold text-gray-700 mb-3">회의 내용</h2>
             <div className="bg-white rounded-lg border border-gray-100 p-4 mb-3">
-              <input value={noteTitle} onChange={e => setNoteTitle(e.target.value)}
+              <input value={noteTitle} onChange={e => handleNoteTitleChange(e.target.value)}
                 className="w-full text-xs font-medium text-gray-500 focus:outline-none mb-2 border-b border-gray-100 pb-1 bg-transparent"
                 placeholder="노트 제목" />
-              <FormattingToolbar textareaRef={noteAreaRef} value={noteInput} onChange={setNoteInput} onExpand={() => setShowFullscreenNew(true)} />
-              <SmartTextarea ref={noteAreaRef} value={noteInput} onChange={setNoteInput}
+              <FormattingToolbar textareaRef={noteAreaRef} value={noteInput} onChange={handleNoteInputChange} onExpand={() => setShowFullscreenNew(true)} />
+              <SmartTextarea ref={noteAreaRef} value={noteInput} onChange={handleNoteInputChange}
                 onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) saveNote() }}
                 placeholder="회의 내용 입력 (Ctrl+Enter 저장)"
                 className="w-full text-sm focus:outline-none resize-none text-gray-700 placeholder:text-gray-300"
@@ -450,7 +467,7 @@ export default function MeetingDetailPage() {
             {showFullscreenNew && (
               <FullscreenNoteEditor
                 value={noteInput}
-                onChange={setNoteInput}
+                onChange={handleNoteInputChange}
                 onSave={() => { saveNote(); setShowFullscreenNew(false) }}
                 onClose={() => setShowFullscreenNew(false)}
                 title="회의 내용 입력"
