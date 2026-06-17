@@ -11,9 +11,9 @@ import { ko } from 'date-fns/locale'
 
 // ─── 피드백 타입 스타일 ───────────────────────────────────────────────────────
 const FEEDBACK_TYPE_STYLE: Record<FeedbackType, string> = {
-  긍정: 'bg-green-50 text-green-700',
-  부정: 'bg-red-50 text-red-700',
-  요청: 'bg-blue-50 text-blue-700',
+  긍정: 'bg-[#BADEC8]/40 text-[#2D5A45]',
+  부정: 'bg-[#EBA698]/40 text-[#6B2D25]',
+  요청: 'bg-[#90A7D8]/30 text-[#1E3A6B]',
 }
 const ANALYSIS_TYPES: FeedbackType[] = ['긍정', '부정', '요청']
 
@@ -373,9 +373,9 @@ export default function OneOnOnePage() {
   }, [memberStats])
 
   function daysBadgeClass(daysSince: number | null): string {
-    if (daysSince === null || daysSince >= 30) return 'bg-red-50 text-red-500'
-    if (daysSince >= 14) return 'bg-amber-50 text-amber-600'
-    return 'bg-[#ECFDF5] text-[#10B981]'
+    if (daysSince === null || daysSince >= 30) return 'bg-[#EBA698]/40 text-[#6B2D25]'
+    if (daysSince >= 14) return 'bg-[#F3E482]/50 text-[#5A4A10]'
+    return 'bg-[#BADEC8]/40 text-[#2D5A45]'
   }
 
   function daysLabel(daysSince: number | null): string {
@@ -435,7 +435,11 @@ export default function OneOnOnePage() {
                       <div key={member.id} className="bg-white rounded-lg border border-gray-100 px-5 py-4">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 text-sm font-medium">
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                              member.part === '코어' ? 'bg-[#BADEC8]/60 text-[#2D5A45]' :
+                              member.part === '비즈' ? 'bg-[#90A7D8]/60 text-[#1E3A6B]' :
+                              'bg-[#EBA698]/40 text-[#5A2D25]'
+                            }`}>
                               {member.name[0]}
                             </div>
                             <div>
@@ -483,13 +487,13 @@ export default function OneOnOnePage() {
           {/* RIGHT: alert panel */}
           <div className="min-w-0 md:flex-[40] flex flex-col gap-4">
             {urgentStat ? (
-              <div className="bg-red-50 rounded-lg px-5 py-4">
-                <p className="text-xs font-semibold text-red-500 mb-3">30일 미진행 긴급</p>
+              <div className="bg-[#EBA698]/20 rounded-lg px-5 py-4">
+                <p className="text-xs font-semibold text-[#6B2D25] mb-3">30일 미진행 긴급</p>
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <p className="text-lg font-bold text-gray-900">{urgentStat.member.name}</p>
                     <p className="text-xs text-gray-500 mt-0.5">{urgentStat.member.part}</p>
-                    <p className="text-sm text-red-500 mt-2">
+                    <p className="text-sm text-[#6B2D25] mt-2">
                       마지막 1on1:{' '}
                       {urgentStat.daysSince === null ? '기록 없음' : `${urgentStat.daysSince}일 전`}
                     </p>
@@ -502,8 +506,8 @@ export default function OneOnOnePage() {
                 </div>
               </div>
             ) : (
-              <div className="bg-emerald-50 rounded-lg border border-emerald-200 px-5 py-4">
-                <p className="text-sm font-semibold text-emerald-600">✓ 이번 달 모두 진행됨</p>
+              <div className="bg-[#BADEC8]/20 rounded-lg border border-[#BADEC8]/40 px-5 py-4">
+                <p className="text-sm font-semibold text-[#2D5A45]">✓ 이번 달 모두 진행됨</p>
               </div>
             )}
 
@@ -512,7 +516,11 @@ export default function OneOnOnePage() {
               <div className="space-y-2">
                 {memberStats.map(({ member, daysSince }) => (
                   <div key={member.id} className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 text-xs font-medium flex-shrink-0">
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0 ${
+                      member.part === '코어' ? 'bg-[#BADEC8]/60 text-[#2D5A45]' :
+                      member.part === '비즈' ? 'bg-[#90A7D8]/60 text-[#1E3A6B]' :
+                      'bg-[#EBA698]/40 text-[#5A2D25]'
+                    }`}>
                       {member.name[0]}
                     </div>
                     <div className="flex-1 min-w-0">

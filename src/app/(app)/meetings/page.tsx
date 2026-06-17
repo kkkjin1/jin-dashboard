@@ -10,21 +10,21 @@ import type { Meeting } from '@/types'
 
 const CATEGORIES = ['전체', '코어', '비즈', '경영진', '본부장', '타팀', '목표관리'] as const
 const KANBAN_COL_STYLE: Record<string, { header: string; bg: string }> = {
-  '코어':   { header: 'bg-emerald-50 border-emerald-200 text-emerald-700', bg: 'bg-emerald-50/40 border-emerald-100' },
-  '비즈':   { header: 'bg-amber-50 border-amber-200 text-amber-700',       bg: 'bg-amber-50/40 border-amber-100' },
-  '경영진': { header: 'bg-slate-100 border-slate-200 text-slate-600',      bg: 'bg-slate-50/60 border-slate-100' },
-  '본부장': { header: 'bg-blue-50 border-blue-200 text-blue-700',          bg: 'bg-blue-50/40 border-blue-100' },
-  '타팀':   { header: 'bg-gray-100 border-gray-200 text-gray-600',         bg: 'bg-gray-50 border-gray-200' },
-  '목표관리': { header: 'bg-indigo-50 border-indigo-200 text-indigo-700',  bg: 'bg-indigo-50/40 border-indigo-100' },
-  '기타':   { header: 'bg-white border-gray-200 text-gray-500',            bg: 'bg-white border-gray-100' },
+  '코어':   { header: 'bg-[#BADEC8]/35 border-[#BADEC8]/55 text-[#2D5A45]',  bg: 'bg-[#BADEC8]/10 border-[#BADEC8]/20' },
+  '비즈':   { header: 'bg-[#F3E482]/35 border-[#F3E482]/55 text-[#5A4A10]',  bg: 'bg-[#F3E482]/10 border-[#F3E482]/20' },
+  '경영진': { header: 'bg-[#90A7D8]/25 border-[#90A7D8]/45 text-[#1E3A6B]',  bg: 'bg-[#90A7D8]/8 border-[#90A7D8]/20' },
+  '본부장': { header: 'bg-[#BFE4B5]/35 border-[#BFE4B5]/55 text-[#2D5A35]',  bg: 'bg-[#BFE4B5]/10 border-[#BFE4B5]/20' },
+  '타팀':   { header: 'bg-gray-100 border-gray-200 text-gray-600',            bg: 'bg-gray-50 border-gray-100' },
+  '목표관리': { header: 'bg-[#EBA698]/25 border-[#EBA698]/45 text-[#6B2D25]', bg: 'bg-[#EBA698]/8 border-[#EBA698]/20' },
+  '기타':   { header: 'bg-white border-gray-200 text-gray-500',               bg: 'bg-white border-gray-100' },
 }
 const CATEGORY_COLORS: Record<string, string> = {
-  '코어': 'bg-[#ECFDF5] text-[#10B981] border-[#10B981]/20',
-  '비즈': 'bg-amber-50 text-[#F4A35A] border-[#F4A35A]/20',
-  '경영진': 'bg-[#1C2B3A]/5 text-[#1C2B3A] border-[#1C2B3A]/15',
-  '본부장': 'bg-slate-100 text-slate-500 border-slate-200',
-  '타팀': 'bg-gray-50 text-gray-500 border-gray-200',
-  '목표관리': 'bg-indigo-50 text-indigo-600 border-indigo-200',
+  '코어':   'bg-[#BADEC8]/40 text-[#2D5A45] border-[#BADEC8]/55',
+  '비즈':   'bg-[#F3E482]/40 text-[#5A4A10] border-[#F3E482]/55',
+  '경영진': 'bg-[#90A7D8]/30 text-[#1E3A6B] border-[#90A7D8]/45',
+  '본부장': 'bg-[#BFE4B5]/40 text-[#2D5A35] border-[#BFE4B5]/55',
+  '타팀':   'bg-gray-50 text-gray-500 border-gray-200',
+  '목표관리': 'bg-[#EBA698]/25 text-[#6B2D25] border-[#EBA698]/40',
 }
 
 function formatMonthLabel(ym: string): string {
@@ -317,13 +317,13 @@ export default function MeetingsPage() {
                           {!isCollapsed && (
                             <div className="space-y-1.5 mt-1">
                               {list.map(meeting => (
-                                <div key={meeting.id} className={`bg-white rounded-lg border hover:shadow-sm transition-all ${checkedIds.has(meeting.id) ? 'border-[#10B981]/40 bg-[#ECFDF5]/20' : 'border-gray-200 hover:border-[#10B981]/40'}`}>
+                                <div key={meeting.id} className={`bg-white rounded-lg border hover:shadow-sm transition-all ${checkedIds.has(meeting.id) ? 'border-[#BADEC8]/60 bg-[#BADEC8]/10' : 'border-gray-200 hover:border-[#BADEC8]/60'}`}>
                                   <div className="flex items-start gap-2 px-3 py-3">
                                     <input type="checkbox" checked={checkedIds.has(meeting.id)}
                                       onChange={() => toggleCheck(meeting.id)}
                                       className="w-3 h-3 mt-0.5 rounded accent-gray-700 flex-shrink-0 cursor-pointer" />
                                     <Link href={`/meetings/${meeting.id}`} className="flex-1 min-w-0">
-                                      <p className="text-sm font-semibold text-gray-800 line-clamp-2 mb-1.5">{meeting.title}</p>
+                                      <p className="text-xs font-semibold text-gray-800 line-clamp-2 mb-1.5">{meeting.title}</p>
                                       <div className="flex items-center gap-2 flex-wrap">
                                         {meeting.meeting_date && (
                                           <span className="text-xs text-gray-400">{format(parseISO(meeting.meeting_date), 'M.d', { locale: ko })}</span>
@@ -343,7 +343,7 @@ export default function MeetingsPage() {
                     })
                   )}
                   {addingInColMeeting === cat ? (
-                    <div className="bg-white rounded-lg border border-[#10B981]/40 px-3 py-2.5 shadow-sm mt-2">
+                    <div className="bg-white rounded-lg border border-[#BADEC8]/60 px-3 py-2.5 shadow-sm mt-2">
                       <input autoFocus value={newColTitle} onChange={e => setNewColTitle(e.target.value)}
                         onKeyDown={e => { if (e.key === 'Enter') handleColAdd(cat); if (e.key === 'Escape') { setAddingInColMeeting(null); setNewColTitle('') } }}
                         onBlur={() => { if (newColTitle.trim()) handleColAdd(cat); else { setAddingInColMeeting(null); setNewColTitle('') } }}

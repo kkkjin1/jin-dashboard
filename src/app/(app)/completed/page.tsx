@@ -7,12 +7,12 @@ import { fetchAllTasks } from '@/lib/tasks'
 import type { Task, AchievementCategory } from '@/types'
 
 const COLUMNS: { key: AchievementCategory | null; label: string; bg: string; dot: string }[] = [
-  { key: null,    label: '미분류', bg: 'bg-gray-50 border-gray-100',       dot: 'bg-gray-300' },
-  { key: '성과',  label: '성과',   bg: 'bg-emerald-50/60 border-emerald-100', dot: 'bg-emerald-400' },
-  { key: '개선',  label: '개선',   bg: 'bg-amber-50/60 border-amber-100',   dot: 'bg-amber-400' },
-  { key: '리소스', label: '리소스', bg: 'bg-blue-50/60 border-blue-100',    dot: 'bg-blue-400' },
-  { key: '수명',  label: '수명',   bg: 'bg-slate-50 border-slate-100',      dot: 'bg-slate-400' },
-  { key: '기타',  label: '기타',   bg: 'bg-gray-100/60 border-gray-200',    dot: 'bg-gray-300' },
+  { key: null,    label: '미분류', bg: 'bg-gray-50 border-gray-100',                   dot: 'bg-gray-300' },
+  { key: '성과',  label: '성과',   bg: 'bg-[#BADEC8]/20 border-[#BADEC8]/35',          dot: 'bg-[#BADEC8]' },
+  { key: '개선',  label: '개선',   bg: 'bg-[#F3E482]/20 border-[#F3E482]/35',          dot: 'bg-[#F3E482]' },
+  { key: '리소스', label: '리소스', bg: 'bg-[#90A7D8]/15 border-[#90A7D8]/25',         dot: 'bg-[#90A7D8]' },
+  { key: '수명',  label: '수명',   bg: 'bg-[#BFE4B5]/20 border-[#BFE4B5]/35',         dot: 'bg-[#BFE4B5]' },
+  { key: '기타',  label: '기타',   bg: 'bg-gray-100/60 border-gray-200',               dot: 'bg-gray-300' },
 ]
 
 function getTaskMonth(task: Task): string | null {
@@ -143,20 +143,20 @@ export default function CompletedPage() {
           <p className="text-4xl font-bold text-gray-800 mb-1">{filtered.length}</p>
           <p className="text-xs text-gray-400">건</p>
         </div>
-        <div className="bg-emerald-50 rounded-lg border border-emerald-100 p-5">
-          <p className="text-xs text-emerald-600 font-medium mb-2">성과</p>
-          <p className="text-4xl font-bold text-emerald-700 mb-1">{achieveCount}</p>
-          <p className="text-xs text-emerald-500">건</p>
+        <div className="bg-[#BADEC8]/25 rounded-lg border border-[#BADEC8]/40 p-5">
+          <p className="text-xs text-[#2D5A45] font-medium mb-2">성과</p>
+          <p className="text-4xl font-bold text-[#2D5A45] mb-1">{achieveCount}</p>
+          <p className="text-xs text-[#2D5A45]">건</p>
         </div>
-        <div className="bg-amber-50 rounded-lg border border-amber-100 p-5">
-          <p className="text-xs text-amber-600 font-medium mb-2">개선</p>
-          <p className="text-4xl font-bold text-amber-700 mb-1">{improveCount}</p>
-          <p className="text-xs text-amber-500">건</p>
+        <div className="bg-[#F3E482]/25 rounded-lg border border-[#F3E482]/45 p-5">
+          <p className="text-xs text-[#5A4A10] font-medium mb-2">개선</p>
+          <p className="text-4xl font-bold text-[#5A4A10] mb-1">{improveCount}</p>
+          <p className="text-xs text-[#5A4A10]">건</p>
         </div>
-        <div className="bg-blue-50 rounded-lg border border-blue-100 p-5">
-          <p className="text-xs text-blue-600 font-medium mb-2">회고 작성</p>
-          <p className="text-4xl font-bold text-blue-700 mb-1">{retroCount}</p>
-          <p className="text-xs text-blue-500">
+        <div className="bg-[#90A7D8]/20 rounded-lg border border-[#90A7D8]/35 p-5">
+          <p className="text-xs text-[#1E3A6B] font-medium mb-2">회고 작성</p>
+          <p className="text-4xl font-bold text-[#1E3A6B] mb-1">{retroCount}</p>
+          <p className="text-xs text-[#1E3A6B]">
             {filtered.length > 0 ? `${Math.round(retroCount / filtered.length * 100)}%` : '—'}
           </p>
         </div>
@@ -232,16 +232,16 @@ export default function CompletedPage() {
                 </div>
                 {(task.retrospective?.good || task.retrospective?.bad || task.retrospective?.improvement) ? (
                   <div className="grid grid-cols-3 gap-3">
-                    <div className={`rounded-lg p-3 ${task.retrospective?.good ? 'bg-[#ECFDF5]' : 'bg-gray-50'}`}>
-                      <p className="text-[10px] font-semibold text-[#10B981] mb-1">잘한점</p>
+                    <div className={`rounded-lg p-3 ${task.retrospective?.good ? 'bg-[#BADEC8]/25' : 'bg-gray-50'}`}>
+                      <p className="text-[10px] font-semibold text-[#2D5A45] mb-1">잘한점</p>
                       <p className="text-xs text-gray-600 leading-relaxed">{task.retrospective?.good || <span className="text-gray-300">없음</span>}</p>
                     </div>
-                    <div className={`rounded-lg p-3 ${task.retrospective?.bad ? 'bg-rose-50' : 'bg-gray-50'}`}>
-                      <p className="text-[10px] font-semibold text-rose-500 mb-1">아쉬운점</p>
+                    <div className={`rounded-lg p-3 ${task.retrospective?.bad ? 'bg-[#EBA698]/20' : 'bg-gray-50'}`}>
+                      <p className="text-[10px] font-semibold text-[#6B2D25] mb-1">아쉬운점</p>
                       <p className="text-xs text-gray-600 leading-relaxed">{task.retrospective?.bad || <span className="text-gray-300">없음</span>}</p>
                     </div>
-                    <div className={`rounded-lg p-3 ${task.retrospective?.improvement ? 'bg-amber-50' : 'bg-gray-50'}`}>
-                      <p className="text-[10px] font-semibold text-amber-500 mb-1">개선점</p>
+                    <div className={`rounded-lg p-3 ${task.retrospective?.improvement ? 'bg-[#F3E482]/25' : 'bg-gray-50'}`}>
+                      <p className="text-[10px] font-semibold text-[#5A4A10] mb-1">개선점</p>
                       <p className="text-xs text-gray-600 leading-relaxed">{task.retrospective?.improvement || <span className="text-gray-300">없음</span>}</p>
                     </div>
                   </div>

@@ -268,12 +268,12 @@ export default function SchedulePage() {
 
   function getMeetingColor(category: string | null | undefined): string {
     switch (category) {
-      case '코어': return 'bg-[#ECFDF5] text-[#10B981]'
-      case '비즈': return 'bg-amber-50 text-amber-600'
-      case '경영진': return 'bg-indigo-50 text-indigo-500'
-      case '본부장': return 'bg-purple-50 text-purple-500'
-      case '타팀': return 'bg-sky-50 text-sky-500'
-      default: return 'bg-[#ECFDF5] text-[#10B981]'
+      case '코어':   return 'bg-[#BADEC8]/50 text-gray-800'
+      case '비즈':   return 'bg-[#F3E482]/55 text-gray-800'
+      case '경영진': return 'bg-[#90A7D8]/40 text-gray-800'
+      case '본부장': return 'bg-[#EBA698]/40 text-gray-800'
+      case '타팀':   return 'bg-[#BFE4B5]/50 text-gray-800'
+      default:       return 'bg-[#BADEC8]/50 text-gray-800'
     }
   }
 
@@ -286,9 +286,9 @@ export default function SchedulePage() {
     return (
       <div key={day.toISOString()}
         onClick={() => setSelectedDay(isSameDay(day, selectedDay ?? new Date(0)) ? null : day)}
-        className={`min-h-24 p-1.5 rounded-lg cursor-pointer transition-colors ${isToday ? 'ring-1 ring-[#10B981]/60 ring-inset' : ''} ${isSelected ? 'bg-gray-100' : isOtherMonth ? 'bg-gray-50/50 opacity-50' : 'hover:bg-gray-50'}`}>
+        className={`min-h-24 p-1.5 rounded-lg cursor-pointer transition-colors ${isToday ? 'ring-1 ring-[#BADEC8] ring-inset' : ''} ${isSelected ? 'bg-gray-100' : isOtherMonth ? 'bg-gray-50/50 opacity-50' : 'hover:bg-gray-50'}`}>
         <p className={`text-xs text-center mb-1.5 w-6 h-6 flex items-center justify-center rounded-full mx-auto ${
-          isToday ? 'bg-[#10B981] text-white font-bold' : isOtherMonth ? 'text-gray-300' : 'text-gray-600'
+          isToday ? 'bg-[#2D5A45] text-white font-bold' : isOtherMonth ? 'text-gray-300' : 'text-gray-600'
         }`}>
           {format(day, 'd')}
         </p>
@@ -300,7 +300,7 @@ export default function SchedulePage() {
                 <button key={`task-${dt.task.id}-${dt.dateType}-${idx}`}
                   onClick={e => { e.stopPropagation(); router.push(`/tasks/${dt.task.id}`) }}
                   className={`w-full text-left rounded-md px-1.5 py-1 truncate text-[11px] leading-tight hover:opacity-80 font-medium ${
-                    dt.dateType === 'mid' ? 'bg-amber-100 text-amber-700' : 'bg-[#1C2B3A]/10 text-[#1C2B3A]'
+                    dt.dateType === 'mid' ? 'bg-[#F3E482]/65 text-gray-800' : 'bg-[#90A7D8]/45 text-gray-800'
                   }`}
                   title={`${dt.dateType === 'mid' ? '중간공유' : '최종보고'} | ${dt.task.title}`}>
                   <span className="opacity-70">{dt.dateType === 'mid' ? '중간' : '최종'}</span>
@@ -405,11 +405,11 @@ export default function SchedulePage() {
           </div>
           <div className="flex items-center gap-4 mt-3 pt-3 border-t border-gray-50 flex-wrap">
             <div className="flex items-center gap-1.5">
-              <div className="w-3 h-2.5 bg-amber-100 rounded border border-amber-300" />
+              <div className="w-3 h-2.5 bg-[#F3E482]/60 rounded border border-[#F3E482]/80" />
               <span className="text-xs text-gray-400">중간공유</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <div className="w-3 h-2.5 bg-[#1C2B3A]/10 rounded border border-[#1C2B3A]/20" />
+              <div className="w-3 h-2.5 bg-[#90A7D8]/40 rounded border border-[#90A7D8]/60" />
               <span className="text-xs text-gray-400">최종보고</span>
             </div>
             <div className="flex items-center gap-1.5">
@@ -565,17 +565,17 @@ export default function SchedulePage() {
                   onDrop={e => { e.preventDefault(); handleDayDrop(item.itemId) }}
                   onClick={() => router.push(item.type === 'meeting' ? `/meetings/${(item.data as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>).id}` : `/tasks/${(item.data as DayTask).task.id}`)}
                   className={`rounded-lg border p-3 transition-all cursor-grab active:cursor-grabbing select-none ${
-                    item.type === 'meeting' ? 'bg-[#ECFDF5]/50 border-[#10B981]/20 hover:border-[#10B981]/40' : 'bg-white border-gray-100 hover:border-gray-200'
+                    item.type === 'meeting' ? 'bg-[#BADEC8]/15 border-[#BADEC8]/25 hover:border-[#BADEC8]/50' : 'bg-white border-gray-100 hover:border-gray-200'
                   } ${dragItemId === item.itemId ? 'opacity-40 scale-95' : ''} ${
-                    dragOverId === item.itemId && dragItemId !== item.itemId ? 'border-[#10B981] shadow-sm -translate-y-0.5' : ''
+                    dragOverId === item.itemId && dragItemId !== item.itemId ? 'border-[#BADEC8] shadow-sm -translate-y-0.5' : ''
                   }`}
                 >
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-gray-300 text-xs">⠿</span>
                     {item.type === 'meeting' ? (
-                      <span className="text-xs font-medium text-[#10B981]">💬 회의</span>
+                      <span className="text-xs font-medium text-[#2D5A45]">💬 회의</span>
                     ) : (
-                      <span className={`text-xs px-2 py-0.5 rounded ${(item.data as DayTask).dateType === 'mid' ? 'bg-amber-50 text-amber-600' : 'bg-[#1C2B3A]/10 text-[#1C2B3A]'}`}>
+                      <span className={`text-xs px-2 py-0.5 rounded ${(item.data as DayTask).dateType === 'mid' ? 'bg-[#F3E482]/50 text-[#5A4A10]' : 'bg-[#90A7D8]/30 text-[#1E3A6B]'}`}>
                         {(item.data as DayTask).dateType === 'mid' ? '중간공유' : '최종보고'}
                       </span>
                     )}

@@ -11,24 +11,24 @@ import type { QuickMemo, MemoTag } from '@/types'
 const NON_NOTICE_TAGS: MemoTag[] = ['업무관련', '회의관련', '아이디어']
 
 const TAG_COLORS: Record<MemoTag, string> = {
-  '공지': 'border-t-[#10B981]/50',
-  '업무관련': 'border-t-[#10B981]',
-  '회의관련': 'border-t-[#3B82F6]',
-  '아이디어': 'border-t-teal-300',
+  '공지':    'border-t-[#F3E482]',
+  '업무관련': 'border-t-[#BADEC8]',
+  '회의관련': 'border-t-[#90A7D8]',
+  '아이디어': 'border-t-[#BFE4B5]',
 }
 
 const TAG_BADGE: Record<MemoTag, string> = {
-  '공지': 'bg-[#ECFDF5] text-[#10B981]',
-  '업무관련': 'bg-[#ECFDF5] text-[#10B981]',
-  '회의관련': 'bg-emerald-50 text-emerald-600',
-  '아이디어': 'bg-teal-50 text-teal-500',
+  '공지':    'bg-[#F3E482]/40 text-[#5A4A10]',
+  '업무관련': 'bg-[#BADEC8]/40 text-[#2D5A45]',
+  '회의관련': 'bg-[#90A7D8]/30 text-[#1E3A6B]',
+  '아이디어': 'bg-[#BFE4B5]/40 text-[#2D5A35]',
 }
 
 const TAG_DOT: Record<string, string> = {
-  '공지':   'bg-amber-400',
-  '업무관련': 'bg-[#10B981]',
-  '회의관련': 'bg-[#3B82F6]',
-  '아이디어': 'bg-teal-400',
+  '공지':    'bg-[#F3E482]',
+  '업무관련': 'bg-[#BADEC8]',
+  '회의관련': 'bg-[#90A7D8]',
+  '아이디어': 'bg-[#BFE4B5]',
 }
 
 interface MemoCardProps {
@@ -46,7 +46,7 @@ function MemoCard({ memo, onEdit, onDelete, draggable: drag, onDragStart, select
     <div
       draggable={drag}
       onDragStart={onDragStart}
-      className={`bg-white rounded-lg border p-4 group transition-colors cursor-pointer select-none overflow-hidden ${selected ? 'border-[#10B981]/40 bg-[#ECFDF5]/20' : 'border-gray-100 hover:border-gray-200'}`}
+      className={`bg-white rounded-lg border p-4 group transition-colors cursor-pointer select-none overflow-hidden ${selected ? 'border-[#BADEC8]/60 bg-[#BADEC8]/10' : 'border-gray-100 hover:border-gray-200'}`}
       onClick={() => onEdit(memo)}>
       <div className="flex items-start gap-2">
         <input type="checkbox" checked={selected ?? false}
@@ -232,7 +232,7 @@ export default function MemosPage() {
           <span className="text-sm font-semibold text-gray-700">공지</span>
           <span className="text-xs text-gray-400">{notices.length}</span>
         </div>
-        <div className={`bg-amber-50/50 rounded-lg border p-4 transition-colors ${dragOverTag === '공지' ? 'border-amber-300' : 'border-amber-100'}`}>
+        <div className={`bg-[#F3E482]/10 rounded-lg border p-4 transition-colors ${dragOverTag === '공지' ? 'border-[#F3E482]/70' : 'border-[#F3E482]/30'}`}>
           <div className="flex gap-3 overflow-x-auto pb-1">
             {notices.map(memo => (
               <div key={memo.id} className="flex-shrink-0 w-52">
@@ -242,7 +242,7 @@ export default function MemosPage() {
               </div>
             ))}
             {inlineTag === '공지' ? (
-              <div className="flex-shrink-0 w-52 bg-white rounded-lg border border-amber-200 p-3">
+              <div className="flex-shrink-0 w-52 bg-white rounded-lg border border-[#F3E482]/60 p-3">
                 <input autoFocus value={inlineTitle} onChange={e => setInlineTitle(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); inlineContentRef.current?.focus() } if (e.key === 'Escape') { setInlineTag(null); setInlineTitle(''); setInlineContent('') } }}
                   placeholder="공지 제목" className="w-full text-sm focus:outline-none mb-1.5 font-medium" />
@@ -257,7 +257,7 @@ export default function MemosPage() {
               </div>
             ) : (
               <button onClick={() => setInlineTag('공지')}
-                className="flex-shrink-0 w-36 text-xs text-gray-400 hover:text-gray-600 border border-dashed border-amber-200 hover:border-amber-300 rounded-lg py-3 transition-colors">
+                className="flex-shrink-0 w-36 text-xs text-gray-400 hover:text-gray-600 border border-dashed border-[#F3E482]/50 hover:border-[#F3E482]/80 rounded-lg py-3 transition-colors">
                 + 공지 추가
               </button>
             )}
@@ -290,7 +290,7 @@ export default function MemosPage() {
                 <span className="text-sm font-semibold text-gray-700">{tag}</span>
                 <span className="text-xs text-gray-400">{colMemos.length}</span>
               </div>
-              <div className={`bg-white rounded-lg border p-4 min-h-48 transition-colors ${isOver ? 'border-[#10B981]/40 bg-[#ECFDF5]/20' : 'border-gray-100'}`}>
+              <div className={`bg-white rounded-lg border p-4 min-h-48 transition-colors ${isOver ? 'border-[#BADEC8]/60 bg-[#BADEC8]/10' : 'border-gray-100'}`}>
                 <div className="space-y-2">
                   {colMemos.length === 0 && inlineTag !== tag && (
                     <p className="text-xs text-gray-200 text-center py-6 border border-dashed border-gray-100 rounded-lg">+ 버튼으로 추가하세요</p>

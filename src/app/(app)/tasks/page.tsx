@@ -14,27 +14,33 @@ const STATUSES: TaskStatus[] = ['진행필요', '진행중', '완료']
 
 const STATUS_COLORS: Record<TaskStatus, string> = {
   '진행필요': 'bg-gray-100 text-gray-500',
-  '진행중': 'bg-blue-50 text-blue-600',
-  '완료': 'bg-emerald-50 text-emerald-600',
+  '진행중':   'bg-[#90A7D8]/30 text-[#1E3A6B]',
+  '완료':     'bg-[#BADEC8]/40 text-[#2D5A45]',
 }
 
 const STATUS_BG: Record<TaskStatus, string> = {
   '진행필요': 'bg-gray-50 border-gray-200',
-  '진행중': 'bg-blue-50/30 border-blue-100',
-  '완료': 'bg-gray-50 border-gray-200',
+  '진행중':   'bg-[#90A7D8]/10 border-[#90A7D8]/25',
+  '완료':     'bg-gray-50 border-gray-200',
 }
 
-const PART_ACCENT: Record<string, string> = {
-  '코어': 'border-l-4 border-l-[#10B981]',
-  '비즈': 'border-l-4 border-l-[#3B82F6]',
-  '개인': 'border-l-4 border-l-slate-300',
+const PART_TOP: Record<string, string> = {
+  '코어': 'bg-[#BADEC8]',
+  '비즈': 'bg-[#90A7D8]',
+  '개인': 'bg-slate-300',
+}
+
+const PART_DOT: Record<string, string> = {
+  '코어': 'bg-[#BADEC8]',
+  '비즈': 'bg-[#90A7D8]',
+  '개인': 'bg-slate-400',
 }
 
 function MemberAvatar({ name }: { name: string }) {
-  const colors = ['bg-emerald-400','bg-[#F4A35A]','bg-[#1C2B3A]','bg-slate-400','bg-teal-400','bg-blue-400','bg-stone-400','bg-slate-500']
+  const colors = ['bg-[#BADEC8]','bg-[#F3E482]','bg-[#90A7D8]','bg-[#EBA698]','bg-[#BFE4B5]','bg-[#D3E69B]','bg-slate-300','bg-slate-400']
   const color = colors[name.charCodeAt(0) % colors.length]
   return (
-    <div className={`w-5 h-5 rounded-full ${color} flex items-center justify-center text-white text-xs font-medium`}>
+    <div className={`w-5 h-5 rounded-full ${color} flex items-center justify-center text-gray-700 text-xs font-medium`}>
       {name[0]}
     </div>
   )
@@ -286,12 +292,12 @@ export default function TasksPage() {
           {assigneeOpen && (
             <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-gray-200 rounded-xl shadow-lg py-1.5 min-w-36">
               <button onClick={() => { setAssigneeFilter('전체'); setAssigneeOpen(false) }}
-                className={`w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 transition-colors ${assigneeFilter === '전체' ? 'text-emerald-600 font-medium' : 'text-gray-600'}`}>
+                className={`w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 transition-colors ${assigneeFilter === '전체' ? 'text-[#2D5A45] font-medium' : 'text-gray-600'}`}>
                 전체 담당자
               </button>
               {members.map(m => (
                 <button key={m.id} onClick={() => { setAssigneeFilter(m.id); setAssigneeOpen(false) }}
-                  className={`w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 transition-colors ${assigneeFilter === m.id ? 'text-emerald-600 font-medium' : 'text-gray-600'}`}>
+                  className={`w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 transition-colors ${assigneeFilter === m.id ? 'text-[#2D5A45] font-medium' : 'text-gray-600'}`}>
                   {m.name}
                 </button>
               ))}
@@ -348,9 +354,12 @@ export default function TasksPage() {
             const allPartIds = partTasks.map(t => t.id)
             const allChecked = allPartIds.length > 0 && allPartIds.every(id => checkedIds.has(id))
             return (
-              <div key={part} className={`bg-white rounded-lg border border-gray-100 shadow-sm p-4 ${PART_ACCENT[part]}`}>
+              <div key={part} className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className={`h-1 ${PART_TOP[part] ?? 'bg-gray-200'}`} />
+                <div className="p-4">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
+                    <span className={`w-2 h-2 rounded-full flex-shrink-0 ${PART_DOT[part] ?? 'bg-gray-300'}`} />
                     <h2 className="text-sm font-bold text-gray-800">{part}파트</h2>
                     <span className="text-xs text-gray-400">{partTasks.length}</span>
                   </div>
@@ -450,6 +459,7 @@ export default function TasksPage() {
                     </div>
                   )
                 })()}
+                </div>{/* /p-4 */}
               </div>
             )
           })}
