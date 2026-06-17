@@ -56,10 +56,10 @@ export default function Sidebar() {
   return (
     <>
       {/* 데스크톱 사이드바 */}
-      <aside className="hidden md:flex w-52 min-h-screen bg-[#1C2B3A] flex-col">
-        <div className="p-3 border-b border-white/10">
+      <aside className="hidden md:flex w-52 min-h-screen bg-[#18253A] flex-col">
+        <div className="py-5 px-3 border-b border-white/10">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 bg-[#10B981] rounded-md flex items-center justify-center text-white font-bold text-[10px] flex-shrink-0">인</div>
+            <div className="w-7 h-7 bg-emerald-500 rounded-md flex items-center justify-center text-white font-bold text-[10px] flex-shrink-0">인</div>
             <div className="min-w-0">
               <p className="font-semibold text-white text-xs truncate">인사기획 워크</p>
               <p className="text-[10px] text-slate-400 truncate">인사기획팀 · 업무 보드</p>
@@ -76,9 +76,9 @@ export default function Sidebar() {
               return (
                 <li key={item.href}>
                   <Link href={item.href}
-                    className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-colors ${
+                    className={`flex items-center gap-2 px-2 py-2.5 rounded-lg text-xs transition-colors ${
                       isActive
-                        ? 'bg-[#10B981] text-white font-medium'
+                        ? 'bg-emerald-400/[0.18] text-emerald-300 font-medium'
                         : 'text-slate-400 hover:bg-white/8 hover:text-slate-100'
                     }`}>
                     <item.icon size={13} strokeWidth={1.75} className="flex-shrink-0" />
@@ -91,7 +91,7 @@ export default function Sidebar() {
         </nav>
         <div className="p-2 border-t border-white/10">
           <button onClick={handleLogout}
-            className="w-full text-left px-2 py-1.5 rounded-lg text-xs text-slate-400 hover:bg-white/5 hover:text-slate-200 transition-colors">
+            className="w-full text-left px-2 py-2.5 rounded-lg text-xs text-slate-400 hover:bg-white/5 hover:text-slate-200 transition-colors">
             로그아웃
           </button>
         </div>
