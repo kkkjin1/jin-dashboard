@@ -59,7 +59,7 @@ export default function Sidebar() {
       <aside className="hidden md:flex w-52 min-h-screen bg-[#18253A] flex-col">
         <div className="py-5 px-3 border-b border-white/10">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 bg-emerald-500 rounded-md flex items-center justify-center text-white font-bold text-[10px] flex-shrink-0">인</div>
+            <div className="w-7 h-7 bg-[#BADEC8] rounded-md flex items-center justify-center font-bold text-[10px] flex-shrink-0 text-[#1A3A2A]">인</div>
             <div className="min-w-0">
               <p className="font-semibold text-white text-xs truncate">인사기획 워크</p>
               <p className="text-[10px] text-slate-400 truncate">인사기획팀 · 업무 보드</p>
@@ -78,7 +78,7 @@ export default function Sidebar() {
                   <Link href={item.href}
                     className={`flex items-center gap-2 px-2 py-2.5 rounded-lg text-xs transition-colors ${
                       isActive
-                        ? 'bg-emerald-400/[0.18] text-emerald-300 font-medium'
+                        ? 'bg-[#BADEC8]/20 text-[#BADEC8] font-medium'
                         : 'text-slate-400 hover:bg-white/8 hover:text-slate-100'
                     }`}>
                     <item.icon size={13} strokeWidth={1.75} className="flex-shrink-0" />

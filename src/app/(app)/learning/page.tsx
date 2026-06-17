@@ -9,14 +9,14 @@ import type { LearningResource } from '@/types'
 
 const DEFAULT_TAGS = ['HR', '경제', '리더십', '평가보상', '데이터', '조직문화', '기획']
 const TAG_STYLE: Record<string, string> = {
-  'HR':   'bg-emerald-50 text-emerald-700',
-  '경제': 'bg-blue-50 text-blue-700',
-  '리더십': 'bg-violet-50 text-violet-700',
-  '평가보상': 'bg-amber-50 text-amber-700',
-  '데이터': 'bg-cyan-50 text-cyan-700',
-  '조직문화': 'bg-teal-50 text-teal-700',
-  '기획': 'bg-slate-100 text-slate-600',
-  '미분류': 'bg-gray-100 text-gray-500',
+  'HR':      'bg-[#BADEC8]/50 text-[#2D5A45]',
+  '경제':    'bg-[#90A7D8]/40 text-[#1E3A6B]',
+  '리더십':  'bg-[#BFE4B5]/50 text-[#2D5A35]',
+  '평가보상':'bg-[#F3E482]/50 text-[#5A4A10]',
+  '데이터':  'bg-[#D3E69B]/50 text-[#3A4A10]',
+  '조직문화':'bg-[#EBA698]/40 text-[#6B2D25]',
+  '기획':    'bg-slate-100 text-slate-600',
+  '미분류':  'bg-gray-100 text-gray-500',
 }
 const MEDIA_TYPES = ['책', '영상', '아티클', '강의', '기타']
 const MEDIA_ICONS: Record<string, string> = { '책': '📚', '영상': '🎬', '아티클': '📄', '강의': '🎓', '기타': '📌' }
