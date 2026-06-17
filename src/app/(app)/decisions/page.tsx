@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 type Persona = 'CEO' | 'CSO' | '피플본부장' | 'Jin'
@@ -46,6 +46,9 @@ export default function DecisionsPage() {
   const [newTitle, setNewTitle] = useState('')
   const [newContent, setNewContent] = useState('')
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
+  const titleRef = useRef<HTMLInputElement>(null)
+  const contentRef = useRef<HTMLTextAreaElement>(null)
   const supabase = createClient()
 
   useEffect(() => {
@@ -67,19 +70,26 @@ export default function DecisionsPage() {
   async function addLog() {
     if (!newTitle.trim() || !newContent.trim()) return
     setSaving(true)
-    const { data } = await supabase.from('persona_logs').insert({
-      persona: activeTab,
-      date: newDate,
-      title: newTitle.trim(),
-      content: newContent.trim(),
-    }).select().single()
-    if (data) {
-      setLogs(prev => [data as Log, ...prev])
-      setNewTitle('')
-      setNewContent('')
-      setAddOpen(false)
+    setSaveError('')
+    try {
+      const { data, error } = await supabase.from('persona_logs').insert({
+        persona: activeTab,
+        date: newDate,
+        title: newTitle.trim(),
+        content: newContent.trim(),
+      }).select().single()
+      if (error) { setSaveError(error.message); return }
+      if (data) {
+        setLogs(prev => [data as Log, ...prev])
+        setNewTitle('')
+        setNewContent('')
+        setAddOpen(false)
+      }
+    } catch (e) {
+      setSaveError(String(e))
+    } finally {
+      setSaving(false)
     }
-    setSaving(false)
   }
 
   async function deleteLog(id: string) {
@@ -169,7 +179,7 @@ export default function DecisionsPage() {
               <span className="text-sm font-semibold text-gray-800">{activeTab}</span>
               <span className="text-xs text-gray-400 ml-2">{PERSONA_META[activeTab].role} · {tabLogs.length}건</span>
             </div>
-            <button onClick={() => setAddOpen(v => !v)}
+            <button onClick={() => { setAddOpen(v => !v); setSaveError(''); setTimeout(() => titleRef.current?.focus(), 50) }}
               className={`text-xs px-3 py-1.5 rounded-lg transition-colors ${
                 addOpen ? 'bg-gray-200 text-gray-700' : 'bg-gray-900 text-white hover:bg-gray-800'
               }`}>
@@ -182,20 +192,40 @@ export default function DecisionsPage() {
               <div className="flex gap-2">
                 <input type="date" value={newDate} onChange={e => setNewDate(e.target.value)}
                   className="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-gray-400" />
-                <input value={newTitle} onChange={e => setNewTitle(e.target.value)}
+                <input
+                  ref={titleRef}
+                  value={newTitle}
+                  onChange={e => setNewTitle(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); addLog() }
+                    if (e.key === 'Tab' && !e.shiftKey) { e.preventDefault(); contentRef.current?.focus() }
+                  }}
                   placeholder="제목 (예: 평가제도 개편안 피드백, Q1 전략 회의)"
                   className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:border-gray-400" />
               </div>
-              <textarea value={newContent} onChange={e => setNewContent(e.target.value)}
+              <textarea
+                ref={contentRef}
+                value={newContent}
+                onChange={e => setNewContent(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); addLog() }
+                  if (e.key === 'Tab' && e.shiftKey) { e.preventDefault(); titleRef.current?.focus() }
+                }}
                 placeholder={`${activeTab}의 발언, 피드백, 대화 내용을 그대로 기록하세요.\n많이 쌓을수록 페르소나 정확도가 높아집니다.`}
                 rows={6}
                 className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:border-gray-400 resize-none" />
-              <div className="flex gap-2 justify-end">
-                <button onClick={() => setAddOpen(false)} className="text-xs text-gray-400 px-3 py-1.5 rounded-lg hover:text-gray-600">취소</button>
-                <button onClick={addLog} disabled={!newTitle.trim() || !newContent.trim() || saving}
-                  className="text-xs bg-gray-900 text-white px-4 py-1.5 rounded-lg disabled:opacity-30 hover:bg-gray-800 transition-colors">
-                  {saving ? '저장 중...' : '저장'}
-                </button>
+              {saveError && (
+                <p className="text-xs text-red-500 bg-red-50 rounded-lg px-3 py-2">{saveError}</p>
+              )}
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-300">Ctrl+Enter 저장 · Tab/Shift+Tab 이동</span>
+                <div className="flex gap-2">
+                  <button onClick={() => { setAddOpen(false); setSaveError('') }} className="text-xs text-gray-400 px-3 py-1.5 rounded-lg hover:text-gray-600">취소</button>
+                  <button onClick={addLog} disabled={!newTitle.trim() || !newContent.trim() || saving}
+                    className="text-xs bg-gray-900 text-white px-4 py-1.5 rounded-lg disabled:opacity-30 hover:bg-gray-800 transition-colors">
+                    {saving ? '저장 중...' : '저장'}
+                  </button>
+                </div>
               </div>
             </div>
           )}
