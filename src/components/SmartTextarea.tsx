@@ -160,6 +160,7 @@ const SmartTextarea = forwardRef<HTMLTextAreaElement, Props>(function SmartTexta
   useEffect(() => {
     const el = localRef.current
     if (!el) return
+    el.style.overflow = 'hidden'
     el.style.height = 'auto'
     el.style.height = el.scrollHeight + 'px'
   }, [value])
