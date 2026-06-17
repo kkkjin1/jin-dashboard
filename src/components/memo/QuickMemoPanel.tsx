@@ -13,6 +13,7 @@ const TAG_COLORS: Record<MemoTag, string> = {
   '회의관련': 'bg-purple-50 text-purple-600 border-purple-200',
   '아이디어': 'bg-amber-50 text-amber-600 border-amber-200',
   '공지': 'bg-red-50 text-red-600 border-red-200',
+  '완료': 'bg-gray-50 text-gray-400 border-gray-200',
 }
 
 function parseMeetingDate(text: string): string | null {

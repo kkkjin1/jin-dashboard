@@ -10,6 +10,7 @@ const TAG_COLORS: Record<MemoTag, string> = {
   '업무관련': 'bg-emerald-50 text-emerald-700',
   '회의관련': 'bg-blue-50 text-blue-700',
   '아이디어': 'bg-teal-50 text-teal-600',
+  '완료': 'bg-gray-100 text-gray-400',
 }
 
 export default function MobileMemoSheet() {
