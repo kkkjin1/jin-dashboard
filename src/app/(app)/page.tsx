@@ -39,7 +39,7 @@ interface CompactColProps {
 function CompactCol({ title, items, dot, badgeCls = 'bg-gray-200 text-gray-600', droppable, onDrop, onDragOver, onDragLeave, isDragOver, onComplete, maxItems = 5, scrollable }: CompactColProps) {
   return (
     <div
-      className={`bg-white rounded-lg border p-4 min-w-0 transition-colors flex flex-col ${isDragOver && droppable ? 'border-emerald-300 bg-emerald-50/30' : 'border-gray-100'}`}
+      className={`bg-white rounded-lg border p-4 min-w-0 min-h-[150px] transition-colors flex flex-col ${isDragOver && droppable ? 'border-emerald-300 bg-emerald-50/30' : 'border-gray-100'}`}
       onDragOver={droppable ? onDragOver : undefined}
       onDrop={droppable ? onDrop : undefined}
       onDragLeave={droppable ? onDragLeave : undefined}
@@ -441,7 +441,7 @@ export default function HomePage() {
       )}
 
       {/* Row 4: 캘린더 + 오늘할일 + 미지정백로그 */}
-      <div className="md:flex-1 md:min-h-0 grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="md:flex-1 md:min-h-0 grid grid-cols-1 md:grid-cols-3 gap-4" style={{ zoom: 0.88 }}>
         <div className="md:col-span-2 md:overflow-hidden">
           <HomeCalendar tasks={tasks} meetings={meetings} />
         </div>
