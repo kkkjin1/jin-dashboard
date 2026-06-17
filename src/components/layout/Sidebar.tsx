@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Home, ClipboardList, Trophy, MessageSquare, CalendarDays, StickyNote, Users, BookOpen, Settings } from 'lucide-react'
+import { Home, ClipboardList, Trophy, MessageSquare, CalendarDays, StickyNote, Users, BookOpen, Settings, Brain } from 'lucide-react'
 
 const navItems = [
   { href: '/', label: '홈', key: '1', icon: Home },
@@ -15,13 +15,14 @@ const navItems = [
   { href: '/memos', label: '메모', key: '6', icon: StickyNote },
   { href: '/one-on-one', label: '1on1', key: '7', icon: Users },
   { href: '/learning', label: '학습자료', key: '8', icon: BookOpen },
+  { href: '/decisions', label: '의사결정', key: '9', icon: Brain },
   { href: '/settings', label: '설정', key: '', icon: Settings },
 ]
 
 const KEY_ROUTES: Record<string, string> = {
   '1': '/', '2': '/tasks', '3': '/completed',
   '4': '/meetings', '5': '/schedule', '6': '/memos',
-  '7': '/one-on-one', '8': '/learning',
+  '7': '/one-on-one', '8': '/learning', '9': '/decisions',
 }
 
 export default function Sidebar() {
