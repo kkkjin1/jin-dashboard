@@ -93,6 +93,124 @@ function AnalysisPanel({ feedbacks, onAssignType }: { feedbacks: MyFeedback[]; o
   )
 }
 
+// ─── 공통 키워드 패널 ─────────────────────────────────────────────────────────
+const KO_STOPWORDS = new Set(['것', '이', '가', '을', '를', '은', '는', '에서', '에', '으로', '로', '의', '와', '과', '도', '하다', '합니다', '했습니다', '그리고', '하지만', '그런데', '등', '때', '때문에', '좀', '더', '같다', '같아', '같이', '이런', '저런', '그런', '어떤', '어떻게', '많이', '조금', '정말', '너무', '매우', '굉장히', '잘', '안', '못', '아주', '수', '제', '저', '그', '있', '없', '있는', '없는', '있어', '없어', '있습니다', '없습니다', '하는', '하고', '해서', '해요', '해줘', '같은', '위해', '통해', '대해', '부분', '경우', '생각', '느낌', '것들', '때문', '거의', '항상', '가끔', '보통', '되는', '되어', '되고', '이후', '이전', '또한', '그래서', '그래도', '하면', '하면서', '하지', '다시', '먼저', '같습니다'])
+
+function KeywordsPanel({ feedbacks }: { feedbacks: MyFeedback[] }) {
+  const keywords = useMemo(() => {
+    const allText = feedbacks.map(f => f.content).join(' ')
+    const words = allText
+      .split(/[\s,.\!\?:;()\[\]"'\n]+/)
+      .map(w => w.replace(/[^가-힣a-zA-Z0-9]/g, ''))
+      .filter(w => w.length >= 2 && !KO_STOPWORDS.has(w))
+    const freq = new Map<string, number>()
+    words.forEach(w => freq.set(w, (freq.get(w) ?? 0) + 1))
+    return Array.from(freq.entries())
+      .filter(([, c]) => c >= 2)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 16)
+  }, [feedbacks])
+
+  if (keywords.length === 0) return (
+    <div className="bg-white rounded-xl border border-gray-100 px-5 py-4">
+      <p className="text-xs font-semibold text-gray-500 mb-2">공통 키워드</p>
+      <p className="text-xs text-gray-300">피드백이 쌓이면 키워드가 추출됩니다</p>
+    </div>
+  )
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-100 px-5 py-4">
+      <div className="flex items-center gap-2 mb-1">
+        <p className="text-xs font-semibold text-gray-500">공통 키워드</p>
+        <span className="text-[10px] text-gray-300">2회 이상 등장</span>
+      </div>
+      <div className="flex flex-wrap gap-1.5 mt-3">
+        {keywords.map(([word, count]) => (
+          <span key={word} className={`text-xs px-2 py-0.5 rounded-full border ${
+            count >= 5
+              ? 'bg-[#90A7D8]/25 border-[#90A7D8]/40 text-[#1E3A6B] font-semibold'
+              : count >= 3
+              ? 'bg-gray-100 border-gray-200 text-gray-600'
+              : 'bg-gray-50 border-gray-100 text-gray-400'
+          }`}>
+            {word} <span className="opacity-50 text-[10px]">{count}</span>
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ─── 다음 질문 준비 패널 ───────────────────────────────────────────────────────
+function NextQuestionsPanel() {
+  const STORAGE_KEY = 'oneOnOne_nextQuestions'
+  const [isOpen, setIsOpen] = useState(true)
+  const [questions, setQuestions] = useState<{ id: string; text: string }[]>([])
+  const [input, setInput] = useState('')
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY)
+      if (saved) setQuestions(JSON.parse(saved))
+    } catch { /* ignore */ }
+  }, [])
+
+  function save(qs: { id: string; text: string }[]) {
+    setQuestions(qs)
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(qs)) } catch { /* ignore */ }
+  }
+
+  function addQuestion() {
+    if (!input.trim()) return
+    save([...questions, { id: `${Date.now()}`, text: input.trim() }])
+    setInput('')
+  }
+
+  function deleteQuestion(id: string) {
+    save(questions.filter(q => q.id !== id))
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+      <button onClick={() => setIsOpen(p => !p)}
+        className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 transition-colors">
+        <span className="text-xs font-semibold text-gray-500">다음 1on1 질문 준비</span>
+        <div className="flex items-center gap-2">
+          {questions.length > 0 && <span className="text-xs text-gray-300">{questions.length}개</span>}
+          <span className="text-[10px] text-gray-300">{isOpen ? '▼' : '▶'}</span>
+        </div>
+      </button>
+      {isOpen && (
+        <div className="px-5 pb-4 border-t border-gray-50">
+          {questions.length === 0 ? (
+            <p className="text-xs text-gray-300 pt-2 pb-1">아직 준비된 질문이 없습니다</p>
+          ) : (
+            <ul className="space-y-1.5 pt-2 pb-1">
+              {questions.map((q, i) => (
+                <li key={q.id} className="group flex items-start gap-1.5">
+                  <span className="text-xs text-gray-300 flex-shrink-0 mt-0.5 w-4">{i + 1}.</span>
+                  <span className="flex-1 text-xs text-gray-700 leading-relaxed">{q.text}</span>
+                  <button onClick={() => deleteQuestion(q.id)}
+                    className="flex-shrink-0 text-xs text-gray-200 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all">삭제</button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="flex gap-2 mt-2">
+            <input
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') addQuestion() }}
+              placeholder="질문 입력 후 Enter"
+              className="flex-1 text-xs border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:border-gray-400 placeholder-gray-300"
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── 내 피드백 뷰 ─────────────────────────────────────────────────────────────
 function MyFeedbackView() {
   const supabase = createClient()
@@ -300,9 +418,11 @@ function MyFeedbackView() {
         </div>
       </div>
 
-      {/* RIGHT: 분석 패널 */}
-      <div className="flex-[35] min-w-0">
+      {/* RIGHT: 분석 패널 + 키워드 + 다음 질문 */}
+      <div className="flex-[35] min-w-0 space-y-4">
         <AnalysisPanel feedbacks={feedbacks} onAssignType={assignType} />
+        <KeywordsPanel feedbacks={feedbacks} />
+        <NextQuestionsPanel />
       </div>
     </div>
   )

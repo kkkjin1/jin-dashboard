@@ -446,11 +446,11 @@ export default function HomePage() {
           <HomeCalendar tasks={tasks} meetings={meetings} />
         </div>
         <div className="md:overflow-hidden flex flex-col gap-3 min-h-0">
-          <div className="flex-1 min-h-0 overflow-hidden">
+          <div className="flex-[3] min-h-0 overflow-hidden">
             <TodayTodoWidget />
           </div>
           {/* 미지정 할일 + 금주 완료 2분할 */}
-          <div className="bg-white rounded-xl border border-gray-100 flex flex-col overflow-hidden flex-1 min-h-0">
+          <div className="bg-white rounded-xl border border-gray-100 flex flex-col overflow-hidden flex-[2] min-h-0">
             <div className="flex border-b border-gray-100 flex-shrink-0">
               <div className="flex-1 flex items-center gap-1.5 px-3 py-2 border-r border-gray-100">
                 <span className="w-1.5 h-1.5 rounded-full bg-gray-300 flex-shrink-0" />

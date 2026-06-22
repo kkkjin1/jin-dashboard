@@ -195,6 +195,7 @@ export default function TaskDetailPage() {
   const [linkUrl, setLinkUrl] = useState('')
   const [linkName, setLinkName] = useState('')
   const [uploading, setUploading] = useState(false)
+  const [previewImg, setPreviewImg] = useState<string | null>(null)
   const [toast, setToast] = useState('')
   const [deleting, setDeleting] = useState(false)
   const [titleInput, setTitleInput] = useState('')
@@ -223,6 +224,27 @@ export default function TaskDetailPage() {
   const noteTitleRef = useRef<HTMLInputElement>(null)
   const noteAreaRef = useRef<HTMLTextAreaElement>(null)
   const autoFocused = useRef(false)
+  const noteDraftKey = `note_draft_${id}`
+
+  // 새로고침 후 복원: localStorage에서 임시저장 불러오기
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(noteDraftKey)
+      if (raw) {
+        const { content, title } = JSON.parse(raw)
+        if (content) { setNoteInput(content); setNoteTitle(title || defaultNoteTitle()) }
+      }
+    } catch { /* ignore */ }
+  }, [noteDraftKey])
+
+  // noteInput 변경 시 localStorage에 임시저장
+  useEffect(() => {
+    if (!noteInput.trim()) { localStorage.removeItem(noteDraftKey); return }
+    const timer = setTimeout(() => {
+      try { localStorage.setItem(noteDraftKey, JSON.stringify({ content: noteInput, title: noteTitle })) } catch { /* ignore */ }
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [noteInput, noteTitle, noteDraftKey])
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -281,7 +303,8 @@ export default function TaskDetailPage() {
   }
 
   async function updateTask(updates: Partial<Task>) {
-    await supabase.from('tasks').update(updates).eq('id', id)
+    const { error } = await supabase.from('tasks').update(updates).eq('id', id)
+    if (error) { setToast(`저장 실패: ${error.message}`); return }
     setTask(prev => prev ? { ...prev, ...updates } : prev)
   }
 
@@ -388,6 +411,7 @@ export default function TaskDetailPage() {
     const currentMonth = new Date().toISOString().slice(0, 7)
     const workMonths = task?.work_months ?? []
     if (!workMonths.includes(currentMonth)) await updateTask({ work_months: [...workMonths, currentMonth] })
+    localStorage.removeItem(noteDraftKey)
     setNoteInput('')
     setNoteTitle(defaultNoteTitle())
   }
@@ -399,7 +423,11 @@ export default function TaskDetailPage() {
 
   async function editNote(noteId: string, newContent: string) {
     const now = new Date().toISOString()
-    await supabase.from('notes').update({ content: newContent, edited_at: now }).eq('id', noteId)
+    const { error } = await supabase
+      .from('notes')
+      .update({ content: newContent, edited_at: now })
+      .eq('id', noteId)
+    if (error) { setToast(`저장 실패: ${error.message}`); return }
     setNotes(prev => prev.map(n => n.id === noteId ? { ...n, content: newContent, edited_at: now } : n))
   }
 
@@ -416,21 +444,66 @@ export default function TaskDetailPage() {
     setLinkUrl(''); setLinkName('')
   }
 
+  async function convertToJpeg(blob: Blob): Promise<Blob> {
+    return new Promise(resolve => {
+      const img = new window.Image()
+      const url = URL.createObjectURL(blob)
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        canvas.width = img.width
+        canvas.height = img.height
+        canvas.getContext('2d')!.drawImage(img, 0, 0)
+        URL.revokeObjectURL(url)
+        canvas.toBlob(result => resolve(result!), 'image/jpeg', 0.92)
+      }
+      img.src = url
+    })
+  }
+
+  async function handlePaste(e: React.ClipboardEvent) {
+    // input/textarea에서는 기본 붙여넣기 유지
+    const tag = (e.target as HTMLElement).tagName
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return
+    const items = Array.from(e.clipboardData.items)
+    const imageItem = items.find(item => item.type.startsWith('image/'))
+    if (!imageItem) return
+    e.preventDefault()
+    const blob = imageItem.getAsFile()
+    if (!blob) return
+    setUploading(true)
+    try {
+      const jpgBlob = await convertToJpeg(blob)
+      const fileName = `screenshot_${Date.now()}.jpg`
+      const path = `tasks/${id}/${Date.now()}_${fileName}`
+      const { error } = await supabase.storage.from('attachments').upload(path, jpgBlob, { contentType: 'image/jpeg' })
+      if (error) { setToast('이미지 업로드 실패'); return }
+      const { data: urlData } = supabase.storage.from('attachments').getPublicUrl(path)
+      const { data } = await supabase.from('attachments').insert({ task_id: id, name: fileName, type: '파일', url: urlData.publicUrl }).select().single()
+      if (data) setAttachments(prev => [data as Attachment, ...prev])
+    } finally {
+      setUploading(false)
+    }
+  }
+
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? [])
     if (!files.length) return
     setUploading(true)
-    for (const file of files) {
-      const safeName = file.name.replace(/[^a-zA-Z0-9가-힣._-]/g, '_')
-      const path = `tasks/${id}/${Date.now()}_${safeName}`
-      const { error } = await supabase.storage.from('attachments').upload(path, file)
-      if (error) { console.error(error); continue }
-      const { data: urlData } = supabase.storage.from('attachments').getPublicUrl(path)
-      const { data } = await supabase.from('attachments').insert({ task_id: id, name: file.name, type: '파일', url: urlData.publicUrl }).select().single()
-      if (data) setAttachments(prev => [data as Attachment, ...prev])
+    try {
+      for (const file of files) {
+        // 스토리지 경로는 ASCII만 사용 (한글 등 비ASCII → _)
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+        const path = `tasks/${id}/${Date.now()}_${safeName}`
+        const { error } = await supabase.storage.from('attachments').upload(path, file)
+        if (error) { console.error('upload error:', error); setToast(`업로드 실패: ${error.message}`); continue }
+        const { data: urlData } = supabase.storage.from('attachments').getPublicUrl(path)
+        const { data } = await supabase.from('attachments').insert({ task_id: id, name: file.name, type: '파일', url: urlData.publicUrl }).select().single()
+        if (data) setAttachments(prev => [data as Attachment, ...prev])
+      }
+    } finally {
+      setUploading(false)
+      e.target.value = ''
     }
-    setUploading(false)
-    e.target.value = ''
   }
 
   async function deleteAttachment(att: Attachment) {
@@ -492,8 +565,17 @@ export default function TaskDetailPage() {
     <div
       className="p-8"
       style={contentWidth ? { width: `${contentWidth}px` } : {}}
+      onPaste={handlePaste}
     >
       {toast && <Toast message={toast} onDone={() => setToast('')} />}
+
+      {/* 이미지 라이트박스 */}
+      {previewImg && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-8" onClick={() => setPreviewImg(null)}>
+          <img src={previewImg} className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" onClick={e => e.stopPropagation()} />
+          <button onClick={() => setPreviewImg(null)} className="absolute top-4 right-6 text-white text-3xl font-light hover:text-gray-300 leading-none">×</button>
+        </div>
+      )}
 
       {showRetroModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
@@ -687,11 +769,24 @@ export default function TaskDetailPage() {
               ) : (
                 attachments.map(att => {
                   const ext = att.name.split('.').pop()?.toLowerCase() ?? ''
-                  const icon = att.type === '링크' ? '🔗' : ['jpg','jpeg','png','gif','webp','svg'].includes(ext) ? '🖼️' : ['pdf'].includes(ext) ? '📄' : ['xlsx','xls','csv'].includes(ext) ? '📊' : ['docx','doc'].includes(ext) ? '📝' : ['pptx','ppt'].includes(ext) ? '📊' : ['zip','rar','7z'].includes(ext) ? '📦' : '📎'
+                  const isImage = ['jpg','jpeg','png','gif','webp','svg'].includes(ext)
+                  const isPdf = ext === 'pdf'
+                  const icon = att.type === '링크' ? '🔗' : isImage ? '🖼️' : isPdf ? '📄' : ['xlsx','xls','csv'].includes(ext) ? '📊' : ['docx','doc'].includes(ext) ? '📝' : ['pptx','ppt'].includes(ext) ? '📊' : ['zip','rar','7z'].includes(ext) ? '📦' : '📎'
                   return (
-                    <div key={att.id} className="bg-white rounded-lg border border-gray-100 px-4 py-2.5 flex items-center justify-between group">
-                      <a href={att.url} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-500 hover:text-blue-700 hover:underline truncate flex-1">{icon} {att.name}</a>
-                      <button onClick={() => deleteAttachment(att)} className="text-xs text-gray-200 hover:text-red-400 ml-3 opacity-0 group-hover:opacity-100 transition-all">삭제</button>
+                    <div key={att.id} className="bg-white rounded-lg border border-gray-100 overflow-hidden group">
+                      <div className="px-4 py-2.5 flex items-center justify-between">
+                        {isImage ? (
+                          <button onClick={() => setPreviewImg(att.url)} className="text-sm text-blue-500 hover:text-blue-700 hover:underline truncate flex-1 text-left">{icon} {att.name}</button>
+                        ) : (
+                          <a href={att.url} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-500 hover:text-blue-700 hover:underline truncate flex-1">{icon} {att.name}</a>
+                        )}
+                        <button onClick={() => deleteAttachment(att)} className="text-xs text-gray-200 hover:text-red-400 ml-3 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">삭제</button>
+                      </div>
+                      {isImage && (
+                        <div className="px-4 pb-3 cursor-pointer" onClick={() => setPreviewImg(att.url)}>
+                          <img src={att.url} alt={att.name} className="max-h-32 rounded object-cover hover:opacity-90 transition-opacity" />
+                        </div>
+                      )}
                     </div>
                   )
                 })
