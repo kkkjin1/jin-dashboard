@@ -227,6 +227,7 @@ export default function MeetingDetailPage() {
   const [linkUrl, setLinkUrl] = useState('')
   const [linkName, setLinkName] = useState('')
   const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState('')
   const [linkedTasks, setLinkedTasks] = useState<Task[]>([])
   const [allTasks, setAllTasks] = useState<Pick<Task, 'id' | 'title' | 'status' | 'part'>[]>([])
   const [selectedTaskId, setSelectedTaskId] = useState('')
@@ -355,17 +356,21 @@ export default function MeetingDetailPage() {
     const files = Array.from(e.target.files ?? [])
     if (!files.length) return
     setUploading(true)
-    for (const file of files) {
-      const safeName = file.name.replace(/[^a-zA-Z0-9가-힣._-]/g, '_')
-      const path = `meetings/${id}/${Date.now()}_${safeName}`
-      const { error } = await supabase.storage.from('attachments').upload(path, file)
-      if (error) { console.error(error); continue }
-      const { data: urlData } = supabase.storage.from('attachments').getPublicUrl(path)
-      const { data } = await supabase.from('attachments').insert({ meeting_id: id, task_id: null, name: file.name, type: '파일', url: urlData.publicUrl }).select().single()
-      if (data) setAttachments(prev => [data as Attachment, ...prev])
+    setUploadError('')
+    try {
+      for (const file of files) {
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+        const path = `meetings/${id}/${Date.now()}_${safeName}`
+        const { error } = await supabase.storage.from('attachments').upload(path, file)
+        if (error) { setUploadError(`업로드 실패: ${error.message}`); continue }
+        const { data: urlData } = supabase.storage.from('attachments').getPublicUrl(path)
+        const { data } = await supabase.from('attachments').insert({ meeting_id: id, task_id: null, name: file.name, type: '파일', url: urlData.publicUrl }).select().single()
+        if (data) setAttachments(prev => [data as Attachment, ...prev])
+      }
+    } finally {
+      setUploading(false)
+      e.target.value = ''
     }
-    setUploading(false)
-    e.target.value = ''
   }
 
   async function deleteAttachment(att: Attachment) {
@@ -490,11 +495,16 @@ export default function MeetingDetailPage() {
           <div className="mb-6">
             <h2 className="text-sm font-semibold text-gray-700 mb-3">첨부파일 / 링크</h2>
             <div className="bg-white rounded-lg border border-gray-100 p-4 mb-3 space-y-2">
-              <div className="flex gap-2">
-                <label className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg cursor-pointer transition-colors ${uploading ? 'bg-gray-50 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'}`}>
-                  📎 {uploading ? '업로드 중...' : '파일 첨부'}
-                  <input type="file" multiple className="hidden" onChange={handleFileUpload} disabled={uploading} />
-                </label>
+              <div className="flex flex-col gap-1.5">
+                <div className="flex gap-2">
+                  <label className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg cursor-pointer transition-colors ${uploading ? 'bg-gray-50 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'}`}>
+                    📎 {uploading ? '업로드 중...' : '파일 첨부'}
+                    <input type="file" multiple className="hidden" onChange={handleFileUpload} disabled={uploading} />
+                  </label>
+                </div>
+                {uploadError && (
+                  <p className="text-xs text-red-500 px-1">{uploadError}</p>
+                )}
               </div>
               <div className="flex gap-2">
                 <input value={linkUrl} onChange={e => setLinkUrl(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addLink() }}
