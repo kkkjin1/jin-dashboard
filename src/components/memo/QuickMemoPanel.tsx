@@ -312,13 +312,15 @@ export default function QuickMemoPanel() {
             </p>
           )}
 
-          <SmartTextarea ref={contentRef} value={content} onChange={setContent}
-            onKeyDown={e => {
-              if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); handleSave() }
-            }}
-            placeholder="내용 (선택, Ctrl+Enter 저장)"
-            className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-400 resize-none flex-1"
-            style={{ minHeight: '80px', resize: 'none' }} />
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            <SmartTextarea ref={contentRef} value={content} onChange={setContent}
+              onKeyDown={e => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); handleSave() }
+              }}
+              placeholder="내용 (선택, Ctrl+Enter 저장)"
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-400 resize-none"
+              style={{ minHeight: '80px', resize: 'none' }} />
+          </div>
 
           <div className="flex justify-between items-center mt-3">
             <span className="text-xs text-gray-300">ESC 닫기 · Enter 내용으로 · Ctrl+Enter 저장</span>
