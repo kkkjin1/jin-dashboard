@@ -46,35 +46,36 @@ function renderLine(line: string, keyVal: string | number): React.ReactNode {
   if (line.startsWith('## ')) return <p key={k} className="text-lg font-semibold text-gray-800 mt-2 mb-1">{parseInline(line.slice(3), `${k}`)}</p>
   if (line.startsWith('### ')) return <p key={k} className="text-base font-semibold text-gray-700 mt-1.5 mb-0.5">{parseInline(line.slice(4), `${k}`)}</p>
 
-  const numMatch = line.match(/^( *)(\d+)\. (.*)$/)
+  // (?:\s(.*))? → content after marker is optional: handles mid-typing state like "3." or "3)"
+  const numMatch = line.match(/^( *)(\d+)\.(?:\s(.*))?$/)
   if (numMatch) {
     const lvl = Math.floor(numMatch[1].length / INDENT_SIZE)
     return (
       <div key={k} className="flex gap-1.5 text-sm text-gray-700 leading-relaxed" style={{ paddingLeft: `${lvl * 20}px` }}>
         <span className="text-gray-400 flex-shrink-0 min-w-[1.25rem] text-right">{numMatch[2]}.</span>
-        <span>{parseInline(numMatch[3], `${k}`)}</span>
+        <span className="flex-1 min-w-0">{parseInline(numMatch[3] ?? '', `${k}`)}</span>
       </div>
     )
   }
 
-  const korMatch = line.match(/^( *)([가나다라마바사아자차카타파하])\. (.*)$/)
+  const korMatch = line.match(/^( *)([가나다라마바사아자차카타파하])\.(?:\s(.*))?$/)
   if (korMatch) {
     const lvl = Math.floor(korMatch[1].length / INDENT_SIZE)
     return (
       <div key={k} className="flex gap-1.5 text-sm text-gray-700 leading-relaxed" style={{ paddingLeft: `${lvl * 20}px` }}>
         <span className="text-gray-400 flex-shrink-0">{korMatch[2]}.</span>
-        <span>{parseInline(korMatch[3], `${k}`)}</span>
+        <span className="flex-1 min-w-0">{parseInline(korMatch[3] ?? '', `${k}`)}</span>
       </div>
     )
   }
 
-  const parenMatch = line.match(/^( *)(\d+)\) (.*)$/)
+  const parenMatch = line.match(/^( *)(\d+)\)(?:\s(.*))?$/)
   if (parenMatch) {
     const lvl = Math.floor(parenMatch[1].length / INDENT_SIZE)
     return (
       <div key={k} className="flex gap-1.5 text-sm text-gray-700 leading-relaxed" style={{ paddingLeft: `${lvl * 20}px` }}>
         <span className="text-gray-400 flex-shrink-0">{parenMatch[2]})</span>
-        <span>{parseInline(parenMatch[3], `${k}`)}</span>
+        <span className="flex-1 min-w-0">{parseInline(parenMatch[3] ?? '', `${k}`)}</span>
       </div>
     )
   }
@@ -85,7 +86,7 @@ function renderLine(line: string, keyVal: string | number): React.ReactNode {
     return (
       <div key={k} className="flex gap-1.5 text-sm text-gray-700 leading-relaxed" style={{ paddingLeft: `${lvl * 20}px` }}>
         <span className="text-gray-800 flex-shrink-0 text-[9px] pt-[3px]">▪</span>
-        <span>{parseInline(bulletMatch[2], `${k}`)}</span>
+        <span className="flex-1 min-w-0">{parseInline(bulletMatch[2], `${k}`)}</span>
       </div>
     )
   }
@@ -96,7 +97,7 @@ function renderLine(line: string, keyVal: string | number): React.ReactNode {
     return (
       <div key={k} className="flex gap-1.5 text-sm text-gray-600 leading-relaxed" style={{ paddingLeft: `${(lvl + 1) * 20}px` }}>
         <span className="text-gray-400 flex-shrink-0 text-[9px] pt-[3px]">▫</span>
-        <span>{parseInline(subBulletMatch[2], `${k}`)}</span>
+        <span className="flex-1 min-w-0">{parseInline(subBulletMatch[2], `${k}`)}</span>
       </div>
     )
   }
