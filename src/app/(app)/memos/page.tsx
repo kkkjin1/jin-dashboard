@@ -221,7 +221,7 @@ export default function MemosPage() {
       {/* 공지 */}
       <div className="mb-8"
         onDragOver={e => { e.preventDefault(); setDragOverTag('공지') }}
-        onDragLeave={() => setDragOverTag(null)}
+        onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverTag(null) }}
         onDrop={() => handleDropOnTag('공지')}>
         <div className="flex items-center gap-2 mb-3">
           {notices.length > 0 && (
@@ -278,8 +278,8 @@ export default function MemosPage() {
           const isOver = dragOverTag === tag
           return (
             <div key={tag}
-              onDragOver={e => { e.preventDefault(); setDragOverTag(tag) }}
-              onDragLeave={() => setDragOverTag(null)}
+              onDragOver={e => { e.preventDefault(); if (dragOverTag !== tag) setDragOverTag(tag) }}
+              onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverTag(null) }}
               onDrop={() => handleDropOnTag(tag)}>
               <div className="flex items-center gap-2 mb-3">
                 {colMemos.length > 0 && (
@@ -293,7 +293,7 @@ export default function MemosPage() {
                 <span className="text-sm font-semibold text-gray-700">{tag}</span>
                 <span className="text-xs text-gray-400">{colMemos.length}</span>
               </div>
-              <div className={`rounded-lg border p-4 min-h-48 transition-colors ${tag === '완료' ? 'bg-gray-50/50' : 'bg-white'} ${isOver ? 'border-[#BADEC8]/60 bg-[#BADEC8]/10' : 'border-gray-100'}`}>
+              <div className={`rounded-lg border p-4 min-h-48 max-h-[calc(100vh-280px)] overflow-y-auto transition-colors ${tag === '완료' ? 'bg-gray-50/50' : 'bg-white'} ${isOver ? 'border-[#BADEC8]/60 bg-[#BADEC8]/10' : 'border-gray-100'}`}>
                 <div className="space-y-2">
                   {colMemos.length === 0 && inlineTag !== tag && (
                     <p className="text-xs text-gray-200 text-center py-6 border border-dashed border-gray-100 rounded-lg">
