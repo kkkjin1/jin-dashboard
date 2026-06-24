@@ -276,7 +276,7 @@ export default function HomePage() {
   if (loading) return <HomePageSkeleton />
 
   return (
-    <div className="p-4 md:p-6 flex flex-col md:h-full md:overflow-hidden gap-4" style={{ zoom: 0.84 }}>
+    <div className="p-4 md:p-6 flex flex-col md:h-full md:overflow-hidden gap-4">
 
       {/* Row 1: 헤더 */}
       <div className="flex items-center justify-between flex-shrink-0">

@@ -7,6 +7,8 @@ import { format, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { createClient } from '@/lib/supabase/client'
 import type { OneOnOne, Member, NoteEntry } from '@/types'
+import SmartTextarea from '@/components/SmartTextarea'
+import MarkdownContent from '@/components/MarkdownContent'
 
 export default function OneOnOneSessionPage() {
   const { memberId, sessionId } = useParams<{ memberId: string; sessionId: string }>()
@@ -21,6 +23,7 @@ export default function OneOnOneSessionPage() {
   const [contentInput, setContentInput] = useState('')
   const [nextAppointment, setNextAppointment] = useState('')
   const [deleting, setDeleting] = useState(false)
+  const [editingContent, setEditingContent] = useState(false)
 
   const titleRef = useRef<HTMLInputElement>(null)
   const contentRef = useRef<HTMLTextAreaElement>(null)
@@ -61,7 +64,7 @@ export default function OneOnOneSessionPage() {
     if (session && !autoFocused.current) {
       autoFocused.current = true
       if (!session.title) titleRef.current?.focus()
-      else contentRef.current?.focus()
+      else setEditingContent(true)
     }
   }, [session])
 
@@ -159,16 +162,29 @@ export default function OneOnOneSessionPage() {
           <div className="mb-6">
             <h2 className="text-sm font-semibold text-gray-700 mb-3">기록</h2>
             <div className="bg-white rounded-xl border border-gray-100 p-4">
-              <textarea
-                ref={contentRef}
-                value={contentInput}
-                onChange={e => setContentInput(e.target.value)}
-                onBlur={saveContent}
-                onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) saveContent() }}
-                placeholder="1on1 내용을 자유롭게 입력하세요 (포커스 이탈 시 자동 저장)"
-                className="w-full text-sm focus:outline-none resize-none text-gray-700 placeholder:text-gray-300"
-                style={{ minHeight: '280px' }}
-              />
+              {editingContent ? (
+                <SmartTextarea
+                  ref={contentRef}
+                  value={contentInput}
+                  onChange={setContentInput}
+                  onBlur={() => { setEditingContent(false); saveContent() }}
+                  autoFocus
+                  placeholder="1on1 내용을 자유롭게 입력하세요 (포커스 이탈 시 자동 저장)"
+                  className="w-full text-sm focus:outline-none resize-none text-gray-700 placeholder:text-gray-300"
+                  style={{ minHeight: '280px' }}
+                />
+              ) : (
+                <div
+                  className="w-full min-h-[280px] cursor-text"
+                  onClick={() => setEditingContent(true)}
+                >
+                  {contentInput ? (
+                    <MarkdownContent content={contentInput} className="text-sm text-gray-700" />
+                  ) : (
+                    <p className="text-sm text-gray-300">1on1 내용을 자유롭게 입력하세요</p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -180,7 +196,7 @@ export default function OneOnOneSessionPage() {
                 {session.notes.slice(1).map((note, idx) => (
                   <div key={idx} className="bg-gray-50 rounded-xl border border-gray-100 p-3">
                     <p className="text-xs text-gray-400 mb-1">{note.title}</p>
-                    <p className="text-sm text-gray-600 whitespace-pre-wrap">{note.content}</p>
+                    <MarkdownContent content={note.content} className="text-sm text-gray-600" />
                   </div>
                 ))}
               </div>

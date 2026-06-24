@@ -207,12 +207,14 @@ const SmartTextarea = forwardRef<HTMLTextAreaElement, Props>(function SmartTexta
       return
     }
 
-    // '- ' → '▪ ' auto-conversion (Space after dash at line start)
+    // '- ' → '▪ ' auto-conversion (Space after dash at any indent level)
     if (e.key === ' ' && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
       const linePos = start - lineStart
-      if (linePos === 1 && line[0] === '-') {
+      const beforeCursor = line.slice(0, linePos)
+      const leading = beforeCursor.length - beforeCursor.trimStart().length
+      if (beforeCursor.trimStart() === '-') {
         e.preventDefault()
-        replaceRange(el, lineStart, lineStart + 1, '▪ ')
+        replaceRange(el, lineStart + leading, start, '▪ ')
         return
       }
     }
