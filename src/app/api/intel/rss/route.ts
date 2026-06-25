@@ -12,6 +12,16 @@ function stripCdata(text: string): string {
   return text.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, (_, c) => c).trim()
 }
 
+function decodeEntities(text: string): string {
+  return text
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+}
+
 function extractTag(block: string, tag: string): string {
   const cdataRe = new RegExp(`<${tag}[^>]*><!\\[CDATA\\[([\\s\\S]*?)\\]\\]><\\/${tag}>`, 'i')
   const cdata = block.match(cdataRe)
@@ -30,14 +40,14 @@ function parseRSS(xml: string, sourceLabel: string): RssItem[] {
   for (const match of xml.matchAll(/<item>([\s\S]*?)<\/item>/g)) {
     const block = match[1]
 
-    const title = stripCdata(extractTag(block, 'title'))
+    const title = decodeEntities(stripCdata(extractTag(block, 'title')))
     let link = stripCdata(extractTag(block, 'link'))
     if (!link) link = stripCdata(extractTag(block, 'guid'))
 
     if (!title || !link) continue
 
-    const rawDesc = stripCdata(extractTag(block, 'description'))
-    const description = rawDesc.replace(/\s+/g, ' ').trim().slice(0, 200)
+    const rawDesc = decodeEntities(stripCdata(extractTag(block, 'description')))
+    const description = rawDesc.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim().slice(0, 200)
     const pubDate = extractTag(block, 'pubDate') || extractTag(block, 'dc:date')
 
     items.push({ title, link, description, pubDate, source: sourceLabel })
