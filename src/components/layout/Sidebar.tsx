@@ -6,20 +6,21 @@ import { useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
   Home, ClipboardList, Trophy, MessageSquare, CalendarDays,
-  StickyNote, Users, BookOpen, Settings, Brain, ChevronLeft, ChevronRight,
+  StickyNote, Users, BookOpen, Settings, Brain, ChevronLeft, ChevronRight, TrendingUp,
 } from 'lucide-react'
 
 const navItems = [
-  { href: '/',          label: '홈',      key: '1', icon: Home },
-  { href: '/tasks',     label: '업무 목록', key: '2', icon: ClipboardList },
-  { href: '/completed', label: '완료 성과', key: '3', icon: Trophy },
-  { href: '/meetings',  label: '회의록',   key: '4', icon: MessageSquare },
-  { href: '/schedule',  label: '일정',     key: '5', icon: CalendarDays },
-  { href: '/memos',     label: '메모',     key: '6', icon: StickyNote },
-  { href: '/one-on-one',label: '1on1',    key: '7', icon: Users },
-  { href: '/learning',  label: '학습자료', key: '8', icon: BookOpen },
-  { href: '/decisions', label: '의사결정', key: '9', icon: Brain },
-  { href: '/settings',  label: '설정',     key: '', icon: Settings },
+  { href: '/',              label: '홈',        key: '1', icon: Home },
+  { href: '/tasks',         label: '업무 목록',  key: '2', icon: ClipboardList },
+  { href: '/completed',     label: '완료 성과',  key: '3', icon: Trophy },
+  { href: '/meetings',      label: '회의록',     key: '4', icon: MessageSquare },
+  { href: '/schedule',      label: '일정',       key: '5', icon: CalendarDays },
+  { href: '/memos',         label: '메모',       key: '6', icon: StickyNote },
+  { href: '/one-on-one',    label: '1on1',       key: '7', icon: Users },
+  { href: '/learning',      label: '학습자료',   key: '8', icon: BookOpen },
+  { href: '/decisions',     label: '의사결정',   key: '9', icon: Brain },
+  { href: '/intelligence',  label: 'HR 인텔',    key: '', icon: TrendingUp },
+  { href: '/settings',      label: '설정',       key: '', icon: Settings },
 ]
 
 const KEY_ROUTES: Record<string, string> = {
