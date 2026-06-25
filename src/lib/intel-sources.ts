@@ -57,8 +57,17 @@ export const CATEGORY_LABELS: Record<IntelCategory, string> = {
   paper: '논문',
 }
 
-export const CATEGORY_COLORS: Record<IntelCategory, { badge: string; icon: string }> = {
-  policy: { badge: 'bg-blue-50 text-blue-700', icon: 'text-blue-500' },
-  stats:  { badge: 'bg-amber-50 text-amber-700', icon: 'text-amber-500' },
-  paper:  { badge: 'bg-purple-50 text-purple-700', icon: 'text-purple-500' },
+export const CATEGORY_COLORS: Record<IntelCategory, { badge: string; icon: string; header: string }> = {
+  policy: { badge: 'bg-blue-50 text-blue-700', icon: 'text-blue-500', header: 'text-blue-600' },
+  stats:  { badge: 'bg-amber-50 text-amber-700', icon: 'text-amber-500', header: 'text-amber-600' },
+  paper:  { badge: 'bg-purple-50 text-purple-700', icon: 'text-purple-500', header: 'text-purple-600' },
 }
+
+// 제목에 이 단어가 포함된 항목은 표시하지 않음 (전략적 HR과 무관한 운영성 기사)
+export const EXCLUDE_KEYWORDS = [
+  '온열질환', '폭염', '냉방비', '혹서',
+  '화재', '산재사고', '중대재해 사고',
+  'SK에코', '쿠팡이츠', '배달파트너',
+  '봉사활동', '사회공헌', '기부',
+  '행사 안내', '채용 공고',
+]
