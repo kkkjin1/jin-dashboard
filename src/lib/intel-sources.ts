@@ -1,53 +1,78 @@
 export type IntelCategory = 'policy' | 'stats' | 'paper'
+export type SourceType = 'rss' | 'datago' | 'kosis' | 'riss'
 
 export interface IntelSource {
   id: string
   label: string
   category: IntelCategory
-  url: string
+  type: SourceType
   description: string
+  // RSS 전용
+  url?: string
+  // API 전용
+  apiPath?: string
+  requiresKey?: 'DATAGO_API_KEY' | 'KOSIS_API_KEY'
+  keySetupUrl?: string
+  keySetupLabel?: string
 }
 
-// Google News RSS — Vercel(해외IP)에서 안정적으로 동작하는 유일한 방식
-// 한국 정부 사이트(moel.go.kr, kostat.go.kr)와 RISS는 해외 IP 차단
-const GN = (q: string) =>
-  `https://news.google.com/rss/search?q=${q}&hl=ko&gl=KR&ceid=KR:ko`
-
 export const INTEL_SOURCES: IntelSource[] = [
+  // 정책 — 고용노동부 보도자료 (공식)
   {
     id: 'moel-press',
     label: '고용노동부 보도자료',
     category: 'policy',
-    url: GN('%EA%B3%A0%EC%9A%A9%EB%85%B8%EB%8F%99%EB%B6%80+%EB%B3%B4%EB%8F%84%EC%9E%90%EB%A3%8C'),
-    description: '노동정책·법령 최신 발표',
+    type: 'datago',
+    apiPath: '/api/intel/datago?type=moel',
+    description: '공식 보도자료 (data.go.kr)',
+    requiresKey: 'DATAGO_API_KEY',
+    keySetupUrl: 'https://www.data.go.kr/tcs/dss/selectApiDataDetailView.do',
+    keySetupLabel: 'data.go.kr API키 발급 (무료)',
   },
+  // 정책 — 입법예고
   {
-    id: 'labor-law',
-    label: '노동법·최저임금 동향',
+    id: 'legislation',
+    label: '입법예고 (노동·고용)',
     category: 'policy',
-    url: GN('%EB%85%B8%EB%8F%99%EB%B2%95+%EC%B5%9C%EC%A0%80%EC%9E%84%EA%B8%88+%EC%A0%95%EC%B1%85'),
-    description: '근로기준법·최저임금 관련 입법 동향',
+    type: 'datago',
+    apiPath: '/api/intel/datago?type=legislation',
+    description: '법제처 입법예고 — 노동·고용 관련 필터',
+    requiresKey: 'DATAGO_API_KEY',
+    keySetupUrl: 'https://www.data.go.kr/tcs/dss/selectApiDataDetailView.do',
+    keySetupLabel: 'data.go.kr API키 발급 (무료)',
   },
+  // 통계 — KOSIS 실수치
   {
-    id: 'kostat-stats',
-    label: '통계청 고용·임금 통계',
+    id: 'kosis-stats',
+    label: 'KOSIS 임금·고용 지표',
     category: 'stats',
-    url: GN('%ED%86%B5%EA%B3%84%EC%B2%AD+%EA%B3%A0%EC%9A%A9%ED%86%B5%EA%B3%84+%EC%9E%84%EA%B8%88'),
-    description: '임금·고용률 통계 발표',
+    type: 'kosis',
+    apiPath: '/api/intel/kosis',
+    description: '월평균 임금·근로시간·취업자 수 실수치',
+    requiresKey: 'KOSIS_API_KEY',
+    keySetupUrl: 'https://kosis.kr/openapi/agree.do',
+    keySetupLabel: 'KOSIS API키 발급 (무료)',
   },
+  // 논문 — RISS (data.go.kr 오픈API)
   {
-    id: 'hr-research',
-    label: '성과평가 연구 동향',
+    id: 'riss-papers',
+    label: 'RISS 학술논문',
     category: 'paper',
-    url: GN('%EC%84%B1%EA%B3%BC%ED%8F%89%EA%B0%80+%EC%9D%B8%EC%82%AC%EA%B4%80%EB%A6%AC+%EC%97%B0%EA%B5%AC'),
-    description: '성과평가·HR 학술 연구 동향',
+    type: 'riss',
+    apiPath: '/api/intel/riss',  // 추후 구현
+    description: '성과평가·보상설계 국내 학술논문',
+    requiresKey: 'DATAGO_API_KEY',
+    keySetupUrl: 'https://www.data.go.kr',
+    keySetupLabel: 'data.go.kr API키 발급 (무료, 입법예고와 동일 키)',
   },
+  // 논문 — 임시 RSS (API키 없을 때 대안)
   {
-    id: 'compensation-research',
-    label: '보상·임금체계 동향',
+    id: 'hr-research-tmp',
+    label: 'HR 연구 동향 (임시)',
     category: 'paper',
-    url: GN('%EC%9E%84%EA%B8%88%EC%B2%B4%EA%B3%84+%EC%A7%81%EB%AC%B4%EA%B8%89+%EB%B3%B4%EC%83%81%EC%84%A4%EA%B3%84'),
-    description: '직무급·임금체계 개편 동향',
+    type: 'rss',
+    url: 'https://news.google.com/rss/search?q=%EC%9D%B8%EC%82%AC%EA%B4%80%EB%A6%AC+%EC%84%B1%EA%B3%BC%ED%8F%89%EA%B0%80+%EC%97%B0%EA%B5%AC&hl=ko&gl=KR&ceid=KR:ko',
+    description: '언론사 혼합 — RISS API키 설정 시 대체됨',
   },
 ]
 
@@ -58,16 +83,14 @@ export const CATEGORY_LABELS: Record<IntelCategory, string> = {
 }
 
 export const CATEGORY_COLORS: Record<IntelCategory, { badge: string; icon: string; header: string }> = {
-  policy: { badge: 'bg-blue-50 text-blue-700', icon: 'text-blue-500', header: 'text-blue-600' },
+  policy: { badge: 'bg-blue-50 text-blue-700',   icon: 'text-blue-500',   header: 'text-blue-600' },
   stats:  { badge: 'bg-amber-50 text-amber-700', icon: 'text-amber-500', header: 'text-amber-600' },
   paper:  { badge: 'bg-purple-50 text-purple-700', icon: 'text-purple-500', header: 'text-purple-600' },
 }
 
-// 제목에 이 단어가 포함된 항목은 표시하지 않음 (전략적 HR과 무관한 운영성 기사)
 export const EXCLUDE_KEYWORDS = [
   '온열질환', '폭염', '냉방비', '혹서',
-  '화재', '산재사고', '중대재해 사고',
+  '화재', '산재사고',
   'SK에코', '쿠팡이츠', '배달파트너',
   '봉사활동', '사회공헌', '기부',
-  '행사 안내', '채용 공고',
 ]
