@@ -41,13 +41,15 @@ interface NoteAccordionProps {
   isOpen: boolean
   onToggle: () => void
   onDelete: (index: number) => void
-  onEdit: (index: number, newContent: string) => void
+  onEdit: (index: number, newContent: string, newTitle?: string) => void
   onFullscreen: (content: string) => void
 }
 
 function NoteAccordion({ note, index, isOpen, onToggle, onDelete, onEdit, onFullscreen }: NoteAccordionProps) {
   const [editing, setEditing] = useState(false)
   const [editContent, setEditContent] = useState(note.content)
+  const [editingTitle, setEditingTitle] = useState(false)
+  const [editTitle, setEditTitle] = useState(note.title)
   const [autoSaved, setAutoSaved] = useState(false)
   const [fullscreen, setFullscreen] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -72,8 +74,26 @@ function NoteAccordion({ note, index, isOpen, onToggle, onDelete, onEdit, onFull
         className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50 transition-colors">
         <div className="flex items-center gap-2 min-w-0">
           <span className="text-xs text-gray-400 flex-shrink-0">{isOpen ? '▼' : '▶'}</span>
-          <span className="text-sm font-medium text-gray-700 truncate">{note.title}</span>
-          {note.edited_at && (
+          {editingTitle ? (
+            <input
+              autoFocus
+              value={editTitle}
+              onClick={e => e.stopPropagation()}
+              onChange={e => setEditTitle(e.target.value)}
+              onBlur={() => { setEditingTitle(false); onEdit(index, note.content, editTitle.trim() || note.title) }}
+              onKeyDown={e => {
+                if (e.key === 'Enter') { e.currentTarget.blur() }
+                if (e.key === 'Escape') { setEditTitle(note.title); setEditingTitle(false) }
+              }}
+              className="text-sm font-medium text-gray-700 focus:outline-none border-b border-blue-300 bg-transparent min-w-0 flex-1"
+            />
+          ) : (
+            <span
+              className="text-sm font-medium text-gray-700 truncate cursor-text hover:text-blue-600 transition-colors"
+              onClick={e => { e.stopPropagation(); setEditTitle(note.title); setEditingTitle(true) }}
+            >{note.title}</span>
+          )}
+          {note.edited_at && !editingTitle && (
             <span className="text-xs text-gray-400 flex-shrink-0 ml-1">수정됨</span>
           )}
         </div>
@@ -316,10 +336,10 @@ export default function MeetingDetailPage() {
     setOpenIndexes(new Set([0]))
   }
 
-  async function editNote(index: number, newContent: string) {
+  async function editNote(index: number, newContent: string, newTitle?: string) {
     if (!meeting || !newContent.trim()) return
     const updatedNotes = meeting.notes.map((n, i) =>
-      i === index ? { ...n, content: newContent, edited_at: new Date().toISOString() } : n
+      i === index ? { ...n, content: newContent, ...(newTitle ? { title: newTitle } : {}), edited_at: new Date().toISOString() } : n
     )
     await updateMeeting({ notes: updatedNotes })
   }
