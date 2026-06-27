@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { RefreshCw, ExternalLink, BookOpen, FileText, BarChart2 } from 'lucide-react'
+import { RefreshCw, ExternalLink, BookOpen, FileText, BarChart2, Key } from 'lucide-react'
 import {
   INTEL_SOURCES,
   CATEGORY_LABELS,
@@ -12,7 +12,7 @@ import {
 } from '@/lib/intel-sources'
 import type { RssItem } from '@/app/api/intel/rss/route'
 
-type FeedStatus = 'loading' | 'ok' | 'error'
+type FeedStatus = 'loading' | 'ok' | 'key_required' | 'error'
 
 interface FeedState {
   status: FeedStatus
@@ -37,13 +37,21 @@ export default function IntelligencePage() {
   const fetchSource = useCallback(async (source: IntelSource) => {
     setFeeds(prev => ({ ...prev, [source.id]: { status: 'loading', source } }))
     try {
-      const res = await fetch(
-        `/api/intel/rss?url=${encodeURIComponent(source.url)}&label=${encodeURIComponent(source.label)}`
-      )
+      let res: Response
+      if (source.type === 'rss' && source.url) {
+        res = await fetch(
+          `/api/intel/rss?url=${encodeURIComponent(source.url)}&label=${encodeURIComponent(source.label)}`
+        )
+      } else if (source.type === 'riss' && source.apiPath) {
+        res = await fetch(source.apiPath)
+      } else {
+        return
+      }
+
       const data = await res.json()
       setFeeds(prev => ({
         ...prev,
-        [source.id]: { status: 'ok', items: data.items ?? [], source },
+        [source.id]: { status: data.status ?? 'ok', items: data.items ?? [], source },
       }))
     } catch {
       setFeeds(prev => ({ ...prev, [source.id]: { status: 'error', source } }))
@@ -121,9 +129,36 @@ function SourcePanel({ source, state }: { source: IntelSource; state?: FeedState
 
       <div className="flex-1 overflow-y-auto">
         {status === 'loading' && <LoadingSkeleton />}
+        {status === 'key_required' && source.requiresKey && <KeyRequiredState source={source} />}
         {status === 'error' && <ErrorState />}
         {status === 'ok' && <ArticleList items={items} />}
       </div>
+    </div>
+  )
+}
+
+function KeyRequiredState({ source }: { source: IntelSource }) {
+  return (
+    <div className="p-4 flex flex-col gap-3">
+      <div className="flex items-center gap-2">
+        <Key size={13} className="text-amber-500" />
+        <span className="text-xs font-semibold text-amber-700">API 키 설정 필요</span>
+      </div>
+      <p className="text-xs text-gray-500 leading-relaxed">
+        Vercel 환경변수에{' '}
+        <code className="bg-gray-100 px-1 rounded text-[10px]">{source.requiresKey}</code>를
+        설정하면 논문을 불러옵니다.
+      </p>
+      {source.keySetupUrl && (
+        <a
+          href={source.keySetupUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 underline underline-offset-2"
+        >
+          {source.keySetupLabel} <ExternalLink size={10} />
+        </a>
+      )}
     </div>
   )
 }
@@ -148,6 +183,9 @@ function ArticleList({ items }: { items: RssItem[] }) {
             </p>
             <ExternalLink size={10} className="text-gray-200 group-hover:text-gray-400 flex-shrink-0 mt-0.5" />
           </div>
+          {item.description && (
+            <p className="text-[10px] text-gray-400 mt-0.5 line-clamp-1">{item.description}</p>
+          )}
           {item.pubDate && (
             <p className="text-[10px] text-gray-300 mt-0.5">{formatDate(item.pubDate)}</p>
           )}
