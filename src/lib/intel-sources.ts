@@ -17,41 +17,41 @@ export interface IntelSource {
 }
 
 export const INTEL_SOURCES: IntelSource[] = [
-  // 정책 — 법제처 공식 입법예고
-  {
-    id: 'legislation',
-    label: '입법예고',
-    category: 'policy',
-    type: 'rss',
-    url: 'https://www.law.go.kr/rss/lsEgSt.rss',
-    description: '법제처 공식 입법예고',
-  },
-  // 정책 — 고용노동부 보도자료
+  // 정책 — 고용노동부 (구글 뉴스)
   {
     id: 'moel-press',
     label: '고용노동부 보도자료',
     category: 'policy',
     type: 'rss',
-    url: 'https://www.moel.go.kr/rss/pressrls.rss',
-    description: '고용노동부 공식 보도자료',
+    url: 'https://news.google.com/rss/search?q=고용노동부+보도자료&hl=ko&gl=KR&ceid=KR:ko',
+    description: '고용노동부 보도자료',
   },
-  // 통계 — 한국노동연구원
+  // 정책 — 입법예고 (구글 뉴스)
+  {
+    id: 'legislation',
+    label: '노동·고용 입법예고',
+    category: 'policy',
+    type: 'rss',
+    url: 'https://news.google.com/rss/search?q=입법예고+노동+고용+근로&hl=ko&gl=KR&ceid=KR:ko',
+    description: '노동·고용 관련 입법예고',
+  },
+  // 통계 — 한국노동연구원 (구글 뉴스)
   {
     id: 'kli',
-    label: '한국노동연구원',
+    label: '한국노동연구원 동향',
     category: 'stats',
     type: 'rss',
-    url: 'https://www.kli.re.kr/kli/rssList.do',
-    description: '노동시장 분석·정책 리포트',
+    url: 'https://news.google.com/rss/search?q=한국노동연구원+노동시장+임금&hl=ko&gl=KR&ceid=KR:ko',
+    description: '한국노동연구원 연구·발표',
   },
-  // 통계 — HBR 조직·인사 인사이트
+  // 통계 — McKinsey 조직·인사 인사이트
   {
-    id: 'hbr',
-    label: 'HBR 인사이트',
+    id: 'mckinsey',
+    label: 'McKinsey 인사이트',
     category: 'stats',
     type: 'rss',
-    url: 'https://feeds.hbr.org/harvardbusiness',
-    description: 'Harvard Business Review 최신 아티클',
+    url: 'https://www.mckinsey.com/rss/insights/rss',
+    description: 'McKinsey & Company 최신 인사이트',
   },
   // 논문 — RISS 성과평가·보상
   {
