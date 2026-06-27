@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { RefreshCw, ExternalLink, BookOpen, FileText, BarChart2, Key, TrendingUp } from 'lucide-react'
+import { RefreshCw, ExternalLink, BookOpen, FileText, BarChart2 } from 'lucide-react'
 import {
   INTEL_SOURCES,
   CATEGORY_LABELS,
@@ -11,14 +11,12 @@ import {
   type IntelSource,
 } from '@/lib/intel-sources'
 import type { RssItem } from '@/app/api/intel/rss/route'
-import type { KosisIndicator } from '@/app/api/intel/kosis/route'
 
-type FeedStatus = 'loading' | 'ok' | 'key_required' | 'error'
+type FeedStatus = 'loading' | 'ok' | 'error'
 
 interface FeedState {
   status: FeedStatus
   items?: RssItem[]
-  indicators?: KosisIndicator[]
   source?: IntelSource
 }
 
@@ -38,33 +36,16 @@ export default function IntelligencePage() {
 
   const fetchSource = useCallback(async (source: IntelSource) => {
     setFeeds(prev => ({ ...prev, [source.id]: { status: 'loading', source } }))
-
     try {
-      if (source.type === 'rss' && source.url) {
-        const res = await fetch(
-          `/api/intel/rss?url=${encodeURIComponent(source.url)}&label=${encodeURIComponent(source.label)}`
-        )
-        const data = await res.json()
-        setFeeds(prev => ({
-          ...prev,
-          [source.id]: { status: 'ok', items: data.items ?? [], source },
-        }))
-      } else if (source.type === 'kosis' && source.apiPath) {
-        const res = await fetch(source.apiPath)
-        const data = await res.json()
-        setFeeds(prev => ({
-          ...prev,
-          [source.id]: { status: data.status, indicators: data.indicators, source },
-        }))
-      } else if ((source.type === 'datago' || source.type === 'riss') && source.apiPath) {
-        const res = await fetch(source.apiPath)
-        const data = await res.json()
-        setFeeds(prev => ({
-          ...prev,
-          [source.id]: { status: data.status, items: data.items ?? [], source },
-        }))
-      }
-    } catch (e) {
+      const res = await fetch(
+        `/api/intel/rss?url=${encodeURIComponent(source.url)}&label=${encodeURIComponent(source.label)}`
+      )
+      const data = await res.json()
+      setFeeds(prev => ({
+        ...prev,
+        [source.id]: { status: 'ok', items: data.items ?? [], source },
+      }))
+    } catch {
       setFeeds(prev => ({ ...prev, [source.id]: { status: 'error', source } }))
     }
   }, [])
@@ -121,6 +102,7 @@ export default function IntelligencePage() {
 function SourcePanel({ source, state }: { source: IntelSource; state?: FeedState }) {
   const colors = CATEGORY_COLORS[source.category]
   const status = state?.status ?? 'loading'
+  const items = (state?.items ?? []).filter(i => isRelevant(i.title))
 
   return (
     <div className="flex-1 min-h-0 flex flex-col bg-white border border-gray-100 rounded-xl overflow-hidden">
@@ -132,81 +114,16 @@ function SourcePanel({ source, state }: { source: IntelSource; state?: FeedState
           : <FileText size={12} className={colors.icon} />
         }
         <span className="text-xs font-semibold text-gray-700 flex-1 truncate">{source.label}</span>
-        {status === 'ok' && source.type === 'rss' && (
-          <span className="text-[10px] text-gray-400">
-            {(state?.items ?? []).filter(i => isRelevant(i.title)).length}건
-          </span>
-        )}
-        {status === 'ok' && source.type !== 'rss' && source.type !== 'kosis' && (
-          <span className="text-[10px] text-gray-400">{state?.items?.length ?? 0}건</span>
+        {status === 'ok' && (
+          <span className="text-[10px] text-gray-400">{items.length}건</span>
         )}
       </div>
 
       <div className="flex-1 overflow-y-auto">
         {status === 'loading' && <LoadingSkeleton />}
-        {status === 'key_required' && source.requiresKey && (
-          <KeyRequiredState source={source} />
-        )}
         {status === 'error' && <ErrorState />}
-        {status === 'ok' && source.type === 'kosis' && (
-          <KosisPanel indicators={state?.indicators ?? []} />
-        )}
-        {status === 'ok' && source.type !== 'kosis' && (
-          <ArticleList items={(state?.items ?? []).filter(i => isRelevant(i.title))} />
-        )}
+        {status === 'ok' && <ArticleList items={items} />}
       </div>
-    </div>
-  )
-}
-
-function KeyRequiredState({ source }: { source: IntelSource }) {
-  return (
-    <div className="p-4 flex flex-col gap-3">
-      <div className="flex items-center gap-2">
-        <Key size={13} className="text-amber-500" />
-        <span className="text-xs font-semibold text-amber-700">API키 필요</span>
-      </div>
-      <p className="text-xs text-gray-500 leading-relaxed">
-        Vercel 환경변수에 <code className="bg-gray-100 px-1 rounded text-[10px]">{source.requiresKey}</code>를 설정하면 공식 데이터를 불러옵니다.
-      </p>
-      {source.keySetupUrl && (
-        <a
-          href={source.keySetupUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 underline underline-offset-2"
-        >
-          {source.keySetupLabel ?? 'API키 발급'} <ExternalLink size={10} />
-        </a>
-      )}
-    </div>
-  )
-}
-
-function KosisPanel({ indicators }: { indicators: KosisIndicator[] }) {
-  if (indicators.length === 0) {
-    return <p className="p-4 text-xs text-gray-400">데이터 없음</p>
-  }
-  return (
-    <div className="p-3 space-y-2">
-      {indicators.map((ind, i) => (
-        <div key={i} className="bg-gray-50 rounded-lg px-3 py-3">
-          <p className="text-[10px] text-gray-400 mb-1">{ind.name}</p>
-          <div className="flex items-end gap-1.5">
-            <span className="text-lg font-bold text-gray-900">{ind.value}</span>
-            <span className="text-xs text-gray-400 mb-0.5">{ind.unit}</span>
-          </div>
-          <p className="text-[10px] text-gray-300 mt-1">{formatPeriod(ind.period)}</p>
-        </div>
-      ))}
-      <a
-        href="https://kosis.kr"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center gap-1 text-[10px] text-gray-300 hover:text-gray-500 pt-1"
-      >
-        <TrendingUp size={10} /> KOSIS 상세 조회
-      </a>
     </div>
   )
 }
@@ -231,9 +148,6 @@ function ArticleList({ items }: { items: RssItem[] }) {
             </p>
             <ExternalLink size={10} className="text-gray-200 group-hover:text-gray-400 flex-shrink-0 mt-0.5" />
           </div>
-          {item.description && (
-            <p className="text-[10px] text-gray-400 mt-0.5 line-clamp-1">{item.description}</p>
-          )}
           {item.pubDate && (
             <p className="text-[10px] text-gray-300 mt-0.5">{formatDate(item.pubDate)}</p>
           )}
@@ -261,11 +175,4 @@ function formatDate(raw: string): string {
   try {
     return new Date(raw).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })
   } catch { return raw }
-}
-
-function formatPeriod(raw: string): string {
-  if (!raw) return ''
-  if (raw.length === 6) return `${raw.slice(0, 4)}년 ${raw.slice(4)}월`
-  if (raw.length === 4) return `${raw}년`
-  return raw
 }
