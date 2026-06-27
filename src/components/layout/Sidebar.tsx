@@ -6,7 +6,7 @@ import { useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
   Home, ClipboardList, Trophy, MessageSquare, CalendarDays,
-  StickyNote, Users, BookOpen, Settings, Brain, ChevronLeft, ChevronRight, TrendingUp,
+  StickyNote, Users, BookOpen, Settings, Brain, ChevronLeft, ChevronRight,
 } from 'lucide-react'
 
 const navItems = [
