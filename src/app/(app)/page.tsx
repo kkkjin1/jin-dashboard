@@ -413,10 +413,10 @@ export default function HomePage() {
       </div>
 
       {/* Row 3: 빠른 업무 추가 */}
-      <QuickTaskInput onAdded={(task, todo) => {
-        setTasks(prev => [task, ...prev])
-        if (todo) setTodos(prev => [todo as unknown as TaskTodo, ...prev])
-      }} />
+      <QuickTaskInput
+        tasks={tasks}
+        onAdded={todo => setTodos(prev => [todo, ...prev])}
+      />
 
       {/* Row 4: 컴팩트 업무 현황 */}
       {loading ? (
