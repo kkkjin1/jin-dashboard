@@ -114,13 +114,13 @@ export default function QuickTaskInput({ tasks, onAdded }: Props) {
       e.preventDefault()
       if (matches[selectedIdx]) selectTask(matches[selectedIdx])
     }
-    else if (e.key === 'Escape') { e.preventDefault(); setMatches([]) }
+    else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setMatches([]) }
   }
 
   function handleTodoKeyDown(e: React.KeyboardEvent) {
     if (e.nativeEvent.isComposing) return
     if (e.key === 'Enter') { e.preventDefault(); handleSubmit() }
-    else if (e.key === 'Escape') { setSelectedTask(null); setTodoInput(''); searchRef.current?.focus() }
+    else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setSelectedTask(null); setTodoInput(''); searchRef.current?.focus() }
   }
 
   function selectTask(task: Task) {
