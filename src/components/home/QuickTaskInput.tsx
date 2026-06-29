@@ -98,6 +98,9 @@ export default function QuickTaskInput({ tasks, onAdded }: Props) {
     setSelectedIdx(0)
   }, [searchInput, tasks])
 
+  // 마운트 시 검색창 자동 포커스
+  useEffect(() => { searchRef.current?.focus() }, [])
+
   // 2단계 진입 시 할일 input에 포커스
   useEffect(() => {
     if (selectedTask) todoRef.current?.focus()
@@ -111,7 +114,7 @@ export default function QuickTaskInput({ tasks, onAdded }: Props) {
       e.preventDefault()
       if (matches[selectedIdx]) selectTask(matches[selectedIdx])
     }
-    else if (e.key === 'Escape') reset()
+    else if (e.key === 'Escape') setMatches([])
   }
 
   function handleTodoKeyDown(e: React.KeyboardEvent) {
