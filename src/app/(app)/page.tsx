@@ -6,6 +6,7 @@ import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import HomeCalendar from '@/components/home/HomeCalendar'
 import TodayTodoWidget from '@/components/home/TodayTodoWidget'
+import QuickTaskInput from '@/components/home/QuickTaskInput'
 import { fetchAllTasks } from '@/lib/tasks'
 import { createClient } from '@/lib/supabase/client'
 import { useUserSetting } from '@/hooks/useUserSetting'
@@ -411,7 +412,10 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Row 3: 컴팩트 업무 현황 */}
+      {/* Row 3: 빠른 업무 추가 */}
+      <QuickTaskInput onAdded={() => fetchAllTasks().then(setTasks)} />
+
+      {/* Row 4: 컴팩트 업무 현황 */}
       {loading ? (
         <div className="flex-shrink-0 grid grid-cols-2 md:grid-cols-4 gap-3">
           {[1,2,3,4].map(i => <div key={i} className="bg-white rounded-xl border border-gray-100 h-20 animate-pulse" />)}
