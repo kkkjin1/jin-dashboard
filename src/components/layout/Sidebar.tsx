@@ -19,7 +19,6 @@ const navItems = [
   { href: '/one-on-one',    label: '1on1',       key: '7', icon: Users },
   { href: '/learning',      label: '학습자료',   key: '8', icon: BookOpen },
   { href: '/decisions',     label: '의사결정',   key: '9', icon: Brain },
-  { href: '/intelligence',  label: 'HR 인텔',    key: '', icon: TrendingUp },
   { href: '/settings',      label: '설정',       key: '', icon: Settings },
 ]
 

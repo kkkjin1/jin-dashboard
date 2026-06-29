@@ -441,11 +441,11 @@ export default function HomePage() {
       )}
 
       {/* Row 4: 캘린더 + 오늘할일 + 미지정백로그 */}
-      <div className="md:flex-1 md:min-h-0 grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="md:flex-1 md:min-h-0 grid grid-cols-1 md:grid-cols-5 gap-4">
         <div className="md:col-span-2 md:overflow-hidden">
           <HomeCalendar tasks={tasks} meetings={meetings} />
         </div>
-        <div className="md:overflow-hidden flex flex-col gap-3 min-h-0">
+        <div className="md:col-span-3 md:overflow-hidden flex flex-col gap-3 min-h-0">
           <div className="flex-[3] min-h-0 overflow-hidden">
             <TodayTodoWidget />
           </div>
