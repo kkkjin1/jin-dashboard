@@ -40,6 +40,7 @@ export default function QuickMemoPanel() {
   const isResizingH = useRef(false)
   const titleRef = useRef<HTMLInputElement>(null)
   const contentRef = useRef<HTMLTextAreaElement | null>(null)
+  const saveAndNewRef = useRef<() => Promise<void>>(async () => {})
   const supabase = createClient()
   const router = useRouter()
 
@@ -144,7 +145,11 @@ export default function QuickMemoPanel() {
       if (e.key === 'Escape' && open) { setOpen(false); return }
       if ((e.ctrlKey || e.metaKey) && e.key === '2') {
         e.preventDefault()
-        setOpen(prev => !prev)
+        if (open) {
+          saveAndNewRef.current()
+        } else {
+          setOpen(true)
+        }
         return
       }
       if ((e.ctrlKey || e.metaKey) && e.key === '1') {
@@ -222,6 +227,27 @@ export default function QuickMemoPanel() {
   }
 
   const meetingDate = tag === '회의관련' ? parseMeetingDate(title) : null
+
+  // ref를 매 렌더마다 갱신해서 onKey useEffect가 최신 state에 접근 가능하게 함
+  saveAndNewRef.current = async () => {
+    if (title.trim()) {
+      if (tag === '회의관련' && meetingDate) {
+        const notes = content.trim()
+          ? [{ title: '메모', content: content.trim(), created_at: new Date().toISOString() }]
+          : []
+        const { data: newMeeting } = await supabase.from('meetings').insert({
+          title: title.trim(), meeting_date: meetingDate, notes,
+        }).select().single()
+        if (newMeeting) window.dispatchEvent(new CustomEvent('quick-meeting-created', { detail: newMeeting }))
+      } else {
+        await supabase.from('quick_memos').insert({ title: title.trim(), content: content.trim(), tag })
+        window.dispatchEvent(new CustomEvent('quick-memo-saved'))
+      }
+      localStorage.removeItem('quick_memo_draft')
+    }
+    setTitle(''); setContent(''); setTag('업무관련')
+    setTimeout(() => titleRef.current?.focus(), 50)
+  }
 
   async function handleSave() {
     if (!title.trim()) return
