@@ -20,7 +20,6 @@ function parseDate(text: string): { date: string | null; cleaned: string } {
   const nextNextWeekday = (t: number) => {
     const d = nextWeekday(t); d.setDate(d.getDate() + 7); return d
   }
-
   const patterns: { re: RegExp; fn: (m: RegExpMatchArray) => string }[] = [
     { re: /(\d{1,2})\/(\d{1,2})/, fn: m => toISO(new Date(today.getFullYear(), +m[1] - 1, +m[2])) },
     { re: /(\d{1,2})월\s*(\d{1,2})일/, fn: m => toISO(new Date(today.getFullYear(), +m[1] - 1, +m[2])) },
@@ -32,7 +31,6 @@ function parseDate(text: string): { date: string | null; cleaned: string } {
     { re: /이번\s*주\s*(월|화|수|목|토|일|월요일|화요일|수요일|목요일|토요일|일요일)/, fn: m => toISO(nextWeekday(dayMap[m[1].replace(/요일$/, '')] ?? 5)) },
     { re: /다음\s*주\s*(월|화|수|목|금|토|일|월요일|화요일|수요일|목요일|금요일|토요일|일요일|내|말|끝)?/, fn: m => toISO(nextNextWeekday(dayMap[(m[1] ?? '').replace(/요일$/, '')] ?? 5)) },
   ]
-
   for (const { re, fn } of patterns) {
     const m = text.match(re)
     if (m) return { date: fn(m), cleaned: text.replace(re, '').replace(/\s{2,}/g, ' ').trim() }
@@ -46,21 +44,19 @@ function fuzzyScore(query: string, target: string): number {
   const q = query.toLowerCase()
   const t = target.toLowerCase()
   if (t.includes(q)) return 100 + (q.length / t.length) * 50
-  // 단어 단위 부분 일치
   const qWords = q.split(/\s+/).filter(Boolean)
   const tWords = t.split(/\s+/).filter(Boolean)
   let matched = 0
   for (const qw of qWords) {
     if (tWords.some(tw => tw.includes(qw) || qw.includes(tw))) matched++
   }
-  if (matched === 0) return 0
-  return (matched / qWords.length) * 60
+  return matched === 0 ? 0 : (matched / qWords.length) * 60
 }
 
 function matchTasks(input: string, tasks: Task[]): Task[] {
   if (!input.trim()) return []
-  const active = tasks.filter(t => t.status !== '완료')
-  return active
+  return tasks
+    .filter(t => t.status !== '완료')
     .map(t => ({ t, score: fuzzyScore(input, t.title) }))
     .filter(x => x.score > 0)
     .sort((a, b) => b.score - a.score)
@@ -76,38 +72,63 @@ interface Props {
 }
 
 export default function QuickTaskInput({ tasks, onAdded }: Props) {
-  const [input, setInput] = useState('')
+  // 1단계: 업무 검색
+  const [searchInput, setSearchInput] = useState('')
   const [matches, setMatches] = useState<Task[]>([])
   const [selectedIdx, setSelectedIdx] = useState(0)
+
+  // 2단계: 할일 입력
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null)
+  const [todoInput, setTodoInput] = useState('')
+
   const [saving, setSaving] = useState(false)
   const [lastAdded, setLastAdded] = useState<string | null>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
+
+  const searchRef = useRef<HTMLInputElement>(null)
+  const todoRef = useRef<HTMLInputElement>(null)
   const supabase = createClient()
 
-  const { date: endDate, cleaned: todoTitle } = input.trim() ? parseDate(input.trim()) : { date: null, cleaned: '' }
-  const selectedTask = matches[selectedIdx] ?? null
+  const phase = selectedTask ? 'todo' : 'search'
+  const { date: endDate, cleaned: todoTitle } = todoInput.trim() ? parseDate(todoInput.trim()) : { date: null, cleaned: '' }
 
+  // 검색어 변경 → 매칭
   useEffect(() => {
-    if (!todoTitle) { setMatches([]); setSelectedIdx(0); return }
-    const next = matchTasks(todoTitle, tasks)
-    setMatches(next)
+    if (!searchInput.trim()) { setMatches([]); setSelectedIdx(0); return }
+    setMatches(matchTasks(searchInput, tasks))
     setSelectedIdx(0)
-  }, [todoTitle, tasks])
+  }, [searchInput, tasks])
 
-  function handleKeyDown(e: React.KeyboardEvent) {
+  // 2단계 진입 시 할일 input에 포커스
+  useEffect(() => {
+    if (selectedTask) todoRef.current?.focus()
+  }, [selectedTask])
+
+  function handleSearchKeyDown(e: React.KeyboardEvent) {
     if (e.nativeEvent.isComposing) return
-    if (e.key === 'ArrowDown') {
+    if (e.key === 'ArrowDown') { e.preventDefault(); setSelectedIdx(i => Math.min(i + 1, matches.length - 1)) }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setSelectedIdx(i => Math.max(i - 1, 0)) }
+    else if (e.key === 'Enter') {
       e.preventDefault()
-      setSelectedIdx(i => Math.min(i + 1, matches.length - 1))
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault()
-      setSelectedIdx(i => Math.max(i - 1, 0))
-    } else if (e.key === 'Enter') {
-      e.preventDefault()
-      handleSubmit()
-    } else if (e.key === 'Escape') {
-      setInput('')
+      if (matches[selectedIdx]) selectTask(matches[selectedIdx])
     }
+    else if (e.key === 'Escape') reset()
+  }
+
+  function handleTodoKeyDown(e: React.KeyboardEvent) {
+    if (e.nativeEvent.isComposing) return
+    if (e.key === 'Enter') { e.preventDefault(); handleSubmit() }
+    else if (e.key === 'Escape') { setSelectedTask(null); setTodoInput(''); searchRef.current?.focus() }
+  }
+
+  function selectTask(task: Task) {
+    setSelectedTask(task)
+    setSearchInput('')
+    setMatches([])
+  }
+
+  function reset() {
+    setSearchInput(''); setMatches([]); setSelectedIdx(0)
+    setSelectedTask(null); setTodoInput('')
   }
 
   async function handleSubmit() {
@@ -123,73 +144,88 @@ export default function QuickTaskInput({ tasks, onAdded }: Props) {
       setLastAdded(`${selectedTask.title} › ${todoTitle}`)
       onAdded?.(data as unknown as TaskTodo)
     }
-    setInput('')
+    reset()
     setSaving(false)
-    inputRef.current?.focus()
+    searchRef.current?.focus()
   }
-
-  const hasInput = input.trim().length > 0
-  const noMatch = hasInput && matches.length === 0
 
   return (
     <div className="flex-shrink-0">
-      <div className={`bg-white border rounded-xl transition-all ${hasInput ? 'border-emerald-200 shadow-sm' : 'border-gray-100'}`}>
+      <div className={`bg-white border rounded-xl transition-all ${(searchInput || selectedTask) ? 'border-emerald-200 shadow-sm' : 'border-gray-100'}`}>
 
-        {/* 입력 */}
-        <div className="flex items-center gap-2 px-4 py-3">
-          <span className="text-gray-300 text-sm flex-shrink-0">+</span>
-          <input
-            ref={inputRef}
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="할일 빠른 추가 — 예) 평가시뮬 자료준비 7/3"
-            className="flex-1 text-sm text-gray-800 placeholder:text-gray-300 focus:outline-none bg-transparent min-w-0"
-          />
-        </div>
+        {phase === 'search' && (
+          <>
+            <div className="flex items-center gap-2 px-4 py-3">
+              <span className="text-gray-300 text-sm flex-shrink-0">+</span>
+              <input
+                ref={searchRef}
+                value={searchInput}
+                onChange={e => setSearchInput(e.target.value)}
+                onKeyDown={handleSearchKeyDown}
+                placeholder="업무 검색 후 Enter로 선택 — 예) 평가시뮬, 보상"
+                className="flex-1 text-sm text-gray-800 placeholder:text-gray-300 focus:outline-none bg-transparent min-w-0"
+              />
+            </div>
 
-        {/* 매칭 결과 */}
-        {hasInput && (
-          <div className="border-t border-gray-50 pb-1">
-            {noMatch ? (
-              <p className="px-4 py-2 text-xs text-gray-300">일치하는 업무 없음 — 업무 목록에서 먼저 업무를 만들어주세요</p>
-            ) : (
-              matches.map((task, i) => {
-                const isSelected = i === selectedIdx
-                return (
-                  <button
-                    key={task.id}
-                    onClick={() => { setSelectedIdx(i); handleSubmit() }}
-                    className={`w-full flex items-center gap-3 px-4 py-2 text-left transition-colors ${isSelected ? 'bg-emerald-50' : 'hover:bg-gray-50'}`}
-                  >
-                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isSelected ? 'bg-emerald-500' : 'bg-gray-200'}`} />
-                    <div className="flex-1 min-w-0">
-                      <span className={`text-xs font-medium ${isSelected ? 'text-emerald-700' : 'text-gray-500'}`}>
-                        {task.title}
-                      </span>
-                      {isSelected && todoTitle && (
-                        <span className="text-xs text-gray-400 ml-1">› {todoTitle}</span>
-                      )}
-                    </div>
-                    {isSelected && endDate && (
-                      <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded flex-shrink-0">
-                        {endDate.slice(5).replace('-', '/')}
-                      </span>
-                    )}
-                    {isSelected && (
-                      <span className="text-[10px] text-gray-300 flex-shrink-0">
-                        {saving ? '저장 중…' : 'Enter ↵'}
-                      </span>
-                    )}
-                  </button>
-                )
-              })
+            {matches.length > 0 && (
+              <div className="border-t border-gray-50 pb-1">
+                {matches.map((task, i) => {
+                  const isSelected = i === selectedIdx
+                  return (
+                    <button
+                      key={task.id}
+                      onMouseDown={e => { e.preventDefault(); selectTask(task) }}
+                      className={`w-full flex items-center gap-3 px-4 py-2 text-left transition-colors ${isSelected ? 'bg-emerald-50' : 'hover:bg-gray-50'}`}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isSelected ? 'bg-emerald-500' : 'bg-gray-200'}`} />
+                      <span className={`text-xs ${isSelected ? 'text-emerald-700 font-medium' : 'text-gray-500'}`}>{task.title}</span>
+                      {isSelected && <span className="ml-auto text-[10px] text-gray-300 flex-shrink-0">Enter ↵</span>}
+                    </button>
+                  )
+                })}
+                {searchInput && matches.length === 0 && (
+                  <p className="px-4 py-2 text-xs text-gray-300">일치하는 업무 없음</p>
+                )}
+              </div>
             )}
+          </>
+        )}
+
+        {phase === 'todo' && selectedTask && (
+          <div className="px-4 py-3">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-[11px] font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">{selectedTask.title}</span>
+              <span className="text-gray-300 text-xs">›</span>
+              <button onClick={reset} className="ml-auto text-[10px] text-gray-300 hover:text-gray-500">✕ 취소</button>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                ref={todoRef}
+                value={todoInput}
+                onChange={e => setTodoInput(e.target.value)}
+                onKeyDown={handleTodoKeyDown}
+                placeholder="할일 입력 — 예) 자료 준비 7/3까지"
+                className="flex-1 text-sm text-gray-800 placeholder:text-gray-300 focus:outline-none bg-transparent min-w-0"
+              />
+              {todoTitle && endDate && (
+                <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded flex-shrink-0">
+                  {endDate.slice(5).replace('-', '/')}
+                </span>
+              )}
+              {todoTitle && (
+                <button
+                  onClick={handleSubmit}
+                  disabled={saving}
+                  className="flex-shrink-0 text-[11px] bg-gray-900 text-white px-3 py-1 rounded-lg hover:bg-gray-700 disabled:opacity-40 transition-colors"
+                >
+                  {saving ? '저장…' : '추가 ↵'}
+                </button>
+              )}
+            </div>
           </div>
         )}
 
-        {/* 방금 추가 */}
-        {!hasInput && lastAdded && (
+        {!searchInput && !selectedTask && lastAdded && (
           <div className="px-4 pb-2.5 flex items-center gap-1.5">
             <span className="text-[10px] text-emerald-500">✓</span>
             <span className="text-[10px] text-gray-400">{lastAdded}</span>
