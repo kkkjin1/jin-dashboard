@@ -254,6 +254,7 @@ export default function MeetingDetailPage() {
   const [linkedTasks, setLinkedTasks] = useState<Task[]>([])
   const [allTasks, setAllTasks] = useState<Pick<Task, 'id' | 'title' | 'status' | 'part'>[]>([])
   const [selectedTaskId, setSelectedTaskId] = useState('')
+  const [relatedJournals, setRelatedJournals] = useState<{ id: string; date: string; content: string }[]>([])
 
   const titleRef = useRef<HTMLInputElement>(null)
   const noteAreaRef = useRef<HTMLTextAreaElement>(null)
@@ -292,6 +293,19 @@ export default function MeetingDetailPage() {
     setNoteTitle(val)
     localStorage.setItem(`meeting_draft_title_${id}`, val)
   }
+
+  useEffect(() => {
+    if (!meeting?.meeting_date) return
+    const base = new Date(meeting.meeting_date + 'T00:00:00')
+    const dates: string[] = []
+    for (let i = -2; i <= 2; i++) {
+      const d = new Date(base)
+      d.setDate(d.getDate() + i)
+      dates.push([d.getFullYear(), String(d.getMonth()+1).padStart(2,'0'), String(d.getDate()).padStart(2,'0')].join('-'))
+    }
+    supabase.from('daily_journals').select('id, date, content').in('date', dates).order('date', { ascending: false })
+      .then(({ data }) => { if (data) setRelatedJournals(data) })
+  }, [meeting?.meeting_date])
 
   useEffect(() => {
     function onEsc(e: KeyboardEvent) {
@@ -592,6 +606,25 @@ export default function MeetingDetailPage() {
                 {linkedTasks.map(t => (
                   <LinkedTaskCard key={t.id} task={t} onUnlink={unlinkTask} />
                 ))}
+              </div>
+            )}
+
+            {relatedJournals.length > 0 && (
+              <div className="mt-6 pt-5 border-t border-gray-100">
+                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">관련 회고</h3>
+                <p className="text-[10px] text-gray-300 mb-3">회의일 ± 2일 내 작성된 회고</p>
+                <div className="space-y-2">
+                  {relatedJournals.map(j => {
+                    const d = new Date(j.date + 'T00:00:00')
+                    const label = `${d.getMonth()+1}/${d.getDate()}`
+                    return (
+                      <div key={j.id} className="bg-gray-50 rounded-lg p-3">
+                        <p className="text-[10px] font-medium text-gray-400 mb-1">{label}</p>
+                        <p className="text-xs text-gray-600 leading-relaxed line-clamp-3">{j.content}</p>
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
             )}
           </div>

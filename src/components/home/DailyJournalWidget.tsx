@@ -84,7 +84,7 @@ export default function DailyJournalWidget({ tasks, meetings }: Props) {
     const next = localDateStr(d)
     if (next > TODAY) return
     setSelectedDate(next)
-    setEditing(false); setPhase('idle'); setSuggestions([])
+    setEditing(false)
     // 없으면 DB에서 로드
     if (!journals[next]) {
       supabase.from('daily_journals').select('*').eq('date', next).single()
