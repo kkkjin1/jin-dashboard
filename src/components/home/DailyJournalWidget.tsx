@@ -199,6 +199,17 @@ export default function DailyJournalWidget({ tasks, meetings }: Props) {
                 ))}
               </div>
             )}
+            {/* 어제 내용 기반 오늘 시작 제안 */}
+            <button
+              onClick={() => {
+                const suggestion = `[어제 이어서]\n${yesterday!.content.slice(0, 120)}${yesterday!.content.length > 120 ? '…' : ''}\n\n오늘: `
+                setDraft(suggestion)
+                setEditing(true)
+              }}
+              className="mt-2 text-[10px] text-amber-700 border border-amber-200 bg-white px-2 py-1 rounded hover:bg-amber-50 transition-colors"
+            >
+              + 이어서 오늘 회고 시작
+            </button>
           </div>
         )}
 

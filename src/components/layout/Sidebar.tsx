@@ -6,7 +6,7 @@ import { useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
   Home, ClipboardList, Trophy, MessageSquare, CalendarDays,
-  StickyNote, Users, BookOpen, Settings, Brain, ChevronLeft, ChevronRight,
+  StickyNote, Users, BookOpen, Settings, Brain, ChevronLeft, ChevronRight, NotebookPen,
 } from 'lucide-react'
 
 const navItems = [
@@ -19,6 +19,7 @@ const navItems = [
   { href: '/one-on-one',    label: '1on1',       key: '7', icon: Users },
   { href: '/learning',      label: '학습자료',   key: '8', icon: BookOpen },
   { href: '/decisions',     label: '의사결정',   key: '9', icon: Brain },
+  { href: '/journal',       label: '회고',       key: '', icon: NotebookPen },
   { href: '/settings',      label: '설정',       key: '', icon: Settings },
 ]
 

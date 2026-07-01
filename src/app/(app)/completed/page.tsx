@@ -27,8 +27,8 @@ function formatYM(ym: string): string {
   return `${y}년 ${parseInt(m)}월`
 }
 
-type QuickPeriod = '주간' | '당월' | '분기' | '상반기' | '하반기'
-const QUICK_PERIODS: QuickPeriod[] = ['주간', '당월', '분기', '상반기', '하반기']
+type QuickPeriod = '주간' | '당월' | '분기' | '상반기' | '하반기' | '포트폴리오'
+const QUICK_PERIODS: QuickPeriod[] = ['주간', '당월', '분기', '상반기', '하반기', '포트폴리오']
 
 function getPeriodMonths(period: Exclude<QuickPeriod, '주간' | '당월'>): string[] {
   const now = new Date()
@@ -511,6 +511,43 @@ export default function CompletedPage() {
 
       {/* ── 분기/상반기/하반기 뷰 ── */}
       {(quickPeriod === '분기' || quickPeriod === '상반기' || quickPeriod === '하반기') && renderKanban()}
+
+      {/* ── 포트폴리오 뷰 ── */}
+      {quickPeriod === '포트폴리오' && (
+        <div className="flex flex-col gap-4">
+          <p className="text-sm text-gray-400">완료한 업무 전체 — 업무 단위 성과 아카이브</p>
+          {tasks.length === 0 ? (
+            <p className="text-sm text-gray-300 text-center py-12">완료된 업무가 없습니다</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {tasks.map(t => (
+                <Link key={t.id} href={`/tasks/${t.id}`}
+                  className="bg-white rounded-xl border border-gray-100 p-4 hover:border-gray-300 hover:shadow-sm transition-all flex flex-col gap-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="text-sm font-semibold text-gray-800 leading-snug">{t.title}</span>
+                    <span className="text-[10px] text-gray-400 flex-shrink-0 bg-gray-50 px-1.5 py-0.5 rounded">{t.part}</span>
+                  </div>
+                  <div className="flex gap-1.5 flex-wrap">
+                    <span className="text-[10px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded">{t.type}</span>
+                    {t.end_date && <span className="text-[10px] text-gray-400">{t.end_date.slice(0, 7)} 완료</span>}
+                  </div>
+                  {t.retrospective && (t.retrospective.good || t.retrospective.bad) && (
+                    <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed border-t border-gray-50 pt-2">
+                      {t.retrospective.good || t.retrospective.bad}
+                    </p>
+                  )}
+                </Link>
+              ))}
+            </div>
+          )}
+          <div className="mt-2 flex justify-end">
+            <Link href="/journal?tab=selfeval"
+              className="text-sm text-gray-500 border border-gray-200 px-4 py-2 rounded-lg hover:border-gray-400 transition-colors">
+              → 자기평가 초안 만들기
+            </Link>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
