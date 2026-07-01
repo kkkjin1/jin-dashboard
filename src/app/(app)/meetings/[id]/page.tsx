@@ -254,7 +254,7 @@ export default function MeetingDetailPage() {
   const [linkedTasks, setLinkedTasks] = useState<Task[]>([])
   const [allTasks, setAllTasks] = useState<Pick<Task, 'id' | 'title' | 'status' | 'part'>[]>([])
   const [selectedTaskId, setSelectedTaskId] = useState('')
-  const [relatedJournals, setRelatedJournals] = useState<{ id: string; date: string; content: string }[]>([])
+  const [relatedJournals, setRelatedJournals] = useState<{ id: string; date: string; content: string; tags: string[]; linked: boolean }[]>([])
 
   const titleRef = useRef<HTMLInputElement>(null)
   const noteAreaRef = useRef<HTMLTextAreaElement>(null)
@@ -295,17 +295,46 @@ export default function MeetingDetailPage() {
   }
 
   useEffect(() => {
-    if (!meeting?.meeting_date) return
-    const base = new Date(meeting.meeting_date + 'T00:00:00')
-    const dates: string[] = []
-    for (let i = -2; i <= 2; i++) {
-      const d = new Date(base)
-      d.setDate(d.getDate() + i)
-      dates.push([d.getFullYear(), String(d.getMonth()+1).padStart(2,'0'), String(d.getDate()).padStart(2,'0')].join('-'))
+    async function loadJournals() {
+      const seen = new Set<string>()
+      const result: { id: string; date: string; content: string; tags: string[]; linked: boolean }[] = []
+
+      // @ 직접 연결된 회고 (날짜 무관)
+      const { data: linked } = await supabase
+        .from('daily_journals')
+        .select('id, date, content, tags')
+        .contains('linked_meeting_ids', [id])
+      ;(linked ?? []).forEach(j => {
+        if (seen.has(j.id)) return
+        seen.add(j.id)
+        result.push({ ...j, tags: j.tags ?? [], linked: true })
+      })
+
+      // 날짜 ±2일 자동 연결
+      if (meeting?.meeting_date) {
+        const base = new Date(meeting.meeting_date + 'T00:00:00')
+        const dates: string[] = []
+        for (let i = -2; i <= 2; i++) {
+          const d = new Date(base)
+          d.setDate(d.getDate() + i)
+          dates.push([d.getFullYear(), String(d.getMonth()+1).padStart(2,'0'), String(d.getDate()).padStart(2,'0')].join('-'))
+        }
+        const { data: byDate } = await supabase
+          .from('daily_journals')
+          .select('id, date, content, tags')
+          .in('date', dates)
+        ;(byDate ?? []).forEach(j => {
+          if (seen.has(j.id)) return
+          seen.add(j.id)
+          result.push({ ...j, tags: j.tags ?? [], linked: false })
+        })
+      }
+
+      result.sort((a, b) => b.date.localeCompare(a.date))
+      setRelatedJournals(result)
     }
-    supabase.from('daily_journals').select('id, date, content').in('date', dates).order('date', { ascending: false })
-      .then(({ data }) => { if (data) setRelatedJournals(data) })
-  }, [meeting?.meeting_date])
+    loadJournals()
+  }, [meeting?.meeting_date, id])
 
   useEffect(() => {
     function onEsc(e: KeyboardEvent) {
@@ -617,15 +646,25 @@ export default function MeetingDetailPage() {
                 <p className="text-xs text-gray-300 text-center py-4">이 회의 전후 작성된<br/>회고가 없어요</p>
               ) : (
                 <>
-                  <p className="text-[10px] text-gray-300 mb-3">회의일 ± 2일 내 작성된 회고</p>
                   <div className="space-y-2">
                     {relatedJournals.map(j => {
                       const d = new Date(j.date + 'T00:00:00')
                       const label = `${d.getMonth()+1}/${d.getDate()}`
                       return (
                         <div key={j.id} className="bg-gray-50 rounded-lg p-3">
-                          <p className="text-[10px] font-medium text-gray-400 mb-1">{label}</p>
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <p className="text-[10px] font-medium text-gray-400">{label}</p>
+                            {j.linked
+                              ? <span className="text-[9px] bg-blue-50 text-blue-500 border border-blue-200 px-1 rounded">@ 직접연결</span>
+                              : <span className="text-[9px] text-gray-300">±2일</span>
+                            }
+                          </div>
                           <p className="text-xs text-gray-600 leading-relaxed line-clamp-3">{j.content}</p>
+                          {j.tags?.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1.5">
+                              {j.tags.map(t => <span key={t} className="text-[9px] text-gray-400">#{t}</span>)}
+                            </div>
+                          )}
                         </div>
                       )
                     })}
