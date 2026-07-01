@@ -609,24 +609,30 @@ export default function MeetingDetailPage() {
               </div>
             )}
 
-            {relatedJournals.length > 0 && (
-              <div className="mt-6 pt-5 border-t border-gray-100">
-                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">관련 회고</h3>
-                <p className="text-[10px] text-gray-300 mb-3">회의일 ± 2일 내 작성된 회고</p>
-                <div className="space-y-2">
-                  {relatedJournals.map(j => {
-                    const d = new Date(j.date + 'T00:00:00')
-                    const label = `${d.getMonth()+1}/${d.getDate()}`
-                    return (
-                      <div key={j.id} className="bg-gray-50 rounded-lg p-3">
-                        <p className="text-[10px] font-medium text-gray-400 mb-1">{label}</p>
-                        <p className="text-xs text-gray-600 leading-relaxed line-clamp-3">{j.content}</p>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
+            <div className="mt-6 pt-5 border-t border-gray-100">
+              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">관련 회고</h3>
+              {!meeting?.meeting_date ? (
+                <p className="text-xs text-gray-300 text-center py-4">회의 날짜를 설정하면<br/>전후 회고가 자동으로 연결돼요</p>
+              ) : relatedJournals.length === 0 ? (
+                <p className="text-xs text-gray-300 text-center py-4">이 회의 전후 작성된<br/>회고가 없어요</p>
+              ) : (
+                <>
+                  <p className="text-[10px] text-gray-300 mb-3">회의일 ± 2일 내 작성된 회고</p>
+                  <div className="space-y-2">
+                    {relatedJournals.map(j => {
+                      const d = new Date(j.date + 'T00:00:00')
+                      const label = `${d.getMonth()+1}/${d.getDate()}`
+                      return (
+                        <div key={j.id} className="bg-gray-50 rounded-lg p-3">
+                          <p className="text-[10px] font-medium text-gray-400 mb-1">{label}</p>
+                          <p className="text-xs text-gray-600 leading-relaxed line-clamp-3">{j.content}</p>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>
