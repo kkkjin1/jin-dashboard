@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { fetchAllTasks, fetchMembers, formatDate } from '@/lib/tasks'
+import { generateTasksContextMd, downloadMd } from '@/lib/markdown'
 import { TaskPageSkeleton } from '@/components/ui/Skeleton'
 import type { Task, Member, TaskStatus, Part, TaskType } from '@/types'
 
@@ -219,6 +220,41 @@ export default function TasksPage() {
     setCheckedIds(new Set())
   }
 
+  async function downloadChecked() {
+    const ids = Array.from(checkedIds)
+    const selected = tasks.filter(t => ids.includes(t.id))
+    const [{ data: notesData }, { data: todosData }] = await Promise.all([
+      supabase.from('notes').select('task_id, title, content, created_at').in('task_id', ids).order('created_at', { ascending: false }),
+      supabase.from('task_todos').select('task_id, content, done, target_date, sort_order').in('task_id', ids).order('sort_order'),
+    ])
+    const notesByTask: Record<string, { title: string; content: string; created_at: string }[]> = {}
+    const todosByTask: Record<string, { content: string; done: boolean; target_date?: string | null }[]> = {}
+    ;(notesData ?? []).forEach((n: { task_id: string; title: string; content: string; created_at: string }) => {
+      if (!notesByTask[n.task_id]) notesByTask[n.task_id] = []
+      notesByTask[n.task_id].push({ title: n.title, content: n.content, created_at: n.created_at })
+    })
+    ;(todosData ?? []).forEach((td: { task_id: string; content: string; done: boolean; target_date?: string | null }) => {
+      if (!todosByTask[td.task_id]) todosByTask[td.task_id] = []
+      todosByTask[td.task_id].push({ content: td.content, done: td.done, target_date: td.target_date })
+    })
+    const items = selected.map(t => ({
+      title: t.title,
+      status: t.status,
+      part: t.part,
+      type: t.type,
+      assignee: t.members?.name,
+      start_date: t.start_date,
+      mid_date: t.mid_date,
+      end_date: t.end_date,
+      retrospective: t.retrospective ?? null,
+      notes: notesByTask[t.id] ?? [],
+      todos: todosByTask[t.id] ?? [],
+    }))
+    const md = generateTasksContextMd(items)
+    const label = selected.length === 1 ? selected[0].title : `업무-${selected.length}건`
+    downloadMd(md, label)
+  }
+
   if (loadingTasks) return <TaskPageSkeleton />
 
   return (
@@ -227,10 +263,16 @@ export default function TasksPage() {
         <h1 className="text-xl font-bold text-gray-900">업무 목록</h1>
         <div className="flex items-center gap-2">
           {checkedIds.size > 0 && (
-            <button onClick={deleteChecked}
-              className="text-xs bg-red-500 text-white px-3 py-1.5 rounded-md hover:bg-red-600 transition-colors">
-              {checkedIds.size}개 삭제
-            </button>
+            <>
+              <button onClick={downloadChecked}
+                className="text-xs bg-gray-700 text-white px-3 py-1.5 rounded-md hover:bg-gray-800 transition-colors">
+                MD 다운로드 ({checkedIds.size})
+              </button>
+              <button onClick={deleteChecked}
+                className="text-xs bg-red-500 text-white px-3 py-1.5 rounded-md hover:bg-red-600 transition-colors">
+                {checkedIds.size}개 삭제
+              </button>
+            </>
           )}
         </div>
       </div>

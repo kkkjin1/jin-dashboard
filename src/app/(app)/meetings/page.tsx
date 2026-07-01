@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { format, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import type { Meeting } from '@/types'
+import { generateMeetingsContextMd, downloadMd } from '@/lib/markdown'
 
 const CATEGORIES = ['전체', '코어', '비즈', '경영진', '본부장', '타팀', '목표관리'] as const
 const KANBAN_COL_STYLE: Record<string, { header: string; bg: string }> = {
@@ -70,6 +71,18 @@ export default function MeetingsPage() {
     await supabase.from('meetings').delete().in('id', Array.from(checkedIds))
     setMeetings(prev => prev.filter(m => !checkedIds.has(m.id)))
     setCheckedIds(new Set())
+  }
+
+  function downloadChecked() {
+    const selected = meetings.filter(m => checkedIds.has(m.id))
+    const md = generateMeetingsContextMd(selected.map(m => ({
+      title: m.title,
+      meeting_date: m.meeting_date,
+      category: m.category,
+      notes: m.notes,
+    })))
+    const label = selected.length === 1 ? selected[0].title : `회의록-${selected.length}건`
+    downloadMd(md, label)
   }
 
   function toggleCheck(id: string) {
@@ -160,10 +173,16 @@ export default function MeetingsPage() {
             </button>
           </div>
           {checkedIds.size > 0 && (
-            <button onClick={deleteChecked}
-              className="text-sm bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 transition-colors">
-              {checkedIds.size}개 삭제
-            </button>
+            <>
+              <button onClick={downloadChecked}
+                className="text-sm bg-gray-700 text-white px-4 py-2 rounded-md hover:bg-gray-800 transition-colors">
+                MD 다운로드 ({checkedIds.size})
+              </button>
+              <button onClick={deleteChecked}
+                className="text-sm bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 transition-colors">
+                {checkedIds.size}개 삭제
+              </button>
+            </>
           )}
           <button onClick={() => setAdding(true)}
             className="text-sm bg-gray-900 text-white px-4 py-2 rounded-md hover:bg-gray-800 transition-colors">
