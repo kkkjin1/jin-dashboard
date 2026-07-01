@@ -5,8 +5,6 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import type { Task } from '@/types'
 
-// ── Types ──────────────────────────────────────────────────────────────
-
 interface MeetingMin { id: string; title: string; meeting_date?: string | null }
 
 interface DailyJournal {
@@ -29,42 +27,44 @@ interface Props {
   meetings: MeetingMin[]
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────
-
 function dateStr(offset = 0) {
   const d = new Date()
   d.setDate(d.getDate() + offset)
   return d.toISOString().slice(0, 10)
 }
 
+function formatDateLabel(dateStr: string) {
+  const d = new Date(dateStr + 'T00:00:00')
+  const today = new Date(); today.setHours(0,0,0,0)
+  const target = new Date(d); target.setHours(0,0,0,0)
+  const diff = Math.round((today.getTime() - target.getTime()) / 86400000)
+  if (diff === 0) return '오늘'
+  if (diff === 1) return '어제'
+  if (diff === 2) return '그제'
+  return `${d.getMonth()+1}/${d.getDate()}`
+}
+
 function extractSuggestions(text: string, tasks: Task[], meetings: MeetingMin[]): Suggestion[] {
   const lower = text.toLowerCase()
   const seen = new Set<string>()
   const result: Suggestion[] = []
-
   const tryAdd = (id: string, title: string, type: 'task' | 'meeting') => {
     if (seen.has(id)) return
-    const t = title.toLowerCase()
-    // 2글자 이상 단어 중 하나라도 매칭되면 포함
-    const words = t.split(/\s+/).filter(w => w.length >= 2)
-    const hit = lower.includes(t) || words.some(w => lower.includes(w))
-    if (hit) { seen.add(id); result.push({ id, title, type, checked: true }) }
+    const words = title.toLowerCase().split(/\s+/).filter(w => w.length >= 2)
+    if (lower.includes(title.toLowerCase()) || words.some(w => lower.includes(w))) {
+      seen.add(id); result.push({ id, title, type, checked: true })
+    }
   }
-
   tasks.filter(t => t.status !== '완료').forEach(t => tryAdd(t.id, t.title, 'task'))
   meetings.slice(0, 30).forEach(m => tryAdd(m.id, m.title, 'meeting'))
-
   return result.slice(0, 8)
 }
 
-// ── Component ──────────────────────────────────────────────────────────
-
 export default function DailyJournalWidget({ tasks, meetings }: Props) {
   const TODAY = dateStr(0)
-  const YESTERDAY = dateStr(-1)
 
-  const [todayJournal, setTodayJournal] = useState<DailyJournal | null>(null)
-  const [yesterdayJournal, setYesterdayJournal] = useState<DailyJournal | null>(null)
+  const [selectedDate, setSelectedDate] = useState(TODAY)
+  const [journals, setJournals] = useState<Record<string, DailyJournal>>({})
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
   const [phase, setPhase] = useState<'idle' | 'confirm'>('idle')
@@ -73,15 +73,18 @@ export default function DailyJournalWidget({ tasks, meetings }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const supabase = createClient()
 
+  const isToday = selectedDate === TODAY
+  const prevDate = dateStr(new Date(selectedDate + 'T00:00:00').getDate() - new Date().getDate() - 1)
+
+  // 최근 7일치 로드
   useEffect(() => {
-    supabase
-      .from('daily_journals')
-      .select('*')
-      .in('date', [TODAY, YESTERDAY])
+    const dates = Array.from({ length: 7 }, (_, i) => dateStr(-i))
+    supabase.from('daily_journals').select('*').in('date', dates)
       .then(({ data }) => {
         if (!data) return
-        setTodayJournal(data.find(d => d.date === TODAY) ?? null)
-        setYesterdayJournal(data.find(d => d.date === YESTERDAY) ?? null)
+        const map: Record<string, DailyJournal> = {}
+        data.forEach(j => { map[j.date] = j })
+        setJournals(map)
       })
   }, [])
 
@@ -89,16 +92,30 @@ export default function DailyJournalWidget({ tasks, meetings }: Props) {
     if (editing) setTimeout(() => textareaRef.current?.focus(), 30)
   }, [editing])
 
+  function navigate(dir: -1 | 1) {
+    const d = new Date(selectedDate + 'T00:00:00')
+    d.setDate(d.getDate() + dir)
+    const next = d.toISOString().slice(0, 10)
+    if (next > TODAY) return
+    setSelectedDate(next)
+    setEditing(false); setPhase('idle'); setSuggestions([])
+    // 없으면 DB에서 로드
+    if (!journals[next]) {
+      supabase.from('daily_journals').select('*').eq('date', next).single()
+        .then(({ data }) => { if (data) setJournals(prev => ({ ...prev, [next]: data })) })
+    }
+  }
+
+  const current = journals[selectedDate] ?? null
+  const yesterday = journals[dateStr(-1)] ?? null
+
   function startEdit() {
-    setDraft(todayJournal?.content ?? '')
-    setEditing(true)
-    setPhase('idle')
+    setDraft(current?.content ?? '')
+    setEditing(true); setPhase('idle')
   }
 
   function cancelEdit() {
-    setEditing(false)
-    setPhase('idle')
-    setSuggestions([])
+    setEditing(false); setPhase('idle'); setSuggestions([])
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
@@ -110,35 +127,27 @@ export default function DailyJournalWidget({ tasks, meetings }: Props) {
   function attemptSave() {
     if (!draft.trim()) return
     const s = extractSuggestions(draft, tasks, meetings)
-    if (s.length > 0) {
-      setSuggestions(s)
-      setPhase('confirm')
-    } else {
-      doSave([], [])
-    }
+    if (s.length > 0) { setSuggestions(s); setPhase('confirm') }
+    else doSave([], [])
   }
 
   async function doSave(taskIds: string[], meetingIds: string[]) {
     setSaving(true)
-    const payload = {
-      content: draft.trim(),
-      linked_task_ids: taskIds,
-      linked_meeting_ids: meetingIds,
-      updated_at: new Date().toISOString(),
-    }
+    const payload = { content: draft.trim(), linked_task_ids: taskIds, linked_meeting_ids: meetingIds, updated_at: new Date().toISOString() }
     let saved: DailyJournal | null = null
-    if (todayJournal) {
-      const { data } = await supabase.from('daily_journals').update(payload).eq('id', todayJournal.id).select('*').single()
+    if (current) {
+      const { data } = await supabase.from('daily_journals').update(payload).eq('id', current.id).select('*').single()
       saved = data as DailyJournal
     } else {
-      const { data } = await supabase.from('daily_journals').insert({ date: TODAY, ...payload }).select('*').single()
+      const { data } = await supabase.from('daily_journals').insert({ date: selectedDate, ...payload }).select('*').single()
       saved = data as DailyJournal
     }
-    if (saved) setTodayJournal(saved)
-    setSaving(false)
-    setEditing(false)
-    setPhase('idle')
-    setSuggestions([])
+    if (saved) setJournals(prev => ({ ...prev, [selectedDate]: saved! }))
+    setSaving(false); setEditing(false); setPhase('idle'); setSuggestions([])
+  }
+
+  function toggleSuggestion(i: number) {
+    setSuggestions(prev => prev.map((s, j) => j === i ? { ...s, checked: !s.checked } : s))
   }
 
   function confirmLinks() {
@@ -148,43 +157,42 @@ export default function DailyJournalWidget({ tasks, meetings }: Props) {
     )
   }
 
-  function toggleSuggestion(i: number) {
-    setSuggestions(prev => prev.map((s, j) => j === i ? { ...s, checked: !s.checked } : s))
-  }
-
-  // 링크 타이틀 resolve
   const linkedTasks = (j: DailyJournal) => j.linked_task_ids.map(id => tasks.find(t => t.id === id)).filter(Boolean) as Task[]
   const linkedMeetings = (j: DailyJournal) => j.linked_meeting_ids.map(id => meetings.find(m => m.id === id)).filter(Boolean) as MeetingMin[]
 
-  // 아침 컨텍스트: 오늘 회고 없고 어제 있으면 표시
-  const showYesterday = !!yesterdayJournal && !todayJournal
+  // 아침: 오늘 회고 없고 어제 있을 때
+  const showMorningContext = isToday && !current && !!yesterday
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 flex flex-col overflow-hidden h-full">
 
       {/* 헤더 */}
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100 flex-shrink-0">
-        <span className="text-sm font-semibold text-gray-700">회고</span>
-        {todayJournal && !editing && (
-          <button onClick={startEdit} className="text-[11px] text-gray-400 hover:text-gray-600 transition-colors">수정</button>
+      <div className="flex items-center gap-2 px-4 py-2.5 border-b border-gray-100 flex-shrink-0">
+        <span className="text-sm font-semibold text-gray-700 flex-1">회고</span>
+        {/* 날짜 네비 */}
+        <button onClick={() => navigate(-1)} className="text-gray-300 hover:text-gray-600 text-xs px-1">←</button>
+        <span className="text-xs text-gray-400 min-w-[2.5rem] text-center">{formatDateLabel(selectedDate)}</span>
+        <button onClick={() => navigate(1)} disabled={isToday} className="text-gray-300 hover:text-gray-600 disabled:opacity-20 text-xs px-1">→</button>
+        {current && !editing && (
+          <button onClick={startEdit} className="text-[11px] text-gray-400 hover:text-gray-600 ml-1">수정</button>
         )}
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3 min-h-0">
 
-        {/* 아침: 어제 이어받기 */}
-        {showYesterday && (
+        {/* 아침 컨텍스트 */}
+        {showMorningContext && (
           <div className="bg-amber-50 border border-amber-100 rounded-lg p-3 flex-shrink-0">
             <p className="text-[10px] font-semibold text-amber-600 mb-1.5">어제 이어받기</p>
-            <p className="text-xs text-gray-600 leading-relaxed line-clamp-3">{yesterdayJournal!.content}</p>
-            {(linkedTasks(yesterdayJournal!).length > 0 || linkedMeetings(yesterdayJournal!).length > 0) && (
+            <p className="text-xs text-gray-600 leading-relaxed line-clamp-3">{yesterday!.content}</p>
+            {(linkedTasks(yesterday!).length > 0 || linkedMeetings(yesterday!).length > 0) && (
               <div className="flex flex-wrap gap-1 mt-2">
-                {linkedTasks(yesterdayJournal!).map(t => (
+                {linkedTasks(yesterday!).map(t => (
                   <Link key={t.id} href={`/tasks/${t.id}`} className="text-[10px] bg-white border border-amber-200 text-amber-700 px-1.5 py-0.5 rounded hover:bg-amber-100 transition-colors">
                     {t.title}
                   </Link>
                 ))}
-                {linkedMeetings(yesterdayJournal!).map(m => (
+                {linkedMeetings(yesterday!).map(m => (
                   <Link key={m.id} href={`/meetings/${m.id}`} className="text-[10px] bg-white border border-amber-200 text-amber-700 px-1.5 py-0.5 rounded hover:bg-amber-100 transition-colors">
                     {m.title}
                   </Link>
@@ -194,18 +202,18 @@ export default function DailyJournalWidget({ tasks, meetings }: Props) {
           </div>
         )}
 
-        {/* 오늘 회고 - 읽기 모드 */}
-        {todayJournal && !editing && (
+        {/* 읽기 모드 */}
+        {current && !editing && (
           <div className="flex flex-col gap-2 flex-shrink-0">
-            <p className="text-xs text-gray-600 leading-relaxed whitespace-pre-wrap">{todayJournal.content}</p>
-            {(linkedTasks(todayJournal).length > 0 || linkedMeetings(todayJournal).length > 0) && (
+            <p className="text-xs text-gray-600 leading-relaxed whitespace-pre-wrap">{current.content}</p>
+            {(linkedTasks(current).length > 0 || linkedMeetings(current).length > 0) && (
               <div className="flex flex-wrap gap-1">
-                {linkedTasks(todayJournal).map(t => (
+                {linkedTasks(current).map(t => (
                   <Link key={t.id} href={`/tasks/${t.id}`} className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded hover:bg-gray-200 transition-colors">
                     {t.title}
                   </Link>
                 ))}
-                {linkedMeetings(todayJournal).map(m => (
+                {linkedMeetings(current).map(m => (
                   <Link key={m.id} href={`/meetings/${m.id}`} className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded hover:bg-gray-200 transition-colors">
                     {m.title}
                   </Link>
@@ -215,17 +223,14 @@ export default function DailyJournalWidget({ tasks, meetings }: Props) {
           </div>
         )}
 
-        {/* 작성 프롬프트 */}
-        {!todayJournal && !editing && (
-          <button
-            onClick={startEdit}
-            className="text-left text-xs text-gray-300 hover:text-gray-500 transition-colors py-1"
-          >
-            + 오늘 회고 작성…
+        {/* 빈 상태 */}
+        {!current && !editing && (
+          <button onClick={startEdit} className="text-left text-xs text-gray-300 hover:text-gray-500 transition-colors py-1">
+            {isToday ? '+ 오늘 회고 작성…' : '+ 이 날 회고 작성…'}
           </button>
         )}
 
-        {/* 편집 모드 */}
+        {/* 편집 */}
         {editing && (
           <div className="flex flex-col gap-2 flex-1 min-h-0">
             <textarea
@@ -237,50 +242,35 @@ export default function DailyJournalWidget({ tasks, meetings }: Props) {
               className="flex-1 text-xs text-gray-700 placeholder:text-gray-300 resize-none focus:outline-none leading-relaxed min-h-[90px] bg-transparent"
             />
 
-            {/* 매칭 확인 */}
             {phase === 'confirm' && (
               <div className="border-t border-gray-100 pt-2.5 flex flex-col gap-2 flex-shrink-0">
-                <p className="text-[10px] text-gray-400 font-medium">연결할 항목을 선택하세요</p>
+                <p className="text-[10px] text-gray-400 font-medium">연결할 항목 선택</p>
                 <div className="flex flex-wrap gap-1.5">
                   {suggestions.map((s, i) => (
-                    <button
-                      key={s.id}
-                      onClick={() => toggleSuggestion(i)}
+                    <button key={s.id} onClick={() => toggleSuggestion(i)}
                       className={`flex items-center gap-1 text-[10px] px-2 py-1 rounded-full border transition-colors ${
-                        s.checked
-                          ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
-                          : 'bg-gray-50 border-gray-200 text-gray-400 line-through'
-                      }`}
-                    >
+                        s.checked ? 'bg-emerald-50 border-emerald-300 text-emerald-700' : 'bg-gray-50 border-gray-200 text-gray-400 line-through'
+                      }`}>
                       {s.title}
                       <span className="opacity-50">{s.type === 'task' ? '업무' : '회의'}</span>
                     </button>
                   ))}
                 </div>
                 <div className="flex items-center justify-between">
-                  <button onClick={() => doSave([], [])} className="text-[10px] text-gray-300 hover:text-gray-500 transition-colors">
-                    연결 없이 저장
-                  </button>
-                  <button
-                    onClick={confirmLinks}
-                    disabled={saving}
-                    className="text-[11px] bg-gray-900 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700 disabled:opacity-40 transition-colors"
-                  >
+                  <button onClick={() => doSave([], [])} className="text-[10px] text-gray-300 hover:text-gray-500">연결 없이 저장</button>
+                  <button onClick={confirmLinks} disabled={saving}
+                    className="text-[11px] bg-gray-900 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700 disabled:opacity-40">
                     {saving ? '저장…' : '확정'}
                   </button>
                 </div>
               </div>
             )}
 
-            {/* 저장 버튼 (idle) */}
             {phase === 'idle' && (
               <div className="flex items-center justify-between flex-shrink-0">
-                <button onClick={cancelEdit} className="text-[10px] text-gray-300 hover:text-gray-500 transition-colors">취소</button>
-                <button
-                  onClick={attemptSave}
-                  disabled={!draft.trim() || saving}
-                  className="text-[10px] text-gray-400 hover:text-gray-700 disabled:opacity-30 transition-colors"
-                >
+                <button onClick={cancelEdit} className="text-[10px] text-gray-300 hover:text-gray-500">취소</button>
+                <button onClick={attemptSave} disabled={!draft.trim()}
+                  className="text-[10px] text-gray-400 hover:text-gray-700 disabled:opacity-30">
                   Ctrl+Enter 저장
                 </button>
               </div>

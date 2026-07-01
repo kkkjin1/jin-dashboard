@@ -212,6 +212,7 @@ export default function TaskDetailPage() {
   const [showRetro, setShowRetro] = useState(false)
 
   const [linkedMeetings, setLinkedMeetings] = useState<Meeting[]>([])
+  const [relatedJournals, setRelatedJournals] = useState<{ id: string; date: string; content: string }[]>([])
   const [allMeetings, setAllMeetings] = useState<Pick<Meeting, 'id' | 'title' | 'meeting_date'>[]>([])
   const [selectedMeetingId, setSelectedMeetingId] = useState('')
   const [expandedMeetingIds, setExpandedMeetingIds] = useState<Set<string>>(new Set())
@@ -278,6 +279,14 @@ export default function TaskDetailPage() {
       if (links) setLinkedMeetings((links as any[]).map(l => l.meetings).filter(Boolean) as Meeting[])
       if (meetings) setAllMeetings(meetings as Pick<Meeting, 'id' | 'title' | 'meeting_date'>[])
       setTodos((todosData ?? []) as TaskTodo[])
+      // 관련 회고 로드
+      const { data: journals } = await supabase
+        .from('daily_journals')
+        .select('id, date, content')
+        .contains('linked_task_ids', [id])
+        .order('date', { ascending: false })
+        .limit(5)
+      if (journals) setRelatedJournals(journals)
     }
     load()
   }, [id])
@@ -825,6 +834,25 @@ export default function TaskDetailPage() {
                   )}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* 관련 회고 */}
+          {relatedJournals.length > 0 && (
+            <div className="mb-6">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">관련 회고</h3>
+              <div className="space-y-2">
+                {relatedJournals.map(j => {
+                  const d = new Date(j.date + 'T00:00:00')
+                  const label = `${d.getMonth()+1}/${d.getDate()}`
+                  return (
+                    <div key={j.id} className="bg-gray-50 rounded-lg px-3 py-2">
+                      <p className="text-[10px] text-gray-400 mb-1">{label}</p>
+                      <p className="text-xs text-gray-600 line-clamp-2 leading-relaxed">{j.content}</p>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           )}
 
