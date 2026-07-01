@@ -27,10 +27,18 @@ interface Props {
   meetings: MeetingMin[]
 }
 
+function localDateStr(d: Date) {
+  return [
+    d.getFullYear(),
+    String(d.getMonth() + 1).padStart(2, '0'),
+    String(d.getDate()).padStart(2, '0'),
+  ].join('-')
+}
+
 function dateStr(offset = 0) {
   const d = new Date()
   d.setDate(d.getDate() + offset)
-  return d.toISOString().slice(0, 10)
+  return localDateStr(d)
 }
 
 function formatDateLabel(dateStr: string) {
@@ -93,9 +101,10 @@ export default function DailyJournalWidget({ tasks, meetings }: Props) {
   }, [editing])
 
   function navigate(dir: -1 | 1) {
-    const d = new Date(selectedDate + 'T00:00:00')
+    const [y, m, day] = selectedDate.split('-').map(Number)
+    const d = new Date(y, m - 1, day)
     d.setDate(d.getDate() + dir)
-    const next = d.toISOString().slice(0, 10)
+    const next = localDateStr(d)
     if (next > TODAY) return
     setSelectedDate(next)
     setEditing(false); setPhase('idle'); setSuggestions([])
