@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
-import HomeCalendar from '@/components/home/HomeCalendar'
+import DailyJournalWidget from '@/components/home/DailyJournalWidget'
 import TodayTodoWidget from '@/components/home/TodayTodoWidget'
 import QuickTaskInput from '@/components/home/QuickTaskInput'
 import { fetchAllTasks } from '@/lib/tasks'
@@ -447,10 +447,10 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* Row 4: 캘린더 + 오늘할일 + 미지정백로그 */}
+      {/* Row 4: 회고 + 오늘할일 + 미지정백로그 */}
       <div className="md:flex-1 md:min-h-0 grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="md:overflow-hidden">
-          <HomeCalendar tasks={tasks} meetings={meetings} />
+          <DailyJournalWidget tasks={tasks} meetings={meetings} />
         </div>
         <div className="md:overflow-hidden flex flex-col gap-3 min-h-0">
           <div className="flex-[3] min-h-0 overflow-hidden">
