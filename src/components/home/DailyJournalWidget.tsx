@@ -15,13 +15,6 @@ interface DailyJournal {
   linked_meeting_ids: string[]
 }
 
-interface Suggestion {
-  id: string
-  title: string
-  type: 'task' | 'meeting'
-  checked: boolean
-}
-
 interface Props {
   tasks: Task[]
   meetings: MeetingMin[]
@@ -52,21 +45,6 @@ function formatDateLabel(dateStr: string) {
   return `${d.getMonth()+1}/${d.getDate()}`
 }
 
-function extractSuggestions(text: string, tasks: Task[], meetings: MeetingMin[]): Suggestion[] {
-  const lower = text.toLowerCase()
-  const seen = new Set<string>()
-  const result: Suggestion[] = []
-  const tryAdd = (id: string, title: string, type: 'task' | 'meeting') => {
-    if (seen.has(id)) return
-    const words = title.toLowerCase().split(/\s+/).filter(w => w.length >= 2)
-    if (lower.includes(title.toLowerCase()) || words.some(w => lower.includes(w))) {
-      seen.add(id); result.push({ id, title, type, checked: true })
-    }
-  }
-  tasks.filter(t => t.status !== '완료').forEach(t => tryAdd(t.id, t.title, 'task'))
-  meetings.slice(0, 30).forEach(m => tryAdd(m.id, m.title, 'meeting'))
-  return result.slice(0, 8)
-}
 
 export default function DailyJournalWidget({ tasks, meetings }: Props) {
   const TODAY = dateStr(0)
@@ -75,9 +53,8 @@ export default function DailyJournalWidget({ tasks, meetings }: Props) {
   const [journals, setJournals] = useState<Record<string, DailyJournal>>({})
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
-  const [phase, setPhase] = useState<'idle' | 'confirm'>('idle')
-  const [suggestions, setSuggestions] = useState<Suggestion[]>([])
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const supabase = createClient()
 
@@ -120,50 +97,42 @@ export default function DailyJournalWidget({ tasks, meetings }: Props) {
 
   function startEdit() {
     setDraft(current?.content ?? '')
-    setEditing(true); setPhase('idle')
+    setSaveError('')
+    setEditing(true)
   }
 
   function cancelEdit() {
-    setEditing(false); setPhase('idle'); setSuggestions([])
+    setEditing(false)
+    setSaveError('')
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.nativeEvent.isComposing) return
-    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); attemptSave() }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); doSave() }
     if (e.key === 'Escape') { e.preventDefault(); cancelEdit() }
   }
 
-  function attemptSave() {
+  async function doSave() {
     if (!draft.trim()) return
-    const s = extractSuggestions(draft, tasks, meetings)
-    if (s.length > 0) { setSuggestions(s); setPhase('confirm') }
-    else doSave([], [])
-  }
-
-  async function doSave(taskIds: string[], meetingIds: string[]) {
     setSaving(true)
-    const payload = { content: draft.trim(), linked_task_ids: taskIds, linked_meeting_ids: meetingIds, updated_at: new Date().toISOString() }
-    let saved: DailyJournal | null = null
-    if (current) {
-      const { data } = await supabase.from('daily_journals').update(payload).eq('id', current.id).select('*').single()
-      saved = data as DailyJournal
-    } else {
-      const { data } = await supabase.from('daily_journals').insert({ date: selectedDate, ...payload }).select('*').single()
-      saved = data as DailyJournal
+    setSaveError('')
+    const payload = {
+      content: draft.trim(),
+      linked_task_ids: current?.linked_task_ids ?? [],
+      linked_meeting_ids: current?.linked_meeting_ids ?? [],
+      updated_at: new Date().toISOString(),
     }
-    if (saved) setJournals(prev => ({ ...prev, [selectedDate]: saved! }))
-    setSaving(false); setEditing(false); setPhase('idle'); setSuggestions([])
-  }
-
-  function toggleSuggestion(i: number) {
-    setSuggestions(prev => prev.map((s, j) => j === i ? { ...s, checked: !s.checked } : s))
-  }
-
-  function confirmLinks() {
-    doSave(
-      suggestions.filter(s => s.type === 'task' && s.checked).map(s => s.id),
-      suggestions.filter(s => s.type === 'meeting' && s.checked).map(s => s.id),
-    )
+    if (current) {
+      const { data, error } = await supabase.from('daily_journals').update(payload).eq('id', current.id).select('*').single()
+      if (error) { setSaveError(error.message); setSaving(false); return }
+      if (data) setJournals(prev => ({ ...prev, [selectedDate]: data as DailyJournal }))
+    } else {
+      const { data, error } = await supabase.from('daily_journals').insert({ date: selectedDate, ...payload }).select('*').single()
+      if (error) { setSaveError(error.message); setSaving(false); return }
+      if (data) setJournals(prev => ({ ...prev, [selectedDate]: data as DailyJournal }))
+    }
+    setSaving(false)
+    setEditing(false)
   }
 
   const linkedTasks = (j: DailyJournal) => j.linked_task_ids.map(id => tasks.find(t => t.id === id)).filter(Boolean) as Task[]
@@ -261,40 +230,16 @@ export default function DailyJournalWidget({ tasks, meetings }: Props) {
               placeholder="오늘 뭐했고, 어떤 고민이 있었는지, 어떤 진전이 있었는지 자유롭게…"
               className="flex-1 text-xs text-gray-700 placeholder:text-gray-300 resize-none focus:outline-none leading-relaxed min-h-[90px] bg-transparent"
             />
-
-            {phase === 'confirm' && (
-              <div className="border-t border-gray-100 pt-2.5 flex flex-col gap-2 flex-shrink-0">
-                <p className="text-[10px] text-gray-400 font-medium">연결할 항목 선택</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {suggestions.map((s, i) => (
-                    <button key={s.id} onClick={() => toggleSuggestion(i)}
-                      className={`flex items-center gap-1 text-[10px] px-2 py-1 rounded-full border transition-colors ${
-                        s.checked ? 'bg-emerald-50 border-emerald-300 text-emerald-700' : 'bg-gray-50 border-gray-200 text-gray-400 line-through'
-                      }`}>
-                      {s.title}
-                      <span className="opacity-50">{s.type === 'task' ? '업무' : '회의'}</span>
-                    </button>
-                  ))}
-                </div>
-                <div className="flex items-center justify-between">
-                  <button onClick={() => doSave([], [])} className="text-[10px] text-gray-300 hover:text-gray-500">연결 없이 저장</button>
-                  <button onClick={confirmLinks} disabled={saving}
-                    className="text-[11px] bg-gray-900 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700 disabled:opacity-40">
-                    {saving ? '저장…' : '확정'}
-                  </button>
-                </div>
-              </div>
+            {saveError && (
+              <p className="text-[10px] text-red-500 flex-shrink-0">{saveError}</p>
             )}
-
-            {phase === 'idle' && (
-              <div className="flex items-center justify-between flex-shrink-0">
-                <button onClick={cancelEdit} className="text-[10px] text-gray-300 hover:text-gray-500">취소</button>
-                <button onClick={attemptSave} disabled={!draft.trim()}
-                  className="text-[10px] text-gray-400 hover:text-gray-700 disabled:opacity-30">
-                  Ctrl+Enter 저장
-                </button>
-              </div>
-            )}
+            <div className="flex items-center justify-between flex-shrink-0">
+              <button onClick={cancelEdit} className="text-[10px] text-gray-300 hover:text-gray-500">취소</button>
+              <button onClick={doSave} disabled={!draft.trim() || saving}
+                className="text-[10px] text-gray-400 hover:text-gray-700 disabled:opacity-30">
+                {saving ? '저장 중…' : 'Ctrl+Enter 저장'}
+              </button>
+            </div>
           </div>
         )}
       </div>
