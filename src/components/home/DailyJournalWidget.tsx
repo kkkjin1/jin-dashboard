@@ -7,7 +7,7 @@ import type { Task } from '@/types'
 
 // ── Types ──────────────────────────────────────────────────────────────
 
-interface MeetingMin { id: string; title: string; meeting_date?: string }
+interface MeetingMin { id: string; title: string; meeting_date?: string | null }
 
 interface DailyJournal {
   id: string
