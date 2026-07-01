@@ -70,9 +70,10 @@ function NoteAccordion({ note, index, isOpen, onToggle, onDelete, onEdit, onFull
 
   return (
     <div className="bg-white rounded-lg border border-gray-100 overflow-hidden group">
-      <button onClick={onToggle}
-        className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50 transition-colors">
-        <div className="flex items-center gap-2 min-w-0">
+      <div
+        onClick={() => { if (!editingTitle) onToggle() }}
+        className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors cursor-pointer">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
           <span className="text-xs text-gray-400 flex-shrink-0">{isOpen ? '▼' : '▶'}</span>
           {editingTitle ? (
             <input
@@ -106,10 +107,12 @@ function NoteAccordion({ note, index, isOpen, onToggle, onDelete, onEdit, onFull
           <button onClick={e => { e.stopPropagation(); onFullscreen(note.content) }}
             className="text-xs text-gray-300 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-all"
             title="크게보기">⛶</button>
+          <button onClick={e => { e.stopPropagation(); setEditContent(note.content); setEditing(true); if (!isOpen) onToggle() }}
+            className="text-xs text-gray-300 hover:text-blue-500 transition-colors opacity-0 group-hover:opacity-100">수정</button>
           <button onClick={e => { e.stopPropagation(); onDelete(index) }}
             className="text-xs text-gray-200 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100">삭제</button>
         </div>
-      </button>
+      </div>
       {fullscreen && (
         <FullscreenNoteEditor
           value={editContent}

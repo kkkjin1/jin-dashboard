@@ -74,9 +74,34 @@ export default function TodayTodoWidget() {
     return () => document.removeEventListener('keydown', onKey)
   }, [linkPopup])
 
+  function parseDateInput(text: string): { title: string; targetDate: string | null } {
+    const slashIdx = text.lastIndexOf(' /')
+    if (slashIdx === -1) return { title: text.trim(), targetDate: null }
+    const keyword = text.slice(slashIdx + 2).trim()
+    const now = new Date()
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+    if (/^오늘(까지)?$/.test(keyword)) {
+      return { title: text.slice(0, slashIdx).trim(), targetDate: fmt(now) }
+    }
+    if (/^내일(까지)?$/.test(keyword)) {
+      const d = new Date(now); d.setDate(now.getDate() + 1)
+      return { title: text.slice(0, slashIdx).trim(), targetDate: fmt(d) }
+    }
+    if (/^(금주|이번주)(까지)?$/.test(keyword)) {
+      const d = new Date(now)
+      const daysToFri = (5 - now.getDay() + 7) % 7
+      d.setDate(now.getDate() + (daysToFri === 0 ? 0 : daysToFri))
+      return { title: text.slice(0, slashIdx).trim(), targetDate: fmt(d) }
+    }
+    return { title: text.trim(), targetDate: null }
+  }
+
   async function addMemo() {
     if (!newText.trim()) return
-    await supabase.from('quick_memos').insert({ title: newText.trim(), content: '', tag: '업무관련' })
+    const { title } = parseDateInput(newText)
+    if (!title) return
+    await supabase.from('quick_memos').insert({ title, content: '', tag: '업무관련' })
     setNewText('')
     loadMemos()
   }
