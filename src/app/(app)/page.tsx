@@ -53,26 +53,26 @@ function CompactCol({
   isDragOver, onComplete, completedCount = 0, colBadge,
 }: CompactColProps) {
   const dragRing = isDragOver && droppable ? (dark ? 'ring-1 ring-white/20' : 'ring-1 ring-emerald-400/60') : ''
-  const emptyTxt = dark ? 'text-white/20' : 'text-gray-300'
-  const itemTxt = dark ? 'text-white/80' : 'text-gray-700'
-  const subTxt = dark ? 'text-white/30' : 'text-gray-400'
-  const chipCls = dark ? 'bg-white/10 text-white/35' : 'bg-gray-100/80 text-gray-400'
-  const hoverCls = dark ? 'hover:bg-white/5' : 'hover:bg-white/50'
-  const divideCls = dark ? 'divide-white/5' : 'divide-gray-100/60'
-  const completeCls = dark
-    ? 'border-white/20 hover:border-white/50'
-    : 'border-gray-300/60 hover:border-emerald-400 hover:bg-emerald-50'
-  const checkCls = dark ? 'text-white/50' : 'text-emerald-500'
 
-  const cardBase = 'rounded-2xl p-3 min-w-0 flex flex-col relative overflow-hidden h-full transition-all'
+  const cardBase = 'rounded-2xl p-4 min-w-0 flex flex-col relative overflow-hidden h-full transition-all font-sans'
   const cardCls = dark
     ? `bg-[#1A1F2E] border border-white/6 shadow-2xl ${cardBase} ${dragRing}`
     : warn
       ? `bg-white/40 backdrop-blur-md border border-red-200/50 shadow-sm ${cardBase} ${dragRing}`
       : `bg-white/40 backdrop-blur-md border border-white/60 shadow-sm ${cardBase} ${dragRing}`
 
-  const titleCls = dark ? 'text-white/40' : warn ? 'text-[#B44A3A]' : 'text-gray-400'
-  const badgeBg = dark
+  const emptyTxt   = dark ? 'text-white/25' : 'text-gray-300'
+  const itemTxt    = dark ? 'text-white/80' : 'text-gray-700'
+  const subTxt     = dark ? 'text-white/35' : 'text-gray-400'
+  const chipCls    = dark ? 'bg-white/10 text-white/35' : 'bg-gray-100/80 text-gray-400'
+  const hoverCls   = dark ? 'hover:bg-white/5' : 'hover:bg-white/50'
+  const divideCls  = dark ? 'divide-white/5' : 'divide-gray-100/60'
+  const completeCls = dark
+    ? 'border-white/20 hover:border-white/50'
+    : 'border-gray-300/60 hover:border-emerald-400 hover:bg-emerald-50'
+  const checkCls   = dark ? 'text-white/50' : 'text-emerald-500'
+  const titleCls   = dark ? 'text-white/40' : warn ? 'text-[#B44A3A]' : 'text-gray-400'
+  const badgeBg    = dark
     ? 'bg-white/10 text-white/50'
     : warn
       ? 'bg-[#FDECEA]/80 text-[#B44A3A]'
@@ -85,10 +85,8 @@ function CompactCol({
       onDragLeave={droppable ? onDragLeave : undefined}
     >
       {/* 카드 헤더 */}
-      <div className="flex items-center justify-between mb-2 flex-shrink-0">
-        <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'inherit' }}>
-          <span className={titleCls}>{title}</span>
-        </span>
+      <div className="flex items-center justify-between mb-3 flex-shrink-0">
+        <span className={`text-[10px] font-semibold uppercase tracking-widest ${titleCls}`}>{title}</span>
         {items.length > 0 && (
           <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${badgeBg}`}>
             {items.length > 9 ? '9+' : items.length}
@@ -98,36 +96,48 @@ function CompactCol({
 
       {/* 아이템 목록 — 내부 스크롤 */}
       {items.length === 0 ? (
-        <p className={`text-xs text-center py-1 flex-1 flex items-center justify-center ${emptyTxt}`}>
+        <p className={`text-sm flex-1 flex items-center justify-center ${emptyTxt}`}>
           {isDragOver && droppable ? '여기에 놓기' : '없음'}
         </p>
       ) : (
         <div className={`divide-y ${divideCls} overflow-y-auto flex-1 min-h-0 scrollbar-hide`}>
           {items.map(item => (
-            <div key={item.id} className={`group flex items-start gap-1.5 py-1.5 px-0.5 rounded transition-colors ${hoverCls}`}>
+            <div key={item.id}
+              className={`group flex items-start gap-2 py-2 px-1 rounded transition-colors ${hoverCls}`}>
               {onComplete && (
-                <button onClick={e => { e.stopPropagation(); onComplete(item.id) }}
-                  className={`flex-shrink-0 w-3 h-3 mt-1 rounded-full border transition-colors opacity-0 group-hover:opacity-100 flex items-center justify-center ${completeCls}`}
+                <button
+                  onClick={e => { e.stopPropagation(); onComplete(item.id) }}
+                  className={`flex-shrink-0 w-3.5 h-3.5 mt-0.5 rounded-full border transition-colors opacity-0 group-hover:opacity-100 flex items-center justify-center ${completeCls}`}
                   title="완료">
-                  <span className={`text-[7px] leading-none ${checkCls}`}>✓</span>
+                  <span className={`text-[8px] leading-none ${checkCls}`}>✓</span>
                 </button>
               )}
-              <span className={`w-1 h-1 rounded-full mt-1.5 flex-shrink-0 ${dark ? 'bg-[#F0C048]/60' : warn ? 'bg-red-300' : 'bg-gray-300'}`} />
+              <span className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${
+                dark ? 'bg-[#F0C048]/60' : warn ? 'bg-red-300' : 'bg-gray-300'
+              }`} />
               <Link href={`/tasks/${item.taskId}`} className="flex-1 min-w-0"
                 draggable={droppable}
                 onDragStart={droppable ? e => { e.stopPropagation(); e.dataTransfer.setData('todoId', item.id) } : undefined}>
-                <div className="flex items-start gap-1 min-w-0">
+                <div className="flex items-start gap-1.5 flex-wrap min-w-0">
                   {item.taskShortName && (
                     <span className={`text-[9px] font-mono flex-shrink-0 px-1 py-0.5 rounded mt-0.5 ${chipCls}`}>
                       {item.taskShortName}{(item.idxInTask ?? 0) + 1}
                     </span>
                   )}
-                  <span className={`text-xs leading-snug break-words ${itemTxt}`}>{item.title || '제목 없음'}</span>
+                  <span className={`text-sm leading-relaxed break-words min-w-0 ${itemTxt}`}>
+                    {item.title || '제목 없음'}
+                  </span>
                 </div>
-                {item.taskTitle && <span className={`text-[10px] truncate block ${subTxt}`}>{item.taskTitle}</span>}
+                {item.taskTitle && (
+                  <span className={`text-xs leading-relaxed break-words block mt-0.5 ${subTxt}`}>
+                    {item.taskTitle}
+                  </span>
+                )}
               </Link>
               {colBadge && (
-                <span className={`flex-shrink-0 text-[9px] font-medium px-1.5 py-0.5 rounded-full self-start mt-0.5 ${colBadge.bg} ${colBadge.text}`}>{colBadge.label}</span>
+                <span className={`flex-shrink-0 text-[9px] font-medium px-1.5 py-0.5 rounded-full self-start mt-0.5 ${colBadge.bg} ${colBadge.text}`}>
+                  {colBadge.label}
+                </span>
               )}
             </div>
           ))}
@@ -136,7 +146,7 @@ function CompactCol({
 
       {/* 도트 그리드 (다크 카드 전용) */}
       {dark && (
-        <div className="absolute bottom-2.5 right-2.5 opacity-50 pointer-events-none">
+        <div className="absolute bottom-3 right-3 opacity-50 pointer-events-none">
           <DotGrid total={28} filled={Math.min(completedCount, 28)} />
         </div>
       )}
@@ -167,35 +177,38 @@ function getDateStrings() {
 }
 
 export default function HomePage() {
-  const [tasks, setTasks] = useState<Task[]>([])
-  const [todos, setTodos] = useState<TaskTodo[]>([])
+  const [tasks, setTasks]                       = useState<Task[]>([])
+  const [todos, setTodos]                       = useState<TaskTodo[]>([])
   const [completedThisWeek, setCompletedThisWeek] = useState<TaskTodo[]>([])
-  const [loading, setLoading] = useState(true)
-  const [dragOverBucket, setDragOverBucket] = useState<string | null>(null)
-  const [meetings, setMeetings] = useState<Pick<Meeting, 'id' | 'title' | 'meeting_date'>[]>([])
-  const [search, setSearch] = useState('')
-  const [searchMeetings, setSearchMeetings] = useState<Pick<Meeting, 'id' | 'title'>[]>([])
-  const [meetingsLoaded, setMeetingsLoaded] = useState(false)
-  const [searchOpen, setSearchOpen] = useState(false)
-  const searchRef = useRef<HTMLDivElement>(null)
-  const searchInputRef = useRef<HTMLInputElement>(null)
+  const [loading, setLoading]                   = useState(true)
+  const [dragOverBucket, setDragOverBucket]     = useState<string | null>(null)
+  const [meetings, setMeetings]                 = useState<Pick<Meeting, 'id' | 'title' | 'meeting_date'>[]>([])
+  const [search, setSearch]                     = useState('')
+  const [searchMeetings, setSearchMeetings]     = useState<Pick<Meeting, 'id' | 'title'>[]>([])
+  const [meetingsLoaded, setMeetingsLoaded]     = useState(false)
+  const [searchOpen, setSearchOpen]             = useState(false)
+  const searchRef       = useRef<HTMLDivElement>(null)
+  const searchInputRef  = useRef<HTMLInputElement>(null)
   const supabase = createClient()
 
   type Shortcut = { id: string; title: string; url: string }
   const { value: shortcuts, save: saveShortcutsRemote } = useUserSetting<Shortcut[]>('home_shortcuts', [])
-  const [showAddShortcut, setShowAddShortcut] = useState(false)
+  const [showAddShortcut,  setShowAddShortcut]  = useState(false)
   const [newShortcutTitle, setNewShortcutTitle] = useState('')
-  const [newShortcutUrl, setNewShortcutUrl] = useState('')
+  const [newShortcutUrl,   setNewShortcutUrl]   = useState('')
   const [editingShortcutId, setEditingShortcutId] = useState<string | null>(null)
   const [editShortcutTitle, setEditShortcutTitle] = useState('')
-  const [editShortcutUrl, setEditShortcutUrl] = useState('')
+  const [editShortcutUrl,   setEditShortcutUrl]   = useState('')
 
   useEffect(() => {
     Promise.all([
       fetchAllTasks(),
       supabase.from('meetings').select('id, title, meeting_date').order('meeting_date', { ascending: true }),
-      supabase.from('task_todos').select('id, title, target_date, sort_order, task_id, done, tasks(id, title, short_name)').eq('done', false),
-      supabase.from('task_todos').select('id, title, done_at, sort_order, task_id, tasks(id, title, short_name)')
+      supabase.from('task_todos')
+        .select('id, title, target_date, sort_order, task_id, done, tasks(id, title, short_name)')
+        .eq('done', false),
+      supabase.from('task_todos')
+        .select('id, title, done_at, sort_order, task_id, tasks(id, title, short_name)')
         .eq('done', true).gte('done_at', getThisWeekStart()).order('done_at', { ascending: false }),
     ]).then(([taskData, { data: meetingData }, { data: todosData }, { data: completedData }]) => {
       setTasks(taskData)
@@ -227,7 +240,8 @@ export default function HomePage() {
   function removeShortcut(id: string) { saveShortcuts(shortcuts.filter(s => s.id !== id)) }
 
   function startEditShortcut(s: { id: string; title: string; url: string }) {
-    setEditingShortcutId(s.id); setEditShortcutTitle(s.title); setEditShortcutUrl(s.url); setShowAddShortcut(false)
+    setEditingShortcutId(s.id); setEditShortcutTitle(s.title); setEditShortcutUrl(s.url)
+    setShowAddShortcut(false)
   }
 
   function saveEditShortcut() {
@@ -248,11 +262,15 @@ export default function HomePage() {
   }
 
   const q = search.trim().toLowerCase()
-  const matchedTasks = q ? tasks.filter(t =>
-    t.title.toLowerCase().includes(q) ||
-    (t.retrospective?.improvement && t.retrospective.improvement.toLowerCase().includes(q))
-  ).slice(0, 6) : []
-  const matchedMeetings = q ? searchMeetings.filter(m => m.title.toLowerCase().includes(q)).slice(0, 4) : []
+  const matchedTasks = q
+    ? tasks.filter(t =>
+        t.title.toLowerCase().includes(q) ||
+        (t.retrospective?.improvement && t.retrospective.improvement.toLowerCase().includes(q))
+      ).slice(0, 6)
+    : []
+  const matchedMeetings = q
+    ? searchMeetings.filter(m => m.title.toLowerCase().includes(q)).slice(0, 4)
+    : []
   const hasResults = matchedTasks.length > 0 || matchedMeetings.length > 0
 
   const { today, tomorrow, thisFriday } = getDateStrings()
@@ -262,29 +280,32 @@ export default function HomePage() {
     if (!taskTodoOrderMap[t.task_id]) taskTodoOrderMap[t.task_id] = []
     taskTodoOrderMap[t.task_id].push(t)
   })
-  Object.values(taskTodoOrderMap).forEach(arr => arr.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)))
+  Object.values(taskTodoOrderMap).forEach(arr =>
+    arr.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+  )
 
   function toColItems(filtered: TaskTodo[]): TodoColItem[] {
     return filtered.map(t => {
-      const taskArr = taskTodoOrderMap[t.task_id] ?? []
-      const idxInTask = taskArr.findIndex(x => x.id === t.id)
+      const taskArr    = taskTodoOrderMap[t.task_id] ?? []
+      const idxInTask  = taskArr.findIndex(x => x.id === t.id)
       const joinedTask = t.tasks as { id: string; title: string; short_name?: string | null } | null
       return {
         id: t.id, title: t.title, taskId: t.task_id,
-        taskTitle: joinedTask?.title ?? null,
+        taskTitle:     joinedTask?.title ?? null,
         taskShortName: joinedTask?.short_name ?? null,
-        idxInTask: idxInTask >= 0 ? idxInTask : 0,
+        idxInTask:     idxInTask >= 0 ? idxInTask : 0,
       }
     })
   }
 
-  const todayItems = toColItems(todos.filter(t => t.target_date === today))
-  const tomorrowItems = toColItems(todos.filter(t => t.target_date === tomorrow))
-  const weekItems = toColItems(todos.filter(t => t.target_date && t.target_date > tomorrow && t.target_date <= thisFriday))
-  const overdueItems = toColItems(todos.filter(t => t.target_date && t.target_date < today))
-  const unscheduledItems = toColItems(todos.filter(t => !t.target_date))
+  const todayItems     = toColItems(todos.filter(t => t.target_date === today))
+  const tomorrowItems  = toColItems(todos.filter(t => t.target_date === tomorrow))
+  const weekItems      = toColItems(todos.filter(t => t.target_date && t.target_date > tomorrow && t.target_date <= thisFriday))
+  const overdueItems   = toColItems(todos.filter(t => t.target_date && t.target_date < today))
 
-  function handleDragOver(e: React.DragEvent, bucket: string) { e.preventDefault(); setDragOverBucket(bucket) }
+  function handleDragOver(e: React.DragEvent, bucket: string) {
+    e.preventDefault(); setDragOverBucket(bucket)
+  }
 
   async function handleDrop(e: React.DragEvent, bucket: 'today' | 'tomorrow' | 'this_week') {
     e.preventDefault(); setDragOverBucket(null)
@@ -308,7 +329,7 @@ export default function HomePage() {
 
   return (
     <div
-      className="h-full overflow-hidden flex flex-col gap-3 py-4"
+      className="h-full overflow-hidden flex flex-col gap-3 py-4 font-sans"
       onKeyDown={e => {
         if (e.key !== 'Escape') return
         setSearch(''); setSearchOpen(false)
@@ -327,15 +348,16 @@ export default function HomePage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-5">
-          <div className="hidden sm:flex items-center gap-5">
+        <div className="flex items-center gap-6">
+          <div className="hidden sm:flex items-center gap-6">
             {[
-              { label: '오늘', count: todayItems.length, color: '#2E5E4A' },
-              { label: '금주', count: weekItems.length, color: '#9CA3AF' },
+              { label: '오늘',   count: todayItems.length,   color: '#2E5E4A' },
+              { label: '금주',   count: weekItems.length,    color: '#9CA3AF' },
               { label: '미진행', count: overdueItems.length, color: '#B44A3A' },
             ].map(({ label, count, color }) => (
               <div key={label} className="text-right">
-                <div className="font-semibold leading-none tabular-nums" style={{ fontSize: '1.6rem', letterSpacing: '-0.04em', color }}>
+                <div className="font-semibold leading-none tabular-nums"
+                  style={{ fontSize: '1.6rem', letterSpacing: '-0.04em', color }}>
                   {count}
                 </div>
                 <div className="text-gray-400 mt-0.5 text-[9px] uppercase tracking-widest">{label}</div>
@@ -353,11 +375,13 @@ export default function HomePage() {
             {searchOpen && (
               <div className="absolute top-full mt-2 right-0 w-72 bg-white/90 backdrop-blur-xl rounded-2xl border border-white/80 shadow-xl z-50 overflow-hidden">
                 <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-100/60">
-                  <input ref={searchInputRef} value={search} onChange={e => handleSearchChange(e.target.value)}
+                  <input ref={searchInputRef} value={search}
+                    onChange={e => handleSearchChange(e.target.value)}
                     placeholder="업무·회의록 검색"
                     className="text-sm text-gray-700 focus:outline-none flex-1 bg-transparent" />
                   {search && (
-                    <button onClick={() => { setSearch(''); setSearchOpen(false) }} className="text-gray-300 hover:text-gray-500 text-base leading-none">×</button>
+                    <button onClick={() => { setSearch(''); setSearchOpen(false) }}
+                      className="text-gray-300 hover:text-gray-500 text-base leading-none">×</button>
                   )}
                 </div>
                 {hasResults ? (
@@ -370,7 +394,11 @@ export default function HomePage() {
                             <div className="py-1 px-1 hover:bg-gray-50/80 rounded-lg flex items-center gap-2">
                               <span className="text-xs text-gray-400">≡</span>
                               <span className="text-sm text-gray-800 truncate flex-1">{t.title || '제목 없음'}</span>
-                              <span className={`text-xs flex-shrink-0 px-1.5 py-0.5 rounded ${t.status === '완료' ? 'bg-green-50 text-green-600' : t.status === '진행중' ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-500'}`}>{t.status}</span>
+                              <span className={`text-xs flex-shrink-0 px-1.5 py-0.5 rounded ${
+                                t.status === '완료' ? 'bg-green-50 text-green-600'
+                                : t.status === '진행중' ? 'bg-blue-50 text-blue-600'
+                                : 'bg-gray-100 text-gray-500'
+                              }`}>{t.status}</span>
                             </div>
                           </Link>
                         ))}
@@ -391,7 +419,7 @@ export default function HomePage() {
                     )}
                   </div>
                 ) : search ? (
-                  <p className="text-xs text-gray-400 text-center py-3">검색 결과 없음</p>
+                  <p className="text-sm text-gray-400 text-center py-3">검색 결과 없음</p>
                 ) : null}
               </div>
             )}
@@ -404,7 +432,8 @@ export default function HomePage() {
         {shortcuts.map(s => {
           if (editingShortcutId === s.id) return (
             <div key={s.id} className="bg-white/70 backdrop-blur-md rounded-xl border border-white/80 p-2 w-36 shadow-sm">
-              <input value={editShortcutTitle} onChange={e => setEditShortcutTitle(e.target.value)} placeholder="이름" autoFocus
+              <input value={editShortcutTitle} onChange={e => setEditShortcutTitle(e.target.value)}
+                placeholder="이름" autoFocus
                 className="text-xs font-medium text-gray-800 w-full focus:outline-none border-b border-gray-200/60 pb-0.5 mb-0.5 bg-transparent" />
               <input value={editShortcutUrl} onChange={e => setEditShortcutUrl(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') saveEditShortcut(); if (e.key === 'Escape') setEditingShortcutId(null) }}
@@ -422,15 +451,18 @@ export default function HomePage() {
                 <span className="text-xs text-gray-600 truncate max-w-24">🔗 {s.title}</span>
               </a>
               <div className="absolute -top-1.5 -right-1.5 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button onClick={() => startEditShortcut(s)} className="w-3.5 h-3.5 bg-blue-500 text-white rounded-full text-[8px] flex items-center justify-center hover:bg-blue-600">✎</button>
-                <button onClick={() => removeShortcut(s.id)} className="w-3.5 h-3.5 bg-gray-400 text-white rounded-full text-[8px] flex items-center justify-center hover:bg-red-500">×</button>
+                <button onClick={() => startEditShortcut(s)}
+                  className="w-3.5 h-3.5 bg-blue-500 text-white rounded-full text-[8px] flex items-center justify-center hover:bg-blue-600">✎</button>
+                <button onClick={() => removeShortcut(s.id)}
+                  className="w-3.5 h-3.5 bg-gray-400 text-white rounded-full text-[8px] flex items-center justify-center hover:bg-red-500">×</button>
               </div>
             </div>
           )
         })}
         {showAddShortcut ? (
           <div className="bg-white/70 backdrop-blur-md rounded-xl border border-white/80 p-2 w-36 shadow-sm">
-            <input value={newShortcutTitle} onChange={e => setNewShortcutTitle(e.target.value)} placeholder="이름" autoFocus
+            <input value={newShortcutTitle} onChange={e => setNewShortcutTitle(e.target.value)}
+              placeholder="이름" autoFocus
               className="text-xs font-medium text-gray-800 w-full focus:outline-none border-b border-gray-200/60 pb-0.5 mb-0.5 bg-transparent" />
             <input value={newShortcutUrl} onChange={e => setNewShortcutUrl(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') addShortcut(); if (e.key === 'Escape') setShowAddShortcut(false) }}
@@ -453,7 +485,12 @@ export default function HomePage() {
         <QuickTaskInput tasks={tasks} onAdded={todo => setTodos(prev => [todo, ...prev])} />
       </div>
 
-      {/* ── 벤토 그리드 ── */}
+      {/* ── 벤토 그리드 ──
+          journal이 rows 3-4를 모두 차지하므로 backlog 영역 없음.
+          today:   col 1, rows 1-2
+          journal: cols 1-2, rows 3-4
+          todo:    col 3, rows 3-4
+      */}
       <div
         className="flex-1 min-h-0 grid gap-3"
         style={{
@@ -463,113 +500,73 @@ export default function HomePage() {
             "today  tomorrow week"
             "today  overdue  overdue"
             "journal journal todo"
-            "backlog backlog  todo"
+            "journal journal todo"
           `,
         }}
       >
-        {/* 오늘 — 다크, 2행 */}
+        {/* 오늘 — 다크, rows 1-2 */}
         <div style={{ gridArea: 'today' }} className="min-h-0">
-          <CompactCol title="오늘" items={todayItems} dark
+          <CompactCol
+            title="오늘" items={todayItems} dark
             completedCount={completedThisWeek.length}
             colBadge={{ label: '진행중', bg: 'bg-violet-500/20', text: 'text-violet-300' }}
-            droppable onDrop={e => handleDrop(e, 'today')}
-            onDragOver={e => handleDragOver(e, 'today')} onDragLeave={() => setDragOverBucket(null)}
-            isDragOver={dragOverBucket === 'today'} onComplete={handleCompleteTodo}
+            droppable
+            onDrop={e => handleDrop(e, 'today')}
+            onDragOver={e => handleDragOver(e, 'today')}
+            onDragLeave={() => setDragOverBucket(null)}
+            isDragOver={dragOverBucket === 'today'}
+            onComplete={handleCompleteTodo}
           />
         </div>
 
         {/* 내일 */}
         <div style={{ gridArea: 'tomorrow' }} className="min-h-0">
-          <CompactCol title="내일" items={tomorrowItems}
+          <CompactCol
+            title="내일" items={tomorrowItems}
             colBadge={{ label: '대기', bg: 'bg-gray-100/80', text: 'text-gray-400' }}
-            droppable onDrop={e => handleDrop(e, 'tomorrow')}
-            onDragOver={e => handleDragOver(e, 'tomorrow')} onDragLeave={() => setDragOverBucket(null)}
-            isDragOver={dragOverBucket === 'tomorrow'} onComplete={handleCompleteTodo}
+            droppable
+            onDrop={e => handleDrop(e, 'tomorrow')}
+            onDragOver={e => handleDragOver(e, 'tomorrow')}
+            onDragLeave={() => setDragOverBucket(null)}
+            isDragOver={dragOverBucket === 'tomorrow'}
+            onComplete={handleCompleteTodo}
           />
         </div>
 
         {/* 금주 */}
         <div style={{ gridArea: 'week' }} className="min-h-0">
-          <CompactCol title="금주" items={weekItems}
+          <CompactCol
+            title="금주" items={weekItems}
             colBadge={{ label: '대기', bg: 'bg-gray-100/80', text: 'text-gray-400' }}
-            droppable onDrop={e => handleDrop(e, 'this_week')}
-            onDragOver={e => handleDragOver(e, 'this_week')} onDragLeave={() => setDragOverBucket(null)}
-            isDragOver={dragOverBucket === 'this_week'} onComplete={handleCompleteTodo}
+            droppable
+            onDrop={e => handleDrop(e, 'this_week')}
+            onDragOver={e => handleDragOver(e, 'this_week')}
+            onDragLeave={() => setDragOverBucket(null)}
+            isDragOver={dragOverBucket === 'this_week'}
+            onComplete={handleCompleteTodo}
           />
         </div>
 
-        {/* 미진행 — 2열 */}
+        {/* 미진행 — 2열, row 2 */}
         <div style={{ gridArea: 'overdue' }} className="min-h-0">
-          <CompactCol title="미진행" items={overdueItems} warn
+          <CompactCol
+            title="미진행" items={overdueItems} warn
             colBadge={{ label: '긴급', bg: 'bg-red-50/80', text: 'text-red-400' }}
             onComplete={handleCompleteTodo}
           />
         </div>
 
-        {/* 회고 위젯 — 2열 */}
+        {/* 회고 위젯 — 2열, rows 3-4 (확장됨) */}
         <div style={{ gridArea: 'journal' }} className="min-h-0 overflow-hidden">
-          <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full overflow-hidden">
+          <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full overflow-hidden font-sans">
             <DailyJournalWidget tasks={tasks} meetings={meetings} />
           </div>
         </div>
 
-        {/* 오늘 할일 위젯 — 2행 */}
+        {/* 오늘 할일 위젯 — col 3, rows 3-4 */}
         <div style={{ gridArea: 'todo' }} className="min-h-0 overflow-hidden">
-          <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full overflow-hidden">
+          <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full overflow-hidden font-sans">
             <TodayTodoWidget />
-          </div>
-        </div>
-
-        {/* 미지정 + 금주 완료 — 2열 */}
-        <div style={{ gridArea: 'backlog' }} className="min-h-0 overflow-hidden">
-          <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full flex flex-col overflow-hidden">
-            <div className="flex border-b border-white/50 flex-shrink-0">
-              <div className="flex-1 flex items-center gap-1.5 px-3 py-1.5 border-r border-white/50">
-                <span className="w-1.5 h-1.5 rounded-full bg-gray-300 flex-shrink-0" />
-                <span className="text-xs font-semibold text-gray-600">미지정</span>
-                {unscheduledItems.length > 0 && <span className="ml-auto text-xs text-gray-400">{unscheduledItems.length}</span>}
-              </div>
-              <div className="flex-1 flex items-center gap-1.5 px-3 py-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 flex-shrink-0" />
-                <span className="text-xs font-semibold text-gray-600">금주 완료</span>
-                {completedThisWeek.length > 0 && <span className="ml-auto text-xs text-emerald-500">{completedThisWeek.length}</span>}
-              </div>
-            </div>
-            <div className="flex flex-1 min-h-0 overflow-hidden">
-              <div className="flex-1 overflow-y-auto scrollbar-hide p-1.5 border-r border-white/50 space-y-0.5">
-                {unscheduledItems.length === 0 ? (
-                  <p className="text-xs text-gray-300 text-center py-2">없음</p>
-                ) : unscheduledItems.map(item => (
-                  <Link key={item.id} href={`/tasks/${item.taskId}`}>
-                    <div className="py-0.5 px-1 hover:bg-white/50 rounded transition-colors">
-                      <div className="flex items-center gap-1 min-w-0">
-                        {item.taskShortName && (
-                          <span className="text-[9px] font-mono text-gray-400 flex-shrink-0 bg-gray-100/70 px-1 py-0.5 rounded">
-                            {item.taskShortName}{(item.idxInTask ?? 0) + 1}
-                          </span>
-                        )}
-                        <span className="text-xs text-gray-700 truncate">{item.title}</span>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-              <div className="flex-1 overflow-y-auto scrollbar-hide p-1.5 space-y-0.5">
-                {completedThisWeek.length === 0 ? (
-                  <p className="text-xs text-gray-300 text-center py-2">없음</p>
-                ) : completedThisWeek.map(t => {
-                  const joined = t.tasks as { id: string; title: string; short_name?: string | null } | null
-                  return (
-                    <Link key={t.id} href={`/tasks/${t.task_id}`}>
-                      <div className="py-0.5 px-1 hover:bg-white/50 rounded transition-colors">
-                        <span className="text-xs text-gray-400 truncate block line-through">{t.title}</span>
-                        {joined?.title && <span className="text-[10px] text-gray-300 truncate block">{joined.title}</span>}
-                      </div>
-                    </Link>
-                  )
-                })}
-              </div>
-            </div>
           </div>
         </div>
       </div>
