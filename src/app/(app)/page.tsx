@@ -169,16 +169,6 @@ export default function HomePage() {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
-  useEffect(() => {
-    function handleEsc(e: KeyboardEvent) {
-      if (e.key !== 'Escape') return
-      setSearch('')
-      setSearchOpen(false)
-      searchInputRef.current?.blur()
-    }
-    window.addEventListener('keydown', handleEsc)
-    return () => window.removeEventListener('keydown', handleEsc)
-  }, [])
 
   function saveShortcuts(list: Shortcut[]) {
     saveShortcutsRemote(list)
@@ -288,8 +278,15 @@ export default function HomePage() {
 
   if (loading) return <HomePageSkeleton />
 
+  function handlePageKeyDown(e: React.KeyboardEvent) {
+    if (e.key !== 'Escape') return
+    setSearch('')
+    setSearchOpen(false)
+    ;(document.activeElement as HTMLElement)?.blur()
+  }
+
   return (
-    <div className="p-4 md:p-4 flex flex-col md:h-full md:overflow-hidden gap-3">
+    <div className="p-4 md:p-4 flex flex-col md:h-full md:overflow-hidden gap-3" onKeyDown={handlePageKeyDown}>
 
       {/* Row 1: 헤더 */}
       <div className="flex items-center justify-between flex-shrink-0">
