@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 export const dynamic = 'force-dynamic'
 
@@ -445,7 +445,7 @@ export default function CompletedPage() {
   }
 
   return (
-    <div className="p-4 md:p-8">
+    <div className="p-3 md:p-5">
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-xl font-bold text-gray-900">완료 성과</h1>
         {quickPeriod !== '주간' && quickPeriod !== '당월' && (

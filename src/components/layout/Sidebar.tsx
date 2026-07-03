@@ -66,62 +66,62 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   return (
     <>
       {/* ── 데스크톱 사이드바 ── */}
-      <aside className={`hidden md:flex min-h-screen bg-[#18253A] flex-col overflow-hidden transition-[width] duration-200 ease-in-out flex-shrink-0 ${collapsed ? 'w-14' : 'w-52'}`}>
+      <aside className={`hidden md:flex min-h-screen bg-[#18253A] flex-col overflow-hidden transition-[width] duration-200 ease-in-out flex-shrink-0 ${collapsed ? 'w-16' : 'w-64'}`}>
 
         {/* 헤더 */}
         {collapsed ? (
-          <div className="flex flex-col items-center py-3 gap-1.5 border-b border-white/10">
-            <div className="w-7 h-7 bg-[#BADEC8] rounded-md flex items-center justify-center font-bold text-[10px] text-[#1A3A2A]">인</div>
+          <div className="flex flex-col items-center py-4 gap-2 border-b border-white/10">
+            <div className="w-8 h-8 bg-[#BADEC8] rounded-md flex items-center justify-center font-bold text-xs text-[#1A3A2A]">인</div>
             <button
               onClick={onToggle}
               title="사이드바 열기"
               className="p-1 text-slate-500 hover:text-slate-200 hover:bg-white/8 rounded-md transition-colors">
-              <ChevronRight size={13} />
+              <ChevronRight size={15} />
             </button>
           </div>
         ) : (
-          <div className="py-4 px-3 border-b border-white/10 flex items-center justify-between gap-1">
-            <div className="flex items-center gap-2 min-w-0">
-              <div className="w-7 h-7 bg-[#BADEC8] rounded-md flex items-center justify-center font-bold text-[10px] flex-shrink-0 text-[#1A3A2A]">인</div>
+          <div className="py-4 px-4 border-b border-white/10 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 bg-[#BADEC8] rounded-md flex items-center justify-center font-bold text-xs flex-shrink-0 text-[#1A3A2A]">인</div>
               <div className="min-w-0">
-                <p className="font-semibold text-white text-xs truncate">인사기획 워크</p>
-                <p className="text-[10px] text-slate-400 truncate">인사기획팀 · 업무 보드</p>
+                <p className="font-semibold text-white text-sm truncate">인사기획 워크</p>
+                <p className="text-xs text-slate-400 truncate">인사기획팀 · 업무 보드</p>
               </div>
             </div>
             <button
               onClick={onToggle}
               title="사이드바 닫기"
               className="flex-shrink-0 p-1 text-slate-500 hover:text-slate-200 hover:bg-white/8 rounded-md transition-colors">
-              <ChevronLeft size={13} />
+              <ChevronLeft size={15} />
             </button>
           </div>
         )}
 
         {/* 네비게이션 */}
-        <nav className="flex-1 p-2 overflow-hidden">
-          {!collapsed && <p className="text-[10px] text-slate-500 font-medium px-1.5 mb-1.5">메뉴</p>}
+        <nav className="flex-1 p-2.5 overflow-hidden">
+          {!collapsed && <p className="text-xs text-slate-500 font-medium px-2 mb-2">메뉴</p>}
           <ul className="space-y-0.5">
             {navItems.map(item => {
               const isActive = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)
               return (
                 <li key={item.href} className="relative group/nav">
                   <Link href={item.href}
-                    className={`flex items-center rounded-lg text-xs transition-colors ${
-                      collapsed ? 'justify-center py-2.5' : 'gap-2 px-2 py-2.5'
+                    className={`flex items-center rounded-lg text-sm transition-colors ${
+                      collapsed ? 'justify-center py-3' : 'gap-3 px-3 py-2.5'
                     } ${
                       isActive
                         ? 'bg-[#BADEC8]/20 text-[#BADEC8] font-medium'
                         : 'text-slate-400 hover:bg-white/8 hover:text-slate-100'
                     }`}>
-                    <item.icon size={13} strokeWidth={1.75} className="flex-shrink-0" />
+                    <item.icon size={16} strokeWidth={1.75} className="flex-shrink-0" />
                     {!collapsed && <span className="truncate">{item.label}</span>}
                   </Link>
 
                   {/* 축소 시 툴팁 */}
                   {collapsed && (
-                    <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-2 py-1 bg-gray-900/95 text-white text-xs rounded-md whitespace-nowrap opacity-0 group-hover/nav:opacity-100 transition-opacity pointer-events-none z-[100] shadow-lg">
+                    <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-2.5 py-1.5 bg-gray-900/95 text-white text-sm rounded-md whitespace-nowrap opacity-0 group-hover/nav:opacity-100 transition-opacity pointer-events-none z-[100] shadow-lg">
                       {item.label}
-                      {item.key && <span className="ml-1.5 text-gray-400 text-[10px]">{item.key}</span>}
+                      {item.key && <span className="ml-1.5 text-gray-400 text-xs">{item.key}</span>}
                     </div>
                   )}
                 </li>
@@ -131,15 +131,15 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
         </nav>
 
         {/* 하단 로그아웃 */}
-        <div className="p-2 border-t border-white/10">
+        <div className="p-2.5 border-t border-white/10">
           {collapsed ? (
             <button onClick={handleLogout} title="로그아웃"
-              className="w-full flex justify-center py-2.5 rounded-lg text-slate-400 hover:bg-white/5 hover:text-slate-200 transition-colors text-sm">
+              className="w-full flex justify-center py-3 rounded-lg text-slate-400 hover:bg-white/5 hover:text-slate-200 transition-colors text-base">
               ↩
             </button>
           ) : (
             <button onClick={handleLogout}
-              className="w-full text-left px-2 py-2.5 rounded-lg text-xs text-slate-400 hover:bg-white/5 hover:text-slate-200 transition-colors">
+              className="w-full text-left px-3 py-2.5 rounded-lg text-sm text-slate-400 hover:bg-white/5 hover:text-slate-200 transition-colors">
               로그아웃
             </button>
           )}

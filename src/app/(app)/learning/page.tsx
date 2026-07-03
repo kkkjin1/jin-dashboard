@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
@@ -143,7 +143,7 @@ export default function LearningPage() {
   const names = bucketNames ?? ['읽을 예정', '읽는 중', '완료']
 
   return (
-    <div className="p-4 md:p-8">
+    <div className="p-3 md:p-5">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-bold text-gray-900">학습자료</h1>
         <div className="flex gap-2">

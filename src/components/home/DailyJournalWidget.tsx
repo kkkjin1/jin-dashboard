@@ -176,14 +176,17 @@ export default function DailyJournalWidget({ tasks, meetings }: Props) {
   ).slice(0, 6)
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 flex flex-col overflow-hidden h-full">
+    <div className="bg-[#EBF3EE] rounded-xl shadow-[0_1px_3px_rgba(0,0,0,0.05),0_4px_18px_rgba(0,0,0,0.08)] flex flex-col overflow-hidden h-full">
 
       {/* 헤더 */}
-      <div className="flex items-center gap-2 px-4 py-2.5 border-b border-gray-100 flex-shrink-0">
+      <div className="flex items-center gap-2 px-4 py-2.5 border-b border-black/5 flex-shrink-0">
+        <span className="text-base leading-none">🪴</span>
         <span className="text-sm font-semibold text-gray-700 flex-1">회고</span>
-        <button onClick={() => navigate(-1)} className="text-gray-300 hover:text-gray-600 text-xs px-1">←</button>
-        <span className="text-xs text-gray-400 min-w-[2.5rem] text-center">{formatDateLabel(selectedDate)}</span>
-        <button onClick={() => navigate(1)} disabled={isToday} className="text-gray-300 hover:text-gray-600 disabled:opacity-20 text-xs px-1">→</button>
+        <div className="flex items-center gap-0.5 bg-green-100 text-green-700 rounded-full px-2 py-0.5">
+          <button onClick={() => navigate(-1)} className="hover:opacity-60 transition-opacity text-xs">←</button>
+          <span className="min-w-[2.5rem] text-center text-[11px] font-medium">{formatDateLabel(selectedDate)}</span>
+          <button onClick={() => navigate(1)} disabled={isToday} className="hover:opacity-60 disabled:opacity-20 transition-opacity text-xs">→</button>
+        </div>
         {current && !editing && (
           <button onClick={startEdit} className="text-[11px] text-gray-400 hover:text-gray-600 ml-1">수정</button>
         )}
@@ -193,13 +196,13 @@ export default function DailyJournalWidget({ tasks, meetings }: Props) {
 
         {/* 아침 컨텍스트 */}
         {showMorningContext && (
-          <div className="bg-amber-50 border border-amber-100 rounded-lg p-3 flex-shrink-0">
-            <p className="text-[10px] font-semibold text-amber-600 mb-1.5">어제 이어받기</p>
+          <div className="bg-green-50 border border-green-100 rounded-lg p-3 flex-shrink-0">
+            <p className="text-[10px] font-semibold text-green-600 mb-1.5">어제 이어받기</p>
             <p className="text-xs text-gray-600 leading-relaxed line-clamp-3">{yesterday!.content}</p>
             {getMeetings(yesterday!).length > 0 && (
               <div className="flex flex-wrap gap-1 mt-2">
                 {getMeetings(yesterday!).map(m => (
-                  <Link key={m.id} href={`/meetings/${m.id}`} className="text-[10px] bg-white border border-amber-200 text-amber-700 px-1.5 py-0.5 rounded hover:bg-amber-100 transition-colors">
+                  <Link key={m.id} href={`/meetings/${m.id}`} className="text-[10px] bg-white border border-green-200 text-green-700 px-1.5 py-0.5 rounded hover:bg-green-100 transition-colors">
                     @ {m.title}
                   </Link>
                 ))}
@@ -208,7 +211,7 @@ export default function DailyJournalWidget({ tasks, meetings }: Props) {
             {yesterday!.tags?.length > 0 && (
               <div className="flex flex-wrap gap-1 mt-1">
                 {yesterday!.tags.map(t => (
-                  <span key={t} className="text-[10px] text-amber-500">#{t}</span>
+                  <span key={t} className="text-[10px] text-green-500">#{t}</span>
                 ))}
               </div>
             )}
@@ -219,7 +222,7 @@ export default function DailyJournalWidget({ tasks, meetings }: Props) {
                 setTags(yesterday!.tags ?? [])
                 setEditing(true)
               }}
-              className="mt-2 text-[10px] text-amber-700 border border-amber-200 bg-white px-2 py-1 rounded hover:bg-amber-50 transition-colors"
+              className="mt-2 text-[10px] text-green-700 border border-green-200 bg-white px-2 py-1 rounded hover:bg-green-50 transition-colors"
             >
               + 이어서 오늘 회고 시작
             </button>

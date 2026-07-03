@@ -114,7 +114,7 @@ export default function QuickTaskInput({ tasks, onAdded }: Props) {
       e.preventDefault()
       if (matches[selectedIdx]) selectTask(matches[selectedIdx])
     }
-    else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setMatches([]); setTimeout(() => searchRef.current?.focus(), 0) }
+    else if (e.key === 'Escape') { e.preventDefault(); setSearchInput(''); setMatches([]); searchRef.current?.blur() }
   }
 
   function handleTodoKeyDown(e: React.KeyboardEvent) {

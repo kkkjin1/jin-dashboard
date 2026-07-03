@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
@@ -122,7 +122,7 @@ export default function MemberOneOnOnePage() {
   const selectedSession = sessions.find(s => s.id === selectedSessionId) ?? null
 
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-5">
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-3">
           <Link href="/one-on-one" className="text-sm text-gray-400 hover:text-gray-600">← 목록</Link>

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
@@ -572,7 +572,7 @@ export default function TaskDetailPage() {
 
   return (
     <div
-      className="p-8"
+      className="p-4 md:p-5"
       style={contentWidth ? { width: `${contentWidth}px` } : {}}
       onPaste={handlePaste}
     >

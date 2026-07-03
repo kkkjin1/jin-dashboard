@@ -55,7 +55,7 @@
   --brand: #BADEC8;
   --brand-light: #ECFDF5;
   --brand-amber: #F4A35A;
-  --page-bg: #F8FAFC;
+  --page-bg: #ECEAE5;
   --navy: #1C2B3A;
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -133,7 +133,7 @@
   }
   html {
     @apply font-sans;
-    font-size: 106%;
+    font-size: 120%;
   }
 }
 
@@ -151,7 +151,7 @@
     color-scheme: light;
   }
   html, body {
-    background-color: #F8FAFC !important;
+    background-color: #ECEAE5 !important;
     color: #111827 !important;
   }
 }
