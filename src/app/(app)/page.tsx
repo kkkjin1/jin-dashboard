@@ -47,7 +47,7 @@ function CompactCol({ title, items, dot, badgeCls = 'bg-gray-200 text-gray-600',
     >
       <div className="flex items-center gap-1.5 mb-2 flex-shrink-0">
         <span className={`w-2 h-2 rounded-full flex-shrink-0 ${dot}`} />
-        <span className="text-xs font-semibold text-gray-700">{title}</span>
+        <span className="text-sm font-semibold text-gray-700">{title}</span>
         {items.length > 0 && (
           <span className={`ml-auto text-[10px] ${badgeCls} w-4 h-4 rounded-full flex items-center justify-center font-medium flex-shrink-0`}>
             {items.length > 9 ? '9+' : items.length}
@@ -81,7 +81,7 @@ function CompactCol({ title, items, dot, badgeCls = 'bg-gray-200 text-gray-600',
                         {item.taskShortName}{(item.idxInTask ?? 0) + 1}
                       </span>
                     )}
-                    <span className="text-xs text-gray-800 truncate">{item.title || '제목 없음'}</span>
+                    <span className="text-sm text-gray-800 truncate">{item.title || '제목 없음'}</span>
                   </div>
                   {item.taskTitle && (
                     <span className="text-[10px] text-gray-400 truncate block">{item.taskTitle}</span>
@@ -167,6 +167,19 @@ export default function HomePage() {
     }
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  useEffect(() => {
+    function handleEsc(e: KeyboardEvent) {
+      if (e.key !== 'Escape') return
+      if (document.activeElement !== searchInputRef.current) return
+      e.preventDefault()
+      setSearch('')
+      setSearchOpen(false)
+      searchInputRef.current?.blur()
+    }
+    document.addEventListener('keydown', handleEsc, true)
+    return () => document.removeEventListener('keydown', handleEsc, true)
   }, [])
 
   function saveShortcuts(list: Shortcut[]) {
@@ -297,15 +310,6 @@ export default function HomePage() {
                 value={search}
                 onChange={e => handleSearchChange(e.target.value)}
                 onFocus={() => { if (search) setSearchOpen(true) }}
-                onKeyDown={e => {
-                  if (e.key === 'Escape') {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    setSearch('')
-                    setSearchOpen(false)
-                    searchInputRef.current?.blur()
-                  }
-                }}
                 placeholder="업무·회의록 검색"
                 className="text-sm text-gray-700 focus:outline-none w-44 bg-transparent"
               />
