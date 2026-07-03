@@ -25,9 +25,8 @@ interface TodoColItem {
 interface CompactColProps {
   title: string
   items: TodoColItem[]
-  dot: string
-  badgeCls?: string
-  accent?: string
+  dark?: boolean
+  warn?: boolean
   droppable?: boolean
   onDrop?: (e: React.DragEvent) => void
   onDragOver?: (e: React.DragEvent) => void
@@ -38,36 +37,48 @@ interface CompactColProps {
   scrollable?: boolean
 }
 
-function CompactCol({ title, items, dot, badgeCls = 'bg-gray-200 text-gray-600', accent = 'border-t-gray-200', droppable, onDrop, onDragOver, onDragLeave, isDragOver, onComplete, maxItems = 5, scrollable }: CompactColProps) {
+function CompactCol({ title, items, dark, warn, droppable, onDrop, onDragOver, onDragLeave, isDragOver, onComplete, maxItems = 5, scrollable }: CompactColProps) {
+  const cardBg = dark ? 'bg-[#1D2232]' : 'bg-white'
+  const dragRing = isDragOver && droppable ? (dark ? 'ring-1 ring-white/20' : 'ring-1 ring-emerald-400') : ''
+  const titleCls = dark ? 'text-white/40' : warn ? 'text-[#B44A3A]' : 'text-gray-400'
+  const badgeBg = dark ? 'bg-white/10 text-white/50' : warn ? 'bg-[#FDECEA] text-[#B44A3A]' : 'bg-gray-100 text-gray-500'
+  const emptyTxt = dark ? 'text-white/25' : 'text-gray-300'
+  const itemTxt = dark ? 'text-white/75' : 'text-gray-700'
+  const subTxt = dark ? 'text-white/30' : 'text-gray-400'
+  const chipCls = dark ? 'bg-white/10 text-white/35' : 'bg-gray-100 text-gray-400'
+  const hoverCls = dark ? 'hover:bg-white/5' : 'hover:bg-gray-50'
+  const divideCls = dark ? 'divide-white/5' : 'divide-gray-50'
+  const completeCls = dark ? 'border-white/20 hover:border-white/50' : 'border-gray-200 hover:border-emerald-400 hover:bg-emerald-50'
+  const checkCls = dark ? 'text-white/50' : 'text-emerald-500'
+
   return (
     <div
-      className={`bg-white rounded-lg border border-gray-100 border-t-2 p-4 min-w-0 min-h-[200px] transition-colors flex flex-col ${isDragOver && droppable ? 'border-emerald-300 border-t-emerald-400 bg-emerald-50/30' : accent}`}
+      className={`${cardBg} ${dragRing} rounded-xl shadow-[0_1px_3px_rgba(0,0,0,0.05),0_4px_18px_rgba(0,0,0,0.08)] p-4 min-w-0 min-h-[186px] transition-all flex flex-col`}
       onDragOver={droppable ? onDragOver : undefined}
       onDrop={droppable ? onDrop : undefined}
       onDragLeave={droppable ? onDragLeave : undefined}
     >
-      <div className="flex items-center gap-1.5 mb-2 flex-shrink-0">
-        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${dot}`} />
-        <span className="text-sm font-semibold text-gray-700">{title}</span>
+      <div className="flex items-center justify-between mb-3 flex-shrink-0">
+        <span className={`text-[10px] font-semibold uppercase ${titleCls}`} style={{letterSpacing: '0.07em'}}>{title}</span>
         {items.length > 0 && (
-          <span className={`ml-auto text-[10px] ${badgeCls} w-4 h-4 rounded-full flex items-center justify-center font-medium flex-shrink-0`}>
+          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${badgeBg}`}>
             {items.length > 9 ? '9+' : items.length}
           </span>
         )}
       </div>
       {items.length === 0 ? (
-        <p className="text-xs text-gray-300 text-center py-1">{isDragOver && droppable ? '여기에 놓기' : '없음'}</p>
+        <p className={`text-xs text-center py-1 ${emptyTxt}`}>{isDragOver && droppable ? '여기에 놓기' : '없음'}</p>
       ) : (
-        <div className={`space-y-0.5 ${scrollable ? 'overflow-y-auto flex-1 min-h-0' : ''}`}>
+        <div className={`divide-y ${divideCls} ${scrollable ? 'overflow-y-auto flex-1 min-h-0' : ''}`}>
           {(scrollable ? items : items.slice(0, maxItems)).map(item => (
-            <div key={item.id} className="group flex items-center gap-1 py-0.5 px-1 hover:bg-gray-50 rounded transition-colors">
+            <div key={item.id} className={`group flex items-center gap-1.5 py-1.5 px-1 rounded transition-colors ${hoverCls}`}>
               {onComplete && (
                 <button
                   onClick={e => { e.stopPropagation(); onComplete(item.id) }}
-                  className="flex-shrink-0 w-3.5 h-3.5 rounded-full border border-gray-200 hover:border-emerald-400 hover:bg-emerald-50 transition-colors opacity-0 group-hover:opacity-100 flex items-center justify-center"
+                  className={`flex-shrink-0 w-3.5 h-3.5 rounded-full border transition-colors opacity-0 group-hover:opacity-100 flex items-center justify-center ${completeCls}`}
                   title="완료"
                 >
-                  <span className="text-[8px] text-emerald-500 leading-none">✓</span>
+                  <span className={`text-[8px] leading-none ${checkCls}`}>✓</span>
                 </button>
               )}
               <Link href={`/tasks/${item.taskId}`} className="flex-1 min-w-0">
@@ -78,21 +89,21 @@ function CompactCol({ title, items, dot, badgeCls = 'bg-gray-200 text-gray-600',
                 >
                   <div className="flex items-center gap-1 min-w-0">
                     {item.taskShortName && (
-                      <span className="text-[9px] font-mono text-gray-400 flex-shrink-0 bg-gray-100 px-1 py-0.5 rounded">
+                      <span className={`text-[9px] font-mono flex-shrink-0 px-1 py-0.5 rounded ${chipCls}`}>
                         {item.taskShortName}{(item.idxInTask ?? 0) + 1}
                       </span>
                     )}
-                    <span className="text-sm text-gray-800 truncate">{item.title || '제목 없음'}</span>
+                    <span className={`text-sm truncate ${itemTxt}`}>{item.title || '제목 없음'}</span>
                   </div>
                   {item.taskTitle && (
-                    <span className="text-[10px] text-gray-400 truncate block">{item.taskTitle}</span>
+                    <span className={`text-[10px] truncate block ${subTxt}`}>{item.taskTitle}</span>
                   )}
                 </div>
               </Link>
             </div>
           ))}
           {!scrollable && items.length > maxItems && (
-            <p className="text-[10px] text-gray-300 px-1 pt-0.5">+{items.length - maxItems}개 더</p>
+            <p className={`text-[10px] px-1 pt-1 ${emptyTxt}`}>+{items.length - maxItems}개 더</p>
           )}
         </div>
       )}
@@ -290,36 +301,65 @@ export default function HomePage() {
     <div className="p-4 md:p-4 flex flex-col md:h-full md:overflow-hidden gap-3" onKeyDown={handlePageKeyDown}>
 
       {/* Row 1: 헤더 */}
-      <div className="flex items-center justify-between flex-shrink-0">
+      <div className="flex items-end justify-between flex-shrink-0">
         <div>
-          <p className="text-xs text-emerald-600 font-medium">
+          <h1 className="font-normal leading-tight text-gray-900"
+              style={{fontFamily: 'Georgia, "Times New Roman", serif', fontSize: '1.6rem', letterSpacing: '-0.025em'}}>
+            안녕하세요, 진일님.
+          </h1>
+          <p className="text-gray-400 mt-1.5"
+             style={{fontSize: '10px', letterSpacing: '0.07em', textTransform: 'uppercase'}}>
             {format(new Date(), 'yyyy년 M월 d일 EEEE', { locale: ko })}
           </p>
-          <h1 className="text-xl font-bold text-gray-900">안녕하세요, 팀장님</h1>
         </div>
-        <div className="hidden sm:flex items-center gap-2">
-          <div ref={searchRef} className="relative">
-            <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2 bg-white focus-within:border-gray-400 transition-colors">
-              <span className="text-gray-400 text-sm">🔍</span>
-              <input
-                ref={searchInputRef}
-                value={search}
-                onChange={e => handleSearchChange(e.target.value)}
-                onFocus={() => { if (search) setSearchOpen(true) }}
-                placeholder="업무·회의록 검색"
-                className="text-sm text-gray-700 focus:outline-none w-44 bg-transparent"
-              />
-              {search && (
-                <button onClick={() => { setSearch(''); setSearchOpen(false) }}
-                  className="text-gray-300 hover:text-gray-500 text-base leading-none">×</button>
-              )}
+        <div className="flex items-end gap-7">
+          <div className="hidden sm:flex items-end gap-7">
+            <div className="text-right">
+              <div className="font-bold leading-none text-[#2E5E4A]"
+                   style={{fontSize: '2.3rem', letterSpacing: '-0.04em', fontVariantNumeric: 'tabular-nums'}}>
+                {todayItems.length}
+              </div>
+              <div className="text-gray-400 mt-1" style={{fontSize: '9px', letterSpacing: '0.07em', textTransform: 'uppercase'}}>오늘</div>
             </div>
+            <div className="text-right">
+              <div className="font-bold leading-none text-gray-400"
+                   style={{fontSize: '2.3rem', letterSpacing: '-0.04em', fontVariantNumeric: 'tabular-nums'}}>
+                {weekItems.length}
+              </div>
+              <div className="text-gray-400 mt-1" style={{fontSize: '9px', letterSpacing: '0.07em', textTransform: 'uppercase'}}>금주</div>
+            </div>
+            <div className="text-right">
+              <div className="font-bold leading-none text-[#B44A3A]"
+                   style={{fontSize: '2.3rem', letterSpacing: '-0.04em', fontVariantNumeric: 'tabular-nums'}}>
+                {overdueItems.length}
+              </div>
+              <div className="text-gray-400 mt-1" style={{fontSize: '9px', letterSpacing: '0.07em', textTransform: 'uppercase'}}>미진행</div>
+            </div>
+          </div>
+          <div ref={searchRef} className="relative self-center">
+            <button
+              onClick={() => { setSearchOpen(p => !p); if (!searchOpen) setTimeout(() => searchInputRef.current?.focus(), 50) }}
+              className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-black/5 transition-colors"
+            >
+              <span className="text-sm">🔍</span>
+            </button>
             {searchOpen && (
-              <div className="absolute top-full mt-1 right-0 w-80 bg-white rounded-xl border border-gray-200 shadow-xl z-50 overflow-hidden">
-                {!hasResults ? (
-                  <p className="text-xs text-gray-400 text-center py-4">검색 결과 없음</p>
-                ) : (
-                  <div className="divide-y divide-gray-50">
+              <div className="absolute top-full mt-1 right-0 w-80 bg-white rounded-xl border border-gray-100 shadow-xl z-50 overflow-hidden">
+                <div className="flex items-center gap-2 px-3 py-2.5 border-b border-gray-100">
+                  <input
+                    ref={searchInputRef}
+                    value={search}
+                    onChange={e => handleSearchChange(e.target.value)}
+                    placeholder="업무·회의록 검색"
+                    className="text-sm text-gray-700 focus:outline-none flex-1 bg-transparent"
+                  />
+                  {search && (
+                    <button onClick={() => { setSearch(''); setSearchOpen(false) }}
+                      className="text-gray-300 hover:text-gray-500 text-base leading-none">×</button>
+                  )}
+                </div>
+                {hasResults ? (
+                  <div className="divide-y divide-gray-50 max-h-64 overflow-y-auto">
                     {matchedTasks.length > 0 && (
                       <div className="px-3 py-2">
                         <p className="text-xs font-semibold text-gray-400 mb-1.5">업무</p>
@@ -353,14 +393,12 @@ export default function HomePage() {
                       </div>
                     )}
                   </div>
-                )}
+                ) : search ? (
+                  <p className="text-xs text-gray-400 text-center py-4">검색 결과 없음</p>
+                ) : null}
               </div>
             )}
           </div>
-          <Link href="/tasks"
-            className="text-sm text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg px-3 py-2 transition-colors hover:bg-white whitespace-nowrap">
-            전체 업무 →
-          </Link>
         </div>
       </div>
 
@@ -430,37 +468,24 @@ export default function HomePage() {
       />
 
       {/* Row 4: 컴팩트 업무 현황 */}
-      {loading ? (
-        <div className="flex-shrink-0 bg-slate-50 rounded-2xl p-3">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {[1,2,3,4].map(i => <div key={i} className="bg-white rounded-xl border border-gray-100 h-20 animate-pulse" />)}
-          </div>
-        </div>
-      ) : (
-        <div className="flex-shrink-0 bg-slate-50 rounded-2xl p-3">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <CompactCol
-              title="오늘" items={todayItems} dot="bg-emerald-600" badgeCls="bg-emerald-600 text-white" accent="border-t-emerald-500"
-              droppable onDrop={e => handleDrop(e, 'today')} onDragOver={e => handleDragOver(e, 'today')} onDragLeave={() => setDragOverBucket(null)} isDragOver={dragOverBucket === 'today'}
-              onComplete={handleCompleteTodo}
-            />
-            <CompactCol
-              title="내일" items={tomorrowItems} dot="bg-teal-400" badgeCls="bg-teal-400 text-white" accent="border-t-teal-400"
-              droppable onDrop={e => handleDrop(e, 'tomorrow')} onDragOver={e => handleDragOver(e, 'tomorrow')} onDragLeave={() => setDragOverBucket(null)} isDragOver={dragOverBucket === 'tomorrow'}
-              onComplete={handleCompleteTodo}
-            />
-            <CompactCol
-              title="금주" items={weekItems} dot="bg-emerald-300" badgeCls="bg-emerald-400 text-white" accent="border-t-emerald-300"
-              droppable onDrop={e => handleDrop(e, 'this_week')} onDragOver={e => handleDragOver(e, 'this_week')} onDragLeave={() => setDragOverBucket(null)} isDragOver={dragOverBucket === 'this_week'}
-              onComplete={handleCompleteTodo}
-            />
-            <CompactCol
-              title="미진행" items={overdueItems} dot="bg-gray-400" badgeCls="bg-gray-200 text-gray-500" accent="border-t-gray-200"
-              onComplete={handleCompleteTodo}
-            />
-          </div>
-        </div>
-      )}
+      <div className="flex-shrink-0 grid grid-cols-2 md:grid-cols-4 gap-3">
+        <CompactCol
+          title="오늘" items={todayItems} dark
+          droppable onDrop={e => handleDrop(e, 'today')} onDragOver={e => handleDragOver(e, 'today')} onDragLeave={() => setDragOverBucket(null)} isDragOver={dragOverBucket === 'today'}
+          onComplete={handleCompleteTodo}
+        />
+        <CompactCol
+          title="내일" items={tomorrowItems}
+          droppable onDrop={e => handleDrop(e, 'tomorrow')} onDragOver={e => handleDragOver(e, 'tomorrow')} onDragLeave={() => setDragOverBucket(null)} isDragOver={dragOverBucket === 'tomorrow'}
+          onComplete={handleCompleteTodo}
+        />
+        <CompactCol
+          title="금주" items={weekItems}
+          droppable onDrop={e => handleDrop(e, 'this_week')} onDragOver={e => handleDragOver(e, 'this_week')} onDragLeave={() => setDragOverBucket(null)} isDragOver={dragOverBucket === 'this_week'}
+          onComplete={handleCompleteTodo}
+        />
+        <CompactCol title="미진행" items={overdueItems} warn onComplete={handleCompleteTodo} />
+      </div>
 
       {/* Row 5: 회고 + 오늘할일 + 미지정백로그 */}
       <div className="md:flex-1 md:min-h-0 grid grid-cols-1 md:grid-cols-2 gap-4">

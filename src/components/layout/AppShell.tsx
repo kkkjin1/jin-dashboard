@@ -25,7 +25,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex h-screen bg-[#F8FAFC]">
+    <div className="flex h-screen bg-[#ECEAE5]">
       <Sidebar collapsed={collapsed} onToggle={toggle} />
       <main className="flex-1 overflow-y-auto pb-16 md:pb-0 min-w-0">
         <div className="flex flex-col h-full w-full min-w-0">
