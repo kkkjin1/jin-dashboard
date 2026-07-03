@@ -264,7 +264,7 @@ export default function TodayTodoWidget() {
 
   return (
     <>
-      <div className="bg-[#E8F2F9] rounded-xl shadow-[0_1px_3px_rgba(0,0,0,0.05),0_4px_18px_rgba(0,0,0,0.08)] p-4 h-full flex flex-col">
+      <div className="bg-[#E8F2F9] border border-white/80 rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.04)] p-4 h-full flex flex-col">
         <div className="flex items-center gap-2 mb-3 flex-shrink-0">
           <span className="w-1.5 h-1.5 rounded-full bg-sky-400 flex-shrink-0" />
           <h3 className="text-sm font-semibold text-gray-800">오늘 할 일</h3>

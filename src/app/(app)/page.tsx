@@ -35,31 +35,101 @@ interface CompactColProps {
   onComplete?: (todoId: string) => void
   maxItems?: number
   scrollable?: boolean
+  completedCount?: number
+  colBadge?: { label: string; bg: string; text: string }
 }
 
-function CompactCol({ title, items, dark, warn, droppable, onDrop, onDragOver, onDragLeave, isDragOver, onComplete, maxItems = 5, scrollable }: CompactColProps) {
-  const cardBg = dark ? 'bg-[#1D2232]' : 'bg-white'
+function DotGrid({ total, filled }: { total: number; filled: number }) {
+  const cols = 7; const rows = 4
+  return (
+    <div className="grid gap-[3px]" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
+      {Array.from({ length: cols * rows }, (_, i) => (
+        <div key={i} className={`w-[5px] h-[5px] rounded-full transition-colors ${i < filled ? 'bg-[#F0C048]' : 'bg-white/10'}`} />
+      ))}
+    </div>
+  )
+}
+
+function CompactCol({ title, items, dark, warn, droppable, onDrop, onDragOver, onDragLeave, isDragOver, onComplete, maxItems = 5, scrollable, completedCount = 0, colBadge }: CompactColProps) {
   const dragRing = isDragOver && droppable ? (dark ? 'ring-1 ring-white/20' : 'ring-1 ring-emerald-400') : ''
-  const titleCls = dark ? 'text-white/40' : warn ? 'text-[#B44A3A]' : 'text-gray-400'
-  const badgeBg = dark ? 'bg-white/10 text-white/50' : warn ? 'bg-[#FDECEA] text-[#B44A3A]' : 'bg-gray-100 text-gray-500'
   const emptyTxt = dark ? 'text-white/25' : 'text-gray-300'
-  const itemTxt = dark ? 'text-white/75' : 'text-gray-700'
+  const itemTxt = dark ? 'text-white/80' : 'text-gray-700'
   const subTxt = dark ? 'text-white/30' : 'text-gray-400'
   const chipCls = dark ? 'bg-white/10 text-white/35' : 'bg-gray-100 text-gray-400'
   const hoverCls = dark ? 'hover:bg-white/5' : 'hover:bg-gray-50'
-  const divideCls = dark ? 'divide-white/5' : 'divide-gray-50'
+  const divideCls = dark ? 'divide-white/5' : 'divide-gray-100'
   const completeCls = dark ? 'border-white/20 hover:border-white/50' : 'border-gray-200 hover:border-emerald-400 hover:bg-emerald-50'
   const checkCls = dark ? 'text-white/50' : 'text-emerald-500'
+  const cardCls = dark
+    ? `bg-[#1D2232] ${dragRing} rounded-xl shadow-[0_4px_24px_rgba(0,0,0,0.18)] p-4 min-w-0 min-h-[186px] transition-all flex flex-col relative overflow-hidden`
+    : `bg-white border border-white/80 ${dragRing} rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.04)] p-4 min-w-0 min-h-[186px] transition-all flex flex-col`
+
+  // 다크 카드 (오늘) — 별도 레이아웃
+  if (dark) {
+    return (
+      <div className={cardCls}
+        onDragOver={droppable ? onDragOver : undefined}
+        onDrop={droppable ? onDrop : undefined}
+        onDragLeave={droppable ? onDragLeave : undefined}
+      >
+        <div className="flex items-center justify-between mb-3 flex-shrink-0">
+          <div className="flex items-center gap-1">
+            <span className="text-[10px] font-semibold uppercase text-white/40" style={{letterSpacing:'0.07em'}}>{title}</span>
+            <span className="text-[10px] text-white/30">↗</span>
+          </div>
+          {items.length > 0 && (
+            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-white/10 text-white/50">
+              {items.length > 9 ? '9+' : items.length}
+            </span>
+          )}
+        </div>
+        {items.length === 0 ? (
+          <p className="text-xs text-white/20 text-center py-2">없음</p>
+        ) : (
+          <div className={`divide-y ${divideCls} ${scrollable ? 'overflow-y-auto flex-1 min-h-0' : ''}`}>
+            {(scrollable ? items : items.slice(0, maxItems)).map(item => (
+              <div key={item.id} className={`group flex items-start gap-2 py-2 px-1 rounded transition-colors ${hoverCls}`}>
+                {onComplete && (
+                  <button onClick={e => { e.stopPropagation(); onComplete(item.id) }}
+                    className={`flex-shrink-0 w-3.5 h-3.5 mt-0.5 rounded-full border transition-colors opacity-0 group-hover:opacity-100 flex items-center justify-center ${completeCls}`}
+                    title="완료">
+                    <span className={`text-[8px] leading-none ${checkCls}`}>✓</span>
+                  </button>
+                )}
+                <span className="w-1.5 h-1.5 rounded-full bg-[#F0C048]/60 mt-1.5 flex-shrink-0" />
+                <Link href={`/tasks/${item.taskId}`} className="flex-1 min-w-0"
+                  draggable={droppable}
+                  onDragStart={droppable ? e => { e.stopPropagation(); e.dataTransfer.setData('todoId', item.id) } : undefined}>
+                  <span className={`text-sm leading-relaxed break-words ${itemTxt}`}>{item.title || '제목 없음'}</span>
+                  {item.taskTitle && <span className={`text-[10px] truncate block ${subTxt}`}>{item.taskTitle}</span>}
+                </Link>
+                {colBadge && (
+                  <span className={`flex-shrink-0 text-[9px] font-medium px-1.5 py-0.5 rounded-full ${colBadge.bg} ${colBadge.text}`}>{colBadge.label}</span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+        {/* 도트 그리드 — 우하단 */}
+        <div className="absolute bottom-3 right-3 opacity-70">
+          <DotGrid total={28} filled={Math.min(completedCount, 28)} />
+        </div>
+      </div>
+    )
+  }
+
+  // 일반 카드 (내일·금주·미진행)
+  const titleCls = warn ? 'text-[#B44A3A]' : 'text-gray-400'
+  const badgeBg = warn ? 'bg-[#FDECEA] text-[#B44A3A]' : 'bg-gray-100 text-gray-500'
 
   return (
-    <div
-      className={`${cardBg} ${dragRing} rounded-xl shadow-[0_1px_3px_rgba(0,0,0,0.05),0_4px_18px_rgba(0,0,0,0.08)] p-4 min-w-0 min-h-[186px] transition-all flex flex-col`}
+    <div className={cardCls}
       onDragOver={droppable ? onDragOver : undefined}
       onDrop={droppable ? onDrop : undefined}
       onDragLeave={droppable ? onDragLeave : undefined}
     >
       <div className="flex items-center justify-between mb-3 flex-shrink-0">
-        <span className={`text-[10px] font-semibold uppercase ${titleCls}`} style={{letterSpacing: '0.07em'}}>{title}</span>
+        <span className={`text-[10px] font-semibold uppercase ${titleCls}`} style={{letterSpacing:'0.07em'}}>{title}</span>
         {items.length > 0 && (
           <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${badgeBg}`}>
             {items.length > 9 ? '9+' : items.length}
@@ -73,20 +143,17 @@ function CompactCol({ title, items, dark, warn, droppable, onDrop, onDragOver, o
           {(scrollable ? items : items.slice(0, maxItems)).map(item => (
             <div key={item.id} className={`group flex items-start gap-1.5 py-1.5 px-1 rounded transition-colors ${hoverCls}`}>
               {onComplete && (
-                <button
-                  onClick={e => { e.stopPropagation(); onComplete(item.id) }}
+                <button onClick={e => { e.stopPropagation(); onComplete(item.id) }}
                   className={`flex-shrink-0 w-3.5 h-3.5 mt-0.5 rounded-full border transition-colors opacity-0 group-hover:opacity-100 flex items-center justify-center ${completeCls}`}
-                  title="완료"
-                >
+                  title="완료">
                   <span className={`text-[8px] leading-none ${checkCls}`}>✓</span>
                 </button>
               )}
+              <span className={`w-1 h-1 rounded-full mt-2 flex-shrink-0 ${warn ? 'bg-red-300' : 'bg-gray-300'}`} />
               <Link href={`/tasks/${item.taskId}`} className="flex-1 min-w-0">
-                <div
-                  className="cursor-grab active:cursor-grabbing"
+                <div className="cursor-grab active:cursor-grabbing"
                   draggable={droppable}
-                  onDragStart={droppable ? e => { e.stopPropagation(); e.dataTransfer.setData('todoId', item.id) } : undefined}
-                >
+                  onDragStart={droppable ? e => { e.stopPropagation(); e.dataTransfer.setData('todoId', item.id) } : undefined}>
                   <div className="flex items-start gap-1 min-w-0">
                     {item.taskShortName && (
                       <span className={`text-[9px] font-mono flex-shrink-0 px-1 py-0.5 rounded mt-0.5 ${chipCls}`}>
@@ -95,11 +162,12 @@ function CompactCol({ title, items, dark, warn, droppable, onDrop, onDragOver, o
                     )}
                     <span className={`text-sm leading-relaxed break-words ${itemTxt}`}>{item.title || '제목 없음'}</span>
                   </div>
-                  {item.taskTitle && (
-                    <span className={`text-[10px] truncate block ${subTxt}`}>{item.taskTitle}</span>
-                  )}
+                  {item.taskTitle && <span className={`text-[10px] truncate block ${subTxt}`}>{item.taskTitle}</span>}
                 </div>
               </Link>
+              {colBadge && (
+                <span className={`flex-shrink-0 text-[9px] font-medium px-1.5 py-0.5 rounded-full self-start mt-0.5 ${colBadge.bg} ${colBadge.text}`}>{colBadge.label}</span>
+              )}
             </div>
           ))}
           {!scrollable && items.length > maxItems && (
@@ -471,20 +539,27 @@ export default function HomePage() {
       <div className="flex-shrink-0 grid grid-cols-2 md:grid-cols-4 gap-3">
         <CompactCol
           title="오늘" items={todayItems} dark
+          completedCount={completedThisWeek.length}
+          colBadge={{ label: '진행중', bg: 'bg-violet-500/20', text: 'text-violet-300' }}
           droppable onDrop={e => handleDrop(e, 'today')} onDragOver={e => handleDragOver(e, 'today')} onDragLeave={() => setDragOverBucket(null)} isDragOver={dragOverBucket === 'today'}
           onComplete={handleCompleteTodo}
         />
         <CompactCol
           title="내일" items={tomorrowItems}
+          colBadge={{ label: '대기', bg: 'bg-gray-100', text: 'text-gray-400' }}
           droppable onDrop={e => handleDrop(e, 'tomorrow')} onDragOver={e => handleDragOver(e, 'tomorrow')} onDragLeave={() => setDragOverBucket(null)} isDragOver={dragOverBucket === 'tomorrow'}
           onComplete={handleCompleteTodo}
         />
         <CompactCol
           title="금주" items={weekItems}
+          colBadge={{ label: '대기', bg: 'bg-gray-100', text: 'text-gray-400' }}
           droppable onDrop={e => handleDrop(e, 'this_week')} onDragOver={e => handleDragOver(e, 'this_week')} onDragLeave={() => setDragOverBucket(null)} isDragOver={dragOverBucket === 'this_week'}
           onComplete={handleCompleteTodo}
         />
-        <CompactCol title="미진행" items={overdueItems} warn onComplete={handleCompleteTodo} />
+        <CompactCol title="미진행" items={overdueItems} warn
+          colBadge={{ label: '긴급', bg: 'bg-red-50', text: 'text-red-400' }}
+          onComplete={handleCompleteTodo}
+        />
       </div>
 
       {/* Row 5: 회고 + 오늘할일 + 미지정백로그 */}
@@ -497,7 +572,7 @@ export default function HomePage() {
             <TodayTodoWidget />
           </div>
           {/* 미지정 할일 + 금주 완료 2분할 */}
-          <div className="bg-white rounded-xl border border-gray-100 flex flex-col overflow-hidden flex-[2] min-h-0">
+          <div className="bg-white border border-white/80 rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.04)] flex flex-col overflow-hidden flex-[2] min-h-0">
             <div className="flex border-b border-gray-100 flex-shrink-0">
               <div className="flex-1 flex items-center gap-1.5 px-3 py-2 border-r border-gray-100">
                 <span className="w-1.5 h-1.5 rounded-full bg-gray-300 flex-shrink-0" />

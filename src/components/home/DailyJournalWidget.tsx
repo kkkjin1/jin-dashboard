@@ -175,13 +175,35 @@ export default function DailyJournalWidget({ tasks, meetings }: Props) {
     m.title.toLowerCase().includes(meetingSearch.toLowerCase())
   ).slice(0, 6)
 
+  // 이번 주 월~금 회고 작성 현황
+  const weekDots = Array.from({ length: 5 }, (_, i) => {
+    const d = new Date()
+    const day = d.getDay()
+    const daysToMon = day === 0 ? 6 : day - 1
+    const mon = new Date(d); mon.setDate(d.getDate() - daysToMon)
+    const target = new Date(mon); target.setDate(mon.getDate() + i)
+    const ds = [target.getFullYear(), String(target.getMonth()+1).padStart(2,'0'), String(target.getDate()).padStart(2,'0')].join('-')
+    return { ds, filled: !!journals[ds], future: ds > TODAY }
+  })
+  const weekFilled = weekDots.filter(d => d.filled).length
+
   return (
-    <div className="bg-[#EBF3EE] rounded-xl shadow-[0_1px_3px_rgba(0,0,0,0.05),0_4px_18px_rgba(0,0,0,0.08)] flex flex-col overflow-hidden h-full">
+    <div className="bg-[#EBF3EE] border border-white/80 rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.04)] flex flex-col overflow-hidden h-full">
 
       {/* 헤더 */}
       <div className="flex items-center gap-2 px-4 py-2.5 border-b border-black/5 flex-shrink-0">
         <span className="text-base leading-none">🪴</span>
         <span className="text-sm font-semibold text-gray-700 flex-1">회고</span>
+
+        {/* 주간 도트 */}
+        <div className="flex items-center gap-1 mr-1" title={`이번 주 ${weekFilled}/5일 작성`}>
+          {weekDots.map((d, i) => (
+            <div key={i} className={`w-[6px] h-[6px] rounded-full transition-colors ${
+              d.future ? 'bg-black/10' : d.filled ? 'bg-emerald-400' : 'bg-black/15'
+            }`} />
+          ))}
+        </div>
+
         <div className="flex items-center gap-0.5 bg-green-100 text-green-700 rounded-full px-2 py-0.5">
           <button onClick={() => navigate(-1)} className="hover:opacity-60 transition-opacity text-xs">←</button>
           <span className="min-w-[2.5rem] text-center text-[11px] font-medium">{formatDateLabel(selectedDate)}</span>
