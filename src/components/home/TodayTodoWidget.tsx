@@ -294,7 +294,7 @@ export default function TodayTodoWidget() {
         ) : (
           <div className="flex flex-col flex-1 min-h-0 overflow-y-auto">
             {/* 미완료 */}
-            <p className="text-[10px] text-gray-400 font-medium mb-2 flex-shrink-0">미완료 {todos.length > 0 ? `${todos.length}` : ''}</p>
+            <p className="text-xs text-gray-400 font-medium mb-2 flex-shrink-0">미완료 {todos.length > 0 ? `${todos.length}` : ''}</p>
             {todos.length === 0 ? (
               <p className="text-xs text-gray-200 text-center py-3">없음</p>
             ) : (
@@ -334,7 +334,7 @@ export default function TodayTodoWidget() {
               <>
                 <div className="border-t border-gray-100 my-3 flex-shrink-0" />
                 <div className="flex items-center gap-1.5 mb-2 flex-shrink-0">
-                  <p className="text-[10px] text-gray-400 font-medium">완료 {done.length}</p>
+                  <p className="text-xs text-gray-400 font-medium">완료 {done.length}</p>
                   {selectedDone.size > 0 && (
                     <button onClick={deleteSelectedDone} className="text-[10px] text-red-400 hover:text-red-600 ml-auto">
                       {selectedDone.size}개 삭제
