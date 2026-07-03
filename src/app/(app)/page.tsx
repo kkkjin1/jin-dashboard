@@ -133,6 +133,7 @@ export default function HomePage() {
   const [meetingsLoaded, setMeetingsLoaded] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const searchRef = useRef<HTMLDivElement>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null)
   const supabase = createClient()
 
   type Shortcut = { id: string; title: string; url: string }
@@ -292,10 +293,19 @@ export default function HomePage() {
             <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2 bg-white focus-within:border-gray-400 transition-colors">
               <span className="text-gray-400 text-sm">🔍</span>
               <input
+                ref={searchInputRef}
                 value={search}
                 onChange={e => handleSearchChange(e.target.value)}
                 onFocus={() => { if (search) setSearchOpen(true) }}
-                onKeyDown={e => { if (e.key === 'Escape') { setSearch(''); setSearchOpen(false); (e.target as HTMLInputElement).blur() } }}
+                onKeyDown={e => {
+                  if (e.key === 'Escape') {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    setSearch('')
+                    setSearchOpen(false)
+                    searchInputRef.current?.blur()
+                  }
+                }}
                 placeholder="업무·회의록 검색"
                 className="text-sm text-gray-700 focus:outline-none w-44 bg-transparent"
               />
