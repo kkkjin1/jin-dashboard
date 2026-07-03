@@ -80,7 +80,8 @@ export default function TopNav() {
   return (
     <>
       {/* ── 데스크톱 상단 네비바 ── */}
-      <header className="hidden md:flex items-center h-14 px-5 gap-4 flex-shrink-0">
+      <header className="hidden md:block h-14 flex-shrink-0">
+        <div className="max-w-[1440px] mx-auto px-16 flex items-center h-full gap-4">
 
         {/* 로고 */}
         <div className="flex items-center gap-2.5 flex-shrink-0">
@@ -150,6 +151,7 @@ export default function TopNav() {
           <LogOut size={12} strokeWidth={2} />
           <span>로그아웃</span>
         </button>
+        </div>
       </header>
 
       {/* ── 모바일 상단 헤더 ── */}

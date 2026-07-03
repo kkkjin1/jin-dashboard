@@ -308,7 +308,7 @@ export default function HomePage() {
 
   return (
     <div
-      className="h-full overflow-hidden flex flex-col gap-2 p-3"
+      className="h-full overflow-hidden flex flex-col gap-3 py-4"
       onKeyDown={e => {
         if (e.key !== 'Escape') return
         setSearch(''); setSearchOpen(false)
@@ -455,7 +455,7 @@ export default function HomePage() {
 
       {/* ── 벤토 그리드 ── */}
       <div
-        className="flex-1 min-h-0 grid gap-2"
+        className="flex-1 min-h-0 grid gap-3"
         style={{
           gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
           gridTemplateRows: 'repeat(4, minmax(0, 1fr))',
