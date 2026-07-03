@@ -50,21 +50,28 @@ function DotGrid({ total, filled }: { total: number; filled: number }) {
   )
 }
 
-function CompactCol({ title, items, dark, warn, droppable, onDrop, onDragOver, onDragLeave, isDragOver, onComplete, maxItems = 5, scrollable, completedCount = 0, colBadge }: CompactColProps) {
-  const dragRing = isDragOver && droppable ? (dark ? 'ring-1 ring-white/20' : 'ring-1 ring-emerald-400') : ''
+function CompactCol({
+  title, items, dark, warn, droppable, onDrop, onDragOver, onDragLeave,
+  isDragOver, onComplete, maxItems = 5, scrollable, completedCount = 0, colBadge,
+}: CompactColProps) {
+  const dragRing = isDragOver && droppable ? (dark ? 'ring-1 ring-white/20' : 'ring-1 ring-emerald-400/60') : ''
   const emptyTxt = dark ? 'text-white/25' : 'text-gray-300'
   const itemTxt = dark ? 'text-white/80' : 'text-gray-700'
   const subTxt = dark ? 'text-white/30' : 'text-gray-400'
-  const chipCls = dark ? 'bg-white/10 text-white/35' : 'bg-gray-100 text-gray-400'
-  const hoverCls = dark ? 'hover:bg-white/5' : 'hover:bg-gray-50'
-  const divideCls = dark ? 'divide-white/5' : 'divide-gray-100'
-  const completeCls = dark ? 'border-white/20 hover:border-white/50' : 'border-gray-200 hover:border-emerald-400 hover:bg-emerald-50'
+  const chipCls = dark ? 'bg-white/10 text-white/35' : 'bg-gray-100/70 text-gray-400'
+  const hoverCls = dark ? 'hover:bg-white/5' : 'hover:bg-white/50'
+  const divideCls = dark ? 'divide-white/5' : 'divide-gray-100/50'
+  const completeCls = dark
+    ? 'border-white/20 hover:border-white/50'
+    : 'border-gray-300/60 hover:border-emerald-400 hover:bg-emerald-50'
   const checkCls = dark ? 'text-white/50' : 'text-emerald-500'
-  const cardCls = dark
-    ? `bg-[#1D2232] ${dragRing} rounded-xl shadow-[0_4px_24px_rgba(0,0,0,0.18)] p-4 min-w-0 min-h-[186px] transition-all flex flex-col relative overflow-hidden`
-    : `bg-white border border-white/80 ${dragRing} rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.04)] p-4 min-w-0 min-h-[186px] transition-all flex flex-col`
 
-  // 다크 카드 (오늘) — 별도 레이아웃
+  const cardCls = dark
+    ? `bg-[#1A1F2E] border border-white/6 ${dragRing} rounded-2xl shadow-2xl p-4 min-w-0 flex flex-col relative overflow-hidden h-full transition-all`
+    : warn
+      ? `bg-white/40 backdrop-blur-md border border-red-200/50 ${dragRing} rounded-2xl shadow-sm p-4 min-w-0 flex flex-col h-full transition-all`
+      : `bg-white/40 backdrop-blur-md border border-white/60 ${dragRing} rounded-2xl shadow-sm p-4 min-w-0 flex flex-col h-full transition-all`
+
   if (dark) {
     return (
       <div className={cardCls}
@@ -74,8 +81,8 @@ function CompactCol({ title, items, dark, warn, droppable, onDrop, onDragOver, o
       >
         <div className="flex items-center justify-between mb-3 flex-shrink-0">
           <div className="flex items-center gap-1">
-            <span className="text-[10px] font-semibold uppercase text-white/40" style={{letterSpacing:'0.07em'}}>{title}</span>
-            <span className="text-[10px] text-white/30">↗</span>
+            <span className="text-[10px] font-semibold uppercase text-white/40" style={{ letterSpacing: '0.07em' }}>{title}</span>
+            <span className="text-[10px] text-white/25">↗</span>
           </div>
           {items.length > 0 && (
             <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-white/10 text-white/50">
@@ -110,17 +117,15 @@ function CompactCol({ title, items, dark, warn, droppable, onDrop, onDragOver, o
             ))}
           </div>
         )}
-        {/* 도트 그리드 — 우하단 */}
-        <div className="absolute bottom-3 right-3 opacity-70">
+        <div className="absolute bottom-3 right-3 opacity-60">
           <DotGrid total={28} filled={Math.min(completedCount, 28)} />
         </div>
       </div>
     )
   }
 
-  // 일반 카드 (내일·금주·미진행)
   const titleCls = warn ? 'text-[#B44A3A]' : 'text-gray-400'
-  const badgeBg = warn ? 'bg-[#FDECEA] text-[#B44A3A]' : 'bg-gray-100 text-gray-500'
+  const badgeBg = warn ? 'bg-[#FDECEA]/80 text-[#B44A3A]' : 'bg-gray-100/70 text-gray-500'
 
   return (
     <div className={cardCls}
@@ -129,7 +134,7 @@ function CompactCol({ title, items, dark, warn, droppable, onDrop, onDragOver, o
       onDragLeave={droppable ? onDragLeave : undefined}
     >
       <div className="flex items-center justify-between mb-3 flex-shrink-0">
-        <span className={`text-[10px] font-semibold uppercase ${titleCls}`} style={{letterSpacing:'0.07em'}}>{title}</span>
+        <span className={`text-[10px] font-semibold uppercase ${titleCls}`} style={{ letterSpacing: '0.07em' }}>{title}</span>
         {items.length > 0 && (
           <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${badgeBg}`}>
             {items.length > 9 ? '9+' : items.length}
@@ -181,7 +186,7 @@ function CompactCol({ title, items, dark, warn, droppable, onDrop, onDragOver, o
 
 function getThisWeekStart(): string {
   const d = new Date()
-  const day = d.getDay() // 0=Sun, 1=Mon...6=Sat
+  const day = d.getDay()
   const daysToMon = day === 0 ? 6 : day - 1
   d.setDate(d.getDate() - daysToMon)
   d.setHours(0, 0, 0, 0)
@@ -249,7 +254,6 @@ export default function HomePage() {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
-
   function saveShortcuts(list: Shortcut[]) {
     saveShortcutsRemote(list)
   }
@@ -267,7 +271,7 @@ export default function HomePage() {
     saveShortcuts(shortcuts.filter(s => s.id !== id))
   }
 
-  function startEditShortcut(s: {id: string; title: string; url: string}) {
+  function startEditShortcut(s: { id: string; title: string; url: string }) {
     setEditingShortcutId(s.id)
     setEditShortcutTitle(s.title)
     setEditShortcutUrl(s.url)
@@ -302,7 +306,6 @@ export default function HomePage() {
 
   const { today, tomorrow, thisFriday } = getDateStrings()
 
-  // task_id별 sort_order 기준 인덱스 계산
   const taskTodoOrderMap: Record<string, TaskTodo[]> = {}
   todos.forEach(t => {
     if (!taskTodoOrderMap[t.task_id]) taskTodoOrderMap[t.task_id] = []
@@ -310,7 +313,7 @@ export default function HomePage() {
   })
   Object.values(taskTodoOrderMap).forEach(arr => arr.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)))
 
-  function toColItemsV2(filtered: TaskTodo[]): TodoColItem[] {
+  function toColItems(filtered: TaskTodo[]): TodoColItem[] {
     return filtered.map(t => {
       const taskArr = taskTodoOrderMap[t.task_id] ?? []
       const idxInTask = taskArr.findIndex(x => x.id === t.id)
@@ -326,11 +329,11 @@ export default function HomePage() {
     })
   }
 
-  const todayItems = toColItemsV2(todos.filter(t => t.target_date === today))
-  const tomorrowItems = toColItemsV2(todos.filter(t => t.target_date === tomorrow))
-  const weekItems = toColItemsV2(todos.filter(t => t.target_date && t.target_date > tomorrow && t.target_date <= thisFriday))
-  const overdueItems = toColItemsV2(todos.filter(t => t.target_date && t.target_date < today))
-  const unscheduledItems = toColItemsV2(todos.filter(t => !t.target_date))
+  const todayItems = toColItems(todos.filter(t => t.target_date === today))
+  const tomorrowItems = toColItems(todos.filter(t => t.target_date === tomorrow))
+  const weekItems = toColItems(todos.filter(t => t.target_date && t.target_date > tomorrow && t.target_date <= thisFriday))
+  const overdueItems = toColItems(todos.filter(t => t.target_date && t.target_date < today))
+  const unscheduledItems = toColItems(todos.filter(t => !t.target_date))
 
   function handleDragOver(e: React.DragEvent, bucket: string) {
     e.preventDefault()
@@ -366,54 +369,56 @@ export default function HomePage() {
   }
 
   return (
-    <div className="p-4 md:p-4 flex flex-col md:h-full md:overflow-hidden gap-3" onKeyDown={handlePageKeyDown}>
+    <div className="p-4 flex flex-col gap-3" onKeyDown={handlePageKeyDown}>
 
-      {/* Row 1: 헤더 */}
+      {/* 헤더 */}
       <div className="flex items-end justify-between flex-shrink-0">
         <div>
           <h1 className="font-normal leading-tight text-gray-900"
-              style={{fontFamily: 'Georgia, "Times New Roman", serif', fontSize: '1.6rem', letterSpacing: '-0.025em'}}>
+            style={{ fontFamily: 'Georgia, "Times New Roman", serif', fontSize: '1.55rem', letterSpacing: '-0.025em' }}>
             안녕하세요, 진일님.
           </h1>
           <p className="text-gray-400 mt-1.5"
-             style={{fontSize: '10px', letterSpacing: '0.07em', textTransform: 'uppercase'}}>
+            style={{ fontSize: '10px', letterSpacing: '0.07em', textTransform: 'uppercase' }}>
             {format(new Date(), 'yyyy년 M월 d일 EEEE', { locale: ko })}
           </p>
         </div>
-        <div className="flex items-end gap-7">
-          <div className="hidden sm:flex items-end gap-7">
+
+        <div className="flex items-end gap-6">
+          <div className="hidden sm:flex items-end gap-6">
             <div className="text-right">
               <div className="font-bold leading-none text-[#2E5E4A]"
-                   style={{fontSize: '2.3rem', letterSpacing: '-0.04em', fontVariantNumeric: 'tabular-nums'}}>
+                style={{ fontSize: '2rem', letterSpacing: '-0.04em', fontVariantNumeric: 'tabular-nums' }}>
                 {todayItems.length}
               </div>
-              <div className="text-gray-400 mt-1" style={{fontSize: '9px', letterSpacing: '0.07em', textTransform: 'uppercase'}}>오늘</div>
+              <div className="text-gray-400 mt-1" style={{ fontSize: '9px', letterSpacing: '0.07em', textTransform: 'uppercase' }}>오늘</div>
             </div>
             <div className="text-right">
               <div className="font-bold leading-none text-gray-400"
-                   style={{fontSize: '2.3rem', letterSpacing: '-0.04em', fontVariantNumeric: 'tabular-nums'}}>
+                style={{ fontSize: '2rem', letterSpacing: '-0.04em', fontVariantNumeric: 'tabular-nums' }}>
                 {weekItems.length}
               </div>
-              <div className="text-gray-400 mt-1" style={{fontSize: '9px', letterSpacing: '0.07em', textTransform: 'uppercase'}}>금주</div>
+              <div className="text-gray-400 mt-1" style={{ fontSize: '9px', letterSpacing: '0.07em', textTransform: 'uppercase' }}>금주</div>
             </div>
             <div className="text-right">
               <div className="font-bold leading-none text-[#B44A3A]"
-                   style={{fontSize: '2.3rem', letterSpacing: '-0.04em', fontVariantNumeric: 'tabular-nums'}}>
+                style={{ fontSize: '2rem', letterSpacing: '-0.04em', fontVariantNumeric: 'tabular-nums' }}>
                 {overdueItems.length}
               </div>
-              <div className="text-gray-400 mt-1" style={{fontSize: '9px', letterSpacing: '0.07em', textTransform: 'uppercase'}}>미진행</div>
+              <div className="text-gray-400 mt-1" style={{ fontSize: '9px', letterSpacing: '0.07em', textTransform: 'uppercase' }}>미진행</div>
             </div>
           </div>
+
+          {/* 인라인 검색 */}
           <div ref={searchRef} className="relative self-center">
             <button
               onClick={() => { setSearchOpen(p => !p); if (!searchOpen) setTimeout(() => searchInputRef.current?.focus(), 50) }}
-              className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-black/5 transition-colors"
-            >
+              className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-white/50 transition-all">
               <span className="text-sm">🔍</span>
             </button>
             {searchOpen && (
-              <div className="absolute top-full mt-1 right-0 w-80 bg-white rounded-xl border border-gray-100 shadow-xl z-50 overflow-hidden">
-                <div className="flex items-center gap-2 px-3 py-2.5 border-b border-gray-100">
+              <div className="absolute top-full mt-2 right-0 w-80 bg-white/90 backdrop-blur-xl rounded-2xl border border-white/80 shadow-xl z-50 overflow-hidden">
+                <div className="flex items-center gap-2 px-3 py-2.5 border-b border-gray-100/60">
                   <input
                     ref={searchInputRef}
                     value={search}
@@ -427,13 +432,13 @@ export default function HomePage() {
                   )}
                 </div>
                 {hasResults ? (
-                  <div className="divide-y divide-gray-50 max-h-64 overflow-y-auto">
+                  <div className="divide-y divide-gray-50/80 max-h-64 overflow-y-auto">
                     {matchedTasks.length > 0 && (
                       <div className="px-3 py-2">
                         <p className="text-xs font-semibold text-gray-400 mb-1.5">업무</p>
                         {matchedTasks.map(t => (
                           <Link key={t.id} href={`/tasks/${t.id}`} onClick={() => setSearchOpen(false)}>
-                            <div className="py-1.5 px-1 hover:bg-gray-50 rounded-lg flex items-center gap-2">
+                            <div className="py-1.5 px-1 hover:bg-gray-50/80 rounded-lg flex items-center gap-2">
                               <span className="text-xs text-gray-400">≡</span>
                               <div className="flex-1 min-w-0">
                                 <span className="text-sm text-gray-800 truncate block">{t.title || '제목 없음'}</span>
@@ -452,7 +457,7 @@ export default function HomePage() {
                         <p className="text-xs font-semibold text-gray-400 mb-1.5">회의록</p>
                         {matchedMeetings.map(m => (
                           <Link key={m.id} href={`/meetings/${m.id}`} onClick={() => setSearchOpen(false)}>
-                            <div className="py-1.5 px-1 hover:bg-gray-50 rounded-lg flex items-center gap-2">
+                            <div className="py-1.5 px-1 hover:bg-gray-50/80 rounded-lg flex items-center gap-2">
                               <span className="text-xs text-gray-400">💬</span>
                               <span className="text-sm text-gray-800 truncate">{m.title || '제목 없음'}</span>
                             </div>
@@ -470,16 +475,16 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Row 2: 바로가기 */}
-      <div className="flex-shrink-0">
+      {/* 바로가기 + 빠른 업무 추가 */}
+      <div className="flex flex-col gap-2 flex-shrink-0">
         <div className="flex gap-2 flex-wrap items-center">
           {shortcuts.map(s => {
             if (editingShortcutId === s.id) {
               return (
-                <div key={s.id} className="bg-white rounded-xl border border-blue-300 p-2.5 w-40 shadow-sm">
+                <div key={s.id} className="bg-white/70 backdrop-blur-md rounded-xl border border-white/80 p-2.5 w-40 shadow-sm">
                   <input value={editShortcutTitle} onChange={e => setEditShortcutTitle(e.target.value)}
                     placeholder="이름" autoFocus
-                    className="text-xs font-medium text-gray-800 w-full focus:outline-none border-b border-gray-200 pb-1 mb-1 bg-transparent" />
+                    className="text-xs font-medium text-gray-800 w-full focus:outline-none border-b border-gray-200/60 pb-1 mb-1 bg-transparent" />
                   <input value={editShortcutUrl} onChange={e => setEditShortcutUrl(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter') saveEditShortcut(); if (e.key === 'Escape') setEditingShortcutId(null) }}
                     placeholder="URL"
@@ -494,7 +499,7 @@ export default function HomePage() {
             return (
               <div key={s.id} className="group relative">
                 <a href={s.url} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-md px-3 py-2 hover:border-gray-400 hover:shadow-sm transition-all">
+                  className="flex items-center gap-1.5 bg-white/40 backdrop-blur-md border border-white/60 rounded-full px-3 py-1.5 hover:bg-white/60 hover:border-white/80 transition-all shadow-sm">
                   <span className="text-xs font-medium text-gray-700 truncate max-w-28">🔗 {s.title}</span>
                 </a>
                 <div className="absolute -top-1.5 -right-1.5 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -507,10 +512,10 @@ export default function HomePage() {
             )
           })}
           {showAddShortcut ? (
-            <div className="bg-white rounded-xl border border-blue-300 p-2.5 w-40 shadow-sm">
+            <div className="bg-white/70 backdrop-blur-md rounded-xl border border-white/80 p-2.5 w-40 shadow-sm">
               <input value={newShortcutTitle} onChange={e => setNewShortcutTitle(e.target.value)}
                 placeholder="이름" autoFocus
-                className="text-xs font-medium text-gray-800 w-full focus:outline-none border-b border-gray-200 pb-1 mb-1 bg-transparent" />
+                className="text-xs font-medium text-gray-800 w-full focus:outline-none border-b border-gray-200/60 pb-1 mb-1 bg-transparent" />
               <input value={newShortcutUrl} onChange={e => setNewShortcutUrl(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') addShortcut(); if (e.key === 'Escape') setShowAddShortcut(false) }}
                 placeholder="URL"
@@ -522,59 +527,102 @@ export default function HomePage() {
             </div>
           ) : (
             <button onClick={() => { setShowAddShortcut(true); setEditingShortcutId(null) }}
-              className="flex items-center justify-center border border-dashed border-gray-200 hover:border-gray-300 rounded-md px-3 py-2 text-gray-300 hover:text-gray-400 transition-colors text-xs">
+              className="flex items-center justify-center border border-dashed border-gray-300/60 hover:border-gray-400/60 rounded-full px-3 py-1.5 text-gray-300 hover:text-gray-400 transition-all text-xs">
               + 바로가기
             </button>
           )}
         </div>
-      </div>
-
-      {/* Row 3: 빠른 업무 추가 */}
-      <QuickTaskInput
-        tasks={tasks}
-        onAdded={todo => setTodos(prev => [todo, ...prev])}
-      />
-
-      {/* Row 4: 컴팩트 업무 현황 */}
-      <div className="flex-shrink-0 grid grid-cols-2 md:grid-cols-4 gap-3">
-        <CompactCol
-          title="오늘" items={todayItems} dark
-          completedCount={completedThisWeek.length}
-          colBadge={{ label: '진행중', bg: 'bg-violet-500/20', text: 'text-violet-300' }}
-          droppable onDrop={e => handleDrop(e, 'today')} onDragOver={e => handleDragOver(e, 'today')} onDragLeave={() => setDragOverBucket(null)} isDragOver={dragOverBucket === 'today'}
-          onComplete={handleCompleteTodo}
-        />
-        <CompactCol
-          title="내일" items={tomorrowItems}
-          colBadge={{ label: '대기', bg: 'bg-gray-100', text: 'text-gray-400' }}
-          droppable onDrop={e => handleDrop(e, 'tomorrow')} onDragOver={e => handleDragOver(e, 'tomorrow')} onDragLeave={() => setDragOverBucket(null)} isDragOver={dragOverBucket === 'tomorrow'}
-          onComplete={handleCompleteTodo}
-        />
-        <CompactCol
-          title="금주" items={weekItems}
-          colBadge={{ label: '대기', bg: 'bg-gray-100', text: 'text-gray-400' }}
-          droppable onDrop={e => handleDrop(e, 'this_week')} onDragOver={e => handleDragOver(e, 'this_week')} onDragLeave={() => setDragOverBucket(null)} isDragOver={dragOverBucket === 'this_week'}
-          onComplete={handleCompleteTodo}
-        />
-        <CompactCol title="미진행" items={overdueItems} warn
-          colBadge={{ label: '긴급', bg: 'bg-red-50', text: 'text-red-400' }}
-          onComplete={handleCompleteTodo}
+        <QuickTaskInput
+          tasks={tasks}
+          onAdded={todo => setTodos(prev => [todo, ...prev])}
         />
       </div>
 
-      {/* Row 5: 회고 + 오늘할일 + 미지정백로그 */}
-      <div className="md:flex-1 md:min-h-0 grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="md:overflow-hidden">
-          <DailyJournalWidget tasks={tasks} meetings={meetings} />
+      {/* 벤토 그리드 */}
+      <div
+        className="grid gap-3"
+        style={{
+          gridTemplateColumns: 'repeat(3, 1fr)',
+          gridTemplateRows: '200px 180px minmax(220px, auto) minmax(180px, auto)',
+          gridTemplateAreas: `
+            "today tomorrow week"
+            "today overdue  overdue"
+            "journal journal todo"
+            "backlog backlog todo"
+          `,
+        }}
+      >
+        {/* 오늘 — 다크 카드, 2행 */}
+        <div style={{ gridArea: 'today' }}>
+          <CompactCol
+            title="오늘" items={todayItems} dark scrollable
+            completedCount={completedThisWeek.length}
+            colBadge={{ label: '진행중', bg: 'bg-violet-500/20', text: 'text-violet-300' }}
+            droppable
+            onDrop={e => handleDrop(e, 'today')}
+            onDragOver={e => handleDragOver(e, 'today')}
+            onDragLeave={() => setDragOverBucket(null)}
+            isDragOver={dragOverBucket === 'today'}
+            onComplete={handleCompleteTodo}
+          />
         </div>
-        <div className="md:overflow-hidden flex flex-col gap-3 min-h-0">
-          <div className="flex-[3] min-h-0 overflow-hidden">
+
+        {/* 내일 */}
+        <div style={{ gridArea: 'tomorrow' }}>
+          <CompactCol
+            title="내일" items={tomorrowItems}
+            colBadge={{ label: '대기', bg: 'bg-gray-100/70', text: 'text-gray-400' }}
+            droppable
+            onDrop={e => handleDrop(e, 'tomorrow')}
+            onDragOver={e => handleDragOver(e, 'tomorrow')}
+            onDragLeave={() => setDragOverBucket(null)}
+            isDragOver={dragOverBucket === 'tomorrow'}
+            onComplete={handleCompleteTodo}
+          />
+        </div>
+
+        {/* 금주 */}
+        <div style={{ gridArea: 'week' }}>
+          <CompactCol
+            title="금주" items={weekItems}
+            colBadge={{ label: '대기', bg: 'bg-gray-100/70', text: 'text-gray-400' }}
+            droppable
+            onDrop={e => handleDrop(e, 'this_week')}
+            onDragOver={e => handleDragOver(e, 'this_week')}
+            onDragLeave={() => setDragOverBucket(null)}
+            isDragOver={dragOverBucket === 'this_week'}
+            onComplete={handleCompleteTodo}
+          />
+        </div>
+
+        {/* 미진행 — 2열 너비 */}
+        <div style={{ gridArea: 'overdue' }}>
+          <CompactCol
+            title="미진행" items={overdueItems} warn scrollable
+            colBadge={{ label: '긴급', bg: 'bg-red-50/80', text: 'text-red-400' }}
+            onComplete={handleCompleteTodo}
+          />
+        </div>
+
+        {/* 회고 위젯 — 2열 너비 */}
+        <div style={{ gridArea: 'journal' }} className="overflow-hidden">
+          <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full overflow-hidden">
+            <DailyJournalWidget tasks={tasks} meetings={meetings} />
+          </div>
+        </div>
+
+        {/* 오늘 할일 위젯 — 2행 높이 */}
+        <div style={{ gridArea: 'todo' }} className="overflow-hidden">
+          <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full overflow-hidden">
             <TodayTodoWidget />
           </div>
-          {/* 미지정 할일 + 금주 완료 2분할 */}
-          <div className="bg-white border border-white/80 rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.04)] flex flex-col overflow-hidden flex-[2] min-h-0">
-            <div className="flex border-b border-gray-100 flex-shrink-0">
-              <div className="flex-1 flex items-center gap-1.5 px-3 py-2 border-r border-gray-100">
+        </div>
+
+        {/* 미지정 + 금주 완료 — 2열 너비 */}
+        <div style={{ gridArea: 'backlog' }} className="overflow-hidden">
+          <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full flex flex-col overflow-hidden">
+            <div className="flex border-b border-white/50 flex-shrink-0">
+              <div className="flex-1 flex items-center gap-1.5 px-3 py-2 border-r border-white/50">
                 <span className="w-1.5 h-1.5 rounded-full bg-gray-300 flex-shrink-0" />
                 <span className="text-sm font-semibold text-gray-600">미지정</span>
                 {unscheduledItems.length > 0 && (
@@ -590,16 +638,15 @@ export default function HomePage() {
               </div>
             </div>
             <div className="flex flex-1 min-h-0 overflow-hidden">
-              {/* 미지정 할일 */}
-              <div className="flex-1 overflow-y-auto p-2 border-r border-gray-50 space-y-0.5">
+              <div className="flex-1 overflow-y-auto p-2 border-r border-white/50 space-y-0.5">
                 {unscheduledItems.length === 0 ? (
                   <p className="text-sm text-gray-300 text-center py-3">없음</p>
                 ) : unscheduledItems.map(item => (
                   <Link key={item.id} href={`/tasks/${item.taskId}`}>
-                    <div className="py-1 px-1 hover:bg-gray-50 rounded transition-colors">
+                    <div className="py-1 px-1 hover:bg-white/50 rounded transition-colors">
                       <div className="flex items-center gap-1 min-w-0">
                         {item.taskShortName && (
-                          <span className="text-[10px] font-mono text-gray-400 flex-shrink-0 bg-gray-100 px-1 py-0.5 rounded">
+                          <span className="text-[10px] font-mono text-gray-400 flex-shrink-0 bg-gray-100/70 px-1 py-0.5 rounded">
                             {item.taskShortName}{(item.idxInTask ?? 0) + 1}
                           </span>
                         )}
@@ -610,7 +657,6 @@ export default function HomePage() {
                   </Link>
                 ))}
               </div>
-              {/* 금주 완료 */}
               <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
                 {completedThisWeek.length === 0 ? (
                   <p className="text-sm text-gray-300 text-center py-3">없음</p>
@@ -618,10 +664,10 @@ export default function HomePage() {
                   const joined = t.tasks as { id: string; title: string; short_name?: string | null } | null
                   return (
                     <Link key={t.id} href={`/tasks/${t.task_id}`}>
-                      <div className="py-1 px-1 hover:bg-gray-50 rounded transition-colors">
+                      <div className="py-1 px-1 hover:bg-white/50 rounded transition-colors">
                         <div className="flex items-center gap-1 min-w-0">
                           {joined?.short_name && (
-                            <span className="text-[10px] font-mono text-gray-300 flex-shrink-0 bg-gray-50 px-1 py-0.5 rounded line-through">
+                            <span className="text-[10px] font-mono text-gray-300 flex-shrink-0 bg-gray-50/70 px-1 py-0.5 rounded line-through">
                               {joined.short_name}
                             </span>
                           )}

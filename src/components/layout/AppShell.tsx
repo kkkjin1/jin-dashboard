@@ -1,36 +1,18 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import Sidebar from './Sidebar'
+import TopNav from './TopNav'
 import QuickMemoPanel from '@/components/memo/QuickMemoPanel'
 import MobileMemoSheet from '@/components/memo/MobileMemoSheet'
 import GlobalSearch from '@/components/GlobalSearch'
 import GlobalEscBlur from '@/components/GlobalEscBlur'
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
-  const [collapsed, setCollapsed] = useState(false)
-
-  useEffect(() => {
-    try {
-      setCollapsed(localStorage.getItem('sidebar_collapsed') === 'true')
-    } catch { /* ignore */ }
-  }, [])
-
-  function toggle() {
-    setCollapsed(prev => {
-      const next = !prev
-      try { localStorage.setItem('sidebar_collapsed', String(next)) } catch { /* ignore */ }
-      return next
-    })
-  }
-
   return (
-    <div className="flex h-screen bg-[#ECEAE5]">
-      <Sidebar collapsed={collapsed} onToggle={toggle} />
-      <main className="flex-1 overflow-y-auto pb-16 md:pb-0 min-w-0">
-        <div className="flex flex-col h-full w-full min-w-0">
-          {children}
-        </div>
+    <div className="min-h-screen flex flex-col"
+      style={{ background: 'linear-gradient(145deg, #F3EDE4 0%, #EAE3D6 45%, #E2D9CA 100%)' }}>
+      <TopNav />
+      <main className="flex-1 overflow-y-auto pb-16 md:pb-0">
+        {children}
       </main>
       <QuickMemoPanel />
       <MobileMemoSheet />
