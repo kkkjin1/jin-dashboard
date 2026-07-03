@@ -38,16 +38,6 @@ interface CompactColProps {
   scrollable?: boolean
 }
 
-function SectionLabel({ label }: { label: string }) {
-  return (
-    <div className="flex items-center gap-2 flex-shrink-0 py-0.5">
-      <div className="flex-1 h-px bg-gray-200" />
-      <span className="text-[11px] text-gray-400 font-medium tracking-wide">{label}</span>
-      <div className="flex-1 h-px bg-gray-200" />
-    </div>
-  )
-}
-
 function CompactCol({ title, items, dot, badgeCls = 'bg-gray-200 text-gray-600', accent = 'border-t-gray-200', droppable, onDrop, onDragOver, onDragLeave, isDragOver, onComplete, maxItems = 5, scrollable }: CompactColProps) {
   return (
     <div
@@ -440,7 +430,6 @@ export default function HomePage() {
       />
 
       {/* Row 4: 컴팩트 업무 현황 */}
-      <SectionLabel label="할일 현황" />
       {loading ? (
         <div className="flex-shrink-0 bg-slate-50 rounded-2xl p-3">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -474,7 +463,6 @@ export default function HomePage() {
       )}
 
       {/* Row 5: 회고 + 오늘할일 + 미지정백로그 */}
-      <SectionLabel label="오늘 작업" />
       <div className="md:flex-1 md:min-h-0 grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="md:overflow-hidden">
           <DailyJournalWidget tasks={tasks} meetings={meetings} />
