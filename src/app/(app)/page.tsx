@@ -27,6 +27,7 @@ interface CompactColProps {
   items: TodoColItem[]
   dot: string
   badgeCls?: string
+  accent?: string
   droppable?: boolean
   onDrop?: (e: React.DragEvent) => void
   onDragOver?: (e: React.DragEvent) => void
@@ -37,10 +38,10 @@ interface CompactColProps {
   scrollable?: boolean
 }
 
-function CompactCol({ title, items, dot, badgeCls = 'bg-gray-200 text-gray-600', droppable, onDrop, onDragOver, onDragLeave, isDragOver, onComplete, maxItems = 5, scrollable }: CompactColProps) {
+function CompactCol({ title, items, dot, badgeCls = 'bg-gray-200 text-gray-600', accent = 'border-t-gray-300', droppable, onDrop, onDragOver, onDragLeave, isDragOver, onComplete, maxItems = 5, scrollable }: CompactColProps) {
   return (
     <div
-      className={`bg-white rounded-lg border p-4 min-w-0 min-h-[200px] transition-colors flex flex-col ${isDragOver && droppable ? 'border-emerald-300 bg-emerald-50/30' : 'border-gray-100'}`}
+      className={`bg-white rounded-lg border border-gray-100 border-t-2 p-4 min-w-0 min-h-[200px] transition-colors flex flex-col ${isDragOver && droppable ? 'border-emerald-300 border-t-emerald-400 bg-emerald-50/30' : accent}`}
       onDragOver={droppable ? onDragOver : undefined}
       onDrop={droppable ? onDrop : undefined}
       onDragLeave={droppable ? onDragLeave : undefined}
@@ -430,30 +431,34 @@ export default function HomePage() {
 
       {/* Row 4: 컴팩트 업무 현황 */}
       {loading ? (
-        <div className="flex-shrink-0 grid grid-cols-2 md:grid-cols-4 gap-3">
-          {[1,2,3,4].map(i => <div key={i} className="bg-white rounded-xl border border-gray-100 h-20 animate-pulse" />)}
+        <div className="flex-shrink-0 bg-slate-50 rounded-2xl p-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {[1,2,3,4].map(i => <div key={i} className="bg-white rounded-xl border border-gray-100 h-20 animate-pulse" />)}
+          </div>
         </div>
       ) : (
-        <div className="flex-shrink-0 grid grid-cols-2 md:grid-cols-4 gap-3">
-          <CompactCol
-            title="오늘" items={todayItems} dot="bg-red-500" badgeCls="bg-red-500 text-white"
-            droppable onDrop={e => handleDrop(e, 'today')} onDragOver={e => handleDragOver(e, 'today')} onDragLeave={() => setDragOverBucket(null)} isDragOver={dragOverBucket === 'today'}
-            onComplete={handleCompleteTodo}
-          />
-          <CompactCol
-            title="내일" items={tomorrowItems} dot="bg-orange-400" badgeCls="bg-orange-400 text-white"
-            droppable onDrop={e => handleDrop(e, 'tomorrow')} onDragOver={e => handleDragOver(e, 'tomorrow')} onDragLeave={() => setDragOverBucket(null)} isDragOver={dragOverBucket === 'tomorrow'}
-            onComplete={handleCompleteTodo}
-          />
-          <CompactCol
-            title="금주" items={weekItems} dot="bg-blue-400" badgeCls="bg-blue-400 text-white"
-            droppable onDrop={e => handleDrop(e, 'this_week')} onDragOver={e => handleDragOver(e, 'this_week')} onDragLeave={() => setDragOverBucket(null)} isDragOver={dragOverBucket === 'this_week'}
-            onComplete={handleCompleteTodo}
-          />
-          <CompactCol
-            title="미진행" items={overdueItems} dot="bg-gray-400" badgeCls="bg-red-200 text-red-600"
-            onComplete={handleCompleteTodo}
-          />
+        <div className="flex-shrink-0 bg-slate-50 rounded-2xl p-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <CompactCol
+              title="오늘" items={todayItems} dot="bg-red-500" badgeCls="bg-red-500 text-white" accent="border-t-red-400"
+              droppable onDrop={e => handleDrop(e, 'today')} onDragOver={e => handleDragOver(e, 'today')} onDragLeave={() => setDragOverBucket(null)} isDragOver={dragOverBucket === 'today'}
+              onComplete={handleCompleteTodo}
+            />
+            <CompactCol
+              title="내일" items={tomorrowItems} dot="bg-orange-400" badgeCls="bg-orange-400 text-white" accent="border-t-orange-400"
+              droppable onDrop={e => handleDrop(e, 'tomorrow')} onDragOver={e => handleDragOver(e, 'tomorrow')} onDragLeave={() => setDragOverBucket(null)} isDragOver={dragOverBucket === 'tomorrow'}
+              onComplete={handleCompleteTodo}
+            />
+            <CompactCol
+              title="금주" items={weekItems} dot="bg-blue-400" badgeCls="bg-blue-400 text-white" accent="border-t-blue-400"
+              droppable onDrop={e => handleDrop(e, 'this_week')} onDragOver={e => handleDragOver(e, 'this_week')} onDragLeave={() => setDragOverBucket(null)} isDragOver={dragOverBucket === 'this_week'}
+              onComplete={handleCompleteTodo}
+            />
+            <CompactCol
+              title="미진행" items={overdueItems} dot="bg-gray-400" badgeCls="bg-red-200 text-red-600" accent="border-t-gray-300"
+              onComplete={handleCompleteTodo}
+            />
+          </div>
         </div>
       )}
 
