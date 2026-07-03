@@ -28,7 +28,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     <div className="flex h-screen bg-[#F8FAFC]">
       <Sidebar collapsed={collapsed} onToggle={toggle} />
       <main className="flex-1 overflow-y-auto pb-16 md:pb-0 min-w-0">
-        <div className="flex flex-col h-full max-w-[1440px] w-full mx-auto min-w-0">
+        <div className="flex flex-col h-full w-full min-w-0">
           {children}
         </div>
       </main>
