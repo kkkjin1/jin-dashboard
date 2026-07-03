@@ -134,6 +134,7 @@ export default function HomePage() {
   const [searchOpen, setSearchOpen] = useState(false)
   const searchRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const searchFocusedRef = useRef(false)
   const supabase = createClient()
 
   type Shortcut = { id: string; title: string; url: string }
@@ -171,15 +172,15 @@ export default function HomePage() {
 
   useEffect(() => {
     function handleEsc(e: KeyboardEvent) {
-      if (e.key !== 'Escape') return
-      if (document.activeElement !== searchInputRef.current) return
+      if (e.key !== 'Escape' || !searchFocusedRef.current) return
       e.preventDefault()
       setSearch('')
       setSearchOpen(false)
+      searchFocusedRef.current = false
       searchInputRef.current?.blur()
     }
-    document.addEventListener('keydown', handleEsc, true)
-    return () => document.removeEventListener('keydown', handleEsc, true)
+    window.addEventListener('keydown', handleEsc)
+    return () => window.removeEventListener('keydown', handleEsc)
   }, [])
 
   function saveShortcuts(list: Shortcut[]) {
@@ -309,7 +310,8 @@ export default function HomePage() {
                 ref={searchInputRef}
                 value={search}
                 onChange={e => handleSearchChange(e.target.value)}
-                onFocus={() => { if (search) setSearchOpen(true) }}
+                onFocus={() => { searchFocusedRef.current = true; if (search) setSearchOpen(true) }}
+                onBlur={() => { searchFocusedRef.current = false }}
                 placeholder="업무·회의록 검색"
                 className="text-sm text-gray-700 focus:outline-none w-44 bg-transparent"
               />
