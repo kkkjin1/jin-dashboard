@@ -220,7 +220,7 @@ export default function DailyJournalWidget({ tasks, meetings }: Props) {
                 setTags(yesterday!.tags ?? [])
                 setEditing(true)
               }}
-              className="mt-2 text-[10px] text-amber-700 border border-amber-200 bg-white px-2 py-1 rounded hover:bg-amber-50 transition-colors"
+              className="mt-2 text-[10px] text-green-700 border border-green-200 bg-white px-2 py-1 rounded hover:bg-green-50 transition-colors"
             >
               + 이어서 오늘 회고 시작
             </button>
