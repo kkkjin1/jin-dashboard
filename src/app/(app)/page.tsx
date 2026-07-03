@@ -486,20 +486,19 @@ export default function HomePage() {
       </div>
 
       {/* ── 벤토 그리드 ──
-          journal이 rows 3-4를 모두 차지하므로 backlog 영역 없음.
-          today:   col 1, rows 1-2
-          journal: cols 1-2, rows 3-4
-          todo:    col 3, rows 3-4
+          3행 비대칭: 컴팩트 카드 행(1-2)은 작게, 위젯 행(3)은 크게.
+          today:   col 1, rows 1-2 (1.4fr 합산)
+          journal: cols 1-2, row 3 (2.6fr, 넓고 높음)
+          todo:    col 3, row 3
       */}
       <div
         className="flex-1 min-h-0 grid gap-3"
         style={{
           gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-          gridTemplateRows: 'repeat(4, minmax(0, 1fr))',
+          gridTemplateRows: 'minmax(0, 0.8fr) minmax(0, 0.6fr) minmax(0, 2.6fr)',
           gridTemplateAreas: `
             "today  tomorrow week"
             "today  overdue  overdue"
-            "journal journal todo"
             "journal journal todo"
           `,
         }}

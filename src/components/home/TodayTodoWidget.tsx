@@ -264,7 +264,7 @@ export default function TodayTodoWidget() {
 
   return (
     <>
-      <div className="bg-[#E8F2F9] border border-white/80 rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.04)] p-4 h-full flex flex-col">
+      <div className="h-full flex flex-col p-4 font-sans">
         <div className="flex items-center gap-2 mb-3 flex-shrink-0">
           <span className="w-1.5 h-1.5 rounded-full bg-sky-400 flex-shrink-0" />
           <h3 className="text-sm font-semibold text-gray-800">오늘 할 일</h3>
@@ -284,9 +284,9 @@ export default function TodayTodoWidget() {
             onChange={e => setNewText(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') addMemo() }}
             placeholder="할 일 추가... (Enter)"
-            className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:border-gray-400"
+            className="flex-1 text-sm border border-white/60 bg-white/50 rounded-lg px-3 py-1.5 focus:outline-none focus:border-gray-300 focus:bg-white/70 transition-all"
           />
-          <button onClick={addMemo} className="text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg px-2.5 py-1.5 hover:bg-gray-50 transition-colors">+</button>
+          <button onClick={addMemo} className="text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg px-2.5 py-1.5 hover:bg-white/50 transition-colors">+</button>
         </div>
 
         {loading ? (
@@ -300,7 +300,7 @@ export default function TodayTodoWidget() {
             ) : (
               <div className="space-y-3.5">
                 {todos.map(m => (
-                  <div key={m.id} className="group flex items-start gap-1.5 px-1 rounded-lg hover:bg-gray-50 transition-colors">
+                  <div key={m.id} className="group flex items-start gap-1.5 px-1 rounded-lg hover:bg-white/50 transition-colors">
                     <button
                       onClick={() => completeMemo(m.id)}
                       title="완료 처리"
@@ -344,7 +344,7 @@ export default function TodayTodoWidget() {
                 <div className="space-y-2">
                   {done.map(m => (
                     <div key={m.id}
-                      className={`group flex items-start gap-1.5 px-1 rounded-lg transition-colors cursor-pointer ${selectedDone.has(m.id) ? 'bg-gray-100' : 'hover:bg-gray-50'}`}
+                      className={`group flex items-start gap-1.5 px-1 rounded-lg transition-colors cursor-pointer ${selectedDone.has(m.id) ? 'bg-white/50' : 'hover:bg-gray-50'}`}
                       onClick={() => toggleSelectDone(m.id)}>
                       <input type="checkbox" checked={selectedDone.has(m.id)}
                         onChange={() => toggleSelectDone(m.id)}
