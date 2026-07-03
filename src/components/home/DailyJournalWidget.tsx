@@ -176,11 +176,11 @@ export default function DailyJournalWidget({ tasks, meetings }: Props) {
   ).slice(0, 6)
 
   return (
-    <div className="bg-amber-50/40 rounded-xl border border-amber-100 flex flex-col overflow-hidden h-full">
+    <div className="bg-green-50/50 rounded-xl border border-green-100 flex flex-col overflow-hidden h-full">
 
       {/* 헤더 */}
-      <div className="flex items-center gap-2 px-4 py-2.5 border-b border-amber-100 flex-shrink-0">
-        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" />
+      <div className="flex items-center gap-2 px-4 py-2.5 border-b border-green-100 flex-shrink-0">
+        <span className="w-1.5 h-1.5 rounded-full bg-green-400 flex-shrink-0" />
         <span className="text-sm font-semibold text-gray-700 flex-1">회고</span>
         <button onClick={() => navigate(-1)} className="text-gray-300 hover:text-gray-600 text-xs px-1">←</button>
         <span className="text-xs text-gray-400 min-w-[2.5rem] text-center">{formatDateLabel(selectedDate)}</span>
@@ -194,13 +194,13 @@ export default function DailyJournalWidget({ tasks, meetings }: Props) {
 
         {/* 아침 컨텍스트 */}
         {showMorningContext && (
-          <div className="bg-amber-50 border border-amber-100 rounded-lg p-3 flex-shrink-0">
-            <p className="text-[10px] font-semibold text-amber-600 mb-1.5">어제 이어받기</p>
+          <div className="bg-green-50 border border-green-100 rounded-lg p-3 flex-shrink-0">
+            <p className="text-[10px] font-semibold text-green-600 mb-1.5">어제 이어받기</p>
             <p className="text-xs text-gray-600 leading-relaxed line-clamp-3">{yesterday!.content}</p>
             {getMeetings(yesterday!).length > 0 && (
               <div className="flex flex-wrap gap-1 mt-2">
                 {getMeetings(yesterday!).map(m => (
-                  <Link key={m.id} href={`/meetings/${m.id}`} className="text-[10px] bg-white border border-amber-200 text-amber-700 px-1.5 py-0.5 rounded hover:bg-amber-100 transition-colors">
+                  <Link key={m.id} href={`/meetings/${m.id}`} className="text-[10px] bg-white border border-green-200 text-green-700 px-1.5 py-0.5 rounded hover:bg-green-100 transition-colors">
                     @ {m.title}
                   </Link>
                 ))}
@@ -209,7 +209,7 @@ export default function DailyJournalWidget({ tasks, meetings }: Props) {
             {yesterday!.tags?.length > 0 && (
               <div className="flex flex-wrap gap-1 mt-1">
                 {yesterday!.tags.map(t => (
-                  <span key={t} className="text-[10px] text-amber-500">#{t}</span>
+                  <span key={t} className="text-[10px] text-green-500">#{t}</span>
                 ))}
               </div>
             )}
