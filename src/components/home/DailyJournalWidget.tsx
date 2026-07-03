@@ -180,11 +180,13 @@ export default function DailyJournalWidget({ tasks, meetings }: Props) {
 
       {/* 헤더 */}
       <div className="flex items-center gap-2 px-4 py-2.5 border-b border-green-100 flex-shrink-0">
-        <span className="w-1.5 h-1.5 rounded-full bg-green-400 flex-shrink-0" />
+        <span className="text-base leading-none">🪴</span>
         <span className="text-sm font-semibold text-gray-700 flex-1">회고</span>
-        <button onClick={() => navigate(-1)} className="text-gray-300 hover:text-gray-600 text-xs px-1">←</button>
-        <span className="text-xs text-gray-400 min-w-[2.5rem] text-center">{formatDateLabel(selectedDate)}</span>
-        <button onClick={() => navigate(1)} disabled={isToday} className="text-gray-300 hover:text-gray-600 disabled:opacity-20 text-xs px-1">→</button>
+        <div className="flex items-center gap-0.5 bg-green-100 text-green-700 rounded-full px-2 py-0.5">
+          <button onClick={() => navigate(-1)} className="hover:opacity-60 transition-opacity text-xs">←</button>
+          <span className="min-w-[2.5rem] text-center text-[11px] font-medium">{formatDateLabel(selectedDate)}</span>
+          <button onClick={() => navigate(1)} disabled={isToday} className="hover:opacity-60 disabled:opacity-20 transition-opacity text-xs">→</button>
+        </div>
         {current && !editing && (
           <button onClick={startEdit} className="text-[11px] text-gray-400 hover:text-gray-600 ml-1">수정</button>
         )}
