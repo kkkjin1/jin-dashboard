@@ -33,8 +33,6 @@ interface CompactColProps {
   onDragLeave?: () => void
   isDragOver?: boolean
   onComplete?: (todoId: string) => void
-  maxItems?: number
-  scrollable?: boolean
   completedCount?: number
   colBadge?: { label: string; bg: string; text: string }
 }
@@ -52,80 +50,33 @@ function DotGrid({ total, filled }: { total: number; filled: number }) {
 
 function CompactCol({
   title, items, dark, warn, droppable, onDrop, onDragOver, onDragLeave,
-  isDragOver, onComplete, maxItems = 5, scrollable, completedCount = 0, colBadge,
+  isDragOver, onComplete, completedCount = 0, colBadge,
 }: CompactColProps) {
   const dragRing = isDragOver && droppable ? (dark ? 'ring-1 ring-white/20' : 'ring-1 ring-emerald-400/60') : ''
-  const emptyTxt = dark ? 'text-white/25' : 'text-gray-300'
+  const emptyTxt = dark ? 'text-white/20' : 'text-gray-300'
   const itemTxt = dark ? 'text-white/80' : 'text-gray-700'
   const subTxt = dark ? 'text-white/30' : 'text-gray-400'
-  const chipCls = dark ? 'bg-white/10 text-white/35' : 'bg-gray-100/70 text-gray-400'
+  const chipCls = dark ? 'bg-white/10 text-white/35' : 'bg-gray-100/80 text-gray-400'
   const hoverCls = dark ? 'hover:bg-white/5' : 'hover:bg-white/50'
-  const divideCls = dark ? 'divide-white/5' : 'divide-gray-100/50'
+  const divideCls = dark ? 'divide-white/5' : 'divide-gray-100/60'
   const completeCls = dark
     ? 'border-white/20 hover:border-white/50'
     : 'border-gray-300/60 hover:border-emerald-400 hover:bg-emerald-50'
   const checkCls = dark ? 'text-white/50' : 'text-emerald-500'
 
+  const cardBase = 'rounded-2xl p-3 min-w-0 flex flex-col relative overflow-hidden h-full transition-all'
   const cardCls = dark
-    ? `bg-[#1A1F2E] border border-white/6 ${dragRing} rounded-2xl shadow-2xl p-4 min-w-0 flex flex-col relative overflow-hidden h-full transition-all`
+    ? `bg-[#1A1F2E] border border-white/6 shadow-2xl ${cardBase} ${dragRing}`
     : warn
-      ? `bg-white/40 backdrop-blur-md border border-red-200/50 ${dragRing} rounded-2xl shadow-sm p-4 min-w-0 flex flex-col h-full transition-all`
-      : `bg-white/40 backdrop-blur-md border border-white/60 ${dragRing} rounded-2xl shadow-sm p-4 min-w-0 flex flex-col h-full transition-all`
+      ? `bg-white/40 backdrop-blur-md border border-red-200/50 shadow-sm ${cardBase} ${dragRing}`
+      : `bg-white/40 backdrop-blur-md border border-white/60 shadow-sm ${cardBase} ${dragRing}`
 
-  if (dark) {
-    return (
-      <div className={cardCls}
-        onDragOver={droppable ? onDragOver : undefined}
-        onDrop={droppable ? onDrop : undefined}
-        onDragLeave={droppable ? onDragLeave : undefined}
-      >
-        <div className="flex items-center justify-between mb-3 flex-shrink-0">
-          <div className="flex items-center gap-1">
-            <span className="text-[10px] font-semibold uppercase text-white/40" style={{ letterSpacing: '0.07em' }}>{title}</span>
-            <span className="text-[10px] text-white/25">↗</span>
-          </div>
-          {items.length > 0 && (
-            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-white/10 text-white/50">
-              {items.length > 9 ? '9+' : items.length}
-            </span>
-          )}
-        </div>
-        {items.length === 0 ? (
-          <p className="text-xs text-white/20 text-center py-2">없음</p>
-        ) : (
-          <div className={`divide-y ${divideCls} ${scrollable ? 'overflow-y-auto flex-1 min-h-0' : ''}`}>
-            {(scrollable ? items : items.slice(0, maxItems)).map(item => (
-              <div key={item.id} className={`group flex items-start gap-2 py-2 px-1 rounded transition-colors ${hoverCls}`}>
-                {onComplete && (
-                  <button onClick={e => { e.stopPropagation(); onComplete(item.id) }}
-                    className={`flex-shrink-0 w-3.5 h-3.5 mt-0.5 rounded-full border transition-colors opacity-0 group-hover:opacity-100 flex items-center justify-center ${completeCls}`}
-                    title="완료">
-                    <span className={`text-[8px] leading-none ${checkCls}`}>✓</span>
-                  </button>
-                )}
-                <span className="w-1.5 h-1.5 rounded-full bg-[#F0C048]/60 mt-1.5 flex-shrink-0" />
-                <Link href={`/tasks/${item.taskId}`} className="flex-1 min-w-0"
-                  draggable={droppable}
-                  onDragStart={droppable ? e => { e.stopPropagation(); e.dataTransfer.setData('todoId', item.id) } : undefined}>
-                  <span className={`text-sm leading-relaxed break-words ${itemTxt}`}>{item.title || '제목 없음'}</span>
-                  {item.taskTitle && <span className={`text-[10px] truncate block ${subTxt}`}>{item.taskTitle}</span>}
-                </Link>
-                {colBadge && (
-                  <span className={`flex-shrink-0 text-[9px] font-medium px-1.5 py-0.5 rounded-full ${colBadge.bg} ${colBadge.text}`}>{colBadge.label}</span>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-        <div className="absolute bottom-3 right-3 opacity-60">
-          <DotGrid total={28} filled={Math.min(completedCount, 28)} />
-        </div>
-      </div>
-    )
-  }
-
-  const titleCls = warn ? 'text-[#B44A3A]' : 'text-gray-400'
-  const badgeBg = warn ? 'bg-[#FDECEA]/80 text-[#B44A3A]' : 'bg-gray-100/70 text-gray-500'
+  const titleCls = dark ? 'text-white/40' : warn ? 'text-[#B44A3A]' : 'text-gray-400'
+  const badgeBg = dark
+    ? 'bg-white/10 text-white/50'
+    : warn
+      ? 'bg-[#FDECEA]/80 text-[#B44A3A]'
+      : 'bg-gray-100/80 text-gray-500'
 
   return (
     <div className={cardCls}
@@ -133,51 +84,60 @@ function CompactCol({
       onDrop={droppable ? onDrop : undefined}
       onDragLeave={droppable ? onDragLeave : undefined}
     >
-      <div className="flex items-center justify-between mb-3 flex-shrink-0">
-        <span className={`text-[10px] font-semibold uppercase ${titleCls}`} style={{ letterSpacing: '0.07em' }}>{title}</span>
+      {/* 카드 헤더 */}
+      <div className="flex items-center justify-between mb-2 flex-shrink-0">
+        <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'inherit' }}>
+          <span className={titleCls}>{title}</span>
+        </span>
         {items.length > 0 && (
           <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${badgeBg}`}>
             {items.length > 9 ? '9+' : items.length}
           </span>
         )}
       </div>
+
+      {/* 아이템 목록 — 내부 스크롤 */}
       {items.length === 0 ? (
-        <p className={`text-xs text-center py-1 ${emptyTxt}`}>{isDragOver && droppable ? '여기에 놓기' : '없음'}</p>
+        <p className={`text-xs text-center py-1 flex-1 flex items-center justify-center ${emptyTxt}`}>
+          {isDragOver && droppable ? '여기에 놓기' : '없음'}
+        </p>
       ) : (
-        <div className={`divide-y ${divideCls} ${scrollable ? 'overflow-y-auto flex-1 min-h-0' : ''}`}>
-          {(scrollable ? items : items.slice(0, maxItems)).map(item => (
-            <div key={item.id} className={`group flex items-start gap-1.5 py-1.5 px-1 rounded transition-colors ${hoverCls}`}>
+        <div className={`divide-y ${divideCls} overflow-y-auto flex-1 min-h-0 scrollbar-hide`}>
+          {items.map(item => (
+            <div key={item.id} className={`group flex items-start gap-1.5 py-1.5 px-0.5 rounded transition-colors ${hoverCls}`}>
               {onComplete && (
                 <button onClick={e => { e.stopPropagation(); onComplete(item.id) }}
-                  className={`flex-shrink-0 w-3.5 h-3.5 mt-0.5 rounded-full border transition-colors opacity-0 group-hover:opacity-100 flex items-center justify-center ${completeCls}`}
+                  className={`flex-shrink-0 w-3 h-3 mt-1 rounded-full border transition-colors opacity-0 group-hover:opacity-100 flex items-center justify-center ${completeCls}`}
                   title="완료">
-                  <span className={`text-[8px] leading-none ${checkCls}`}>✓</span>
+                  <span className={`text-[7px] leading-none ${checkCls}`}>✓</span>
                 </button>
               )}
-              <span className={`w-1 h-1 rounded-full mt-2 flex-shrink-0 ${warn ? 'bg-red-300' : 'bg-gray-300'}`} />
-              <Link href={`/tasks/${item.taskId}`} className="flex-1 min-w-0">
-                <div className="cursor-grab active:cursor-grabbing"
-                  draggable={droppable}
-                  onDragStart={droppable ? e => { e.stopPropagation(); e.dataTransfer.setData('todoId', item.id) } : undefined}>
-                  <div className="flex items-start gap-1 min-w-0">
-                    {item.taskShortName && (
-                      <span className={`text-[9px] font-mono flex-shrink-0 px-1 py-0.5 rounded mt-0.5 ${chipCls}`}>
-                        {item.taskShortName}{(item.idxInTask ?? 0) + 1}
-                      </span>
-                    )}
-                    <span className={`text-sm leading-relaxed break-words ${itemTxt}`}>{item.title || '제목 없음'}</span>
-                  </div>
-                  {item.taskTitle && <span className={`text-[10px] truncate block ${subTxt}`}>{item.taskTitle}</span>}
+              <span className={`w-1 h-1 rounded-full mt-1.5 flex-shrink-0 ${dark ? 'bg-[#F0C048]/60' : warn ? 'bg-red-300' : 'bg-gray-300'}`} />
+              <Link href={`/tasks/${item.taskId}`} className="flex-1 min-w-0"
+                draggable={droppable}
+                onDragStart={droppable ? e => { e.stopPropagation(); e.dataTransfer.setData('todoId', item.id) } : undefined}>
+                <div className="flex items-start gap-1 min-w-0">
+                  {item.taskShortName && (
+                    <span className={`text-[9px] font-mono flex-shrink-0 px-1 py-0.5 rounded mt-0.5 ${chipCls}`}>
+                      {item.taskShortName}{(item.idxInTask ?? 0) + 1}
+                    </span>
+                  )}
+                  <span className={`text-xs leading-snug break-words ${itemTxt}`}>{item.title || '제목 없음'}</span>
                 </div>
+                {item.taskTitle && <span className={`text-[10px] truncate block ${subTxt}`}>{item.taskTitle}</span>}
               </Link>
               {colBadge && (
                 <span className={`flex-shrink-0 text-[9px] font-medium px-1.5 py-0.5 rounded-full self-start mt-0.5 ${colBadge.bg} ${colBadge.text}`}>{colBadge.label}</span>
               )}
             </div>
           ))}
-          {!scrollable && items.length > maxItems && (
-            <p className={`text-[10px] px-1 pt-1 ${emptyTxt}`}>+{items.length - maxItems}개 더</p>
-          )}
+        </div>
+      )}
+
+      {/* 도트 그리드 (다크 카드 전용) */}
+      {dark && (
+        <div className="absolute bottom-2.5 right-2.5 opacity-50 pointer-events-none">
+          <DotGrid total={28} filled={Math.min(completedCount, 28)} />
         </div>
       )}
     </div>
@@ -254,28 +214,20 @@ export default function HomePage() {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
-  function saveShortcuts(list: Shortcut[]) {
-    saveShortcutsRemote(list)
-  }
+  function saveShortcuts(list: Shortcut[]) { saveShortcutsRemote(list) }
 
   function addShortcut() {
     if (!newShortcutUrl.trim()) return
     const url = newShortcutUrl.startsWith('http') ? newShortcutUrl : 'https://' + newShortcutUrl
     const title = newShortcutTitle.trim() || url
-    const item = { id: Date.now().toString(), title, url }
-    saveShortcuts([...shortcuts, item])
+    saveShortcuts([...shortcuts, { id: Date.now().toString(), title, url }])
     setNewShortcutTitle(''); setNewShortcutUrl(''); setShowAddShortcut(false)
   }
 
-  function removeShortcut(id: string) {
-    saveShortcuts(shortcuts.filter(s => s.id !== id))
-  }
+  function removeShortcut(id: string) { saveShortcuts(shortcuts.filter(s => s.id !== id)) }
 
   function startEditShortcut(s: { id: string; title: string; url: string }) {
-    setEditingShortcutId(s.id)
-    setEditShortcutTitle(s.title)
-    setEditShortcutUrl(s.url)
-    setShowAddShortcut(false)
+    setEditingShortcutId(s.id); setEditShortcutTitle(s.title); setEditShortcutUrl(s.url); setShowAddShortcut(false)
   }
 
   function saveEditShortcut() {
@@ -287,8 +239,7 @@ export default function HomePage() {
   }
 
   async function handleSearchChange(val: string) {
-    setSearch(val)
-    setSearchOpen(!!val)
+    setSearch(val); setSearchOpen(!!val)
     if (val && !meetingsLoaded) {
       const { data } = await supabase.from('meetings').select('id, title').order('created_at', { ascending: false })
       setSearchMeetings((data ?? []) as Pick<Meeting, 'id' | 'title'>[])
@@ -319,9 +270,7 @@ export default function HomePage() {
       const idxInTask = taskArr.findIndex(x => x.id === t.id)
       const joinedTask = t.tasks as { id: string; title: string; short_name?: string | null } | null
       return {
-        id: t.id,
-        title: t.title,
-        taskId: t.task_id,
+        id: t.id, title: t.title, taskId: t.task_id,
         taskTitle: joinedTask?.title ?? null,
         taskShortName: joinedTask?.short_name ?? null,
         idxInTask: idxInTask >= 0 ? idxInTask : 0,
@@ -335,14 +284,10 @@ export default function HomePage() {
   const overdueItems = toColItems(todos.filter(t => t.target_date && t.target_date < today))
   const unscheduledItems = toColItems(todos.filter(t => !t.target_date))
 
-  function handleDragOver(e: React.DragEvent, bucket: string) {
-    e.preventDefault()
-    setDragOverBucket(bucket)
-  }
+  function handleDragOver(e: React.DragEvent, bucket: string) { e.preventDefault(); setDragOverBucket(bucket) }
 
   async function handleDrop(e: React.DragEvent, bucket: 'today' | 'tomorrow' | 'this_week') {
-    e.preventDefault()
-    setDragOverBucket(null)
+    e.preventDefault(); setDragOverBucket(null)
     const todoId = e.dataTransfer.getData('todoId')
     if (!todoId) return
     const { today: t, tomorrow: tm, thisFriday: tf } = getDateStrings()
@@ -361,103 +306,82 @@ export default function HomePage() {
 
   if (loading) return <HomePageSkeleton />
 
-  function handlePageKeyDown(e: React.KeyboardEvent) {
-    if (e.key !== 'Escape') return
-    setSearch('')
-    setSearchOpen(false)
-    ;(document.activeElement as HTMLElement)?.blur()
-  }
-
   return (
-    <div className="p-4 flex flex-col gap-3" onKeyDown={handlePageKeyDown}>
+    <div
+      className="h-full overflow-hidden flex flex-col gap-2 p-3"
+      onKeyDown={e => {
+        if (e.key !== 'Escape') return
+        setSearch(''); setSearchOpen(false)
+        ;(document.activeElement as HTMLElement)?.blur()
+      }}
+    >
 
-      {/* 헤더 */}
-      <div className="flex items-end justify-between flex-shrink-0">
+      {/* ── 헤더 ── */}
+      <div className="flex items-center justify-between flex-shrink-0">
         <div>
-          <h1 className="font-normal leading-tight text-gray-900"
-            style={{ fontFamily: 'Georgia, "Times New Roman", serif', fontSize: '1.55rem', letterSpacing: '-0.025em' }}>
+          <h1 className="text-[1.35rem] font-light tracking-tight text-gray-900 leading-tight">
             안녕하세요, 진일님.
           </h1>
-          <p className="text-gray-400 mt-1.5"
-            style={{ fontSize: '10px', letterSpacing: '0.07em', textTransform: 'uppercase' }}>
+          <p className="text-gray-400 mt-0.5 text-[10px] uppercase tracking-widest">
             {format(new Date(), 'yyyy년 M월 d일 EEEE', { locale: ko })}
           </p>
         </div>
 
-        <div className="flex items-end gap-6">
-          <div className="hidden sm:flex items-end gap-6">
-            <div className="text-right">
-              <div className="font-bold leading-none text-[#2E5E4A]"
-                style={{ fontSize: '2rem', letterSpacing: '-0.04em', fontVariantNumeric: 'tabular-nums' }}>
-                {todayItems.length}
+        <div className="flex items-center gap-5">
+          <div className="hidden sm:flex items-center gap-5">
+            {[
+              { label: '오늘', count: todayItems.length, color: '#2E5E4A' },
+              { label: '금주', count: weekItems.length, color: '#9CA3AF' },
+              { label: '미진행', count: overdueItems.length, color: '#B44A3A' },
+            ].map(({ label, count, color }) => (
+              <div key={label} className="text-right">
+                <div className="font-semibold leading-none tabular-nums" style={{ fontSize: '1.6rem', letterSpacing: '-0.04em', color }}>
+                  {count}
+                </div>
+                <div className="text-gray-400 mt-0.5 text-[9px] uppercase tracking-widest">{label}</div>
               </div>
-              <div className="text-gray-400 mt-1" style={{ fontSize: '9px', letterSpacing: '0.07em', textTransform: 'uppercase' }}>오늘</div>
-            </div>
-            <div className="text-right">
-              <div className="font-bold leading-none text-gray-400"
-                style={{ fontSize: '2rem', letterSpacing: '-0.04em', fontVariantNumeric: 'tabular-nums' }}>
-                {weekItems.length}
-              </div>
-              <div className="text-gray-400 mt-1" style={{ fontSize: '9px', letterSpacing: '0.07em', textTransform: 'uppercase' }}>금주</div>
-            </div>
-            <div className="text-right">
-              <div className="font-bold leading-none text-[#B44A3A]"
-                style={{ fontSize: '2rem', letterSpacing: '-0.04em', fontVariantNumeric: 'tabular-nums' }}>
-                {overdueItems.length}
-              </div>
-              <div className="text-gray-400 mt-1" style={{ fontSize: '9px', letterSpacing: '0.07em', textTransform: 'uppercase' }}>미진행</div>
-            </div>
+            ))}
           </div>
 
-          {/* 인라인 검색 */}
-          <div ref={searchRef} className="relative self-center">
+          {/* 검색 */}
+          <div ref={searchRef} className="relative">
             <button
               onClick={() => { setSearchOpen(p => !p); if (!searchOpen) setTimeout(() => searchInputRef.current?.focus(), 50) }}
-              className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-white/50 transition-all">
-              <span className="text-sm">🔍</span>
+              className="w-7 h-7 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-white/50 transition-all text-sm">
+              🔍
             </button>
             {searchOpen && (
-              <div className="absolute top-full mt-2 right-0 w-80 bg-white/90 backdrop-blur-xl rounded-2xl border border-white/80 shadow-xl z-50 overflow-hidden">
-                <div className="flex items-center gap-2 px-3 py-2.5 border-b border-gray-100/60">
-                  <input
-                    ref={searchInputRef}
-                    value={search}
-                    onChange={e => handleSearchChange(e.target.value)}
+              <div className="absolute top-full mt-2 right-0 w-72 bg-white/90 backdrop-blur-xl rounded-2xl border border-white/80 shadow-xl z-50 overflow-hidden">
+                <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-100/60">
+                  <input ref={searchInputRef} value={search} onChange={e => handleSearchChange(e.target.value)}
                     placeholder="업무·회의록 검색"
-                    className="text-sm text-gray-700 focus:outline-none flex-1 bg-transparent"
-                  />
+                    className="text-sm text-gray-700 focus:outline-none flex-1 bg-transparent" />
                   {search && (
-                    <button onClick={() => { setSearch(''); setSearchOpen(false) }}
-                      className="text-gray-300 hover:text-gray-500 text-base leading-none">×</button>
+                    <button onClick={() => { setSearch(''); setSearchOpen(false) }} className="text-gray-300 hover:text-gray-500 text-base leading-none">×</button>
                   )}
                 </div>
                 {hasResults ? (
-                  <div className="divide-y divide-gray-50/80 max-h-64 overflow-y-auto">
+                  <div className="divide-y divide-gray-50/80 max-h-56 overflow-y-auto">
                     {matchedTasks.length > 0 && (
-                      <div className="px-3 py-2">
-                        <p className="text-xs font-semibold text-gray-400 mb-1.5">업무</p>
+                      <div className="px-3 py-1.5">
+                        <p className="text-xs font-semibold text-gray-400 mb-1">업무</p>
                         {matchedTasks.map(t => (
                           <Link key={t.id} href={`/tasks/${t.id}`} onClick={() => setSearchOpen(false)}>
-                            <div className="py-1.5 px-1 hover:bg-gray-50/80 rounded-lg flex items-center gap-2">
+                            <div className="py-1 px-1 hover:bg-gray-50/80 rounded-lg flex items-center gap-2">
                               <span className="text-xs text-gray-400">≡</span>
-                              <div className="flex-1 min-w-0">
-                                <span className="text-sm text-gray-800 truncate block">{t.title || '제목 없음'}</span>
-                                {t.retrospective?.improvement && t.retrospective.improvement.toLowerCase().includes(q) && (
-                                  <span className="text-xs text-red-400 truncate block">개선: {t.retrospective.improvement.slice(0, 40)}</span>
-                                )}
-                              </div>
-                              <span className={`text-xs ml-auto flex-shrink-0 px-1.5 py-0.5 rounded ${t.status === '완료' ? 'bg-green-50 text-green-600' : t.status === '진행중' ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-500'}`}>{t.status}</span>
+                              <span className="text-sm text-gray-800 truncate flex-1">{t.title || '제목 없음'}</span>
+                              <span className={`text-xs flex-shrink-0 px-1.5 py-0.5 rounded ${t.status === '완료' ? 'bg-green-50 text-green-600' : t.status === '진행중' ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-500'}`}>{t.status}</span>
                             </div>
                           </Link>
                         ))}
                       </div>
                     )}
                     {matchedMeetings.length > 0 && (
-                      <div className="px-3 py-2">
-                        <p className="text-xs font-semibold text-gray-400 mb-1.5">회의록</p>
+                      <div className="px-3 py-1.5">
+                        <p className="text-xs font-semibold text-gray-400 mb-1">회의록</p>
                         {matchedMeetings.map(m => (
                           <Link key={m.id} href={`/meetings/${m.id}`} onClick={() => setSearchOpen(false)}>
-                            <div className="py-1.5 px-1 hover:bg-gray-50/80 rounded-lg flex items-center gap-2">
+                            <div className="py-1 px-1 hover:bg-gray-50/80 rounded-lg flex items-center gap-2">
                               <span className="text-xs text-gray-400">💬</span>
                               <span className="text-sm text-gray-800 truncate">{m.title || '제목 없음'}</span>
                             </div>
@@ -467,7 +391,7 @@ export default function HomePage() {
                     )}
                   </div>
                 ) : search ? (
-                  <p className="text-xs text-gray-400 text-center py-4">검색 결과 없음</p>
+                  <p className="text-xs text-gray-400 text-center py-3">검색 결과 없음</p>
                 ) : null}
               </div>
             )}
@@ -475,205 +399,171 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* 바로가기 + 빠른 업무 추가 */}
-      <div className="flex flex-col gap-2 flex-shrink-0">
-        <div className="flex gap-2 flex-wrap items-center">
-          {shortcuts.map(s => {
-            if (editingShortcutId === s.id) {
-              return (
-                <div key={s.id} className="bg-white/70 backdrop-blur-md rounded-xl border border-white/80 p-2.5 w-40 shadow-sm">
-                  <input value={editShortcutTitle} onChange={e => setEditShortcutTitle(e.target.value)}
-                    placeholder="이름" autoFocus
-                    className="text-xs font-medium text-gray-800 w-full focus:outline-none border-b border-gray-200/60 pb-1 mb-1 bg-transparent" />
-                  <input value={editShortcutUrl} onChange={e => setEditShortcutUrl(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') saveEditShortcut(); if (e.key === 'Escape') setEditingShortcutId(null) }}
-                    placeholder="URL"
-                    className="text-xs text-gray-400 w-full focus:outline-none bg-transparent" />
-                  <div className="flex gap-1 mt-1.5 justify-end">
-                    <button onClick={() => setEditingShortcutId(null)} className="text-xs text-gray-400 px-2 py-0.5">취소</button>
-                    <button onClick={saveEditShortcut} className="text-xs bg-gray-900 text-white px-2 py-0.5 rounded-lg">저장</button>
-                  </div>
-                </div>
-              )
-            }
-            return (
-              <div key={s.id} className="group relative">
-                <a href={s.url} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 bg-white/40 backdrop-blur-md border border-white/60 rounded-full px-3 py-1.5 hover:bg-white/60 hover:border-white/80 transition-all shadow-sm">
-                  <span className="text-xs font-medium text-gray-700 truncate max-w-28">🔗 {s.title}</span>
-                </a>
-                <div className="absolute -top-1.5 -right-1.5 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button onClick={() => startEditShortcut(s)}
-                    className="w-4 h-4 bg-blue-500 text-white rounded-full text-[9px] flex items-center justify-center hover:bg-blue-600">✎</button>
-                  <button onClick={() => removeShortcut(s.id)}
-                    className="w-4 h-4 bg-gray-400 text-white rounded-full text-[9px] flex items-center justify-center hover:bg-red-500">×</button>
-                </div>
-              </div>
-            )
-          })}
-          {showAddShortcut ? (
-            <div className="bg-white/70 backdrop-blur-md rounded-xl border border-white/80 p-2.5 w-40 shadow-sm">
-              <input value={newShortcutTitle} onChange={e => setNewShortcutTitle(e.target.value)}
-                placeholder="이름" autoFocus
-                className="text-xs font-medium text-gray-800 w-full focus:outline-none border-b border-gray-200/60 pb-1 mb-1 bg-transparent" />
-              <input value={newShortcutUrl} onChange={e => setNewShortcutUrl(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') addShortcut(); if (e.key === 'Escape') setShowAddShortcut(false) }}
-                placeholder="URL"
-                className="text-xs text-gray-400 w-full focus:outline-none bg-transparent" />
-              <div className="flex gap-1 mt-1.5 justify-end">
-                <button onClick={() => setShowAddShortcut(false)} className="text-xs text-gray-400 px-2 py-0.5">취소</button>
-                <button onClick={addShortcut} className="text-xs bg-gray-900 text-white px-2 py-0.5 rounded-lg">추가</button>
+      {/* ── 바로가기 ── */}
+      <div className="flex-shrink-0 flex gap-1.5 flex-wrap items-center">
+        {shortcuts.map(s => {
+          if (editingShortcutId === s.id) return (
+            <div key={s.id} className="bg-white/70 backdrop-blur-md rounded-xl border border-white/80 p-2 w-36 shadow-sm">
+              <input value={editShortcutTitle} onChange={e => setEditShortcutTitle(e.target.value)} placeholder="이름" autoFocus
+                className="text-xs font-medium text-gray-800 w-full focus:outline-none border-b border-gray-200/60 pb-0.5 mb-0.5 bg-transparent" />
+              <input value={editShortcutUrl} onChange={e => setEditShortcutUrl(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') saveEditShortcut(); if (e.key === 'Escape') setEditingShortcutId(null) }}
+                placeholder="URL" className="text-xs text-gray-400 w-full focus:outline-none bg-transparent" />
+              <div className="flex gap-1 mt-1 justify-end">
+                <button onClick={() => setEditingShortcutId(null)} className="text-xs text-gray-400 px-1.5 py-0.5">취소</button>
+                <button onClick={saveEditShortcut} className="text-xs bg-gray-900 text-white px-1.5 py-0.5 rounded">저장</button>
               </div>
             </div>
-          ) : (
-            <button onClick={() => { setShowAddShortcut(true); setEditingShortcutId(null) }}
-              className="flex items-center justify-center border border-dashed border-gray-300/60 hover:border-gray-400/60 rounded-full px-3 py-1.5 text-gray-300 hover:text-gray-400 transition-all text-xs">
-              + 바로가기
-            </button>
-          )}
-        </div>
-        <QuickTaskInput
-          tasks={tasks}
-          onAdded={todo => setTodos(prev => [todo, ...prev])}
-        />
+          )
+          return (
+            <div key={s.id} className="group relative">
+              <a href={s.url} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-1 bg-white/40 backdrop-blur-md border border-white/60 rounded-full px-2.5 py-1 hover:bg-white/60 transition-all shadow-sm">
+                <span className="text-xs text-gray-600 truncate max-w-24">🔗 {s.title}</span>
+              </a>
+              <div className="absolute -top-1.5 -right-1.5 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button onClick={() => startEditShortcut(s)} className="w-3.5 h-3.5 bg-blue-500 text-white rounded-full text-[8px] flex items-center justify-center hover:bg-blue-600">✎</button>
+                <button onClick={() => removeShortcut(s.id)} className="w-3.5 h-3.5 bg-gray-400 text-white rounded-full text-[8px] flex items-center justify-center hover:bg-red-500">×</button>
+              </div>
+            </div>
+          )
+        })}
+        {showAddShortcut ? (
+          <div className="bg-white/70 backdrop-blur-md rounded-xl border border-white/80 p-2 w-36 shadow-sm">
+            <input value={newShortcutTitle} onChange={e => setNewShortcutTitle(e.target.value)} placeholder="이름" autoFocus
+              className="text-xs font-medium text-gray-800 w-full focus:outline-none border-b border-gray-200/60 pb-0.5 mb-0.5 bg-transparent" />
+            <input value={newShortcutUrl} onChange={e => setNewShortcutUrl(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') addShortcut(); if (e.key === 'Escape') setShowAddShortcut(false) }}
+              placeholder="URL" className="text-xs text-gray-400 w-full focus:outline-none bg-transparent" />
+            <div className="flex gap-1 mt-1 justify-end">
+              <button onClick={() => setShowAddShortcut(false)} className="text-xs text-gray-400 px-1.5 py-0.5">취소</button>
+              <button onClick={addShortcut} className="text-xs bg-gray-900 text-white px-1.5 py-0.5 rounded">추가</button>
+            </div>
+          </div>
+        ) : (
+          <button onClick={() => { setShowAddShortcut(true); setEditingShortcutId(null) }}
+            className="flex items-center border border-dashed border-gray-300/60 hover:border-gray-400/60 rounded-full px-2.5 py-1 text-gray-300 hover:text-gray-400 transition-all text-xs">
+            + 바로가기
+          </button>
+        )}
       </div>
 
-      {/* 벤토 그리드 */}
+      {/* ── 빠른 업무 추가 ── */}
+      <div className="flex-shrink-0">
+        <QuickTaskInput tasks={tasks} onAdded={todo => setTodos(prev => [todo, ...prev])} />
+      </div>
+
+      {/* ── 벤토 그리드 ── */}
       <div
-        className="grid gap-3"
+        className="flex-1 min-h-0 grid gap-2"
         style={{
-          gridTemplateColumns: 'repeat(3, 1fr)',
-          gridTemplateRows: '200px 180px minmax(220px, auto) minmax(180px, auto)',
+          gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+          gridTemplateRows: 'repeat(4, minmax(0, 1fr))',
           gridTemplateAreas: `
-            "today tomorrow week"
-            "today overdue  overdue"
+            "today  tomorrow week"
+            "today  overdue  overdue"
             "journal journal todo"
-            "backlog backlog todo"
+            "backlog backlog  todo"
           `,
         }}
       >
-        {/* 오늘 — 다크 카드, 2행 */}
-        <div style={{ gridArea: 'today' }}>
-          <CompactCol
-            title="오늘" items={todayItems} dark scrollable
+        {/* 오늘 — 다크, 2행 */}
+        <div style={{ gridArea: 'today' }} className="min-h-0">
+          <CompactCol title="오늘" items={todayItems} dark
             completedCount={completedThisWeek.length}
             colBadge={{ label: '진행중', bg: 'bg-violet-500/20', text: 'text-violet-300' }}
-            droppable
-            onDrop={e => handleDrop(e, 'today')}
-            onDragOver={e => handleDragOver(e, 'today')}
-            onDragLeave={() => setDragOverBucket(null)}
-            isDragOver={dragOverBucket === 'today'}
-            onComplete={handleCompleteTodo}
+            droppable onDrop={e => handleDrop(e, 'today')}
+            onDragOver={e => handleDragOver(e, 'today')} onDragLeave={() => setDragOverBucket(null)}
+            isDragOver={dragOverBucket === 'today'} onComplete={handleCompleteTodo}
           />
         </div>
 
         {/* 내일 */}
-        <div style={{ gridArea: 'tomorrow' }}>
-          <CompactCol
-            title="내일" items={tomorrowItems}
-            colBadge={{ label: '대기', bg: 'bg-gray-100/70', text: 'text-gray-400' }}
-            droppable
-            onDrop={e => handleDrop(e, 'tomorrow')}
-            onDragOver={e => handleDragOver(e, 'tomorrow')}
-            onDragLeave={() => setDragOverBucket(null)}
-            isDragOver={dragOverBucket === 'tomorrow'}
-            onComplete={handleCompleteTodo}
+        <div style={{ gridArea: 'tomorrow' }} className="min-h-0">
+          <CompactCol title="내일" items={tomorrowItems}
+            colBadge={{ label: '대기', bg: 'bg-gray-100/80', text: 'text-gray-400' }}
+            droppable onDrop={e => handleDrop(e, 'tomorrow')}
+            onDragOver={e => handleDragOver(e, 'tomorrow')} onDragLeave={() => setDragOverBucket(null)}
+            isDragOver={dragOverBucket === 'tomorrow'} onComplete={handleCompleteTodo}
           />
         </div>
 
         {/* 금주 */}
-        <div style={{ gridArea: 'week' }}>
-          <CompactCol
-            title="금주" items={weekItems}
-            colBadge={{ label: '대기', bg: 'bg-gray-100/70', text: 'text-gray-400' }}
-            droppable
-            onDrop={e => handleDrop(e, 'this_week')}
-            onDragOver={e => handleDragOver(e, 'this_week')}
-            onDragLeave={() => setDragOverBucket(null)}
-            isDragOver={dragOverBucket === 'this_week'}
-            onComplete={handleCompleteTodo}
+        <div style={{ gridArea: 'week' }} className="min-h-0">
+          <CompactCol title="금주" items={weekItems}
+            colBadge={{ label: '대기', bg: 'bg-gray-100/80', text: 'text-gray-400' }}
+            droppable onDrop={e => handleDrop(e, 'this_week')}
+            onDragOver={e => handleDragOver(e, 'this_week')} onDragLeave={() => setDragOverBucket(null)}
+            isDragOver={dragOverBucket === 'this_week'} onComplete={handleCompleteTodo}
           />
         </div>
 
-        {/* 미진행 — 2열 너비 */}
-        <div style={{ gridArea: 'overdue' }}>
-          <CompactCol
-            title="미진행" items={overdueItems} warn scrollable
+        {/* 미진행 — 2열 */}
+        <div style={{ gridArea: 'overdue' }} className="min-h-0">
+          <CompactCol title="미진행" items={overdueItems} warn
             colBadge={{ label: '긴급', bg: 'bg-red-50/80', text: 'text-red-400' }}
             onComplete={handleCompleteTodo}
           />
         </div>
 
-        {/* 회고 위젯 — 2열 너비 */}
-        <div style={{ gridArea: 'journal' }} className="overflow-hidden">
+        {/* 회고 위젯 — 2열 */}
+        <div style={{ gridArea: 'journal' }} className="min-h-0 overflow-hidden">
           <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full overflow-hidden">
             <DailyJournalWidget tasks={tasks} meetings={meetings} />
           </div>
         </div>
 
-        {/* 오늘 할일 위젯 — 2행 높이 */}
-        <div style={{ gridArea: 'todo' }} className="overflow-hidden">
+        {/* 오늘 할일 위젯 — 2행 */}
+        <div style={{ gridArea: 'todo' }} className="min-h-0 overflow-hidden">
           <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full overflow-hidden">
             <TodayTodoWidget />
           </div>
         </div>
 
-        {/* 미지정 + 금주 완료 — 2열 너비 */}
-        <div style={{ gridArea: 'backlog' }} className="overflow-hidden">
+        {/* 미지정 + 금주 완료 — 2열 */}
+        <div style={{ gridArea: 'backlog' }} className="min-h-0 overflow-hidden">
           <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full flex flex-col overflow-hidden">
             <div className="flex border-b border-white/50 flex-shrink-0">
-              <div className="flex-1 flex items-center gap-1.5 px-3 py-2 border-r border-white/50">
+              <div className="flex-1 flex items-center gap-1.5 px-3 py-1.5 border-r border-white/50">
                 <span className="w-1.5 h-1.5 rounded-full bg-gray-300 flex-shrink-0" />
-                <span className="text-sm font-semibold text-gray-600">미지정</span>
-                {unscheduledItems.length > 0 && (
-                  <span className="ml-auto text-xs text-gray-400 font-medium">{unscheduledItems.length}</span>
-                )}
+                <span className="text-xs font-semibold text-gray-600">미지정</span>
+                {unscheduledItems.length > 0 && <span className="ml-auto text-xs text-gray-400">{unscheduledItems.length}</span>}
               </div>
-              <div className="flex-1 flex items-center gap-1.5 px-3 py-2">
+              <div className="flex-1 flex items-center gap-1.5 px-3 py-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 flex-shrink-0" />
-                <span className="text-sm font-semibold text-gray-600">금주 완료</span>
-                {completedThisWeek.length > 0 && (
-                  <span className="ml-auto text-xs text-emerald-500 font-medium">{completedThisWeek.length}</span>
-                )}
+                <span className="text-xs font-semibold text-gray-600">금주 완료</span>
+                {completedThisWeek.length > 0 && <span className="ml-auto text-xs text-emerald-500">{completedThisWeek.length}</span>}
               </div>
             </div>
             <div className="flex flex-1 min-h-0 overflow-hidden">
-              <div className="flex-1 overflow-y-auto p-2 border-r border-white/50 space-y-0.5">
+              <div className="flex-1 overflow-y-auto scrollbar-hide p-1.5 border-r border-white/50 space-y-0.5">
                 {unscheduledItems.length === 0 ? (
-                  <p className="text-sm text-gray-300 text-center py-3">없음</p>
+                  <p className="text-xs text-gray-300 text-center py-2">없음</p>
                 ) : unscheduledItems.map(item => (
                   <Link key={item.id} href={`/tasks/${item.taskId}`}>
-                    <div className="py-1 px-1 hover:bg-white/50 rounded transition-colors">
+                    <div className="py-0.5 px-1 hover:bg-white/50 rounded transition-colors">
                       <div className="flex items-center gap-1 min-w-0">
                         {item.taskShortName && (
-                          <span className="text-[10px] font-mono text-gray-400 flex-shrink-0 bg-gray-100/70 px-1 py-0.5 rounded">
+                          <span className="text-[9px] font-mono text-gray-400 flex-shrink-0 bg-gray-100/70 px-1 py-0.5 rounded">
                             {item.taskShortName}{(item.idxInTask ?? 0) + 1}
                           </span>
                         )}
-                        <span className="text-sm text-gray-700 truncate">{item.title}</span>
+                        <span className="text-xs text-gray-700 truncate">{item.title}</span>
                       </div>
-                      {item.taskTitle && <span className="text-xs text-gray-400 truncate block">{item.taskTitle}</span>}
                     </div>
                   </Link>
                 ))}
               </div>
-              <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
+              <div className="flex-1 overflow-y-auto scrollbar-hide p-1.5 space-y-0.5">
                 {completedThisWeek.length === 0 ? (
-                  <p className="text-sm text-gray-300 text-center py-3">없음</p>
+                  <p className="text-xs text-gray-300 text-center py-2">없음</p>
                 ) : completedThisWeek.map(t => {
                   const joined = t.tasks as { id: string; title: string; short_name?: string | null } | null
                   return (
                     <Link key={t.id} href={`/tasks/${t.task_id}`}>
-                      <div className="py-1 px-1 hover:bg-white/50 rounded transition-colors">
-                        <div className="flex items-center gap-1 min-w-0">
-                          {joined?.short_name && (
-                            <span className="text-[10px] font-mono text-gray-300 flex-shrink-0 bg-gray-50/70 px-1 py-0.5 rounded line-through">
-                              {joined.short_name}
-                            </span>
-                          )}
-                          <span className="text-sm text-gray-400 truncate line-through">{t.title}</span>
-                        </div>
-                        {joined?.title && <span className="text-xs text-gray-300 truncate block">{joined.title}</span>}
+                      <div className="py-0.5 px-1 hover:bg-white/50 rounded transition-colors">
+                        <span className="text-xs text-gray-400 truncate block line-through">{t.title}</span>
+                        {joined?.title && <span className="text-[10px] text-gray-300 truncate block">{joined.title}</span>}
                       </div>
                     </Link>
                   )
