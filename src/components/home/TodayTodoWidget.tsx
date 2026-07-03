@@ -291,75 +291,76 @@ export default function TodayTodoWidget() {
         {loading ? (
           <p className="text-xs text-gray-300 text-center py-4">불러오는 중...</p>
         ) : (
-          <div className="flex gap-0 flex-1 min-h-0 overflow-hidden">
+          <div className="flex flex-col flex-1 min-h-0 overflow-y-auto">
             {/* 미완료 */}
-            <div className="flex-1 min-w-0 overflow-y-auto pr-2">
-              <p className="text-[10px] text-gray-400 font-medium mb-1.5">미완료 {todos.length > 0 ? todos.length : ''}</p>
-              {todos.length === 0 ? (
-                <p className="text-xs text-gray-200 text-center py-3">없음</p>
-              ) : todos.map(m => (
-                <div key={m.id} className="group flex items-start gap-1.5 py-1 px-1 rounded-lg hover:bg-gray-50 transition-colors">
-                  <button
-                    onClick={() => completeMemo(m.id)}
-                    title="완료 처리"
-                    className="flex-shrink-0 w-3.5 h-3.5 mt-0.5 rounded-full border border-gray-300 hover:border-emerald-400 hover:bg-emerald-50 transition-colors"
-                  />
-                  <button
-                    className="flex-1 min-w-0 text-left"
-                    onMouseMove={e => {
-                      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-                      if (e.clientX - rect.left < 40) showTooltip(m, e)
-                      else scheduleHide()
-                    }}
-                    onMouseLeave={scheduleHide}
-                    onClick={() => openMemo(m.id)}>
-                    <p className={`text-sm leading-snug truncate ${m.content ? 'text-gray-800 underline decoration-dotted decoration-emerald-400 underline-offset-2' : 'text-gray-700'}`}>{m.title}</p>
-                  </button>
-                  <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
-                    onMouseEnter={() => { if (hideTimer.current) clearTimeout(hideTimer.current); setTooltip(null) }}>
-                    <button onClick={e => openLinkPopup(m, e)} title="업무 연동"
-                      className="text-[10px] text-indigo-400 hover:text-indigo-600 px-1 py-0.5 rounded hover:bg-indigo-50">연동</button>
-                    <button onClick={() => deleteTodo(m.id)} title="삭제"
-                      className="text-[10px] text-gray-300 hover:text-red-400 px-1 py-0.5 rounded hover:bg-red-50">×</button>
+            <p className="text-[10px] text-gray-400 font-medium mb-2 flex-shrink-0">미완료 {todos.length > 0 ? `${todos.length}` : ''}</p>
+            {todos.length === 0 ? (
+              <p className="text-xs text-gray-200 text-center py-3">없음</p>
+            ) : (
+              <div className="space-y-3.5">
+                {todos.map(m => (
+                  <div key={m.id} className="group flex items-start gap-1.5 px-1 rounded-lg hover:bg-gray-50 transition-colors">
+                    <button
+                      onClick={() => completeMemo(m.id)}
+                      title="완료 처리"
+                      className="flex-shrink-0 w-3.5 h-3.5 mt-0.5 rounded-full border border-gray-300 hover:border-emerald-400 hover:bg-emerald-50 transition-colors"
+                    />
+                    <button
+                      className="flex-1 min-w-0 text-left"
+                      onMouseMove={e => {
+                        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                        if (e.clientX - rect.left < 40) showTooltip(m, e)
+                        else scheduleHide()
+                      }}
+                      onMouseLeave={scheduleHide}
+                      onClick={() => openMemo(m.id)}>
+                      <p className={`text-sm leading-relaxed break-words ${m.content ? 'text-gray-800 underline decoration-dotted decoration-emerald-400 underline-offset-2' : 'text-gray-700'}`}>{m.title}</p>
+                    </button>
+                    <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                      onMouseEnter={() => { if (hideTimer.current) clearTimeout(hideTimer.current); setTooltip(null) }}>
+                      <button onClick={e => openLinkPopup(m, e)} title="업무 연동"
+                        className="text-[10px] text-indigo-400 hover:text-indigo-600 px-1 py-0.5 rounded hover:bg-indigo-50">연동</button>
+                      <button onClick={() => deleteTodo(m.id)} title="삭제"
+                        className="text-[10px] text-gray-300 hover:text-red-400 px-1 py-0.5 rounded hover:bg-red-50">×</button>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-
-            {/* 구분선 */}
-            <div className="w-px bg-gray-100 mx-2 flex-shrink-0" />
-
-            {/* 완료 */}
-            <div className="flex-1 min-w-0 overflow-y-auto pl-2">
-              <div className="flex items-center gap-1.5 mb-1.5">
-                <p className="text-[10px] text-gray-400 font-medium">완료 {done.length > 0 ? done.length : ''}</p>
-                {selectedDone.size > 0 && (
-                  <button onClick={deleteSelectedDone}
-                    className="text-[10px] text-red-400 hover:text-red-600 ml-auto">
-                    {selectedDone.size}개 삭제
-                  </button>
-                )}
+                ))}
               </div>
-              {done.length === 0 ? (
-                <p className="text-xs text-gray-200 text-center py-3">없음</p>
-              ) : done.map(m => (
-                <div key={m.id}
-                  className={`group flex items-start gap-1.5 py-1 px-1 rounded-lg transition-colors cursor-pointer ${selectedDone.has(m.id) ? 'bg-gray-100' : 'hover:bg-gray-50'}`}
-                  onClick={() => toggleSelectDone(m.id)}>
-                  <input type="checkbox" checked={selectedDone.has(m.id)}
-                    onChange={() => toggleSelectDone(m.id)}
-                    onClick={e => e.stopPropagation()}
-                    className="flex-shrink-0 w-3 h-3 mt-0.5 rounded accent-gray-400 cursor-pointer" />
-                  <p className="flex-1 min-w-0 text-xs text-gray-400 line-through truncate leading-snug">{m.title}</p>
-                  <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                    <button onClick={e => { e.stopPropagation(); undoMemo(m.id) }} title="되돌리기"
-                      className="text-[10px] text-gray-300 hover:text-blue-400 px-1 py-0.5 rounded hover:bg-blue-50">↩</button>
-                    <button onClick={e => { e.stopPropagation(); deleteDone(m.id) }} title="삭제"
-                      className="text-[10px] text-gray-300 hover:text-red-400 px-1 py-0.5 rounded hover:bg-red-50">×</button>
-                  </div>
+            )}
+
+            {/* 구분선 + 완료 */}
+            {done.length > 0 && (
+              <>
+                <div className="border-t border-gray-100 my-3 flex-shrink-0" />
+                <div className="flex items-center gap-1.5 mb-2 flex-shrink-0">
+                  <p className="text-[10px] text-gray-400 font-medium">완료 {done.length}</p>
+                  {selectedDone.size > 0 && (
+                    <button onClick={deleteSelectedDone} className="text-[10px] text-red-400 hover:text-red-600 ml-auto">
+                      {selectedDone.size}개 삭제
+                    </button>
+                  )}
                 </div>
-              ))}
-            </div>
+                <div className="space-y-2">
+                  {done.map(m => (
+                    <div key={m.id}
+                      className={`group flex items-start gap-1.5 px-1 rounded-lg transition-colors cursor-pointer ${selectedDone.has(m.id) ? 'bg-gray-100' : 'hover:bg-gray-50'}`}
+                      onClick={() => toggleSelectDone(m.id)}>
+                      <input type="checkbox" checked={selectedDone.has(m.id)}
+                        onChange={() => toggleSelectDone(m.id)}
+                        onClick={e => e.stopPropagation()}
+                        className="flex-shrink-0 w-3 h-3 mt-0.5 rounded accent-gray-400 cursor-pointer" />
+                      <p className="flex-1 min-w-0 text-xs text-gray-400 line-through leading-relaxed break-words">{m.title}</p>
+                      <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                        <button onClick={e => { e.stopPropagation(); undoMemo(m.id) }} title="되돌리기"
+                          className="text-[10px] text-gray-300 hover:text-blue-400 px-1 py-0.5 rounded hover:bg-blue-50">↩</button>
+                        <button onClick={e => { e.stopPropagation(); deleteDone(m.id) }} title="삭제"
+                          className="text-[10px] text-gray-300 hover:text-red-400 px-1 py-0.5 rounded hover:bg-red-50">×</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>

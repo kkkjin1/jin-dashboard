@@ -57,13 +57,13 @@ function CompactCol({ title, items, dot, badgeCls = 'bg-gray-200 text-gray-600',
       {items.length === 0 ? (
         <p className="text-xs text-gray-300 text-center py-1">{isDragOver && droppable ? '여기에 놓기' : '없음'}</p>
       ) : (
-        <div className={`space-y-0.5 ${scrollable ? 'overflow-y-auto flex-1 min-h-0' : ''}`}>
+        <div className={`space-y-1.5 ${scrollable ? 'overflow-y-auto flex-1 min-h-0' : ''}`}>
           {(scrollable ? items : items.slice(0, maxItems)).map(item => (
-            <div key={item.id} className="group flex items-center gap-1 py-0.5 px-1 hover:bg-gray-50 rounded transition-colors">
+            <div key={item.id} className="group flex items-start gap-1 py-0.5 px-1 hover:bg-gray-50 rounded transition-colors">
               {onComplete && (
                 <button
                   onClick={e => { e.stopPropagation(); onComplete(item.id) }}
-                  className="flex-shrink-0 w-3.5 h-3.5 rounded-full border border-gray-200 hover:border-emerald-400 hover:bg-emerald-50 transition-colors opacity-0 group-hover:opacity-100 flex items-center justify-center"
+                  className="flex-shrink-0 w-3.5 h-3.5 mt-0.5 rounded-full border border-gray-200 hover:border-emerald-400 hover:bg-emerald-50 transition-colors opacity-0 group-hover:opacity-100 flex items-center justify-center"
                   title="완료"
                 >
                   <span className="text-[8px] text-emerald-500 leading-none">✓</span>
@@ -75,13 +75,13 @@ function CompactCol({ title, items, dot, badgeCls = 'bg-gray-200 text-gray-600',
                   draggable={droppable}
                   onDragStart={droppable ? e => { e.stopPropagation(); e.dataTransfer.setData('todoId', item.id) } : undefined}
                 >
-                  <div className="flex items-center gap-1 min-w-0">
+                  <div className="flex items-start gap-1 min-w-0">
                     {item.taskShortName && (
-                      <span className="text-[9px] font-mono text-gray-400 flex-shrink-0 bg-gray-100 px-1 py-0.5 rounded">
+                      <span className="text-[9px] font-mono text-gray-400 flex-shrink-0 bg-gray-100 px-1 py-0.5 rounded mt-0.5">
                         {item.taskShortName}{(item.idxInTask ?? 0) + 1}
                       </span>
                     )}
-                    <span className="text-xs text-gray-800 truncate">{item.title || '제목 없음'}</span>
+                    <span className="text-xs text-gray-800 leading-relaxed break-words">{item.title || '제목 없음'}</span>
                   </div>
                   {item.taskTitle && (
                     <span className="text-[10px] text-gray-400 truncate block">{item.taskTitle}</span>
