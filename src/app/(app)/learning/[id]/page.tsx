@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
@@ -188,7 +188,7 @@ export default function LearningDetailPage() {
   if (!resource) return <div className="p-8 text-gray-400 text-sm animate-pulse">불러오는 중...</div>
 
   return (
-    <div className="p-8 max-w-4xl">
+    <div className="p-4 md:p-5">
       {/* 뒤로가기 + MD 다운로드 */}
       <div className="flex items-center justify-between mb-4">
         <Link href="/learning" className="text-sm text-gray-400 hover:text-gray-600 inline-flex items-center gap-1">

@@ -258,7 +258,7 @@ export default function TasksPage() {
   if (loadingTasks) return <TaskPageSkeleton />
 
   return (
-    <div className="p-4 md:p-8">
+    <div className="p-3 md:p-5">
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-xl font-bold text-gray-900">업무 목록</h1>
         <div className="flex items-center gap-2">

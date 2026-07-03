@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -247,7 +247,7 @@ export default function DecisionsPage() {
   const hasMeetingCategory = !!PERSONA_META[activeTab].meetingCategory
 
   return (
-    <div className="p-4 md:p-8">
+    <div className="p-3 md:p-5">
       <div className="mb-6">
         <h1 className="text-xl font-bold text-gray-900 mb-1">의사결정</h1>
         <p className="text-sm text-gray-400">페르소나 기록 축적 → 프롬프트 생성 → Claude.ai 붙여넣기</p>

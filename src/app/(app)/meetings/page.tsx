@@ -153,7 +153,7 @@ export default function MeetingsPage() {
   const kanbanCols = [...CATEGORIES.slice(1), '기타'] as string[]
 
   return (
-    <div className={viewMode === 'kanban' ? 'p-4 md:p-8' : 'p-4 md:p-8 max-w-3xl'}>
+    <div className="p-3 md:p-5">
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-xl font-bold text-gray-900">회의록</h1>
         <div className="flex gap-2 items-center">
@@ -284,7 +284,7 @@ export default function MeetingsPage() {
         </div>
       ) : (
         /* 칸반 뷰 */
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-5 pb-4">
+        <div className="grid grid-cols-2 md:grid-cols-7 gap-5 pb-4">
           {kanbanCols.map(cat => {
             const colMeetings = kanbanGroups[cat]
             // 월별 그룹핑

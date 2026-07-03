@@ -503,7 +503,7 @@ export default function OneOnOnePage() {
   }
 
   return (
-    <div className="p-4 md:p-8 w-full">
+    <div className="p-3 md:p-5 w-full">
       {/* 헤더: 제목 + 탭 + 템플릿 관리 */}
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-4">

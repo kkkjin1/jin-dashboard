@@ -202,7 +202,7 @@ export default function MemosPage() {
   if (loading) return <MemoPageSkeleton />
 
   return (
-    <div className="p-4 md:p-8">
+    <div className="p-3 md:p-5">
       {editing && <EditModal memo={editing} onSave={saveEdit} onClose={() => setEditing(null)} />}
 
       <div className="flex items-center justify-between mb-8">

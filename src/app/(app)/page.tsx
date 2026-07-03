@@ -295,6 +295,7 @@ export default function HomePage() {
                 value={search}
                 onChange={e => handleSearchChange(e.target.value)}
                 onFocus={() => { if (search) setSearchOpen(true) }}
+                onKeyDown={e => { if (e.key === 'Escape') { setSearch(''); setSearchOpen(false); (e.target as HTMLInputElement).blur() } }}
                 placeholder="업무·회의록 검색"
                 className="text-sm text-gray-700 focus:outline-none w-44 bg-transparent"
               />
