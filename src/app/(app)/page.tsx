@@ -38,7 +38,17 @@ interface CompactColProps {
   scrollable?: boolean
 }
 
-function CompactCol({ title, items, dot, badgeCls = 'bg-gray-200 text-gray-600', accent = 'border-t-gray-300', droppable, onDrop, onDragOver, onDragLeave, isDragOver, onComplete, maxItems = 5, scrollable }: CompactColProps) {
+function SectionLabel({ label }: { label: string }) {
+  return (
+    <div className="flex items-center gap-2 flex-shrink-0 py-0.5">
+      <div className="flex-1 h-px bg-gray-200" />
+      <span className="text-[11px] text-gray-400 font-medium tracking-wide">{label}</span>
+      <div className="flex-1 h-px bg-gray-200" />
+    </div>
+  )
+}
+
+function CompactCol({ title, items, dot, badgeCls = 'bg-gray-200 text-gray-600', accent = 'border-t-gray-200', droppable, onDrop, onDragOver, onDragLeave, isDragOver, onComplete, maxItems = 5, scrollable }: CompactColProps) {
   return (
     <div
       className={`bg-white rounded-lg border border-gray-100 border-t-2 p-4 min-w-0 min-h-[200px] transition-colors flex flex-col ${isDragOver && droppable ? 'border-emerald-300 border-t-emerald-400 bg-emerald-50/30' : accent}`}
@@ -430,6 +440,7 @@ export default function HomePage() {
       />
 
       {/* Row 4: 컴팩트 업무 현황 */}
+      <SectionLabel label="할일 현황" />
       {loading ? (
         <div className="flex-shrink-0 bg-slate-50 rounded-2xl p-3">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -440,29 +451,30 @@ export default function HomePage() {
         <div className="flex-shrink-0 bg-slate-50 rounded-2xl p-3">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <CompactCol
-              title="오늘" items={todayItems} dot="bg-red-500" badgeCls="bg-red-500 text-white" accent="border-t-red-400"
+              title="오늘" items={todayItems} dot="bg-emerald-600" badgeCls="bg-emerald-600 text-white" accent="border-t-emerald-500"
               droppable onDrop={e => handleDrop(e, 'today')} onDragOver={e => handleDragOver(e, 'today')} onDragLeave={() => setDragOverBucket(null)} isDragOver={dragOverBucket === 'today'}
               onComplete={handleCompleteTodo}
             />
             <CompactCol
-              title="내일" items={tomorrowItems} dot="bg-orange-400" badgeCls="bg-orange-400 text-white" accent="border-t-orange-400"
+              title="내일" items={tomorrowItems} dot="bg-teal-400" badgeCls="bg-teal-400 text-white" accent="border-t-teal-400"
               droppable onDrop={e => handleDrop(e, 'tomorrow')} onDragOver={e => handleDragOver(e, 'tomorrow')} onDragLeave={() => setDragOverBucket(null)} isDragOver={dragOverBucket === 'tomorrow'}
               onComplete={handleCompleteTodo}
             />
             <CompactCol
-              title="금주" items={weekItems} dot="bg-blue-400" badgeCls="bg-blue-400 text-white" accent="border-t-blue-400"
+              title="금주" items={weekItems} dot="bg-emerald-300" badgeCls="bg-emerald-400 text-white" accent="border-t-emerald-300"
               droppable onDrop={e => handleDrop(e, 'this_week')} onDragOver={e => handleDragOver(e, 'this_week')} onDragLeave={() => setDragOverBucket(null)} isDragOver={dragOverBucket === 'this_week'}
               onComplete={handleCompleteTodo}
             />
             <CompactCol
-              title="미진행" items={overdueItems} dot="bg-gray-400" badgeCls="bg-red-200 text-red-600" accent="border-t-gray-300"
+              title="미진행" items={overdueItems} dot="bg-gray-400" badgeCls="bg-gray-200 text-gray-500" accent="border-t-gray-200"
               onComplete={handleCompleteTodo}
             />
           </div>
         </div>
       )}
 
-      {/* Row 4: 회고 + 오늘할일 + 미지정백로그 */}
+      {/* Row 5: 회고 + 오늘할일 + 미지정백로그 */}
+      <SectionLabel label="오늘 작업" />
       <div className="md:flex-1 md:min-h-0 grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="md:overflow-hidden">
           <DailyJournalWidget tasks={tasks} meetings={meetings} />
