@@ -146,17 +146,6 @@
   display: none;
 }
 
-/* ─── 전 플랫폼: OS 다크모드 강제 차단 (라이트 고정) ─── */
-@media (prefers-color-scheme: dark) {
-  :root {
-    color-scheme: light;
-  }
-  html, body {
-    background-color: #ECEAE5 !important;
-    color: #111827 !important;
-  }
-}
-
 /* ═══════════════════════════════════════════════════════════
    모바일 솔리드 라이트 테마 (max-width: 767px)
    Apple Notes · Toss 스타일 크림/화이트 솔리드 테마
