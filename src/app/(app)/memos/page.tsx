@@ -11,30 +11,6 @@ const ALL_TAGS: MemoTag[] = ['공지', '업무관련', '회의관련', '아이�
 const FILTER_TAGS = ['전체', ...ALL_TAGS] as const
 type FilterTag = typeof FILTER_TAGS[number]
 
-type Period = '전체' | '이번 주' | '이번 달' | '3개월'
-const PERIODS: Period[] = ['전체', '이번 주', '이번 달', '3개월']
-
-function getPeriodStart(period: Period): Date | null {
-  if (period === '전체') return null
-  const now = new Date()
-  if (period === '이번 주') {
-    const d = new Date(now)
-    const dow = d.getDay()
-    d.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1))
-    d.setHours(0, 0, 0, 0)
-    return d
-  }
-  if (period === '이번 달') return new Date(now.getFullYear(), now.getMonth(), 1)
-  const d = new Date(now); d.setMonth(now.getMonth() - 3); return d
-}
-
-function inPeriod(dateStr: string | null | undefined, period: Period): boolean {
-  if (!dateStr) return period === '전체'
-  const start = getPeriodStart(period)
-  if (!start) return true
-  return new Date(dateStr) >= start
-}
-
 function formatMonthLabel(ym: string): string {
   if (ym === '날짜 없음') return '날짜 미지정'
   const [y, m] = ym.split('-')
@@ -159,7 +135,6 @@ export default function MemosPage() {
   const [editing, setEditing] = useState<QuickMemo | null>(null)
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const [period, setPeriod] = useState<Period>('전체')
   const [filterTag, setFilterTag] = useState<FilterTag>('전체')
   const [showAddForm, setShowAddForm] = useState(false)
   const [newTitle, setNewTitle] = useState('')
@@ -251,12 +226,11 @@ export default function MemosPage() {
     setCollapsedMonths(prev => { const s = new Set(prev); s.has(ym) ? s.delete(ym) : s.add(ym); return s })
   }
 
-  // 기간 + 태그 필터
+  // 태그 필터
   const displayed = useMemo(() => {
-    const byPeriod = memos.filter(m => inPeriod(m.created_at, period))
-    if (filterTag === '전체') return byPeriod
-    return byPeriod.filter(m => m.tag === filterTag)
-  }, [memos, period, filterTag])
+    if (filterTag === '전체') return memos
+    return memos.filter(m => m.tag === filterTag)
+  }, [memos, filterTag])
 
   // 월별 그루핑
   const monthGroups = useMemo(() => {
@@ -274,7 +248,7 @@ export default function MemosPage() {
     const allYMs = monthGroups.map(([ym]) => ym)
     const latest = allYMs[0] ?? null
     setCollapsedMonths(new Set(allYMs.filter(ym => ym !== latest)))
-  }, [period, filterTag])
+  }, [filterTag])
 
   if (loading) return <MemoPageSkeleton />
 
@@ -326,14 +300,6 @@ export default function MemosPage() {
         </div>
       )}
 
-      {/* 기간 필터 */}
-      <div className="flex-shrink-0 flex items-center gap-1.5 mb-3 overflow-x-auto scrollbar-hide">
-        {PERIODS.map(p => (
-          <button key={p} onClick={() => setPeriod(p)} className={`${pill} ${period === p ? pOn : pOff}`}>{p}</button>
-        ))}
-        <span className="text-xs text-gray-400 ml-auto shrink-0">{displayed.length}개</span>
-      </div>
-
       {/* 태그 필터 pills */}
       <div className="flex-shrink-0 flex items-center gap-1.5 overflow-x-auto scrollbar-hide mb-4">
         {FILTER_TAGS.map(tag => (
@@ -358,12 +324,10 @@ export default function MemosPage() {
         {displayed.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-40 gap-2">
             <p className="text-gray-300 text-sm">
-              {period !== '전체' || filterTag !== '전체'
-                ? '해당 기간·태그의 메모가 없습니다'
-                : '메모가 없습니다. 추가해 보세요!'}
+              {filterTag !== '전체' ? '해당 태그의 메모가 없습니다' : '메모가 없습니다. 추가해 보세요!'}
             </p>
-            {(period !== '전체' || filterTag !== '전체') && (
-              <button onClick={() => { setPeriod('전체'); setFilterTag('전체') }} className={`${pill} ${pOff} text-gray-400`}>
+            {filterTag !== '전체' && (
+              <button onClick={() => setFilterTag('전체')} className={`${pill} ${pOff} text-gray-400`}>
                 전체 보기
               </button>
             )}
@@ -390,10 +354,9 @@ export default function MemosPage() {
                   </button>
 
                   {!isCollapsed && (
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                      {items.map((memo: QuickMemo, idx: number) => (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {items.map((memo: QuickMemo) => (
                         <div key={memo.id}
-                          className={idx % 7 === 0 ? 'col-span-2 row-span-1' : ''}
                           onDragOver={e => e.preventDefault()}
                           onDrop={() => handleDropOnTag(memo.tag)}>
                           <MemoCard
