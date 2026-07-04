@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
@@ -9,13 +9,36 @@ import type { Member, OneOnOne, MyFeedback, FeedbackType } from '@/types'
 import { format, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
 
-// ─── 피드백 타입 스타일 ───────────────────────────────────────────────────────
 const FEEDBACK_TYPE_STYLE: Record<FeedbackType, string> = {
-  긍정: 'bg-[#BADEC8]/40 text-[#2D5A45]',
-  부정: 'bg-[#EBA698]/40 text-[#6B2D25]',
-  요청: 'bg-[#90A7D8]/30 text-[#1E3A6B]',
+  긍정: 'bg-[#BADEC8]/40 text-[#2D5A45] border-[#BADEC8]/55',
+  부정: 'bg-[#EBA698]/40 text-[#6B2D25] border-[#EBA698]/55',
+  요청: 'bg-[#90A7D8]/30 text-[#1E3A6B] border-[#90A7D8]/45',
 }
 const ANALYSIS_TYPES: FeedbackType[] = ['긍정', '부정', '요청']
+
+type Period = '이번 주' | '이번 달' | '3개월' | '전체'
+const PERIODS: Period[] = ['이번 주', '이번 달', '3개월', '전체']
+
+function getPeriodStart(period: Period): Date | null {
+  if (period === '전체') return null
+  const now = new Date()
+  if (period === '이번 주') {
+    const d = new Date(now)
+    const dow = d.getDay()
+    d.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1))
+    d.setHours(0, 0, 0, 0)
+    return d
+  }
+  if (period === '이번 달') return new Date(now.getFullYear(), now.getMonth(), 1)
+  const d = new Date(now); d.setMonth(now.getMonth() - 3); return d
+}
+
+function inPeriod(dateStr: string | null | undefined, period: Period): boolean {
+  if (!dateStr) return period === '전체'
+  const start = getPeriodStart(period)
+  if (!start) return true
+  return new Date(dateStr) >= start
+}
 
 function currentMonth(): string {
   const now = new Date()
@@ -27,11 +50,15 @@ function formatMonth(month: string): string {
   return `${y}년 ${parseInt(m, 10)}월`
 }
 
+const pill  = 'text-xs px-3.5 py-1.5 rounded-full border font-medium transition-all whitespace-nowrap'
+const pOn  = 'bg-gray-900 text-white border-gray-900 shadow-sm'
+const pOff = 'bg-white/40 backdrop-blur-xl border-white/60 text-gray-500 hover:bg-white/60 hover:text-gray-700'
+
 // ─── 분석 패널 ────────────────────────────────────────────────────────────────
 function AnalysisPanel({ feedbacks, onAssignType }: { feedbacks: MyFeedback[]; onAssignType: (id: string, type: FeedbackType | null) => void }) {
   if (feedbacks.length === 0) {
     return (
-      <div className="bg-white rounded-xl border border-gray-100 px-5 py-6">
+      <div className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl px-5 py-6">
         <p className="text-xs font-semibold text-gray-500 mb-4">피드백 분석</p>
         <p className="text-sm text-gray-400">피드백이 없습니다</p>
       </div>
@@ -46,20 +73,20 @@ function AnalysisPanel({ feedbacks, onAssignType }: { feedbacks: MyFeedback[]; o
   })).filter(g => g.items.length > 0)
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 px-5 py-4">
+    <div className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl px-5 py-4">
       <p className="text-xs font-semibold text-gray-500 mb-4">피드백 분석</p>
       <div className="space-y-4">
         {grouped.map(({ type, items }) => (
           <div key={type}>
             <div className="flex items-center gap-2 mb-2">
-              <span className={`text-xs font-semibold px-2 py-0.5 rounded ${FEEDBACK_TYPE_STYLE[type]}`}>
+              <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${FEEDBACK_TYPE_STYLE[type]}`}>
                 {type}
               </span>
               <span className="text-xs text-gray-400">{items.length}건</span>
             </div>
             <ul className="space-y-1.5 pl-1">
               {items.map(item => (
-                <li key={item.id} className="group flex items-start gap-2 border-l-2 border-gray-100 pl-2">
+                <li key={item.id} className="group flex items-start gap-2 border-l-2 border-white/60 pl-2">
                   <span className="flex-1 text-xs text-gray-600 leading-relaxed">{item.content}</span>
                   <button onClick={() => onAssignType(item.id, null)}
                     className="flex-shrink-0 text-xs text-gray-200 hover:text-gray-400 opacity-0 group-hover:opacity-100 transition-all">해제</button>
@@ -73,12 +100,12 @@ function AnalysisPanel({ feedbacks, onAssignType }: { feedbacks: MyFeedback[]; o
             <p className="text-xs text-gray-400 mb-2">미분류 ({untagged.length}건) — 분류하기:</p>
             <ul className="space-y-2 pl-1">
               {untagged.map(item => (
-                <li key={item.id} className="border border-gray-100 rounded-md p-2">
+                <li key={item.id} className="bg-white/50 rounded-2xl border border-white/70 p-2">
                   <p className="text-xs text-gray-600 mb-1.5 leading-relaxed">{item.content}</p>
                   <div className="flex gap-1">
                     {ANALYSIS_TYPES.map(t => (
                       <button key={t} onClick={() => onAssignType(item.id, t)}
-                        className={`text-xs px-2 py-0.5 rounded border transition-colors hover:opacity-80 ${FEEDBACK_TYPE_STYLE[t]}`}>
+                        className={`text-xs px-2 py-0.5 rounded-full border transition-colors hover:opacity-80 ${FEEDBACK_TYPE_STYLE[t]}`}>
                         {t}
                       </button>
                     ))}
@@ -112,14 +139,14 @@ function KeywordsPanel({ feedbacks }: { feedbacks: MyFeedback[] }) {
   }, [feedbacks])
 
   if (keywords.length === 0) return (
-    <div className="bg-white rounded-xl border border-gray-100 px-5 py-4">
+    <div className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl px-5 py-4">
       <p className="text-xs font-semibold text-gray-500 mb-2">공통 키워드</p>
       <p className="text-xs text-gray-300">피드백이 쌓이면 키워드가 추출됩니다</p>
     </div>
   )
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 px-5 py-4">
+    <div className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl px-5 py-4">
       <div className="flex items-center gap-2 mb-1">
         <p className="text-xs font-semibold text-gray-500">공통 키워드</p>
         <span className="text-[10px] text-gray-300">2회 이상 등장</span>
@@ -130,8 +157,8 @@ function KeywordsPanel({ feedbacks }: { feedbacks: MyFeedback[] }) {
             count >= 5
               ? 'bg-[#90A7D8]/25 border-[#90A7D8]/40 text-[#1E3A6B] font-semibold'
               : count >= 3
-              ? 'bg-gray-100 border-gray-200 text-gray-600'
-              : 'bg-gray-50 border-gray-100 text-gray-400'
+              ? 'bg-white/60 border-white/80 text-gray-600'
+              : 'bg-white/40 border-white/60 text-gray-400'
           }`}>
             {word} <span className="opacity-50 text-[10px]">{count}</span>
           </span>
@@ -171,21 +198,21 @@ function NextQuestionsPanel() {
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+    <div className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl overflow-hidden">
       <button onClick={() => setIsOpen(p => !p)}
-        className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 transition-colors">
-        <span className="text-xs font-semibold text-gray-500">다음 1on1 질문 준비</span>
+        className="w-full flex items-center justify-between px-5 py-4 hover:bg-white/20 transition-colors">
+        <span className="text-xs font-semibold text-gray-600">다음 1on1 질문 준비</span>
         <div className="flex items-center gap-2">
-          {questions.length > 0 && <span className="text-xs text-gray-300">{questions.length}개</span>}
+          {questions.length > 0 && <span className="text-xs text-gray-400 bg-white/60 border border-white/70 px-2 py-0.5 rounded-full">{questions.length}개</span>}
           <span className="text-[10px] text-gray-300">{isOpen ? '▼' : '▶'}</span>
         </div>
       </button>
       {isOpen && (
-        <div className="px-5 pb-4 border-t border-gray-50">
+        <div className="px-5 pb-4 border-t border-white/40">
           {questions.length === 0 ? (
-            <p className="text-xs text-gray-300 pt-2 pb-1">아직 준비된 질문이 없습니다</p>
+            <p className="text-xs text-gray-300 pt-3 pb-1">아직 준비된 질문이 없습니다</p>
           ) : (
-            <ul className="space-y-1.5 pt-2 pb-1">
+            <ul className="space-y-1.5 pt-3 pb-1">
               {questions.map((q, i) => (
                 <li key={q.id} className="group flex items-start gap-1.5">
                   <span className="text-xs text-gray-300 flex-shrink-0 mt-0.5 w-4">{i + 1}.</span>
@@ -196,13 +223,13 @@ function NextQuestionsPanel() {
               ))}
             </ul>
           )}
-          <div className="flex gap-2 mt-2">
+          <div className="flex gap-2 mt-3">
             <input
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') addQuestion() }}
               placeholder="질문 입력 후 Enter"
-              className="flex-1 text-xs border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:border-gray-400 placeholder-gray-300"
+              className="flex-1 text-xs bg-white/50 border border-white/70 rounded-full px-3 py-1.5 focus:outline-none placeholder-gray-300"
             />
           </div>
         </div>
@@ -217,6 +244,7 @@ function MyFeedbackView() {
   const [feedbacks, setFeedbacks] = useState<MyFeedback[]>([])
   const [members, setMembers] = useState<Member[]>([])
   const [loading, setLoading] = useState(true)
+  const [period, setPeriod] = useState<Period>('이번 달')
 
   const [openMonths, setOpenMonths] = useState<Set<string>>(new Set([currentMonth()]))
   const [addingMonth, setAddingMonth] = useState<string | null>(null)
@@ -238,11 +266,23 @@ function MyFeedbackView() {
     })
   }, [])
 
+  // 기간 필터 적용
+  const filteredFeedbacks = useMemo(() => {
+    return feedbacks.filter(f => inPeriod(f.feedback_date ?? f.created_at, period))
+  }, [feedbacks, period])
+
   const months = useMemo(() => {
-    const monthSet = new Set<string>(feedbacks.map(f => f.month))
-    monthSet.add(currentMonth())
+    const monthSet = new Set<string>(filteredFeedbacks.map(f => f.month))
+    const start = getPeriodStart(period)
+    if (!start || new Date() >= start) monthSet.add(currentMonth())
     return Array.from(monthSet).sort().reverse()
-  }, [feedbacks])
+  }, [filteredFeedbacks, period])
+
+  // 필터 변경 시 최신 월만 자동 펼침
+  useEffect(() => {
+    const latest = months[0] ?? currentMonth()
+    setOpenMonths(new Set([latest]))
+  }, [period])
 
   function toggleMonth(month: string) {
     setOpenMonths(prev => {
@@ -302,35 +342,43 @@ function MyFeedbackView() {
   if (loading) return <div className="p-8 text-sm text-gray-400">불러오는 중...</div>
 
   return (
-    <div className="flex gap-6 w-full">
-      {/* LEFT: 월별 아코디언 */}
-      <div className="flex-[65] min-w-0">
+    <div className="flex gap-6 w-full min-h-0">
+      {/* LEFT: 기간 필터 + 월별 아코디언 */}
+      <div className="flex-[65] min-w-0 flex flex-col gap-3">
+        {/* 기간 필터 */}
+        <div className="flex items-center gap-1.5">
+          {PERIODS.map(p => (
+            <button key={p} onClick={() => setPeriod(p)} className={`${pill} ${period === p ? pOn : pOff}`}>{p}</button>
+          ))}
+          <span className="text-xs text-gray-400 ml-auto">{filteredFeedbacks.length}건</span>
+        </div>
+
+        {/* 추가 버튼 */}
         {addingMonth !== currentMonth() && (
-          <div className="mb-4">
-            <button onClick={() => openAddForm(currentMonth())}
-              className="text-xs border border-dashed border-gray-300 text-gray-500 hover:border-gray-400 hover:text-gray-700 rounded-md px-4 py-2 w-full transition-colors">
-              + 피드백 추가 ({formatMonth(currentMonth())})
-            </button>
-          </div>
+          <button onClick={() => openAddForm(currentMonth())}
+            className="text-xs bg-white/40 backdrop-blur-xl border border-dashed border-white/60 text-gray-500 hover:bg-white/60 hover:border-white/80 hover:text-gray-700 rounded-2xl px-4 py-2.5 w-full transition-colors">
+            + 피드백 추가 ({formatMonth(currentMonth())})
+          </button>
         )}
 
-        <div className="space-y-3">
-          {months.map(month => {
+        {/* 월별 아코디언 */}
+        <div className="space-y-2">
+          {months.map((month, idx) => {
             const isOpen = openMonths.has(month)
-            const items = feedbacks.filter(f => f.month === month)
+            const items = filteredFeedbacks.filter(f => f.month === month)
             const isAddingHere = addingMonth === month
+            const isLatest = idx === 0
             return (
-              <div key={month} className="bg-white rounded-lg border border-gray-100">
-                <div className="flex items-center justify-between px-4 py-3">
+              <div key={month} className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl overflow-hidden">
+                <div className="flex items-center justify-between px-5 py-3.5">
                   <button onClick={() => toggleMonth(month)} className="flex items-center gap-2 flex-1 text-left">
-                    <span className="text-sm font-bold text-gray-700">
-                      {isOpen ? '▼' : '▶'} {formatMonth(month)}
-                    </span>
-                    <span className="text-xs text-gray-400">{items.length}건</span>
+                    <span className="text-sm font-semibold text-gray-700">{isOpen ? '▼' : '▶'} {formatMonth(month)}</span>
+                    <span className="text-xs text-gray-400 bg-white/60 border border-white/70 px-2 py-0.5 rounded-full">{items.length}건</span>
+                    {isLatest && <span className="text-[10px] text-[#2D5A45] bg-[#BADEC8]/30 border border-[#BADEC8]/40 px-2 py-0.5 rounded-full">최신</span>}
                   </button>
                   {!isAddingHere && (
                     <button onClick={() => openAddForm(month)}
-                      className="text-xs text-gray-400 hover:text-gray-700 border border-gray-200 rounded-md px-2.5 py-1 hover:bg-gray-50 transition-colors">
+                      className={`text-xs ${pOff} !text-[10px] !px-2.5 !py-1`}>
                       + 추가
                     </button>
                   )}
@@ -338,18 +386,18 @@ function MyFeedbackView() {
 
                 {/* 인라인 추가 폼 */}
                 {isAddingHere && (
-                  <div className="px-4 pb-4 border-t border-gray-50">
-                    <div className="pt-3 space-y-2">
+                  <div className="px-5 pb-5 border-t border-white/40">
+                    <div className="pt-4 space-y-3">
                       <div className="flex gap-2">
                         <div className="flex-1">
                           <label className="text-xs text-gray-400 mb-1 block">날짜</label>
                           <input type="date" value={formDate} onChange={e => setFormDate(e.target.value)}
-                            className="text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none w-full" />
+                            className="text-sm bg-white/50 border border-white/70 rounded-2xl px-3 py-1.5 focus:outline-none w-full" />
                         </div>
                         <div className="flex-1">
                           <label className="text-xs text-gray-400 mb-1 block">피드백 준 팀원</label>
                           <select value={formMember} onChange={e => setFormMember(e.target.value)}
-                            className="text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none w-full bg-white text-gray-600">
+                            className="text-sm bg-white/50 border border-white/70 rounded-2xl px-3 py-1.5 focus:outline-none w-full text-gray-600">
                             <option value="">선택 (선택)</option>
                             {members.filter(m => m.part !== '팀장').map(m => (
                               <option key={m.id} value={m.name}>{m.name}</option>
@@ -360,15 +408,11 @@ function MyFeedbackView() {
                       <textarea autoFocus value={formContent} onChange={e => setFormContent(e.target.value)}
                         placeholder="피드백 내용을 자유롭게 입력하세요"
                         rows={3}
-                        className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:border-gray-400" />
+                        className="w-full text-sm bg-white/50 border border-white/70 rounded-2xl px-3 py-2 resize-none focus:outline-none" />
                       <p className="text-xs text-gray-400">분류(긍정/부정/요청)는 오른쪽 분석 패널에서 지정합니다</p>
                       <div className="flex gap-2 justify-end">
-                        <button onClick={cancelAdd}
-                          className="text-xs text-gray-400 hover:text-gray-600 px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
-                          취소
-                        </button>
-                        <button onClick={saveAdd} disabled={saving || !formContent.trim()}
-                          className="text-xs bg-gray-900 text-white px-3 py-1.5 rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-40">
+                        <button onClick={cancelAdd} className={`${pill} ${pOff}`}>취소</button>
+                        <button onClick={saveAdd} disabled={saving || !formContent.trim()} className={`${pill} ${pOn} disabled:opacity-40`}>
                           {saving ? '저장 중...' : '저장'}
                         </button>
                       </div>
@@ -378,7 +422,7 @@ function MyFeedbackView() {
 
                 {/* 피드백 목록 */}
                 {isOpen && items.length > 0 && (
-                  <div className="px-4 pb-3 space-y-2 border-t border-gray-50">
+                  <div className="px-5 pb-4 space-y-2 border-t border-white/40 pt-3">
                     {items
                       .sort((a, b) => {
                         const da = a.feedback_date ?? a.created_at
@@ -386,9 +430,14 @@ function MyFeedbackView() {
                         return db.localeCompare(da)
                       })
                       .map(item => (
-                        <div key={item.id} className="group flex items-start gap-2 pt-2">
+                        <div key={item.id} className="group flex items-start gap-2 bg-white/30 rounded-2xl px-3 py-2.5">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5 mb-0.5">
+                              {item.feedback_type && (
+                                <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${FEEDBACK_TYPE_STYLE[item.feedback_type]}`}>
+                                  {item.feedback_type}
+                                </span>
+                              )}
                               {item.from_member && (
                                 <span className="text-xs font-medium text-gray-500">{item.from_member}</span>
                               )}
@@ -408,8 +457,8 @@ function MyFeedbackView() {
                 )}
 
                 {isOpen && items.length === 0 && !isAddingHere && (
-                  <div className="px-4 pb-3 border-t border-gray-50">
-                    <p className="text-xs text-gray-400 pt-2">이 달의 피드백이 없습니다</p>
+                  <div className="px-5 pb-4 border-t border-white/40 pt-3">
+                    <p className="text-xs text-gray-400">이 달의 피드백이 없습니다</p>
                   </div>
                 )}
               </div>
@@ -420,8 +469,8 @@ function MyFeedbackView() {
 
       {/* RIGHT: 분석 패널 + 키워드 + 다음 질문 */}
       <div className="flex-[35] min-w-0 space-y-4">
-        <AnalysisPanel feedbacks={feedbacks} onAssignType={assignType} />
-        <KeywordsPanel feedbacks={feedbacks} />
+        <AnalysisPanel feedbacks={filteredFeedbacks} onAssignType={assignType} />
+        <KeywordsPanel feedbacks={filteredFeedbacks} />
         <NextQuestionsPanel />
       </div>
     </div>
@@ -493,177 +542,167 @@ export default function OneOnOnePage() {
   }, [memberStats])
 
   function daysBadgeClass(daysSince: number | null): string {
-    if (daysSince === null || daysSince >= 30) return 'bg-[#EBA698]/40 text-[#6B2D25]'
-    if (daysSince >= 14) return 'bg-[#F3E482]/50 text-[#5A4A10]'
-    return 'bg-[#BADEC8]/40 text-[#2D5A45]'
+    if (daysSince === null || daysSince >= 30) return 'bg-[#EBA698]/40 text-[#6B2D25] border-[#EBA698]/55'
+    if (daysSince >= 14) return 'bg-[#F3E482]/50 text-[#5A4A10] border-[#F3E482]/60'
+    return 'bg-[#BADEC8]/40 text-[#2D5A45] border-[#BADEC8]/55'
   }
 
   function daysLabel(daysSince: number | null): string {
     return daysSince === null ? '없음' : `${daysSince}일 전`
   }
 
+  function memberAvatarColor(part: string): string {
+    if (part === '코어') return 'bg-[#BADEC8]/60 text-[#2D5A45]'
+    if (part === '비즈') return 'bg-[#90A7D8]/60 text-[#1E3A6B]'
+    return 'bg-[#EBA698]/40 text-[#5A2D25]'
+  }
+
   return (
-    <div className="p-3 md:p-5 w-full">
-      {/* 헤더: 제목 + 탭 + 템플릿 관리 */}
-      <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center gap-4">
-          <h1 className="text-xl font-bold text-gray-900">1on1</h1>
-          <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
-            <button
-              onClick={() => setView('team')}
-              className={`text-xs px-3 py-1.5 rounded-md transition-colors font-medium ${
-                view === 'team'
-                  ? 'bg-white text-gray-800 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}>
-              팀원 1on1
-            </button>
-            <button
-              onClick={() => setView('my-feedback')}
-              className={`text-xs px-3 py-1.5 rounded-md transition-colors font-medium ${
-                view === 'my-feedback'
-                  ? 'bg-white text-gray-800 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}>
-              내 피드백
-            </button>
-          </div>
+    <div className="h-full flex flex-col overflow-hidden font-sans">
+      {/* 헤더 */}
+      <div className="flex-shrink-0 pt-6 pb-4 flex items-center gap-4">
+        <h1 className="text-xl font-bold text-gray-900">1on1</h1>
+        <div className="flex items-center bg-white/40 backdrop-blur-xl border border-white/60 rounded-full p-1">
+          <button onClick={() => setView('team')}
+            className={`text-xs px-3.5 py-1.5 rounded-full transition-all font-medium ${
+              view === 'team' ? 'bg-gray-900 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'
+            }`}>
+            팀원 1on1
+          </button>
+          <button onClick={() => setView('my-feedback')}
+            className={`text-xs px-3.5 py-1.5 rounded-full transition-all font-medium ${
+              view === 'my-feedback' ? 'bg-gray-900 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'
+            }`}>
+            내 피드백
+          </button>
         </div>
         {view === 'team' && (
-          <Link
-            href="/one-on-one/template"
-            className="text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-white transition-colors">
+          <Link href="/one-on-one/template"
+            className={`${pill} ${pOff} ml-auto`}>
             템플릿 관리
           </Link>
         )}
       </div>
 
-      {/* 팀원 1on1 뷰 */}
-      {view === 'team' && (
-        <div className="flex flex-col md:flex-row gap-6 w-full">
-          {/* LEFT: grouped member list */}
-          <div className="min-w-0 md:flex-[60]">
-            {grouped.map(({ label, list }) => (
-              <div key={label} className="mb-8">
-                <h2 className="text-sm font-semibold text-gray-500 mb-3">{label}</h2>
-                <div className="space-y-2">
-                  {list.map(member => {
-                    const last = getLastSession(member.id)
-                    const months = getSessionMonths(member.id)
-                    const memberSessions = sessions.filter(s => s.member_id === member.id)
-                    return (
-                      <div key={member.id} className="bg-white rounded-lg border border-gray-100 px-5 py-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                              member.part === '코어' ? 'bg-[#BADEC8]/60 text-[#2D5A45]' :
-                              member.part === '비즈' ? 'bg-[#90A7D8]/60 text-[#1E3A6B]' :
-                              'bg-[#EBA698]/40 text-[#5A2D25]'
-                            }`}>
-                              {member.name[0]}
+      {/* 콘텐츠 */}
+      <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
+
+        {/* 팀원 1on1 뷰 */}
+        {view === 'team' && (
+          <div className="flex flex-col md:flex-row gap-6 w-full pb-6">
+            {/* LEFT: grouped member list */}
+            <div className="min-w-0 md:flex-[60]">
+              {grouped.map(({ label, list }) => (
+                <div key={label} className="mb-6">
+                  <h2 className="text-xs font-semibold text-gray-400 mb-3 uppercase tracking-wide">{label}</h2>
+                  <div className="space-y-2">
+                    {list.map(member => {
+                      const last = getLastSession(member.id)
+                      const months = getSessionMonths(member.id)
+                      const memberSessions = sessions.filter(s => s.member_id === member.id)
+                      return (
+                        <div key={member.id} className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl px-5 py-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${memberAvatarColor(member.part)}`}>
+                                {member.name[0]}
+                              </div>
+                              <div>
+                                <p className="text-sm font-semibold text-gray-800">{member.name}</p>
+                                <p className="text-xs text-gray-400">
+                                  {last
+                                    ? `마지막: ${last.session_date ? format(parseISO(last.session_date), 'yyyy년 M월 d일', { locale: ko }) : '날짜 미지정'} · 총 ${memberSessions.length}회`
+                                    : '1on1 없음'}
+                                </p>
+                              </div>
                             </div>
-                            <div>
-                              <p className="text-sm font-semibold text-gray-800">{member.name}</p>
-                              <p className="text-xs text-gray-400">
-                                {last
-                                  ? `마지막: ${last.session_date ? format(parseISO(last.session_date), 'yyyy년 M월 d일', { locale: ko }) : '날짜 미지정'} · 총 ${memberSessions.length}회`
-                                  : '1on1 없음'}
-                              </p>
+                            <div className="flex items-center gap-2">
+                              {memberSessions.length > 0 && (
+                                <Link href={`/one-on-one/${member.id}`} className={`${pill} ${pOff} !text-[10px] !px-2.5 !py-1`}>목록</Link>
+                              )}
+                              <button onClick={() => createSession(member.id)}
+                                className="text-xs bg-gray-900 text-white px-3 py-1.5 rounded-full hover:bg-gray-800 transition-colors">
+                                + 새 1on1
+                              </button>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            {memberSessions.length > 0 && (
-                              <Link href={`/one-on-one/${member.id}`}
-                                className="text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded-md px-2.5 py-1 hover:bg-gray-50 transition-colors">
-                                목록
-                              </Link>
-                            )}
-                            <button onClick={() => createSession(member.id)}
-                              className="text-xs bg-gray-900 text-white px-3 py-1 rounded-md hover:bg-gray-800 transition-colors">
-                              + 새 1on1
-                            </button>
-                          </div>
+                          {months.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-3 pt-3 border-t border-white/50">
+                              {months.slice(0, 6).map(m => {
+                                const [y, mo] = m.split('-')
+                                return (
+                                  <span key={m} className="text-xs bg-white/50 border border-white/70 text-gray-400 px-2 py-0.5 rounded-full">
+                                    {y}.{mo}
+                                  </span>
+                                )
+                              })}
+                            </div>
+                          )}
                         </div>
-                        {months.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-2">
-                            {months.slice(0, 6).map(m => {
-                              const [y, mo] = m.split('-')
-                              return (
-                                <span key={m} className="text-xs bg-gray-50 text-gray-400 px-2 py-0.5 rounded">
-                                  {y}.{mo}
-                                </span>
-                              )
-                            })}
-                          </div>
-                        )}
+                      )
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* RIGHT: alert panel */}
+            <div className="min-w-0 md:flex-[40] flex flex-col gap-4">
+              {urgentStat ? (
+                <div className="bg-[#EBA698]/15 backdrop-blur-xl border border-[#EBA698]/40 rounded-3xl px-5 py-4">
+                  <p className="text-xs font-semibold text-[#6B2D25] mb-3">30일 미진행 긴급</p>
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="text-lg font-bold text-gray-900">{urgentStat.member.name}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">{urgentStat.member.part}</p>
+                      <p className="text-sm text-[#6B2D25] mt-2">
+                        마지막 1on1:{' '}
+                        {urgentStat.daysSince === null ? '기록 없음' : `${urgentStat.daysSince}일 전`}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => createSession(urgentStat.member.id)}
+                      className="flex-shrink-0 text-xs bg-gray-900 text-white px-3 py-1.5 rounded-full hover:bg-gray-800 transition-colors whitespace-nowrap">
+                      + 바로 진행
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-[#BADEC8]/15 backdrop-blur-xl border border-[#BADEC8]/40 rounded-3xl px-5 py-4">
+                  <p className="text-sm font-semibold text-[#2D5A45]">✓ 이번 달 모두 진행됨</p>
+                </div>
+              )}
+
+              <div className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl px-5 py-4">
+                <p className="text-xs font-semibold text-gray-500 mb-4">전체 현황</p>
+                <div className="space-y-2.5">
+                  {memberStats.map(({ member, daysSince }) => (
+                    <div key={member.id} className="flex items-center gap-2">
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0 ${memberAvatarColor(member.part)}`}>
+                        {member.name[0]}
                       </div>
-                    )
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* RIGHT: alert panel */}
-          <div className="min-w-0 md:flex-[40] flex flex-col gap-4">
-            {urgentStat ? (
-              <div className="bg-[#EBA698]/20 rounded-lg px-5 py-4">
-                <p className="text-xs font-semibold text-[#6B2D25] mb-3">30일 미진행 긴급</p>
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="text-lg font-bold text-gray-900">{urgentStat.member.name}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">{urgentStat.member.part}</p>
-                    <p className="text-sm text-[#6B2D25] mt-2">
-                      마지막 1on1:{' '}
-                      {urgentStat.daysSince === null ? '기록 없음' : `${urgentStat.daysSince}일 전`}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => createSession(urgentStat.member.id)}
-                    className="flex-shrink-0 text-xs bg-gray-900 text-white px-3 py-1.5 rounded-md hover:bg-gray-800 transition-colors whitespace-nowrap">
-                    + 바로 진행
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="bg-[#BADEC8]/20 rounded-lg border border-[#BADEC8]/40 px-5 py-4">
-                <p className="text-sm font-semibold text-[#2D5A45]">✓ 이번 달 모두 진행됨</p>
-              </div>
-            )}
-
-            <div className="bg-white rounded-lg border border-gray-100 px-5 py-4">
-              <p className="text-xs font-semibold text-gray-500 mb-3">전체 현황</p>
-              <div className="space-y-2">
-                {memberStats.map(({ member, daysSince }) => (
-                  <div key={member.id} className="flex items-center gap-2">
-                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0 ${
-                      member.part === '코어' ? 'bg-[#BADEC8]/60 text-[#2D5A45]' :
-                      member.part === '비즈' ? 'bg-[#90A7D8]/60 text-[#1E3A6B]' :
-                      'bg-[#EBA698]/40 text-[#5A2D25]'
-                    }`}>
-                      {member.name[0]}
+                      <div className="flex-1 min-w-0">
+                        <span className="text-sm font-medium text-gray-800">{member.name}</span>
+                        <span className="text-xs text-gray-400 ml-1.5">{member.part}</span>
+                      </div>
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full border flex-shrink-0 ${daysBadgeClass(daysSince)}`}>
+                        {daysLabel(daysSince)}
+                      </span>
+                      <Link href={`/one-on-one/${member.id}`}
+                        className="text-xs text-gray-400 hover:text-gray-700 flex-shrink-0 whitespace-nowrap transition-colors">
+                        1on1 →
+                      </Link>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <span className="text-sm font-medium text-gray-800">{member.name}</span>
-                      <span className="text-xs text-gray-400 ml-1.5">{member.part}</span>
-                    </div>
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded flex-shrink-0 ${daysBadgeClass(daysSince)}`}>
-                      {daysLabel(daysSince)}
-                    </span>
-                    <Link href={`/one-on-one/${member.id}`}
-                      className="text-xs text-gray-400 hover:text-gray-700 flex-shrink-0 whitespace-nowrap">
-                      1on1 →
-                    </Link>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* 내 피드백 뷰 */}
-      {view === 'my-feedback' && <MyFeedbackView />}
+        {/* 내 피드백 뷰 */}
+        {view === 'my-feedback' && <MyFeedbackView />}
+      </div>
     </div>
   )
 }

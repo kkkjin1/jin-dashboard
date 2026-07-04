@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useState, useMemo, useRef } from 'react'
 import Link from 'next/link'
@@ -13,28 +13,10 @@ const PARTS: Part[] = ['코어', '비즈', '개인']
 const TYPES: TaskType[] = ['기획', '개선', '운영']
 const STATUSES: TaskStatus[] = ['진행필요', '진행중', '완료']
 
-const STATUS_COLORS: Record<TaskStatus, string> = {
-  '진행필요': 'bg-gray-100 text-gray-500',
-  '진행중':   'bg-[#90A7D8]/30 text-[#1E3A6B]',
-  '완료':     'bg-[#BADEC8]/40 text-[#2D5A45]',
-}
-
-const STATUS_BG: Record<TaskStatus, string> = {
-  '진행필요': 'bg-gray-50 border-gray-200',
-  '진행중':   'bg-[#90A7D8]/10 border-[#90A7D8]/25',
-  '완료':     'bg-gray-50 border-gray-200',
-}
-
-const PART_TOP: Record<string, string> = {
-  '코어': 'bg-[#BADEC8]',
-  '비즈': 'bg-[#90A7D8]',
-  '개인': 'bg-slate-300',
-}
-
-const PART_DOT: Record<string, string> = {
-  '코어': 'bg-[#BADEC8]',
-  '비즈': 'bg-[#90A7D8]',
-  '개인': 'bg-slate-400',
+const STATUS_BADGE: Record<TaskStatus, string> = {
+  '진행필요': 'bg-gray-100/80 text-gray-500 border-gray-200',
+  '진행중':   'bg-[#90A7D8]/25 text-[#1E3A6B] border-[#90A7D8]/40',
+  '완료':     'bg-[#BADEC8]/35 text-[#2D5A45] border-[#BADEC8]/50',
 }
 
 function MemberAvatar({ name }: { name: string }) {
@@ -51,6 +33,10 @@ function formatMonth(ym: string): string {
   const [y, m] = ym.split('-')
   return `${y}년 ${parseInt(m)}월`
 }
+
+const pill  = 'text-xs px-3.5 py-1.5 rounded-full border font-medium transition-all whitespace-nowrap'
+const pOn  = 'bg-gray-900 text-white border-gray-900 shadow-sm'
+const pOff = 'bg-white/40 backdrop-blur-xl border-white/60 text-gray-500 hover:bg-white/60 hover:text-gray-700'
 
 export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([])
@@ -258,56 +244,54 @@ export default function TasksPage() {
   if (loadingTasks) return <TaskPageSkeleton />
 
   return (
-    <div className="p-3 md:p-5">
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-xl font-bold text-gray-900">업무 목록</h1>
-        <div className="flex items-center gap-2">
-          {checkedIds.size > 0 && (
-            <>
-              <button onClick={downloadChecked}
-                className="text-xs bg-gray-700 text-white px-3 py-1.5 rounded-md hover:bg-gray-800 transition-colors">
-                MD 다운로드 ({checkedIds.size})
-              </button>
-              <button onClick={deleteChecked}
-                className="text-xs bg-red-500 text-white px-3 py-1.5 rounded-md hover:bg-red-600 transition-colors">
-                {checkedIds.size}개 삭제
-              </button>
-            </>
-          )}
-        </div>
+    <div className="h-full flex flex-col overflow-hidden font-sans">
+      {/* 헤더 */}
+      <div className="flex-shrink-0 pt-6 pb-4 flex items-center gap-3">
+        <h1 className="text-xl font-bold text-gray-900 mr-auto">업무 목록</h1>
+        {checkedIds.size > 0 && (
+          <>
+            <button onClick={downloadChecked} className={`${pill} ${pOff}`}>
+              MD 다운로드 ({checkedIds.size})
+            </button>
+            <button onClick={deleteChecked}
+              className="text-xs bg-red-50 border border-red-200 text-red-500 px-3 py-1.5 rounded-full hover:bg-red-100 transition-all">
+              {checkedIds.size}개 삭제
+            </button>
+          </>
+        )}
       </div>
 
       {/* 필터 바 */}
-      <div className="flex items-center gap-2 mb-5 flex-wrap">
+      <div className="flex-shrink-0 flex items-center gap-2 mb-5 flex-wrap">
         <button
           onClick={() => setStatusFilter(prev => prev === '전체' ? '진행필요' : prev === '진행필요' ? '진행중' : prev === '진행중' ? '완료' : '전체')}
-          className={`text-xs px-3 py-1.5 rounded-md border transition-colors ${statusFilter !== '전체' ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
+          className={`${pill} ${statusFilter !== '전체' ? pOn : pOff}`}>
           {statusFilter === '전체' ? '전체 상태' : statusFilter}
         </button>
         <button
           onClick={() => setHideCompleted(prev => !prev)}
-          className={`text-xs px-3 py-1.5 rounded-md border transition-colors ${hideCompleted ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
+          className={`${pill} ${hideCompleted ? pOn : pOff}`}>
           {hideCompleted ? '완료 숨김' : '완료 표시'}
         </button>
         <div className="relative flex items-center gap-1">
           <button
             onClick={() => setShowPicker(prev => !prev)}
-            className={`text-xs px-3 py-1.5 rounded-md border transition-colors ${viewMode === 'monthly' ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
+            className={`${pill} ${viewMode === 'monthly' ? pOn : pOff}`}>
             {viewMode === 'monthly' && monthFilter !== '전체' ? formatMonth(monthFilter) : '월별 칸반'}
           </button>
           {viewMode === 'monthly' && (
             <button
               onClick={() => { setViewMode('parts'); setShowPicker(false) }}
-              className="text-gray-300 hover:text-gray-600 text-sm px-0.5 leading-none transition-colors">
+              className="text-gray-400 hover:text-gray-700 text-sm px-0.5 leading-none transition-colors">
               ×
             </button>
           )}
           {showPicker && (
-            <div ref={pickerRef} className="absolute top-full left-0 mt-1 z-50 bg-white border border-gray-200 rounded-xl shadow-lg p-4 w-56">
+            <div ref={pickerRef} className="absolute top-full left-0 mt-2 z-50 bg-white/90 backdrop-blur-xl border border-white/80 rounded-3xl shadow-lg p-4 w-56">
               <div className="flex items-center justify-between mb-3">
-                <button onClick={() => setPickerYear(y => y - 1)} className="w-7 h-7 flex items-center justify-center rounded hover:bg-gray-100 transition-colors text-gray-500 text-lg">‹</button>
+                <button onClick={() => setPickerYear(y => y - 1)} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors text-gray-500 text-lg">‹</button>
                 <span className="text-sm font-semibold text-gray-800">{pickerYear}년</span>
-                <button onClick={() => setPickerYear(y => y + 1)} className="w-7 h-7 flex items-center justify-center rounded hover:bg-gray-100 transition-colors text-gray-500 text-lg">›</button>
+                <button onClick={() => setPickerYear(y => y + 1)} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors text-gray-500 text-lg">›</button>
               </div>
               <div className="grid grid-cols-4 gap-1">
                 {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
@@ -316,7 +300,7 @@ export default function TasksPage() {
                       const ym = `${pickerYear}-${String(m).padStart(2, '0')}`
                       setMonthFilter(ym); setViewMode('monthly'); setShowPicker(false)
                     }}
-                    className={`text-xs py-1.5 rounded-lg transition-colors ${pickerFocusMonth === m ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
+                    className={`text-xs py-1.5 rounded-full transition-colors ${pickerFocusMonth === m ? pOn : 'text-gray-600 hover:bg-gray-100'}`}>
                     {m}월
                   </button>
                 ))}
@@ -327,19 +311,19 @@ export default function TasksPage() {
         </div>
         <div className="relative" ref={assigneeDropdownRef}>
           <button onClick={() => setAssigneeOpen(prev => !prev)}
-            className={`text-xs px-3 py-1.5 rounded-md border transition-colors flex items-center gap-1 ${assigneeFilter !== '전체' ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
+            className={`${pill} flex items-center gap-1 ${assigneeFilter !== '전체' ? pOn : pOff}`}>
             {assigneeFilter === '전체' ? '전체 담당자' : (members.find(m => m.id === assigneeFilter)?.name ?? '담당자')}
             <span className="text-[10px] opacity-60">▾</span>
           </button>
           {assigneeOpen && (
-            <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-gray-200 rounded-xl shadow-lg py-1.5 min-w-36">
+            <div className="absolute top-full left-0 mt-2 z-50 bg-white/90 backdrop-blur-xl border border-white/80 rounded-2xl shadow-lg py-1.5 min-w-36">
               <button onClick={() => { setAssigneeFilter('전체'); setAssigneeOpen(false) }}
-                className={`w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 transition-colors ${assigneeFilter === '전체' ? 'text-[#2D5A45] font-medium' : 'text-gray-600'}`}>
+                className={`w-full text-left px-3 py-1.5 text-xs hover:bg-white/60 transition-colors ${assigneeFilter === '전체' ? 'text-[#2D5A45] font-medium' : 'text-gray-600'}`}>
                 전체 담당자
               </button>
               {members.map(m => (
                 <button key={m.id} onClick={() => { setAssigneeFilter(m.id); setAssigneeOpen(false) }}
-                  className={`w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 transition-colors ${assigneeFilter === m.id ? 'text-[#2D5A45] font-medium' : 'text-gray-600'}`}>
+                  className={`w-full text-left px-3 py-1.5 text-xs hover:bg-white/60 transition-colors ${assigneeFilter === m.id ? 'text-[#2D5A45] font-medium' : 'text-gray-600'}`}>
                   {m.name}
                 </button>
               ))}
@@ -348,165 +332,165 @@ export default function TasksPage() {
         </div>
       </div>
 
-      {/* 월별 칸반 */}
-      {viewMode === 'monthly' && (
-        <div className="flex flex-col md:flex-row gap-4">
-          {STATUSES.map(status => {
-            const colTasks = monthlyTasks.filter(t => t.status === status)
-            return (
-              <div key={status}
-                className={`flex-1 rounded-lg border p-4 min-h-48 ${STATUS_BG[status]}`}
-                onDragOver={e => e.preventDefault()}
-                onDrop={e => handleDrop(e, status)}>
-                <div className="flex items-center gap-2 mb-3">
-                  <span className={`text-xs font-semibold px-2.5 py-0.5 rounded ${STATUS_COLORS[status]}`}>{status}</span>
-                  <span className="text-xs text-gray-400">{colTasks.length}</span>
-                </div>
-                <div className="space-y-3">
-                  {colTasks.map(task => (
-                    <div key={task.id} draggable
-                      onDragStart={() => setDraggingId(task.id)}
-                      onDragEnd={() => setDraggingId(null)}
-                      className={`bg-white rounded-lg border border-gray-100 px-3 py-2.5 cursor-grab active:cursor-grabbing select-none ${draggingId === task.id ? 'opacity-40' : ''}`}>
-                      <Link href={`/tasks/${task.id}`} onClick={e => e.stopPropagation()}>
-                        <p className="text-sm font-semibold text-gray-800 truncate">
-                          {task.title || <span className="text-gray-300 italic text-xs">제목 없음</span>}
-                        </p>
-                        <div className="flex items-center gap-2 mt-1 flex-wrap">
-                          <span className="text-xs text-gray-400">{task.part} · {task.type}</span>
-                          {task.mid_date && <span className="text-xs bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded">중간 {formatDate(task.mid_date)}</span>}
-                          {task.end_date && <span className="text-xs text-gray-400">📅 {formatDate(task.end_date)}</span>}
-                        </div>
-                      </Link>
-                    </div>
-                  ))}
-                  {colTasks.length === 0 && <p className="text-xs text-gray-300 text-center py-6">없음</p>}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
+      {/* 콘텐츠 */}
+      <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
 
-      {/* 파트별 3-column */}
-      {viewMode === 'parts' && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {PARTS.map(part => {
-            const partTasks = filteredTasks.filter(t => t.part === part)
-            const allPartIds = partTasks.map(t => t.id)
-            const allChecked = allPartIds.length > 0 && allPartIds.every(id => checkedIds.has(id))
-            return (
-              <div key={part} className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-                <div className={`h-1 ${PART_TOP[part] ?? 'bg-gray-200'}`} />
-                <div className="p-4">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <span className={`w-2 h-2 rounded-full flex-shrink-0 ${PART_DOT[part] ?? 'bg-gray-300'}`} />
-                    <h2 className="text-sm font-bold text-gray-800">{part}파트</h2>
-                    <span className="text-xs text-gray-400">{partTasks.length}</span>
+        {/* 월별 칸반 */}
+        {viewMode === 'monthly' && (
+          <div className="flex flex-col md:flex-row gap-4 pb-6">
+            {STATUSES.map(status => {
+              const colTasks = monthlyTasks.filter(t => t.status === status)
+              return (
+                <div key={status}
+                  className="flex-1 bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl p-4 min-h-48"
+                  onDragOver={e => e.preventDefault()}
+                  onDrop={e => handleDrop(e, status)}>
+                  <div className="flex items-center gap-2 mb-4">
+                    <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${STATUS_BADGE[status]}`}>{status}</span>
+                    <span className="text-xs text-gray-400">{colTasks.length}</span>
                   </div>
-                  {allPartIds.length > 0 && (
-                    <input type="checkbox" checked={allChecked}
-                      onChange={() => toggleCheckAll(allPartIds)}
-                      className="w-3 h-3 rounded accent-gray-600 cursor-pointer" title="전체 선택" />
-                  )}
+                  <div className="space-y-2">
+                    {colTasks.map(task => (
+                      <div key={task.id} draggable
+                        onDragStart={() => setDraggingId(task.id)}
+                        onDragEnd={() => setDraggingId(null)}
+                        className={`bg-white/60 rounded-2xl border border-white/70 px-3 py-2.5 cursor-grab active:cursor-grabbing select-none hover:bg-white/80 transition-all ${draggingId === task.id ? 'opacity-40' : ''}`}>
+                        <Link href={`/tasks/${task.id}`} onClick={e => e.stopPropagation()}>
+                          <p className="text-sm font-semibold text-gray-800 truncate">
+                            {task.title || <span className="text-gray-300 italic text-xs">제목 없음</span>}
+                          </p>
+                          <div className="flex items-center gap-2 mt-1 flex-wrap">
+                            <span className="text-xs text-gray-400">{task.part} · {task.type}</span>
+                            {task.mid_date && <span className="text-xs text-amber-600 bg-amber-50/80 px-1.5 py-0.5 rounded-full">중간 {formatDate(task.mid_date)}</span>}
+                            {task.end_date && <span className="text-xs text-gray-400">{formatDate(task.end_date)}</span>}
+                          </div>
+                        </Link>
+                      </div>
+                    ))}
+                    {colTasks.length === 0 && <p className="text-xs text-gray-300 text-center py-6">없음</p>}
+                  </div>
                 </div>
-                {TYPES.map(type => {
-                  const sectionTasks = partTasks.filter(t => t.type === type && t.status !== '완료')
-                  const sectionKey = `${part}_${type}`
-                  const isCollapsed = collapsedSections.has(sectionKey)
-                  return (
-                    <div key={type} className="mb-4">
-                      <div className="flex items-center gap-2 mb-1.5 cursor-pointer" onClick={() => toggleSection(sectionKey)}>
-                        <span className="text-[10px] text-gray-300">{isCollapsed ? '▶' : '▼'}</span>
-                        <span className="text-xs font-bold uppercase tracking-wide text-gray-400">{type}</span>
-                        <span className="text-xs text-gray-300">{sectionTasks.length}</span>
-                      </div>
-                      {!isCollapsed && (
-                        <div className="space-y-1.5">
-                          {sectionTasks.map(task => (
-                            <div key={task.id}
-                              className={`bg-gray-50 rounded-md border px-3 py-2 flex items-center gap-2 hover:bg-white transition-colors cursor-pointer group ${checkedIds.has(task.id) ? 'border-gray-400 bg-white' : 'border-gray-100'}`}>
-                              <input type="checkbox" checked={checkedIds.has(task.id)}
-                                onChange={() => toggleCheck(task.id)}
-                                onClick={e => e.stopPropagation()}
-                                className="w-3.5 h-3.5 rounded accent-gray-600 cursor-pointer flex-shrink-0" />
-                              <select value={task.status}
-                                onChange={e => { e.stopPropagation(); updateStatus(task.id, e.target.value as TaskStatus) }}
-                                onClick={e => e.stopPropagation()}
-                                className={`text-xs px-1.5 py-0.5 rounded font-medium border-0 cursor-pointer focus:outline-none flex-shrink-0 ${STATUS_COLORS[task.status]}`}>
-                                {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-                              </select>
-                              <Link href={`/tasks/${task.id}`} className="flex-1 min-w-0 flex items-center justify-between gap-2">
-                                <span className="text-xs text-gray-800 font-medium truncate">
-                                  {task.title || <span className="text-gray-300 italic">제목 없음</span>}
-                                </span>
-                                <div className="flex items-center gap-1.5 flex-shrink-0">
-                                  {task.mid_date && <span className="text-xs bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded hidden group-hover:block">중간 {formatDate(task.mid_date)}</span>}
-                                  {task.end_date && <span className="text-xs text-gray-400 hidden group-hover:block">📅 {formatDate(task.end_date)}</span>}
-                                  {task.members && <MemberAvatar name={task.members.name} />}
-                                </div>
-                              </Link>
-                            </div>
-                          ))}
-                          <button onClick={() => handleAddTask(part, type)}
-                            className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:text-gray-500 hover:bg-gray-50 rounded-md transition-colors">
-                            + 업무 추가
-                          </button>
-                        </div>
-                      )}
+              )
+            })}
+          </div>
+        )}
+
+        {/* 파트별 3-column */}
+        {viewMode === 'parts' && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 pb-6">
+            {PARTS.map(part => {
+              const partTasks = filteredTasks.filter(t => t.part === part)
+              const allPartIds = partTasks.map(t => t.id)
+              const allChecked = allPartIds.length > 0 && allPartIds.every(id => checkedIds.has(id))
+              return (
+                <div key={part} className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl p-5">
+                  <div className="flex items-center justify-between mb-5">
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-sm font-bold text-gray-800">{part}파트</h2>
+                      <span className="text-xs text-gray-400 bg-white/60 border border-white/70 px-2 py-0.5 rounded-full">{partTasks.length}</span>
                     </div>
-                  )
-                })}
-                {(() => {
-                  const completedTasks = partTasks.filter(t => t.status === '완료')
-                  const completedKey = `${part}_완료`
-                  const isCollapsed = collapsedSections.has(completedKey)
-                  return (
-                    <div className="mb-4">
-                      <div className="flex items-center gap-2 mb-1.5 cursor-pointer" onClick={() => toggleSection(completedKey)}>
-                        <span className="text-[10px] text-gray-300">{isCollapsed ? '▶' : '▼'}</span>
-                        <span className="text-xs font-bold uppercase tracking-wide text-green-600">완료</span>
-                        <span className="text-xs text-gray-300">{completedTasks.length}</span>
-                      </div>
-                      {!isCollapsed && (
-                        <div className="space-y-1.5">
-                          {completedTasks.map(task => (
-                            <div key={task.id}
-                              className={`bg-gray-50 rounded-md border px-3 py-2 flex items-center gap-2 hover:bg-white transition-colors cursor-pointer group ${checkedIds.has(task.id) ? 'border-gray-400 bg-white' : 'border-gray-100'}`}>
-                              <input type="checkbox" checked={checkedIds.has(task.id)}
-                                onChange={() => toggleCheck(task.id)}
-                                onClick={e => e.stopPropagation()}
-                                className="w-3.5 h-3.5 rounded accent-gray-600 cursor-pointer flex-shrink-0" />
-                              <select value={task.status}
-                                onChange={e => { e.stopPropagation(); updateStatus(task.id, e.target.value as TaskStatus) }}
-                                onClick={e => e.stopPropagation()}
-                                className={`text-xs px-1.5 py-0.5 rounded font-medium border-0 cursor-pointer focus:outline-none flex-shrink-0 ${STATUS_COLORS[task.status]}`}>
-                                {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-                              </select>
-                              <Link href={`/tasks/${task.id}`} className="flex-1 min-w-0 flex items-center justify-between gap-2">
-                                <span className="text-xs text-gray-800 font-medium truncate">
-                                  {task.title || <span className="text-gray-300 italic">제목 없음</span>}
-                                </span>
-                                <div className="flex items-center gap-1.5 flex-shrink-0">
-                                  {task.mid_date && <span className="text-xs bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded hidden group-hover:block">중간 {formatDate(task.mid_date)}</span>}
-                                  {task.end_date && <span className="text-xs text-gray-400 hidden group-hover:block">📅 {formatDate(task.end_date)}</span>}
-                                  {task.members && <MemberAvatar name={task.members.name} />}
-                                </div>
-                              </Link>
-                            </div>
-                          ))}
+                    {allPartIds.length > 0 && (
+                      <input type="checkbox" checked={allChecked}
+                        onChange={() => toggleCheckAll(allPartIds)}
+                        className="w-3 h-3 rounded accent-gray-600 cursor-pointer" title="전체 선택" />
+                    )}
+                  </div>
+
+                  {TYPES.map(type => {
+                    const sectionTasks = partTasks.filter(t => t.type === type && t.status !== '완료')
+                    const sectionKey = `${part}_${type}`
+                    const isCollapsed = collapsedSections.has(sectionKey)
+                    return (
+                      <div key={type} className="mb-5">
+                        <div className="flex items-center gap-2 mb-2 cursor-pointer" onClick={() => toggleSection(sectionKey)}>
+                          <span className="text-[10px] text-gray-300">{isCollapsed ? '▶' : '▼'}</span>
+                          <span className="text-xs font-semibold text-gray-400">{type}</span>
+                          <span className="text-xs text-gray-300">{sectionTasks.length}</span>
                         </div>
-                      )}
-                    </div>
-                  )
-                })()}
-                </div>{/* /p-4 */}
-              </div>
-            )
-          })}
-        </div>
-      )}
+                        {!isCollapsed && (
+                          <div className="space-y-1.5">
+                            {sectionTasks.map(task => (
+                              <div key={task.id}
+                                className={`bg-white/50 rounded-2xl border border-white/70 px-3 py-2 flex items-center gap-2 hover:bg-white/70 transition-all cursor-pointer group ${checkedIds.has(task.id) ? 'bg-white/70 border-white/90' : ''}`}>
+                                <input type="checkbox" checked={checkedIds.has(task.id)}
+                                  onChange={() => toggleCheck(task.id)}
+                                  onClick={e => e.stopPropagation()}
+                                  className="w-3.5 h-3.5 rounded accent-gray-600 cursor-pointer flex-shrink-0" />
+                                <select value={task.status}
+                                  onChange={e => { e.stopPropagation(); updateStatus(task.id, e.target.value as TaskStatus) }}
+                                  onClick={e => e.stopPropagation()}
+                                  className={`text-xs px-1.5 py-0.5 rounded-full border font-medium cursor-pointer focus:outline-none flex-shrink-0 ${STATUS_BADGE[task.status]}`}>
+                                  {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                                </select>
+                                <Link href={`/tasks/${task.id}`} className="flex-1 min-w-0 flex items-center justify-between gap-2">
+                                  <span className="text-xs text-gray-800 font-medium truncate">
+                                    {task.title || <span className="text-gray-300 italic">제목 없음</span>}
+                                  </span>
+                                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                                    {task.mid_date && <span className="text-xs text-amber-600 bg-amber-50/80 px-1.5 py-0.5 rounded-full hidden group-hover:block">중간 {formatDate(task.mid_date)}</span>}
+                                    {task.end_date && <span className="text-xs text-gray-400 hidden group-hover:block">{formatDate(task.end_date)}</span>}
+                                    {task.members && <MemberAvatar name={task.members.name} />}
+                                  </div>
+                                </Link>
+                              </div>
+                            ))}
+                            <button onClick={() => handleAddTask(part, type)}
+                              className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:text-gray-500 hover:bg-white/40 rounded-2xl transition-colors">
+                              + 업무 추가
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+
+                  {(() => {
+                    const completedTasks = partTasks.filter(t => t.status === '완료')
+                    const completedKey = `${part}_완료`
+                    const isCollapsed = collapsedSections.has(completedKey)
+                    return (
+                      <div>
+                        <div className="flex items-center gap-2 mb-2 cursor-pointer" onClick={() => toggleSection(completedKey)}>
+                          <span className="text-[10px] text-gray-300">{isCollapsed ? '▶' : '▼'}</span>
+                          <span className="text-xs font-semibold text-[#2D5A45]">완료</span>
+                          <span className="text-xs text-gray-300">{completedTasks.length}</span>
+                        </div>
+                        {!isCollapsed && (
+                          <div className="space-y-1.5">
+                            {completedTasks.map(task => (
+                              <div key={task.id}
+                                className={`bg-white/50 rounded-2xl border border-white/70 px-3 py-2 flex items-center gap-2 hover:bg-white/70 transition-all cursor-pointer group opacity-70 hover:opacity-100 ${checkedIds.has(task.id) ? 'opacity-100 bg-white/70' : ''}`}>
+                                <input type="checkbox" checked={checkedIds.has(task.id)}
+                                  onChange={() => toggleCheck(task.id)}
+                                  onClick={e => e.stopPropagation()}
+                                  className="w-3.5 h-3.5 rounded accent-gray-600 cursor-pointer flex-shrink-0" />
+                                <select value={task.status}
+                                  onChange={e => { e.stopPropagation(); updateStatus(task.id, e.target.value as TaskStatus) }}
+                                  onClick={e => e.stopPropagation()}
+                                  className={`text-xs px-1.5 py-0.5 rounded-full border font-medium cursor-pointer focus:outline-none flex-shrink-0 ${STATUS_BADGE[task.status]}`}>
+                                  {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                                </select>
+                                <Link href={`/tasks/${task.id}`} className="flex-1 min-w-0 flex items-center justify-between gap-2">
+                                  <span className="text-xs text-gray-500 font-medium truncate line-through decoration-gray-300">
+                                    {task.title || <span className="text-gray-300 italic">제목 없음</span>}
+                                  </span>
+                                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                                    {task.members && <MemberAvatar name={task.members.name} />}
+                                  </div>
+                                </Link>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })()}
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

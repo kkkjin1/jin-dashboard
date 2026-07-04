@@ -11,6 +11,36 @@ const ALL_TAGS: MemoTag[] = ['공지', '업무관련', '회의관련', '아이�
 const FILTER_TAGS = ['전체', ...ALL_TAGS] as const
 type FilterTag = typeof FILTER_TAGS[number]
 
+type Period = '이번 주' | '이번 달' | '3개월' | '전체'
+const PERIODS: Period[] = ['이번 주', '이번 달', '3개월', '전체']
+
+function getPeriodStart(period: Period): Date | null {
+  if (period === '전체') return null
+  const now = new Date()
+  if (period === '이번 주') {
+    const d = new Date(now)
+    const dow = d.getDay()
+    d.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1))
+    d.setHours(0, 0, 0, 0)
+    return d
+  }
+  if (period === '이번 달') return new Date(now.getFullYear(), now.getMonth(), 1)
+  const d = new Date(now); d.setMonth(now.getMonth() - 3); return d
+}
+
+function inPeriod(dateStr: string | null | undefined, period: Period): boolean {
+  if (!dateStr) return period === '전체'
+  const start = getPeriodStart(period)
+  if (!start) return true
+  return new Date(dateStr) >= start
+}
+
+function formatMonthLabel(ym: string): string {
+  if (ym === '날짜 없음') return '날짜 미지정'
+  const [y, m] = ym.split('-')
+  return `${y}년 ${parseInt(m)}월`
+}
+
 const TAG_BADGE: Record<MemoTag, string> = {
   '공지':     'bg-[#F3E482]/50 text-[#5A4A10] border-[#F3E482]/60',
   '업무관련':  'bg-[#BADEC8]/40 text-[#2D5A45] border-[#BADEC8]/55',
@@ -26,6 +56,10 @@ const TAG_ACCENT: Record<MemoTag, string> = {
   '아이디어':  'border-t-[#BFE4B5]',
   '완료':     'border-t-gray-200',
 }
+
+const pill  = 'text-xs px-3.5 py-1.5 rounded-full border font-medium transition-all whitespace-nowrap'
+const pOn  = 'bg-gray-900 text-white border-gray-900 shadow-sm'
+const pOff = 'bg-white/40 backdrop-blur-xl border-white/60 text-gray-500 hover:bg-white/60 hover:text-gray-700'
 
 interface MemoCardProps {
   memo: QuickMemo
@@ -96,7 +130,7 @@ function EditModal({ memo, onSave, onClose }: EditModalProps) {
         <div className="flex gap-1.5 mb-4 flex-wrap">
           {ALL_TAGS.map(t => (
             <button key={t} onClick={() => setTag(t)}
-              className={`text-xs px-3 py-1.5 rounded-full border transition-all font-medium ${tag === t ? 'bg-gray-900 text-white border-gray-900' : `border-gray-200 text-gray-500 hover:bg-gray-50 ${TAG_BADGE[t]}`}`}>
+              className={`text-xs px-3 py-1.5 rounded-full border transition-all font-medium ${tag === t ? pOn : `border-gray-200 text-gray-500 hover:bg-gray-50 ${TAG_BADGE[t]}`}`}>
               {t}
             </button>
           ))}
@@ -111,9 +145,8 @@ function EditModal({ memo, onSave, onClose }: EditModalProps) {
           placeholder="내용 (Ctrl+Enter 저장)"
           className="w-full text-sm text-gray-500 focus:outline-none resize-none bg-white/60 border border-gray-100 rounded-2xl p-3" rows={4} />
         <div className="flex justify-end gap-2 mt-4">
-          <button onClick={onClose} className="text-xs text-gray-400 hover:text-gray-600 px-3 py-1.5">취소</button>
-          <button onClick={() => onSave(memo.id, title, content, tag)}
-            className="text-xs bg-gray-900 text-white px-4 py-1.5 rounded-full hover:bg-gray-800">저장</button>
+          <button onClick={onClose} className={`${pill} ${pOff}`}>취소</button>
+          <button onClick={() => onSave(memo.id, title, content, tag)} className={`${pill} ${pOn}`}>저장</button>
         </div>
       </div>
     </div>
@@ -126,6 +159,7 @@ export default function MemosPage() {
   const [editing, setEditing] = useState<QuickMemo | null>(null)
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [period, setPeriod] = useState<Period>('이번 달')
   const [filterTag, setFilterTag] = useState<FilterTag>('전체')
   const [showAddForm, setShowAddForm] = useState(false)
   const [newTitle, setNewTitle] = useState('')
@@ -134,6 +168,7 @@ export default function MemosPage() {
   const [inlineTag, setInlineTag] = useState<MemoTag | null>(null)
   const [inlineTitle, setInlineTitle] = useState('')
   const [inlineContent, setInlineContent] = useState('')
+  const [collapsedMonths, setCollapsedMonths] = useState<Set<string>>(new Set())
   const inlineContentRef = useRef<HTMLTextAreaElement>(null)
   const supabase = createClient()
 
@@ -212,10 +247,34 @@ export default function MemosPage() {
     setDraggingId(null)
   }
 
+  function toggleMonthCollapse(ym: string) {
+    setCollapsedMonths(prev => { const s = new Set(prev); s.has(ym) ? s.delete(ym) : s.add(ym); return s })
+  }
+
+  // 기간 + 태그 필터
   const displayed = useMemo(() => {
-    if (filterTag === '전체') return memos
-    return memos.filter(m => m.tag === filterTag)
-  }, [memos, filterTag])
+    const byPeriod = memos.filter(m => inPeriod(m.created_at, period))
+    if (filterTag === '전체') return byPeriod
+    return byPeriod.filter(m => m.tag === filterTag)
+  }, [memos, period, filterTag])
+
+  // 월별 그루핑
+  const monthGroups = useMemo(() => {
+    const map = new Map<string, QuickMemo[]>()
+    displayed.forEach(m => {
+      const ym = m.created_at ? m.created_at.slice(0, 7) : '날짜 없음'
+      if (!map.has(ym)) map.set(ym, [])
+      map.get(ym)!.push(m)
+    })
+    return Array.from(map.entries()).sort(([a], [b]) => b.localeCompare(a))
+  }, [displayed])
+
+  // 필터 변경 시 최신 월만 펼침
+  useEffect(() => {
+    const allYMs = monthGroups.map(([ym]) => ym)
+    const latest = allYMs[0] ?? null
+    setCollapsedMonths(new Set(allYMs.filter(ym => ym !== latest)))
+  }, [period, filterTag])
 
   if (loading) return <MemoPageSkeleton />
 
@@ -247,7 +306,7 @@ export default function MemosPage() {
           <div className="flex gap-1.5 mb-3 flex-wrap">
             {ALL_TAGS.map(t => (
               <button key={t} onClick={() => setNewTag(t)}
-                className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-all ${newTag === t ? 'bg-gray-900 text-white border-gray-900' : `${TAG_BADGE[t]} hover:opacity-80`}`}>
+                className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-all ${newTag === t ? pOn : `${TAG_BADGE[t]} hover:opacity-80`}`}>
                 {t}
               </button>
             ))}
@@ -261,11 +320,19 @@ export default function MemosPage() {
             placeholder="내용 (선택, Ctrl+Enter 저장)" rows={2}
             className="w-full text-xs focus:outline-none resize-none text-gray-500 bg-transparent" />
           <div className="flex gap-2 justify-end mt-2">
-            <button onClick={() => setShowAddForm(false)} className="text-xs text-gray-400 px-3 py-1.5">취소</button>
-            <button onClick={handleAddSave} className="text-xs bg-gray-900 text-white px-4 py-1.5 rounded-full">저장</button>
+            <button onClick={() => setShowAddForm(false)} className={`${pill} ${pOff}`}>취소</button>
+            <button onClick={handleAddSave} className={`${pill} ${pOn}`}>저장</button>
           </div>
         </div>
       )}
+
+      {/* 기간 필터 */}
+      <div className="flex-shrink-0 flex items-center gap-1.5 mb-3">
+        {PERIODS.map(p => (
+          <button key={p} onClick={() => setPeriod(p)} className={`${pill} ${period === p ? pOn : pOff}`}>{p}</button>
+        ))}
+        <span className="text-xs text-gray-400 ml-auto">{displayed.length}개</span>
+      </div>
 
       {/* 태그 필터 pills */}
       <div className="flex-shrink-0 flex items-center gap-1.5 flex-wrap mb-4">
@@ -273,75 +340,110 @@ export default function MemosPage() {
           <button key={tag} onClick={() => setFilterTag(tag)}
             className={`text-xs px-3.5 py-1.5 rounded-full border font-medium transition-all whitespace-nowrap ${
               filterTag === tag
-                ? 'bg-gray-900 text-white border-gray-900 shadow-sm'
+                ? pOn
                 : tag !== '전체'
                   ? `${TAG_BADGE[tag as MemoTag]} hover:opacity-80 backdrop-blur-xl`
-                  : 'bg-white/40 backdrop-blur-xl border-white/60 text-gray-500 hover:bg-white/60'
+                  : pOff
             }`}>
             {tag}
-            {tag !== '전체' && <span className="ml-1 opacity-60">{memos.filter(m => m.tag === tag).length}</span>}
+            {tag !== '전체' && (
+              <span className="ml-1 opacity-60">{memos.filter(m => m.tag === tag).length}</span>
+            )}
           </button>
         ))}
       </div>
 
-      {/* 카드 그리드 */}
+      {/* 콘텐츠 */}
       <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
         {displayed.length === 0 ? (
-          <div className="flex items-center justify-center h-40">
+          <div className="flex flex-col items-center justify-center h-40 gap-2">
             <p className="text-gray-300 text-sm">
-              {filterTag === '전체' ? '메모가 없습니다. 추가해 보세요!' : `${filterTag} 메모가 없습니다`}
+              {period !== '전체' || filterTag !== '전체'
+                ? '해당 기간·태그의 메모가 없습니다'
+                : '메모가 없습니다. 추가해 보세요!'}
             </p>
+            {(period !== '전체' || filterTag !== '전체') && (
+              <button onClick={() => { setPeriod('전체'); setFilterTag('전체') }} className={`${pill} ${pOff} text-gray-400`}>
+                전체 보기
+              </button>
+            )}
           </div>
         ) : (
-          <div className="columns-1 md:columns-2 lg:columns-3 gap-4 pb-6 space-y-0">
-            {displayed.map((memo: QuickMemo) => (
-              <div key={memo.id} className="break-inside-avoid mb-4"
-                onDragOver={e => { e.preventDefault() }}
-                onDrop={() => handleDropOnTag(memo.tag)}>
-                <MemoCard
-                  memo={memo}
-                  onEdit={setEditing}
-                  onDelete={deleteMemo}
-                  draggable
-                  onDragStart={() => setDraggingId(memo.id)}
-                  selected={selectedIds.has(memo.id)}
-                  onToggleSelect={toggleSelect}
-                />
-              </div>
-            ))}
+          <div className="space-y-6 pb-6">
+            {monthGroups.map(([ym, items], idx) => {
+              const isLatest = idx === 0
+              const isCollapsed = collapsedMonths.has(ym)
+              return (
+                <div key={ym}>
+                  <button onClick={() => toggleMonthCollapse(ym)}
+                    className="flex items-center gap-2 mb-4 w-full text-left group py-1 border-b border-white/50 pb-2">
+                    <span className="text-sm font-semibold text-gray-600 group-hover:text-gray-800 transition-colors">
+                      {formatMonthLabel(ym)}
+                    </span>
+                    <span className="text-xs text-gray-400 bg-white/60 border border-white/70 px-2 py-0.5 rounded-full">{items.length}개</span>
+                    {isLatest && (
+                      <span className="text-[10px] text-[#2D5A45] bg-[#BADEC8]/30 border border-[#BADEC8]/40 px-2 py-0.5 rounded-full">최신</span>
+                    )}
+                    <span className="text-xs text-gray-300 ml-auto group-hover:text-gray-500 transition-colors">
+                      {isCollapsed ? '▶' : '▼'}
+                    </span>
+                  </button>
 
-            {/* 인라인 추가 카드 */}
-            {inlineTag ? (
-              <div className="break-inside-avoid mb-4 bg-white/60 backdrop-blur-xl border border-white/80 rounded-3xl p-4 shadow-sm">
-                <div className="flex gap-1.5 mb-3 flex-wrap">
-                  {ALL_TAGS.map(t => (
-                    <button key={t} onClick={() => setInlineTag(t)}
-                      className={`text-[10px] px-2 py-0.5 rounded-full border transition-all ${inlineTag === t ? 'bg-gray-900 text-white border-gray-900' : `${TAG_BADGE[t]}`}`}>
-                      {t}
-                    </button>
-                  ))}
+                  {!isCollapsed && (
+                    <div className="columns-1 md:columns-2 lg:columns-3 gap-4 space-y-0">
+                      {items.map((memo: QuickMemo) => (
+                        <div key={memo.id} className="break-inside-avoid mb-4"
+                          onDragOver={e => e.preventDefault()}
+                          onDrop={() => handleDropOnTag(memo.tag)}>
+                          <MemoCard
+                            memo={memo}
+                            onEdit={setEditing}
+                            onDelete={deleteMemo}
+                            draggable
+                            onDragStart={() => setDraggingId(memo.id)}
+                            selected={selectedIds.has(memo.id)}
+                            onToggleSelect={toggleSelect}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <input autoFocus value={inlineTitle} onChange={e => setInlineTitle(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); inlineContentRef.current?.focus() } if (e.key === 'Escape') { setInlineTag(null); setInlineTitle(''); setInlineContent('') } }}
-                  placeholder="제목"
-                  className="w-full text-sm font-semibold text-gray-800 focus:outline-none border-b border-gray-200 pb-1.5 mb-1.5 bg-transparent" />
-                <textarea ref={inlineContentRef} value={inlineContent} onChange={e => setInlineContent(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleInlineSave(inlineTag!) }}
-                  placeholder="내용 (선택)" rows={2}
-                  className="w-full text-xs focus:outline-none resize-none text-gray-500 bg-transparent" />
-                <div className="flex gap-1 justify-end mt-2">
-                  <button onClick={() => { setInlineTag(null); setInlineTitle(''); setInlineContent('') }} className="text-xs text-gray-400 px-2 py-1">취소</button>
-                  <button onClick={() => handleInlineSave(inlineTag!)} className="text-xs bg-gray-900 text-white px-3 py-1 rounded-full">저장</button>
+              )
+            })}
+
+            {/* 인라인 추가 */}
+            <div>
+              {inlineTag ? (
+                <div className="bg-white/60 backdrop-blur-xl border border-white/80 rounded-3xl p-4 shadow-sm">
+                  <div className="flex gap-1.5 mb-3 flex-wrap">
+                    {ALL_TAGS.map(t => (
+                      <button key={t} onClick={() => setInlineTag(t)}
+                        className={`text-[10px] px-2 py-0.5 rounded-full border transition-all ${inlineTag === t ? pOn : `${TAG_BADGE[t]}`}`}>
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                  <input autoFocus value={inlineTitle} onChange={e => setInlineTitle(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); inlineContentRef.current?.focus() } if (e.key === 'Escape') { setInlineTag(null); setInlineTitle(''); setInlineContent('') } }}
+                    placeholder="제목"
+                    className="w-full text-sm font-semibold text-gray-800 focus:outline-none border-b border-gray-200 pb-1.5 mb-1.5 bg-transparent" />
+                  <textarea ref={inlineContentRef} value={inlineContent} onChange={e => setInlineContent(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleInlineSave(inlineTag!) }}
+                    placeholder="내용 (선택)" rows={2}
+                    className="w-full text-xs focus:outline-none resize-none text-gray-500 bg-transparent" />
+                  <div className="flex gap-1 justify-end mt-2">
+                    <button onClick={() => { setInlineTag(null); setInlineTitle(''); setInlineContent('') }} className={`${pill} ${pOff} !text-[10px] !px-2.5 !py-1`}>취소</button>
+                    <button onClick={() => handleInlineSave(inlineTag!)} className={`${pill} ${pOn} !text-[10px] !px-2.5 !py-1`}>저장</button>
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <div className="break-inside-avoid mb-4">
+              ) : (
                 <button onClick={() => setInlineTag('업무관련')}
                   className="w-full bg-white/20 backdrop-blur-xl border border-dashed border-white/50 rounded-3xl py-6 hover:bg-white/30 hover:border-white/70 transition-all text-gray-400 hover:text-gray-600 text-xs font-medium">
                   + 메모 추가
                 </button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         )}
       </div>
