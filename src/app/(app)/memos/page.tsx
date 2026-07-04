@@ -11,8 +11,8 @@ const ALL_TAGS: MemoTag[] = ['공지', '업무관련', '회의관련', '아이�
 const FILTER_TAGS = ['전체', ...ALL_TAGS] as const
 type FilterTag = typeof FILTER_TAGS[number]
 
-type Period = '이번 주' | '이번 달' | '3개월' | '전체'
-const PERIODS: Period[] = ['이번 주', '이번 달', '3개월', '전체']
+type Period = '전체' | '이번 주' | '이번 달' | '3개월'
+const PERIODS: Period[] = ['전체', '이번 주', '이번 달', '3개월']
 
 function getPeriodStart(period: Period): Date | null {
   if (period === '전체') return null
@@ -42,19 +42,19 @@ function formatMonthLabel(ym: string): string {
 }
 
 const TAG_BADGE: Record<MemoTag, string> = {
-  '공지':     'bg-[#F3E482]/50 text-[#5A4A10] border-[#F3E482]/60',
-  '업무관련':  'bg-[#BADEC8]/40 text-[#2D5A45] border-[#BADEC8]/55',
-  '회의관련':  'bg-[#90A7D8]/30 text-[#1E3A6B] border-[#90A7D8]/45',
-  '아이디어':  'bg-[#BFE4B5]/40 text-[#2D5A35] border-[#BFE4B5]/55',
-  '완료':     'bg-gray-100/80 text-gray-400 border-gray-200',
+  '공지':    'bg-[#F0E8C8]/70 text-[#7A5E1A] border-[#DDD0A0]/60',
+  '업무관련': 'bg-[#C8D8C8]/60 text-[#3A5A3A] border-[#A8C4A8]/55',
+  '회의관련': 'bg-[#C8D0DC]/60 text-[#3A4A5A] border-[#A8B8CC]/55',
+  '아이디어': 'bg-[#DCC8C8]/60 text-[#6A3A3A] border-[#CCA8A8]/55',
+  '완료':    'bg-[#D8D8CC]/60 text-[#5A5A48] border-[#C4C4B0]/55',
 }
 
 const TAG_ACCENT: Record<MemoTag, string> = {
-  '공지':     'border-t-[#F3E482]',
-  '업무관련':  'border-t-[#BADEC8]',
-  '회의관련':  'border-t-[#90A7D8]',
-  '아이디어':  'border-t-[#BFE4B5]',
-  '완료':     'border-t-gray-200',
+  '공지':    'border-t-[#DDD0A0]',
+  '업무관련': 'border-t-[#A8C4A8]',
+  '회의관련': 'border-t-[#A8B8CC]',
+  '아이디어': 'border-t-[#CCA8A8]',
+  '완료':    'border-t-[#C4C4B0]',
 }
 
 const pill  = 'text-xs px-3.5 py-1.5 rounded-full border font-medium transition-all whitespace-nowrap'
@@ -159,7 +159,7 @@ export default function MemosPage() {
   const [editing, setEditing] = useState<QuickMemo | null>(null)
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const [period, setPeriod] = useState<Period>('이번 달')
+  const [period, setPeriod] = useState<Period>('전체')
   const [filterTag, setFilterTag] = useState<FilterTag>('전체')
   const [showAddForm, setShowAddForm] = useState(false)
   const [newTitle, setNewTitle] = useState('')
@@ -390,9 +390,10 @@ export default function MemosPage() {
                   </button>
 
                   {!isCollapsed && (
-                    <div className="columns-1 md:columns-2 lg:columns-3 gap-4 space-y-0">
-                      {items.map((memo: QuickMemo) => (
-                        <div key={memo.id} className="break-inside-avoid mb-4"
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                      {items.map((memo: QuickMemo, idx: number) => (
+                        <div key={memo.id}
+                          className={idx % 7 === 0 ? 'col-span-2 row-span-1' : ''}
                           onDragOver={e => e.preventDefault()}
                           onDrop={() => handleDropOnTag(memo.tag)}>
                           <MemoCard

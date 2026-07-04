@@ -390,6 +390,22 @@ export default function LearningPage() {
             />
           ) : (
             <>
+              {/* 빈 카테고리 컴팩트 필 로우 */}
+              {(() => {
+                const emptyTags = tagCols.filter(t => (tagKanbanGroups[t] ?? []).length === 0)
+                if (emptyTags.length === 0) return null
+                return (
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {emptyTags.map(tag => (
+                      <button key={tag} onClick={() => setAddingInCol(tag)}
+                        className={`inline-flex items-center gap-1 text-xs border rounded-full px-2.5 py-1 opacity-50 hover:opacity-80 transition-opacity ${TAG_BADGE[tag] ?? 'bg-gray-100/80 text-gray-500 border-gray-200'}`}>
+                        {tag} <span className="text-[10px]">+</span>
+                      </button>
+                    ))}
+                  </div>
+                )
+              })()}
+
               {/* 태그 섹션별 그리드 */}
               {tagCols.map(tag => {
                 const colItems = tagKanbanGroups[tag] ?? []
@@ -431,28 +447,23 @@ export default function LearningPage() {
                       </div>
                     )}
 
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3"
+                    <div className={`grid gap-3 ${colItems.length > 4 ? 'grid-cols-3 md:grid-cols-4' : colItems.length > 1 ? 'grid-cols-2 md:grid-cols-3' : 'grid-cols-1'}`}
                       onDragOver={e => { e.preventDefault(); setDragOverCol(tag) }}
                       onDrop={e => { e.preventDefault(); const id = e.dataTransfer.getData('resourceId'); if (id) moveToColumn(id, tag) }}
                       onDragLeave={handleDragLeave}>
                       {featured.map(r => (
-                        <div key={r.id} className="md:col-span-2 cursor-grab active:cursor-grabbing"
+                        <div key={r.id} className="cursor-grab active:cursor-grabbing"
                           draggable onDragStart={e => { e.dataTransfer.setData('resourceId', r.id) }}>
-                          <Link href={`/learning/${r.id}`} className="block h-full">
-                            <div className="bg-white/50 backdrop-blur-xl border border-white/70 hover:bg-white/70 hover:shadow-sm rounded-3xl p-5 transition-all h-full flex flex-col gap-2">
-                              <div className="flex items-start justify-between gap-2">
-                                <p className="text-base font-bold text-gray-800 leading-snug line-clamp-2">{r.title}</p>
-                                {r.media_type && (
-                                  <span className="text-lg flex-shrink-0">{MEDIA_ICONS[r.media_type]}</span>
-                                )}
+                          <Link href={`/learning/${r.id}`} className="block aspect-square">
+                            <div className="bg-white/50 backdrop-blur-xl border border-white/70 hover:bg-white/70 hover:shadow-md rounded-3xl p-4 transition-all aspect-square flex flex-col justify-between overflow-hidden">
+                              <div className="flex items-start justify-between gap-1">
+                                {r.media_type && <span className="text-xl flex-shrink-0">{MEDIA_ICONS[r.media_type]}</span>}
+                                <span className="text-[10px] text-gray-400 bg-white/60 border border-white/70 px-1.5 py-0.5 rounded-full flex-shrink-0 ml-auto">{r.notes.length}노트</span>
                               </div>
-                              {r.source && <p className="text-xs text-gray-400 truncate">출처: {r.source}</p>}
-                              {r.notes[0]?.content && (
-                                <p className="text-xs text-gray-500 leading-relaxed line-clamp-2 mt-1 pt-2 border-t border-white/60">
-                                  {r.notes[0].content}
-                                </p>
-                              )}
-                              <span className="text-[10px] text-gray-400 mt-auto">{r.notes.length}노트</span>
+                              <div>
+                                <p className="text-sm font-bold text-gray-800 leading-snug line-clamp-3 mb-1">{r.title}</p>
+                                {r.source && <p className="text-[10px] text-gray-400 truncate">출처: {r.source}</p>}
+                              </div>
                             </div>
                           </Link>
                         </div>
@@ -460,13 +471,15 @@ export default function LearningPage() {
                       {basic.map(r => (
                         <div key={r.id} className="cursor-grab active:cursor-grabbing"
                           draggable onDragStart={e => { e.dataTransfer.setData('resourceId', r.id) }}>
-                          <Link href={`/learning/${r.id}`} className="block">
-                            <div className="bg-white/40 backdrop-blur-xl border border-white/60 hover:bg-white/60 hover:shadow-sm rounded-3xl p-4 transition-all">
-                              <div className="flex items-start justify-between gap-2 mb-1">
-                                <p className="text-sm font-semibold text-gray-800 leading-snug line-clamp-2">{r.title}</p>
-                                {r.media_type && <span className="flex-shrink-0">{MEDIA_ICONS[r.media_type]}</span>}
+                          <Link href={`/learning/${r.id}`} className="block aspect-square">
+                            <div className="bg-white/40 backdrop-blur-xl border border-white/60 hover:bg-white/60 hover:shadow-sm rounded-3xl p-4 transition-all aspect-square flex flex-col justify-between overflow-hidden">
+                              <div className="flex items-start justify-between">
+                                {r.media_type && <span className="text-lg">{MEDIA_ICONS[r.media_type]}</span>}
                               </div>
-                              {r.source && <p className="text-xs text-gray-400 truncate">출처: {r.source}</p>}
+                              <div>
+                                <p className="text-sm font-semibold text-gray-800 leading-snug line-clamp-3">{r.title}</p>
+                                {r.source && <p className="text-[10px] text-gray-400 truncate mt-1">출처: {r.source}</p>}
+                              </div>
                             </div>
                           </Link>
                         </div>
