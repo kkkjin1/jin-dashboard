@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo, useRef } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -9,8 +9,8 @@ import { ko } from 'date-fns/locale'
 import type { Meeting } from '@/types'
 import { generateMeetingsContextMd, downloadMd } from '@/lib/markdown'
 
-const CATEGORIES = ['전체', '코어', '비즈', '경영진', '본부장', '타팀', '목표관리', '기타'] as const
-type Category = typeof CATEGORIES[number]
+const ORDERED_CATS = ['코어', '비즈', '경영진', '본부장', '타팀', '목표관리', '기타'] as const
+type MeetingCat = typeof ORDERED_CATS[number]
 
 type Period = '이번 주' | '이번 달' | '3개월' | '전체'
 const PERIODS: Period[] = ['이번 주', '이번 달', '3개월', '전체']
@@ -52,6 +52,13 @@ function formatMonthLabel(ym: string): string {
   return `${y}년 ${parseInt(m)}월`
 }
 
+function getCat(meeting: Meeting): MeetingCat {
+  if (meeting.category && (ORDERED_CATS as readonly string[]).slice(0, -1).includes(meeting.category)) {
+    return meeting.category as MeetingCat
+  }
+  return '기타'
+}
+
 const pill  = 'text-xs px-3.5 py-1.5 rounded-full border font-medium transition-all whitespace-nowrap'
 const pOn  = 'bg-gray-900 text-white border-gray-900 shadow-sm'
 const pOff = 'bg-white/40 backdrop-blur-xl border-white/60 text-gray-500 hover:bg-white/60 hover:text-gray-700'
@@ -61,12 +68,10 @@ export default function MeetingsPage() {
   const [loading, setLoading] = useState(true)
   const [newTitle, setNewTitle] = useState('')
   const [adding, setAdding] = useState(false)
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
-  const [period, setPeriod] = useState<Period>('이번 달')
-  const [categoryFilter, setCategoryFilter] = useState<Category>('전체')
+  const [period, setPeriod] = useState<Period>('전체')
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set())
-  const [collapsedMonths, setCollapsedMonths] = useState<Set<string>>(new Set())
-  const [expandedMeetingIds, setExpandedMeetingIds] = useState<Set<string>>(new Set())
+  const [collapsedCats, setCollapsedCats] = useState<Set<string>>(new Set())
+  const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set())
   const supabase = createClient()
   const router = useRouter()
 
@@ -101,40 +106,48 @@ export default function MeetingsPage() {
     setCheckedIds(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s })
   }
 
-  function toggleExpand(id: string) {
-    setExpandedMeetingIds(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s })
+  function toggleCat(cat: string) {
+    setCollapsedCats(prev => { const s = new Set(prev); s.has(cat) ? s.delete(cat) : s.add(cat); return s })
   }
 
-  function toggleMonthCollapse(ym: string) {
-    setCollapsedMonths(prev => { const s = new Set(prev); s.has(ym) ? s.delete(ym) : s.add(ym); return s })
+  function toggleMonth(cat: string, ym: string) {
+    const key = `${cat}__${ym}`
+    setExpandedMonths(prev => { const s = new Set(prev); s.has(key) ? s.delete(key) : s.add(key); return s })
   }
 
-  // 기간 + 카테고리 필터
-  const filtered = useMemo(() => {
-    const byPeriod = meetings.filter(m => inPeriod(m.meeting_date, period))
-    if (categoryFilter === '전체') return byPeriod
-    const known = CATEGORIES.slice(1, -1) as readonly string[]
-    if (categoryFilter === '기타') return byPeriod.filter(m => !m.category || !known.includes(m.category))
-    return byPeriod.filter(m => m.category === categoryFilter)
-  }, [meetings, period, categoryFilter])
+  // 기간 필터 → 카테고리별 → 월별 그루핑
+  const categoryGroups = useMemo(() => {
+    const periodFiltered = meetings.filter(m => inPeriod(m.meeting_date, period))
+    return ORDERED_CATS
+      .map(cat => {
+        const items = cat === '기타'
+          ? periodFiltered.filter(m => !m.category || !(ORDERED_CATS as readonly string[]).slice(0, -1).includes(m.category))
+          : periodFiltered.filter(m => m.category === cat)
+        if (items.length === 0) return null
+        const monthMap = new Map<string, Meeting[]>()
+        items.forEach(m => {
+          const ym = m.meeting_date ? m.meeting_date.slice(0, 7) : '날짜 없음'
+          if (!monthMap.has(ym)) monthMap.set(ym, [])
+          monthMap.get(ym)!.push(m)
+        })
+        const months = Array.from(monthMap.entries())
+          .sort(([a], [b]) => b.localeCompare(a))
+          .map(([ym, list]) => ({ ym, list }))
+        return { cat, months, total: items.length }
+      })
+      .filter(Boolean) as { cat: MeetingCat; months: { ym: string; list: Meeting[] }[]; total: number }[]
+  }, [meetings, period])
 
-  // 월별 그루핑 (그리드/리스트 공용)
-  const monthGroups = useMemo(() => {
-    const map = new Map<string, Meeting[]>()
-    filtered.forEach(m => {
-      const ym = m.meeting_date ? m.meeting_date.slice(0, 7) : '날짜 없음'
-      if (!map.has(ym)) map.set(ym, [])
-      map.get(ym)!.push(m)
-    })
-    return Array.from(map.entries()).sort(([a], [b]) => b.localeCompare(a))
-  }, [filtered])
-
-  // 필터 변경 시 최신 월만 펼침, 나머지 접기
+  // 기간 바뀔 때: 각 카테고리의 최신 월만 자동 펼침
   useEffect(() => {
-    const allYMs = monthGroups.map(([ym]) => ym)
-    const latest = allYMs[0] ?? null
-    setCollapsedMonths(new Set(allYMs.filter(ym => ym !== latest)))
-  }, [period, categoryFilter])
+    const next = new Set<string>()
+    categoryGroups.forEach(({ cat, months }) => {
+      if (months[0]) next.add(`${cat}__${months[0].ym}`)
+    })
+    setExpandedMonths(next)
+  }, [period])
+
+  const totalFiltered = categoryGroups.reduce((s, g) => s + g.total, 0)
 
   return (
     <div className="h-full flex flex-col overflow-hidden font-sans">
@@ -153,16 +166,6 @@ export default function MeetingsPage() {
             </button>
           </>
         )}
-        <div className="flex items-center bg-white/40 backdrop-blur-xl border border-white/60 rounded-full p-1">
-          <button onClick={() => setViewMode('grid')}
-            className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${viewMode === 'grid' ? pOn : 'text-gray-500 hover:text-gray-700'}`}>
-            그리드
-          </button>
-          <button onClick={() => setViewMode('list')}
-            className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${viewMode === 'list' ? pOn : 'text-gray-500 hover:text-gray-700'}`}>
-            리스트
-          </button>
-        </div>
         <button onClick={() => setAdding(true)}
           className="text-sm bg-gray-900 text-white px-4 py-2 rounded-full hover:bg-gray-800 transition-colors shadow-sm">
           + 새 회의록
@@ -181,179 +184,106 @@ export default function MeetingsPage() {
       )}
 
       {/* 기간 필터 */}
-      <div className="flex-shrink-0 flex items-center gap-1.5 mb-3">
+      <div className="flex-shrink-0 flex items-center gap-1.5 mb-5">
         {PERIODS.map(p => (
           <button key={p} onClick={() => setPeriod(p)} className={`${pill} ${period === p ? pOn : pOff}`}>{p}</button>
         ))}
-        <span className="text-xs text-gray-400 ml-auto">{filtered.length}건</span>
-      </div>
-
-      {/* 카테고리 필터 */}
-      <div className="flex-shrink-0 flex items-center gap-1.5 flex-wrap mb-4">
-        {CATEGORIES.map(cat => (
-          <button key={cat} onClick={() => setCategoryFilter(cat)}
-            className={`text-xs px-3 py-1 rounded-full border font-medium transition-all whitespace-nowrap ${
-              categoryFilter === cat ? pOn
-                : cat !== '전체' ? `${CATEGORY_COLORS[cat] ?? 'bg-gray-100/80 text-gray-400 border-gray-200'} hover:opacity-80`
-                : pOff
-            }`}>
-            {cat}
-          </button>
-        ))}
+        <span className="text-xs text-gray-400 ml-auto">{totalFiltered}건</span>
       </div>
 
       {/* 콘텐츠 */}
       <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[1,2,3,4,5,6].map(i => <div key={i} className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl h-36 animate-pulse" />)}
+          <div className="space-y-4">
+            {[1,2,3].map(i => <div key={i} className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl h-24 animate-pulse" />)}
           </div>
-        ) : filtered.length === 0 ? (
+        ) : categoryGroups.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-48 gap-2">
-            <p className="text-gray-300 text-sm">해당 기간·카테고리의 회의록이 없습니다</p>
-            <button onClick={() => { setPeriod('전체'); setCategoryFilter('전체') }}
-              className={`${pill} ${pOff} text-gray-400`}>전체 보기</button>
+            <p className="text-gray-300 text-sm">해당 기간의 회의록이 없습니다</p>
+            <button onClick={() => setPeriod('전체')} className={`${pill} ${pOff} text-gray-400`}>전체 보기</button>
           </div>
-        ) : viewMode === 'grid' ? (
-
-          /* ── 그리드 뷰 (월별 접기) ── */
+        ) : (
           <div className="space-y-6 pb-6">
-            {monthGroups.map(([ym, items], idx) => {
-              const isLatest = idx === 0
-              const isCollapsed = collapsedMonths.has(ym)
+            {categoryGroups.map(({ cat, months, total }) => {
+              const isCatCollapsed = collapsedCats.has(cat)
               return (
-                <div key={ym}>
-                  <button onClick={() => toggleMonthCollapse(ym)}
-                    className="flex items-center gap-2 mb-4 w-full text-left group py-1 border-b border-white/50 pb-2">
-                    <span className="text-sm font-semibold text-gray-600 group-hover:text-gray-800 transition-colors">
-                      {formatMonthLabel(ym)}
+                <div key={cat}>
+                  {/* 카테고리 헤더 */}
+                  <button onClick={() => toggleCat(cat)}
+                    className="flex items-center gap-2.5 w-full text-left group py-2 mb-1">
+                    <span className="text-[10px] text-gray-300 group-hover:text-gray-500 transition-colors w-3 text-center">
+                      {isCatCollapsed ? '▶' : '▼'}
+                    </span>
+                    <span className={`text-xs font-semibold px-3 py-1 rounded-full border ${CATEGORY_COLORS[cat] ?? 'bg-gray-100/80 text-gray-400 border-gray-200'}`}>
+                      {cat}
                     </span>
                     <span className="text-xs text-gray-400 bg-white/60 border border-white/70 px-2 py-0.5 rounded-full">
-                      {items.length}건
-                    </span>
-                    {isLatest && (
-                      <span className="text-[10px] text-[#2D5A45] bg-[#BADEC8]/30 border border-[#BADEC8]/40 px-2 py-0.5 rounded-full">
-                        최신
-                      </span>
-                    )}
-                    <span className="text-xs text-gray-300 ml-auto group-hover:text-gray-500 transition-colors">
-                      {isCollapsed ? '▶' : '▼'}
+                      {total}건
                     </span>
                   </button>
 
-                  {!isCollapsed && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {items.map(meeting => (
-                        <Link key={meeting.id} href={`/meetings/${meeting.id}`}
-                          className="group bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl p-5 hover:bg-white/60 hover:shadow-sm transition-all block">
-                          <div className="flex items-center justify-between mb-3">
-                            {meeting.category ? (
-                              <span className={`text-xs px-2.5 py-1 rounded-full border font-medium ${CATEGORY_COLORS[meeting.category] ?? 'bg-gray-100/80 text-gray-400 border-gray-200'}`}>
-                                {meeting.category}
-                              </span>
-                            ) : (
-                              <span className="text-xs px-2.5 py-1 rounded-full border bg-gray-100/80 text-gray-400 border-gray-200">미분류</span>
-                            )}
-                            {meeting.notes.length > 0 && (
-                              <span className="text-[10px] text-gray-400 bg-white/60 border border-white/80 px-2 py-0.5 rounded-full">
-                                {meeting.notes.length}개 노트
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-sm font-semibold text-gray-800 leading-snug mb-4 line-clamp-2 break-words">
-                            {meeting.title || '제목 없음'}
-                          </p>
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs text-gray-400">
-                              {meeting.meeting_date
-                                ? format(parseISO(meeting.meeting_date), 'M월 d일 (E)', { locale: ko })
-                                : '날짜 미지정'}
-                            </span>
-                            <span className="text-xs text-[#2D5A45] opacity-0 group-hover:opacity-100 transition-opacity">열기 →</span>
-                          </div>
-                          {meeting.notes?.[0]?.content && (
-                            <p className="text-xs text-gray-400 leading-relaxed line-clamp-2 mt-3 pt-3 border-t border-white/60">
-                              {meeting.notes[0].content}
-                            </p>
-                          )}
-                        </Link>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-
-            <button onClick={() => setAdding(true)}
-              className="w-full bg-white/20 backdrop-blur-xl border border-dashed border-white/50 rounded-3xl py-5 hover:bg-white/30 hover:border-white/70 transition-all text-gray-400 hover:text-gray-600 text-xs font-medium">
-              + 새 회의록
-            </button>
-          </div>
-
-        ) : (
-
-          /* ── 리스트 뷰 (월별 접기) ── */
-          <div className="space-y-6 pb-6">
-            {monthGroups.map(([ym, list], idx) => {
-              const isLatest = idx === 0
-              const isCollapsed = collapsedMonths.has(ym)
-              return (
-                <div key={ym}>
-                  <button onClick={() => toggleMonthCollapse(ym)}
-                    className="flex items-center gap-2 mb-3 w-full text-left group py-1 border-b border-white/50 pb-2">
-                    <span className="text-sm font-semibold text-gray-600 group-hover:text-gray-800 transition-colors">
-                      {formatMonthLabel(ym)}
-                    </span>
-                    <span className="text-xs text-gray-400 bg-white/60 border border-white/70 px-2 py-0.5 rounded-full">{list.length}건</span>
-                    {isLatest && (
-                      <span className="text-[10px] text-[#2D5A45] bg-[#BADEC8]/30 border border-[#BADEC8]/40 px-2 py-0.5 rounded-full">최신</span>
-                    )}
-                    <span className="text-xs text-gray-300 ml-auto">{isCollapsed ? '▶' : '▼'}</span>
-                  </button>
-
-                  {!isCollapsed && (
-                    <div className="space-y-2">
-                      {list.map(meeting => {
-                        const isExpanded = expandedMeetingIds.has(meeting.id)
+                  {/* 카테고리 내용 */}
+                  {!isCatCollapsed && (
+                    <div className="pl-5 space-y-3">
+                      {months.map(({ ym, list }, mIdx) => {
+                        const monthKey = `${cat}__${ym}`
+                        const isMonthOpen = expandedMonths.has(monthKey)
+                        const isLatest = mIdx === 0
                         return (
-                          <div key={meeting.id} className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-2xl overflow-hidden hover:bg-white/60 transition-all">
-                            <div className="px-5 py-4 flex items-center gap-3">
-                              <input type="checkbox" checked={checkedIds.has(meeting.id)}
-                                onChange={() => toggleCheck(meeting.id)} onClick={e => e.stopPropagation()}
-                                className="w-3 h-3 rounded accent-gray-700 flex-shrink-0 cursor-pointer" />
-                              <Link href={`/meetings/${meeting.id}`} className="flex-1 flex items-center justify-between min-w-0">
-                                <div className="min-w-0">
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <p className="text-sm font-semibold text-gray-800">{meeting.title}</p>
-                                    {meeting.category && (
-                                      <span className={`text-xs px-2 py-0.5 rounded-full border flex-shrink-0 ${CATEGORY_COLORS[meeting.category] ?? 'bg-gray-100/80 text-gray-400 border-gray-200'}`}>
-                                        {meeting.category}
-                                      </span>
-                                    )}
-                                  </div>
-                                  <div className="flex items-center gap-2 mt-0.5">
-                                    {meeting.meeting_date && (
-                                      <span className="text-xs text-gray-400">{format(parseISO(meeting.meeting_date), 'M월 d일 (E)', { locale: ko })}</span>
-                                    )}
-                                    {meeting.notes.length > 0 && <span className="text-xs text-gray-300">{meeting.notes.length}개 노트</span>}
-                                  </div>
-                                </div>
-                              </Link>
-                              {meeting.notes.length > 0 && (
-                                <button onClick={e => { e.stopPropagation(); toggleExpand(meeting.id) }}
-                                  className="flex-shrink-0 w-7 h-7 flex items-center justify-center text-gray-300 hover:text-gray-600 hover:bg-white/60 rounded-full transition-colors">
-                                  <span className="text-xs">{isExpanded ? '▲' : '▼'}</span>
-                                </button>
+                          <div key={ym} className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl overflow-hidden">
+                            {/* 월 헤더 */}
+                            <button onClick={() => toggleMonth(cat, ym)}
+                              className="flex items-center gap-2 w-full text-left px-5 py-3.5 hover:bg-white/20 transition-colors group">
+                              <span className="text-[10px] text-gray-300 group-hover:text-gray-500 transition-colors">
+                                {isMonthOpen ? '▼' : '▶'}
+                              </span>
+                              <span className="text-sm font-semibold text-gray-700">
+                                {formatMonthLabel(ym)}
+                              </span>
+                              <span className="text-xs text-gray-400 bg-white/60 border border-white/70 px-2 py-0.5 rounded-full">
+                                {list.length}건
+                              </span>
+                              {isLatest && (
+                                <span className="text-[10px] text-[#2D5A45] bg-[#BADEC8]/30 border border-[#BADEC8]/40 px-2 py-0.5 rounded-full">
+                                  최신
+                                </span>
                               )}
-                            </div>
-                            {isExpanded && meeting.notes.length > 0 && (
-                              <div className="border-t border-white/60 px-4 pt-2 pb-3 space-y-2">
-                                {meeting.notes.map((note, i) => (
-                                  <div key={i} className="bg-white/50 rounded-xl px-3 py-2">
-                                    {note.title && <p className="text-xs font-semibold text-gray-600 mb-0.5">{note.title}</p>}
-                                    {note.content && <p className="text-xs text-gray-500 whitespace-pre-wrap leading-relaxed">{note.content}</p>}
-                                  </div>
-                                ))}
+                            </button>
+
+                            {/* 회의록 카드 그리드 */}
+                            {isMonthOpen && (
+                              <div className="border-t border-white/40 px-5 py-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                  {list.map(meeting => (
+                                    <Link key={meeting.id} href={`/meetings/${meeting.id}`}
+                                      className="group/card bg-white/50 rounded-2xl border border-white/70 p-4 hover:bg-white/70 hover:shadow-sm transition-all block">
+                                      <div className="flex items-start gap-2 mb-2">
+                                        <input type="checkbox" checked={checkedIds.has(meeting.id)}
+                                          onChange={() => toggleCheck(meeting.id)}
+                                          onClick={e => e.preventDefault()}
+                                          className="w-3 h-3 rounded accent-gray-700 flex-shrink-0 mt-0.5 cursor-pointer" />
+                                        <p className="text-sm font-semibold text-gray-800 leading-snug line-clamp-2 flex-1">
+                                          {meeting.title || '제목 없음'}
+                                        </p>
+                                      </div>
+                                      <div className="flex items-center justify-between mt-2">
+                                        <span className="text-xs text-gray-400">
+                                          {meeting.meeting_date
+                                            ? format(parseISO(meeting.meeting_date), 'M월 d일 (E)', { locale: ko })
+                                            : '날짜 미지정'}
+                                        </span>
+                                        {meeting.notes.length > 0 && (
+                                          <span className="text-[10px] text-gray-300">{meeting.notes.length}노트</span>
+                                        )}
+                                      </div>
+                                      {meeting.notes?.[0]?.content && (
+                                        <p className="text-xs text-gray-400 leading-relaxed line-clamp-1 mt-2 pt-2 border-t border-white/60">
+                                          {meeting.notes[0].content}
+                                        </p>
+                                      )}
+                                    </Link>
+                                  ))}
+                                </div>
                               </div>
                             )}
                           </div>
@@ -364,6 +294,11 @@ export default function MeetingsPage() {
                 </div>
               )
             })}
+
+            <button onClick={() => setAdding(true)}
+              className="w-full bg-white/20 backdrop-blur-xl border border-dashed border-white/50 rounded-3xl py-5 hover:bg-white/30 transition-all text-gray-400 hover:text-gray-600 text-xs font-medium">
+              + 새 회의록
+            </button>
           </div>
         )}
       </div>
