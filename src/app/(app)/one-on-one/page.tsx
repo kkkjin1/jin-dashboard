@@ -527,7 +527,7 @@ export default function OneOnOnePage() {
           last?.session_date != null
             ? Math.floor((now - new Date(last.session_date).getTime()) / 86400000)
             : null
-        return { member, daysSince }
+        return { member, daysSince, lastDate: last?.session_date ?? null }
       })
       .sort((a, b) => {
         if (a.daysSince === null && b.daysSince === null) return 0
@@ -536,10 +536,6 @@ export default function OneOnOnePage() {
         return b.daysSince - a.daysSince
       })
   }, [members, sessions])
-
-  const urgentStat = useMemo(() => {
-    return memberStats.find(({ daysSince }) => daysSince === null || daysSince >= 30) ?? null
-  }, [memberStats])
 
   function daysBadgeClass(daysSince: number | null): string {
     if (daysSince === null || daysSince >= 30) return 'bg-[#EBA698]/40 text-[#6B2D25] border-[#EBA698]/55'
@@ -640,38 +636,12 @@ export default function OneOnOnePage() {
               ))}
             </div>
 
-            {/* RIGHT: alert panel */}
+            {/* RIGHT: 매트릭스 위젯 */}
             <div className="min-w-0 md:flex-[40] flex flex-col gap-4">
-              {urgentStat ? (
-                <div className="bg-[#EBA698]/15 backdrop-blur-xl border border-[#EBA698]/40 rounded-3xl px-5 py-4">
-                  <p className="text-xs font-semibold text-[#6B2D25] mb-3">30일 미진행 긴급</p>
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="text-lg font-bold text-gray-900">{urgentStat.member.name}</p>
-                      <p className="text-xs text-gray-500 mt-0.5">{urgentStat.member.part}</p>
-                      <p className="text-sm text-[#6B2D25] mt-2">
-                        마지막 1on1:{' '}
-                        {urgentStat.daysSince === null ? '기록 없음' : `${urgentStat.daysSince}일 전`}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => createSession(urgentStat.member.id)}
-                      className="flex-shrink-0 text-xs bg-gray-900 text-white px-3 py-1.5 rounded-full hover:bg-gray-800 transition-colors whitespace-nowrap">
-                      + 바로 진행
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="bg-[#BADEC8]/15 backdrop-blur-xl border border-[#BADEC8]/40 rounded-3xl px-5 py-4">
-                  <p className="text-sm font-semibold text-[#2D5A45]">✓ 이번 달 모두 진행됨</p>
-                </div>
-              )}
-
-              {/* 실시간 매트릭스 위젯 */}
               <div className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl p-4">
                 <p className="text-xs font-semibold text-gray-500 mb-3">전체 현황 매트릭스</p>
                 <div className="grid grid-cols-3 gap-2">
-                  {memberStats.map(({ member, daysSince }) => {
+                  {memberStats.map(({ member, daysSince, lastDate }) => {
                     const ringColor =
                       daysSince === null || daysSince >= 30
                         ? 'ring-2 ring-[#EBA698]/70'
@@ -680,11 +650,14 @@ export default function OneOnOnePage() {
                         : 'ring-2 ring-[#BADEC8]/70'
                     return (
                       <Link key={member.id} href={`/one-on-one/${member.id}`}
-                        className="group flex flex-col items-center gap-1.5 bg-white/30 hover:bg-white/60 rounded-2xl p-2.5 transition-all">
+                        className="group flex flex-col items-center gap-1 bg-white/30 hover:bg-white/60 rounded-2xl p-2.5 transition-all">
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${memberAvatarColor(member.part)} ${ringColor}`}>
                           {member.name[0]}
                         </div>
                         <p className="text-[10px] font-semibold text-gray-700 text-center leading-tight truncate w-full">{member.name}</p>
+                        <p className="text-[9px] text-gray-400 text-center">
+                          {lastDate ? format(parseISO(lastDate), 'M/d', { locale: ko }) : '기록없음'}
+                        </p>
                         <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded-full border text-center ${daysBadgeClass(daysSince)}`}>
                           {daysLabel(daysSince)}
                         </span>

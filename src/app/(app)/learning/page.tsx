@@ -379,8 +379,8 @@ export default function LearningPage() {
           </div>
 
           {loading ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              {[1,2,3,4,5,6].map(i => <div key={i} className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl h-32 animate-pulse" />)}
+            <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
+              {[1,2,3,4,5,6,7,8].map(i => <div key={i} className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-2xl h-28 animate-pulse" />)}
             </div>
           ) : resources.filter(r => !(r.tags ?? []).some(t => t.startsWith('_b'))).length === 0 && bucketGroups.every(g => g.length === 0) ? (
             <EmptyState
@@ -454,15 +454,13 @@ export default function LearningPage() {
                       {featured.map(r => (
                         <div key={r.id} className="cursor-grab active:cursor-grabbing"
                           draggable onDragStart={e => { e.dataTransfer.setData('resourceId', r.id) }}>
-                          <Link href={`/learning/${r.id}`} className="block aspect-square">
-                            <div className="bg-white/50 backdrop-blur-xl border border-white/70 hover:bg-white/70 hover:shadow-md rounded-3xl p-4 transition-all aspect-square flex flex-col justify-between overflow-hidden">
-                              <div className="flex items-start justify-between gap-1">
-                                {r.media_type && <span className="text-xl flex-shrink-0">{MEDIA_ICONS[r.media_type]}</span>}
-                                <span className="text-[10px] text-gray-400 bg-white/60 border border-white/70 px-1.5 py-0.5 rounded-full flex-shrink-0 ml-auto">{r.notes.length}노트</span>
-                              </div>
-                              <div>
-                                <p className="text-sm font-bold text-gray-800 leading-snug line-clamp-3 mb-1">{r.title}</p>
-                                {r.source && <p className="text-[10px] text-gray-400 truncate">출처: {r.source}</p>}
+                          <Link href={`/learning/${r.id}`} className="block">
+                            <div className="bg-white/50 backdrop-blur-xl border border-white/70 hover:bg-white/70 hover:shadow-md rounded-2xl p-3 transition-all h-28 flex flex-col overflow-hidden">
+                              <p className="text-xs font-bold text-gray-800 leading-snug line-clamp-3 flex-1">{r.title}</p>
+                              <div className="flex items-center gap-1.5 mt-1.5 flex-shrink-0">
+                                {r.media_type && <span className="text-sm">{MEDIA_ICONS[r.media_type]}</span>}
+                                {r.source && <p className="text-[9px] text-gray-400 truncate flex-1">출처: {r.source}</p>}
+                                <span className="text-[9px] text-gray-400 bg-white/60 border border-white/70 px-1 py-0.5 rounded-full flex-shrink-0">{r.notes.length}노트</span>
                               </div>
                             </div>
                           </Link>
@@ -471,14 +469,12 @@ export default function LearningPage() {
                       {basic.map(r => (
                         <div key={r.id} className="cursor-grab active:cursor-grabbing"
                           draggable onDragStart={e => { e.dataTransfer.setData('resourceId', r.id) }}>
-                          <Link href={`/learning/${r.id}`} className="block aspect-square">
-                            <div className="bg-white/40 backdrop-blur-xl border border-white/60 hover:bg-white/60 hover:shadow-sm rounded-3xl p-4 transition-all aspect-square flex flex-col justify-between overflow-hidden">
-                              <div className="flex items-start justify-between">
-                                {r.media_type && <span className="text-lg">{MEDIA_ICONS[r.media_type]}</span>}
-                              </div>
-                              <div>
-                                <p className="text-sm font-semibold text-gray-800 leading-snug line-clamp-3">{r.title}</p>
-                                {r.source && <p className="text-[10px] text-gray-400 truncate mt-1">출처: {r.source}</p>}
+                          <Link href={`/learning/${r.id}`} className="block">
+                            <div className="bg-white/40 backdrop-blur-xl border border-white/60 hover:bg-white/60 hover:shadow-sm rounded-2xl p-3 transition-all h-28 flex flex-col overflow-hidden">
+                              <p className="text-xs font-semibold text-gray-800 leading-snug line-clamp-3 flex-1">{r.title}</p>
+                              <div className="flex items-center gap-1.5 mt-1.5 flex-shrink-0">
+                                {r.media_type && <span className="text-sm">{MEDIA_ICONS[r.media_type]}</span>}
+                                {r.source && <p className="text-[9px] text-gray-400 truncate flex-1">출처: {r.source}</p>}
                               </div>
                             </div>
                           </Link>
