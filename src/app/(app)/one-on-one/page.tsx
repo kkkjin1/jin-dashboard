@@ -590,54 +590,77 @@ export default function OneOnOnePage() {
         {/* 팀원 1on1 뷰 */}
         {view === 'team' && (
           <div className="flex flex-col md:flex-row gap-6 w-full pb-6">
-            {/* LEFT: grouped member list */}
+            {/* LEFT: 프로필 카드 그리드 */}
             <div className="min-w-0 md:flex-[60]">
               {grouped.map(({ label, list }) => (
-                <div key={label} className="mb-6">
+                <div key={label} className="mb-7">
                   <h2 className="text-xs font-semibold text-gray-400 mb-3 uppercase tracking-wide">{label}</h2>
-                  <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-3">
                     {list.map(member => {
                       const last = getLastSession(member.id)
                       const months = getSessionMonths(member.id)
                       const memberSessions = sessions.filter(s => s.member_id === member.id)
+                      const stat = memberStats.find(ms => ms.member.id === member.id)
+                      const daysSince = stat?.daysSince ?? null
                       return (
-                        <div key={member.id} className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl px-5 py-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${memberAvatarColor(member.part)}`}>
-                                {member.name[0]}
-                              </div>
-                              <div>
-                                <p className="text-sm font-semibold text-gray-800">{member.name}</p>
-                                <p className="text-xs text-gray-400">
-                                  {last
-                                    ? `마지막: ${last.session_date ? format(parseISO(last.session_date), 'yyyy년 M월 d일', { locale: ko }) : '날짜 미지정'} · 총 ${memberSessions.length}회`
-                                    : '1on1 없음'}
-                                </p>
-                              </div>
+                        <div key={member.id} className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl p-5 flex flex-col gap-3">
+                          {/* 아바타 + 이름 */}
+                          <div className="flex items-center gap-3">
+                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-lg font-bold flex-shrink-0 ${memberAvatarColor(member.part)}`}>
+                              {member.name[0]}
                             </div>
-                            <div className="flex items-center gap-2">
-                              {memberSessions.length > 0 && (
-                                <Link href={`/one-on-one/${member.id}`} className={`${pill} ${pOff} !text-[10px] !px-2.5 !py-1`}>목록</Link>
-                              )}
-                              <button onClick={() => createSession(member.id)}
-                                className="text-xs bg-gray-900 text-white px-3 py-1.5 rounded-full hover:bg-gray-800 transition-colors">
-                                + 새 1on1
-                              </button>
+                            <div className="min-w-0">
+                              <p className="text-sm font-bold text-gray-800 truncate">{member.name}</p>
+                              <p className="text-xs text-gray-400">{member.part}</p>
                             </div>
                           </div>
+
+                          {/* 마지막 세션 + 배지 */}
+                          <div>
+                            <p className="text-xs text-gray-500 leading-relaxed">
+                              {last && last.session_date
+                                ? `마지막: ${format(parseISO(last.session_date), 'M월 d일', { locale: ko })}`
+                                : '아직 1on1 없음'}
+                            </p>
+                            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                              <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${daysBadgeClass(daysSince)}`}>
+                                {daysLabel(daysSince)}
+                              </span>
+                              {memberSessions.length > 0 && (
+                                <span className="text-[10px] text-gray-400 bg-white/50 border border-white/70 px-2 py-0.5 rounded-full">
+                                  총 {memberSessions.length}회
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* 월 히스토리 */}
                           {months.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-3 pt-3 border-t border-white/50">
-                              {months.slice(0, 6).map(m => {
+                            <div className="flex flex-wrap gap-1">
+                              {months.slice(0, 4).map(m => {
                                 const [y, mo] = m.split('-')
                                 return (
-                                  <span key={m} className="text-xs bg-white/50 border border-white/70 text-gray-400 px-2 py-0.5 rounded-full">
+                                  <span key={m} className="text-[10px] bg-white/50 border border-white/70 text-gray-400 px-2 py-0.5 rounded-full">
                                     {y}.{mo}
                                   </span>
                                 )
                               })}
                             </div>
                           )}
+
+                          {/* 액션 버튼 */}
+                          <div className="flex gap-1.5 mt-auto">
+                            {memberSessions.length > 0 && (
+                              <Link href={`/one-on-one/${member.id}`}
+                                className="text-xs bg-white/50 border border-white/70 text-gray-500 px-3 py-1.5 rounded-full hover:bg-white/70 transition-all whitespace-nowrap">
+                                목록
+                              </Link>
+                            )}
+                            <button onClick={() => createSession(member.id)}
+                              className="flex-1 text-xs bg-gray-900 text-white px-3 py-1.5 rounded-full hover:bg-gray-800 transition-colors text-center whitespace-nowrap">
+                              + 새 1on1
+                            </button>
+                          </div>
                         </div>
                       )
                     })}
