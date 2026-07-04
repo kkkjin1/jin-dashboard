@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useRef, useState } from 'react'
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, parseISO, getDay, addMonths, subMonths, getDaysInMonth } from 'date-fns'
@@ -91,13 +91,11 @@ export default function SchedulePage() {
     return true
   })
 
-  // 달력 데이터: 이전달 말일 + 현재달 + 다음달 초일
   const start = startOfMonth(current)
   const end = endOfMonth(current)
   const days = eachDayOfInterval({ start, end })
   const startDow = getDay(start)
 
-  // 이전달 마지막 N일
   const prevMonth = subMonths(current, 1)
   const prevDays = startDow > 0
     ? Array.from({ length: startDow }, (_, i) => {
@@ -106,7 +104,6 @@ export default function SchedulePage() {
       })
     : []
 
-  // 다음달 첫 N일 (7의 배수로 맞추기)
   const totalCells = prevDays.length + days.length
   const nextCount = totalCells % 7 === 0 ? 0 : 7 - (totalCells % 7)
   const nextMonth = addMonths(current, 1)
@@ -173,66 +170,36 @@ export default function SchedulePage() {
     const newOrder = { ...dayOrder, [key]: newIds }
     setDayOrder(newOrder)
     localStorage.setItem('schedule_day_order', JSON.stringify(newOrder))
-    setDragItemId(null)
-    setDragOverId(null)
+    setDragItemId(null); setDragOverId(null)
   }
 
-  // ── Helper: count weekdays (Mon–Fri) between two dates inclusive
   function countWeekdays(start: Date, end: Date): number {
     let count = 0
     const cur = new Date(start)
-    while (cur <= end) {
-      const dow = cur.getDay()
-      if (dow !== 0 && dow !== 6) count++
-      cur.setDate(cur.getDate() + 1)
-    }
+    while (cur <= end) { const dow = cur.getDay(); if (dow !== 0 && dow !== 6) count++; cur.setDate(cur.getDate() + 1) }
     return count
   }
 
-  // ── Helper: get [start, end] for a given analysis period
   function getPeriodRange(period: '이번주' | '이번달' | '직전월'): [Date, Date] {
     const today = new Date()
-    if (period === '이번달') {
-      return [startOfMonth(today), endOfMonth(today)]
-    }
-    if (period === '직전월') {
-      const prev = subMonths(today, 1)
-      return [startOfMonth(prev), endOfMonth(prev)]
-    }
-    // 이번주: Mon–Sun of current week
-    const dow = today.getDay() // 0=Sun
+    if (period === '이번달') return [startOfMonth(today), endOfMonth(today)]
+    if (period === '직전월') { const prev = subMonths(today, 1); return [startOfMonth(prev), endOfMonth(prev)] }
+    const dow = today.getDay()
     const diffToMon = (dow === 0 ? -6 : 1 - dow)
-    const mon = new Date(today)
-    mon.setDate(today.getDate() + diffToMon)
-    mon.setHours(0, 0, 0, 0)
-    const sun = new Date(mon)
-    sun.setDate(mon.getDate() + 6)
-    sun.setHours(23, 59, 59, 999)
+    const mon = new Date(today); mon.setDate(today.getDate() + diffToMon); mon.setHours(0, 0, 0, 0)
+    const sun = new Date(mon); sun.setDate(mon.getDate() + 6); sun.setHours(23, 59, 59, 999)
     return [mon, sun]
   }
 
-  // ── Mini month nav: count events for a given month
   function countMonthEvents(monthDate: Date): { meetings: number; tasks: number } {
-    const mStart = startOfMonth(monthDate)
-    const mEnd = endOfMonth(monthDate)
-    const inRange = (dateStr: string | null | undefined) => {
-      if (!dateStr) return false
-      const d = parseISO(dateStr)
-      return d >= mStart && d <= mEnd
-    }
-    const mtgCount = meetings.filter(m => inRange(m.meeting_date)).length
-    const taskCount = tasks.filter(t => inRange(t.mid_date) || inRange(t.end_date)).length
-    return { meetings: mtgCount, tasks: taskCount }
+    const mStart = startOfMonth(monthDate); const mEnd = endOfMonth(monthDate)
+    const inRange = (dateStr: string | null | undefined) => { if (!dateStr) return false; const d = parseISO(dateStr); return d >= mStart && d <= mEnd }
+    return { meetings: meetings.filter(m => inRange(m.meeting_date)).length, tasks: tasks.filter(t => inRange(t.mid_date) || inRange(t.end_date)).length }
   }
 
-  // ── Analysis stats computation
   function computeAnalysis(period: '이번주' | '이번달' | '직전월') {
     const [pStart, pEnd] = getPeriodRange(period)
-    const inRange = (dateStr: string | null | undefined) => {
-      if (!dateStr) return false
-      const d = parseISO(dateStr)
-      return d >= pStart && d <= pEnd
-    }
+    const inRange = (dateStr: string | null | undefined) => { if (!dateStr) return false; const d = parseISO(dateStr); return d >= pStart && d <= pEnd }
     const workDays = countWeekdays(pStart, pEnd)
     const meetingCount = meetings.filter(m => inRange(m.meeting_date)).length
     const taskDeadlines = tasks.filter(t => inRange(t.mid_date) || inRange(t.end_date)).length
@@ -262,8 +229,6 @@ export default function SchedulePage() {
 
   const prevMonthNav = subMonths(current, 1)
   const nextMonthNav = addMonths(current, 1)
-  const prevCounts = countMonthEvents(prevMonthNav)
-  const nextCounts = countMonthEvents(nextMonthNav)
   const analysis = computeAnalysis(analysisPeriod)
 
   function getMeetingColor(category: string | null | undefined): string {
@@ -286,20 +251,20 @@ export default function SchedulePage() {
     return (
       <div key={day.toISOString()}
         onClick={() => setSelectedDay(isSameDay(day, selectedDay ?? new Date(0)) ? null : day)}
-        className={`min-h-24 p-1.5 rounded-lg cursor-pointer transition-colors ${isToday ? 'ring-1 ring-[#BADEC8] ring-inset' : ''} ${isSelected ? 'bg-gray-100' : isOtherMonth ? 'bg-gray-50/50 opacity-50' : 'hover:bg-gray-50'}`}>
+        className={`min-h-24 p-1.5 rounded-2xl cursor-pointer transition-colors ${isToday ? 'ring-1 ring-[#BADEC8] ring-inset' : ''} ${isSelected ? 'bg-white/60' : isOtherMonth ? 'bg-white/10 opacity-40' : 'hover:bg-white/40'}`}>
         <p className={`text-xs text-center mb-1.5 w-6 h-6 flex items-center justify-center rounded-full mx-auto ${
           isToday ? 'bg-[#2D5A45] text-white font-bold' : isOtherMonth ? 'text-gray-300' : 'text-gray-600'
         }`}>
           {format(day, 'd')}
         </p>
-        <div className="space-y-1">
+        <div className="space-y-0.5">
           {allItems.slice(0, 4).map((item, idx) => {
             if (item.type === 'task') {
               const { dt } = item
               return (
                 <button key={`task-${dt.task.id}-${dt.dateType}-${idx}`}
                   onClick={e => { e.stopPropagation(); router.push(`/tasks/${dt.task.id}`) }}
-                  className={`w-full text-left rounded-md px-1.5 py-1 truncate text-[11px] leading-tight hover:opacity-80 font-medium ${
+                  className={`w-full text-left rounded-lg px-1.5 py-0.5 truncate text-[11px] leading-tight hover:opacity-80 font-medium ${
                     dt.dateType === 'mid' ? 'bg-[#F3E482]/65 text-gray-800' : 'bg-[#90A7D8]/45 text-gray-800'
                   }`}
                   title={`${dt.dateType === 'mid' ? '중간공유' : '최종보고'} | ${dt.task.title}`}>
@@ -312,7 +277,7 @@ export default function SchedulePage() {
               return (
                 <button key={`meeting-${m.id}-${idx}`}
                   onClick={e => { e.stopPropagation(); router.push(`/meetings/${m.id}`) }}
-                  className={`w-full text-left rounded-md px-1.5 py-1 truncate text-[11px] leading-tight hover:opacity-80 font-medium ${getMeetingColor(m.category)}`}
+                  className={`w-full text-left rounded-lg px-1.5 py-0.5 truncate text-[11px] leading-tight hover:opacity-80 font-medium ${getMeetingColor(m.category)}`}
                   title={`회의 | ${m.title}`}>
                   {m.title}
                 </button>
@@ -325,310 +290,260 @@ export default function SchedulePage() {
     )
   }
 
+  const pillBase = 'text-xs px-3.5 py-1.5 rounded-full border font-medium transition-all whitespace-nowrap'
+  const pillActive = 'bg-gray-900 text-white border-gray-900 shadow-sm'
+  const pillInactive = 'bg-white/40 backdrop-blur-xl border-white/60 text-gray-500 hover:bg-white/60 hover:text-gray-700'
+
   return (
-    <div className="p-3 md:p-5 flex-1 flex flex-col">
-      <h1 className="text-xl font-bold text-gray-900 mb-8">일정</h1>
+    <div className="h-full flex flex-col overflow-hidden font-sans">
+      <div className="flex-shrink-0 pt-6 pb-4 flex items-center justify-between">
+        <h1 className="text-xl font-bold text-gray-900">일정</h1>
+      </div>
 
-      {/* 필터 사이클 버튼 행 */}
-      <div className="flex items-center gap-2 flex-wrap mb-4">
-        {/* q: 파트 */}
-        <button
-          onClick={() => setPartFilter(p => p === '전체' ? '코어' : p === '코어' ? '비즈' : '전체')}
-          className={`text-xs px-3 py-1.5 rounded-md border font-medium transition-colors ${
-            partFilter !== '전체' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
-          }`}>
+      {/* 필터 pills */}
+      <div className="flex-shrink-0 flex items-center gap-2 flex-wrap mb-4">
+        <button onClick={() => setPartFilter(p => p === '전체' ? '코어' : p === '코어' ? '비즈' : '전체')}
+          className={`${pillBase} ${partFilter !== '전체' ? pillActive : pillInactive}`}>
           {partFilter === '전체' ? '전체 파트' : `${partFilter}파트`}
-                  </button>
+        </button>
 
-        {/* w: 상태 */}
-        <button
-          onClick={() => setStatusFilter(s => s === '전체' ? '진행필요' : s === '진행필요' ? '진행중' : s === '진행중' ? '완료' : '전체')}
-          className={`text-xs px-3 py-1.5 rounded-md border font-medium transition-colors ${
-            statusFilter !== '전체' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
-          }`}>
+        <button onClick={() => setStatusFilter(s => s === '전체' ? '진행필요' : s === '진행필요' ? '진행중' : s === '진행중' ? '완료' : '전체')}
+          className={`${pillBase} ${statusFilter !== '전체' ? pillActive : pillInactive}`}>
           {statusFilter === '전체' ? '전체 상태' : statusFilter}
-                  </button>
+        </button>
 
-        {/* e: 보고구분 */}
-        <button
-          onClick={() => setReportFilter(r => r === '전체' ? '중간공유' : r === '중간공유' ? '최종보고' : '전체')}
-          className={`text-xs px-3 py-1.5 rounded-md border font-medium transition-colors ${
-            reportFilter !== '전체' ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
-          }`}>
+        <button onClick={() => setReportFilter(r => r === '전체' ? '중간공유' : r === '중간공유' ? '최종보고' : '전체')}
+          className={`${pillBase} ${reportFilter !== '전체' ? 'bg-amber-500 text-white border-amber-500 shadow-sm' : pillInactive}`}>
           {reportFilter === '전체' ? '보고구분' : reportFilter}
-                  </button>
+        </button>
 
-        {/* r: 업무/회의 */}
-        <button
-          onClick={() => setViewFilter(v => v === '전체' ? '업무만' : v === '업무만' ? '회의만' : '전체')}
-          className={`text-xs px-3 py-1.5 rounded-md border font-medium transition-colors ${
-            viewFilter !== '전체' ? 'bg-[#1C2B3A] text-white border-[#1C2B3A]' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
-          }`}>
+        <button onClick={() => setViewFilter(v => v === '전체' ? '업무만' : v === '업무만' ? '회의만' : '전체')}
+          className={`${pillBase} ${viewFilter !== '전체' ? 'bg-[#1C2B3A] text-white border-[#1C2B3A] shadow-sm' : pillInactive}`}>
           {viewFilter === '전체' ? '업무+회의' : viewFilter}
-                  </button>
+        </button>
 
-        {/* Tab: 담당자 select */}
         <select ref={assigneeRef} value={assigneeFilter} onChange={e => setAssigneeFilter(e.target.value)}
-          className="text-xs border border-gray-200 rounded-md px-3 py-1.5 focus:outline-none focus:border-gray-400 bg-white text-gray-500">
+          className={`${pillBase} bg-white/40 backdrop-blur-xl border-white/60 text-gray-500 focus:outline-none cursor-pointer`}>
           <option value="전체">전체 담당자</option>
           {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
         </select>
 
-        {/* 반복 추가 버튼 유지 */}
         <button onClick={() => setShowRepeatModal(true)}
-          className="text-xs px-3 py-1.5 rounded-md border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 ml-auto">
+          className={`${pillBase} ${pillInactive} ml-auto`}>
           ↺ 반복 추가
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:flex-1 md:min-h-0">
-        {/* 캘린더 */}
-        <div className="md:col-span-2 bg-white rounded-lg border border-gray-100 p-5 flex flex-col">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold text-gray-800">{format(current, 'yyyy년 M월', { locale: ko })}</h2>
-            <div className="flex gap-1">
-              <button onClick={() => setCurrent(d => new Date(d.getFullYear(), d.getMonth() - 1, 1))}
-                className="px-2 py-1 text-sm text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg">←</button>
-              <button onClick={() => setCurrent(new Date())}
-                className="px-2 py-1 text-xs text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg">오늘</button>
-              <button onClick={() => setCurrent(d => new Date(d.getFullYear(), d.getMonth() + 1, 1))}
-                className="px-2 py-1 text-sm text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg">→</button>
-            </div>
-          </div>
-          <div className="grid grid-cols-7 gap-px md:flex-1">
-            {['일','월','화','수','목','금','토'].map(d => (
-              <div key={d} className="text-center text-xs text-gray-400 font-medium py-2">{d}</div>
-            ))}
-            {prevDays.map(d => renderDay(d, true))}
-            {days.map(d => renderDay(d, false))}
-            {nextDays.map(d => renderDay(d, true))}
-          </div>
-          <div className="flex items-center gap-4 mt-3 pt-3 border-t border-gray-50 flex-wrap">
-            <div className="flex items-center gap-1.5">
-              <div className="w-3 h-2.5 bg-[#F3E482]/60 rounded border border-[#F3E482]/80" />
-              <span className="text-xs text-gray-400">중간공유</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-3 h-2.5 bg-[#90A7D8]/40 rounded border border-[#90A7D8]/60" />
-              <span className="text-xs text-gray-400">최종보고</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="flex gap-0.5">
-                <div className="w-2 h-2.5 bg-[#ECFDF5] rounded border border-[#10B981]/30" />
-                <div className="w-2 h-2.5 bg-amber-50 rounded border border-amber-200" />
-                <div className="w-2 h-2.5 bg-indigo-50 rounded border border-indigo-200" />
-              </div>
-              <span className="text-xs text-gray-400">회의 (카테고리별)</span>
-            </div>
-            <div className="ml-auto">
-              <button
-                onClick={() => setShowAnalysis(v => !v)}
-                className={`text-xs px-3 py-1.5 rounded-md border transition-colors ${
-                  showAnalysis
-                    ? 'bg-gray-900 text-white border-gray-900'
-                    : 'text-gray-500 border-gray-200 hover:bg-gray-50'
-                }`}
-              >
-                ⏱ 시간 분석
-              </button>
-            </div>
-          </div>
+      {/* 메인 그리드 */}
+      <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pb-4">
 
-          {/* ── Feature B: Time analysis panel ── */}
-          {showAnalysis && (
-            <div className="mt-4 pt-4 border-t border-gray-100">
-              {/* Period selector */}
-              <div className="flex items-center gap-2 mb-4">
-                <span className="text-xs text-gray-400 mr-1">기간</span>
-                {(['이번주', '이번달', '직전월'] as const).map(p => (
-                  <button
-                    key={p}
-                    onClick={() => setAnalysisPeriod(p)}
-                    className={`text-xs px-3 py-1 rounded-md transition-colors ${
-                      analysisPeriod === p
-                        ? 'bg-gray-900 text-white'
-                        : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                    }`}
-                  >
-                    {p}
-                  </button>
-                ))}
+          {/* 캘린더 */}
+          <div className="md:col-span-2 bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl p-5 flex flex-col">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-semibold text-gray-800">{format(current, 'yyyy년 M월', { locale: ko })}</h2>
+              <div className="flex items-center gap-1 bg-white/50 rounded-full p-1 border border-white/70">
+                <button onClick={() => setCurrent(d => new Date(d.getFullYear(), d.getMonth() - 1, 1))}
+                  className="px-2.5 py-1 text-sm text-gray-400 hover:text-gray-600 hover:bg-white/60 rounded-full transition-all">←</button>
+                <button onClick={() => setCurrent(new Date())}
+                  className="px-2.5 py-1 text-xs text-gray-400 hover:text-gray-700 hover:bg-white/60 rounded-full transition-all font-medium">오늘</button>
+                <button onClick={() => setCurrent(d => new Date(d.getFullYear(), d.getMonth() + 1, 1))}
+                  className="px-2.5 py-1 text-sm text-gray-400 hover:text-gray-600 hover:bg-white/60 rounded-full transition-all">→</button>
               </div>
+            </div>
 
-              {/* Stats grid */}
-              <div className="grid grid-cols-3 gap-3 mb-4">
-                <div className="bg-gray-50 rounded-lg p-3 text-center">
-                  <p className="text-xs text-gray-400 mb-1">업무일</p>
-                  <p className="text-lg font-bold text-gray-800">{analysis.workDays}<span className="text-xs font-normal text-gray-400 ml-0.5">일</span></p>
-                </div>
-                <div className="bg-rose-50 rounded-lg p-3 text-center">
-                  <p className="text-xs text-rose-400 mb-1">회의 건수</p>
-                  <p className="text-lg font-bold text-rose-600">{analysis.meetingCount}<span className="text-xs font-normal text-rose-400 ml-0.5">건</span></p>
-                </div>
-                <div className="bg-slate-50 rounded-lg p-3 text-center">
-                  <p className="text-xs text-slate-400 mb-1">업무 마감</p>
-                  <p className="text-lg font-bold text-slate-600">{analysis.taskDeadlines}<span className="text-xs font-normal text-slate-400 ml-0.5">건</span></p>
-                </div>
+            <div className="grid grid-cols-7 gap-px flex-1">
+              {['일','월','화','수','목','금','토'].map(d => (
+                <div key={d} className="text-center text-xs text-gray-400 font-medium py-2">{d}</div>
+              ))}
+              {prevDays.map(d => renderDay(d, true))}
+              {days.map(d => renderDay(d, false))}
+              {nextDays.map(d => renderDay(d, true))}
+            </div>
+
+            <div className="flex items-center gap-4 mt-3 pt-3 border-t border-white/50 flex-wrap">
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-2.5 bg-[#F3E482]/60 rounded border border-[#F3E482]/80" />
+                <span className="text-xs text-gray-400">중간공유</span>
               </div>
-
-              {/* Progress bar */}
-              <div className="space-y-2">
-                <div className="flex h-4 rounded-full overflow-hidden bg-gray-100">
-                  {analysis.totalHours > 0 && (
-                    <>
-                      <div
-                        className="bg-rose-300 transition-all"
-                        style={{ width: `${Math.min(100, (analysis.meetingHours / analysis.totalHours) * 100)}%` }}
-                      />
-                      <div
-                        className="bg-[#ECFDF5] transition-all"
-                        style={{ width: `${Math.min(100, (analysis.focusHours / analysis.totalHours) * 100)}%` }}
-                      />
-                    </>
-                  )}
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-2.5 bg-[#90A7D8]/40 rounded border border-[#90A7D8]/60" />
+                <span className="text-xs text-gray-400">최종보고</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="flex gap-0.5">
+                  <div className="w-2 h-2.5 bg-[#BADEC8]/50 rounded" />
+                  <div className="w-2 h-2.5 bg-[#F3E482]/55 rounded" />
+                  <div className="w-2 h-2.5 bg-[#90A7D8]/40 rounded" />
                 </div>
-                <div className="flex items-center justify-between">
-                  <p className="text-xs text-gray-500">
-                    총 <span className="font-semibold text-gray-700">{analysis.totalHours}h</span> 중{' '}
-                    회의 <span className="font-semibold text-rose-500">{analysis.meetingHours}h</span>
-                    {' · '}
-                    집중 업무 <span className="font-semibold text-[#10B981]">{analysis.focusHours}h</span>
-                  </p>
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1">
-                      <div className="w-2.5 h-2.5 rounded-sm bg-rose-300" />
-                      <span className="text-xs text-gray-400">회의</span>
+                <span className="text-xs text-gray-400">회의</span>
+              </div>
+              <div className="ml-auto">
+                <button onClick={() => setShowAnalysis(v => !v)}
+                  className={`text-xs px-3 py-1.5 rounded-full border transition-all ${showAnalysis ? pillActive : pillInactive}`}>
+                  ⏱ 시간 분석
+                </button>
+              </div>
+            </div>
+
+            {showAnalysis && (
+              <div className="mt-4 pt-4 border-t border-white/50">
+                <div className="flex items-center gap-2 mb-4">
+                  <span className="text-xs text-gray-400 mr-1">기간</span>
+                  {(['이번주', '이번달', '직전월'] as const).map(p => (
+                    <button key={p} onClick={() => setAnalysisPeriod(p)}
+                      className={`text-xs px-3 py-1 rounded-full transition-all ${analysisPeriod === p ? pillActive : 'bg-white/50 text-gray-500 border border-white/60 hover:bg-white/70'}`}>
+                      {p}
+                    </button>
+                  ))}
+                </div>
+                <div className="grid grid-cols-3 gap-3 mb-4">
+                  {[
+                    { label: '업무일', value: analysis.workDays, unit: '일', cls: 'bg-white/50' },
+                    { label: '회의 건수', value: analysis.meetingCount, unit: '건', cls: 'bg-rose-50/60' },
+                    { label: '업무 마감', value: analysis.taskDeadlines, unit: '건', cls: 'bg-slate-50/60' },
+                  ].map(s => (
+                    <div key={s.label} className={`${s.cls} rounded-2xl border border-white/60 p-3 text-center`}>
+                      <p className="text-xs text-gray-400 mb-1">{s.label}</p>
+                      <p className="text-lg font-bold text-gray-800">{s.value}<span className="text-xs font-normal text-gray-400 ml-0.5">{s.unit}</span></p>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <div className="w-2.5 h-2.5 rounded-sm bg-[#ECFDF5]" />
-                      <span className="text-xs text-gray-400">집중</span>
-                    </div>
+                  ))}
+                </div>
+                <div className="space-y-2">
+                  <div className="flex h-3.5 rounded-full overflow-hidden bg-white/40">
+                    {analysis.totalHours > 0 && (
+                      <>
+                        <div className="bg-rose-300 transition-all" style={{ width: `${Math.min(100, (analysis.meetingHours / analysis.totalHours) * 100)}%` }} />
+                        <div className="bg-[#BADEC8]/70 transition-all" style={{ width: `${Math.min(100, (analysis.focusHours / analysis.totalHours) * 100)}%` }} />
+                      </>
+                    )}
                   </div>
+                  <p className="text-xs text-gray-500">
+                    총 <span className="font-semibold text-gray-700">{analysis.totalHours}h</span>{' · '}
+                    회의 <span className="font-semibold text-rose-500">{analysis.meetingHours}h</span>{' · '}
+                    집중 <span className="font-semibold text-[#2D5A45]">{analysis.focusHours}h</span>
+                  </p>
                 </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
 
-        {/* 우측 패널: 미니 캘린더 + 선택한 날 업무 */}
-        <div className="space-y-3">
-          {/* 미니 캘린더 (전월/익월) 토글 */}
-          <div className="space-y-2">
-            {/* 전월 토글 */}
-            <div className="bg-white rounded-lg border border-gray-100 overflow-hidden">
-              <button
-                className="w-full flex items-center justify-between px-3 py-2 text-xs text-gray-500 hover:bg-gray-50"
+          {/* 우측 패널 */}
+          <div className="space-y-3">
+            {/* 전월 */}
+            <div className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl overflow-hidden">
+              <button className="w-full flex items-center justify-between px-4 py-3 text-xs text-gray-500 hover:bg-white/40 transition-colors"
                 onClick={() => setShowPrevCal(v => !v)}>
                 <span>{format(prevMonthNav, 'yy년 M월', { locale: ko })} (전월)</span>
-                <span>{showPrevCal ? '▲' : '▼'}</span>
+                <span className="text-gray-300">{showPrevCal ? '▲' : '▼'}</span>
               </button>
               {showPrevCal && (
-                <div className="p-2">
+                <div className="px-3 pb-3">
                   <MiniCalInline monthDate={prevMonthNav} onClick={() => setCurrent(prevMonthNav)} />
                 </div>
               )}
             </div>
-            {/* 익월 토글 */}
-            <div className="bg-white rounded-lg border border-gray-100 overflow-hidden">
-              <button
-                className="w-full flex items-center justify-between px-3 py-2 text-xs text-gray-500 hover:bg-gray-50"
+
+            {/* 익월 */}
+            <div className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl overflow-hidden">
+              <button className="w-full flex items-center justify-between px-4 py-3 text-xs text-gray-500 hover:bg-white/40 transition-colors"
                 onClick={() => setShowNextCal(v => !v)}>
                 <span>{format(nextMonthNav, 'yy년 M월', { locale: ko })} (익월)</span>
-                <span>{showNextCal ? '▲' : '▼'}</span>
+                <span className="text-gray-300">{showNextCal ? '▲' : '▼'}</span>
               </button>
               {showNextCal && (
-                <div className="p-2">
+                <div className="px-3 pb-3">
                   <MiniCalInline monthDate={nextMonthNav} onClick={() => setCurrent(nextMonthNav)} />
                 </div>
               )}
             </div>
-          </div>
 
-          {/* 선택한 날 업무 */}
-          <div className="bg-white rounded-lg border border-gray-100 p-3">
-          <h3 className="text-sm font-semibold text-gray-600 mb-3">
-            {selectedDay ? `${format(selectedDay, 'M월 d일', { locale: ko })} 일정` : '날짜를 선택하세요'}
-          </h3>
-          {!selectedDay ? (
-            <p className="text-sm text-gray-300">캘린더에서 날짜를 클릭하면 해당일 업무를 볼 수 있습니다</p>
-          ) : (selectedDayTasks.length === 0 && selectedDayMeetings.length === 0) ? (
-            <p className="text-sm text-gray-300">이 날 예정된 일정이 없습니다</p>
-          ) : (
-            <div className="space-y-2">
-              {getOrderedDayItems().map(item => (
-                <div
-                  key={item.itemId}
-                  draggable
-                  onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; setDragItemId(item.itemId) }}
-                  onDragEnd={() => { setDragItemId(null); setDragOverId(null) }}
-                  onDragOver={e => { e.preventDefault(); if (dragItemId !== item.itemId) setDragOverId(item.itemId) }}
-                  onDrop={e => { e.preventDefault(); handleDayDrop(item.itemId) }}
-                  onClick={() => router.push(item.type === 'meeting' ? `/meetings/${(item.data as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>).id}` : `/tasks/${(item.data as DayTask).task.id}`)}
-                  className={`rounded-lg border p-3 transition-all cursor-grab active:cursor-grabbing select-none ${
-                    item.type === 'meeting' ? 'bg-[#BADEC8]/15 border-[#BADEC8]/25 hover:border-[#BADEC8]/50' : 'bg-white border-gray-100 hover:border-gray-200'
-                  } ${dragItemId === item.itemId ? 'opacity-40 scale-95' : ''} ${
-                    dragOverId === item.itemId && dragItemId !== item.itemId ? 'border-[#BADEC8] shadow-sm -translate-y-0.5' : ''
-                  }`}
-                >
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-gray-300 text-xs">⠿</span>
-                    {item.type === 'meeting' ? (
-                      <span className="text-xs font-medium text-[#2D5A45]">💬 회의</span>
-                    ) : (
-                      <span className={`text-xs px-2 py-0.5 rounded ${(item.data as DayTask).dateType === 'mid' ? 'bg-[#F3E482]/50 text-[#5A4A10]' : 'bg-[#90A7D8]/30 text-[#1E3A6B]'}`}>
-                        {(item.data as DayTask).dateType === 'mid' ? '중간공유' : '최종보고'}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-sm font-medium text-gray-800">
-                    {item.type === 'meeting'
-                      ? (item.data as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>).title
-                      : (item.data as DayTask).task.title}
-                  </p>
-                  {item.type === 'meeting' && (item.data as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>).category && (
-                    <span className="text-xs text-[#10B981]">{(item.data as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>).category}</span>
-                  )}
-                  {item.type === 'task' && (
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      <span className="text-xs text-gray-400">{(item.data as DayTask).task.part}</span>
-                      {(item.data as DayTask).task.members?.name && (
-                        <span className="text-xs text-gray-400">{(item.data as DayTask).task.members?.name}</span>
+            {/* 선택한 날 일정 */}
+            <div className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl p-4">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">
+                {selectedDay ? `${format(selectedDay, 'M월 d일 (E)', { locale: ko })} 일정` : '날짜를 선택하세요'}
+              </h3>
+              {!selectedDay ? (
+                <p className="text-xs text-gray-300 leading-relaxed">캘린더에서 날짜를 클릭하면 해당일 일정을 볼 수 있습니다</p>
+              ) : (selectedDayTasks.length === 0 && selectedDayMeetings.length === 0) ? (
+                <p className="text-xs text-gray-300">예정된 일정이 없습니다</p>
+              ) : (
+                <div className="space-y-2">
+                  {getOrderedDayItems().map(item => (
+                    <div key={item.itemId}
+                      draggable
+                      onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; setDragItemId(item.itemId) }}
+                      onDragEnd={() => { setDragItemId(null); setDragOverId(null) }}
+                      onDragOver={e => { e.preventDefault(); if (dragItemId !== item.itemId) setDragOverId(item.itemId) }}
+                      onDrop={e => { e.preventDefault(); handleDayDrop(item.itemId) }}
+                      onClick={() => router.push(item.type === 'meeting'
+                        ? `/meetings/${(item.data as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>).id}`
+                        : `/tasks/${(item.data as DayTask).task.id}`)}
+                      className={`bg-white/60 rounded-2xl border p-3 transition-all cursor-grab active:cursor-grabbing select-none ${
+                        item.type === 'meeting' ? 'border-[#BADEC8]/40 hover:border-[#BADEC8]/70' : 'border-white/80 hover:border-gray-200'
+                      } ${dragItemId === item.itemId ? 'opacity-40 scale-95' : ''} ${
+                        dragOverId === item.itemId && dragItemId !== item.itemId ? 'border-[#BADEC8] -translate-y-0.5 shadow-sm' : ''
+                      }`}>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-gray-300 text-xs">⠿</span>
+                        {item.type === 'meeting' ? (
+                          <span className="text-xs font-medium text-[#2D5A45]">💬 회의</span>
+                        ) : (
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${(item.data as DayTask).dateType === 'mid' ? 'bg-[#F3E482]/50 text-[#5A4A10]' : 'bg-[#90A7D8]/30 text-[#1E3A6B]'}`}>
+                            {(item.data as DayTask).dateType === 'mid' ? '중간공유' : '최종보고'}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm font-medium text-gray-800 break-words leading-snug">
+                        {item.type === 'meeting'
+                          ? (item.data as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>).title
+                          : (item.data as DayTask).task.title}
+                      </p>
+                      {item.type === 'meeting' && (item.data as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>).category && (
+                        <span className="text-xs text-[#2D5A45] mt-0.5 block">{(item.data as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>).category}</span>
+                      )}
+                      {item.type === 'task' && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          <span className="text-xs text-gray-400">{(item.data as DayTask).task.part}</span>
+                          {(item.data as DayTask).task.members?.name && (
+                            <span className="text-xs text-gray-400">{(item.data as DayTask).task.members?.name}</span>
+                          )}
+                        </div>
                       )}
                     </div>
-                  )}
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
-          )}
           </div>
         </div>
       </div>
 
       {showRepeatModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setShowRepeatModal(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl p-6 w-80" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 backdrop-blur-sm" onClick={() => setShowRepeatModal(false)}>
+          <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/80 p-6 w-80" onClick={e => e.stopPropagation()}>
             <h3 className="font-semibold text-gray-800 mb-4">반복 일정 추가</h3>
             <div className="space-y-3">
               <input value={repeatTitle} onChange={e => setRepeatTitle(e.target.value)}
-                placeholder="일정 제목" className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none" />
+                placeholder="일정 제목" className="w-full text-sm border border-gray-200 rounded-2xl px-3 py-2 focus:outline-none bg-white/60" />
               <div className="flex items-center gap-2">
                 <span className="text-xs text-gray-500 whitespace-nowrap">매월</span>
                 <input value={repeatDay} onChange={e => setRepeatDay(e.target.value.replace(/\D/g, ''))}
-                  placeholder="15" className="w-16 text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none text-center" />
+                  placeholder="15" className="w-16 text-sm border border-gray-200 rounded-2xl px-3 py-2 focus:outline-none text-center bg-white/60" />
                 <span className="text-xs text-gray-500">일</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-gray-500 whitespace-nowrap">이번달부터</span>
                 <select value={repeatMonthCount} onChange={e => setRepeatMonthCount(e.target.value)}
-                  className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none bg-white">
+                  className="flex-1 text-sm border border-gray-200 rounded-2xl px-3 py-2 focus:outline-none bg-white/60">
                   {[1,2,3,4,5,6].map(n => <option key={n} value={n}>{n}개월</option>)}
                 </select>
               </div>
             </div>
-            <div className="flex justify-end gap-2 mt-4">
+            <div className="flex justify-end gap-2 mt-5">
               <button onClick={() => setShowRepeatModal(false)} className="text-xs text-gray-400 hover:text-gray-600 px-3 py-1.5">취소</button>
               <button onClick={handleCreateRepeating} disabled={!repeatTitle.trim()}
-                className="text-xs bg-gray-900 text-white px-4 py-1.5 rounded-lg hover:bg-gray-800 disabled:opacity-30">
+                className="text-xs bg-gray-900 text-white px-4 py-1.5 rounded-full hover:bg-gray-800 disabled:opacity-30">
                 {repeatMonthCount}개 일정 생성
               </button>
             </div>
@@ -648,9 +563,9 @@ const KR_HOLIDAYS = new Set([
   '2026-03-01', '2026-03-02', '2026-05-05',
   '2026-06-06', '2026-08-15',
   '2026-09-23', '2026-09-24', '2026-09-25',
-  '2026-10-03', '2026-10-09',
-  '2026-12-25',
+  '2026-10-03', '2026-10-09', '2026-12-25',
 ])
+
 function isKoreanHoliday(d: Date): boolean {
   return KR_HOLIDAYS.has(format(d, 'yyyy-MM-dd'))
 }
@@ -680,4 +595,3 @@ function MiniCalInline({ monthDate, onClick }: { monthDate: Date; onClick: () =>
     </div>
   )
 }
-
