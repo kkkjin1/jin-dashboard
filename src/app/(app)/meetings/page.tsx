@@ -12,7 +12,6 @@ import { generateMeetingsContextMd, downloadMd } from '@/lib/markdown'
 const ORDERED_CATS = ['코어', '비즈', '경영진', '본부장', '타팀', '목표관리', '기타'] as const
 type MeetingCat = typeof ORDERED_CATS[number]
 
-// 필터 순서: 전체 - 경영진 - 코어 - 비즈 - 목표관리 - 그 외
 type CatFilter = '전체' | MeetingCat
 const CAT_FILTERS: CatFilter[] = ['전체', '경영진', '코어', '비즈', '목표관리', '본부장', '타팀', '기타']
 
@@ -36,6 +35,12 @@ const CAT_CARD_BG: Record<string, string> = {
   '기타':    'border-t-gray-200',
 }
 
+function formatYM(ym: string): string {
+  if (ym === '날짜 없음') return '날짜 미지정'
+  const [y, m] = ym.split('-')
+  return `${y}년 ${parseInt(m)}월`
+}
+
 const pill  = 'text-xs px-3.5 py-1.5 rounded-full border font-medium transition-all whitespace-nowrap'
 const pOn  = 'bg-gray-900 text-white border-gray-900 shadow-sm'
 const pOff = 'bg-white/40 backdrop-blur-xl border-white/60 text-gray-500 hover:bg-white/60 hover:text-gray-700'
@@ -48,6 +53,7 @@ export default function MeetingsPage() {
   const [catFilter, setCatFilter] = useState<CatFilter>('전체')
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set())
   const [collapsedCats, setCollapsedCats] = useState<Set<string>>(new Set())
+  const [collapsedMonths, setCollapsedMonths] = useState<Set<string>>(new Set())
   const supabase = createClient()
   const router = useRouter()
 
@@ -86,6 +92,10 @@ export default function MeetingsPage() {
     setCollapsedCats(prev => { const s = new Set(prev); s.has(cat) ? s.delete(cat) : s.add(cat); return s })
   }
 
+  function toggleMonth(key: string) {
+    setCollapsedMonths(prev => { const s = new Set(prev); s.has(key) ? s.delete(key) : s.add(key); return s })
+  }
+
   const categoryGroups = useMemo(() => {
     const filtered = catFilter === '전체'
       ? meetings
@@ -93,9 +103,21 @@ export default function MeetingsPage() {
         ? meetings.filter(m => !m.category || !(ORDERED_CATS as readonly string[]).slice(0, -1).includes(m.category))
         : meetings.filter(m => m.category === catFilter)
 
+    function buildMonthGroups(items: Meeting[]) {
+      const map = new Map<string, Meeting[]>()
+      items.forEach(m => {
+        const ym = m.meeting_date ? m.meeting_date.slice(0, 7) : '날짜 없음'
+        if (!map.has(ym)) map.set(ym, [])
+        map.get(ym)!.push(m)
+      })
+      return Array.from(map.entries())
+        .sort(([a], [b]) => b.localeCompare(a))
+        .map(([ym, items]) => ({ ym, items }))
+    }
+
     if (catFilter !== '전체') {
-      // 단일 카테고리 필터 시 그룹 없이 flat으로
-      return [{ cat: catFilter as MeetingCat, items: filtered }].filter(g => g.items.length > 0)
+      if (filtered.length === 0) return []
+      return [{ cat: catFilter as MeetingCat, items: filtered, months: buildMonthGroups(filtered) }]
     }
 
     return ORDERED_CATS
@@ -104,9 +126,9 @@ export default function MeetingsPage() {
           ? filtered.filter(m => !m.category || !(ORDERED_CATS as readonly string[]).slice(0, -1).includes(m.category))
           : filtered.filter(m => m.category === cat)
         if (items.length === 0) return null
-        return { cat, items }
+        return { cat, items, months: buildMonthGroups(items) }
       })
-      .filter(Boolean) as { cat: MeetingCat; items: Meeting[] }[]
+      .filter(Boolean) as { cat: MeetingCat; items: Meeting[]; months: { ym: string; items: Meeting[] }[] }[]
   }, [meetings, catFilter])
 
   const totalFiltered = categoryGroups.reduce((s, g) => s + g.items.length, 0)
@@ -166,11 +188,11 @@ export default function MeetingsPage() {
           </div>
         ) : (
           <div className="space-y-8 pb-6">
-            {categoryGroups.map(({ cat, items }) => {
+            {categoryGroups.map(({ cat, items, months }) => {
               const isCatCollapsed = collapsedCats.has(cat)
               return (
                 <div key={cat}>
-                  {/* 카테고리 헤더 (전체 보기일 때만 표시) */}
+                  {/* 카테고리 헤더 */}
                   {catFilter === '전체' && (
                     <button onClick={() => toggleCat(cat)}
                       className="flex items-center gap-2.5 w-full text-left group py-2 mb-3 border-b border-white/40 pb-3">
@@ -186,33 +208,64 @@ export default function MeetingsPage() {
                     </button>
                   )}
 
-                  {/* 카드 그리드 */}
+                  {/* 월별 서브 그룹 */}
                   {!isCatCollapsed && (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                      {items.map(meeting => (
-                        <Link key={meeting.id} href={`/meetings/${meeting.id}`}
-                          className={`group/card bg-white/40 backdrop-blur-xl border-t-2 border border-white/60 rounded-2xl p-3 hover:bg-white/60 hover:shadow-sm transition-all h-28 flex flex-col overflow-hidden ${CAT_CARD_BG[cat] ?? 'border-t-gray-200'}`}>
-                          <p className="text-xs font-bold text-gray-800 leading-snug line-clamp-3 flex-1">
-                            {meeting.title || '제목 없음'}
-                          </p>
-                          <div className="flex items-center gap-1.5 mt-1.5 flex-shrink-0">
-                            <input type="checkbox" checked={checkedIds.has(meeting.id)}
-                              onChange={() => toggleCheck(meeting.id)}
-                              onClick={e => e.preventDefault()}
-                              className="w-3 h-3 rounded accent-gray-700 flex-shrink-0 cursor-pointer" />
-                            <span className="text-[9px] text-neutral-400 flex-1">
-                              {meeting.meeting_date
-                                ? format(parseISO(meeting.meeting_date), 'M.d (E)', { locale: ko })
-                                : '날짜 미지정'}
-                            </span>
-                            {meeting.notes.length > 0 && (
-                              <span className="text-[9px] text-gray-400 bg-white/60 border border-white/70 px-1 py-0.5 rounded-full flex-shrink-0">
-                                {meeting.notes.length}노트
+                    <div className="space-y-5">
+                      {months.map(({ ym, items: monthItems }, idx) => {
+                        const monthKey = `${cat}-${ym}`
+                        const isMonthCollapsed = collapsedMonths.has(monthKey)
+                        const isLatest = idx === 0
+                        return (
+                          <div key={ym}>
+                            {/* 월 헤더 */}
+                            <button onClick={() => toggleMonth(monthKey)}
+                              className="flex items-center gap-2 w-full text-left group mb-2">
+                              <span className="text-xs font-semibold text-gray-500 group-hover:text-gray-700 transition-colors">
+                                {formatYM(ym)}
                               </span>
+                              <span className="text-[10px] text-gray-400 bg-white/50 border border-white/60 px-1.5 py-0.5 rounded-full">
+                                {monthItems.length}건
+                              </span>
+                              {isLatest && (
+                                <span className="text-[9px] text-[#2D5A45] bg-[#BADEC8]/30 border border-[#BADEC8]/40 px-1.5 py-0.5 rounded-full">최신</span>
+                              )}
+                              <span className="text-[10px] text-gray-300 group-hover:text-gray-500 transition-colors ml-auto">
+                                {isMonthCollapsed ? '▶' : '▼'}
+                              </span>
+                            </button>
+
+                            {/* 카드 그리드 */}
+                            {!isMonthCollapsed && (
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                {monthItems.map(meeting => (
+                                  <Link key={meeting.id} href={`/meetings/${meeting.id}`}
+                                    className={`group/card bg-white/40 backdrop-blur-xl border-t-2 border border-white/60 rounded-2xl p-3 hover:bg-white/60 hover:shadow-sm transition-all h-28 flex flex-col overflow-hidden ${CAT_CARD_BG[cat] ?? 'border-t-gray-200'}`}>
+                                    <p className="text-xs font-bold text-gray-800 leading-snug line-clamp-3 flex-1">
+                                      {meeting.title || '제목 없음'}
+                                    </p>
+                                    <div className="flex items-center gap-1.5 mt-1.5 flex-shrink-0">
+                                      <input type="checkbox" checked={checkedIds.has(meeting.id)}
+                                        onChange={() => toggleCheck(meeting.id)}
+                                        onClick={e => e.preventDefault()}
+                                        className="w-3 h-3 rounded accent-gray-700 flex-shrink-0 cursor-pointer" />
+                                      <span className="text-[9px] text-neutral-400 flex-1">
+                                        {meeting.meeting_date
+                                          ? format(parseISO(meeting.meeting_date), 'M.d (E)', { locale: ko })
+                                          : '날짜 미지정'}
+                                      </span>
+                                      {meeting.notes.length > 0 && (
+                                        <span className="text-[9px] text-gray-400 bg-white/60 border border-white/70 px-1 py-0.5 rounded-full flex-shrink-0">
+                                          {meeting.notes.length}노트
+                                        </span>
+                                      )}
+                                    </div>
+                                  </Link>
+                                ))}
+                              </div>
                             )}
                           </div>
-                        </Link>
-                      ))}
+                        )
+                      })}
                     </div>
                   )}
                 </div>

@@ -518,6 +518,8 @@ export default function OneOnOnePage() {
     { label: '비즈파트', list: members.filter(m => m.part === '비즈') },
   ].filter(g => g.list.length > 0)
 
+  const [matrixSortAsc, setMatrixSortAsc] = useState(false)
+
   const memberStats = useMemo(() => {
     const now = Date.now()
     return members
@@ -529,13 +531,16 @@ export default function OneOnOnePage() {
             : null
         return { member, daysSince, lastDate: last?.session_date ?? null }
       })
-      .sort((a, b) => {
-        if (a.daysSince === null && b.daysSince === null) return 0
-        if (a.daysSince === null) return -1
-        if (b.daysSince === null) return 1
-        return b.daysSince - a.daysSince
-      })
   }, [members, sessions])
+
+  const sortedMemberStats = useMemo(() => {
+    return [...memberStats].sort((a, b) => {
+      if (a.daysSince === null && b.daysSince === null) return 0
+      if (a.daysSince === null) return matrixSortAsc ? 1 : -1
+      if (b.daysSince === null) return matrixSortAsc ? -1 : 1
+      return matrixSortAsc ? a.daysSince - b.daysSince : b.daysSince - a.daysSince
+    })
+  }, [memberStats, matrixSortAsc])
 
   function daysBadgeClass(daysSince: number | null): string {
     if (daysSince === null || daysSince >= 30) return 'bg-[#EBA698]/40 text-[#6B2D25] border-[#EBA698]/55'
@@ -639,9 +644,15 @@ export default function OneOnOnePage() {
             {/* RIGHT: 매트릭스 위젯 */}
             <div className="min-w-0 md:flex-[40] flex flex-col gap-4">
               <div className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl p-4">
-                <p className="text-xs font-semibold text-gray-500 mb-3">전체 현황 매트릭스</p>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs font-semibold text-gray-500">전체 현황</p>
+                  <button onClick={() => setMatrixSortAsc(p => !p)}
+                    className="text-[10px] text-gray-400 hover:text-gray-700 bg-white/50 border border-white/70 px-2 py-0.5 rounded-full transition-colors">
+                    {matrixSortAsc ? '최신순 ↑' : '오래된순 ↓'}
+                  </button>
+                </div>
                 <div className="grid grid-cols-3 gap-2">
-                  {memberStats.map(({ member, daysSince, lastDate }) => {
+                  {sortedMemberStats.map(({ member, daysSince, lastDate }) => {
                     const ringColor =
                       daysSince === null || daysSince >= 30
                         ? 'ring-2 ring-[#EBA698]/70'

@@ -8,6 +8,7 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import type { LearningResource } from '@/types'
 
 const DEFAULT_TAGS = ['HR', '경제', '리더십', '평가보상', '데이터', '조직문화', '기획']
+
 const TAG_BADGE: Record<string, string> = {
   'HR':      'bg-[#BADEC8]/50 text-[#2D5A45] border-[#BADEC8]/60',
   '경제':    'bg-[#90A7D8]/40 text-[#1E3A6B] border-[#90A7D8]/50',
@@ -18,32 +19,9 @@ const TAG_BADGE: Record<string, string> = {
   '기획':    'bg-slate-100/80 text-slate-600 border-slate-200',
   '미분류':  'bg-gray-100/80 text-gray-500 border-gray-200',
 }
+
 const MEDIA_TYPES = ['책', '영상', '아티클', '강의', '기타']
 const MEDIA_ICONS: Record<string, string> = { '책': '📚', '영상': '🎬', '아티클': '📄', '강의': '🎓', '기타': '📌' }
-
-type Period = '이번 주' | '이번 달' | '3개월' | '전체'
-const PERIODS: Period[] = ['이번 주', '이번 달', '3개월', '전체']
-
-function getPeriodStart(period: Period): Date | null {
-  if (period === '전체') return null
-  const now = new Date()
-  if (period === '이번 주') {
-    const d = new Date(now)
-    const dow = d.getDay()
-    d.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1))
-    d.setHours(0, 0, 0, 0)
-    return d
-  }
-  if (period === '이번 달') return new Date(now.getFullYear(), now.getMonth(), 1)
-  const d = new Date(now); d.setMonth(now.getMonth() - 3); return d
-}
-
-function inPeriod(dateStr: string | null | undefined, period: Period): boolean {
-  if (!dateStr) return period === '전체'
-  const start = getPeriodStart(period)
-  if (!start) return true
-  return new Date(dateStr) >= start
-}
 
 type SiteShortcut = { id: string; title: string; url: string }
 
@@ -54,27 +32,34 @@ const pOff = 'bg-white/40 backdrop-blur-xl border-white/60 text-gray-500 hover:b
 export default function LearningPage() {
   const [resources, setResources] = useState<LearningResource[]>([])
   const [loading, setLoading] = useState(true)
-  const [period, setPeriod] = useState<Period>('전체')
+
   const { value: customTags, save: saveCustomTagsRemote } = useUserSetting<string[]>('learning_custom_tags', DEFAULT_TAGS)
-  const { value: bucketNames, save: saveBucketNamesRemote } = useUserSetting<string[]>('learning_bucket_names', ['읽을 예정', '읽는 중', '완료'])
-  const [collapsedColMedia, setCollapsedColMedia] = useState<Set<string>>(new Set())
-  const [managingTags, setManagingTags] = useState(false)
-  const [newTagInput, setNewTagInput] = useState('')
+  const { value: siteShortcuts, save: saveSiteShortcutsRemote } = useUserSetting<SiteShortcut[]>('learning_site_shortcuts', [])
+
+  // 카드 추가 폼
   const [addingInCol, setAddingInCol] = useState<string | null>(null)
   const [colAddTitle, setColAddTitle] = useState('')
   const [colAddSource, setColAddSource] = useState('')
-  const [colAddNote, setColAddNote] = useState('')
   const [colAddMedia, setColAddMedia] = useState<string>('')
-  const { value: siteShortcuts, save: saveSiteShortcutsRemote } = useUserSetting<SiteShortcut[]>('learning_site_shortcuts', [])
+
+  // 범주 관리
+  const [newTagInput, setNewTagInput] = useState('')
+  const [showAddTag, setShowAddTag] = useState(false)
+
+  // 완료 섹션 토글 (per tag)
+  const [showDoneForTag, setShowDoneForTag] = useState<Set<string>>(new Set())
+
+  // 드래그
+  const [dragOverTarget, setDragOverTarget] = useState<string | null>(null)
+
+  // 사이트 단축키
   const [showAddSite, setShowAddSite] = useState(false)
   const [newSiteTitle, setNewSiteTitle] = useState('')
   const [newSiteUrl, setNewSiteUrl] = useState('')
   const [editingSiteId, setEditingSiteId] = useState<string | null>(null)
   const [editSiteTitle, setEditSiteTitle] = useState('')
   const [editSiteUrl, setEditSiteUrl] = useState('')
-  const [editingBucketIdx, setEditingBucketIdx] = useState<number | null>(null)
-  const [editingBucketName, setEditingBucketName] = useState('')
-  const [dragOverCol, setDragOverCol] = useState<string | null>(null)
+
   const supabase = createClient()
 
   useEffect(() => {
@@ -82,153 +67,112 @@ export default function LearningPage() {
       .then(({ data }) => { setResources((data ?? []) as LearningResource[]); setLoading(false) })
   }, [])
 
-  function updateCustomTags(tags: string[]) { saveCustomTagsRemote(tags) }
+  // ── 범주 CRUD ──────────────────────────────────────────
   function addCustomTag() {
     const t = newTagInput.trim()
     if (!t || customTags.includes(t)) return
-    updateCustomTags([...customTags, t]); setNewTagInput('')
+    saveCustomTagsRemote([...customTags, t])
+    setNewTagInput(''); setShowAddTag(false)
   }
 
+  function removeTag(tag: string) {
+    if (!confirm(`"${tag}" 범주를 삭제하시겠습니까?\n해당 범주의 자료는 미분류로 이동됩니다.`)) return
+    saveCustomTagsRemote(customTags.filter(t => t !== tag))
+  }
+
+  // ── 자료 추가 ──────────────────────────────────────────
   async function handleColAdd(tag: string) {
-    if (!colAddTitle.trim()) { setAddingInCol(null); setColAddTitle(''); setColAddSource(''); setColAddNote(''); setColAddMedia(''); return }
-    const initTags = (tag === '미분류' || tag === '__new__') ? [] : tag.startsWith('_b') ? [tag] : [tag]
-    const notes = colAddNote.trim()
-      ? [{ title: '노트', content: colAddNote.trim(), created_at: new Date().toISOString() }]
-      : []
+    if (!colAddTitle.trim()) { resetColAdd(); return }
+    const initTags = tag === '미분류' ? [] : [tag]
     const { data } = await supabase.from('learning_resources')
-      .insert({ title: colAddTitle.trim(), source: colAddSource.trim(), notes, tags: initTags, media_type: colAddMedia || null })
+      .insert({ title: colAddTitle.trim(), source: colAddSource.trim(), notes: [], tags: initTags, media_type: colAddMedia || null })
       .select().single()
     if (data) setResources(prev => [data as LearningResource, ...prev])
-    setColAddTitle(''); setColAddSource(''); setColAddNote(''); setColAddMedia(''); setAddingInCol(null)
+    resetColAdd()
   }
 
-  function resetColAdd() { setAddingInCol(null); setColAddTitle(''); setColAddSource(''); setColAddNote(''); setColAddMedia('') }
+  function resetColAdd() { setAddingInCol(null); setColAddTitle(''); setColAddSource(''); setColAddMedia('') }
 
-  function toggleColMedia(key: string) {
-    setCollapsedColMedia(prev => { const s = new Set(prev); s.has(key) ? s.delete(key) : s.add(key); return s })
+  // ── 완료 상태 토글 ─────────────────────────────────────
+  async function toggleDoneStatus(resourceId: string, done: boolean) {
+    const resource = resources.find(r => r.id === resourceId)
+    if (!resource) return
+    const withoutDone = (resource.tags ?? []).filter(t => t !== '_done')
+    const newTags = done ? [...withoutDone, '_done'] : withoutDone
+    await supabase.from('learning_resources').update({ tags: newTags }).eq('id', resourceId)
+    setResources(prev => prev.map(r => r.id === resourceId ? { ...r, tags: newTags } : r))
+    setDragOverTarget(null)
   }
 
+  function toggleDoneSection(tag: string) {
+    setShowDoneForTag(prev => { const s = new Set(prev); s.has(tag) ? s.delete(tag) : s.add(tag); return s })
+  }
+
+  function handleDragLeave(e: React.DragEvent) {
+    if (!e.relatedTarget || !e.currentTarget.contains(e.relatedTarget as Node)) setDragOverTarget(null)
+  }
+
+  // ── 사이트 단축키 ──────────────────────────────────────
   function saveSiteShortcuts(list: SiteShortcut[]) { saveSiteShortcutsRemote(list) }
   function addSiteShortcut() {
     if (!newSiteUrl.trim()) return
     const url = newSiteUrl.startsWith('http') ? newSiteUrl : 'https://' + newSiteUrl
-    const title = newSiteTitle.trim() || url
-    saveSiteShortcuts([...siteShortcuts, { id: Date.now().toString(), title, url }])
+    saveSiteShortcuts([...siteShortcuts, { id: Date.now().toString(), title: newSiteTitle.trim() || url, url }])
     setNewSiteTitle(''); setNewSiteUrl(''); setShowAddSite(false)
   }
   function removeSiteShortcut(id: string) { saveSiteShortcuts(siteShortcuts.filter(s => s.id !== id)) }
   function saveEditSiteShortcut() {
     if (!editSiteUrl.trim() || !editingSiteId) return
     const url = editSiteUrl.startsWith('http') ? editSiteUrl : 'https://' + editSiteUrl
-    const title = editSiteTitle.trim() || url
-    saveSiteShortcuts(siteShortcuts.map(s => s.id === editingSiteId ? { ...s, title, url } : s))
+    saveSiteShortcuts(siteShortcuts.map(s => s.id === editingSiteId ? { ...s, title: editSiteTitle.trim() || url, url } : s))
     setEditingSiteId(null); setEditSiteTitle(''); setEditSiteUrl('')
   }
 
-  function saveBucketName(idx: number) {
-    const name = editingBucketName.trim()
-    if (!name) { setEditingBucketIdx(null); return }
-    const names = [...(bucketNames ?? ['읽을 예정', '읽는 중', '완료'])]
-    names[idx] = name
-    saveBucketNamesRemote(names)
-    setEditingBucketIdx(null)
-  }
-
-  async function moveToColumn(resourceId: string, targetCol: string) {
-    const resource = resources.find(r => r.id === resourceId)
-    if (!resource) return
-    const currentTags = resource.tags ?? []
-    const otherTags = currentTags.filter(t => !customTags.includes(t) && !t.startsWith('_b'))
-    const newTags = targetCol === '미분류' ? otherTags : [targetCol, ...otherTags]
-    await supabase.from('learning_resources').update({ tags: newTags }).eq('id', resourceId)
-    setResources(prev => prev.map(r => r.id === resourceId ? { ...r, tags: newTags } : r))
-    setDragOverCol(null)
-  }
-
-  function handleDragLeave(e: React.DragEvent) {
-    if (!e.relatedTarget || !e.currentTarget.contains(e.relatedTarget as Node)) setDragOverCol(null)
-  }
-
+  // ── 데이터 그루핑 ──────────────────────────────────────
   const tagCols = [...customTags, '미분류']
 
-  // 기간 필터 적용한 tag kanban
-  const tagKanbanGroups = useMemo(() => {
-    const periodFiltered = resources.filter(r => inPeriod(r.created_at, period))
-    const cols = [...customTags, '미분류']
-    const result: Record<string, LearningResource[]> = {}
-    cols.forEach(tag => { result[tag] = [] })
-    periodFiltered.forEach(r => {
+  const tagGroups = useMemo(() => {
+    const result: Record<string, { active: LearningResource[], done: LearningResource[] }> = {}
+    tagCols.forEach(col => { result[col] = { active: [], done: [] } })
+    resources.forEach(r => {
       const tags = r.tags ?? []
-      if (tags.some(t => t.startsWith('_b'))) return
       const firstKnown = tags.find(t => customTags.includes(t))
       const col = firstKnown ?? '미분류'
-      ;(result[col] ?? result['미분류']).push(r)
+      const isDone = tags.includes('_done')
+      const target = result[col] ?? result['미분류']
+      isDone ? target.done.push(r) : target.active.push(r)
     })
     return result
-  }, [resources, customTags, period])
+  }, [resources, customTags])
 
-  const bucketGroups = useMemo(() => {
-    return [0, 1, 2].map(i => resources.filter(r => (r.tags ?? []).includes(`_b${i}`)))
-  }, [resources])
-
-  const names = bucketNames ?? ['읽을 예정', '읽는 중', '완료']
+  const totalCount = resources.length
 
   return (
     <div className="h-full flex flex-col overflow-hidden font-sans">
       {/* 헤더 */}
       <div className="flex-shrink-0 pt-6 pb-4 flex items-center gap-3">
         <h1 className="text-xl font-bold text-gray-900 mr-auto">학습자료</h1>
-        <button onClick={() => setManagingTags(p => !p)}
-          className={`${pill} ${managingTags ? pOn : pOff}`}>
-          태그 관리
-        </button>
+        <span className="text-xs text-gray-400">{totalCount}개</span>
         <button onClick={() => setAddingInCol('__new__')}
           className="text-sm bg-gray-900 text-white px-4 py-2 rounded-full hover:bg-gray-800 transition-colors shadow-sm">
           + 새 자료
         </button>
       </div>
 
-      {/* 스크롤 콘텐츠 */}
       <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
-        <div className="pb-6 space-y-5">
+        <div className="pb-6 space-y-6">
 
-          {/* 태그 관리 */}
-          {managingTags && (
-            <div className="bg-white/60 backdrop-blur-xl border border-white/80 rounded-3xl p-5">
-              <p className="text-xs font-semibold text-gray-500 mb-3">커스텀 태그</p>
-              <div className="flex flex-wrap gap-1.5 mb-3">
-                {customTags.map(tag => (
-                  <span key={tag} className={`inline-flex items-center gap-1 text-xs border rounded-full px-2.5 py-1 ${TAG_BADGE[tag] ?? 'bg-white/60 border-white/80 text-gray-500'}`}>
-                    {tag}
-                    <button onClick={() => updateCustomTags(customTags.filter(t => t !== tag))}
-                      className="text-gray-300 hover:text-red-400 leading-none">×</button>
-                  </span>
-                ))}
-              </div>
-              <div className="flex gap-2">
-                <input value={newTagInput} onChange={e => setNewTagInput(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') addCustomTag() }}
-                  placeholder="새 태그 입력 후 엔터"
-                  className="flex-1 text-xs bg-white/50 border border-white/70 rounded-full px-3 py-1.5 focus:outline-none" />
-                <button onClick={addCustomTag} className={`${pill} ${pOn}`}>추가</button>
-              </div>
-            </div>
-          )}
-
-          {/* 새 자료 추가 폼 */}
+          {/* 새 자료 빠른 추가 */}
           {addingInCol === '__new__' && (
             <div className="bg-white/60 backdrop-blur-xl border border-white/80 rounded-3xl p-5">
               <input autoFocus value={colAddTitle} onChange={e => setColAddTitle(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Escape') resetColAdd() }}
                 placeholder="제목 *"
-                className="w-full text-sm font-semibold focus:outline-none text-gray-800 mb-3 border-b border-gray-100 pb-2 bg-transparent" />
+                className="w-full text-sm font-semibold focus:outline-none text-gray-800 mb-3 border-b border-white/60 pb-2 bg-transparent" />
               <input value={colAddSource} onChange={e => setColAddSource(e.target.value)}
                 placeholder="출처 URL / 제목 (선택)"
-                className="w-full text-xs focus:outline-none text-gray-500 mb-2 bg-transparent" />
-              <textarea value={colAddNote} onChange={e => setColAddNote(e.target.value)}
-                placeholder="노트 내용 (선택)" rows={2}
-                className="w-full text-xs focus:outline-none resize-none text-gray-500 leading-relaxed border-b border-gray-100 pb-2 mb-3 bg-transparent" />
-              <div className="flex items-center gap-2 flex-wrap">
+                className="w-full text-xs focus:outline-none text-gray-500 mb-3 bg-transparent" />
+              <div className="flex items-center gap-1.5 flex-wrap mb-3">
                 {MEDIA_TYPES.map(type => (
                   <button key={type} onClick={() => setColAddMedia(colAddMedia === type ? '' : type)}
                     className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${colAddMedia === type ? pOn : pOff}`}>
@@ -237,7 +181,7 @@ export default function LearningPage() {
                 ))}
                 <div className="ml-auto flex gap-2">
                   <button onClick={resetColAdd} className={`${pill} ${pOff}`}>취소</button>
-                  <button onClick={() => handleColAdd('__new__')} disabled={!colAddTitle.trim()} className={`${pill} ${pOn} disabled:opacity-30`}>저장</button>
+                  <button onClick={() => handleColAdd('미분류')} disabled={!colAddTitle.trim()} className={`${pill} ${pOn} disabled:opacity-30`}>저장</button>
                 </div>
               </div>
             </div>
@@ -272,7 +216,7 @@ export default function LearningPage() {
                       <span className="text-xs font-medium text-gray-700 truncate max-w-28">🔗 {s.title}</span>
                     </a>
                     <div className="absolute -top-1.5 -right-1 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                      <button onClick={() => { setEditingSiteId(s.id); setEditSiteTitle(s.title); setEditSiteUrl(s.url); setShowAddSite(false) }}
+                      <button onClick={() => { setEditingSiteId(s.id); setEditSiteTitle(s.title); setEditSiteUrl(s.url) }}
                         className="w-4 h-4 bg-[#90A7D8] text-white rounded-full text-[9px] flex items-center justify-center hover:bg-[#1E3A6B]">✎</button>
                       <button onClick={() => removeSiteShortcut(s.id)}
                         className="w-4 h-4 bg-gray-300 text-white rounded-full text-[9px] flex items-center justify-center hover:bg-red-400">×</button>
@@ -283,7 +227,7 @@ export default function LearningPage() {
               {showAddSite ? (
                 <div className="bg-white/70 backdrop-blur-xl rounded-2xl border border-white/80 p-2.5 w-44 shadow-sm">
                   <input value={newSiteTitle} onChange={e => setNewSiteTitle(e.target.value)}
-                    placeholder="이름 (필수)" autoFocus
+                    placeholder="이름" autoFocus
                     className="text-sm font-medium text-gray-800 w-full focus:outline-none border-b border-gray-200 pb-1 mb-1 bg-transparent" />
                   <input value={newSiteUrl} onChange={e => setNewSiteUrl(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter') addSiteShortcut(); if (e.key === 'Escape') setShowAddSite(false) }}
@@ -303,128 +247,44 @@ export default function LearningPage() {
             </div>
           </div>
 
-          {/* 3개 버킷 칸반 */}
-          {!loading && (
-            <div className="grid grid-cols-3 gap-4">
-              {([0, 1, 2] as const).map(i => {
-                const colId = `_b${i}`
-                const items = bucketGroups[i]
-                const isDragOver = dragOverCol === colId
-                return (
-                  <div key={i}
-                    className={`bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl p-4 min-h-[140px] transition-all flex flex-col ${isDragOver ? 'bg-white/60 border-white/80' : ''}`}
-                    onDragOver={e => { e.preventDefault(); setDragOverCol(colId) }}
-                    onDrop={e => { e.preventDefault(); const id = e.dataTransfer.getData('resourceId'); if (id) moveToColumn(id, colId) }}
-                    onDragLeave={handleDragLeave}
-                  >
-                    <div className="flex items-center gap-2 mb-3 flex-shrink-0">
-                      {editingBucketIdx === i ? (
-                        <input
-                          autoFocus
-                          value={editingBucketName}
-                          onChange={e => setEditingBucketName(e.target.value)}
-                          onKeyDown={e => { if (e.key === 'Enter') saveBucketName(i); if (e.key === 'Escape') setEditingBucketIdx(null) }}
-                          onBlur={() => saveBucketName(i)}
-                          className="flex-1 text-sm font-bold text-gray-800 focus:outline-none border-b-2 border-gray-400 pb-0.5 bg-transparent"
-                        />
-                      ) : (
-                        <button
-                          onClick={() => { setEditingBucketIdx(i); setEditingBucketName(names[i] ?? `버킷 ${i + 1}`) }}
-                          className="flex-1 text-left text-sm font-bold text-gray-800 hover:text-gray-600 transition-colors group"
-                        >
-                          {names[i] ?? `버킷 ${i + 1}`}
-                          <span className="text-[10px] text-gray-300 ml-1.5 opacity-0 group-hover:opacity-100 transition-opacity">✎</span>
-                        </button>
-                      )}
-                      {items.length > 0 && (
-                        <span className="text-xs text-gray-400 bg-white/60 border border-white/70 px-2 py-0.5 rounded-full flex-shrink-0">{items.length}</span>
-                      )}
-                    </div>
-                    <div className="space-y-1.5 flex-1">
-                      {items.length === 0 ? (
-                        <p className="text-xs text-gray-300 text-center py-6">{isDragOver ? '여기에 놓기' : '없음'}</p>
-                      ) : items.map(r => (
-                        <div
-                          key={r.id}
-                          draggable
-                          onDragStart={e => { e.dataTransfer.setData('resourceId', r.id) }}
-                          className="cursor-grab active:cursor-grabbing"
-                        >
-                          <Link href={`/learning/${r.id}`} className="block">
-                            <div className="bg-white/50 rounded-2xl border border-white/70 hover:bg-white/70 hover:shadow-sm px-3 py-2.5 transition-all">
-                              <p className="text-sm font-medium text-gray-800 leading-snug line-clamp-2">{r.title}</p>
-                              {r.source && <p className="text-xs text-gray-400 truncate mt-0.5">출처: {r.source}</p>}
-                              {r.notes.length > 0 && <p className="text-xs text-gray-300 mt-0.5">{r.notes.length}노트</p>}
-                            </div>
-                          </Link>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-
-          {/* 태그별 자료 — 계층형 그리드 */}
-          <div className="pt-2 border-t border-white/40">
-            <div className="flex items-center gap-3 mb-4 flex-wrap">
-              <span className="text-xs font-semibold text-gray-500">태그별 자료</span>
-              <div className="flex gap-1.5 overflow-x-auto scrollbar-hide">
-                {PERIODS.map(p => (
-                  <button key={p} onClick={() => setPeriod(p)} className={`${pill} ${period === p ? pOn : pOff} !text-[10px] !px-2.5 !py-1`}>{p}</button>
-                ))}
-              </div>
-            </div>
-          </div>
-
+          {/* 범주별 섹션 */}
           {loading ? (
-            <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {[1,2,3,4,5,6,7,8].map(i => <div key={i} className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-2xl h-28 animate-pulse" />)}
             </div>
-          ) : resources.filter(r => !(r.tags ?? []).some(t => t.startsWith('_b'))).length === 0 && bucketGroups.every(g => g.length === 0) ? (
-            <EmptyState
-              icon="learning"
-              title="아직 학습 자료가 없어요"
-              description="책, 아티클, 강의 등 기록하고 싶은 자료를 추가해보세요"
-            />
+          ) : totalCount === 0 ? (
+            <EmptyState icon="learning" title="아직 학습 자료가 없어요" description="책, 아티클, 강의 등 기록하고 싶은 자료를 추가해보세요" />
           ) : (
             <>
-              {/* 빈 카테고리 컴팩트 필 로우 */}
-              {(() => {
-                const emptyTags = tagCols.filter(t => (tagKanbanGroups[t] ?? []).length === 0)
-                if (emptyTags.length === 0) return null
-                return (
-                  <div className="flex flex-wrap gap-1.5 mb-2">
-                    {emptyTags.map(tag => (
-                      <button key={tag} onClick={() => setAddingInCol(tag)}
-                        className={`inline-flex items-center gap-1 text-xs border rounded-full px-2.5 py-1 opacity-50 hover:opacity-80 transition-opacity ${TAG_BADGE[tag] ?? 'bg-gray-100/80 text-gray-500 border-gray-200'}`}>
-                        {tag} <span className="text-[10px]">+</span>
-                      </button>
-                    ))}
-                  </div>
-                )
-              })()}
-
-              {/* 태그 섹션별 그리드 */}
               {tagCols.map(tag => {
-                const colItems = tagKanbanGroups[tag] ?? []
-                if (colItems.length === 0) return null
-                const featured = colItems.filter(r => r.notes.length > 0)
-                const basic    = colItems.filter(r => r.notes.length === 0)
+                const { active, done } = tagGroups[tag] ?? { active: [], done: [] }
+                const total = active.length + done.length
+                if (total === 0 && tag === '미분류') return null
+                const isDoneOpen = showDoneForTag.has(tag)
+                const activeTarget = `${tag}:active`
+                const doneTarget = `${tag}:done`
+
                 return (
-                  <div key={tag} className="mb-6">
+                  <div key={tag} className="border-t border-white/40 pt-4">
+                    {/* 범주 헤더 */}
                     <div className="flex items-center gap-2 mb-3">
                       <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${TAG_BADGE[tag] ?? 'bg-gray-100/80 text-gray-500 border-gray-200'}`}>{tag}</span>
-                      <span className="text-xs text-gray-400">{colItems.length}개</span>
+                      <span className="text-xs text-gray-400">{total}개</span>
                       <button onClick={() => setAddingInCol(tag)}
-                        className="ml-auto text-xs text-gray-300 hover:text-gray-600 border border-dashed border-white/50 hover:border-white/70 rounded-full px-2.5 py-0.5 transition-colors bg-white/20">
+                        className="text-xs text-gray-300 hover:text-gray-600 border border-dashed border-white/50 hover:border-white/70 rounded-full px-2.5 py-0.5 transition-colors bg-white/20">
                         + 추가
                       </button>
+                      {tag !== '미분류' && (
+                        <button onClick={() => removeTag(tag)}
+                          className="text-[10px] text-gray-200 hover:text-red-400 transition-colors ml-auto px-2 py-0.5 rounded-full border border-white/40 hover:border-red-200">
+                          범주 삭제
+                        </button>
+                      )}
                     </div>
 
+                    {/* 자료 추가 폼 */}
                     {addingInCol === tag && (
-                      <div className="bg-white/60 backdrop-blur-xl border border-white/80 rounded-3xl p-5 mb-3">
+                      <div className="bg-white/60 backdrop-blur-xl border border-white/80 rounded-3xl p-4 mb-3">
                         <input autoFocus value={colAddTitle} onChange={e => setColAddTitle(e.target.value)}
                           onKeyDown={e => { if (e.key === 'Escape') resetColAdd() }}
                           placeholder="제목 *"
@@ -432,7 +292,7 @@ export default function LearningPage() {
                         <input value={colAddSource} onChange={e => setColAddSource(e.target.value)}
                           placeholder="출처 URL / 제목 (선택)"
                           className="w-full text-xs focus:outline-none text-gray-500 mb-2 bg-transparent" />
-                        <div className="flex items-center gap-1.5 flex-wrap mb-3">
+                        <div className="flex items-center gap-1.5 flex-wrap">
                           {MEDIA_TYPES.map(type => (
                             <button key={type} onClick={() => setColAddMedia(colAddMedia === type ? '' : type)}
                               className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${colAddMedia === type ? pOn : pOff}`}>
@@ -447,11 +307,17 @@ export default function LearningPage() {
                       </div>
                     )}
 
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3"
-                      onDragOver={e => { e.preventDefault(); setDragOverCol(tag) }}
-                      onDrop={e => { e.preventDefault(); const id = e.dataTransfer.getData('resourceId'); if (id) moveToColumn(id, tag) }}
+                    {/* 보는중 그리드 */}
+                    <div
+                      className={`grid grid-cols-2 md:grid-cols-4 gap-3 min-h-[2.5rem] rounded-2xl transition-colors ${dragOverTarget === activeTarget ? 'ring-1 ring-[#BADEC8]/60 bg-[#BADEC8]/10' : ''}`}
+                      onDragOver={e => { e.preventDefault(); setDragOverTarget(activeTarget) }}
+                      onDrop={e => { e.preventDefault(); const id = e.dataTransfer.getData('resourceId'); if (id) toggleDoneStatus(id, false) }}
                       onDragLeave={handleDragLeave}>
-                      {featured.map(r => (
+                      {active.length === 0 ? (
+                        <div className="col-span-2 md:col-span-4 text-center text-[10px] text-gray-300 py-3">
+                          {dragOverTarget === activeTarget ? '여기에 놓기 (보는중)' : '자료 없음'}
+                        </div>
+                      ) : active.map(r => (
                         <div key={r.id} className="cursor-grab active:cursor-grabbing"
                           draggable onDragStart={e => { e.dataTransfer.setData('resourceId', r.id) }}>
                           <Link href={`/learning/${r.id}`} className="block">
@@ -460,30 +326,79 @@ export default function LearningPage() {
                               <div className="flex items-center gap-1.5 mt-1.5 flex-shrink-0">
                                 {r.media_type && <span className="text-sm">{MEDIA_ICONS[r.media_type]}</span>}
                                 {r.source && <p className="text-[9px] text-gray-400 truncate flex-1">출처: {r.source}</p>}
-                                <span className="text-[9px] text-gray-400 bg-white/60 border border-white/70 px-1 py-0.5 rounded-full flex-shrink-0">{r.notes.length}노트</span>
-                              </div>
-                            </div>
-                          </Link>
-                        </div>
-                      ))}
-                      {basic.map(r => (
-                        <div key={r.id} className="cursor-grab active:cursor-grabbing"
-                          draggable onDragStart={e => { e.dataTransfer.setData('resourceId', r.id) }}>
-                          <Link href={`/learning/${r.id}`} className="block">
-                            <div className="bg-white/40 backdrop-blur-xl border border-white/60 hover:bg-white/60 hover:shadow-sm rounded-2xl p-3 transition-all h-28 flex flex-col overflow-hidden">
-                              <p className="text-xs font-semibold text-gray-800 leading-snug line-clamp-3 flex-1">{r.title}</p>
-                              <div className="flex items-center gap-1.5 mt-1.5 flex-shrink-0">
-                                {r.media_type && <span className="text-sm">{MEDIA_ICONS[r.media_type]}</span>}
-                                {r.source && <p className="text-[9px] text-gray-400 truncate flex-1">출처: {r.source}</p>}
+                                {r.notes.length > 0 && <span className="text-[9px] text-gray-400 bg-white/60 border border-white/70 px-1 py-0.5 rounded-full flex-shrink-0">{r.notes.length}노트</span>}
                               </div>
                             </div>
                           </Link>
                         </div>
                       ))}
                     </div>
+
+                    {/* 완료 토글 */}
+                    {(done.length > 0 || dragOverTarget === doneTarget) && (
+                      <div className="mt-2">
+                        <button onClick={() => toggleDoneSection(tag)}
+                          className="flex items-center gap-1.5 text-[10px] text-gray-400 hover:text-gray-600 transition-colors mb-2">
+                          <span className="text-[8px]">{isDoneOpen ? '▼' : '▶'}</span>
+                          완료 {done.length}개
+                        </button>
+                        {isDoneOpen && (
+                          <div
+                            className={`grid grid-cols-2 md:grid-cols-4 gap-3 rounded-2xl transition-colors ${dragOverTarget === doneTarget ? 'ring-1 ring-gray-300/60 bg-gray-100/30' : ''}`}
+                            onDragOver={e => { e.preventDefault(); setDragOverTarget(doneTarget) }}
+                            onDrop={e => { e.preventDefault(); const id = e.dataTransfer.getData('resourceId'); if (id) toggleDoneStatus(id, true) }}
+                            onDragLeave={handleDragLeave}>
+                            {done.map(r => (
+                              <div key={r.id} className="cursor-grab active:cursor-grabbing opacity-55 hover:opacity-80 transition-opacity"
+                                draggable onDragStart={e => { e.dataTransfer.setData('resourceId', r.id) }}>
+                                <Link href={`/learning/${r.id}`} className="block">
+                                  <div className="bg-white/30 backdrop-blur-xl border border-white/50 rounded-2xl p-3 transition-all h-28 flex flex-col overflow-hidden">
+                                    <p className="text-xs font-semibold text-gray-600 leading-snug line-clamp-3 flex-1 line-through decoration-gray-300">{r.title}</p>
+                                    <div className="flex items-center gap-1.5 mt-1.5 flex-shrink-0">
+                                      {r.media_type && <span className="text-sm opacity-60">{MEDIA_ICONS[r.media_type]}</span>}
+                                      {r.source && <p className="text-[9px] text-gray-400 truncate flex-1">출처: {r.source}</p>}
+                                    </div>
+                                  </div>
+                                </Link>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* 완료 드롭존 (완료 항목 없을 때도 드래그 가능하도록) */}
+                    {done.length === 0 && dragOverTarget !== doneTarget && (
+                      <div
+                        className="mt-2 h-6 rounded-xl border border-dashed border-white/40 transition-all"
+                        onDragOver={e => { e.preventDefault(); setDragOverTarget(doneTarget) }}
+                        onDrop={e => { e.preventDefault(); const id = e.dataTransfer.getData('resourceId'); if (id) toggleDoneStatus(id, true) }}
+                        onDragLeave={handleDragLeave}>
+                        <p className="text-[9px] text-gray-300 text-center leading-6">완료로 드래그</p>
+                      </div>
+                    )}
                   </div>
                 )
               })}
+
+              {/* 범주 추가 */}
+              <div className="pt-2">
+                {showAddTag ? (
+                  <div className="flex items-center gap-2">
+                    <input autoFocus value={newTagInput} onChange={e => setNewTagInput(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') addCustomTag(); if (e.key === 'Escape') { setShowAddTag(false); setNewTagInput('') } }}
+                      placeholder="새 범주 이름"
+                      className="flex-1 text-xs bg-white/50 border border-white/70 rounded-full px-3 py-1.5 focus:outline-none" />
+                    <button onClick={addCustomTag} className={`${pill} ${pOn}`}>추가</button>
+                    <button onClick={() => { setShowAddTag(false); setNewTagInput('') }} className={`${pill} ${pOff}`}>취소</button>
+                  </div>
+                ) : (
+                  <button onClick={() => setShowAddTag(true)}
+                    className="w-full bg-white/20 backdrop-blur-xl border border-dashed border-white/50 rounded-2xl py-4 hover:bg-white/30 transition-all text-gray-400 hover:text-gray-600 text-xs font-medium">
+                    + 범주 추가
+                  </button>
+                )}
+              </div>
             </>
           )}
         </div>
