@@ -141,10 +141,9 @@
   }
 }
 
-/* 앱 셸 배경: CSS 변수 기반 — 모바일 미디어쿼리에서 오버라이드 가능 */
-.app-shell-bg {
-  background: var(--shell-bg);
-}
+/* 데스크톱: 인라인 스타일로 그라디언트 적용 (AppShell.tsx style prop)
+   모바일: 아래 media query의 !important로 인라인 스타일을 덮어씌움 */
+.app-shell-bg {}
 
 .scrollbar-hide {
   -ms-overflow-style: none;
@@ -174,10 +173,14 @@
    ═══════════════════════════════════════════════════════════ */
 @media (max-width: 767px) {
 
-  /* 라이트모드 고정 + 모바일 셸 배경 크림톤으로 오버라이드 */
+  /* 라이트모드 고정 */
   :root {
     color-scheme: light;
-    --shell-bg: #F4F3EF;
+  }
+
+  /* AppShell 인라인 스타일(그라디언트)을 !important로 강제 덮어씌움 */
+  .app-shell-bg {
+    background: #F4F3EF !important;
   }
 
   html, body {
