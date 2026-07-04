@@ -157,7 +157,7 @@ export default function MeetingsPage() {
       <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
         {loading ? (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {[1,2,3,4,5,6,7,8].map(i => <div key={i} className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl aspect-square animate-pulse" />)}
+            {[1,2,3,4,5,6,7,8].map(i => <div key={i} className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-2xl h-28 animate-pulse" />)}
           </div>
         ) : categoryGroups.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-48 gap-2">
@@ -191,27 +191,25 @@ export default function MeetingsPage() {
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                       {items.map(meeting => (
                         <Link key={meeting.id} href={`/meetings/${meeting.id}`}
-                          className={`group/card bg-white/40 backdrop-blur-xl border-t-2 border border-white/60 rounded-3xl p-4 hover:bg-white/60 hover:shadow-sm transition-all aspect-square flex flex-col justify-between overflow-hidden ${CAT_CARD_BG[cat] ?? 'border-t-gray-200'}`}>
-                          <div className="flex items-start gap-2">
+                          className={`group/card bg-white/40 backdrop-blur-xl border-t-2 border border-white/60 rounded-2xl p-3 hover:bg-white/60 hover:shadow-sm transition-all h-28 flex flex-col overflow-hidden ${CAT_CARD_BG[cat] ?? 'border-t-gray-200'}`}>
+                          <p className="text-xs font-bold text-gray-800 leading-snug line-clamp-3 flex-1">
+                            {meeting.title || '제목 없음'}
+                          </p>
+                          <div className="flex items-center gap-1.5 mt-1.5 flex-shrink-0">
                             <input type="checkbox" checked={checkedIds.has(meeting.id)}
                               onChange={() => toggleCheck(meeting.id)}
                               onClick={e => e.preventDefault()}
-                              className="w-3.5 h-3.5 rounded accent-gray-700 flex-shrink-0 mt-0.5 cursor-pointer" />
+                              className="w-3 h-3 rounded accent-gray-700 flex-shrink-0 cursor-pointer" />
+                            <span className="text-[9px] text-neutral-400 flex-1">
+                              {meeting.meeting_date
+                                ? format(parseISO(meeting.meeting_date), 'M.d (E)', { locale: ko })
+                                : '날짜 미지정'}
+                            </span>
                             {meeting.notes.length > 0 && (
-                              <span className="text-[10px] text-gray-400 ml-auto bg-white/60 border border-white/70 px-1.5 py-0.5 rounded-full flex-shrink-0">
+                              <span className="text-[9px] text-gray-400 bg-white/60 border border-white/70 px-1 py-0.5 rounded-full flex-shrink-0">
                                 {meeting.notes.length}노트
                               </span>
                             )}
-                          </div>
-                          <div>
-                            <p className="text-sm font-bold text-gray-800 leading-snug line-clamp-3 mb-2">
-                              {meeting.title || '제목 없음'}
-                            </p>
-                            <span className="text-[10px] text-neutral-400">
-                              {meeting.meeting_date
-                                ? format(parseISO(meeting.meeting_date), 'yyyy.M.d (E)', { locale: ko })
-                                : '날짜 미지정'}
-                            </span>
                           </div>
                         </Link>
                       ))}

@@ -154,7 +154,7 @@ export default function QuickTaskInput({ tasks, onAdded }: Props) {
 
   return (
     <div className="flex-shrink-0">
-      <div className={`bg-white border rounded-xl transition-all ${(searchInput || selectedTask) ? 'border-emerald-200 shadow-sm' : 'border-gray-100'}`}>
+      <div className={`bg-white border rounded-xl transition-all ${(searchInput || selectedTask) ? 'border-[#BADEC8]/80 shadow-sm' : 'border-gray-100'}`}>
 
         {phase === 'search' && (
           <>
@@ -178,10 +178,10 @@ export default function QuickTaskInput({ tasks, onAdded }: Props) {
                     <button
                       key={task.id}
                       onMouseDown={e => { e.preventDefault(); selectTask(task) }}
-                      className={`w-full flex items-center gap-3 px-4 py-2 text-left transition-colors ${isSelected ? 'bg-emerald-50' : 'hover:bg-gray-50'}`}
+                      className={`w-full flex items-center gap-3 px-4 py-2 text-left transition-colors ${isSelected ? 'bg-[#BADEC8]/20' : 'hover:bg-gray-50'}`}
                     >
-                      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isSelected ? 'bg-emerald-500' : 'bg-gray-200'}`} />
-                      <span className={`text-xs ${isSelected ? 'text-emerald-700 font-medium' : 'text-gray-500'}`}>{task.title}</span>
+                      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isSelected ? 'bg-[#2D5A45]' : 'bg-gray-200'}`} />
+                      <span className={`text-xs ${isSelected ? 'text-[#2D5A45] font-medium' : 'text-gray-500'}`}>{task.title}</span>
                       {isSelected && <span className="ml-auto text-[10px] text-gray-300 flex-shrink-0">Enter ↵</span>}
                     </button>
                   )
@@ -197,7 +197,7 @@ export default function QuickTaskInput({ tasks, onAdded }: Props) {
         {phase === 'todo' && selectedTask && (
           <div className="px-4 py-3">
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-[11px] font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">{selectedTask.title}</span>
+              <span className="text-[11px] font-medium text-[#2D5A45] bg-[#BADEC8]/25 px-2 py-0.5 rounded-md">{selectedTask.title}</span>
               <span className="text-gray-300 text-xs">›</span>
               <button onClick={reset} className="ml-auto text-[10px] text-gray-300 hover:text-gray-500">✕ 취소</button>
             </div>
@@ -230,7 +230,7 @@ export default function QuickTaskInput({ tasks, onAdded }: Props) {
 
         {!searchInput && !selectedTask && lastAdded && (
           <div className="px-4 pb-2.5 flex items-center gap-1.5">
-            <span className="text-[10px] text-emerald-500">✓</span>
+            <span className="text-[10px] text-[#2D5A45]">✓</span>
             <span className="text-[10px] text-gray-400">{lastAdded}</span>
           </div>
         )}

@@ -53,33 +53,32 @@ function MemoCard({ memo, onEdit, onDelete, draggable: drag, onDragStart, select
       draggable={drag}
       onDragStart={onDragStart}
       onClick={() => onEdit(memo)}
-      className={`group relative bg-white/40 backdrop-blur-xl border-t-4 border border-white/60 rounded-3xl p-4 cursor-pointer select-none transition-all overflow-hidden ${TAG_ACCENT[memo.tag]} ${selected ? 'bg-white/70 ring-1 ring-[#BADEC8]/60' : 'hover:bg-white/60 hover:shadow-sm'}`}>
-      <div className="flex items-start justify-between gap-2 mb-3">
-        <div className="flex items-center gap-2 min-w-0">
-          <input type="checkbox" checked={selected ?? false}
-            onChange={e => { e.stopPropagation(); onToggleSelect?.(memo.id) }}
-            onClick={e => e.stopPropagation()}
-            className="w-3 h-3 rounded accent-gray-700 flex-shrink-0 cursor-pointer" />
-          <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium flex-shrink-0 ${TAG_BADGE[memo.tag]}`}>
-            {memo.tag}
-          </span>
-        </div>
-        <button onClick={e => { e.stopPropagation(); onDelete(memo.id) }}
-          className="text-xs text-gray-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">
-          삭제
-        </button>
-      </div>
-      <p className="text-sm font-semibold text-gray-800 leading-snug break-words mb-1">
+      className={`group relative bg-white/40 backdrop-blur-xl border-t-4 border border-white/60 rounded-2xl p-3 cursor-pointer select-none transition-all overflow-hidden h-28 flex flex-col ${TAG_ACCENT[memo.tag]} ${selected ? 'bg-white/70 ring-1 ring-[#BADEC8]/60' : 'hover:bg-white/60 hover:shadow-sm'}`}>
+      <p className="text-xs font-semibold text-gray-800 leading-snug line-clamp-2 flex-shrink-0">
         {memo.title}
       </p>
       {memo.content && (
-        <p className="text-xs text-gray-500 leading-relaxed line-clamp-3 break-words whitespace-pre-wrap mt-1">
+        <p className="text-[10px] text-gray-500 leading-relaxed line-clamp-2 break-words whitespace-pre-wrap mt-1 flex-1 overflow-hidden">
           {memo.content}
         </p>
       )}
-      <p className="text-[10px] text-gray-300 mt-3">
-        {format(parseISO(memo.created_at), 'M/d HH:mm', { locale: ko })}
-      </p>
+      {!memo.content && <div className="flex-1" />}
+      <div className="flex items-center gap-1.5 mt-1.5 flex-shrink-0">
+        <input type="checkbox" checked={selected ?? false}
+          onChange={e => { e.stopPropagation(); onToggleSelect?.(memo.id) }}
+          onClick={e => e.stopPropagation()}
+          className="w-3 h-3 rounded accent-gray-700 flex-shrink-0 cursor-pointer" />
+        <span className={`text-[9px] px-1.5 py-0.5 rounded-full border font-medium flex-shrink-0 ${TAG_BADGE[memo.tag]}`}>
+          {memo.tag}
+        </span>
+        <span className="text-[9px] text-gray-300 ml-auto">
+          {format(parseISO(memo.created_at), 'M/d', { locale: ko })}
+        </span>
+        <button onClick={e => { e.stopPropagation(); onDelete(memo.id) }}
+          className="text-[9px] text-gray-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">
+          삭제
+        </button>
+      </div>
     </div>
   )
 }

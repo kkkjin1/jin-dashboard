@@ -447,7 +447,7 @@ export default function LearningPage() {
                       </div>
                     )}
 
-                    <div className={`grid gap-3 ${colItems.length > 4 ? 'grid-cols-3 md:grid-cols-4' : colItems.length > 1 ? 'grid-cols-2 md:grid-cols-3' : 'grid-cols-1'}`}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3"
                       onDragOver={e => { e.preventDefault(); setDragOverCol(tag) }}
                       onDrop={e => { e.preventDefault(); const id = e.dataTransfer.getData('resourceId'); if (id) moveToColumn(id, tag) }}
                       onDragLeave={handleDragLeave}>
