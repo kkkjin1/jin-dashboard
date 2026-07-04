@@ -327,15 +327,15 @@ export default function MemosPage() {
       )}
 
       {/* 기간 필터 */}
-      <div className="flex-shrink-0 flex items-center gap-1.5 mb-3">
+      <div className="flex-shrink-0 flex items-center gap-1.5 mb-3 overflow-x-auto scrollbar-hide">
         {PERIODS.map(p => (
           <button key={p} onClick={() => setPeriod(p)} className={`${pill} ${period === p ? pOn : pOff}`}>{p}</button>
         ))}
-        <span className="text-xs text-gray-400 ml-auto">{displayed.length}개</span>
+        <span className="text-xs text-gray-400 ml-auto shrink-0">{displayed.length}개</span>
       </div>
 
       {/* 태그 필터 pills */}
-      <div className="flex-shrink-0 flex items-center gap-1.5 flex-wrap mb-4">
+      <div className="flex-shrink-0 flex items-center gap-1.5 overflow-x-auto scrollbar-hide mb-4">
         {FILTER_TAGS.map(tag => (
           <button key={tag} onClick={() => setFilterTag(tag)}
             className={`text-xs px-3.5 py-1.5 rounded-full border font-medium transition-all whitespace-nowrap ${

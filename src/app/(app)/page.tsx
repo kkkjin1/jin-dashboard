@@ -338,12 +338,61 @@ export default function HomePage() {
         <QuickTaskInput tasks={tasks} onAdded={todo => setTodos(prev => [todo, ...prev])} />
       </div>
 
-      {/* ── 벤토 그리드 (2행) ──
+      {/* ── 모바일 레이아웃 ── */}
+      <div className="md:hidden flex-1 overflow-y-auto scrollbar-hide flex flex-col gap-3 pb-4">
+        <div className="h-72 flex-shrink-0">
+          <CompactCol
+            title="오늘" items={todayItems} dark
+            completedCount={completedThisWeek.length}
+            colBadge={{ label: '진행중', bg: 'bg-violet-500/20', text: 'text-violet-300' }}
+            droppable
+            onDrop={e => handleDrop(e, 'today')}
+            onDragOver={e => handleDragOver(e, 'today')}
+            onDragLeave={() => setDragOverBucket(null)}
+            isDragOver={dragOverBucket === 'today'}
+            onComplete={handleCompleteTodo}
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-3 flex-shrink-0" style={{ height: '11rem' }}>
+          <CompactCol
+            title="내일" items={tomorrowItems}
+            colBadge={{ label: '대기', bg: 'bg-gray-100/80', text: 'text-gray-400' }}
+            droppable
+            onDrop={e => handleDrop(e, 'tomorrow')}
+            onDragOver={e => handleDragOver(e, 'tomorrow')}
+            onDragLeave={() => setDragOverBucket(null)}
+            isDragOver={dragOverBucket === 'tomorrow'}
+            onComplete={handleCompleteTodo}
+          />
+          <CompactCol
+            title="금주" items={weekItems}
+            colBadge={{ label: '대기', bg: 'bg-gray-100/80', text: 'text-gray-400' }}
+            droppable
+            onDrop={e => handleDrop(e, 'this_week')}
+            onDragOver={e => handleDragOver(e, 'this_week')}
+            onDragLeave={() => setDragOverBucket(null)}
+            isDragOver={dragOverBucket === 'this_week'}
+            onComplete={handleCompleteTodo}
+          />
+        </div>
+        <div className="flex-shrink-0 h-64 overflow-hidden">
+          <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full overflow-hidden font-sans">
+            <DailyJournalWidget tasks={tasks} meetings={meetings} />
+          </div>
+        </div>
+        <div className="flex-shrink-0 h-64 overflow-hidden">
+          <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full overflow-hidden font-sans">
+            <TodayTodoWidget />
+          </div>
+        </div>
+      </div>
+
+      {/* ── 데스크톱 벤토 그리드 (2행) ──
           Row 1 (1.5fr): 오늘(dark) | 내일 | 금주  — 오늘은 rows 1+2 span
           Row 2 (2.5fr): 오늘 계속  | 회고 | 오늘할일
       */}
       <div
-        className="flex-1 min-h-0 grid gap-3"
+        className="hidden md:grid flex-1 min-h-0 gap-3"
         style={{
           gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
           gridTemplateRows: 'minmax(0, 1.5fr) minmax(0, 2.5fr)',

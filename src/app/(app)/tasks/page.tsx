@@ -262,7 +262,7 @@ export default function TasksPage() {
       </div>
 
       {/* 필터 바 */}
-      <div className="flex-shrink-0 flex items-center gap-2 mb-5 flex-wrap">
+      <div className="flex-shrink-0 flex items-center gap-2 mb-5 overflow-x-auto scrollbar-hide">
         <button
           onClick={() => setStatusFilter(prev => prev === '전체' ? '진행필요' : prev === '진행필요' ? '진행중' : prev === '진행중' ? '완료' : '전체')}
           className={`${pill} ${statusFilter !== '전체' ? pOn : pOff}`}>

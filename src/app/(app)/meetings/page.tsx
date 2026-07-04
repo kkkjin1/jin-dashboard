@@ -184,11 +184,11 @@ export default function MeetingsPage() {
       )}
 
       {/* 기간 필터 */}
-      <div className="flex-shrink-0 flex items-center gap-1.5 mb-5">
+      <div className="flex-shrink-0 flex items-center gap-1.5 mb-5 overflow-x-auto scrollbar-hide">
         {PERIODS.map(p => (
           <button key={p} onClick={() => setPeriod(p)} className={`${pill} ${period === p ? pOn : pOff}`}>{p}</button>
         ))}
-        <span className="text-xs text-gray-400 ml-auto">{totalFiltered}건</span>
+        <span className="text-xs text-gray-400 ml-auto shrink-0">{totalFiltered}건</span>
       </div>
 
       {/* 콘텐츠 */}
@@ -257,23 +257,26 @@ export default function MeetingsPage() {
                                   {list.map(meeting => (
                                     <Link key={meeting.id} href={`/meetings/${meeting.id}`}
                                       className="group/card bg-white/50 rounded-2xl border border-white/70 p-4 hover:bg-white/70 hover:shadow-sm transition-all block">
-                                      <div className="flex items-start gap-2 mb-2">
+                                      <div className="flex items-start gap-2 mb-2.5">
                                         <input type="checkbox" checked={checkedIds.has(meeting.id)}
                                           onChange={() => toggleCheck(meeting.id)}
                                           onClick={e => e.preventDefault()}
-                                          className="w-3 h-3 rounded accent-gray-700 flex-shrink-0 mt-0.5 cursor-pointer" />
-                                        <p className="text-sm font-semibold text-gray-800 leading-snug line-clamp-2 flex-1">
+                                          className="w-3.5 h-3.5 rounded accent-gray-700 flex-shrink-0 mt-1 cursor-pointer" />
+                                        <p className="text-base font-bold text-gray-800 leading-snug line-clamp-2 flex-1">
                                           {meeting.title || '제목 없음'}
                                         </p>
                                       </div>
-                                      <div className="flex items-center justify-between mt-2">
-                                        <span className="text-xs text-gray-400">
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${CATEGORY_COLORS[cat] ?? 'bg-gray-100/80 text-gray-400 border-gray-200'}`}>
+                                          {cat}
+                                        </span>
+                                        <span className="text-xs text-neutral-500">
                                           {meeting.meeting_date
                                             ? format(parseISO(meeting.meeting_date), 'M월 d일 (E)', { locale: ko })
                                             : '날짜 미지정'}
                                         </span>
                                         {meeting.notes.length > 0 && (
-                                          <span className="text-[10px] text-gray-300">{meeting.notes.length}노트</span>
+                                          <span className="text-[10px] text-gray-300 ml-auto">{meeting.notes.length}노트</span>
                                         )}
                                       </div>
                                       {meeting.notes?.[0]?.content && (

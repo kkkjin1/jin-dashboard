@@ -301,7 +301,7 @@ export default function SchedulePage() {
       </div>
 
       {/* 필터 pills */}
-      <div className="flex-shrink-0 flex items-center gap-2 flex-wrap mb-4">
+      <div className="flex-shrink-0 flex items-center gap-2 overflow-x-auto scrollbar-hide mb-4">
         <button onClick={() => setPartFilter(p => p === '전체' ? '코어' : p === '코어' ? '비즈' : '전체')}
           className={`${pillBase} ${partFilter !== '전체' ? pillActive : pillInactive}`}>
           {partFilter === '전체' ? '전체 파트' : `${partFilter}파트`}
