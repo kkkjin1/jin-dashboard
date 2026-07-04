@@ -83,90 +83,90 @@ export default function TopNav() {
       <header className="hidden md:block h-14 flex-shrink-0">
         <div className="max-w-[1440px] mx-auto px-16 flex items-center h-full gap-4">
 
-        {/* 로고 */}
-        <div className="flex items-center gap-2.5 flex-shrink-0">
-          <div className="w-7 h-7 bg-[#2E5E4A] rounded-lg flex items-center justify-center">
-            <span className="text-xs font-bold text-white">인</span>
+          {/* 로고 */}
+          <div className="flex items-center gap-2.5 flex-shrink-0">
+            <div className="w-7 h-7 bg-[#2E5E4A] rounded-lg flex items-center justify-center">
+              <span className="text-xs font-bold text-white">인</span>
+            </div>
+            <span className="text-sm font-semibold text-gray-800 tracking-tight">인사기획 워크</span>
           </div>
-          <span className="text-sm font-semibold text-gray-800 tracking-tight">인사기획 워크</span>
-        </div>
 
-        {/* 가운데 필 탭 */}
-        <div className="flex-1 flex justify-center">
-          <div className="flex items-center gap-0.5 bg-white/50 backdrop-blur-md rounded-full px-1.5 py-1.5 border border-white/70 shadow-sm">
-            {PRIMARY_NAV.map(item => {
-              const isActive = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)
-              return (
-                <Link key={item.href} href={item.href}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
-                    isActive
+          {/* 가운데 필 탭 */}
+          <div className="flex-1 flex justify-center">
+            <div className="flex items-center gap-0.5 bg-white/50 backdrop-blur-md rounded-full px-1.5 py-1.5 border border-white/70 shadow-sm">
+              {PRIMARY_NAV.map(item => {
+                const isActive = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)
+                return (
+                  <Link key={item.href} href={item.href}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
+                      isActive
+                        ? 'bg-gray-900 text-white shadow-sm'
+                        : 'text-gray-500 hover:text-gray-800 hover:bg-white/60'
+                    }`}>
+                    <item.icon size={12} strokeWidth={1.5} />
+                    <span>{item.label}</span>
+                  </Link>
+                )
+              })}
+
+              {/* 더보기 드롭다운 */}
+              <div ref={moreRef} className="relative">
+                <button
+                  onClick={() => setMoreOpen(p => !p)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                    isSecondaryActive
                       ? 'bg-gray-900 text-white shadow-sm'
                       : 'text-gray-500 hover:text-gray-800 hover:bg-white/60'
                   }`}>
-                  <item.icon size={12} strokeWidth={2} />
-                  <span>{item.label}</span>
-                </Link>
-              )
-            })}
-
-            {/* 더보기 드롭다운 */}
-            <div ref={moreRef} className="relative">
-              <button
-                onClick={() => setMoreOpen(p => !p)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-                  isSecondaryActive
-                    ? 'bg-gray-900 text-white shadow-sm'
-                    : 'text-gray-500 hover:text-gray-800 hover:bg-white/60'
-                }`}>
-                <MoreHorizontal size={12} strokeWidth={2} />
-                <span>더보기</span>
-                <ChevronDown size={9} className={`transition-transform ${moreOpen ? 'rotate-180' : ''}`} />
-              </button>
-              {moreOpen && (
-                <div className="absolute top-full mt-2 right-0 bg-white/90 backdrop-blur-xl border border-white/80 rounded-2xl shadow-xl overflow-hidden min-w-36 py-1.5 z-50">
-                  {SECONDARY_NAV.map(item => {
-                    const isActive = pathname.startsWith(item.href)
-                    return (
-                      <Link key={item.href} href={item.href}
-                        onClick={() => setMoreOpen(false)}
-                        className={`flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors ${
-                          isActive
-                            ? 'text-gray-900 font-semibold bg-gray-50/80'
-                            : 'text-gray-600 hover:bg-gray-50/80 hover:text-gray-900'
-                        }`}>
-                        <item.icon size={14} strokeWidth={1.75} />
-                        <span>{item.label}</span>
-                      </Link>
-                    )
-                  })}
-                </div>
-              )}
+                  <MoreHorizontal size={12} strokeWidth={1.5} />
+                  <span>더보기</span>
+                  <ChevronDown size={9} className={`transition-transform ${moreOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {moreOpen && (
+                  <div className="absolute top-full mt-2 right-0 bg-white/90 backdrop-blur-xl border border-white/80 rounded-2xl shadow-xl overflow-hidden min-w-36 py-1.5 z-50">
+                    {SECONDARY_NAV.map(item => {
+                      const isActive = pathname.startsWith(item.href)
+                      return (
+                        <Link key={item.href} href={item.href}
+                          onClick={() => setMoreOpen(false)}
+                          className={`flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors ${
+                            isActive
+                              ? 'text-gray-900 font-semibold bg-gray-50/80'
+                              : 'text-gray-600 hover:bg-gray-50/80 hover:text-gray-900'
+                          }`}>
+                          <item.icon size={14} strokeWidth={1.5} />
+                          <span>{item.label}</span>
+                        </Link>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* 로그아웃 */}
-        <button onClick={handleLogout}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-gray-500 hover:text-gray-800 hover:bg-white/50 border border-transparent hover:border-white/60 transition-all flex-shrink-0">
-          <LogOut size={12} strokeWidth={2} />
-          <span>로그아웃</span>
-        </button>
+          {/* 로그아웃 */}
+          <button onClick={handleLogout}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-gray-500 hover:text-gray-800 hover:bg-white/50 border border-transparent hover:border-white/60 transition-all flex-shrink-0">
+            <LogOut size={12} strokeWidth={1.5} />
+            <span>로그아웃</span>
+          </button>
         </div>
       </header>
 
-      {/* ── 모바일 상단 헤더 ── */}
+      {/* ── 모바일 상단 헤더 (솔리드 라이트) ── */}
       <header className="md:hidden flex items-center h-12 px-4 flex-shrink-0">
         <div className="flex items-center gap-2">
           <div className="w-6 h-6 bg-[#2E5E4A] rounded-md flex items-center justify-center">
             <span className="text-[10px] font-bold text-white">인</span>
           </div>
-          <span className="text-sm font-semibold text-gray-800">인사기획 워크</span>
+          <span className="text-sm font-semibold text-stone-800">인사기획 워크</span>
         </div>
       </header>
 
-      {/* ── 모바일 하단 네비 ── */}
+      {/* ── 모바일 하단 네비 (솔리드 화이트 · 미니멀) ── */}
       <nav
-        className="md:hidden fixed bottom-0 left-0 right-0 z-[60] bg-white/80 backdrop-blur-xl border-t border-white/60"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-[60] bg-white border-t border-stone-200"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <div className="flex overflow-x-auto scrollbar-hide">
           {ALL_NAV.slice(0, 9).map(item => {
@@ -174,16 +174,16 @@ export default function TopNav() {
             return (
               <Link key={item.href} href={item.href}
                 className={`flex flex-col items-center gap-0.5 px-3 py-2.5 min-w-[3.5rem] flex-shrink-0 transition-colors ${
-                  isActive ? 'text-[#2E5E4A]' : 'text-gray-400'
+                  isActive ? 'text-stone-900' : 'text-stone-400'
                 }`}>
-                <item.icon size={18} strokeWidth={1.75} />
+                <item.icon size={18} strokeWidth={1.5} />
                 <span className="text-[9px] whitespace-nowrap">{item.label}</span>
               </Link>
             )
           })}
           <button onClick={handleLogout}
-            className="flex flex-col items-center gap-0.5 px-3 py-2.5 min-w-[3.5rem] flex-shrink-0 text-gray-400 transition-colors">
-            <LogOut size={18} strokeWidth={1.75} />
+            className="flex flex-col items-center gap-0.5 px-3 py-2.5 min-w-[3.5rem] flex-shrink-0 text-stone-400 transition-colors">
+            <LogOut size={18} strokeWidth={1.5} />
             <span className="text-[9px] whitespace-nowrap">로그아웃</span>
           </button>
         </div>

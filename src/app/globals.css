@@ -37,7 +37,7 @@
   --color-primary-foreground: var(--primary-foreground);
   --color-primary: var(--primary);
   --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
+  --color-popover: var(--card);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
   --radius-sm: calc(var(--radius) * 0.6);
@@ -51,6 +51,10 @@
 
 :root {
   color-scheme: light;
+
+  /* 앱 셸 배경 CSS 변수: 모바일에서 미디어쿼리로 오버라이드 */
+  --shell-bg: linear-gradient(145deg, #F3EDE4 0%, #EAE3D6 45%, #E2D9CA 100%);
+
   --background: oklch(1 0 0);
   --brand: #BADEC8;
   --brand-light: #ECFDF5;
@@ -137,6 +141,11 @@
   }
 }
 
+/* 앱 셸 배경: CSS 변수 기반 — 모바일 미디어쿼리에서 오버라이드 가능 */
+.app-shell-bg {
+  background: var(--shell-bg);
+}
+
 .scrollbar-hide {
   -ms-overflow-style: none;
   scrollbar-width: none;
@@ -145,7 +154,7 @@
   display: none;
 }
 
-/* Samsung Browser 강제 다크모드 차단 */
+/* ─── 전 플랫폼: OS 다크모드 강제 차단 (라이트 고정) ─── */
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: light;
@@ -153,5 +162,76 @@
   html, body {
     background-color: #ECEAE5 !important;
     color: #111827 !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   모바일 솔리드 라이트 테마 (max-width: 767px)
+   Apple Notes · Toss 스타일 크림/화이트 솔리드 테마
+   glassmorphism 완전 제거 → 불투명 깨끗한 솔리드 배경
+   ※ prefers-color-scheme: dark 블록보다 뒤에 위치해
+     모바일에서 항상 라이트 솔리드 테마가 최종 적용됨
+   ═══════════════════════════════════════════════════════════ */
+@media (max-width: 767px) {
+
+  /* 라이트모드 고정 + 모바일 셸 배경 크림톤으로 오버라이드 */
+  :root {
+    color-scheme: light;
+    --shell-bg: #F4F3EF;
+  }
+
+  html, body {
+    background-color: #F4F3EF !important;
+    color: #1c1917 !important;
+  }
+
+  /* ── 글래스 카드 배경 → 솔리드 퓨어 화이트 ── */
+  [class~="bg-white/10"],
+  [class~="bg-white/15"],
+  [class~="bg-white/20"],
+  [class~="bg-white/25"],
+  [class~="bg-white/30"],
+  [class~="bg-white/35"],
+  [class~="bg-white/40"],
+  [class~="bg-white/50"],
+  [class~="bg-white/60"],
+  [class~="bg-white/70"],
+  [class~="bg-white/80"],
+  [class~="bg-white/90"] {
+    background-color: #ffffff !important;
+  }
+
+  /* ── backdrop-blur 전면 제거 (블루라이트·OS 필터 방어) ── */
+  [class~="backdrop-blur"],
+  [class~="backdrop-blur-sm"],
+  [class~="backdrop-blur-md"],
+  [class~="backdrop-blur-xl"],
+  [class~="backdrop-blur-2xl"],
+  [class~="backdrop-blur-3xl"] {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  /* ── 반투명 흰색 테두리 → stone-200 (#e7e5e4) ── */
+  [class~="border-white/30"],
+  [class~="border-white/40"],
+  [class~="border-white/50"],
+  [class~="border-white/55"],
+  [class~="border-white/60"],
+  [class~="border-white/70"],
+  [class~="border-white/80"] {
+    border-color: #e7e5e4 !important;
+  }
+
+  /* ── 폼 요소: 흰 배경 + 다크 텍스트 확보 ── */
+  input:not([type="checkbox"]):not([type="radio"]),
+  textarea,
+  select {
+    background-color: #ffffff;
+    color: #1c1917;
+  }
+  input::placeholder,
+  textarea::placeholder {
+    color: #a8a29e;
   }
 }
