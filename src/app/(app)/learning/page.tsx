@@ -175,7 +175,7 @@ export default function LearningPage() {
       </div>
 
       {/* 범주 필터 바 */}
-      <div className="flex-shrink-0 pb-4 flex items-center justify-center gap-2 flex-wrap">
+      <div className="flex-shrink-0 pb-4 flex items-center gap-2 flex-wrap">
         {filterTag && (
           <button onClick={() => setFilterTag(null)}
             className="text-[10px] text-gray-400 hover:text-gray-600 border border-white/60 rounded-full px-2 py-1 bg-white/20 hover:bg-white/40 transition-all">
@@ -188,7 +188,7 @@ export default function LearningPage() {
           return (
             <div key={tag}
               onClick={() => setFilterTag(isActive ? null : tag)}
-              className={`group flex items-center gap-0.5 rounded-full px-2.5 py-1 cursor-pointer border transition-all select-none
+              className={`group flex items-center justify-center gap-0.5 rounded-full px-2.5 py-1 cursor-pointer border transition-all select-none
                 ${badge} ${isActive ? 'ring-2 ring-offset-1 ring-current/40 shadow-sm' : 'opacity-70 hover:opacity-100'}`}>
               <span className="text-xs font-semibold">{tag}</span>
               <button
