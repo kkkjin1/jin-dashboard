@@ -2,36 +2,35 @@ export default function MockupPage() {
   return (
     <div className="min-h-screen bg-slate-100 font-sans p-4 flex flex-col gap-4">
 
-      {/* 상단 바 */}
+      {/* 상단 플로팅 캡슐 메뉴바 */}
       <div className="flex items-center gap-3">
-        <div className="w-7 h-7 bg-[#0F1E36] rounded-md flex items-center justify-center">
+        <div className="w-8 h-8 bg-[#0F1E36] rounded-xl flex items-center justify-center shadow-sm">
           <span className="text-white text-[11px] font-bold tracking-tight">인</span>
         </div>
         <span className="text-sm font-semibold text-slate-900 tracking-tight">인사기획 워크</span>
-        <div className="flex items-center gap-1.5 ml-8">
+        <div className="ml-6 bg-white border border-slate-200 rounded-full px-1.5 py-1 flex items-center gap-0.5 shadow-sm">
           {['오늘', '내일', '금주', '회고', '할 일'].map((t, i) => (
-            <button key={t} className={`text-xs px-3 py-1 rounded font-medium transition-colors ${
-              i === 0 ? 'bg-[#0F1E36] text-white' : 'text-slate-400 hover:text-slate-700'
+            <button key={t} className={`text-xs px-3 py-1.5 rounded-full font-medium transition-colors ${
+              i === 0 ? 'bg-[#0F1E36] text-white shadow-sm' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-50'
             }`}>{t}</button>
           ))}
         </div>
-        <div className="ml-auto w-44 h-8 bg-white border border-slate-200 rounded-lg flex items-center px-3 gap-2 shadow-sm">
+        <div className="ml-auto w-44 h-8 bg-white border border-slate-200 rounded-full flex items-center px-3 gap-2 shadow-sm">
           <span className="text-slate-300 text-xs">🔍</span>
           <span className="text-xs text-slate-400">검색</span>
         </div>
       </div>
 
-      {/* 5단 칸반 보드 */}
-      <div className="grid grid-cols-5 gap-3" style={{ height: 'calc(100vh - 72px)' }}>
+      {/* 6칸 비대칭 칸반 보드 */}
+      <div className="grid grid-cols-6 gap-3" style={{ height: 'calc(100vh - 72px)' }}>
 
-        {/* ① 오늘 */}
-        <div className="bg-[#0F1E36] rounded-xl p-4 flex flex-col gap-0 overflow-hidden">
+        {/* ① 오늘 — col-span-1 */}
+        <div className="col-span-1 bg-[#0F1E36] rounded-3xl p-5 flex flex-col gap-0 overflow-hidden">
           <div className="flex items-center justify-between mb-4">
             <span className="text-white font-semibold text-sm tracking-tight">오늘</span>
             <span className="text-white/40 text-[10px]">6월 27일 금</span>
           </div>
 
-          {/* 날씨 */}
           <div className="mb-4 pb-4 border-b border-white/10">
             <p className="text-white/40 text-[10px] uppercase tracking-widest mb-1">서울 · 맑음</p>
             <div className="flex items-end gap-2">
@@ -40,7 +39,6 @@ export default function MockupPage() {
             </div>
           </div>
 
-          {/* 일정 */}
           <div className="mb-4">
             <p className="text-white/30 text-[10px] uppercase tracking-widest mb-2">일정</p>
             <div className="flex flex-col gap-1.5">
@@ -49,51 +47,52 @@ export default function MockupPage() {
                 { time: '14:00', title: '신입 온보딩 1on1', tag: '1on1' },
                 { time: '16:30', title: '평가제도 리뷰', tag: '프로젝트' },
               ].map((item, i) => (
-                <div key={i} className="flex items-center gap-2 bg-white/5 border border-white/8 rounded-lg px-2.5 py-2">
-                  <span className="text-white/30 text-[10px] w-8 flex-shrink-0 font-medium tabular-nums">{item.time}</span>
+                <div key={i} className="flex items-center gap-2 bg-white/5 border border-white/8 rounded-xl px-2.5 py-2">
+                  <span className="text-white/30 text-[10px] w-8 flex-shrink-0 tabular-nums">{item.time}</span>
                   <span className="text-white/80 text-[11px] flex-1 truncate font-medium">{item.title}</span>
-                  <span className="text-white/30 text-[9px] border border-white/15 px-1.5 py-0.5 rounded">{item.tag}</span>
+                  <span className="text-white/30 text-[9px] border border-white/15 px-1.5 py-0.5 rounded-lg">{item.tag}</span>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* 메모 */}
           <div className="mt-auto pt-4 border-t border-white/10">
             <p className="text-white/30 text-[10px] uppercase tracking-widest mb-2">메모</p>
-            <div className="bg-white/5 border border-white/8 rounded-lg p-3 min-h-[64px]">
-              <p className="text-white/50 text-[11px] leading-relaxed">평가 기준 초안 검토 후 팀장님께 공유 예정. 온보딩 업데이트 필요.</p>
+            <div className="bg-white/5 border border-white/8 rounded-xl p-3 min-h-[64px]">
+              <p className="text-white/50 text-[11px] leading-relaxed">평가 기준 초안 검토 후 팀장님께 공유 예정.</p>
             </div>
           </div>
         </div>
 
-        {/* ② 내일 */}
-        <div className="bg-white rounded-xl p-4 flex flex-col gap-4 overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
+        {/* ② 내일 — col-span-1 */}
+        <div className="col-span-1 bg-white rounded-3xl p-5 flex flex-col gap-4 overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)]">
           <div className="flex items-center justify-between">
             <span className="text-slate-900 font-semibold text-sm tracking-tight">내일</span>
             <span className="text-slate-400 text-[10px]">6월 28일 토</span>
           </div>
 
-          <div className="flex flex-col gap-2">
-            <p className="text-[10px] text-slate-400 uppercase tracking-widest">예정 일정</p>
-            {[
-              { time: '09:00', title: '주간 보고서 최종 제출', tag: '마감' },
-              { time: '11:00', title: '하반기 채용 킥오프', tag: '회의' },
-            ].map((item, i) => (
-              <div key={i} className="flex items-center gap-2 bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-2">
-                <span className="text-slate-400 text-[10px] w-8 flex-shrink-0 tabular-nums">{item.time}</span>
-                <span className="text-slate-700 text-[11px] flex-1 truncate font-medium">{item.title}</span>
-                <span className="text-slate-400 text-[9px] border border-slate-200 px-1.5 py-0.5 rounded">{item.tag}</span>
-              </div>
-            ))}
+          <div>
+            <p className="text-[10px] text-slate-400 uppercase tracking-widest mb-2">예정 일정</p>
+            <div className="flex flex-col gap-1.5">
+              {[
+                { time: '09:00', title: '주간 보고서 최종 제출', tag: '마감' },
+                { time: '11:00', title: '하반기 채용 킥오프', tag: '회의' },
+              ].map((item, i) => (
+                <div key={i} className="flex items-center gap-2 bg-slate-50 border border-slate-100 rounded-xl px-2.5 py-2">
+                  <span className="text-slate-400 text-[10px] w-8 flex-shrink-0 tabular-nums">{item.time}</span>
+                  <span className="text-slate-700 text-[11px] flex-1 truncate font-medium">{item.title}</span>
+                  <span className="text-slate-400 text-[9px] border border-slate-200 px-1.5 py-0.5 rounded-lg">{item.tag}</span>
+                </div>
+              ))}
+            </div>
           </div>
 
           <div>
             <p className="text-[10px] text-slate-400 uppercase tracking-widest mb-2">준비 사항</p>
             <div className="flex flex-col gap-1.5">
               {['채용 포지션 JD 초안 검토', '면접 평가표 양식 수정', '온보딩 일정 확인'].map((t, i) => (
-                <div key={i} className="flex items-center gap-2 px-2.5 py-1.5 border border-slate-100 rounded-lg">
-                  <div className="w-3 h-3 rounded border border-slate-300 flex-shrink-0" />
+                <div key={i} className="flex items-center gap-2 px-2.5 py-1.5 border border-slate-100 rounded-xl">
+                  <div className="w-3 h-3 rounded-md border border-slate-300 flex-shrink-0" />
                   <span className="text-[11px] text-slate-600">{t}</span>
                 </div>
               ))}
@@ -101,36 +100,34 @@ export default function MockupPage() {
           </div>
 
           <div className="mt-auto">
-            <p className="text-[10px] text-slate-400 uppercase tracking-widest mb-2">메모</p>
-            <div className="bg-slate-50 border border-slate-100 rounded-lg p-3 min-h-[56px]">
+            <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 min-h-[56px]">
               <p className="text-[11px] text-slate-400 leading-relaxed">토요일이지만 마감 건 처리 필요.</p>
             </div>
           </div>
         </div>
 
-        {/* ③ 금주 */}
-        <div className="bg-white rounded-xl p-4 flex flex-col gap-4 overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
+        {/* ③ 금주 — col-span-1 */}
+        <div className="col-span-1 bg-white rounded-3xl p-5 flex flex-col gap-4 overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)]">
           <div className="flex items-center justify-between">
             <span className="text-slate-900 font-semibold text-sm tracking-tight">금주</span>
-            <span className="text-[10px] text-slate-400 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded font-medium">W26</span>
+            <span className="text-[10px] text-slate-400 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full font-medium">W26</span>
           </div>
 
-          {/* 주간 목표 */}
           <div>
             <p className="text-[10px] text-slate-400 uppercase tracking-widest mb-2">주간 목표</p>
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-1.5">
               {[
                 { label: '채용', text: '하반기 JD 3종 완성', done: true },
                 { label: '평가', text: '평가 기준 초안 확정', done: true },
                 { label: '온보딩', text: '신입 1주차 리뷰 완료', done: false },
                 { label: '조직', text: '팀 빌딩 일정 조율', done: false },
               ].map((item, i) => (
-                <div key={i} className={`flex items-start gap-2 px-2.5 py-2 rounded-lg border ${item.done ? 'bg-slate-50 border-slate-100' : 'bg-white border-slate-100'}`}>
-                  <div className={`w-3.5 h-3.5 rounded mt-0.5 flex-shrink-0 flex items-center justify-center border ${item.done ? 'bg-[#1E293B] border-[#1E293B]' : 'border-slate-300'}`}>
+                <div key={i} className={`flex items-start gap-2 px-2.5 py-2 rounded-xl border ${item.done ? 'bg-slate-50 border-slate-100' : 'bg-white border-slate-100'}`}>
+                  <div className={`w-3.5 h-3.5 rounded-md mt-0.5 flex-shrink-0 flex items-center justify-center border ${item.done ? 'bg-[#1E293B] border-[#1E293B]' : 'border-slate-300'}`}>
                     {item.done && <span className="text-white text-[7px] font-bold leading-none">✓</span>}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <span className="text-[9px] font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded mr-1.5">{item.label}</span>
+                    <span className="text-[9px] font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded mr-1">{item.label}</span>
                     <span className={`text-[11px] ${item.done ? 'text-slate-400 line-through' : 'text-slate-700'}`}>{item.text}</span>
                   </div>
                 </div>
@@ -138,40 +135,38 @@ export default function MockupPage() {
             </div>
           </div>
 
-          {/* 마일스톤 */}
           <div>
             <p className="text-[10px] text-slate-400 uppercase tracking-widest mb-2">마일스톤</p>
             {[
               { title: '상반기 평가 마감', date: '6/28', pct: 90 },
               { title: '하반기 채용 공고', date: '7/03', pct: 40 },
             ].map((m, i) => (
-              <div key={i} className="mb-2">
-                <div className="flex justify-between items-center mb-1">
+              <div key={i} className="mb-3">
+                <div className="flex justify-between items-center mb-1.5">
                   <span className="text-[11px] text-slate-700 font-medium">{m.title}</span>
                   <span className="text-[10px] text-slate-400">{m.date}</span>
                 </div>
-                <div className="w-full bg-slate-100 rounded-full h-1">
-                  <div className="bg-[#1E293B] h-1 rounded-full" style={{ width: `${m.pct}%` }} />
+                <div className="w-full bg-slate-100 rounded-full h-1.5">
+                  <div className="bg-[#1E293B] h-1.5 rounded-full" style={{ width: `${m.pct}%` }} />
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* ④ 회고 */}
-        <div className="bg-white rounded-xl p-4 flex flex-col gap-4 overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
+        {/* ④ 회고 — col-span-1 */}
+        <div className="col-span-1 bg-white rounded-3xl p-5 flex flex-col gap-4 overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)]">
           <div className="flex items-center justify-between">
             <span className="text-slate-900 font-semibold text-sm tracking-tight">회고</span>
-            <div className="flex gap-0.5 border border-slate-200 rounded-lg p-0.5">
+            <div className="flex gap-0.5 bg-slate-100 rounded-full p-0.5">
               {['일', '주', '월'].map((t, i) => (
-                <button key={t} className={`text-[10px] px-2 py-0.5 rounded font-medium transition-colors ${
-                  i === 0 ? 'bg-[#1E293B] text-white' : 'text-slate-400'
+                <button key={t} className={`text-[10px] px-2.5 py-1 rounded-full font-medium transition-colors ${
+                  i === 0 ? 'bg-[#1E293B] text-white shadow-sm' : 'text-slate-400'
                 }`}>{t}</button>
               ))}
             </div>
           </div>
 
-          {/* 감정 트래커 */}
           <div>
             <p className="text-[10px] text-slate-400 uppercase tracking-widest mb-2">이번 주 컨디션</p>
             <div className="grid grid-cols-7 gap-1">
@@ -181,21 +176,20 @@ export default function MockupPage() {
               ].map(({ d, e }) => (
                 <div key={d} className="flex flex-col items-center gap-1">
                   <span className="text-[9px] text-slate-400 font-medium">{d}</span>
-                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm ${e ? 'bg-slate-100' : 'bg-slate-50 border border-slate-100'}`}>{e}</div>
+                  <div className={`w-7 h-7 rounded-xl flex items-center justify-center text-sm ${e ? 'bg-slate-100' : 'bg-slate-50 border border-slate-100'}`}>{e}</div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* 회고 항목 */}
           <div className="flex flex-col gap-2 flex-1">
             {[
-              { label: '잘한 점',   bg: 'bg-blue-50',   fg: 'text-blue-700',   body: '온보딩 자료 전면 개편 완료. 신입 만족도 높아짐.' },
-              { label: '개선할 점', bg: 'bg-amber-50',  fg: 'text-amber-700',  body: '1on1 기록을 좀 더 구체적으로 남겨야 함.' },
-              { label: '배운 것',   bg: 'bg-slate-100', fg: 'text-slate-600',  body: 'OKR 프레임워크 적용 시 부서 정렬이 핵심.' },
+              { label: '잘한 점',   bg: 'bg-blue-50',   fg: 'text-blue-700',  body: '온보딩 자료 전면 개편 완료. 신입 만족도 높아짐.' },
+              { label: '개선할 점', bg: 'bg-amber-50',  fg: 'text-amber-700', body: '1on1 기록을 좀 더 구체적으로 남겨야 함.' },
+              { label: '배운 것',   bg: 'bg-slate-100', fg: 'text-slate-600', body: 'OKR 프레임워크 적용 시 부서 정렬이 핵심.' },
             ].map((item, i) => (
-              <div key={i} className="rounded-lg p-3 border border-slate-100 bg-slate-50/60">
-                <span className={`inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded ${item.bg} ${item.fg} mb-1.5`}>
+              <div key={i} className="rounded-xl p-3 border border-slate-100 bg-slate-50/60">
+                <span className={`inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-full ${item.bg} ${item.fg} mb-1.5`}>
                   {item.label}
                 </span>
                 <p className="text-[11px] text-slate-600 leading-relaxed">{item.body}</p>
@@ -204,52 +198,62 @@ export default function MockupPage() {
           </div>
         </div>
 
-        {/* ⑤ 오늘 할 일 */}
-        <div className="bg-white rounded-xl p-4 flex flex-col gap-4 overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
+        {/* ⑤ 오늘 할 일 — col-span-2 (주인공 컬럼) */}
+        <div className="col-span-2 bg-white rounded-3xl p-6 flex flex-col gap-5 overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)]">
           <div className="flex items-center justify-between">
-            <span className="text-slate-900 font-semibold text-sm tracking-tight">오늘 할 일</span>
-            <span className="text-[10px] text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded font-medium">5 / 8</span>
+            <span className="text-slate-900 font-semibold text-base tracking-tight">오늘 할 일</span>
+            <span className="text-xs text-slate-500 bg-slate-100 border border-slate-200 px-3 py-1 rounded-full font-medium">5 / 8 완료</span>
           </div>
 
-          {/* 진행률 */}
+          {/* 드라마틱한 진행률 바 */}
           <div>
-            <div className="w-full bg-slate-100 rounded-full h-1">
-              <div className="bg-[#1E293B] h-1 rounded-full" style={{ width: '62%' }} />
+            <div className="w-full bg-slate-100 rounded-full h-2.5">
+              <div className="bg-[#1E293B] h-2.5 rounded-full transition-all" style={{ width: '62%' }} />
             </div>
-            <p className="text-[10px] text-slate-400 mt-1">62% 완료</p>
+            <div className="flex justify-between mt-1.5">
+              <p className="text-[11px] text-slate-400">62% 완료</p>
+              <p className="text-[11px] text-slate-400">3개 남음</p>
+            </div>
           </div>
 
-          <div className="flex-1 flex flex-col gap-3 overflow-y-auto">
+          {/* 2열 그리드로 넓은 공간 활용 */}
+          <div className="flex-1 overflow-y-auto flex flex-col gap-4">
             <div>
-              <p className="text-[10px] text-slate-400 uppercase tracking-widest mb-1.5">미완료</p>
-              <div className="flex flex-col gap-1">
+              <p className="text-[11px] text-slate-400 uppercase tracking-widest mb-2">미완료 · 3</p>
+              <div className="grid grid-cols-2 gap-2">
                 {['평가제도 개선안 피드백 반영', '하반기 채용 계획 초안', '복지 설문 결과 분석'].map((text, i) => (
-                  <div key={i} className="flex items-center gap-2 px-2.5 py-2 rounded-lg border border-slate-100 bg-white">
-                    <div className="w-3.5 h-3.5 rounded border border-slate-300 flex-shrink-0" />
-                    <span className="text-[11px] text-slate-700 font-medium">{text}</span>
+                  <div key={i} className="flex items-center gap-3 px-4 py-3 rounded-2xl border border-slate-100 bg-white shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
+                    <div className="w-4 h-4 rounded-md border-2 border-slate-200 flex-shrink-0" />
+                    <span className="text-xs text-slate-700 font-medium leading-snug">{text}</span>
                   </div>
                 ))}
               </div>
             </div>
 
             <div>
-              <p className="text-[10px] text-slate-400 uppercase tracking-widest mb-1.5">완료</p>
-              <div className="flex flex-col gap-1">
-                {['주간 보고서 초안 작성', '채용 공고 JD 검토', '팀장 1on1 사전 질문 준비', '인사평가 일정 공지 발송', '온보딩 체크리스트 업데이트'].map((text, i) => (
-                  <div key={i} className="flex items-center gap-2 px-2.5 py-2 rounded-lg bg-slate-50">
-                    <div className="w-3.5 h-3.5 rounded bg-[#1E293B] border border-[#1E293B] flex-shrink-0 flex items-center justify-center">
-                      <span className="text-white text-[7px] font-bold leading-none">✓</span>
+              <p className="text-[11px] text-slate-400 uppercase tracking-widest mb-2">완료 · 5</p>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  '주간 보고서 초안 작성',
+                  '채용 공고 JD 검토',
+                  '팀장 1on1 사전 질문 준비',
+                  '인사평가 일정 공지 발송',
+                  '온보딩 체크리스트 업데이트',
+                ].map((text, i) => (
+                  <div key={i} className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-slate-50">
+                    <div className="w-4 h-4 rounded-md bg-[#1E293B] border border-[#1E293B] flex-shrink-0 flex items-center justify-center">
+                      <span className="text-white text-[8px] font-bold leading-none">✓</span>
                     </div>
-                    <span className="text-[11px] text-slate-400 line-through">{text}</span>
+                    <span className="text-xs text-slate-400 line-through leading-snug">{text}</span>
                   </div>
                 ))}
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2">
-            <span className="text-slate-300 text-base leading-none">+</span>
-            <span className="text-[11px] text-slate-400">할 일 추가</span>
+          <div className="flex items-center gap-3 border border-slate-200 rounded-2xl px-4 py-3">
+            <span className="text-slate-300 text-lg leading-none">+</span>
+            <span className="text-xs text-slate-400">새 할 일을 입력하세요</span>
           </div>
         </div>
 
