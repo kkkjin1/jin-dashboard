@@ -80,7 +80,7 @@ export default function TopNav() {
   return (
     <>
       {/* ── 데스크톱 상단 네비바 ── */}
-      <header className="hidden md:block h-14 flex-shrink-0">
+      <header className="hidden md:block h-14 flex-shrink-0 relative z-50">
         <div className="max-w-[1440px] mx-auto px-16 flex items-center h-full gap-4">
 
           {/* 로고 */}
