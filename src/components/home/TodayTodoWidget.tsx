@@ -259,9 +259,9 @@ export default function TodayTodoWidget() {
           <p className="text-[10px] text-gray-300 text-center py-4">불러오는 중...</p>
         ) : (
           <div className="flex flex-col flex-1 min-h-0 overflow-y-auto">
-            <p className="text-[11px] text-gray-400 font-medium mb-2 flex-shrink-0">미완료 {todos.length > 0 ? `${todos.length}` : ''}</p>
+            <p className="text-xs text-gray-400 font-medium mb-2 flex-shrink-0">미완료 {todos.length > 0 ? `${todos.length}` : ''}</p>
             {todos.length === 0 ? (
-              <p className="text-[11px] text-gray-200 text-center py-3">없음</p>
+              <p className="text-xs text-gray-200 text-center py-3">없음</p>
             ) : (
               <div className="space-y-3">
                 {todos.map(m => (
@@ -280,14 +280,14 @@ export default function TodayTodoWidget() {
                       }}
                       onMouseLeave={scheduleHide}
                       onClick={() => openMemo(m.id)}>
-                      <p className={`text-[11px] leading-relaxed break-words ${m.content ? 'text-gray-800 underline decoration-dotted decoration-[#0F1E36]/30 underline-offset-2' : 'text-gray-700'}`}>{m.title}</p>
+                      <p className={`text-xs leading-relaxed break-words ${m.content ? 'text-gray-800 underline decoration-dotted decoration-[#0F1E36]/30 underline-offset-2' : 'text-gray-700'}`}>{m.title}</p>
                     </button>
                     <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
                       onMouseEnter={() => { if (hideTimer.current) clearTimeout(hideTimer.current); setTooltip(null) }}>
                       <button onClick={e => openLinkPopup(m, e)} title="업무 연동"
-                        className="text-[10px] text-indigo-400 hover:text-indigo-600 px-1 py-0.5 rounded hover:bg-indigo-50">연동</button>
+                        className="text-[11px] text-indigo-400 hover:text-indigo-600 px-1 py-0.5 rounded hover:bg-indigo-50">연동</button>
                       <button onClick={() => deleteTodo(m.id)} title="삭제"
-                        className="text-[10px] text-gray-300 hover:text-red-400 px-1 py-0.5 rounded hover:bg-red-50">×</button>
+                        className="text-[11px] text-gray-300 hover:text-red-400 px-1 py-0.5 rounded hover:bg-red-50">×</button>
                     </div>
                   </div>
                 ))}
