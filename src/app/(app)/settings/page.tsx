@@ -50,6 +50,7 @@ export default function SettingsPage() {
   ]
 
   return (
+    <div className="h-full overflow-y-auto scrollbar-hide">
     <div className="p-8 max-w-lg">
       <h1 className="text-xl font-bold text-gray-900 mb-6">설정</h1>
 
@@ -112,6 +113,7 @@ export default function SettingsPage() {
           </div>
         </div>
       ))}
+    </div>
     </div>
   )
 }
