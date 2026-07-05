@@ -22,8 +22,8 @@ const TAG_BADGE: Record<string, string> = {
 const MEDIA_ICONS: Record<string, string> = { '책': '📚', '영상': '🎬', '아티클': '📄', '강의': '🎓', '기타': '📌' }
 
 type Status = 'todo' | 'doing' | 'done'
-const STATUS_LABELS: Record<Status, string> = { todo: '볼 예정', doing: '보는 중', done: '완료' }
-const STATUS_SHORT: Record<Status, string> = { todo: '예정', doing: '진행', done: '완료' }
+const STATUS_LABELS: Record<Status, string> = { todo: '보기전', doing: '보는중', done: '완료' }
+const STATUS_SHORT: Record<Status, string> = { todo: '보기전', doing: '보는중', done: '완료' }
 const STATUS_KEYS: Status[] = ['todo', 'doing', 'done']
 
 type SiteShortcut = { id: string; title: string; url: string }
@@ -188,12 +188,12 @@ export default function LearningPage() {
           return (
             <div key={tag}
               onClick={() => setFilterTag(isActive ? null : tag)}
-              className={`group flex items-center justify-center gap-0.5 rounded-full px-2.5 py-1 cursor-pointer border transition-all select-none
+              className={`relative group flex items-center justify-center rounded-full px-3 py-1 cursor-pointer border transition-all select-none
                 ${badge} ${isActive ? 'ring-2 ring-offset-1 ring-current/40 shadow-sm' : 'opacity-70 hover:opacity-100'}`}>
               <span className="text-xs font-semibold">{tag}</span>
               <button
                 onClick={e => { e.stopPropagation(); removeTag(tag) }}
-                className="text-[10px] opacity-0 group-hover:opacity-60 hover:!opacity-100 hover:text-red-500 transition-all ml-0.5 leading-none">
+                className="absolute right-1.5 text-[10px] opacity-0 group-hover:opacity-50 hover:!opacity-100 hover:text-red-500 transition-all leading-none">
                 ×
               </button>
             </div>
@@ -328,15 +328,16 @@ export default function LearningPage() {
                           const count = groups[status].length
                           const groupKey = `${tag}:${status}`
                           const isCollapsed = collapsedGroups.has(groupKey)
-                          if (count === 0) return (
-                            <span key={status} className="text-[9px] text-gray-200 px-1.5 py-0.5 whitespace-nowrap">{STATUS_SHORT[status]} 0</span>
-                          )
                           return (
                             <button key={status} onClick={() => toggleGroup(groupKey)}
                               className={`flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-full border transition-all whitespace-nowrap ${
-                                isCollapsed
-                                  ? 'bg-white/20 text-gray-400 border-white/40 hover:bg-white/50 hover:text-gray-600'
-                                  : 'bg-white/70 text-gray-700 border-white/80 font-medium shadow-sm'
+                                count === 0
+                                  ? isCollapsed
+                                    ? 'bg-white/10 text-gray-300 border-white/30 hover:bg-white/30 hover:text-gray-400'
+                                    : 'bg-white/30 text-gray-400 border-white/50 hover:bg-white/50'
+                                  : isCollapsed
+                                    ? 'bg-white/20 text-gray-400 border-white/40 hover:bg-white/50 hover:text-gray-600'
+                                    : 'bg-white/70 text-gray-700 border-white/80 font-medium shadow-sm'
                               }`}>
                               <span className="text-[7px] leading-none">{isCollapsed ? '▶' : '▼'}</span>
                               {STATUS_SHORT[status]} {count}
@@ -348,17 +349,14 @@ export default function LearningPage() {
 
                     {/* 상태 그룹 */}
                     <div className="space-y-2">
-                      {total === 0 ? (
-                        <p className="text-[11px] text-gray-300 py-2 text-center">자료를 추가해보세요</p>
-                      ) : (
-                        STATUS_KEYS.map(status => {
+                      {STATUS_KEYS.map(status => {
                           const items = groups[status]
                           const groupKey = `${tag}:${status}`
                           const isCollapsed = collapsedGroups.has(groupKey)
                           const isOver = dragOverTarget === groupKey
                           const isDone = status === 'done'
 
-                          if (items.length === 0 && !isOver && !isDragging) return null
+                          if (items.length === 0 && !isOver && !isDragging && isCollapsed) return null
 
                           return (
                             <div key={status}>
@@ -393,8 +391,7 @@ export default function LearningPage() {
                               )}
                             </div>
                           )
-                        })
-                      )}
+                      })}
                     </div>
                   </div>
                 )
