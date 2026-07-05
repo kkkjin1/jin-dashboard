@@ -9,14 +9,14 @@ import type { LearningResource } from '@/types'
 const DEFAULT_TAGS = ['HR', '경제', '리더십', '평가보상', '데이터', '조직문화', '기획']
 
 const TAG_BADGE: Record<string, string> = {
-  'HR':      'bg-[#BADEC8]/50 text-[#2D5A45] border-[#BADEC8]/60',
-  '경제':    'bg-[#90A7D8]/40 text-[#1E3A6B] border-[#90A7D8]/50',
-  '리더십':  'bg-[#BFE4B5]/50 text-[#2D5A35] border-[#BFE4B5]/60',
-  '평가보상':'bg-[#F3E482]/50 text-[#5A4A10] border-[#F3E482]/60',
-  '데이터':  'bg-[#D3E69B]/50 text-[#3A4A10] border-[#D3E69B]/60',
-  '조직문화':'bg-[#EBA698]/40 text-[#6B2D25] border-[#EBA698]/50',
-  '기획':    'bg-slate-100/80 text-slate-600 border-slate-200',
-  '미분류':  'bg-gray-100/80 text-gray-500 border-gray-200',
+  'HR':      'bg-[#BADEC8]/60 text-[#1C4A36] border-[#9ECAB4]/70',
+  '경제':    'bg-[#B8CCE8]/60 text-[#1A3462] border-[#9AB8D8]/70',
+  '리더십':  'bg-[#C0DDB4]/60 text-[#224818] border-[#A4CC98]/70',
+  '평가보상':'bg-[#EDD978]/60 text-[#503A06] border-[#D8C458]/70',
+  '데이터':  'bg-[#C8DC8C]/60 text-[#304808] border-[#B0C870]/70',
+  '조직문화':'bg-[#EAB4AC]/60 text-[#5C201C] border-[#D89890]/70',
+  '기획':    'bg-[#C8C4DE]/60 text-[#363260] border-[#B0ACCC]/70',
+  '미분류':  'bg-[#D8D4CC]/60 text-[#4C4440] border-[#C0BCAC]/70',
 }
 
 const MEDIA_ICONS: Record<string, string> = { '책': '📚', '영상': '🎬', '아티클': '📄', '강의': '🎓', '기타': '📌' }
@@ -55,11 +55,15 @@ export default function LearningPage() {
   const [newTagInput, setNewTagInput] = useState('')
   const [showAddTag, setShowAddTag] = useState(false)
 
+  // 범주 필터 (null = 전체)
+  const [filterTag, setFilterTag] = useState<string | null>(null)
+
   // 그룹 토글: key = `${tag}:${status}` → collapsed
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set(['미분류:todo', '미분류:doing', '미분류:done']))
 
-  // 드래그 오버 대상: `${tag}:${status}`
+  // 드래그
   const [dragOverTarget, setDragOverTarget] = useState<string | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
 
   // 사이트 단축키
   const [showAddSite, setShowAddSite] = useState(false)
@@ -87,6 +91,7 @@ export default function LearningPage() {
   function removeTag(tag: string) {
     if (!confirm(`"${tag}" 범주를 삭제하시겠습니까?\n해당 범주의 자료는 미분류로 이동됩니다.`)) return
     saveCustomTagsRemote(customTags.filter(t => t !== tag))
+    if (filterTag === tag) setFilterTag(null)
   }
 
   // ── 자료 추가 ──────────────────────────────────────────
@@ -140,6 +145,7 @@ export default function LearningPage() {
 
   // ── 데이터 그루핑 ──────────────────────────────────────
   const tagCols = [...customTags, '미분류']
+  const displayCols = filterTag ? [filterTag] : tagCols
 
   const tagGroups = useMemo(() => {
     const result: Record<string, Record<Status, LearningResource[]>> = {}
@@ -167,15 +173,31 @@ export default function LearningPage() {
         </button>
       </div>
 
-      {/* 범주 관리 바 */}
+      {/* 범주 필터 바 */}
       <div className="flex-shrink-0 pb-4 flex items-center gap-2 flex-wrap">
-        {customTags.map(tag => (
-          <div key={tag} className="group flex items-center gap-0.5 bg-white/40 backdrop-blur-xl border border-white/60 rounded-full px-2.5 py-1 hover:bg-white/60 transition-colors">
-            <span className={`text-xs font-semibold ${(TAG_BADGE[tag] ?? 'text-gray-500').split(' ').find(c => c.startsWith('text-')) ?? 'text-gray-600'}`}>{tag}</span>
-            <button onClick={() => removeTag(tag)}
-              className="text-[10px] text-gray-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all ml-0.5 leading-none">×</button>
-          </div>
-        ))}
+        {filterTag && (
+          <button onClick={() => setFilterTag(null)}
+            className="text-[10px] text-gray-400 hover:text-gray-600 border border-white/60 rounded-full px-2 py-1 bg-white/20 hover:bg-white/40 transition-all">
+            ← 전체
+          </button>
+        )}
+        {customTags.map(tag => {
+          const badge = TAG_BADGE[tag] ?? 'bg-[#D8D4CC]/60 text-[#4C4440] border-[#C0BCAC]/70'
+          const isActive = filterTag === tag
+          return (
+            <div key={tag}
+              onClick={() => setFilterTag(isActive ? null : tag)}
+              className={`group flex items-center gap-0.5 rounded-full px-2.5 py-1 cursor-pointer border transition-all select-none
+                ${badge} ${isActive ? 'ring-2 ring-offset-1 ring-current/40 shadow-sm' : 'opacity-70 hover:opacity-100'}`}>
+              <span className="text-xs font-semibold">{tag}</span>
+              <button
+                onClick={e => { e.stopPropagation(); removeTag(tag) }}
+                className="text-[10px] opacity-0 group-hover:opacity-60 hover:!opacity-100 hover:text-red-500 transition-all ml-0.5 leading-none">
+                ×
+              </button>
+            </div>
+          )
+        })}
         {showAddTag ? (
           <div className="flex items-center gap-1.5">
             <input autoFocus value={newTagInput} onChange={e => setNewTagInput(e.target.value)}
@@ -254,7 +276,7 @@ export default function LearningPage() {
                     </a>
                     <div className="absolute -top-1.5 -right-1 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                       <button onClick={() => { setEditingSiteId(s.id); setEditSiteTitle(s.title); setEditSiteUrl(s.url) }}
-                        className="w-4 h-4 bg-[#90A7D8] text-white rounded-full text-[9px] flex items-center justify-center hover:bg-[#1E3A6B]">✎</button>
+                        className="w-4 h-4 bg-[#B8CCE8] text-[#1A3462] rounded-full text-[9px] flex items-center justify-center hover:bg-[#9AB8D8]">✎</button>
                       <button onClick={() => removeSite(s.id)}
                         className="w-4 h-4 bg-gray-300 text-white rounded-full text-[9px] flex items-center justify-center hover:bg-red-400">×</button>
                     </div>
@@ -289,73 +311,79 @@ export default function LearningPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              {tagCols.map(tag => {
+              {displayCols.map(tag => {
                 const groups = tagGroups[tag] ?? { todo: [], doing: [], done: [] }
                 const total = groups.todo.length + groups.doing.length + groups.done.length
+                const badge = TAG_BADGE[tag] ?? 'bg-[#D8D4CC]/60 text-[#4C4440] border-[#C0BCAC]/70'
 
                 return (
                   <div key={tag} className="bg-white/20 backdrop-blur-xl border border-white/50 rounded-2xl p-4">
                     {/* 범주 헤더 */}
                     <div className="flex items-center gap-2 mb-3">
-                      <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${TAG_BADGE[tag] ?? 'bg-gray-100/80 text-gray-500 border-gray-200'}`}>{tag}</span>
+                      <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${badge}`}>{tag}</span>
                       <span className="text-xs text-gray-400">{total}개</span>
                     </div>
 
-                    {/* 3개 상태 그룹 */}
+                    {/* 상태 그룹 */}
                     <div className="space-y-3">
-                      {STATUS_KEYS.map(status => {
-                        const items = groups[status]
-                        const groupKey = `${tag}:${status}`
-                        const isCollapsed = collapsedGroups.has(groupKey)
-                        const dropTarget = groupKey
-                        const isOver = dragOverTarget === dropTarget
-                        const isDone = status === 'done'
+                      {total === 0 ? (
+                        <p className="text-[11px] text-gray-300 py-3 text-center">자료를 추가해보세요</p>
+                      ) : (
+                        STATUS_KEYS.map(status => {
+                          const items = groups[status]
+                          const groupKey = `${tag}:${status}`
+                          const isCollapsed = collapsedGroups.has(groupKey)
+                          const isOver = dragOverTarget === groupKey
+                          const isDone = status === 'done'
 
-                        return (
-                          <div key={status}>
-                            {/* 상태 헤더 토글 */}
-                            <button onClick={() => toggleGroup(groupKey)}
-                              className="flex items-center gap-2 w-full text-left group mb-2">
-                              <span className="text-[10px] text-gray-300 group-hover:text-gray-500 transition-colors">{isCollapsed ? '▶' : '▼'}</span>
-                              <span className="text-xs font-medium text-gray-500 group-hover:text-gray-700 transition-colors">
-                                {STATUS_LABELS[status]}
-                              </span>
-                              <span className="text-[10px] text-gray-300 bg-white/50 border border-white/60 px-1.5 py-0.5 rounded-full">{items.length}</span>
-                            </button>
+                          // 자료 없는 행은 드래그 중이거나 드래그 오버 중일 때만 표시
+                          if (items.length === 0 && !isOver && !isDragging) return null
 
-                            {/* 드롭존 + 카드 그리드 */}
-                            {!isCollapsed && (
-                              <div
-                                className={`grid grid-cols-2 gap-3 rounded-2xl min-h-[2.5rem] p-1 -m-1 transition-colors ${isOver ? 'bg-[#BADEC8]/15 ring-1 ring-[#BADEC8]/50' : ''}`}
-                                onDragOver={e => { e.preventDefault(); setDragOverTarget(dropTarget) }}
-                                onDrop={e => { e.preventDefault(); const id = e.dataTransfer.getData('rid'); if (id) setResourceStatus(id, status) }}
-                                onDragLeave={handleDragLeave}>
-                                {items.length === 0 ? (
-                                  <div className="col-span-2 text-center text-[10px] text-gray-300 py-4 border border-dashed border-white/40 rounded-xl">
-                                    {isOver ? `여기에 놓기 → ${STATUS_LABELS[status]}` : '드래그해서 옮기기'}
-                                  </div>
-                                ) : items.map(r => (
-                                  <div key={r.id}
-                                    className={`cursor-grab active:cursor-grabbing transition-opacity ${isDone ? 'opacity-50 hover:opacity-75' : ''}`}
-                                    draggable
-                                    onDragStart={e => { e.dataTransfer.setData('rid', r.id) }}>
-                                    <Link href={`/learning/${r.id}`} className="block">
-                                      <div className={`backdrop-blur-xl border rounded-2xl p-3 h-28 flex flex-col overflow-hidden transition-all hover:shadow-sm ${isDone ? 'bg-white/25 border-white/40 hover:bg-white/35' : 'bg-white/50 border-white/70 hover:bg-white/70'}`}>
-                                        <p className={`text-xs font-bold leading-snug line-clamp-3 flex-1 ${isDone ? 'text-gray-500 line-through decoration-gray-300' : 'text-gray-800'}`}>{r.title}</p>
-                                        <div className="flex items-center gap-1.5 mt-1.5 flex-shrink-0">
-                                          {r.media_type && <span className="text-sm">{MEDIA_ICONS[r.media_type]}</span>}
-                                          {r.source && <p className="text-[9px] text-gray-400 truncate flex-1">출처: {r.source}</p>}
-                                          {r.notes.length > 0 && <span className="text-[9px] text-gray-400 bg-white/60 border border-white/70 px-1 py-0.5 rounded-full flex-shrink-0">{r.notes.length}노트</span>}
+                          return (
+                            <div key={status}>
+                              <button onClick={() => toggleGroup(groupKey)}
+                                className="flex items-center gap-2 w-full text-left group mb-2">
+                                <span className="text-[10px] text-gray-300 group-hover:text-gray-500 transition-colors">{isCollapsed ? '▶' : '▼'}</span>
+                                <span className="text-xs font-medium text-gray-500 group-hover:text-gray-700 transition-colors">
+                                  {STATUS_LABELS[status]}
+                                </span>
+                                <span className="text-[10px] text-gray-300 bg-white/50 border border-white/60 px-1.5 py-0.5 rounded-full">{items.length}</span>
+                              </button>
+
+                              {!isCollapsed && (
+                                <div
+                                  className={`grid grid-cols-2 gap-3 rounded-2xl min-h-[2.5rem] p-1 -m-1 transition-colors ${isOver ? 'bg-[#BADEC8]/15 ring-1 ring-[#BADEC8]/50' : ''}`}
+                                  onDragOver={e => { e.preventDefault(); setDragOverTarget(groupKey) }}
+                                  onDrop={e => { e.preventDefault(); const id = e.dataTransfer.getData('rid'); if (id) setResourceStatus(id, status) }}
+                                  onDragLeave={handleDragLeave}>
+                                  {items.length === 0 ? (
+                                    <div className="col-span-2 text-center text-[10px] text-gray-300 py-4 border border-dashed border-white/40 rounded-xl">
+                                      여기에 놓기 → {STATUS_LABELS[status]}
+                                    </div>
+                                  ) : items.map(r => (
+                                    <div key={r.id}
+                                      className={`cursor-grab active:cursor-grabbing transition-opacity ${isDone ? 'opacity-50 hover:opacity-75' : ''}`}
+                                      draggable
+                                      onDragStart={e => { e.dataTransfer.setData('rid', r.id); setIsDragging(true) }}
+                                      onDragEnd={() => setIsDragging(false)}>
+                                      <Link href={`/learning/${r.id}`} className="block">
+                                        <div className={`backdrop-blur-xl border rounded-2xl p-3 h-28 flex flex-col overflow-hidden transition-all hover:shadow-sm ${isDone ? 'bg-white/25 border-white/40 hover:bg-white/35' : 'bg-white/50 border-white/70 hover:bg-white/70'}`}>
+                                          <p className={`text-xs font-bold leading-snug line-clamp-3 flex-1 ${isDone ? 'text-gray-500 line-through decoration-gray-300' : 'text-gray-800'}`}>{r.title}</p>
+                                          <div className="flex items-center gap-1.5 mt-1.5 flex-shrink-0">
+                                            {r.media_type && <span className="text-sm">{MEDIA_ICONS[r.media_type]}</span>}
+                                            {r.source && <p className="text-[9px] text-gray-400 truncate flex-1">출처: {r.source}</p>}
+                                            {r.notes.length > 0 && <span className="text-[9px] text-gray-400 bg-white/60 border border-white/70 px-1 py-0.5 rounded-full flex-shrink-0">{r.notes.length}노트</span>}
+                                          </div>
                                         </div>
-                                      </div>
-                                    </Link>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        )
-                      })}
+                                      </Link>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })
+                      )}
                     </div>
                   </div>
                 )
