@@ -54,7 +54,7 @@
 
   --background: oklch(1 0 0);
   --brand: #BADEC8;
-  --brand-light: #ECFDF5;
+  --brand-light: #EFF6FF;
   --brand-amber: #F4A35A;
   --page-bg: #ECEAE5;
   --navy: #1C2B3A;
@@ -161,7 +161,7 @@
   }
 
   html, body {
-    background-color: #F4F3EF !important;
+    background-color: #F1F5F9 !important;
     color: #1c1917 !important;
   }
 

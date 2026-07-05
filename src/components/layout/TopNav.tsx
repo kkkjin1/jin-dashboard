@@ -85,7 +85,7 @@ export default function TopNav() {
 
           {/* 로고 */}
           <div className="flex items-center gap-2.5 flex-shrink-0">
-            <div className="w-7 h-7 bg-[#2E5E4A] rounded-lg flex items-center justify-center">
+            <div className="w-7 h-7 bg-[#0F1E36] rounded-lg flex items-center justify-center">
               <span className="text-xs font-bold text-white">인</span>
             </div>
             <span className="text-sm font-semibold text-gray-800 tracking-tight">인사기획 워크</span>
@@ -157,7 +157,7 @@ export default function TopNav() {
       {/* ── 모바일 상단 헤더 (솔리드 라이트) ── */}
       <header className="md:hidden flex items-center h-12 px-4 flex-shrink-0">
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 bg-[#2E5E4A] rounded-md flex items-center justify-center">
+          <div className="w-6 h-6 bg-[#0F1E36] rounded-md flex items-center justify-center">
             <span className="text-[10px] font-bold text-white">인</span>
           </div>
           <span className="text-sm font-semibold text-stone-800">인사기획 워크</span>

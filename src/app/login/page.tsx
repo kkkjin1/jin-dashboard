@@ -32,7 +32,7 @@ export default function LoginPage() {
 
         {/* 브랜드 헤더 */}
         <div className="flex items-center gap-3 mb-8">
-          <div className="w-9 h-9 bg-[#2E5E4A] rounded-lg flex items-center justify-center">
+          <div className="w-9 h-9 bg-[#0F1E36] rounded-lg flex items-center justify-center">
             <span className="text-white font-bold text-sm">인</span>
           </div>
           <div>
@@ -49,7 +49,7 @@ export default function LoginPage() {
               type="email"
               value={email}
               onChange={e => setEmail(e.target.value)}
-              className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E5E4A]/30 focus:border-[#2E5E4A] bg-white placeholder-gray-300 transition-colors"
+              className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0F1E36]/30 focus:border-[#0F1E36] bg-white placeholder-gray-300 transition-colors"
               placeholder="name@company.com"
               required
             />
@@ -59,7 +59,7 @@ export default function LoginPage() {
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="block text-xs font-medium text-gray-500">비밀번호</label>
-              <button type="button" className="text-[11px] text-gray-400 hover:text-[#2E5E4A] transition-colors">
+              <button type="button" className="text-[11px] text-gray-400 hover:text-[#0F1E36] transition-colors">
                 비밀번호를 잊으셨나요?
               </button>
             </div>
@@ -67,7 +67,7 @@ export default function LoginPage() {
               type="password"
               value={password}
               onChange={e => setPassword(e.target.value)}
-              className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E5E4A]/30 focus:border-[#2E5E4A] bg-white placeholder-gray-300 transition-colors"
+              className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0F1E36]/30 focus:border-[#0F1E36] bg-white placeholder-gray-300 transition-colors"
               placeholder="••••••••"
               required
             />
@@ -81,7 +81,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-[#2E5E4A] hover:bg-[#26513f] text-white rounded-lg py-2.5 text-sm font-medium transition-colors disabled:opacity-50 mt-1"
+            className="w-full bg-[#0F1E36] hover:bg-[#162844] text-white rounded-lg py-2.5 text-sm font-medium transition-colors disabled:opacity-50 mt-1"
           >
             {loading ? '로그인 중...' : '로그인'}
           </button>
@@ -90,7 +90,7 @@ export default function LoginPage() {
         {/* 하단 헬퍼 */}
         <p className="text-center text-xs text-gray-400 mt-6">
           아직 계정이 없으신가요?{' '}
-          <button type="button" className="text-[#2E5E4A] font-medium hover:underline">
+          <button type="button" className="text-[#0F1E36] font-medium hover:underline">
             가입하기
           </button>
         </p>

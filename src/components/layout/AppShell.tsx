@@ -8,7 +8,7 @@ import GlobalEscBlur from '@/components/GlobalEscBlur'
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="w-full min-h-screen h-screen max-h-screen overflow-hidden flex flex-col bg-[#F4F3EF] md:bg-gradient-to-br md:from-[#FAF9F5] md:via-[#FFFBF0] md:to-[#F3EAD8]">
+    <div className="w-full min-h-screen h-screen max-h-screen overflow-hidden flex flex-col bg-[#F1F5F9] md:bg-gradient-to-br md:from-[#F8FAFC] md:via-[#F1F5F9] md:to-[#E8EEF4]">
       <TopNav />
       <main className="flex-1 min-h-0 overflow-hidden pb-28 md:pb-0">
         <div className="max-w-[1440px] mx-auto px-4 md:px-16 h-full overflow-hidden">

@@ -284,7 +284,7 @@ export default function TodayTodoWidget() {
             onChange={e => setNewText(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') addMemo() }}
             placeholder="할 일 추가... (Enter)"
-            className="flex-1 text-sm border border-white/60 bg-white/50 rounded-lg px-3 py-1.5 focus:outline-none focus:border-gray-300 focus:bg-white/70 transition-all"
+            className="flex-1 text-xs border border-white/60 bg-white/50 rounded-lg px-3 py-1.5 focus:outline-none focus:border-gray-300 focus:bg-white/70 transition-all"
           />
           <button onClick={addMemo} className="text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg px-2.5 py-1.5 hover:bg-white/50 transition-colors">+</button>
         </div>
@@ -315,7 +315,7 @@ export default function TodayTodoWidget() {
                       }}
                       onMouseLeave={scheduleHide}
                       onClick={() => openMemo(m.id)}>
-                      <p className={`text-sm leading-relaxed break-words ${m.content ? 'text-gray-800 underline decoration-dotted decoration-emerald-400 underline-offset-2' : 'text-gray-700'}`}>{m.title}</p>
+                      <p className={`text-xs leading-relaxed break-words ${m.content ? 'text-gray-800 underline decoration-dotted decoration-emerald-400 underline-offset-2' : 'text-gray-700'}`}>{m.title}</p>
                     </button>
                     <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
                       onMouseEnter={() => { if (hideTimer.current) clearTimeout(hideTimer.current); setTooltip(null) }}>

@@ -21,13 +21,13 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: "cover",
   colorScheme: "light",
-  themeColor: "#2E5E4A",
+  themeColor: "#0F1E36",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ko" style={{ colorScheme: 'light' }} suppressHydrationWarning>
-      <body className="bg-[#F4F3EF] text-gray-900 antialiased font-sans" suppressHydrationWarning>
+      <body className="bg-[#F1F5F9] text-gray-900 antialiased font-sans" suppressHydrationWarning>
         {children}
       </body>
     </html>

@@ -4,8 +4,8 @@
   "description": "인사기획팀 업무 보드",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#2E5E4A",
-  "theme_color": "#2E5E4A",
+  "background_color": "#0F1E36",
+  "theme_color": "#0F1E36",
   "orientation": "portrait",
   "lang": "ko",
   "icons": [
