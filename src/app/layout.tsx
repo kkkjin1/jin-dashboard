@@ -6,10 +6,8 @@ export const metadata: Metadata = {
   description: "인사기획팀 업무 보드",
   manifest: "/manifest.json",
   icons: {
-    icon: [
-      { url: '/favicon.ico?v=2', type: 'image/x-icon' },
-      { url: '/icon.png?v=2', type: 'image/png' },
-    ],
+    icon: { url: '/icon', type: 'image/png', sizes: '32x32' },
+    apple: { url: '/apple-icon', type: 'image/png', sizes: '180x180' },
   },
   appleWebApp: {
     capable: true,
