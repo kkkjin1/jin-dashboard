@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { format, parseISO } from 'date-fns'
+import { ko } from 'date-fns/locale'
 
 interface QuickMemo {
   id: string
@@ -41,6 +43,7 @@ export default function TodayTodoWidget() {
   const [toast, setToast] = useState('')
   const [tooltip, setTooltip] = useState<TooltipState | null>(null)
   const [linkPopup, setLinkPopup] = useState<LinkPopup | null>(null)
+  const [showDonePopup, setShowDonePopup] = useState(false)
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
@@ -66,13 +69,15 @@ export default function TodayTodoWidget() {
     return () => window.removeEventListener('quick-memo-saved', onMemoSaved)
   }, [])
 
-  // ESC로 연동 팝업 닫기
+  // ESC로 팝업 닫기
   useEffect(() => {
-    if (!linkPopup) return
-    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') setLinkPopup(null) }
+    if (!linkPopup && !showDonePopup) return
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') { setLinkPopup(null); setShowDonePopup(false) }
+    }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [linkPopup])
+  }, [linkPopup, showDonePopup])
 
   function parseDateInput(text: string): { title: string; targetDate: string | null } {
     const slashIdx = text.lastIndexOf(' /')
@@ -268,7 +273,14 @@ export default function TodayTodoWidget() {
         <div className="flex items-center gap-2 mb-3 flex-shrink-0">
           <span className="w-1.5 h-1.5 rounded-full bg-sky-400 flex-shrink-0" />
           <h3 className="text-sm font-semibold text-gray-800">오늘 할 일</h3>
-          <span className="text-xs text-gray-400">Ctrl+2 빠른 추가</span>
+          <span className="text-[10px] text-gray-400 mr-auto">Ctrl+2</span>
+          {done.length > 0 && (
+            <button
+              onClick={() => setShowDonePopup(true)}
+              className="text-[10px] text-gray-400 hover:text-[#0F1E36] bg-gray-50 hover:bg-gray-100 border border-gray-200 px-2 py-0.5 rounded-full transition-colors flex-shrink-0">
+              완료보기 {done.length}
+            </button>
+          )}
         </div>
 
         {toast && (
@@ -304,7 +316,7 @@ export default function TodayTodoWidget() {
                     <button
                       onClick={() => completeMemo(m.id)}
                       title="완료 처리"
-                      className="flex-shrink-0 w-3.5 h-3.5 mt-0.5 rounded-full border border-gray-300 hover:border-emerald-400 hover:bg-emerald-50 transition-colors"
+                      className="flex-shrink-0 w-3.5 h-3.5 mt-0.5 rounded-full border border-gray-300 hover:border-[#0F1E36]/40 hover:bg-[#EFF6FF] transition-colors"
                     />
                     <button
                       className="flex-1 min-w-0 text-left"
@@ -315,7 +327,7 @@ export default function TodayTodoWidget() {
                       }}
                       onMouseLeave={scheduleHide}
                       onClick={() => openMemo(m.id)}>
-                      <p className={`text-xs leading-relaxed break-words ${m.content ? 'text-gray-800 underline decoration-dotted decoration-emerald-400 underline-offset-2' : 'text-gray-700'}`}>{m.title}</p>
+                      <p className={`text-xs leading-relaxed break-words ${m.content ? 'text-gray-800 underline decoration-dotted decoration-[#0F1E36]/30 underline-offset-2' : 'text-gray-700'}`}>{m.title}</p>
                     </button>
                     <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
                       onMouseEnter={() => { if (hideTimer.current) clearTimeout(hideTimer.current); setTooltip(null) }}>
@@ -329,39 +341,6 @@ export default function TodayTodoWidget() {
               </div>
             )}
 
-            {/* 구분선 + 완료 */}
-            {done.length > 0 && (
-              <>
-                <div className="border-t border-gray-100 my-3 flex-shrink-0" />
-                <div className="flex items-center gap-1.5 mb-2 flex-shrink-0">
-                  <p className="text-xs text-gray-400 font-medium">완료 {done.length}</p>
-                  {selectedDone.size > 0 && (
-                    <button onClick={deleteSelectedDone} className="text-[10px] text-red-400 hover:text-red-600 ml-auto">
-                      {selectedDone.size}개 삭제
-                    </button>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  {done.map(m => (
-                    <div key={m.id}
-                      className={`group flex items-start gap-1.5 px-1 rounded-lg transition-colors cursor-pointer ${selectedDone.has(m.id) ? 'bg-white/50' : 'hover:bg-gray-50'}`}
-                      onClick={() => toggleSelectDone(m.id)}>
-                      <input type="checkbox" checked={selectedDone.has(m.id)}
-                        onChange={() => toggleSelectDone(m.id)}
-                        onClick={e => e.stopPropagation()}
-                        className="flex-shrink-0 w-3 h-3 mt-0.5 rounded accent-gray-400 cursor-pointer" />
-                      <p className="flex-1 min-w-0 text-xs text-gray-400 line-through leading-relaxed break-words">{m.title}</p>
-                      <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                        <button onClick={e => { e.stopPropagation(); undoMemo(m.id) }} title="되돌리기"
-                          className="text-[10px] text-gray-300 hover:text-blue-400 px-1 py-0.5 rounded hover:bg-blue-50">↩</button>
-                        <button onClick={e => { e.stopPropagation(); deleteDone(m.id) }} title="삭제"
-                          className="text-[10px] text-gray-300 hover:text-red-400 px-1 py-0.5 rounded hover:bg-red-50">×</button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
           </div>
         )}
       </div>
@@ -376,10 +355,77 @@ export default function TodayTodoWidget() {
           <p className="text-gray-600 leading-relaxed whitespace-pre-wrap flex-1 overflow-y-auto mb-2 pr-0.5">{tooltip.memo.content}</p>
           <button
             onClick={() => { setTooltip(null); openMemo(tooltip.memo.id) }}
-            className="text-emerald-600 hover:text-emerald-700 text-[11px] font-medium transition-colors">
+            className="text-[#0F1E36] hover:text-[#162844] text-[11px] font-medium transition-colors">
             메모에서 열기 →
           </button>
         </div>,
+        document.body
+      )}
+
+      {/* 완료 팝업 */}
+      {showDonePopup && typeof document !== 'undefined' && createPortal(
+        <>
+          <div className="fixed inset-0 z-[9990] bg-black/20 backdrop-blur-sm" onClick={() => setShowDonePopup(false)} />
+          <div className="fixed inset-0 z-[9991] flex items-center justify-center p-4 pointer-events-none">
+            <div className="pointer-events-auto bg-white/97 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/80 w-full max-w-sm max-h-[72vh] flex flex-col">
+              <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-gray-100 flex-shrink-0">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-semibold text-gray-800">완료 항목</h3>
+                  <span className="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full">{done.length}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {selectedDone.size > 0 && (
+                    <button onClick={() => { deleteSelectedDone(); }} className="text-[10px] text-red-400 hover:text-red-600 transition-colors">
+                      {selectedDone.size}개 삭제
+                    </button>
+                  )}
+                  <button onClick={() => setShowDonePopup(false)} className="text-[10px] text-gray-300 hover:text-gray-500 bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded-full transition-colors">
+                    ESC
+                  </button>
+                </div>
+              </div>
+              <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-5 scrollbar-hide">
+                {done.length === 0 ? (
+                  <p className="text-xs text-gray-300 text-center py-8">완료된 항목이 없습니다</p>
+                ) : (
+                  (() => {
+                    const byDate: Record<string, QuickMemo[]> = {}
+                    done.forEach(m => {
+                      const d = m.created_at.slice(0, 10)
+                      if (!byDate[d]) byDate[d] = []
+                      byDate[d].push(m)
+                    })
+                    return Object.keys(byDate).sort((a, b) => b.localeCompare(a)).map(date => (
+                      <div key={date}>
+                        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                          {format(parseISO(date), 'M월 d일 (E)', { locale: ko })}
+                        </p>
+                        <div className="space-y-1.5">
+                          {byDate[date].map(m => (
+                            <div key={m.id}
+                              className={`group flex items-center gap-2 px-2 py-1.5 rounded-xl transition-colors cursor-pointer ${selectedDone.has(m.id) ? 'bg-gray-50' : 'hover:bg-gray-50'}`}
+                              onClick={() => toggleSelectDone(m.id)}>
+                              <input type="checkbox" checked={selectedDone.has(m.id)}
+                                onChange={() => toggleSelectDone(m.id)} onClick={e => e.stopPropagation()}
+                                className="flex-shrink-0 w-3 h-3 rounded accent-gray-400 cursor-pointer" />
+                              <p className="flex-1 min-w-0 text-xs text-gray-400 line-through leading-relaxed truncate">{m.title}</p>
+                              <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                                <button onClick={e => { e.stopPropagation(); undoMemo(m.id) }}
+                                  className="text-[10px] text-gray-300 hover:text-blue-400 px-1 py-0.5 rounded hover:bg-blue-50">↩</button>
+                                <button onClick={e => { e.stopPropagation(); deleteDone(m.id) }}
+                                  className="text-[10px] text-gray-300 hover:text-red-400 px-1 py-0.5 rounded hover:bg-red-50">×</button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))
+                  })()
+                )}
+              </div>
+            </div>
+          </div>
+        </>,
         document.body
       )}
 

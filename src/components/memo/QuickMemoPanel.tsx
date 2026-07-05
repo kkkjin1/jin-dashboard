@@ -306,7 +306,7 @@ export default function QuickMemoPanel() {
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onClick={handleBtnClick}
-          className="fixed z-[64] w-12 h-12 bg-[#10B981] text-white rounded-full shadow-lg hover:bg-[#059669] transition-colors flex items-center justify-center text-xl font-light touch-none select-none cursor-grab active:cursor-grabbing"
+          className="fixed z-[64] w-12 h-12 bg-[#0F1E36] text-white rounded-full shadow-lg hover:bg-[#162844] transition-colors flex items-center justify-center text-xl font-light touch-none select-none cursor-grab active:cursor-grabbing"
           title="빠른 메모 (Ctrl+2) — 길게 드래그해 위치 이동"
         >
           +

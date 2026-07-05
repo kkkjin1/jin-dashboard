@@ -18,6 +18,9 @@ interface TodoColItem {
   taskTitle: string | null
   taskShortName?: string | null
   idxInTask?: number
+  itemType?: 'todo' | 'meeting' | 'milestone' | 'oneonone'
+  href?: string
+  itemBadge?: { label: string; cls: string }
 }
 
 interface CompactColProps {
@@ -90,44 +93,59 @@ function CompactCol({
         </p>
       ) : (
         <div className={`divide-y ${divideCls} overflow-y-auto flex-1 min-h-0 scrollbar-hide`}>
-          {items.map(item => (
-            <div key={item.id}
-              className={`group flex items-start gap-2 py-2 px-1 rounded transition-colors ${hoverCls}`}>
-              {onComplete && (
-                <button
-                  onClick={e => { e.stopPropagation(); onComplete(item.id) }}
-                  className={`flex-shrink-0 w-3.5 h-3.5 mt-0.5 rounded-full border transition-colors opacity-0 group-hover:opacity-100 flex items-center justify-center ${completeCls}`}
-                  title="완료">
-                  <span className={`text-[8px] leading-none ${checkCls}`}>✓</span>
-                </button>
-              )}
-              <span className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${dark ? 'bg-[#F0C048]/60' : 'bg-gray-300'}`} />
-              <Link href={`/tasks/${item.taskId}`} className="flex-1 min-w-0"
-                draggable={droppable}
-                onDragStart={droppable ? e => { e.stopPropagation(); e.dataTransfer.setData('todoId', item.id) } : undefined}>
-                <div className="flex items-start gap-1.5 flex-wrap min-w-0">
-                  {item.taskShortName && (
-                    <span className={`text-[9px] font-mono flex-shrink-0 px-1 py-0.5 rounded mt-0.5 ${chipCls}`}>
-                      {item.taskShortName}{(item.idxInTask ?? 0) + 1}
+          {items.map(item => {
+            const isTodo = !item.itemType || item.itemType === 'todo'
+            const dotCls = item.itemType === 'meeting'
+              ? 'bg-[#A8C0E0]'
+              : item.itemType === 'milestone'
+                ? 'bg-amber-400/70'
+                : item.itemType === 'oneonone'
+                  ? 'bg-purple-300/70'
+                  : dark ? 'bg-[#F0C048]/60' : 'bg-gray-300'
+            return (
+              <div key={item.id}
+                className={`group flex items-start gap-2 py-2 px-1 rounded transition-colors ${hoverCls}`}>
+                {onComplete && isTodo && (
+                  <button
+                    onClick={e => { e.stopPropagation(); onComplete(item.id) }}
+                    className={`flex-shrink-0 w-3.5 h-3.5 mt-0.5 rounded-full border transition-colors opacity-0 group-hover:opacity-100 flex items-center justify-center ${completeCls}`}
+                    title="완료">
+                    <span className={`text-[8px] leading-none ${checkCls}`}>✓</span>
+                  </button>
+                )}
+                {(!onComplete || !isTodo) && <span className="w-3.5 flex-shrink-0" />}
+                <span className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${dotCls}`} />
+                <Link href={item.href ?? `/tasks/${item.taskId}`} className="flex-1 min-w-0"
+                  draggable={isTodo && droppable}
+                  onDragStart={isTodo && droppable ? e => { e.stopPropagation(); e.dataTransfer.setData('todoId', item.id) } : undefined}>
+                  <div className="flex items-start gap-1.5 flex-wrap min-w-0">
+                    {item.taskShortName && (
+                      <span className={`text-[9px] font-mono flex-shrink-0 px-1 py-0.5 rounded mt-0.5 ${chipCls}`}>
+                        {item.taskShortName}{(item.idxInTask ?? 0) + 1}
+                      </span>
+                    )}
+                    <span className={`text-sm leading-relaxed break-words min-w-0 ${itemTxt}`}>
+                      {item.title || '제목 없음'}
+                    </span>
+                  </div>
+                  {item.taskTitle && (
+                    <span className={`text-xs leading-relaxed break-words block mt-0.5 ${subTxt}`}>
+                      {item.taskTitle}
                     </span>
                   )}
-                  <span className={`text-sm leading-relaxed break-words min-w-0 ${itemTxt}`}>
-                    {item.title || '제목 없음'}
+                </Link>
+                {item.itemBadge ? (
+                  <span className={`flex-shrink-0 text-[8px] font-semibold px-1.5 py-0.5 rounded-full self-start mt-0.5 ${item.itemBadge.cls}`}>
+                    {item.itemBadge.label}
                   </span>
-                </div>
-                {item.taskTitle && (
-                  <span className={`text-xs leading-relaxed break-words block mt-0.5 ${subTxt}`}>
-                    {item.taskTitle}
+                ) : colBadge ? (
+                  <span className={`flex-shrink-0 text-[9px] font-medium px-1.5 py-0.5 rounded-full self-start mt-0.5 ${colBadge.bg} ${colBadge.text}`}>
+                    {colBadge.label}
                   </span>
-                )}
-              </Link>
-              {colBadge && (
-                <span className={`flex-shrink-0 text-[9px] font-medium px-1.5 py-0.5 rounded-full self-start mt-0.5 ${colBadge.bg} ${colBadge.text}`}>
-                  {colBadge.label}
-                </span>
-              )}
-            </div>
-          ))}
+                ) : null}
+              </div>
+            )
+          })}
         </div>
       )}
 
@@ -169,6 +187,7 @@ export default function HomePage() {
   const [loading, setLoading]                     = useState(true)
   const [dragOverBucket, setDragOverBucket]       = useState<string | null>(null)
   const [meetings, setMeetings]                   = useState<Pick<Meeting, 'id' | 'title' | 'meeting_date'>[]>([])
+  const [oneOnOnes, setOneOnOnes]                 = useState<{ id: string; session_date: string }[]>([])
   const supabase = createClient()
 
   type Shortcut = { id: string; title: string; url: string }
@@ -190,11 +209,15 @@ export default function HomePage() {
       supabase.from('task_todos')
         .select('id, title, done_at, sort_order, task_id, tasks(id, title, short_name)')
         .eq('done', true).gte('done_at', getThisWeekStart()).order('done_at', { ascending: false }),
-    ]).then(([taskData, { data: meetingData }, { data: todosData }, { data: completedData }]) => {
+      supabase.from('one_on_ones')
+        .select('id, session_date')
+        .not('session_date', 'is', null),
+    ]).then(([taskData, { data: meetingData }, { data: todosData }, { data: completedData }, { data: ooData }]) => {
       setTasks(taskData)
       setMeetings((meetingData ?? []) as Pick<Meeting, 'id' | 'title' | 'meeting_date'>[])
       setTodos((todosData ?? []) as unknown as TaskTodo[])
       setCompletedThisWeek((completedData ?? []) as unknown as TaskTodo[])
+      setOneOnOnes((ooData ?? []) as { id: string; session_date: string }[])
       setLoading(false)
     })
   }, [])
@@ -249,9 +272,55 @@ export default function HomePage() {
     })
   }
 
-  const todayItems    = toColItems(todos.filter(t => t.target_date === today))
-  const tomorrowItems = toColItems(todos.filter(t => t.target_date === tomorrow))
-  const weekItems     = toColItems(todos.filter(t => t.target_date && t.target_date > tomorrow && t.target_date <= thisFriday))
+  function getMeetingItems(date: string): TodoColItem[]
+  function getMeetingItems(from: string, to: string): TodoColItem[]
+  function getMeetingItems(dateOrFrom: string, to?: string): TodoColItem[] {
+    const filtered = to
+      ? meetings.filter(m => m.meeting_date && m.meeting_date > dateOrFrom && m.meeting_date <= to)
+      : meetings.filter(m => m.meeting_date === dateOrFrom)
+    return filtered.map(m => ({
+      id: `mtg-${m.id}`, title: m.title || '회의', taskId: m.id, taskTitle: null,
+      itemType: 'meeting' as const, href: `/meetings/${m.id}`,
+      itemBadge: { label: '회의', cls: 'bg-[#C7D8F0] text-[#1A3562]' },
+    }))
+  }
+
+  function getMilestoneItems(date: string): TodoColItem[]
+  function getMilestoneItems(from: string, to: string): TodoColItem[]
+  function getMilestoneItems(dateOrFrom: string, to?: string): TodoColItem[] {
+    const result: TodoColItem[] = []
+    tasks.forEach(t => {
+      const inRange = (d: string | null) => d && (to ? d > dateOrFrom && d <= to : d === dateOrFrom)
+      if (inRange(t.mid_date)) result.push({
+        id: `mid-${t.id}`, title: t.title, taskId: t.id, taskTitle: '중간공유',
+        itemType: 'milestone' as const, href: `/tasks/${t.id}`,
+        itemBadge: { label: '중간공유', cls: 'bg-amber-100 text-amber-700' },
+      })
+      if (inRange(t.end_date)) result.push({
+        id: `end-${t.id}`, title: t.title, taskId: t.id, taskTitle: '최종보고',
+        itemType: 'milestone' as const, href: `/tasks/${t.id}`,
+        itemBadge: { label: '최종보고', cls: 'bg-red-100 text-red-600' },
+      })
+    })
+    return result
+  }
+
+  function getOneOnOneItems(date: string): TodoColItem[]
+  function getOneOnOneItems(from: string, to: string): TodoColItem[]
+  function getOneOnOneItems(dateOrFrom: string, to?: string): TodoColItem[] {
+    const filtered = to
+      ? oneOnOnes.filter(s => s.session_date > dateOrFrom && s.session_date <= to)
+      : oneOnOnes.filter(s => s.session_date === dateOrFrom)
+    return filtered.map(s => ({
+      id: `oo-${s.id}`, title: '1on1 세션', taskId: s.id, taskTitle: null,
+      itemType: 'oneonone' as const, href: '/one-on-one',
+      itemBadge: { label: '1on1', cls: 'bg-purple-100 text-purple-600' },
+    }))
+  }
+
+  const todayItems    = [...toColItems(todos.filter(t => t.target_date === today)), ...getMeetingItems(today), ...getMilestoneItems(today), ...getOneOnOneItems(today)]
+  const tomorrowItems = [...toColItems(todos.filter(t => t.target_date === tomorrow)), ...getMeetingItems(tomorrow), ...getMilestoneItems(tomorrow), ...getOneOnOneItems(tomorrow)]
+  const weekItems     = [...toColItems(todos.filter(t => t.target_date && t.target_date > tomorrow && t.target_date <= thisFriday)), ...getMeetingItems(tomorrow, thisFriday), ...getMilestoneItems(tomorrow, thisFriday), ...getOneOnOneItems(tomorrow, thisFriday)]
 
   function handleDragOver(e: React.DragEvent, bucket: string) {
     e.preventDefault(); setDragOverBucket(bucket)
