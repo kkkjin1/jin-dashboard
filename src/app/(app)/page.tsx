@@ -519,8 +519,6 @@ export default function HomePage() {
             <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full overflow-hidden font-sans">
               <DailyLogWidget
                 onDraftReady={draft => setJournalDraft(draft + '\n')}
-                completedTodos={completedThisWeek.map(t => t.title)}
-                meetings={meetings.filter(m => m.meeting_date === new Date().toISOString().slice(0, 10)).map(m => m.title)}
               />
             </div>
           </div>
