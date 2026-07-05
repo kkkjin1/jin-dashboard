@@ -49,11 +49,11 @@ function CompactCol({
   title, items, dark, droppable, onDrop, onDragOver, onDragLeave,
   isDragOver, onComplete, completedCount = 0, colBadge,
 }: CompactColProps) {
-  const dragRing = isDragOver && droppable ? (dark ? 'ring-1 ring-white/20' : 'ring-1 ring-emerald-400/60') : ''
+  const dragRing = isDragOver && droppable ? (dark ? 'ring-1 ring-white/20' : 'ring-1 ring-[#0F1E36]/20') : ''
 
   const cardBase = 'rounded-2xl p-4 min-w-0 flex flex-col relative overflow-hidden h-full transition-all font-sans'
   const cardCls = dark
-    ? `bg-[#1A1F2E] border border-white/6 shadow-2xl ${cardBase} ${dragRing}`
+    ? `bg-[#0F1E36] border border-white/8 shadow-2xl ${cardBase} ${dragRing}`
     : `bg-white/40 backdrop-blur-md border border-white/60 shadow-sm ${cardBase} ${dragRing}`
 
   const emptyTxt  = dark ? 'text-white/25' : 'text-gray-300'
@@ -64,8 +64,8 @@ function CompactCol({
   const divideCls = dark ? 'divide-white/5' : 'divide-gray-100/60'
   const completeCls = dark
     ? 'border-white/20 hover:border-white/50'
-    : 'border-gray-300/60 hover:border-emerald-400 hover:bg-emerald-50'
-  const checkCls  = dark ? 'text-white/50' : 'text-emerald-500'
+    : 'border-gray-300/60 hover:border-[#0F1E36]/40 hover:bg-[#EFF6FF]'
+  const checkCls  = dark ? 'text-white/50' : 'text-[#0F1E36]'
   const titleCls  = dark ? 'text-white/40' : 'text-gray-400'
   const badgeBg   = dark ? 'bg-white/10 text-white/50' : 'bg-gray-100/80 text-gray-500'
 
@@ -387,23 +387,13 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* ── 데스크톱 벤토 그리드 (2행) ──
-          Row 1 (1.5fr): 오늘(dark) | 내일 | 금주  — 오늘은 rows 1+2 span
-          Row 2 (2.5fr): 오늘 계속  | 회고 | 오늘할일
-      */}
+      {/* ── 데스크톱 비대칭 그리드: 오늘(5fr) + 우측 2x2(7fr) ── */}
       <div
         className="hidden md:grid flex-1 min-h-0 gap-3"
-        style={{
-          gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-          gridTemplateRows: 'minmax(0, 1.5fr) minmax(0, 2.5fr)',
-          gridTemplateAreas: `
-            "today  tomorrow  week"
-            "today  journal   todo"
-          `,
-        }}
+        style={{ gridTemplateColumns: 'minmax(0, 5fr) minmax(0, 7fr)' }}
       >
-        {/* 오늘 — 다크, rows 1-2 */}
-        <div style={{ gridArea: 'today' }} className="min-h-0">
+        {/* 오늘 — 다크, 좌측 풀 높이 */}
+        <div className="min-h-0">
           <CompactCol
             title="오늘" items={todayItems} dark
             completedCount={completedThisWeek.length}
@@ -417,45 +407,48 @@ export default function HomePage() {
           />
         </div>
 
-        {/* 내일 — row 1 */}
-        <div style={{ gridArea: 'tomorrow' }} className="min-h-0">
-          <CompactCol
-            title="내일" items={tomorrowItems}
-            colBadge={{ label: '대기', bg: 'bg-gray-100/80', text: 'text-gray-400' }}
-            droppable
-            onDrop={e => handleDrop(e, 'tomorrow')}
-            onDragOver={e => handleDragOver(e, 'tomorrow')}
-            onDragLeave={() => setDragOverBucket(null)}
-            isDragOver={dragOverBucket === 'tomorrow'}
-            onComplete={handleCompleteTodo}
-          />
-        </div>
-
-        {/* 금주 — row 1 */}
-        <div style={{ gridArea: 'week' }} className="min-h-0">
-          <CompactCol
-            title="금주" items={weekItems}
-            colBadge={{ label: '대기', bg: 'bg-gray-100/80', text: 'text-gray-400' }}
-            droppable
-            onDrop={e => handleDrop(e, 'this_week')}
-            onDragOver={e => handleDragOver(e, 'this_week')}
-            onDragLeave={() => setDragOverBucket(null)}
-            isDragOver={dragOverBucket === 'this_week'}
-            onComplete={handleCompleteTodo}
-          />
-        </div>
-
-        {/* 회고 — row 2, col 2 */}
-        <div style={{ gridArea: 'journal' }} className="min-h-0 overflow-hidden">
-          <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full overflow-hidden font-sans">
-            <DailyJournalWidget tasks={tasks} meetings={meetings} />
+        {/* 우측 2x2 그리드 */}
+        <div className="grid grid-cols-2 grid-rows-2 gap-3 min-h-0">
+          {/* 내일 */}
+          <div className="min-h-0">
+            <CompactCol
+              title="내일" items={tomorrowItems}
+              colBadge={{ label: '대기', bg: 'bg-gray-100/80', text: 'text-gray-400' }}
+              droppable
+              onDrop={e => handleDrop(e, 'tomorrow')}
+              onDragOver={e => handleDragOver(e, 'tomorrow')}
+              onDragLeave={() => setDragOverBucket(null)}
+              isDragOver={dragOverBucket === 'tomorrow'}
+              onComplete={handleCompleteTodo}
+            />
           </div>
-        </div>
 
-        {/* 오늘 할 일 — row 2, col 3 */}
-        <div style={{ gridArea: 'todo' }} className="min-h-0 overflow-hidden">
-          <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full overflow-hidden font-sans">
-            <TodayTodoWidget />
+          {/* 금주 */}
+          <div className="min-h-0">
+            <CompactCol
+              title="금주" items={weekItems}
+              colBadge={{ label: '대기', bg: 'bg-gray-100/80', text: 'text-gray-400' }}
+              droppable
+              onDrop={e => handleDrop(e, 'this_week')}
+              onDragOver={e => handleDragOver(e, 'this_week')}
+              onDragLeave={() => setDragOverBucket(null)}
+              isDragOver={dragOverBucket === 'this_week'}
+              onComplete={handleCompleteTodo}
+            />
+          </div>
+
+          {/* 회고 */}
+          <div className="min-h-0 overflow-hidden">
+            <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full overflow-hidden font-sans">
+              <DailyJournalWidget tasks={tasks} meetings={meetings} />
+            </div>
+          </div>
+
+          {/* 오늘 할 일 */}
+          <div className="min-h-0 overflow-hidden">
+            <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full overflow-hidden font-sans">
+              <TodayTodoWidget />
+            </div>
           </div>
         </div>
       </div>

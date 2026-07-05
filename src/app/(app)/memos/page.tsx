@@ -53,7 +53,7 @@ function MemoCard({ memo, onEdit, onDelete, draggable: drag, onDragStart, select
       draggable={drag}
       onDragStart={onDragStart}
       onClick={() => onEdit(memo)}
-      className={`group relative bg-white/40 backdrop-blur-xl border-t-4 border border-white/60 rounded-2xl p-3 cursor-pointer select-none transition-all overflow-hidden h-28 flex flex-col ${TAG_ACCENT[memo.tag]} ${selected ? 'bg-white/70 ring-1 ring-[#BADEC8]/60' : 'hover:bg-white/60 hover:shadow-sm'}`}>
+      className={`group relative bg-white/40 backdrop-blur-xl border-t-2 border border-white/60 rounded-2xl p-3 cursor-pointer select-none transition-all overflow-hidden h-28 flex flex-col ${TAG_ACCENT[memo.tag]} ${selected ? 'bg-white/70 ring-1 ring-[#C7D8F0]/60' : 'hover:bg-white/60 hover:shadow-sm'}`}>
       <p className="text-xs font-semibold text-gray-800 leading-snug line-clamp-2 flex-shrink-0">
         {memo.title}
       </p>
@@ -345,7 +345,7 @@ export default function MemosPage() {
                     </span>
                     <span className="text-xs text-gray-400 bg-white/60 border border-white/70 px-2 py-0.5 rounded-full">{items.length}개</span>
                     {isLatest && (
-                      <span className="text-[10px] text-[#2D5A45] bg-[#BADEC8]/30 border border-[#BADEC8]/40 px-2 py-0.5 rounded-full">최신</span>
+                      <span className="text-[10px] text-[#0F1E36] bg-[#C7D8F0]/30 border border-[#C7D8F0]/40 px-2 py-0.5 rounded-full">최신</span>
                     )}
                     <span className="text-xs text-gray-300 ml-auto group-hover:text-gray-500 transition-colors">
                       {isCollapsed ? '▶' : '▼'}

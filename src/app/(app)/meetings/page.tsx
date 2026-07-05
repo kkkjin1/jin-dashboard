@@ -16,7 +16,7 @@ type CatFilter = '전체' | MeetingCat
 const CAT_FILTERS: CatFilter[] = ['전체', '경영진', '코어', '비즈', '목표관리', '본부장', '타팀', '기타']
 
 const CATEGORY_COLORS: Record<string, string> = {
-  '코어':    'bg-[#BADEC8]/40 text-[#2D5A45] border-[#BADEC8]/55',
+  '코어':    'bg-[#C7D8F0]/40 text-[#1A3562] border-[#C7D8F0]/55',
   '비즈':    'bg-[#F3E482]/40 text-[#5A4A10] border-[#F3E482]/55',
   '경영진':  'bg-[#90A7D8]/30 text-[#1E3A6B] border-[#90A7D8]/45',
   '본부장':  'bg-[#BFE4B5]/40 text-[#2D5A35] border-[#BFE4B5]/55',
@@ -26,7 +26,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 }
 
 const CAT_CARD_BG: Record<string, string> = {
-  '코어':    'border-t-[#BADEC8]',
+  '코어':    'border-t-[#A8C0E0]',
   '비즈':    'border-t-[#F3E482]',
   '경영진':  'border-t-[#90A7D8]',
   '본부장':  'border-t-[#BFE4B5]',
@@ -227,7 +227,7 @@ export default function MeetingsPage() {
                                 {monthItems.length}건
                               </span>
                               {isLatest && (
-                                <span className="text-[9px] text-[#2D5A45] bg-[#BADEC8]/30 border border-[#BADEC8]/40 px-1.5 py-0.5 rounded-full">최신</span>
+                                <span className="text-[9px] text-[#0F1E36] bg-[#C7D8F0]/30 border border-[#C7D8F0]/40 px-1.5 py-0.5 rounded-full">최신</span>
                               )}
                               <span className="text-[10px] text-gray-300 group-hover:text-gray-500 transition-colors ml-auto">
                                 {isMonthCollapsed ? '▶' : '▼'}
