@@ -7,9 +7,10 @@ import { createClient } from '@/lib/supabase/client'
 import { fetchAllTasks, fetchMembers, formatDate } from '@/lib/tasks'
 import { generateTasksContextMd, downloadMd } from '@/lib/markdown'
 import { TaskPageSkeleton } from '@/components/ui/Skeleton'
-import type { Task, Member, TaskStatus, Part, TaskType } from '@/types'
+import type { Task, Member, TaskStatus, TaskType } from '@/types'
 
-const PARTS: Part[] = ['코어', '비즈', '개인']
+const DEFAULT_PARTS = ['코어', '비즈', '개인']
+const PARTS_KEY = 'jin_dashboard_parts'
 const TYPES: TaskType[] = ['기획', '개선', '운영']
 const STATUSES: TaskStatus[] = ['진행필요', '진행중', '완료']
 
@@ -23,7 +24,7 @@ function MemberAvatar({ name }: { name: string }) {
   const colors = ['bg-[#BADEC8]','bg-[#F3E482]','bg-[#90A7D8]','bg-[#EBA698]','bg-[#BFE4B5]','bg-[#D3E69B]','bg-slate-300','bg-slate-400']
   const color = colors[name.charCodeAt(0) % colors.length]
   return (
-    <div className={`w-5 h-5 rounded-full ${color} flex items-center justify-center text-gray-700 text-xs font-medium`}>
+    <div className={`w-5 h-5 rounded-full ${color} flex items-center justify-center text-gray-700 text-xs font-medium flex-shrink-0`}>
       {name[0]}
     </div>
   )
@@ -51,10 +52,24 @@ export default function TasksPage() {
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set())
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set())
   const [assigneeOpen, setAssigneeOpen] = useState(false)
+
+  // 월별 칸반 피커
   const currentYear = new Date().getFullYear()
   const [showPicker, setShowPicker] = useState(false)
   const [pickerYear, setPickerYear] = useState(currentYear)
   const [pickerFocusMonth, setPickerFocusMonth] = useState(new Date().getMonth() + 1)
+
+  // 팀(파트) 관리
+  const [customParts, setCustomParts] = useState<string[]>(DEFAULT_PARTS)
+  const [partsEditOpen, setPartsEditOpen] = useState(false)
+  const [newPartName, setNewPartName] = useState('')
+  const [editingPart, setEditingPart] = useState<string | null>(null)
+  const [editingPartName, setEditingPartName] = useState('')
+
+  // 파트 간 드래그앤드롭
+  const [draggingPartTaskId, setDraggingPartTaskId] = useState<string | null>(null)
+  const [dragOverPart, setDragOverPart] = useState<string | null>(null)
+
   const assigneeDropdownRef = useRef<HTMLDivElement>(null)
   const pickerRef = useRef<HTMLDivElement>(null)
   const showPickerRef = useRef(false)
@@ -68,11 +83,26 @@ export default function TasksPage() {
   const supabase = createClient()
   const router = useRouter()
 
+  // localStorage에서 팀 목록 복원
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(PARTS_KEY)
+      if (saved) setCustomParts(JSON.parse(saved))
+    } catch {}
+  }, [])
+
   useEffect(() => {
     Promise.all([fetchAllTasks(), fetchMembers()]).then(([t, m]) => {
       setTasks(t); setMembers(m); setLoadingTasks(false)
     })
   }, [])
+
+  // DB에 존재하지만 customParts에 없는 파트를 자동 추가 (데이터 유실 방지)
+  const displayParts = useMemo(() => {
+    const dbParts = [...new Set(tasks.map(t => t.part).filter(Boolean))]
+    const orphaned = dbParts.filter(p => !customParts.includes(p))
+    return [...customParts, ...orphaned]
+  }, [customParts, tasks])
 
   const allMonths = useMemo(() => {
     const months = new Set<string>()
@@ -100,9 +130,7 @@ export default function TasksPage() {
         if (e.code === 'ArrowDown') { e.preventDefault(); setPickerFocusMonth(m => m < 9 ? m + 4 : m) }
         if (e.key === 'Enter') {
           const ym = `${pickerYearRef.current}-${String(pickerFocusMonthRef.current).padStart(2, '0')}`
-          setMonthFilter(ym)
-          setViewMode('monthly')
-          setShowPicker(false)
+          setMonthFilter(ym); setViewMode('monthly'); setShowPicker(false)
         }
         if (e.key === 'Escape') setShowPicker(false)
         return
@@ -116,8 +144,7 @@ export default function TasksPage() {
         if (viewModeRef.current === 'monthly') {
           setViewMode('parts')
         } else {
-          const nowM = new Date().getMonth() + 1
-          setPickerFocusMonth(nowM)
+          setPickerFocusMonth(new Date().getMonth() + 1)
           setPickerYear(new Date().getFullYear())
           setShowPicker(true)
         }
@@ -159,7 +186,59 @@ export default function TasksPage() {
     return tasks.filter(t => (t.work_months ?? []).includes(monthFilter))
   }, [tasks, monthFilter])
 
-  async function handleAddTask(part: Part, type: TaskType) {
+  // ── 팀 관리 ──────────────────────────────────────────────
+
+  function saveParts(parts: string[]) {
+    localStorage.setItem(PARTS_KEY, JSON.stringify(parts))
+    setCustomParts(parts)
+  }
+
+  function addPart() {
+    const name = newPartName.trim()
+    if (!name || customParts.includes(name)) return
+    saveParts([...customParts, name])
+    setNewPartName('')
+  }
+
+  async function renamePart(oldName: string, newName: string) {
+    const trimmed = newName.trim()
+    if (!trimmed || trimmed === oldName) { setEditingPart(null); return }
+    await supabase.from('tasks').update({ part: trimmed }).eq('part', oldName)
+    setTasks(prev => prev.map(t => t.part === oldName ? { ...t, part: trimmed } : t))
+    saveParts(customParts.map(p => p === oldName ? trimmed : p))
+    setEditingPart(null)
+  }
+
+  async function deletePart(partName: string) {
+    const remaining = customParts.filter(p => p !== partName)
+    const fallback = remaining[0] ?? '기타'
+    const count = tasks.filter(t => t.part === partName).length
+    const msg = count > 0
+      ? `'${partName}' 팀의 업무 ${count}건을 '${fallback}'으로 이동 후 삭제하시겠습니까?`
+      : `'${partName}' 팀을 삭제하시겠습니까?`
+    if (!confirm(msg)) return
+    if (count > 0) {
+      await supabase.from('tasks').update({ part: fallback }).eq('part', partName)
+      setTasks(prev => prev.map(t => t.part === partName ? { ...t, part: fallback } : t))
+    }
+    saveParts(remaining)
+  }
+
+  // ── 파트 간 드래그앤드롭 ─────────────────────────────────
+
+  async function handlePartDrop(targetPart: string) {
+    if (!draggingPartTaskId) return
+    const task = tasks.find(t => t.id === draggingPartTaskId)
+    setDraggingPartTaskId(null)
+    setDragOverPart(null)
+    if (!task || task.part === targetPart) return
+    await supabase.from('tasks').update({ part: targetPart }).eq('id', draggingPartTaskId)
+    setTasks(prev => prev.map(t => t.id === draggingPartTaskId ? { ...t, part: targetPart } : t))
+  }
+
+  // ── 기존 로직 ────────────────────────────────────────────
+
+  async function handleAddTask(part: string, type: TaskType) {
     const { data } = await supabase.from('tasks').insert({ title: '', part, type, status: '진행필요' }).select('id').single()
     if (data) router.push(`/tasks/${(data as { id: string }).id}`)
   }
@@ -179,8 +258,7 @@ export default function TasksPage() {
   function toggleSection(key: string) {
     setCollapsedSections(prev => {
       const next = new Set(prev)
-      if (next.has(key)) next.delete(key)
-      else next.add(key)
+      next.has(key) ? next.delete(key) : next.add(key)
       return next
     })
   }
@@ -224,27 +302,20 @@ export default function TasksPage() {
       todosByTask[td.task_id].push({ content: td.content, done: td.done, target_date: td.target_date })
     })
     const items = selected.map(t => ({
-      title: t.title,
-      status: t.status,
-      part: t.part,
-      type: t.type,
-      assignee: t.members?.name,
-      start_date: t.start_date,
-      mid_date: t.mid_date,
-      end_date: t.end_date,
-      retrospective: t.retrospective ?? null,
-      notes: notesByTask[t.id] ?? [],
-      todos: todosByTask[t.id] ?? [],
+      title: t.title, status: t.status, part: t.part, type: t.type,
+      assignee: t.members?.name, start_date: t.start_date, mid_date: t.mid_date,
+      end_date: t.end_date, retrospective: t.retrospective ?? null,
+      notes: notesByTask[t.id] ?? [], todos: todosByTask[t.id] ?? [],
     }))
     const md = generateTasksContextMd(items)
-    const label = selected.length === 1 ? selected[0].title : `업무-${selected.length}건`
-    downloadMd(md, label)
+    downloadMd(md, selected.length === 1 ? selected[0].title : `업무-${selected.length}건`)
   }
 
   if (loadingTasks) return <TaskPageSkeleton />
 
   return (
     <div className="h-full flex flex-col overflow-hidden font-sans">
+
       {/* 헤더 */}
       <div className="flex-shrink-0 pt-6 pb-4 flex items-center gap-3">
         <h1 className="text-xl font-bold text-gray-900 mr-auto">업무 목록</h1>
@@ -262,7 +333,7 @@ export default function TasksPage() {
       </div>
 
       {/* 필터 바 */}
-      <div className="flex-shrink-0 flex items-center gap-2 mb-5 overflow-x-auto scrollbar-hide">
+      <div className="flex-shrink-0 flex items-center gap-2 mb-4 overflow-x-auto scrollbar-hide">
         <button
           onClick={() => setStatusFilter(prev => prev === '전체' ? '진행필요' : prev === '진행필요' ? '진행중' : prev === '진행중' ? '완료' : '전체')}
           className={`${pill} ${statusFilter !== '전체' ? pOn : pOff}`}>
@@ -280,11 +351,8 @@ export default function TasksPage() {
             {viewMode === 'monthly' && monthFilter !== '전체' ? formatMonth(monthFilter) : '월별 칸반'}
           </button>
           {viewMode === 'monthly' && (
-            <button
-              onClick={() => { setViewMode('parts'); setShowPicker(false) }}
-              className="text-gray-400 hover:text-gray-700 text-sm px-0.5 leading-none transition-colors">
-              ×
-            </button>
+            <button onClick={() => { setViewMode('parts'); setShowPicker(false) }}
+              className="text-gray-400 hover:text-gray-700 text-sm px-0.5 leading-none transition-colors">×</button>
           )}
           {showPicker && (
             <div ref={pickerRef} className="absolute top-full left-0 mt-2 z-50 bg-white/90 backdrop-blur-xl border border-white/80 rounded-3xl shadow-lg p-4 w-56">
@@ -296,10 +364,7 @@ export default function TasksPage() {
               <div className="grid grid-cols-4 gap-1">
                 {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
                   <button key={m}
-                    onClick={() => {
-                      const ym = `${pickerYear}-${String(m).padStart(2, '0')}`
-                      setMonthFilter(ym); setViewMode('monthly'); setShowPicker(false)
-                    }}
+                    onClick={() => { const ym = `${pickerYear}-${String(m).padStart(2, '0')}`; setMonthFilter(ym); setViewMode('monthly'); setShowPicker(false) }}
                     className={`text-xs py-1.5 rounded-full transition-colors ${pickerFocusMonth === m ? pOn : 'text-gray-600 hover:bg-gray-100'}`}>
                     {m}월
                   </button>
@@ -330,7 +395,69 @@ export default function TasksPage() {
             </div>
           )}
         </div>
+
+        {/* 팀 편집 버튼 */}
+        {viewMode === 'parts' && (
+          <button onClick={() => setPartsEditOpen(prev => !prev)}
+            className={`${pill} ${partsEditOpen ? pOn : pOff}`}>
+            팀 편집
+          </button>
+        )}
       </div>
+
+      {/* 팀 관리 패널 */}
+      {partsEditOpen && viewMode === 'parts' && (
+        <div className="flex-shrink-0 mb-4 bg-white/60 backdrop-blur-xl border border-white/70 rounded-2xl p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-xs font-bold text-gray-700">팀 관리</span>
+            <span className="text-[10px] text-gray-400">이름 수정 시 해당 팀의 업무가 일괄 변경됩니다</span>
+            <button onClick={() => setPartsEditOpen(false)} className="ml-auto text-lg leading-none text-gray-300 hover:text-gray-500">×</button>
+          </div>
+          <div className="space-y-2 mb-3">
+            {customParts.map(part => (
+              <div key={part} className="flex items-center gap-2">
+                {editingPart === part ? (
+                  <>
+                    <input
+                      value={editingPartName}
+                      onChange={e => setEditingPartName(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') renamePart(part, editingPartName); if (e.key === 'Escape') setEditingPart(null) }}
+                      autoFocus
+                      className="flex-1 text-xs bg-white border border-stone-200 rounded-lg px-2 py-1.5 focus:outline-none focus:border-gray-400"
+                    />
+                    <button onClick={() => renamePart(part, editingPartName)}
+                      className="text-xs text-[#2D5A45] font-semibold px-2 py-1 rounded-lg hover:bg-[#BADEC8]/20 transition-colors whitespace-nowrap">저장</button>
+                    <button onClick={() => setEditingPart(null)}
+                      className="text-xs text-gray-400 px-2 py-1 rounded-lg hover:bg-gray-100 transition-colors">취소</button>
+                  </>
+                ) : (
+                  <>
+                    <span className="flex-1 text-xs font-semibold text-gray-700">{part}</span>
+                    <span className="text-[10px] text-gray-400 tabular-nums">{tasks.filter(t => t.part === part).length}건</span>
+                    <button onClick={() => { setEditingPart(part); setEditingPartName(part) }}
+                      className="text-[11px] text-gray-400 hover:text-gray-700 px-2 py-0.5 rounded-lg hover:bg-gray-100 transition-colors">수정</button>
+                    <button onClick={() => deletePart(part)}
+                      className="text-[11px] text-red-400 hover:text-red-600 px-2 py-0.5 rounded-lg hover:bg-red-50 transition-colors">삭제</button>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+          <div className="flex items-center gap-2 pt-3 border-t border-white/60">
+            <input
+              value={newPartName}
+              onChange={e => setNewPartName(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && addPart()}
+              placeholder="새 팀 이름 입력 후 Enter"
+              className="flex-1 text-xs bg-white border border-stone-200 rounded-lg px-2 py-1.5 focus:outline-none focus:border-gray-400 placeholder:text-gray-300"
+            />
+            <button onClick={addPart}
+              className="text-xs bg-gray-900 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700 transition-colors whitespace-nowrap">
+              + 추가
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 콘텐츠 */}
       <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
@@ -375,19 +502,29 @@ export default function TasksPage() {
           </div>
         )}
 
-        {/* 파트별 3-column */}
+        {/* 파트별 컬럼 (팀 간 드래그앤드롭 지원) */}
         {viewMode === 'parts' && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5 pb-6">
-            {PARTS.map(part => {
+            {displayParts.map(part => {
               const partTasks = filteredTasks.filter(t => t.part === part)
               const allPartIds = partTasks.map(t => t.id)
               const allChecked = allPartIds.length > 0 && allPartIds.every(id => checkedIds.has(id))
+              const isDropTarget = draggingPartTaskId !== null && dragOverPart === part
+
               return (
-                <div key={part} className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl p-5">
+                <div key={part}
+                  className={`bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl p-5 transition-all duration-150 ${isDropTarget ? 'ring-2 ring-[#BADEC8] border-[#BADEC8]/50 bg-[#BADEC8]/10' : ''}`}
+                  onDragOver={e => { e.preventDefault(); if (draggingPartTaskId) setDragOverPart(part) }}
+                  onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverPart(null) }}
+                  onDrop={e => { e.preventDefault(); handlePartDrop(part) }}>
+
                   <div className="flex items-center justify-between mb-5">
                     <div className="flex items-center gap-2">
-                      <h2 className="text-sm font-bold text-gray-800">{part}파트</h2>
-                      <span className="text-xs text-gray-400 bg-white/60 border border-white/70 px-2 py-0.5 rounded-full">{partTasks.length}</span>
+                      <h2 className="text-sm font-bold text-gray-800">{part}</h2>
+                      {isDropTarget
+                        ? <span className="text-[10px] text-[#2D5A45] bg-[#BADEC8]/30 border border-[#BADEC8]/40 px-2 py-0.5 rounded-full">여기에 놓기 ↓</span>
+                        : <span className="text-xs text-gray-400 bg-white/60 border border-white/70 px-2 py-0.5 rounded-full">{partTasks.length}</span>
+                      }
                     </div>
                     {allPartIds.length > 0 && (
                       <input type="checkbox" checked={allChecked}
@@ -411,7 +548,10 @@ export default function TasksPage() {
                           <div className="space-y-1.5">
                             {sectionTasks.map(task => (
                               <div key={task.id}
-                                className={`bg-white/50 rounded-2xl border border-white/70 px-3 py-2 flex items-center gap-2 hover:bg-white/70 transition-all cursor-pointer group ${checkedIds.has(task.id) ? 'bg-white/70 border-white/90' : ''}`}>
+                                draggable
+                                onDragStart={e => { e.stopPropagation(); setDraggingPartTaskId(task.id) }}
+                                onDragEnd={() => { setDraggingPartTaskId(null); setDragOverPart(null) }}
+                                className={`bg-white/50 rounded-2xl border border-white/70 px-3 py-2 flex items-center gap-2 hover:bg-white/70 transition-all cursor-grab active:cursor-grabbing select-none group ${checkedIds.has(task.id) ? 'bg-white/70 border-white/90' : ''} ${draggingPartTaskId === task.id ? 'opacity-40 scale-95' : ''}`}>
                                 <input type="checkbox" checked={checkedIds.has(task.id)}
                                   onChange={() => toggleCheck(task.id)}
                                   onClick={e => e.stopPropagation()}
@@ -422,7 +562,9 @@ export default function TasksPage() {
                                   className={`text-xs px-1.5 py-0.5 rounded-full border font-medium cursor-pointer focus:outline-none flex-shrink-0 ${STATUS_BADGE[task.status]}`}>
                                   {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                                 </select>
-                                <Link href={`/tasks/${task.id}`} className="flex-1 min-w-0 flex items-center justify-between gap-2">
+                                <Link href={`/tasks/${task.id}`}
+                                  className="flex-1 min-w-0 flex items-center justify-between gap-2"
+                                  onClick={e => { if (draggingPartTaskId) e.preventDefault() }}>
                                   <span className="text-xs text-gray-800 font-medium truncate">
                                     {task.title || <span className="text-gray-300 italic">제목 없음</span>}
                                   </span>
@@ -459,7 +601,10 @@ export default function TasksPage() {
                           <div className="space-y-1.5">
                             {completedTasks.map(task => (
                               <div key={task.id}
-                                className={`bg-white/50 rounded-2xl border border-white/70 px-3 py-2 flex items-center gap-2 hover:bg-white/70 transition-all cursor-pointer group opacity-70 hover:opacity-100 ${checkedIds.has(task.id) ? 'opacity-100 bg-white/70' : ''}`}>
+                                draggable
+                                onDragStart={e => { e.stopPropagation(); setDraggingPartTaskId(task.id) }}
+                                onDragEnd={() => { setDraggingPartTaskId(null); setDragOverPart(null) }}
+                                className={`bg-white/50 rounded-2xl border border-white/70 px-3 py-2 flex items-center gap-2 hover:bg-white/70 transition-all cursor-grab active:cursor-grabbing select-none group opacity-70 hover:opacity-100 ${checkedIds.has(task.id) ? 'opacity-100 bg-white/70' : ''} ${draggingPartTaskId === task.id ? 'opacity-30 scale-95' : ''}`}>
                                 <input type="checkbox" checked={checkedIds.has(task.id)}
                                   onChange={() => toggleCheck(task.id)}
                                   onClick={e => e.stopPropagation()}
