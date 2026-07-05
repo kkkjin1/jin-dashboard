@@ -328,16 +328,17 @@ export default function LearningPage() {
                           const count = groups[status].length
                           const groupKey = `${tag}:${status}`
                           const isCollapsed = collapsedGroups.has(groupKey)
+                          if (count === 0) return (
+                            <span key={status} className="text-[9px] text-gray-200 px-1.5 py-0.5 whitespace-nowrap">{STATUS_SHORT[status]} 0</span>
+                          )
                           return (
                             <button key={status} onClick={() => toggleGroup(groupKey)}
-                              disabled={count === 0 && !isDragging}
-                              className={`text-[9px] px-1.5 py-0.5 rounded-full border transition-all whitespace-nowrap ${
-                                count === 0
-                                  ? 'text-gray-200 border-transparent'
-                                  : !isCollapsed
-                                    ? 'bg-white/70 text-gray-700 border-white/80 font-medium'
-                                    : 'bg-white/30 text-gray-400 border-white/50 hover:bg-white/60'
+                              className={`flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-full border transition-all whitespace-nowrap ${
+                                isCollapsed
+                                  ? 'bg-white/20 text-gray-400 border-white/40 hover:bg-white/50 hover:text-gray-600'
+                                  : 'bg-white/70 text-gray-700 border-white/80 font-medium shadow-sm'
                               }`}>
+                              <span className="text-[7px] leading-none">{isCollapsed ? '▶' : '▼'}</span>
                               {STATUS_SHORT[status]} {count}
                             </button>
                           )
