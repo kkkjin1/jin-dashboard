@@ -163,7 +163,7 @@ export default function JournalPage() {
 
   if (loading) return (
     <div className="p-6 flex flex-col gap-4">
-      {[1,2,3].map(i => <div key={i} className="bg-white rounded-xl border border-gray-100 h-20 animate-pulse" />)}
+      {[1,2,3].map(i => <div key={i} className="bg-white/30 backdrop-blur-xl border border-white/40 rounded-xl h-20 animate-pulse" />)}
     </div>
   )
 
@@ -200,7 +200,7 @@ export default function JournalPage() {
           {journals.map(j => {
             const isOpen = expanded === j.id
             return (
-              <div key={j.id} className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+              <div key={j.id} className="bg-white/30 backdrop-blur-xl border border-white/40 rounded-xl overflow-hidden">
                 <button
                   onClick={() => setExpanded(isOpen ? null : j.id)}
                   className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors"
@@ -237,7 +237,7 @@ export default function JournalPage() {
             <p className="text-sm text-gray-300 text-center py-12">회고가 2건 이상 있어야 패턴을 분석할 수 있어요</p>
           ) : (
             <>
-              <div className="bg-white rounded-xl border border-gray-100 p-4">
+              <div className="bg-white/30 backdrop-blur-xl border border-white/40 rounded-xl p-4">
                 <h3 className="text-sm font-semibold text-gray-700 mb-3">자주 등장한 키워드</h3>
                 <div className="flex flex-wrap gap-2">
                   {patterns.map(({ word, count, dates }) => (
@@ -254,7 +254,7 @@ export default function JournalPage() {
                 </div>
               </div>
 
-              <div className="bg-white rounded-xl border border-gray-100 p-4">
+              <div className="bg-white/30 backdrop-blur-xl border border-white/40 rounded-xl p-4">
                 <h3 className="text-sm font-semibold text-gray-700 mb-3">반복 언급 키워드별 날짜</h3>
                 <div className="space-y-2">
                   {patterns.slice(0, 8).map(({ word, count, dates }) => (
@@ -298,7 +298,7 @@ export default function JournalPage() {
       {/* 자기평가 초안 */}
       {tab === 'selfeval' && (
         <div className="flex flex-col gap-4">
-          <div className="bg-white rounded-xl border border-gray-100 p-4 flex flex-col gap-3">
+          <div className="bg-white/30 backdrop-blur-xl border border-white/40 rounded-xl p-4 flex flex-col gap-3">
             <h3 className="text-sm font-semibold text-gray-700">기간 설정</h3>
             <div className="flex items-center gap-3">
               <input type="date" value={evalFrom} onChange={e => setEvalFrom(e.target.value)}
@@ -317,7 +317,7 @@ export default function JournalPage() {
           </div>
 
           {evalText && (
-            <div className="bg-white rounded-xl border border-gray-100 p-4 flex flex-col gap-3">
+            <div className="bg-white/30 backdrop-blur-xl border border-white/40 rounded-xl p-4 flex flex-col gap-3">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-gray-700">자기평가 초안</h3>
                 <button onClick={copyEval}
