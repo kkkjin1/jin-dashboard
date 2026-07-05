@@ -5,6 +5,12 @@ export const metadata: Metadata = {
   title: "인사기획 워크",
   description: "인사기획팀 업무 보드",
   manifest: "/manifest.json",
+  icons: {
+    icon: [
+      { url: '/favicon.ico?v=2', type: 'image/x-icon' },
+      { url: '/icon.png?v=2', type: 'image/png' },
+    ],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
@@ -17,7 +23,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: "cover",
   colorScheme: "light",
-  themeColor: "#1C2B3A",
+  themeColor: "#2E5E4A",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
