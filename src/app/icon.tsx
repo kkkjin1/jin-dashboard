@@ -14,14 +14,10 @@ export default function Icon() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        fontSize: 17,
-        fontWeight: 700,
-        color: 'white',
-        fontFamily: 'sans-serif',
-        letterSpacing: '-0.5px',
+        fontSize: 22,
       }}
     >
-      인
+      🌱
     </div>,
     { width: 32, height: 32 }
   )
