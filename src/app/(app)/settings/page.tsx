@@ -20,6 +20,7 @@ export default function SettingsPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
   const [editPart, setEditPart] = useState<Part>('코어')
+  const [movingId, setMovingId] = useState<string | null>(null)
   const supabase = createClient()
 
   useEffect(() => {
@@ -40,6 +41,12 @@ export default function SettingsPage() {
     await supabase.from('members').update({ name: editName, part: editPart }).eq('id', id)
     setMembers(prev => prev.map(m => m.id === id ? { ...m, name: editName, part: editPart } : m))
     setEditingId(null)
+  }
+
+  async function moveMember(id: string, newPart: Part) {
+    await supabase.from('members').update({ part: newPart }).eq('id', id)
+    setMembers(prev => prev.map(m => m.id === id ? { ...m, part: newPart } : m))
+    setMovingId(null)
   }
 
   async function archiveMember(id: string) {
@@ -136,6 +143,23 @@ export default function SettingsPage() {
                       <button onClick={() => updateMember(member.id)} className="text-xs text-blue-500 hover:text-blue-700">저장</button>
                       <button onClick={() => setEditingId(null)} className="text-xs text-gray-400">취소</button>
                     </>
+                  ) : movingId === member.id ? (
+                    <>
+                      <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 text-xs font-medium flex-shrink-0">
+                        {member.name[0]}
+                      </div>
+                      <span className="text-sm text-gray-500 flex-shrink-0">{member.name}</span>
+                      <span className="text-xs text-gray-300 flex-shrink-0">→</span>
+                      <div className="flex gap-1.5 flex-1 flex-wrap">
+                        {PARTS.filter(p => p.value !== member.part).map(p => (
+                          <button key={p.value} onClick={() => moveMember(member.id, p.value)}
+                            className="text-xs px-2.5 py-1 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-900 hover:text-white hover:border-gray-900 transition-colors">
+                            {p.label}
+                          </button>
+                        ))}
+                      </div>
+                      <button onClick={() => setMovingId(null)} className="text-xs text-gray-300 hover:text-gray-500 flex-shrink-0">취소</button>
+                    </>
                   ) : (
                     <>
                       <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 text-xs font-medium">
@@ -145,6 +169,8 @@ export default function SettingsPage() {
                       <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button onClick={() => { setEditingId(member.id); setEditName(member.name); setEditPart(member.part) }}
                           className="text-xs text-gray-400 hover:text-gray-600">수정</button>
+                        <button onClick={() => setMovingId(member.id)}
+                          className="text-xs text-gray-400 hover:text-blue-500">이동</button>
                         <button onClick={() => archiveMember(member.id)}
                           className="text-xs text-gray-300 hover:text-amber-500">퇴사 처리</button>
                       </div>
