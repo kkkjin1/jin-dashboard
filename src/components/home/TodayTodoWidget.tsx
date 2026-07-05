@@ -37,7 +37,6 @@ interface LinkPopup {
 export default function TodayTodoWidget() {
   const [todos, setTodos] = useState<QuickMemo[]>([])
   const [done, setDone] = useState<QuickMemo[]>([])
-  const [newText, setNewText] = useState('')
   const [loading, setLoading] = useState(true)
   const [selectedDone, setSelectedDone] = useState<Set<string>>(new Set())
   const [toast, setToast] = useState('')
@@ -45,7 +44,6 @@ export default function TodayTodoWidget() {
   const [linkPopup, setLinkPopup] = useState<LinkPopup | null>(null)
   const [showDonePopup, setShowDonePopup] = useState(false)
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
   const supabase = createClient()
 
@@ -78,38 +76,6 @@ export default function TodayTodoWidget() {
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [linkPopup, showDonePopup])
-
-  function parseDateInput(text: string): { title: string; targetDate: string | null } {
-    const slashIdx = text.lastIndexOf(' /')
-    if (slashIdx === -1) return { title: text.trim(), targetDate: null }
-    const keyword = text.slice(slashIdx + 2).trim()
-    const now = new Date()
-    const pad = (n: number) => String(n).padStart(2, '0')
-    const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
-    if (/^오늘(까지)?$/.test(keyword)) {
-      return { title: text.slice(0, slashIdx).trim(), targetDate: fmt(now) }
-    }
-    if (/^내일(까지)?$/.test(keyword)) {
-      const d = new Date(now); d.setDate(now.getDate() + 1)
-      return { title: text.slice(0, slashIdx).trim(), targetDate: fmt(d) }
-    }
-    if (/^(금주|이번주)(까지)?$/.test(keyword)) {
-      const d = new Date(now)
-      const daysToFri = (5 - now.getDay() + 7) % 7
-      d.setDate(now.getDate() + (daysToFri === 0 ? 0 : daysToFri))
-      return { title: text.slice(0, slashIdx).trim(), targetDate: fmt(d) }
-    }
-    return { title: text.trim(), targetDate: null }
-  }
-
-  async function addMemo() {
-    if (!newText.trim()) return
-    const { title } = parseDateInput(newText)
-    if (!title) return
-    await supabase.from('quick_memos').insert({ title, content: '', tag: '업무관련' })
-    setNewText('')
-    loadMemos()
-  }
 
   function showToast(msg: string) {
     setToast(msg)
@@ -272,51 +238,38 @@ export default function TodayTodoWidget() {
       <div className="h-full flex flex-col p-4 font-sans">
         <div className="flex items-center gap-2 mb-3 flex-shrink-0">
           <span className="w-1.5 h-1.5 rounded-full bg-sky-400 flex-shrink-0" />
-          <h3 className="text-sm font-semibold text-gray-800">오늘 할 일</h3>
-          <span className="text-[10px] text-gray-400 mr-auto">Ctrl+2</span>
+          <h3 className="text-xs font-semibold text-gray-800">오늘 할 일</h3>
+          <span className="text-[9px] text-gray-400 mr-auto">Ctrl+2</span>
           {done.length > 0 && (
             <button
               onClick={() => setShowDonePopup(true)}
-              className="text-[10px] text-gray-400 hover:text-[#0F1E36] bg-gray-50 hover:bg-gray-100 border border-gray-200 px-2 py-0.5 rounded-full transition-colors flex-shrink-0">
+              className="text-[9px] text-gray-400 hover:text-[#0F1E36] bg-gray-50 hover:bg-gray-100 border border-gray-200 px-2 py-0.5 rounded-full transition-colors flex-shrink-0">
               완료보기 {done.length}
             </button>
           )}
         </div>
 
         {toast && (
-          <div className="mb-2 px-3 py-1.5 bg-red-50 border border-red-200 rounded-lg text-xs text-red-600 flex-shrink-0">
+          <div className="mb-2 px-3 py-1.5 bg-red-50 border border-red-200 rounded-lg text-[10px] text-red-600 flex-shrink-0">
             {toast}
           </div>
         )}
 
-        <div className="flex gap-2 mb-3 flex-shrink-0">
-          <input
-            ref={inputRef}
-            value={newText}
-            onChange={e => setNewText(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') addMemo() }}
-            placeholder="할 일 추가... (Enter)"
-            className="flex-1 text-xs border border-white/60 bg-white/50 rounded-lg px-3 py-1.5 focus:outline-none focus:border-gray-300 focus:bg-white/70 transition-all"
-          />
-          <button onClick={addMemo} className="text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg px-2.5 py-1.5 hover:bg-white/50 transition-colors">+</button>
-        </div>
-
         {loading ? (
-          <p className="text-xs text-gray-300 text-center py-4">불러오는 중...</p>
+          <p className="text-[10px] text-gray-300 text-center py-4">불러오는 중...</p>
         ) : (
           <div className="flex flex-col flex-1 min-h-0 overflow-y-auto">
-            {/* 미완료 */}
-            <p className="text-xs text-gray-400 font-medium mb-2 flex-shrink-0">미완료 {todos.length > 0 ? `${todos.length}` : ''}</p>
+            <p className="text-[10px] text-gray-400 font-medium mb-2 flex-shrink-0">미완료 {todos.length > 0 ? `${todos.length}` : ''}</p>
             {todos.length === 0 ? (
-              <p className="text-xs text-gray-200 text-center py-3">없음</p>
+              <p className="text-[10px] text-gray-200 text-center py-3">없음</p>
             ) : (
-              <div className="space-y-3.5">
+              <div className="space-y-3">
                 {todos.map(m => (
                   <div key={m.id} className="group flex items-start gap-1.5 px-1 rounded-lg hover:bg-white/50 transition-colors">
                     <button
                       onClick={() => completeMemo(m.id)}
                       title="완료 처리"
-                      className="flex-shrink-0 w-3.5 h-3.5 mt-0.5 rounded-full border border-gray-300 hover:border-[#0F1E36]/40 hover:bg-[#EFF6FF] transition-colors"
+                      className="flex-shrink-0 w-3 h-3 mt-0.5 rounded-full border border-gray-300 hover:border-[#0F1E36]/40 hover:bg-[#EFF6FF] transition-colors"
                     />
                     <button
                       className="flex-1 min-w-0 text-left"
@@ -327,14 +280,14 @@ export default function TodayTodoWidget() {
                       }}
                       onMouseLeave={scheduleHide}
                       onClick={() => openMemo(m.id)}>
-                      <p className={`text-xs leading-relaxed break-words ${m.content ? 'text-gray-800 underline decoration-dotted decoration-[#0F1E36]/30 underline-offset-2' : 'text-gray-700'}`}>{m.title}</p>
+                      <p className={`text-[10px] leading-relaxed break-words ${m.content ? 'text-gray-800 underline decoration-dotted decoration-[#0F1E36]/30 underline-offset-2' : 'text-gray-700'}`}>{m.title}</p>
                     </button>
                     <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
                       onMouseEnter={() => { if (hideTimer.current) clearTimeout(hideTimer.current); setTooltip(null) }}>
                       <button onClick={e => openLinkPopup(m, e)} title="업무 연동"
-                        className="text-[10px] text-indigo-400 hover:text-indigo-600 px-1 py-0.5 rounded hover:bg-indigo-50">연동</button>
+                        className="text-[9px] text-indigo-400 hover:text-indigo-600 px-1 py-0.5 rounded hover:bg-indigo-50">연동</button>
                       <button onClick={() => deleteTodo(m.id)} title="삭제"
-                        className="text-[10px] text-gray-300 hover:text-red-400 px-1 py-0.5 rounded hover:bg-red-50">×</button>
+                        className="text-[9px] text-gray-300 hover:text-red-400 px-1 py-0.5 rounded hover:bg-red-50">×</button>
                     </div>
                   </div>
                 ))}

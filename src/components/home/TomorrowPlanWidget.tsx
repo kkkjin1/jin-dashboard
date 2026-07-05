@@ -20,9 +20,9 @@ export default function TomorrowPlanWidget({ journalContent }: Props) {
     .map(l => l.replace(/^[-•*]\s*/, '').trim())
     .filter(l => l.length > 2 && !/^(오늘|잘된|힘들|내일|focus|Focus)/.test(l))
 
-  async function addItem(text: string) {
+  async function addItem(text: string): Promise<boolean> {
     const trimmed = text.trim()
-    if (!trimmed || added.has(trimmed) || saving) return
+    if (!trimmed || added.has(trimmed) || saving) return false
     setSaving(true)
     setErrorMsg('')
     const { error } = await supabase
@@ -31,16 +31,17 @@ export default function TomorrowPlanWidget({ journalContent }: Props) {
     setSaving(false)
     if (error) {
       setErrorMsg(`저장 실패: ${error.message}`)
-      return
+      return false
     }
     setAdded(prev => new Set([...prev, trimmed]))
     window.dispatchEvent(new Event('quick-memo-saved'))
+    return true
   }
 
   async function handleManualAdd() {
     if (!newText.trim()) return
-    await addItem(newText)
-    setNewText('')
+    const ok = await addItem(newText)
+    if (ok) setNewText('')
     inputRef.current?.focus()
   }
 
