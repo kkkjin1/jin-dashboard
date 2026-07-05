@@ -159,13 +159,39 @@ export default function LearningPage() {
   return (
     <div className="h-full flex flex-col overflow-hidden font-sans">
       {/* 헤더 */}
-      <div className="flex-shrink-0 pt-6 pb-4 flex items-center gap-3">
+      <div className="flex-shrink-0 pt-6 pb-2 flex items-center gap-3">
         <h1 className="text-xl font-bold text-gray-900 mr-auto">학습자료</h1>
         <span className="text-xs text-gray-400">{resources.length}개</span>
         <button onClick={() => setShowAddForm(v => !v)}
           className="text-sm bg-gray-900 text-white px-4 py-2 rounded-full hover:bg-gray-800 transition-colors shadow-sm">
           + 새 자료
         </button>
+      </div>
+
+      {/* 범주 관리 바 */}
+      <div className="flex-shrink-0 pb-4 flex items-center gap-2 flex-wrap">
+        {customTags.map(tag => (
+          <div key={tag} className="group flex items-center gap-0.5 bg-white/40 backdrop-blur-xl border border-white/60 rounded-full px-2.5 py-1 hover:bg-white/60 transition-colors">
+            <span className={`text-xs font-semibold ${(TAG_BADGE[tag] ?? 'text-gray-500').split(' ').find(c => c.startsWith('text-')) ?? 'text-gray-600'}`}>{tag}</span>
+            <button onClick={() => removeTag(tag)}
+              className="text-[10px] text-gray-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all ml-0.5 leading-none">×</button>
+          </div>
+        ))}
+        {showAddTag ? (
+          <div className="flex items-center gap-1.5">
+            <input autoFocus value={newTagInput} onChange={e => setNewTagInput(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') addCustomTag(); if (e.key === 'Escape') { setShowAddTag(false); setNewTagInput('') } }}
+              placeholder="범주명"
+              className="text-xs bg-white/50 border border-white/70 rounded-full px-3 py-1.5 focus:outline-none w-24" />
+            <button onClick={addCustomTag} className="text-xs bg-gray-900 text-white px-2.5 py-1.5 rounded-full">추가</button>
+            <button onClick={() => { setShowAddTag(false); setNewTagInput('') }} className="text-xs text-gray-400 hover:text-gray-600">취소</button>
+          </div>
+        ) : (
+          <button onClick={() => setShowAddTag(true)}
+            className="text-xs text-gray-400 hover:text-gray-600 border border-dashed border-white/60 hover:border-white/80 rounded-full px-3 py-1.5 bg-white/20 hover:bg-white/40 transition-all">
+            + 범주
+          </button>
+        )}
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
@@ -259,30 +285,24 @@ export default function LearningPage() {
 
           {/* 범주별 섹션 */}
           {loading ? (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {[1,2,3,4,5,6,7,8].map(i => <div key={i} className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-2xl h-28 animate-pulse" />)}
+            <div className="grid grid-cols-2 gap-3">
+              {[1,2,3,4].map(i => <div key={i} className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-2xl h-28 animate-pulse" />)}
             </div>
           ) : resources.length === 0 ? (
             <EmptyState icon="learning" title="아직 학습 자료가 없어요" description="책, 아티클, 강의 등 기록하고 싶은 자료를 추가해보세요" />
           ) : (
-            <>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               {tagCols.map(tag => {
                 const groups = tagGroups[tag] ?? { todo: [], doing: [], done: [] }
                 const total = groups.todo.length + groups.doing.length + groups.done.length
                 if (total === 0) return null
 
                 return (
-                  <div key={tag} className="border-t border-white/40 pt-4">
+                  <div key={tag} className="bg-white/20 backdrop-blur-xl border border-white/50 rounded-2xl p-4">
                     {/* 범주 헤더 */}
-                    <div className="flex items-center gap-2 mb-4">
+                    <div className="flex items-center gap-2 mb-3">
                       <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${TAG_BADGE[tag] ?? 'bg-gray-100/80 text-gray-500 border-gray-200'}`}>{tag}</span>
                       <span className="text-xs text-gray-400">{total}개</span>
-                      {tag !== '미분류' && (
-                        <button onClick={() => removeTag(tag)}
-                          className="text-[10px] text-gray-300 hover:text-red-400 transition-colors ml-auto px-2 py-0.5 rounded-full border border-white/40 hover:border-red-200">
-                          삭제
-                        </button>
-                      )}
                     </div>
 
                     {/* 3개 상태 그룹 */}
@@ -310,12 +330,12 @@ export default function LearningPage() {
                             {/* 드롭존 + 카드 그리드 */}
                             {!isCollapsed && (
                               <div
-                                className={`grid grid-cols-2 md:grid-cols-4 gap-3 rounded-2xl min-h-[2.5rem] p-1 -m-1 transition-colors ${isOver ? 'bg-[#BADEC8]/15 ring-1 ring-[#BADEC8]/50' : ''}`}
+                                className={`grid grid-cols-2 gap-3 rounded-2xl min-h-[2.5rem] p-1 -m-1 transition-colors ${isOver ? 'bg-[#BADEC8]/15 ring-1 ring-[#BADEC8]/50' : ''}`}
                                 onDragOver={e => { e.preventDefault(); setDragOverTarget(dropTarget) }}
                                 onDrop={e => { e.preventDefault(); const id = e.dataTransfer.getData('rid'); if (id) setResourceStatus(id, status) }}
                                 onDragLeave={handleDragLeave}>
                                 {items.length === 0 ? (
-                                  <div className="col-span-2 md:col-span-4 text-center text-[10px] text-gray-300 py-4 border border-dashed border-white/40 rounded-xl">
+                                  <div className="col-span-2 text-center text-[10px] text-gray-300 py-4 border border-dashed border-white/40 rounded-xl">
                                     {isOver ? `여기에 놓기 → ${STATUS_LABELS[status]}` : '드래그해서 옮기기'}
                                   </div>
                                 ) : items.map(r => (
@@ -344,26 +364,7 @@ export default function LearningPage() {
                   </div>
                 )
               })}
-
-              {/* 범주 추가 */}
-              <div className="pt-2 border-t border-white/40">
-                {showAddTag ? (
-                  <div className="flex items-center gap-2">
-                    <input autoFocus value={newTagInput} onChange={e => setNewTagInput(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter') addCustomTag(); if (e.key === 'Escape') { setShowAddTag(false); setNewTagInput('') } }}
-                      placeholder="새 범주 이름"
-                      className="flex-1 text-xs bg-white/50 border border-white/70 rounded-full px-3 py-1.5 focus:outline-none" />
-                    <button onClick={addCustomTag} className={`${pill} ${pOn}`}>추가</button>
-                    <button onClick={() => { setShowAddTag(false); setNewTagInput('') }} className={`${pill} ${pOff}`}>취소</button>
-                  </div>
-                ) : (
-                  <button onClick={() => setShowAddTag(true)}
-                    className="w-full bg-white/20 backdrop-blur-xl border border-dashed border-white/50 rounded-2xl py-4 hover:bg-white/30 transition-all text-gray-400 hover:text-gray-600 text-xs font-medium">
-                    + 범주 추가
-                  </button>
-                )}
-              </div>
-            </>
+            </div>
           )}
         </div>
       </div>
