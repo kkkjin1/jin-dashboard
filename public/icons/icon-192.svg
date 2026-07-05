@@ -1,4 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
-  <rect width="192" height="192" rx="40" fill="#1C2B3A"/>
-  <text x="96" y="120" font-family="system-ui, -apple-system, sans-serif" font-size="80" font-weight="700" text-anchor="middle" fill="#10B981">인</text>
+  <rect width="192" height="192" rx="40" fill="#2E5E4A"/>
+  <rect x="90" y="98" width="12" height="68" rx="6" fill="#7EC8A0"/>
+  <ellipse cx="68" cy="90" rx="38" ry="22" fill="#7EC8A0" transform="rotate(-30 68 90)"/>
+  <ellipse cx="124" cy="74" rx="38" ry="22" fill="#A8D5B5" transform="rotate(30 124 74)"/>
 </svg>
