@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useUserSetting } from '@/hooks/useUserSetting'
-import { EmptyState } from '@/components/ui/EmptyState'
 import type { LearningResource } from '@/types'
 
 const DEFAULT_TAGS = ['HR', '경제', '리더십', '평가보상', '데이터', '조직문화', '기획']
@@ -288,14 +287,11 @@ export default function LearningPage() {
             <div className="grid grid-cols-2 gap-3">
               {[1,2,3,4].map(i => <div key={i} className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-2xl h-28 animate-pulse" />)}
             </div>
-          ) : resources.length === 0 ? (
-            <EmptyState icon="learning" title="아직 학습 자료가 없어요" description="책, 아티클, 강의 등 기록하고 싶은 자료를 추가해보세요" />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               {tagCols.map(tag => {
                 const groups = tagGroups[tag] ?? { todo: [], doing: [], done: [] }
                 const total = groups.todo.length + groups.doing.length + groups.done.length
-                if (total === 0) return null
 
                 return (
                   <div key={tag} className="bg-white/20 backdrop-blur-xl border border-white/50 rounded-2xl p-4">
