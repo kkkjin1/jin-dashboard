@@ -38,7 +38,21 @@ export default function SettingsPage() {
   }
 
   async function deleteMember(id: string) {
-    if (!confirm('팀원을 삭제하시겠습니까?')) return
+    const member = members.find(m => m.id === id)
+    const name = member?.name ?? '팀원'
+
+    const { count: oonCount } = await supabase
+      .from('one_on_ones')
+      .select('*', { count: 'exact', head: true })
+      .eq('member_id', id)
+
+    const lines = [`'${name}'을(를) 삭제하시겠습니까?`]
+    if (oonCount && oonCount > 0) {
+      lines.push(`\n⚠️ 1on1 기록 ${oonCount}건이 함께 삭제됩니다.`)
+    }
+    lines.push('\n※ 담당 업무는 삭제되지 않고 담당자만 해제됩니다.')
+
+    if (!confirm(lines.join(''))) return
     await supabase.from('members').delete().eq('id', id)
     setMembers(prev => prev.filter(m => m.id !== id))
   }
