@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import DailyJournalWidget from '@/components/home/DailyJournalWidget'
 import TodayTodoWidget from '@/components/home/TodayTodoWidget'
+import DailyLogWidget from '@/components/home/DailyLogWidget'
 import QuickTaskInput from '@/components/home/QuickTaskInput'
 import { fetchAllTasks } from '@/lib/tasks'
 import { createClient } from '@/lib/supabase/client'
@@ -189,6 +190,7 @@ export default function HomePage() {
   const [meetings, setMeetings]                   = useState<Pick<Meeting, 'id' | 'title' | 'meeting_date'>[]>([])
   const [oneOnOnes, setOneOnOnes]                 = useState<{ id: string; session_date: string }[]>([])
   const supabase = createClient()
+  const [journalDraft, setJournalDraft] = useState('')
 
   type Shortcut = { id: string; title: string; url: string }
   const { value: shortcuts, save: saveShortcutsRemote } = useUserSetting<Shortcut[]>('home_shortcuts', [])
@@ -456,29 +458,27 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* ── 데스크톱 비대칭 그리드: 오늘(5fr) + 우측 2x2(7fr) ── */}
-      <div
-        className="hidden md:grid flex-1 min-h-0 gap-3"
-        style={{ gridTemplateColumns: 'minmax(0, 5fr) minmax(0, 7fr)' }}
-      >
-        {/* 오늘 — 다크, 좌측 풀 높이 */}
-        <div className="min-h-0">
-          <CompactCol
-            title="오늘" items={todayItems} dark
-            completedCount={completedThisWeek.length}
-            colBadge={{ label: '진행중', bg: 'bg-violet-500/20', text: 'text-violet-300' }}
-            droppable
-            onDrop={e => handleDrop(e, 'today')}
-            onDragOver={e => handleDragOver(e, 'today')}
-            onDragLeave={() => setDragOverBucket(null)}
-            isDragOver={dragOverBucket === 'today'}
-            onComplete={handleCompleteTodo}
-          />
-        </div>
+      {/* ── 데스크톱: 2행 그리드 ──
+           Row 1 (flex-[2]): 오늘 | 내일 | 금주 | 오늘할일  (4등분 소형)
+           Row 2 (flex-[3]): 오늘일상(1/3) | 회고(2/3)      (자동초안 연동)
+      */}
+      <div className="hidden md:flex flex-col flex-1 min-h-0 gap-3">
 
-        {/* 우측 2x2 그리드 */}
-        <div className="grid grid-cols-2 grid-rows-2 gap-3 min-h-0">
-          {/* 내일 */}
+        {/* Row 1 — 4등분 컬럼 */}
+        <div className="flex-[2] grid grid-cols-4 gap-3 min-h-0">
+          <div className="min-h-0">
+            <CompactCol
+              title="오늘" items={todayItems} dark
+              completedCount={completedThisWeek.length}
+              colBadge={{ label: '진행중', bg: 'bg-violet-500/20', text: 'text-violet-300' }}
+              droppable
+              onDrop={e => handleDrop(e, 'today')}
+              onDragOver={e => handleDragOver(e, 'today')}
+              onDragLeave={() => setDragOverBucket(null)}
+              isDragOver={dragOverBucket === 'today'}
+              onComplete={handleCompleteTodo}
+            />
+          </div>
           <div className="min-h-0">
             <CompactCol
               title="내일" items={tomorrowItems}
@@ -491,8 +491,6 @@ export default function HomePage() {
               onComplete={handleCompleteTodo}
             />
           </div>
-
-          {/* 금주 */}
           <div className="min-h-0">
             <CompactCol
               title="금주" items={weekItems}
@@ -505,21 +503,33 @@ export default function HomePage() {
               onComplete={handleCompleteTodo}
             />
           </div>
-
-          {/* 회고 */}
-          <div className="min-h-0 overflow-hidden">
-            <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full overflow-hidden font-sans">
-              <DailyJournalWidget tasks={tasks} meetings={meetings} />
-            </div>
-          </div>
-
-          {/* 오늘 할 일 */}
           <div className="min-h-0 overflow-hidden">
             <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full overflow-hidden font-sans">
               <TodayTodoWidget />
             </div>
           </div>
         </div>
+
+        {/* Row 2 — 오늘일상(1) + 회고(2) */}
+        <div className="flex-[3] grid grid-cols-3 gap-3 min-h-0">
+          {/* 오늘일상 */}
+          <div className="min-h-0 overflow-hidden">
+            <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full overflow-hidden font-sans">
+              <DailyLogWidget
+                onDraftReady={draft => setJournalDraft(draft + '\n')}
+                completedTodos={completedThisWeek.map(t => t.title)}
+                meetings={meetings.filter(m => m.meeting_date === new Date().toISOString().slice(0, 10)).map(m => m.title)}
+              />
+            </div>
+          </div>
+          {/* 회고 */}
+          <div className="col-span-2 min-h-0 overflow-hidden">
+            <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full overflow-hidden font-sans">
+              <DailyJournalWidget tasks={tasks} meetings={meetings} externalDraft={journalDraft} />
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   )

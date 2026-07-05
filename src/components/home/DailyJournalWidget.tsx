@@ -19,6 +19,7 @@ interface DailyJournal {
 interface Props {
   tasks: Task[]
   meetings: MeetingMin[]
+  externalDraft?: string
 }
 
 function localDateStr(d: Date) {
@@ -46,7 +47,7 @@ function formatDateLabel(ds: string) {
   return `${d.getMonth() + 1}/${d.getDate()}`
 }
 
-export default function DailyJournalWidget({ tasks, meetings }: Props) {
+export default function DailyJournalWidget({ tasks, meetings, externalDraft }: Props) {
   const TODAY = dateStr(0)
 
   const [selectedDate, setSelectedDate] = useState(TODAY)
@@ -68,6 +69,16 @@ export default function DailyJournalWidget({ tasks, meetings }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const meetingSearchRef = useRef<HTMLInputElement>(null)
   const supabase = createClient()
+
+  // 외부 초안이 들어오면 편집 모드로 전환
+  useEffect(() => {
+    if (!externalDraft) return
+    setDraft(externalDraft)
+    setLinkedMeetingIds(current?.linked_meeting_ids ?? [])
+    setTags(current?.tags ?? [])
+    setSaveError('')
+    setEditing(true)
+  }, [externalDraft])
 
   const isToday = selectedDate === TODAY
 
@@ -199,7 +210,7 @@ export default function DailyJournalWidget({ tasks, meetings }: Props) {
         <div className="flex items-center gap-1 mr-1" title={`이번 주 ${weekFilled}/5일 작성`}>
           {weekDots.map((d, i) => (
             <div key={i} className={`w-[6px] h-[6px] rounded-full transition-colors ${
-              d.future ? 'bg-black/10' : d.filled ? 'bg-emerald-400' : 'bg-black/15'
+              d.future ? 'bg-black/10' : d.filled ? 'bg-[#A8C0E0]' : 'bg-black/15'
             }`} />
           ))}
         </div>
