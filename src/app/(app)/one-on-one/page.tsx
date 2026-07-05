@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { fetchMembers } from '@/lib/tasks'
+import { fetchArchivedMembers, fetchMembers } from '@/lib/tasks'
 import type { Member, OneOnOne, MyFeedback, FeedbackType } from '@/types'
 import { format, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
@@ -480,17 +480,21 @@ function MyFeedbackView() {
 // ─── 메인 페이지 ──────────────────────────────────────────────────────────────
 export default function OneOnOnePage() {
   const [members, setMembers] = useState<Member[]>([])
+  const [archivedMembers, setArchivedMembers] = useState<Member[]>([])
   const [sessions, setSessions] = useState<OneOnOne[]>([])
   const [view, setView] = useState<'team' | 'my-feedback'>('team')
+  const [archiveOpen, setArchiveOpen] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
   useEffect(() => {
     Promise.all([
       fetchMembers(),
+      fetchArchivedMembers(),
       supabase.from('one_on_ones').select('*').order('session_date', { ascending: false }),
-    ]).then(([ms, { data }]) => {
+    ]).then(([ms, archived, { data }]) => {
       setMembers(ms)
+      setArchivedMembers(archived)
       setSessions((data ?? []) as OneOnOne[])
     })
   }, [])
@@ -640,6 +644,51 @@ export default function OneOnOnePage() {
                 </div>
               ))}
             </div>
+
+            {/* 퇴사자 아카이브 */}
+            {archivedMembers.length > 0 && (
+              <div className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-2xl overflow-hidden">
+                <button
+                  onClick={() => setArchiveOpen(p => !p)}
+                  className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/20 transition-colors">
+                  <span className="text-xs font-semibold text-gray-400">퇴사자 아카이브</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-gray-300 bg-white/60 border border-white/70 px-2 py-0.5 rounded-full">{archivedMembers.length}명</span>
+                    <span className="text-[10px] text-gray-300">{archiveOpen ? '▼' : '▶'}</span>
+                  </div>
+                </button>
+                {archiveOpen && (
+                  <div className="border-t border-white/40 divide-y divide-white/30">
+                    {archivedMembers.map(member => {
+                      const memberSessions = sessions.filter(s => s.member_id === member.id)
+                      const last = memberSessions[0]
+                      return (
+                        <div key={member.id} className="flex items-center gap-2.5 px-4 py-2.5">
+                          <div className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold bg-gray-100 text-gray-300 flex-shrink-0">
+                            {member.name[0]}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium text-gray-400">{member.name}</p>
+                            <p className="text-[10px] text-gray-300">
+                              {last?.session_date
+                                ? `마지막 ${format(parseISO(last.session_date), 'M/d', { locale: ko })}`
+                                : '기록없음'}
+                              {memberSessions.length > 0 && ` · ${memberSessions.length}회`}
+                            </p>
+                          </div>
+                          {memberSessions.length > 0 && (
+                            <Link href={`/one-on-one/${member.id}`}
+                              className="text-[10px] bg-white/50 border border-white/70 text-gray-400 px-2 py-0.5 rounded-full hover:bg-white/70 transition-all whitespace-nowrap">
+                              기록 열람
+                            </Link>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* RIGHT: 매트릭스 위젯 */}
             <div className="min-w-0 md:flex-[40] flex flex-col gap-4">

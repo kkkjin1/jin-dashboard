@@ -10,6 +10,7 @@ export interface Member {
   id: string
   name: string
   part: Part
+  archived_at?: string | null
   created_at: string
 }
 

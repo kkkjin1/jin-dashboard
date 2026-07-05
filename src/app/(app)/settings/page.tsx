@@ -1,8 +1,10 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Member, Part } from '@/types'
+import { format, parseISO } from 'date-fns'
+import { ko } from 'date-fns/locale'
 
 const PARTS: { value: Part; label: string }[] = [
   { value: '팀장', label: '팀장' },
@@ -12,6 +14,7 @@ const PARTS: { value: Part; label: string }[] = [
 
 export default function SettingsPage() {
   const [members, setMembers] = useState<Member[]>([])
+  const [archivedMembers, setArchivedMembers] = useState<Member[]>([])
   const [newName, setNewName] = useState('')
   const [newPart, setNewPart] = useState<Part>('코어')
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -20,8 +23,10 @@ export default function SettingsPage() {
   const supabase = createClient()
 
   useEffect(() => {
-    supabase.from('members').select('*').order('part').order('name')
+    supabase.from('members').select('*').is('archived_at', null).order('part').order('name')
       .then(({ data }) => setMembers((data ?? []) as Member[]))
+    supabase.from('members').select('*').not('archived_at', 'is', null).order('archived_at', { ascending: false })
+      .then(({ data }) => setArchivedMembers((data ?? []) as Member[]))
   }, [])
 
   async function addMember() {
@@ -37,8 +42,31 @@ export default function SettingsPage() {
     setEditingId(null)
   }
 
-  async function deleteMember(id: string) {
+  async function archiveMember(id: string) {
     const member = members.find(m => m.id === id)
+    if (!confirm(`'${member?.name}'을(를) 퇴사 처리하시겠습니까?\n\n1on1 기록은 퇴사자 아카이브에 보존됩니다.`)) return
+    const now = new Date().toISOString()
+    await supabase.from('members').update({ archived_at: now }).eq('id', id)
+    const archived = members.find(m => m.id === id)
+    if (archived) {
+      setMembers(prev => prev.filter(m => m.id !== id))
+      setArchivedMembers(prev => [{ ...archived, archived_at: now }, ...prev])
+    }
+  }
+
+  async function unarchiveMember(id: string) {
+    const member = archivedMembers.find(m => m.id === id)
+    if (!confirm(`'${member?.name}'을(를) 복직 처리하시겠습니까?`)) return
+    await supabase.from('members').update({ archived_at: null }).eq('id', id)
+    const restored = archivedMembers.find(m => m.id === id)
+    if (restored) {
+      setArchivedMembers(prev => prev.filter(m => m.id !== id))
+      setMembers(prev => [...prev, { ...restored, archived_at: null }])
+    }
+  }
+
+  async function hardDeleteMember(id: string) {
+    const member = archivedMembers.find(m => m.id === id)
     const name = member?.name ?? '팀원'
 
     const { count: oonCount } = await supabase
@@ -46,7 +74,7 @@ export default function SettingsPage() {
       .select('*', { count: 'exact', head: true })
       .eq('member_id', id)
 
-    const lines = [`'${name}'을(를) 삭제하시겠습니까?`]
+    const lines = [`'${name}'을(를) 영구 삭제하시겠습니까?`]
     if (oonCount && oonCount > 0) {
       lines.push(`\n⚠️ 1on1 기록 ${oonCount}건이 함께 삭제됩니다.`)
     }
@@ -54,10 +82,10 @@ export default function SettingsPage() {
 
     if (!confirm(lines.join(''))) return
     await supabase.from('members').delete().eq('id', id)
-    setMembers(prev => prev.filter(m => m.id !== id))
+    setArchivedMembers(prev => prev.filter(m => m.id !== id))
   }
 
-  const grouped: { label: string; part: Part; list: Member[] }[] = [
+  const grouped = [
     { label: '팀장', part: '팀장', list: members.filter(m => m.part === '팀장') },
     { label: '코어파트', part: '코어', list: members.filter(m => m.part === '코어') },
     { label: '비즈파트', part: '비즈', list: members.filter(m => m.part === '비즈') },
@@ -117,7 +145,8 @@ export default function SettingsPage() {
                       <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button onClick={() => { setEditingId(member.id); setEditName(member.name); setEditPart(member.part) }}
                           className="text-xs text-gray-400 hover:text-gray-600">수정</button>
-                        <button onClick={() => deleteMember(member.id)} className="text-xs text-gray-300 hover:text-red-400">삭제</button>
+                        <button onClick={() => archiveMember(member.id)}
+                          className="text-xs text-gray-300 hover:text-amber-500">퇴사 처리</button>
                       </div>
                     </>
                   )}
@@ -127,6 +156,36 @@ export default function SettingsPage() {
           </div>
         </div>
       ))}
+
+      {archivedMembers.length > 0 && (
+        <div className="mb-6">
+          <h2 className="text-sm font-semibold text-gray-400 mb-3">퇴사자 ({archivedMembers.length}명)</h2>
+          <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+            {archivedMembers.map((member, idx) => (
+              <div key={member.id} className={`flex items-center gap-3 px-4 py-3 ${idx !== 0 ? 'border-t border-gray-50' : ''} group`}>
+                <div className="w-7 h-7 rounded-full bg-gray-50 flex items-center justify-center text-gray-300 text-xs font-medium">
+                  {member.name[0]}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm text-gray-400">{member.name}</span>
+                  {member.archived_at && (
+                    <span className="text-[10px] text-gray-300 ml-2">
+                      {format(parseISO(member.archived_at), 'yyyy.MM.dd', { locale: ko })} 퇴사
+                    </span>
+                  )}
+                </div>
+                <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button onClick={() => unarchiveMember(member.id)}
+                    className="text-xs text-gray-400 hover:text-blue-600">복직</button>
+                  <button onClick={() => hardDeleteMember(member.id)}
+                    className="text-xs text-gray-300 hover:text-red-400">완전삭제</button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="text-[10px] text-gray-300 mt-2 px-1">1on1 기록은 1on1 탭 퇴사자 아카이브에서 열람 가능합니다</p>
+        </div>
+      )}
     </div>
     </div>
   )

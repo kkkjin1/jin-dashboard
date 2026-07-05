@@ -121,6 +121,16 @@ export async function fetchAllTasks(): Promise<Task[]> {
 
 export async function fetchMembers(): Promise<Member[]> {
   const supabase = createClient()
-  const { data } = await supabase.from('members').select('*').order('part').order('name')
+  const { data } = await supabase.from('members').select('*')
+    .is('archived_at', null)
+    .order('part').order('name')
+  return (data ?? []) as Member[]
+}
+
+export async function fetchArchivedMembers(): Promise<Member[]> {
+  const supabase = createClient()
+  const { data } = await supabase.from('members').select('*')
+    .not('archived_at', 'is', null)
+    .order('archived_at', { ascending: false })
   return (data ?? []) as Member[]
 }
