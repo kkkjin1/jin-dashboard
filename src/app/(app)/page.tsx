@@ -5,6 +5,7 @@ import Link from 'next/link'
 import DailyJournalWidget from '@/components/home/DailyJournalWidget'
 import TodayTodoWidget from '@/components/home/TodayTodoWidget'
 import DailyLogWidget from '@/components/home/DailyLogWidget'
+import TomorrowPlanWidget from '@/components/home/TomorrowPlanWidget'
 import QuickTaskInput from '@/components/home/QuickTaskInput'
 import { fetchAllTasks } from '@/lib/tasks'
 import { createClient } from '@/lib/supabase/client'
@@ -191,6 +192,7 @@ export default function HomePage() {
   const [oneOnOnes, setOneOnOnes]                 = useState<{ id: string; session_date: string }[]>([])
   const supabase = createClient()
   const [journalDraft, setJournalDraft] = useState('')
+  const [savedJournalContent, setSavedJournalContent] = useState('')
 
   type Shortcut = { id: string; title: string; url: string }
   const { value: shortcuts, save: saveShortcutsRemote } = useUserSetting<Shortcut[]>('home_shortcuts', [])
@@ -510,7 +512,7 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Row 2 — 오늘일상(1) + 회고(2) */}
+        {/* Row 2 — 오늘일상(1/3) + 회고(1/3) + 내일계획(1/3) */}
         <div className="flex-[3] grid grid-cols-3 gap-3 min-h-0">
           {/* 오늘일상 */}
           <div className="min-h-0 overflow-hidden">
@@ -523,9 +525,20 @@ export default function HomePage() {
             </div>
           </div>
           {/* 회고 */}
-          <div className="col-span-2 min-h-0 overflow-hidden">
+          <div className="min-h-0 overflow-hidden">
             <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full overflow-hidden font-sans">
-              <DailyJournalWidget tasks={tasks} meetings={meetings} externalDraft={journalDraft} />
+              <DailyJournalWidget
+                tasks={tasks}
+                meetings={meetings}
+                externalDraft={journalDraft}
+                onSaved={content => setSavedJournalContent(content)}
+              />
+            </div>
+          </div>
+          {/* 내일 계획 */}
+          <div className="min-h-0 overflow-hidden">
+            <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full overflow-hidden font-sans">
+              <TomorrowPlanWidget journalContent={savedJournalContent} />
             </div>
           </div>
         </div>

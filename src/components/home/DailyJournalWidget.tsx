@@ -20,6 +20,7 @@ interface Props {
   tasks: Task[]
   meetings: MeetingMin[]
   externalDraft?: string
+  onSaved?: (content: string) => void
 }
 
 function localDateStr(d: Date) {
@@ -47,7 +48,7 @@ function formatDateLabel(ds: string) {
   return `${d.getMonth() + 1}/${d.getDate()}`
 }
 
-export default function DailyJournalWidget({ tasks, meetings, externalDraft }: Props) {
+export default function DailyJournalWidget({ tasks, meetings, externalDraft, onSaved }: Props) {
   const TODAY = dateStr(0)
 
   const [selectedDate, setSelectedDate] = useState(TODAY)
@@ -174,6 +175,7 @@ export default function DailyJournalWidget({ tasks, meetings, externalDraft }: P
     setSaving(false)
     setEditing(false)
     setShowMeetingPicker(false)
+    onSaved?.(draft.trim())
   }
 
   const getMeetings = (j: DailyJournal) =>
