@@ -572,7 +572,7 @@ export default function TaskDetailPage() {
 
   return (
     <div
-      className="p-4 md:p-5"
+      className="h-full overflow-y-auto p-4 md:p-5"
       style={contentWidth ? { width: `${contentWidth}px` } : {}}
       onPaste={handlePaste}
     >

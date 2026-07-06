@@ -468,7 +468,7 @@ export default function MeetingDetailPage() {
   if (!meeting) return <div className="p-8 text-gray-400 text-sm animate-pulse">불러오는 중...</div>
 
   return (
-    <div className="p-4 md:p-5">
+    <div className="h-full overflow-y-auto p-4 md:p-5">
       <div className="flex items-center justify-between mb-8">
         <Link href="/meetings" className="text-sm text-gray-400 hover:text-gray-600 inline-flex items-center gap-1">← 회의록 목록</Link>
         <button onClick={handleDownloadMd}
