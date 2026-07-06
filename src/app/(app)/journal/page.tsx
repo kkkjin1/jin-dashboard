@@ -2,13 +2,11 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { fetchAllTasks } from '@/lib/tasks'
 import type { Task } from '@/types'
-
-// ── Types ──────────────────────────────────────────────────────────────
 
 interface DailyJournal {
   id: string
@@ -18,122 +16,87 @@ interface DailyJournal {
   linked_meeting_ids: string[]
 }
 
-type Tab = 'list' | 'pattern' | 'selfeval'
-
-// ── Korean text analysis ───────────────────────────────────────────────
-
-const STOPWORDS = new Set([
-  '이','가','을','를','은','는','에','의','와','과','도','에서','으로','로','이고','하고',
-  '그리고','했','했고','있고','없고','것','수','더','아직','오늘','내일','어제','관련',
-  '대한','위한','때문','통해','같은','있는','없는','하는','되는','이번','다음','해야',
-  '필요','싶은','같이','함께','있어','없어','됨','했음','인데','인지','이나','이며',
-  '하며','하여','해서','되어','되어서','했는데','있는데','없는데','그런데','그래서',
-  '그러나','하지만','또한','또','다시','계속','아직도','여전히','이미','먼저','우선',
-  '일단','결국','사실','실제','정말','진짜','너무','많이','조금','좀','약간','꽤',
-])
-
-function analyzeText(journals: DailyJournal[]) {
-  const wordCount: Record<string, number> = {}
-  const datesByWord: Record<string, string[]> = {}
-
-  journals.forEach(j => {
-    const words = j.content.match(/[가-힣]{2,6}/g) ?? []
-    const seen = new Set<string>()
-    words.forEach(w => {
-      if (STOPWORDS.has(w)) return
-      wordCount[w] = (wordCount[w] ?? 0) + 1
-      if (!seen.has(w)) {
-        datesByWord[w] = [...(datesByWord[w] ?? []), j.date]
-        seen.add(w)
-      }
-    })
-  })
-
-  return Object.entries(wordCount)
-    .filter(([, cnt]) => cnt >= 2)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 20)
-    .map(([word, count]) => ({ word, count, dates: datesByWord[word] ?? [] }))
+function localDateStr(d: Date) {
+  return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-')
 }
 
-// ── Self-eval draft ────────────────────────────────────────────────────
+function todayStr() { return localDateStr(new Date()) }
 
-const ACHIEVEMENT_HINTS = ['완료','해결','성공','마무리','완성','구현','확정','승인','통과']
-const CHALLENGE_HINTS   = ['어려움','고민','막힘','문제','이슈','지연','복잡','불확실','애매']
-const GROWTH_HINTS      = ['배움','학습','인사이트','깨달음','발견','개선','향상','성장']
-
-function extractSentences(text: string, hints: string[]): string[] {
-  return text.split(/[.。\n]/)
-    .map(s => s.trim())
-    .filter(s => s.length > 5 && hints.some(h => s.includes(h)))
-    .slice(0, 3)
+function nDaysAgo(n: number) {
+  const d = new Date(); d.setDate(d.getDate() - n); return localDateStr(d)
 }
 
-function buildSelfEval(journals: DailyJournal[], tasks: Task[], fromDate: string, toDate: string) {
-  const filtered = journals.filter(j => j.date >= fromDate && j.date <= toDate)
-  const completedTasks = tasks.filter(t => t.status === '완료')
+function formatDateFull(ds: string) {
+  const d = new Date(ds + 'T00:00:00')
+  const days = ['일', '월', '화', '수', '목', '금', '토']
+  return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 (${days[d.getDay()]})`
+}
 
-  const achievements: string[] = []
-  const challenges: string[] = []
-  const growths: string[] = []
+function formatDateShort(ds: string) {
+  const d = new Date(ds + 'T00:00:00')
+  const days = ['일', '월', '화', '수', '목', '금', '토']
+  return `${d.getMonth() + 1}/${d.getDate()} (${days[d.getDay()]})`
+}
 
-  filtered.forEach(j => {
-    achievements.push(...extractSentences(j.content, ACHIEVEMENT_HINTS))
-    challenges.push(...extractSentences(j.content, CHALLENGE_HINTS))
-    growths.push(...extractSentences(j.content, GROWTH_HINTS))
-  })
+function buildMarkdown(selected: string[], journals: DailyJournal[], tasks: Task[]) {
+  const journalMap = new Map(journals.map(j => [j.date, j]))
+  const sorted = [...selected].sort()
 
   const lines: string[] = []
-  lines.push('■ 주요 성과')
-  completedTasks.slice(0, 5).forEach(t => lines.push(`  · ${t.title} 완료`))
-  if (achievements.length > 0) {
-    achievements.slice(0, 3).forEach(s => lines.push(`  · ${s}`))
-  }
+  lines.push(`# 회고 기록 (${sorted[0]} ~ ${sorted[sorted.length - 1]})`)
+  lines.push(`> 내보낸 일자 수: ${sorted.length}건`)
   lines.push('')
-  lines.push('■ 어려웠던 점 / 개선 필요')
-  if (challenges.length > 0) {
-    challenges.slice(0, 3).forEach(s => lines.push(`  · ${s}`))
-  } else {
-    lines.push('  (회고 기록에서 추출된 내용 없음 — 직접 작성)')
+
+  for (const ds of sorted) {
+    const j = journalMap.get(ds)
+    lines.push(`## ${formatDateFull(ds)}`)
+    if (!j) {
+      lines.push('(기록 없음)')
+    } else {
+      lines.push(j.content)
+      if (j.linked_task_ids.length > 0) {
+        lines.push('')
+        lines.push('**연결된 업무:**')
+        j.linked_task_ids.forEach(id => {
+          const t = tasks.find(x => x.id === id)
+          if (t) lines.push(`- ${t.title} [${t.status}]`)
+        })
+      }
+    }
+    lines.push('')
+    lines.push('---')
+    lines.push('')
   }
-  lines.push('')
-  lines.push('■ 성장 / 배운 것')
-  if (growths.length > 0) {
-    growths.slice(0, 3).forEach(s => lines.push(`  · ${s}`))
-  } else {
-    lines.push('  (회고 기록에서 추출된 내용 없음 — 직접 작성)')
-  }
-  lines.push('')
-  lines.push(`■ 기간: ${fromDate} ~ ${toDate} (회고 ${filtered.length}건 기반)`)
 
   return lines.join('\n')
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────
-
-function fmt(dateStr: string) {
-  const d = new Date(dateStr + 'T00:00:00')
-  return `${d.getMonth()+1}/${d.getDate()}`
+function downloadMd(content: string, from: string, to: string) {
+  const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `회고_${from}_${to}.md`
+  a.click()
+  URL.revokeObjectURL(url)
 }
 
-function monthStr(offset = 0) {
-  const d = new Date()
-  d.setMonth(d.getMonth() + offset)
-  return d.toISOString().slice(0, 7)
-}
-
-// ── Component ──────────────────────────────────────────────────────────
+const QUICK_RANGES = [
+  { label: '최근 7일', from: nDaysAgo(7), to: todayStr() },
+  { label: '최근 30일', from: nDaysAgo(30), to: todayStr() },
+  { label: '최근 90일', from: nDaysAgo(90), to: todayStr() },
+]
 
 export default function JournalPage() {
+  const TODAY = todayStr()
   const [journals, setJournals] = useState<DailyJournal[]>([])
   const [tasks, setTasks] = useState<Task[]>([])
-  const [tab, setTab] = useState<Tab>('list')
   const [loading, setLoading] = useState(true)
-  const [expanded, setExpanded] = useState<string | null>(null)
-  const [evalFrom, setEvalFrom] = useState(monthStr(-2).slice(0, 7) + '-01')
-  const [evalTo, setEvalTo] = useState(new Date().toISOString().slice(0, 10))
-  const [evalText, setEvalText] = useState('')
-  const [copied, setCopied] = useState(false)
+  const [fromDate, setFromDate] = useState(nDaysAgo(30))
+  const [toDate, setToDate] = useState(TODAY)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [preview, setPreview] = useState<string | null>(null)
+
   const supabase = createClient()
 
   useEffect(() => {
@@ -147,194 +110,211 @@ export default function JournalPage() {
       setLoading(false)
     }
     load()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const patterns = useMemo(() => analyzeText(journals), [journals])
+  const inRange = journals.filter(j => j.date >= fromDate && j.date <= toDate)
 
-  function generateEval() {
-    setEvalText(buildSelfEval(journals, tasks, evalFrom, evalTo))
+  function selectRange(from: string, to: string) {
+    setFromDate(from)
+    setToDate(to)
+    setSelected(new Set())
+    setPreview(null)
   }
 
-  function copyEval() {
-    navigator.clipboard.writeText(evalText)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+  function toggleDate(ds: string) {
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(ds)) next.delete(ds)
+      else next.add(ds)
+      return next
+    })
+    setPreview(null)
+  }
+
+  function selectAll() {
+    setSelected(new Set(inRange.map(j => j.date)))
+    setPreview(null)
+  }
+
+  function clearAll() {
+    setSelected(new Set())
+    setPreview(null)
+  }
+
+  function handlePreview() {
+    if (selected.size === 0) return
+    setPreview(buildMarkdown([...selected], journals, tasks))
+  }
+
+  function handleDownload() {
+    const sorted = [...selected].sort()
+    const md = buildMarkdown(sorted, journals, tasks)
+    downloadMd(md, sorted[0], sorted[sorted.length - 1])
   }
 
   if (loading) return (
     <div className="p-6 flex flex-col gap-4">
-      {[1,2,3].map(i => <div key={i} className="bg-white/30 backdrop-blur-xl border border-white/40 rounded-xl h-20 animate-pulse" />)}
+      {[1, 2, 3].map(i => (
+        <div key={i} className="bg-white/30 backdrop-blur-xl border border-white/40 rounded-xl h-20 animate-pulse" />
+      ))}
     </div>
   )
 
   return (
-    <div className="p-5 md:p-6 flex flex-col gap-5 h-full overflow-y-auto">
+    <div className="h-full overflow-y-auto p-5 md:p-6 flex flex-col gap-5 font-sans">
 
       {/* 헤더 */}
-      <div className="flex items-center justify-between flex-shrink-0">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">회고 기록</h1>
-          <p className="text-sm text-gray-400 mt-0.5">총 {journals.length}건</p>
+      <div className="flex-shrink-0">
+        <h1 className="text-xl font-bold text-gray-900">회고 내보내기</h1>
+        <p className="text-sm text-gray-400 mt-0.5">기간을 설정하고 원하는 날짜를 선택해 MD 파일로 내보내세요</p>
+      </div>
+
+      {/* Step 1: 기간 설정 */}
+      <div className="flex-shrink-0 bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl p-4 flex flex-col gap-3">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest">Step 1 · 기간 설정</p>
+
+        {/* 빠른 선택 */}
+        <div className="flex gap-2">
+          {QUICK_RANGES.map(r => (
+            <button
+              key={r.label}
+              onClick={() => selectRange(r.from, r.to)}
+              className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
+                fromDate === r.from && toDate === r.to
+                  ? 'bg-[#0F1E36] text-white border-[#0F1E36]'
+                  : 'bg-white/60 text-gray-600 border-white/70 hover:bg-white/90'
+              }`}
+            >
+              {r.label}
+            </button>
+          ))}
+        </div>
+
+        {/* 직접 입력 */}
+        <div className="flex items-center gap-2">
+          <input
+            type="date"
+            max={toDate}
+            value={fromDate}
+            onChange={e => { setFromDate(e.target.value); setSelected(new Set()); setPreview(null) }}
+            className="text-xs border border-gray-200 bg-white/70 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-400"
+          />
+          <span className="text-gray-400 text-sm">~</span>
+          <input
+            type="date"
+            min={fromDate}
+            max={TODAY}
+            value={toDate}
+            onChange={e => { setToDate(e.target.value); setSelected(new Set()); setPreview(null) }}
+            className="text-xs border border-gray-200 bg-white/70 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-400"
+          />
+          <span className="text-xs text-gray-400 ml-1">{inRange.length}건</span>
         </div>
       </div>
 
-      {/* 탭 */}
-      <div className="flex gap-1 bg-gray-100 rounded-xl p-1 flex-shrink-0">
-        {([['list','전체 목록'],['pattern','패턴 분석'],['selfeval','자기평가 초안']] as [Tab,string][]).map(([key, label]) => (
-          <button key={key} onClick={() => setTab(key)}
-            className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${tab === key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {/* 전체 목록 */}
-      {tab === 'list' && (
-        <div className="flex flex-col gap-2">
-          {journals.length === 0 && (
-            <p className="text-sm text-gray-300 text-center py-12">
-              아직 회고가 없어요 —{' '}
-              <Link href="/" className="text-emerald-500 hover:underline">홈에서 작성</Link>
-            </p>
-          )}
-          {journals.map(j => {
-            const isOpen = expanded === j.id
-            return (
-              <div key={j.id} className="bg-white/30 backdrop-blur-xl border border-white/40 rounded-xl overflow-hidden">
-                <button
-                  onClick={() => setExpanded(isOpen ? null : j.id)}
-                  className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors"
-                >
-                  <span className="text-xs font-mono text-gray-400 flex-shrink-0 mt-0.5 w-10">{fmt(j.date)}</span>
-                  <p className={`text-sm text-gray-700 flex-1 leading-relaxed ${isOpen ? '' : 'line-clamp-2'}`}>
-                    {j.content}
-                  </p>
-                  <span className="text-gray-300 text-xs flex-shrink-0">{isOpen ? '▲' : '▼'}</span>
-                </button>
-                {isOpen && (j.linked_task_ids.length > 0 || j.linked_meeting_ids.length > 0) && (
-                  <div className="px-4 pb-3 flex flex-wrap gap-1.5">
-                    {j.linked_task_ids.map(id => {
-                      const t = tasks.find(x => x.id === id)
-                      return t ? (
-                        <Link key={id} href={`/tasks/${id}`}
-                          className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full hover:bg-emerald-100">
-                          {t.title}
-                        </Link>
-                      ) : null
-                    })}
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      {/* 패턴 분석 */}
-      {tab === 'pattern' && (
-        <div className="flex flex-col gap-4">
-          {patterns.length === 0 ? (
-            <p className="text-sm text-gray-300 text-center py-12">회고가 2건 이상 있어야 패턴을 분석할 수 있어요</p>
-          ) : (
-            <>
-              <div className="bg-white/30 backdrop-blur-xl border border-white/40 rounded-xl p-4">
-                <h3 className="text-sm font-semibold text-gray-700 mb-3">자주 등장한 키워드</h3>
-                <div className="flex flex-wrap gap-2">
-                  {patterns.map(({ word, count, dates }) => (
-                    <div key={word} className="flex flex-col items-center gap-0.5">
-                      <span
-                        className="px-3 py-1.5 rounded-full text-sm font-medium bg-emerald-50 text-emerald-800 border border-emerald-200"
-                        style={{ fontSize: `${Math.min(14, 10 + count)}px` }}
-                      >
-                        {word}
-                      </span>
-                      <span className="text-[9px] text-gray-400">{count}회</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="bg-white/30 backdrop-blur-xl border border-white/40 rounded-xl p-4">
-                <h3 className="text-sm font-semibold text-gray-700 mb-3">반복 언급 키워드별 날짜</h3>
-                <div className="space-y-2">
-                  {patterns.slice(0, 8).map(({ word, count, dates }) => (
-                    <div key={word} className="flex items-center gap-3">
-                      <span className="text-xs font-medium text-gray-700 w-16 flex-shrink-0">{word}</span>
-                      <div className="flex flex-wrap gap-1 flex-1">
-                        {dates.map(d => (
-                          <span key={d} className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">{fmt(d)}</span>
-                        ))}
-                      </div>
-                      <span className="text-xs text-gray-400 flex-shrink-0">{count}회</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
-                <h3 className="text-sm font-semibold text-amber-700 mb-2">액션 제안</h3>
-                <ul className="space-y-1.5">
-                  {patterns.slice(0, 3).map(({ word, count }) => {
-                    const relatedTask = tasks.find(t => t.title.includes(word) && t.status !== '완료')
-                    return (
-                      <li key={word} className="text-xs text-amber-800 flex items-start gap-2">
-                        <span className="flex-shrink-0 mt-0.5">→</span>
-                        <span>
-                          <strong>{word}</strong>이(가) {count}회 반복됨.
-                          {relatedTask
-                            ? <> <Link href={`/tasks/${relatedTask.id}`} className="underline">{relatedTask.title}</Link> 업무 확인 필요</>
-                            : ' 이 주제로 별도 업무/의사결정 등록을 고려해보세요'}
-                        </span>
-                      </li>
-                    )
-                  })}
-                </ul>
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* 자기평가 초안 */}
-      {tab === 'selfeval' && (
-        <div className="flex flex-col gap-4">
-          <div className="bg-white/30 backdrop-blur-xl border border-white/40 rounded-xl p-4 flex flex-col gap-3">
-            <h3 className="text-sm font-semibold text-gray-700">기간 설정</h3>
-            <div className="flex items-center gap-3">
-              <input type="date" value={evalFrom} onChange={e => setEvalFrom(e.target.value)}
-                className="text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-400" />
-              <span className="text-gray-400 text-sm">~</span>
-              <input type="date" value={evalTo} onChange={e => setEvalTo(e.target.value)}
-                className="text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-400" />
-              <button onClick={generateEval}
-                className="text-sm bg-gray-900 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors">
-                초안 생성
-              </button>
-            </div>
-            <p className="text-xs text-gray-400">
-              회고 기록 + 완료 업무 기반으로 자기평가 초안을 만들어요. 직접 수정해서 사용하세요.
-            </p>
+      {/* Step 2: 날짜 선택 */}
+      <div className="flex-shrink-0 bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl p-4 flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest">Step 2 · 날짜 선택</p>
+          <div className="flex gap-2">
+            <button onClick={selectAll} className="text-[11px] text-gray-500 hover:text-gray-800 transition-colors">전체 선택</button>
+            <span className="text-gray-300 text-xs">|</span>
+            <button onClick={clearAll} className="text-[11px] text-gray-500 hover:text-gray-800 transition-colors">초기화</button>
           </div>
+        </div>
 
-          {evalText && (
-            <div className="bg-white/30 backdrop-blur-xl border border-white/40 rounded-xl p-4 flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-gray-700">자기평가 초안</h3>
-                <button onClick={copyEval}
-                  className="text-xs text-gray-500 border border-gray-200 px-3 py-1 rounded-lg hover:border-gray-400 transition-colors">
-                  {copied ? '복사됨 ✓' : '복사'}
+        {inRange.length === 0 ? (
+          <p className="text-sm text-gray-300 text-center py-6">
+            선택한 기간에 회고가 없어요 —{' '}
+            <Link href="/" className="text-blue-400 hover:underline">홈에서 작성</Link>
+          </p>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1.5">
+            {inRange.map(j => {
+              const isSelected = selected.has(j.date)
+              const preview80 = j.content.slice(0, 60).replace(/\n/g, ' ')
+              return (
+                <button
+                  key={j.date}
+                  onClick={() => toggleDate(j.date)}
+                  className={`text-left p-2.5 rounded-xl border transition-all ${
+                    isSelected
+                      ? 'bg-[#0F1E36] border-[#0F1E36] text-white'
+                      : 'bg-white/50 border-white/70 text-gray-700 hover:bg-white/80'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <span className={`w-3.5 h-3.5 rounded flex-shrink-0 border flex items-center justify-center text-[9px] ${
+                      isSelected ? 'bg-white/20 border-white/40 text-white' : 'bg-white border-gray-300 text-transparent'
+                    }`}>✓</span>
+                    <span className={`text-[11px] font-semibold ${isSelected ? 'text-white' : 'text-gray-800'}`}>
+                      {formatDateShort(j.date)}
+                    </span>
+                  </div>
+                  <p className={`text-[10px] leading-relaxed line-clamp-2 ${isSelected ? 'text-white/70' : 'text-gray-400'}`}>
+                    {preview80}
+                  </p>
                 </button>
-              </div>
-              <textarea
-                value={evalText}
-                onChange={e => setEvalText(e.target.value)}
-                className="text-sm text-gray-700 leading-relaxed resize-none focus:outline-none font-mono w-full"
-                rows={Math.max(10, evalText.split('\n').length + 2)}
-              />
-            </div>
-          )}
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Step 3: 내보내기 */}
+      <div className="flex-shrink-0 bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl p-4 flex flex-col gap-3">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest">Step 3 · 내보내기</p>
+
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-gray-600">
+            {selected.size > 0 ? (
+              <><strong className="text-gray-900">{selected.size}개</strong> 선택됨</>
+            ) : (
+              <span className="text-gray-400">날짜를 선택하세요</span>
+            )}
+          </span>
+          <div className="flex gap-2 ml-auto">
+            <button
+              onClick={handlePreview}
+              disabled={selected.size === 0}
+              className="text-xs px-4 py-2 rounded-xl border border-gray-200 text-gray-600 bg-white/60 hover:bg-white/90 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+            >
+              미리보기
+            </button>
+            <button
+              onClick={handleDownload}
+              disabled={selected.size === 0}
+              className="text-xs px-4 py-2 rounded-xl bg-[#0F1E36] text-white hover:bg-[#1a2f52] disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+            >
+              MD 다운로드
+            </button>
+          </div>
+        </div>
+
+        <p className="text-[11px] text-gray-400">
+          MD 파일을 ChatGPT · Claude 등에 붙여넣어 원하는 분석을 요청하세요
+        </p>
+      </div>
+
+      {/* 미리보기 */}
+      {preview && (
+        <div className="flex-shrink-0 bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl p-4 flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest">미리보기</p>
+            <button
+              onClick={() => { navigator.clipboard.writeText(preview) }}
+              className="text-[11px] text-gray-400 hover:text-gray-700 border border-gray-200 px-2.5 py-1 rounded-lg transition-colors"
+            >
+              복사
+            </button>
+          </div>
+          <pre className="text-xs text-gray-700 leading-relaxed whitespace-pre-wrap font-mono bg-white/50 rounded-xl p-3 max-h-80 overflow-y-auto">
+            {preview}
+          </pre>
         </div>
       )}
+
     </div>
   )
 }
