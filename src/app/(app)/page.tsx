@@ -467,7 +467,7 @@ export default function HomePage() {
       <div className="hidden md:flex flex-col flex-1 min-h-0 gap-3">
 
         {/* Row 1 — 4등분 컬럼 */}
-        <div className="flex-[2] grid grid-cols-4 gap-3 min-h-0">
+        <div className="flex-[3] grid grid-cols-4 gap-3 min-h-0">
           <div className="min-h-0">
             <CompactCol
               title="오늘" items={todayItems} dark
@@ -513,7 +513,7 @@ export default function HomePage() {
         </div>
 
         {/* Row 2 — 오늘일상(1/3) + 회고(1/3) + 내일계획(1/3) */}
-        <div className="flex-[3] grid grid-cols-3 gap-3 min-h-0">
+        <div className="flex-[2] grid grid-cols-3 gap-3 min-h-0">
           {/* 오늘일상 */}
           <div className="min-h-0 overflow-hidden">
             <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full overflow-hidden font-sans">

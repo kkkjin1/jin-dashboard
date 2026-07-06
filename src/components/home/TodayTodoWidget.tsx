@@ -52,10 +52,10 @@ export default function TodayTodoWidget() {
       .from('quick_memos')
       .select('id, title, content, tag, created_at')
       .in('tag', ['업무관련', '완료'])
-      .order('created_at', { ascending: true })
+      .order('created_at', { ascending: false })
     const all = (data ?? []) as QuickMemo[]
     setTodos(all.filter(m => m.tag === '업무관련'))
-    setDone(all.filter(m => m.tag === '완료').reverse())
+    setDone(all.filter(m => m.tag === '완료'))
     setLoading(false)
   }
 
@@ -105,7 +105,7 @@ export default function TodayTodoWidget() {
     }
     const memo = done.find(m => m.id === id)
     setDone(prev => prev.filter(m => m.id !== id))
-    if (memo) setTodos(prev => [...prev, { ...memo, tag: '업무관련' }])
+    if (memo) setTodos(prev => [{ ...memo, tag: '업무관련' }, ...prev])
     setSelectedDone(prev => { const s = new Set(prev); s.delete(id); return s })
   }
 
