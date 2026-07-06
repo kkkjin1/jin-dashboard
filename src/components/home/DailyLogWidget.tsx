@@ -2,29 +2,41 @@
 
 import { useEffect, useRef, useState } from 'react'
 
-function todayKey() {
-  const d = new Date()
-  return `daily-log-${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+function localDateStr(d: Date) {
+  return [
+    d.getFullYear(),
+    String(d.getMonth() + 1).padStart(2, '0'),
+    String(d.getDate()).padStart(2, '0'),
+  ].join('-')
+}
+
+function todayStr() {
+  return localDateStr(new Date())
 }
 
 interface Props {
+  selectedDate: string
   onDraftReady: (draft: string) => void
 }
 
-export default function DailyLogWidget({ onDraftReady }: Props) {
+export default function DailyLogWidget({ selectedDate, onDraftReady }: Props) {
   const [text, setText] = useState('')
   const [sent, setSent] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const key = todayKey()
+
+  const storageKey = `daily-log-${selectedDate}`
+  const isToday = selectedDate === todayStr()
 
   useEffect(() => {
-    const saved = localStorage.getItem(key)
-    if (saved) setText(saved)
-  }, [key])
+    const saved = localStorage.getItem(storageKey)
+    setText(saved ?? '')
+    setSent(false)
+  }, [storageKey])
 
   function handleChange(v: string) {
+    if (!isToday) return
     setText(v)
-    localStorage.setItem(key, v)
+    localStorage.setItem(storageKey, v)
     setSent(false)
   }
 
@@ -47,21 +59,29 @@ export default function DailyLogWidget({ onDraftReady }: Props) {
         ref={textareaRef}
         value={text}
         onChange={e => handleChange(e.target.value)}
-        placeholder={'회의가 너무 많았다…\n리포트 초안 완성했음\n팀장님이 A 방식 선호\n내일 B 건 먼저 처리해야 할 듯'}
-        className="flex-1 min-h-0 text-xs text-gray-700 placeholder:text-gray-300 resize-none focus:outline-none leading-relaxed bg-transparent"
+        readOnly={!isToday}
+        placeholder={isToday
+          ? '회의가 너무 많았다…\n리포트 초안 완성했음\n팀장님이 A 방식 선호\n내일 B 건 먼저 처리해야 할 듯'
+          : '이 날 기록 없음'
+        }
+        className={`flex-1 min-h-0 text-xs placeholder:text-gray-300 resize-none focus:outline-none leading-relaxed bg-transparent ${
+          isToday ? 'text-gray-700' : 'text-gray-500 cursor-default'
+        }`}
       />
 
-      <div className="flex-shrink-0 flex items-center justify-between mt-3 pt-2.5 border-t border-gray-100">
-        <span className="text-[10px] text-gray-300">
-          {sent ? '회고로 전달됨 ✓' : '작성 후 회고로 보내기'}
-        </span>
-        <button
-          onClick={handleSend}
-          disabled={!text.trim()}
-          className="text-[11px] font-medium bg-[#0F1E36] text-white px-3 py-1.5 rounded-full hover:bg-[#162844] disabled:opacity-40 disabled:cursor-not-allowed transition-all">
-          → 회고로 전달
-        </button>
-      </div>
+      {isToday && (
+        <div className="flex-shrink-0 flex items-center justify-between mt-3 pt-2.5 border-t border-gray-100">
+          <span className="text-[10px] text-gray-300">
+            {sent ? '회고로 전달됨 ✓' : '작성 후 회고로 보내기'}
+          </span>
+          <button
+            onClick={handleSend}
+            disabled={!text.trim()}
+            className="text-[11px] font-medium bg-[#0F1E36] text-white px-3 py-1.5 rounded-full hover:bg-[#162844] disabled:opacity-40 disabled:cursor-not-allowed transition-all">
+            → 회고로 전달
+          </button>
+        </div>
+      )}
     </div>
   )
 }

@@ -17,6 +17,7 @@ interface DailyJournal {
 }
 
 interface Props {
+  selectedDate: string
   tasks: Task[]
   meetings: MeetingMin[]
   externalDraft?: string
@@ -31,27 +32,14 @@ function localDateStr(d: Date) {
   ].join('-')
 }
 
-function dateStr(offset = 0) {
-  const d = new Date()
-  d.setDate(d.getDate() + offset)
-  return localDateStr(d)
+function todayStr() {
+  return localDateStr(new Date())
 }
 
-function formatDateLabel(ds: string) {
-  const d = new Date(ds + 'T00:00:00')
-  const today = new Date(); today.setHours(0, 0, 0, 0)
-  const target = new Date(d); target.setHours(0, 0, 0, 0)
-  const diff = Math.round((today.getTime() - target.getTime()) / 86400000)
-  if (diff === 0) return '오늘'
-  if (diff === 1) return '어제'
-  if (diff === 2) return '그제'
-  return `${d.getMonth() + 1}/${d.getDate()}`
-}
+export default function DailyJournalWidget({ selectedDate, tasks, meetings, externalDraft, onSaved }: Props) {
+  const TODAY = todayStr()
+  const isToday = selectedDate === TODAY
 
-export default function DailyJournalWidget({ tasks, meetings, externalDraft, onSaved }: Props) {
-  const TODAY = dateStr(0)
-
-  const [selectedDate, setSelectedDate] = useState(TODAY)
   const [journals, setJournals] = useState<Record<string, DailyJournal>>({})
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
@@ -79,12 +67,28 @@ export default function DailyJournalWidget({ tasks, meetings, externalDraft, onS
     setTags(current?.tags ?? [])
     setSaveError('')
     setEditing(true)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [externalDraft])
 
-  const isToday = selectedDate === TODAY
-
+  // 날짜 변경 시 해당 날짜 데이터 로드
   useEffect(() => {
-    const dates = Array.from({ length: 7 }, (_, i) => dateStr(-i))
+    setEditing(false)
+    setShowMeetingPicker(false)
+    if (!journals[selectedDate]) {
+      supabase.from('daily_journals').select('*').eq('date', selectedDate).single()
+        .then(({ data }) => {
+          if (data) setJournals(prev => ({ ...prev, [selectedDate]: data as DailyJournal }))
+        })
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDate])
+
+  // 초기 로드: 최근 7일
+  useEffect(() => {
+    const dates = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(); d.setDate(d.getDate() - i)
+      return localDateStr(d)
+    })
     supabase.from('daily_journals').select('*').in('date', dates)
       .then(({ data }) => {
         if (!data) return
@@ -92,6 +96,7 @@ export default function DailyJournalWidget({ tasks, meetings, externalDraft, onS
         data.forEach(j => { map[j.date] = j as DailyJournal })
         setJournals(map)
       })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
@@ -102,22 +107,8 @@ export default function DailyJournalWidget({ tasks, meetings, externalDraft, onS
     if (showMeetingPicker) setTimeout(() => meetingSearchRef.current?.focus(), 30)
   }, [showMeetingPicker])
 
-  function navigate(dir: -1 | 1) {
-    const [y, m, day] = selectedDate.split('-').map(Number)
-    const d = new Date(y, m - 1, day)
-    d.setDate(d.getDate() + dir)
-    const next = localDateStr(d)
-    if (next > TODAY) return
-    setSelectedDate(next)
-    setEditing(false)
-    if (!journals[next]) {
-      supabase.from('daily_journals').select('*').eq('date', next).single()
-        .then(({ data }) => { if (data) setJournals(prev => ({ ...prev, [next]: data as DailyJournal })) })
-    }
-  }
-
   const current = journals[selectedDate] ?? null
-  const yesterday = journals[dateStr(-1)] ?? null
+  const yesterday = journals[(() => { const d = new Date(); d.setDate(d.getDate() - 1); return localDateStr(d) })()] ?? null
 
   function startEdit() {
     setDraft(current?.content ?? '')
@@ -195,7 +186,7 @@ export default function DailyJournalWidget({ tasks, meetings, externalDraft, onS
     const daysToMon = day === 0 ? 6 : day - 1
     const mon = new Date(d); mon.setDate(d.getDate() - daysToMon)
     const target = new Date(mon); target.setDate(mon.getDate() + i)
-    const ds = [target.getFullYear(), String(target.getMonth()+1).padStart(2,'0'), String(target.getDate()).padStart(2,'0')].join('-')
+    const ds = localDateStr(target)
     return { ds, filled: !!journals[ds], future: ds > TODAY }
   })
   const weekFilled = weekDots.filter(d => d.filled).length
@@ -217,11 +208,6 @@ export default function DailyJournalWidget({ tasks, meetings, externalDraft, onS
           ))}
         </div>
 
-        <div className="flex items-center gap-0.5 bg-white/60 text-gray-600 rounded-full px-2 py-0.5">
-          <button onClick={() => navigate(-1)} className="hover:opacity-60 transition-opacity text-xs">←</button>
-          <span className="min-w-[2.5rem] text-center text-[11px] font-medium">{formatDateLabel(selectedDate)}</span>
-          <button onClick={() => navigate(1)} disabled={isToday} className="hover:opacity-60 disabled:opacity-20 transition-opacity text-xs">→</button>
-        </div>
         {current && !editing && (
           <button onClick={startEdit} className="text-[11px] text-gray-400 hover:text-gray-600 ml-1">수정</button>
         )}

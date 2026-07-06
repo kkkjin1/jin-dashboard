@@ -13,6 +13,32 @@ import { useUserSetting } from '@/hooks/useUserSetting'
 import { HomePageSkeleton } from '@/components/ui/Skeleton'
 import type { Task, Meeting, TaskTodo } from '@/types'
 
+function localDateStr(d: Date) {
+  return [
+    d.getFullYear(),
+    String(d.getMonth() + 1).padStart(2, '0'),
+    String(d.getDate()).padStart(2, '0'),
+  ].join('-')
+}
+
+function todayStr() {
+  return localDateStr(new Date())
+}
+
+function formatSharedDateLabel(ds: string) {
+  const d = new Date(ds + 'T00:00:00')
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const target = new Date(d); target.setHours(0, 0, 0, 0)
+  const diff = Math.round((today.getTime() - target.getTime()) / 86400000)
+  if (diff === 0) return '오늘'
+  if (diff === 1) return '어제'
+  if (diff === 2) return '그제'
+  const m = d.getMonth() + 1
+  const day = d.getDate()
+  const days = ['일', '월', '화', '수', '목', '금', '토']
+  return `${m}/${day} (${days[d.getDay()]})`
+}
+
 interface TodoColItem {
   id: string
   title: string
@@ -193,6 +219,20 @@ export default function HomePage() {
   const supabase = createClient()
   const [journalDraft, setJournalDraft] = useState('')
   const [savedJournalContent, setSavedJournalContent] = useState('')
+  const [sharedDate, setSharedDate] = useState(todayStr())
+
+  function navigateSharedDate(dir: -1 | 1) {
+    setSharedDate(prev => {
+      const [y, m, d] = prev.split('-').map(Number)
+      const dt = new Date(y, m - 1, d)
+      dt.setDate(dt.getDate() + dir)
+      const next = localDateStr(dt)
+      if (next > todayStr()) return prev
+      return next
+    })
+    setJournalDraft('')
+    setSavedJournalContent('')
+  }
 
   type Shortcut = { id: string; title: string; url: string }
   const { value: shortcuts, save: saveShortcutsRemote } = useUserSetting<Shortcut[]>('home_shortcuts', [])
@@ -450,7 +490,7 @@ export default function HomePage() {
         </div>
         <div className="flex-shrink-0 h-64 overflow-hidden">
           <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full overflow-hidden font-sans">
-            <DailyJournalWidget tasks={tasks} meetings={meetings} />
+            <DailyJournalWidget selectedDate={todayStr()} tasks={tasks} meetings={meetings} />
           </div>
         </div>
         <div className="flex-shrink-0 h-64 overflow-hidden">
@@ -512,31 +552,75 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Row 2 — 오늘일상(1/3) + 회고(1/3) + 내일계획(1/3) */}
-        <div className="flex-[2] grid grid-cols-3 gap-3 min-h-0">
-          {/* 오늘일상 */}
-          <div className="min-h-0 overflow-hidden">
-            <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full overflow-hidden font-sans">
-              <DailyLogWidget
-                onDraftReady={draft => setJournalDraft(draft + '\n')}
+        {/* Row 2 — 날짜 네비 + 오늘일상(1/3) + 회고(1/3) + 내일계획(1/3) */}
+        <div className="flex-[2] flex flex-col gap-2 min-h-0">
+
+          {/* 공유 날짜 네비게이션 바 */}
+          <div className="flex-shrink-0 flex items-center justify-center gap-2">
+            <button
+              onClick={() => navigateSharedDate(-1)}
+              className="w-6 h-6 flex items-center justify-center rounded-full bg-white/50 border border-white/60 hover:bg-white/80 text-gray-500 hover:text-gray-800 text-xs transition-all">
+              ←
+            </button>
+            <div className="flex items-center gap-2 bg-white/50 backdrop-blur-md border border-white/60 rounded-full px-3 py-1 shadow-sm">
+              <span className="text-xs font-semibold text-gray-700 min-w-[5rem] text-center">
+                {formatSharedDateLabel(sharedDate)}
+              </span>
+              <span className="text-[10px] text-gray-400">{sharedDate}</span>
+              <input
+                type="date"
+                max={todayStr()}
+                value={sharedDate}
+                onChange={e => {
+                  if (e.target.value && e.target.value <= todayStr()) {
+                    setSharedDate(e.target.value)
+                    setJournalDraft('')
+                    setSavedJournalContent('')
+                  }
+                }}
+                className="w-4 h-4 opacity-0 absolute cursor-pointer"
+                style={{ position: 'relative' }}
               />
             </div>
+            <button
+              onClick={() => navigateSharedDate(1)}
+              disabled={sharedDate >= todayStr()}
+              className="w-6 h-6 flex items-center justify-center rounded-full bg-white/50 border border-white/60 hover:bg-white/80 text-gray-500 hover:text-gray-800 text-xs transition-all disabled:opacity-30 disabled:cursor-not-allowed">
+              →
+            </button>
           </div>
-          {/* 회고 */}
-          <div className="min-h-0 overflow-hidden">
-            <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full overflow-hidden font-sans">
-              <DailyJournalWidget
-                tasks={tasks}
-                meetings={meetings}
-                externalDraft={journalDraft}
-                onSaved={content => setSavedJournalContent(content)}
-              />
+
+          {/* 3 위젯 그리드 */}
+          <div className="flex-1 grid grid-cols-3 gap-3 min-h-0">
+            {/* 오늘일상 */}
+            <div className="min-h-0 overflow-hidden">
+              <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full overflow-hidden font-sans">
+                <DailyLogWidget
+                  selectedDate={sharedDate}
+                  onDraftReady={draft => setJournalDraft(draft + '\n')}
+                />
+              </div>
             </div>
-          </div>
-          {/* 내일 계획 */}
-          <div className="min-h-0 overflow-hidden">
-            <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full overflow-hidden font-sans">
-              <TomorrowPlanWidget journalContent={savedJournalContent} />
+            {/* 회고 */}
+            <div className="min-h-0 overflow-hidden">
+              <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full overflow-hidden font-sans">
+                <DailyJournalWidget
+                  selectedDate={sharedDate}
+                  tasks={tasks}
+                  meetings={meetings}
+                  externalDraft={journalDraft}
+                  onSaved={content => setSavedJournalContent(content)}
+                />
+              </div>
+            </div>
+            {/* 내일 계획 */}
+            <div className="min-h-0 overflow-hidden">
+              <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full overflow-hidden font-sans">
+                <TomorrowPlanWidget
+                  selectedDate={sharedDate}
+                  journalContent={savedJournalContent}
+                />
+              </div>
             </div>
           </div>
         </div>
