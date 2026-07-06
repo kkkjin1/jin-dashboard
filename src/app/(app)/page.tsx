@@ -127,7 +127,7 @@ function CompactCol({
       onDragLeave={droppable ? onDragLeave : undefined}
     >
       <div className="flex items-center justify-between mb-3 flex-shrink-0">
-        <span className={`text-[10px] font-semibold uppercase tracking-widest ${titleCls}`}>{title}</span>
+        <span className={`text-xs font-semibold ${titleCls}`}>{title}</span>
         {items.length > 0 && (
           <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${badgeBg}`}>
             {items.length > 9 ? '9+' : items.length}
@@ -361,12 +361,12 @@ export default function HomePage() {
       if (inRange(t.mid_date)) result.push({
         id: `mid-${t.id}`, title: t.title, taskId: t.id, taskTitle: '중간공유',
         itemType: 'milestone' as const, href: `/tasks/${t.id}`,
-        itemBadge: { label: '중간공유', cls: 'bg-amber-100 text-amber-700' },
+        itemBadge: { label: '중간', cls: 'bg-amber-100 text-amber-700' },
       })
       if (inRange(t.end_date)) result.push({
         id: `end-${t.id}`, title: t.title, taskId: t.id, taskTitle: '최종보고',
         itemType: 'milestone' as const, href: `/tasks/${t.id}`,
-        itemBadge: { label: '최종보고', cls: 'bg-red-100 text-red-600' },
+        itemBadge: { label: '최종', cls: 'bg-red-100 text-red-600' },
       })
     })
     return result

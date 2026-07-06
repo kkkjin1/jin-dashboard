@@ -6,7 +6,25 @@ import { ko } from 'date-fns/locale'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { fetchAllTasks, fetchMembers } from '@/lib/tasks'
+import { useUserSetting } from '@/hooks/useUserSetting'
 import type { Task, Member, TaskStatus, Part, Meeting } from '@/types'
+
+interface MeetingSchedule {
+  id: string
+  title: string
+  time: string
+  is_recurring: boolean
+  days_of_week?: number[]
+  date?: string
+  prep_note?: string
+}
+
+const DOW_LABELS_SCHED = ['일', '월', '화', '수', '목', '금', '토']
+
+function todayStrSched(): string {
+  const d = new Date()
+  return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-')
+}
 
 const STATUSES: TaskStatus[] = ['진행필요', '진행중', '완료']
 
@@ -38,6 +56,38 @@ export default function SchedulePage() {
   const [dragOverId, setDragOverId] = useState<string | null>(null)
   const [dayOrder, setDayOrder] = useState<Record<string, string[]>>({})
   const router = useRouter()
+
+  // 고정 회의 관리
+  const { value: schedules, save: saveSchedules } = useUserSetting<MeetingSchedule[]>('meeting_schedules', [])
+  const [showMeetingForm, setShowMeetingForm] = useState(false)
+  const [meetForm, setMeetForm] = useState({ title: '', time: '09:00', is_recurring: true, days_of_week: [] as number[], date: todayStrSched() })
+
+  function addMeetingSchedule() {
+    if (!meetForm.title.trim()) return
+    const item: MeetingSchedule = {
+      id: Date.now().toString(),
+      title: meetForm.title.trim(),
+      time: meetForm.time,
+      is_recurring: meetForm.is_recurring,
+      ...(meetForm.is_recurring ? { days_of_week: meetForm.days_of_week } : { date: meetForm.date }),
+    }
+    saveSchedules([...schedules, item])
+    setMeetForm({ title: '', time: '09:00', is_recurring: true, days_of_week: [], date: todayStrSched() })
+    setShowMeetingForm(false)
+  }
+
+  function removeMeetingSchedule(id: string) {
+    saveSchedules(schedules.filter(s => s.id !== id))
+  }
+
+  function toggleMeetDow(d: number) {
+    setMeetForm(prev => ({
+      ...prev,
+      days_of_week: prev.days_of_week.includes(d)
+        ? prev.days_of_week.filter(x => x !== d)
+        : [...prev.days_of_week, d],
+    }))
+  }
   const assigneeRef = useRef<HTMLSelectElement>(null)
   const supabase = createClient()
 
@@ -430,6 +480,99 @@ export default function SchedulePage() {
 
           {/* 우측 패널 */}
           <div className="space-y-3">
+
+            {/* 고정 회의 설정 */}
+            <div id="meetings" className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-gray-700">📋 고정 회의</h3>
+                <button
+                  onClick={() => setShowMeetingForm(p => !p)}
+                  className="text-[10px] text-gray-400 hover:text-gray-700 transition-colors">
+                  {showMeetingForm ? '취소' : '+ 추가'}
+                </button>
+              </div>
+
+              {showMeetingForm && (
+                <div className="mb-3 p-2.5 bg-white/60 border border-gray-200/60 rounded-xl space-y-2">
+                  <input
+                    autoFocus
+                    value={meetForm.title}
+                    onChange={e => setMeetForm(p => ({ ...p, title: e.target.value }))}
+                    onKeyDown={e => { if (e.key === 'Enter') addMeetingSchedule() }}
+                    placeholder="회의명"
+                    className="w-full text-xs focus:outline-none border-b border-gray-100 pb-1 bg-transparent text-gray-700 placeholder:text-gray-300"
+                  />
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="time"
+                      value={meetForm.time}
+                      onChange={e => setMeetForm(p => ({ ...p, time: e.target.value }))}
+                      className="text-xs border border-gray-200 rounded px-1.5 py-0.5 focus:outline-none text-gray-600 bg-white"
+                    />
+                    <label className="flex items-center gap-1 text-[10px] text-gray-500 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={meetForm.is_recurring}
+                        onChange={e => setMeetForm(p => ({ ...p, is_recurring: e.target.checked }))}
+                        className="w-3 h-3"
+                      />
+                      반복
+                    </label>
+                  </div>
+                  {meetForm.is_recurring ? (
+                    <div className="flex gap-1">
+                      {DOW_LABELS_SCHED.map((label, d) => (
+                        <button key={d} type="button" onClick={() => toggleMeetDow(d)}
+                          className={`text-[9px] w-6 h-6 rounded-full font-medium transition-colors ${
+                            meetForm.days_of_week.includes(d) ? 'bg-[#0F1E36] text-white' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+                          }`}>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <input
+                      type="date"
+                      value={meetForm.date}
+                      onChange={e => setMeetForm(p => ({ ...p, date: e.target.value }))}
+                      className="text-xs border border-gray-200 rounded px-1.5 py-0.5 focus:outline-none text-gray-600 bg-white"
+                    />
+                  )}
+                  <div className="flex justify-end gap-1.5 pt-1">
+                    <button onClick={() => setShowMeetingForm(false)}
+                      className="text-[10px] text-gray-400 hover:text-gray-600">취소</button>
+                    <button onClick={addMeetingSchedule} disabled={!meetForm.title.trim()}
+                      className="text-[10px] bg-[#0F1E36] text-white px-2.5 py-1 rounded-full disabled:opacity-40">
+                      저장
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-1">
+                {schedules.length === 0 ? (
+                  <p className="text-xs text-gray-300 text-center py-2">등록된 고정 회의 없음</p>
+                ) : (
+                  schedules.map(s => (
+                    <div key={s.id} className="group flex items-center gap-2 px-1.5 py-1.5 rounded-lg hover:bg-white/50 transition-colors">
+                      <span className="text-[11px] font-mono text-gray-400 w-10 flex-shrink-0">{s.time}</span>
+                      <span className="flex-1 text-[11px] text-gray-700 truncate">{s.title}</span>
+                      <span className="text-[8px] text-gray-300 flex-shrink-0">
+                        {s.is_recurring
+                          ? (s.days_of_week ?? []).map(d => DOW_LABELS_SCHED[d]).join('')
+                          : s.date}
+                      </span>
+                      <button
+                        onClick={() => removeMeetingSchedule(s.id)}
+                        className="text-[9px] text-gray-200 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                        ×
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
             {/* 전월 */}
             <div className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl overflow-hidden">
               <button className="w-full flex items-center justify-between px-4 py-3 text-xs text-gray-500 hover:bg-white/40 transition-colors"

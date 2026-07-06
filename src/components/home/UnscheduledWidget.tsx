@@ -21,7 +21,7 @@ export default function UnscheduledWidget({ todos, onAssign }: Props) {
   return (
     <div className="h-full flex flex-col p-3 font-sans">
       <div className="flex items-center justify-between mb-3 flex-shrink-0">
-        <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">📥 미배정</span>
+        <span className="text-xs font-semibold text-gray-400">📥 미배정</span>
         {unscheduled.length > 0 && (
           <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-gray-100/80 text-gray-500">
             {unscheduled.length > 9 ? '9+' : unscheduled.length}
@@ -39,18 +39,18 @@ export default function UnscheduledWidget({ todos, onAssign }: Props) {
             const task = todo.tasks as { id: string; title: string; short_name?: string | null } | null
             const badge = task?.short_name ?? task?.title?.slice(0, 4) ?? ''
             return (
-              <div key={todo.id} className="group flex items-start gap-1.5 px-1.5 py-1.5 rounded-lg hover:bg-white/50 transition-colors">
-                <div className="flex-1 min-w-0">
+              <div key={todo.id} className="group flex flex-col px-1.5 py-1.5 rounded-lg hover:bg-white/50 transition-colors">
+                <div className="flex items-start gap-1.5 min-w-0">
                   {badge && (
-                    <span className="inline-block text-[9px] bg-gray-100 text-gray-500 rounded px-1 py-0.5 mr-1 leading-none">
+                    <span className="inline-block flex-shrink-0 text-[9px] bg-gray-100 text-gray-500 rounded px-1 py-0.5 leading-none mt-0.5">
                       {badge}
                     </span>
                   )}
-                  <Link href={`/tasks/${task?.id ?? ''}`} className="text-xs text-gray-700 leading-snug hover:text-gray-900 transition-colors">
+                  <Link href={`/tasks/${task?.id ?? ''}`} className="text-xs text-gray-700 leading-snug hover:text-gray-900 transition-colors min-w-0">
                     {todo.title}
                   </Link>
                 </div>
-                <div className="flex-shrink-0 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="overflow-hidden max-h-0 group-hover:max-h-6 transition-all duration-150 flex gap-0.5 mt-0.5">
                   {TAG_OPTIONS.map(({ tag, label, cls }) => (
                     <button
                       key={tag}

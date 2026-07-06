@@ -69,6 +69,7 @@ export default function DailyJournalWidget({ selectedDate, onNavigate, onDateCha
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const meetingSearchRef = useRef<HTMLInputElement>(null)
+  const datePickerRef = useRef<HTMLInputElement>(null)
   const supabase = createClient()
 
   // 날짜 변경 시 해당 날짜 데이터 로드
@@ -180,52 +181,34 @@ export default function DailyJournalWidget({ selectedDate, onNavigate, onDateCha
     m.title.toLowerCase().includes(meetingSearch.toLowerCase())
   ).slice(0, 6)
 
-  // 이번 주 월~금 회고 작성 현황
-  const weekDots = Array.from({ length: 5 }, (_, i) => {
-    const d = new Date()
-    const day = d.getDay()
-    const daysToMon = day === 0 ? 6 : day - 1
-    const mon = new Date(d); mon.setDate(d.getDate() - daysToMon)
-    const target = new Date(mon); target.setDate(mon.getDate() + i)
-    const ds = localDateStr(target)
-    return { ds, filled: !!journals[ds], future: ds > TODAY }
-  })
-  const weekFilled = weekDots.filter(d => d.filled).length
-
   return (
     <div className="flex flex-col overflow-hidden h-full font-sans">
 
       {/* 헤더 */}
       <div className="flex items-center gap-2 px-4 py-2.5 border-b border-black/5 flex-shrink-0">
-        <span className="text-base leading-none">🪴</span>
-        <span className="text-sm font-semibold text-gray-700 flex-1">회고</span>
-
-        {/* 주간 도트 */}
-        <div className="flex items-center gap-1" title={`이번 주 ${weekFilled}/5일 작성`}>
-          {weekDots.map((d, i) => (
-            <div key={i} className={`w-[5px] h-[5px] rounded-full transition-colors ${
-              d.future ? 'bg-black/10' : d.filled ? 'bg-[#A8C0E0]' : 'bg-black/15'
-            }`} />
-          ))}
-        </div>
+        <span className="text-sm leading-none">🪴</span>
+        <span className="text-xs font-semibold text-gray-700 flex-1">회고</span>
 
         {/* 날짜 네비게이션 */}
         <div className="flex items-center gap-0.5 bg-white/60 text-gray-600 rounded-full px-1.5 py-0.5">
           <button onClick={() => onNavigate(-1)} className="hover:opacity-60 transition-opacity text-xs px-0.5">←</button>
-          <div className="relative">
-            <span className="min-w-[2.5rem] text-center text-[11px] font-medium block px-0.5 cursor-pointer hover:opacity-70 transition-opacity" title="클릭해서 날짜 선택">
-              {formatDateLabel(selectedDate)}
-            </span>
-            {onDateChange && (
-              <input
-                type="date"
-                max={todayStr()}
-                value={selectedDate}
-                onChange={e => { if (e.target.value && e.target.value <= todayStr()) onDateChange(e.target.value) }}
-                className="absolute inset-0 opacity-0 cursor-pointer w-full"
-              />
-            )}
-          </div>
+          <span
+            onClick={() => onDateChange && datePickerRef.current?.showPicker?.()}
+            className={`min-w-[2.5rem] text-center text-[11px] font-medium block px-0.5 transition-opacity ${onDateChange ? 'cursor-pointer hover:opacity-70' : ''}`}
+            title={onDateChange ? '클릭해서 날짜 선택' : undefined}
+          >
+            {formatDateLabel(selectedDate)}
+          </span>
+          {onDateChange && (
+            <input
+              ref={datePickerRef}
+              type="date"
+              max={todayStr()}
+              value={selectedDate}
+              onChange={e => { if (e.target.value && e.target.value <= todayStr()) onDateChange(e.target.value) }}
+              className="sr-only"
+            />
+          )}
           <button onClick={() => onNavigate(1)} disabled={isToday} className="hover:opacity-60 disabled:opacity-20 transition-opacity text-xs px-0.5">→</button>
         </div>
 

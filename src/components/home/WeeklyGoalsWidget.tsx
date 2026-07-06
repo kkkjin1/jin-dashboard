@@ -37,7 +37,11 @@ export default function WeeklyGoalsWidget({ tasks }: Props) {
   const { value: allGoals, save } = useUserSetting<WeeklyGoal[]>('weekly_goals', [])
   const goals = allGoals.filter(g => g.week_start === weekStart)
 
-  const [newText, setNewText] = useState('')
+  const [inputMode, setInputMode] = useState<'search' | 'freetext'>('search')
+  const [searchText, setSearchText] = useState('')
+  const [freeText, setFreeText] = useState('')
+  const [hlIdx, setHlIdx] = useState(0)
+  const [showDrop, setShowDrop] = useState(false)
   const [linkingId, setLinkingId] = useState<string | null>(null)
   const [taskSearch, setTaskSearch] = useState('')
 
@@ -47,20 +51,41 @@ export default function WeeklyGoalsWidget({ tasks }: Props) {
     (t.short_name ?? '').toLowerCase().includes(taskSearch.toLowerCase())
   ).slice(0, 6)
 
+  const dropTasks = activeTasks.filter(t =>
+    !searchText || t.title.toLowerCase().includes(searchText.toLowerCase()) ||
+    (t.short_name ?? '').toLowerCase().includes(searchText.toLowerCase())
+  ).slice(0, 5)
+
   function saveGoals(next: WeeklyGoal[]) {
     const others = allGoals.filter(g => g.week_start !== weekStart)
     save([...others, ...next])
   }
 
-  function addGoal() {
-    if (!newText.trim()) return
-    saveGoals([...goals, {
-      id: Date.now().toString(),
-      week_start: weekStart,
-      text: newText.trim(),
-      done: false,
-    }])
-    setNewText('')
+  function selectDropItem(idx: number) {
+    if (idx < dropTasks.length) {
+      const task = dropTasks[idx]
+      saveGoals([...goals, { id: Date.now().toString(), week_start: weekStart, text: task.title, task_id: task.id, done: false }])
+      setSearchText(''); setShowDrop(false); setHlIdx(0)
+    } else {
+      setFreeText(searchText)
+      setInputMode('freetext')
+      setSearchText(''); setShowDrop(false)
+    }
+  }
+
+  function handleSearchKeyDown(e: React.KeyboardEvent) {
+    if (e.nativeEvent.isComposing) return
+    const total = dropTasks.length + 1
+    if (e.key === 'ArrowDown') { e.preventDefault(); setHlIdx(i => Math.min(i + 1, total - 1)) }
+    if (e.key === 'ArrowUp') { e.preventDefault(); setHlIdx(i => Math.max(i - 1, 0)) }
+    if (e.key === 'Enter') { e.preventDefault(); if (showDrop) selectDropItem(hlIdx); else setShowDrop(true) }
+    if (e.key === 'Escape') { setShowDrop(false) }
+  }
+
+  function addFreeGoal() {
+    if (!freeText.trim()) { setInputMode('search'); return }
+    saveGoals([...goals, { id: Date.now().toString(), week_start: weekStart, text: freeText.trim(), done: false }])
+    setFreeText(''); setInputMode('search')
   }
 
   function toggleDone(id: string) {
@@ -172,18 +197,64 @@ export default function WeeklyGoalsWidget({ tasks }: Props) {
         })}
       </div>
 
-      <div className="flex-shrink-0 flex gap-1.5 mt-2 pt-2 border-t border-gray-100">
-        <input
-          value={newText}
-          onChange={e => setNewText(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') addGoal() }}
-          placeholder="이번 주 목표 추가…"
-          className="flex-1 text-xs border border-white/60 bg-white/50 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-gray-300 transition-all placeholder:text-gray-300"
-        />
-        <button onClick={addGoal} disabled={!newText.trim()}
-          className="text-xs text-gray-400 hover:text-gray-700 border border-gray-200 rounded-lg px-2.5 py-1.5 hover:bg-white/50 disabled:opacity-30 transition-colors">
-          +
-        </button>
+      <div className="flex-shrink-0 mt-2 pt-2 border-t border-gray-100 relative">
+        {inputMode === 'search' ? (
+          <>
+            <input
+              value={searchText}
+              onChange={e => { setSearchText(e.target.value); setHlIdx(0); setShowDrop(true) }}
+              onFocus={() => setShowDrop(true)}
+              onBlur={() => setTimeout(() => setShowDrop(false), 150)}
+              onKeyDown={handleSearchKeyDown}
+              placeholder="업무 검색 후 목표 추가…"
+              className="w-full text-xs border border-white/60 bg-white/50 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-gray-300 transition-all placeholder:text-gray-300"
+            />
+            {showDrop && (
+              <div className="absolute bottom-full left-0 right-0 mb-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden z-20">
+                {dropTasks.map((t, idx) => (
+                  <button
+                    key={t.id}
+                    onMouseDown={e => { e.preventDefault(); selectDropItem(idx) }}
+                    className={`w-full text-left px-3 py-2 text-xs flex items-center gap-1.5 transition-colors ${hlIdx === idx ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
+                  >
+                    {t.short_name && <span className="text-[9px] bg-gray-100 text-gray-500 rounded px-1 flex-shrink-0">{t.short_name}</span>}
+                    <span className="text-gray-700 truncate">{t.title}</span>
+                    <span className="text-[9px] text-gray-300 ml-auto flex-shrink-0">{t.status}</span>
+                  </button>
+                ))}
+                <button
+                  onMouseDown={e => { e.preventDefault(); selectDropItem(dropTasks.length) }}
+                  className={`w-full text-left px-3 py-2 text-xs border-t border-gray-100 transition-colors ${hlIdx === dropTasks.length ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
+                >
+                  <span className="text-gray-400 italic">+ 기타 추가 (직접 입력)</span>
+                </button>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="flex gap-1.5 items-center">
+            <input
+              autoFocus
+              value={freeText}
+              onChange={e => setFreeText(e.target.value)}
+              onKeyDown={e => {
+                if (e.nativeEvent.isComposing) return
+                if (e.key === 'Enter') addFreeGoal()
+                if (e.key === 'Escape') { setInputMode('search'); setFreeText('') }
+              }}
+              placeholder="목표 직접 입력…"
+              className="flex-1 text-xs border border-white/60 bg-white/50 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-gray-300 transition-all placeholder:text-gray-300"
+            />
+            <button onClick={addFreeGoal} disabled={!freeText.trim()}
+              className="text-xs text-gray-400 hover:text-gray-700 border border-gray-200 rounded-lg px-2.5 py-1.5 hover:bg-white/50 disabled:opacity-30 transition-colors">
+              추가
+            </button>
+            <button onClick={() => { setInputMode('search'); setFreeText('') }}
+              className="text-xs text-gray-300 hover:text-gray-500 flex-shrink-0">
+              취소
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )
