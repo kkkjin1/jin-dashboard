@@ -533,7 +533,7 @@ export default function HomePage() {
         <div className="flex-[2] grid grid-cols-4 gap-3 min-h-0">
           <div className="min-h-0">
             <CompactCol
-              title="오늘" items={todayItems} dark
+              title="☀️ 오늘" items={todayItems} dark
               completedCount={completedThisWeek.length}
               colBadge={{ label: '진행중', bg: 'bg-violet-500/20', text: 'text-violet-300' }}
               droppable
@@ -546,7 +546,7 @@ export default function HomePage() {
           </div>
           <div className="min-h-0">
             <CompactCol
-              title="내일" items={tomorrowItems}
+              title="🌙 내일" items={tomorrowItems}
               colBadge={{ label: '대기', bg: 'bg-gray-100/80', text: 'text-gray-400' }}
               droppable
               onDrop={e => handleDrop(e, 'tomorrow')}
@@ -558,7 +558,7 @@ export default function HomePage() {
           </div>
           <div className="min-h-0">
             <CompactCol
-              title="금주" items={weekItems}
+              title="📅 금주" items={weekItems}
               colBadge={{ label: '대기', bg: 'bg-gray-100/80', text: 'text-gray-400' }}
               droppable
               onDrop={e => handleDrop(e, 'this_week')}
@@ -583,6 +583,7 @@ export default function HomePage() {
               <DailyJournalWidget
                 selectedDate={sharedDate}
                 onNavigate={navigateSharedDate}
+                onDateChange={date => setSharedDate(date)}
                 tasks={tasks}
                 meetings={meetings}
               />

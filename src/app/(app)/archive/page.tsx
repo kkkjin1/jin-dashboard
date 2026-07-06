@@ -177,6 +177,7 @@ export default function ArchivePage() {
             <DailyJournalWidget
               selectedDate={selectedDate}
               onNavigate={navigate}
+              onDateChange={date => { setSelectedDate(date); setJournalContent('') }}
               tasks={tasks}
               meetings={meetings}
               onSaved={content => {

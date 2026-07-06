@@ -20,11 +20,12 @@ export default function UnscheduledWidget({ todos, onAssign }: Props) {
 
   return (
     <div className="h-full flex flex-col p-3 font-sans">
-      <div className="flex items-center gap-2 mb-2.5 flex-shrink-0">
-        <span className="w-1.5 h-1.5 rounded-full bg-gray-300 flex-shrink-0" />
-        <h3 className="text-xs font-semibold text-gray-500">미배정</h3>
+      <div className="flex items-center justify-between mb-3 flex-shrink-0">
+        <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">📥 미배정</span>
         {unscheduled.length > 0 && (
-          <span className="ml-auto text-[10px] text-gray-400">{unscheduled.length}건</span>
+          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-gray-100/80 text-gray-500">
+            {unscheduled.length > 9 ? '9+' : unscheduled.length}
+          </span>
         )}
       </div>
 
@@ -45,7 +46,7 @@ export default function UnscheduledWidget({ todos, onAssign }: Props) {
                       {badge}
                     </span>
                   )}
-                  <Link href={`/tasks/${task?.id ?? ''}`} className="text-[11px] text-gray-600 leading-snug hover:text-gray-900 transition-colors">
+                  <Link href={`/tasks/${task?.id ?? ''}`} className="text-xs text-gray-700 leading-snug hover:text-gray-900 transition-colors">
                     {todo.title}
                   </Link>
                 </div>

@@ -19,6 +19,7 @@ interface DailyJournal {
 interface Props {
   selectedDate: string
   onNavigate: (dir: -1 | 1) => void
+  onDateChange?: (date: string) => void
   tasks: Task[]
   meetings: MeetingMin[]
   onSaved?: (content: string) => void
@@ -47,7 +48,7 @@ function todayStr() {
   return localDateStr(new Date())
 }
 
-export default function DailyJournalWidget({ selectedDate, onNavigate, tasks, meetings, onSaved }: Props) {
+export default function DailyJournalWidget({ selectedDate, onNavigate, onDateChange, tasks, meetings, onSaved }: Props) {
   const TODAY = todayStr()
   const isToday = selectedDate === TODAY
 
@@ -211,7 +212,20 @@ export default function DailyJournalWidget({ selectedDate, onNavigate, tasks, me
         {/* 날짜 네비게이션 */}
         <div className="flex items-center gap-0.5 bg-white/60 text-gray-600 rounded-full px-1.5 py-0.5">
           <button onClick={() => onNavigate(-1)} className="hover:opacity-60 transition-opacity text-xs px-0.5">←</button>
-          <span className="min-w-[2.5rem] text-center text-[11px] font-medium">{formatDateLabel(selectedDate)}</span>
+          <div className="relative">
+            <span className="min-w-[2.5rem] text-center text-[11px] font-medium block px-0.5 cursor-pointer hover:opacity-70 transition-opacity" title="클릭해서 날짜 선택">
+              {formatDateLabel(selectedDate)}
+            </span>
+            {onDateChange && (
+              <input
+                type="date"
+                max={todayStr()}
+                value={selectedDate}
+                onChange={e => { if (e.target.value && e.target.value <= todayStr()) onDateChange(e.target.value) }}
+                className="absolute inset-0 opacity-0 cursor-pointer w-full"
+              />
+            )}
+          </div>
           <button onClick={() => onNavigate(1)} disabled={isToday} className="hover:opacity-60 disabled:opacity-20 transition-opacity text-xs px-0.5">→</button>
         </div>
 
