@@ -4,14 +4,15 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import DailyJournalWidget from '@/components/home/DailyJournalWidget'
 import TodayTodoWidget from '@/components/home/TodayTodoWidget'
-import DailyLogWidget from '@/components/home/DailyLogWidget'
-import TomorrowPlanWidget from '@/components/home/TomorrowPlanWidget'
+import UnscheduledWidget from '@/components/home/UnscheduledWidget'
+import WeeklyGoalsWidget from '@/components/home/WeeklyGoalsWidget'
+import MeetingBriefWidget from '@/components/home/MeetingBriefWidget'
 import QuickTaskInput from '@/components/home/QuickTaskInput'
 import { fetchAllTasks } from '@/lib/tasks'
 import { createClient } from '@/lib/supabase/client'
 import { useUserSetting } from '@/hooks/useUserSetting'
 import { HomePageSkeleton } from '@/components/ui/Skeleton'
-import type { Task, Meeting, TaskTodo } from '@/types'
+import type { Task, Meeting, TaskTodo, ScheduleTag } from '@/types'
 
 function getShortcutIcon(url: string, title: string): string {
   const u = url.toLowerCase()
@@ -236,8 +237,6 @@ export default function HomePage() {
   const [meetings, setMeetings]                   = useState<Pick<Meeting, 'id' | 'title' | 'meeting_date'>[]>([])
   const [oneOnOnes, setOneOnOnes]                 = useState<{ id: string; session_date: string }[]>([])
   const supabase = createClient()
-  const [journalDraft, setJournalDraft] = useState('')
-  const [savedJournalContent, setSavedJournalContent] = useState('')
   const [sharedDate, setSharedDate] = useState(todayStr())
 
   function navigateSharedDate(dir: -1 | 1) {
@@ -249,8 +248,13 @@ export default function HomePage() {
       if (next > todayStr()) return prev
       return next
     })
-    setJournalDraft('')
-    setSavedJournalContent('')
+  }
+
+  async function handleAssignTodo(todoId: string, tag: ScheduleTag) {
+    const { today: t, tomorrow: tm, thisFriday: tf } = getDateStrings()
+    const targetDate = tag === 'today' ? t : tag === 'tomorrow' ? tm : tf
+    await supabase.from('task_todos').update({ target_date: targetDate }).eq('id', todoId)
+    setTodos(prev => prev.map(todo => todo.id === todoId ? { ...todo, target_date: targetDate } : todo))
   }
 
   type Shortcut = { id: string; title: string; url: string }
@@ -509,7 +513,7 @@ export default function HomePage() {
         </div>
         <div className="flex-shrink-0 h-64 overflow-hidden">
           <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full overflow-hidden font-sans">
-            <DailyJournalWidget selectedDate={todayStr()} onNavigate={() => {}} tasks={tasks} meetings={meetings} />
+            <DailyJournalWidget selectedDate={todayStr()} onNavigate={() => {}} tasks={tasks} meetings={meetings.map(m => ({ id: m.id, title: m.title ?? '', meeting_date: m.meeting_date ?? null }))} />
           </div>
         </div>
         <div className="flex-shrink-0 h-64 overflow-hidden">
@@ -525,7 +529,7 @@ export default function HomePage() {
       */}
       <div className="hidden md:flex flex-col flex-1 min-h-0 gap-3">
 
-        {/* Row 1 — 4등분 컬럼 */}
+        {/* Row 1 — 오늘 | 내일 | 금주 | 미배정 */}
         <div className="flex-[2] grid grid-cols-4 gap-3 min-h-0">
           <div className="min-h-0">
             <CompactCol
@@ -566,42 +570,39 @@ export default function HomePage() {
           </div>
           <div className="min-h-0 overflow-hidden">
             <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full overflow-hidden font-sans">
-              <TodayTodoWidget />
+              <UnscheduledWidget todos={todos} onAssign={handleAssignTodo} />
             </div>
           </div>
         </div>
 
-        {/* Row 2 — 오늘일상(1/3) + 회고(1/3) + 내일계획(1/3) */}
-        <div className="flex-[3] grid grid-cols-3 gap-3 min-h-0">
-          {/* 오늘일상 */}
-          <div className="min-h-0 overflow-hidden">
-            <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full overflow-hidden font-sans">
-              <DailyLogWidget
-                selectedDate={sharedDate}
-                onDraftReady={draft => setJournalDraft(draft + '\n')}
-              />
-            </div>
-          </div>
+        {/* Row 2 — 회고(1) | 금주목표(1) | 오늘회의+오늘할일(2) */}
+        <div className="flex-[3] grid grid-cols-4 gap-3 min-h-0">
           {/* 회고 */}
-          <div className="min-h-0 overflow-hidden">
+          <div className="min-h-0 overflow-hidden col-span-1">
             <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full overflow-hidden font-sans">
               <DailyJournalWidget
                 selectedDate={sharedDate}
                 onNavigate={navigateSharedDate}
                 tasks={tasks}
                 meetings={meetings}
-                externalDraft={journalDraft}
-                onSaved={content => setSavedJournalContent(content)}
               />
             </div>
           </div>
-          {/* 내일 계획 */}
-          <div className="min-h-0 overflow-hidden">
+          {/* 금주 목표 */}
+          <div className="min-h-0 overflow-hidden col-span-1">
             <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full overflow-hidden font-sans">
-              <TomorrowPlanWidget
-                selectedDate={sharedDate}
-                journalContent={savedJournalContent}
-              />
+              <WeeklyGoalsWidget tasks={tasks} />
+            </div>
+          </div>
+          {/* 오늘 회의 + 오늘 할 일 (2칸 합산) */}
+          <div className="min-h-0 overflow-hidden col-span-2">
+            <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full overflow-hidden font-sans grid grid-cols-2 divide-x divide-white/40">
+              <div className="min-h-0 overflow-hidden">
+                <MeetingBriefWidget />
+              </div>
+              <div className="min-h-0 overflow-hidden">
+                <TodayTodoWidget />
+              </div>
             </div>
           </div>
         </div>

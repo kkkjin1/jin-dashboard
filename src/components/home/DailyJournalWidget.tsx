@@ -21,7 +21,6 @@ interface Props {
   onNavigate: (dir: -1 | 1) => void
   tasks: Task[]
   meetings: MeetingMin[]
-  externalDraft?: string
   onSaved?: (content: string) => void
 }
 
@@ -48,7 +47,7 @@ function todayStr() {
   return localDateStr(new Date())
 }
 
-export default function DailyJournalWidget({ selectedDate, onNavigate, tasks, meetings, externalDraft, onSaved }: Props) {
+export default function DailyJournalWidget({ selectedDate, onNavigate, tasks, meetings, onSaved }: Props) {
   const TODAY = todayStr()
   const isToday = selectedDate === TODAY
 
@@ -70,17 +69,6 @@ export default function DailyJournalWidget({ selectedDate, onNavigate, tasks, me
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const meetingSearchRef = useRef<HTMLInputElement>(null)
   const supabase = createClient()
-
-  // 외부 초안이 들어오면 편집 모드로 전환
-  useEffect(() => {
-    if (!externalDraft) return
-    setDraft(externalDraft)
-    setLinkedMeetingIds(current?.linked_meeting_ids ?? [])
-    setTags(current?.tags ?? [])
-    setSaveError('')
-    setEditing(true)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [externalDraft])
 
   // 날짜 변경 시 해당 날짜 데이터 로드
   useEffect(() => {
