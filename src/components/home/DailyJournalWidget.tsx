@@ -18,10 +18,22 @@ interface DailyJournal {
 
 interface Props {
   selectedDate: string
+  onNavigate: (dir: -1 | 1) => void
   tasks: Task[]
   meetings: MeetingMin[]
   externalDraft?: string
   onSaved?: (content: string) => void
+}
+
+function formatDateLabel(ds: string) {
+  const d = new Date(ds + 'T00:00:00')
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const target = new Date(d); target.setHours(0, 0, 0, 0)
+  const diff = Math.round((today.getTime() - target.getTime()) / 86400000)
+  if (diff === 0) return '오늘'
+  if (diff === 1) return '어제'
+  if (diff === 2) return '그제'
+  return `${d.getMonth() + 1}/${d.getDate()}`
 }
 
 function localDateStr(d: Date) {
@@ -36,7 +48,7 @@ function todayStr() {
   return localDateStr(new Date())
 }
 
-export default function DailyJournalWidget({ selectedDate, tasks, meetings, externalDraft, onSaved }: Props) {
+export default function DailyJournalWidget({ selectedDate, onNavigate, tasks, meetings, externalDraft, onSaved }: Props) {
   const TODAY = todayStr()
   const isToday = selectedDate === TODAY
 
@@ -200,16 +212,23 @@ export default function DailyJournalWidget({ selectedDate, tasks, meetings, exte
         <span className="text-sm font-semibold text-gray-700 flex-1">회고</span>
 
         {/* 주간 도트 */}
-        <div className="flex items-center gap-1 mr-1" title={`이번 주 ${weekFilled}/5일 작성`}>
+        <div className="flex items-center gap-1" title={`이번 주 ${weekFilled}/5일 작성`}>
           {weekDots.map((d, i) => (
-            <div key={i} className={`w-[6px] h-[6px] rounded-full transition-colors ${
+            <div key={i} className={`w-[5px] h-[5px] rounded-full transition-colors ${
               d.future ? 'bg-black/10' : d.filled ? 'bg-[#A8C0E0]' : 'bg-black/15'
             }`} />
           ))}
         </div>
 
+        {/* 날짜 네비게이션 */}
+        <div className="flex items-center gap-0.5 bg-white/60 text-gray-600 rounded-full px-1.5 py-0.5">
+          <button onClick={() => onNavigate(-1)} className="hover:opacity-60 transition-opacity text-xs px-0.5">←</button>
+          <span className="min-w-[2.5rem] text-center text-[11px] font-medium">{formatDateLabel(selectedDate)}</span>
+          <button onClick={() => onNavigate(1)} disabled={isToday} className="hover:opacity-60 disabled:opacity-20 transition-opacity text-xs px-0.5">→</button>
+        </div>
+
         {current && !editing && (
-          <button onClick={startEdit} className="text-[11px] text-gray-400 hover:text-gray-600 ml-1">수정</button>
+          <button onClick={startEdit} className="text-[11px] text-gray-400 hover:text-gray-600">수정</button>
         )}
       </div>
 

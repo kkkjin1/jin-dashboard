@@ -176,6 +176,7 @@ export default function ArchivePage() {
           <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full overflow-hidden font-sans">
             <DailyJournalWidget
               selectedDate={selectedDate}
+              onNavigate={navigate}
               tasks={tasks}
               meetings={meetings}
               onSaved={content => {

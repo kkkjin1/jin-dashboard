@@ -13,6 +13,25 @@ import { useUserSetting } from '@/hooks/useUserSetting'
 import { HomePageSkeleton } from '@/components/ui/Skeleton'
 import type { Task, Meeting, TaskTodo } from '@/types'
 
+function getShortcutIcon(url: string, title: string): string {
+  const u = url.toLowerCase()
+  const t = title.toLowerCase()
+  if (u.includes('calendar.google') || u.includes('calendar') || t.includes('캘린더') || t.includes('calendar')) return '📅'
+  if (u.includes('gmail') || u.includes('/mail') || t.includes('메일') || t.includes('gmail') || t.includes('mail')) return '📧'
+  if (u.includes('notion.') || t.includes('notion')) return '📋'
+  if (u.includes('slack.com') || t.includes('slack')) return '💬'
+  if (u.includes('github.com') || t.includes('github')) return '🐙'
+  if (u.includes('figma.com') || t.includes('figma')) return '🎨'
+  if (u.includes('drive.google') || t.includes('드라이브') || t.includes('drive')) return '📁'
+  if (u.includes('docs.google') || t.includes('구글 문서') || t.includes('docs')) return '📄'
+  if (u.includes('sheets.google') || t.includes('시트') || t.includes('sheet')) return '📊'
+  if (u.includes('zoom.us') || t.includes('zoom')) return '🎥'
+  if (u.includes('meet.google') || t.includes('meet')) return '🎥'
+  if (u.includes('jira') || t.includes('jira')) return '🎯'
+  if (u.includes('confluence') || t.includes('confluence')) return '🗂️'
+  return '🔗'
+}
+
 function localDateStr(d: Date) {
   return [
     d.getFullYear(),
@@ -414,7 +433,7 @@ export default function HomePage() {
             <div key={s.id} className="group relative">
               <a href={s.url} target="_blank" rel="noopener noreferrer"
                 className="flex items-center gap-1 bg-white/40 backdrop-blur-md border border-white/60 rounded-full px-2.5 py-1 hover:bg-white/60 transition-all shadow-sm">
-                <span className="text-xs text-gray-600 truncate max-w-24">🔗 {s.title}</span>
+                <span className="text-xs text-gray-600 truncate max-w-24">{getShortcutIcon(s.url, s.title)} {s.title}</span>
               </a>
               <div className="absolute -top-1.5 -right-1.5 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button onClick={() => startEditShortcut(s)}
@@ -490,7 +509,7 @@ export default function HomePage() {
         </div>
         <div className="flex-shrink-0 h-64 overflow-hidden">
           <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full overflow-hidden font-sans">
-            <DailyJournalWidget selectedDate={todayStr()} tasks={tasks} meetings={meetings} />
+            <DailyJournalWidget selectedDate={todayStr()} onNavigate={() => {}} tasks={tasks} meetings={meetings} />
           </div>
         </div>
         <div className="flex-shrink-0 h-64 overflow-hidden">
@@ -507,7 +526,7 @@ export default function HomePage() {
       <div className="hidden md:flex flex-col flex-1 min-h-0 gap-3">
 
         {/* Row 1 — 4등분 컬럼 */}
-        <div className="flex-[3] grid grid-cols-4 gap-3 min-h-0">
+        <div className="flex-[2] grid grid-cols-4 gap-3 min-h-0">
           <div className="min-h-0">
             <CompactCol
               title="오늘" items={todayItems} dark
@@ -552,75 +571,37 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Row 2 — 날짜 네비 + 오늘일상(1/3) + 회고(1/3) + 내일계획(1/3) */}
-        <div className="flex-[2] flex flex-col gap-2 min-h-0">
-
-          {/* 공유 날짜 네비게이션 바 */}
-          <div className="flex-shrink-0 flex items-center justify-center gap-2">
-            <button
-              onClick={() => navigateSharedDate(-1)}
-              className="w-6 h-6 flex items-center justify-center rounded-full bg-white/50 border border-white/60 hover:bg-white/80 text-gray-500 hover:text-gray-800 text-xs transition-all">
-              ←
-            </button>
-            <div className="flex items-center gap-2 bg-white/50 backdrop-blur-md border border-white/60 rounded-full px-3 py-1 shadow-sm">
-              <span className="text-xs font-semibold text-gray-700 min-w-[5rem] text-center">
-                {formatSharedDateLabel(sharedDate)}
-              </span>
-              <span className="text-[10px] text-gray-400">{sharedDate}</span>
-              <input
-                type="date"
-                max={todayStr()}
-                value={sharedDate}
-                onChange={e => {
-                  if (e.target.value && e.target.value <= todayStr()) {
-                    setSharedDate(e.target.value)
-                    setJournalDraft('')
-                    setSavedJournalContent('')
-                  }
-                }}
-                className="w-4 h-4 opacity-0 absolute cursor-pointer"
-                style={{ position: 'relative' }}
+        {/* Row 2 — 오늘일상(1/3) + 회고(1/3) + 내일계획(1/3) */}
+        <div className="flex-[3] grid grid-cols-3 gap-3 min-h-0">
+          {/* 오늘일상 */}
+          <div className="min-h-0 overflow-hidden">
+            <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full overflow-hidden font-sans">
+              <DailyLogWidget
+                selectedDate={sharedDate}
+                onDraftReady={draft => setJournalDraft(draft + '\n')}
               />
             </div>
-            <button
-              onClick={() => navigateSharedDate(1)}
-              disabled={sharedDate >= todayStr()}
-              className="w-6 h-6 flex items-center justify-center rounded-full bg-white/50 border border-white/60 hover:bg-white/80 text-gray-500 hover:text-gray-800 text-xs transition-all disabled:opacity-30 disabled:cursor-not-allowed">
-              →
-            </button>
           </div>
-
-          {/* 3 위젯 그리드 */}
-          <div className="flex-1 grid grid-cols-3 gap-3 min-h-0">
-            {/* 오늘일상 */}
-            <div className="min-h-0 overflow-hidden">
-              <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full overflow-hidden font-sans">
-                <DailyLogWidget
-                  selectedDate={sharedDate}
-                  onDraftReady={draft => setJournalDraft(draft + '\n')}
-                />
-              </div>
+          {/* 회고 */}
+          <div className="min-h-0 overflow-hidden">
+            <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full overflow-hidden font-sans">
+              <DailyJournalWidget
+                selectedDate={sharedDate}
+                onNavigate={navigateSharedDate}
+                tasks={tasks}
+                meetings={meetings}
+                externalDraft={journalDraft}
+                onSaved={content => setSavedJournalContent(content)}
+              />
             </div>
-            {/* 회고 */}
-            <div className="min-h-0 overflow-hidden">
-              <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full overflow-hidden font-sans">
-                <DailyJournalWidget
-                  selectedDate={sharedDate}
-                  tasks={tasks}
-                  meetings={meetings}
-                  externalDraft={journalDraft}
-                  onSaved={content => setSavedJournalContent(content)}
-                />
-              </div>
-            </div>
-            {/* 내일 계획 */}
-            <div className="min-h-0 overflow-hidden">
-              <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full overflow-hidden font-sans">
-                <TomorrowPlanWidget
-                  selectedDate={sharedDate}
-                  journalContent={savedJournalContent}
-                />
-              </div>
+          </div>
+          {/* 내일 계획 */}
+          <div className="min-h-0 overflow-hidden">
+            <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full overflow-hidden font-sans">
+              <TomorrowPlanWidget
+                selectedDate={sharedDate}
+                journalContent={savedJournalContent}
+              />
             </div>
           </div>
         </div>
