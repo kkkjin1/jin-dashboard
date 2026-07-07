@@ -6,9 +6,10 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import type { Meeting, NoteEntry, Task, TaskStatus, Note, Attachment } from '@/types'
 import { generateMeetingMd, downloadMd } from '@/lib/markdown'
+import dynamic from 'next/dynamic'
 import MarkdownContent from '@/components/MarkdownContent'
-import FullscreenNoteEditor from '@/components/FullscreenNoteEditor'
-import TiptapEditor from '@/components/TiptapEditor'
+const FullscreenNoteEditor = dynamic(() => import('@/components/FullscreenNoteEditor'), { ssr: false })
+const TiptapEditor = dynamic(() => import('@/components/TiptapEditor'), { ssr: false })
 
 const CATEGORIES = ['코어', '비즈', '경영진', '본부장', '타팀', '목표관리'] as const
 const CATEGORY_COLORS: Record<string, string> = {

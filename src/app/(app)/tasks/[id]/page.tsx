@@ -9,9 +9,10 @@ import type { Task, Member, Note, Attachment, TaskStatus, Part, TaskType, Meetin
 import { format, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { generateTaskMd, downloadMd } from '@/lib/markdown'
+import dynamic from 'next/dynamic'
 import MarkdownContent from '@/components/MarkdownContent'
-import FullscreenNoteEditor from '@/components/FullscreenNoteEditor'
-import TiptapEditor from '@/components/TiptapEditor'
+const FullscreenNoteEditor = dynamic(() => import('@/components/FullscreenNoteEditor'), { ssr: false })
+const TiptapEditor = dynamic(() => import('@/components/TiptapEditor'), { ssr: false })
 
 const STATUSES: TaskStatus[] = ['진행필요', '진행중', '완료']
 const STATUS_COLORS: Record<TaskStatus, string> = {
