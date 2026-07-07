@@ -7,6 +7,7 @@ import { format, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import type { QuickMemo, MemoTag } from '@/types'
 import MarkdownContent from '@/components/MarkdownContent'
+import SmartTextarea from '@/components/SmartTextarea'
 
 const ALL_TAGS: MemoTag[] = ['공지', '업무관련', '회의관련', '아이디어', '완료']
 const FILTER_TAGS = ['전체', ...ALL_TAGS] as const
@@ -134,11 +135,17 @@ function EditModal({ memo, onSave, onClose }: EditModalProps) {
         </div>
         {/* 내용 영역 */}
         {mode === 'edit' ? (
-          <textarea value={content} onChange={e => setContent(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) onSave(memo.id, title, content, tag) }}
-            autoFocus={!!memo.content}
-            placeholder="내용 (Ctrl+Enter 저장)"
-            className="w-full text-sm text-gray-600 focus:outline-none resize-none bg-white/60 border border-gray-100 rounded-2xl p-3 flex-1 min-h-0" />
+          <div className="flex-1 min-h-0 overflow-y-auto bg-white/60 border border-gray-100 rounded-2xl">
+            <SmartTextarea
+              value={content}
+              onChange={setContent}
+              onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) onSave(memo.id, title, content, tag) }}
+              autoFocus={!!memo.content}
+              placeholder="내용 (Ctrl+Enter 저장)"
+              className="w-full text-sm text-gray-600 focus:outline-none resize-none bg-transparent p-3"
+              style={{ minHeight: '100%' }}
+            />
+          </div>
         ) : (
           <div className="flex-1 min-h-0 overflow-y-auto bg-white/60 border border-gray-100 rounded-2xl p-4 cursor-text"
             onClick={() => setMode('edit')}>
