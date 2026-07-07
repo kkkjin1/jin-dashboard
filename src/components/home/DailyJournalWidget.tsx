@@ -276,22 +276,20 @@ function JournalFullscreenEditor({ selectedDate, current, yesterday, meetings, s
       <div className="fixed inset-0 bg-black/40 z-[85]" onClick={onClose} />
 
       {/* 풀스크린 카드 */}
-      <div className="fixed inset-4 md:inset-10 bg-white rounded-2xl shadow-2xl z-[86] flex flex-col overflow-hidden">
+      <div className="fixed inset-0 md:inset-10 bg-white rounded-none md:rounded-2xl shadow-2xl z-[86] flex flex-col overflow-hidden">
 
         {/* 헤더 */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 flex-shrink-0">
-          <span className="text-sm font-semibold text-gray-700">🪴 {dateLabel} 회고</span>
-          <div className="flex items-center gap-3">
-            <span className="text-[11px] text-gray-300 hidden md:block">ESC 닫기 · Ctrl+Enter 저장</span>
-            <button
-              onClick={doSave}
-              disabled={!draft.trim() || saving}
-              className="text-xs bg-gray-900 text-white px-3.5 py-1.5 rounded-lg hover:bg-gray-800 disabled:opacity-40 transition-colors"
-            >
-              {saving ? '저장 중…' : '저장'}
-            </button>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
-          </div>
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100 flex-shrink-0">
+          <span className="text-sm font-semibold text-gray-700 flex-1 min-w-0 truncate">🪴 {dateLabel} 회고</span>
+          <span className="text-[10px] text-gray-300 hidden md:block whitespace-nowrap">ESC 닫기 · Ctrl+Enter 저장</span>
+          <button
+            onClick={doSave}
+            disabled={!draft.trim() || saving}
+            className="flex-shrink-0 text-xs bg-gray-900 text-white px-3 py-1.5 rounded-lg hover:bg-gray-800 disabled:opacity-40 transition-colors"
+          >
+            {saving ? '저장 중…' : '저장'}
+          </button>
+          <button onClick={onClose} className="flex-shrink-0 text-gray-400 hover:text-gray-600 text-xl leading-none px-1">×</button>
         </div>
 
         {/* 본문: 좌(어제) + 우(오늘) */}
@@ -300,10 +298,10 @@ function JournalFullscreenEditor({ selectedDate, current, yesterday, meetings, s
           {/* ── 좌: 어제 회고 (어제이거나, yesterday 있을 때만) ── */}
           {yesterday && (
             <div className="md:w-2/5 flex flex-col border-b md:border-b-0 md:border-r border-gray-100 min-h-0">
-              <div className="px-5 py-3 border-b border-gray-100 flex-shrink-0">
+              <div className="px-4 py-2.5 border-b border-gray-100 flex-shrink-0">
                 <p className="text-[11px] font-semibold text-gray-400">어제 회고</p>
               </div>
-              <div className="flex-1 overflow-y-auto px-5 py-4 scrollbar-hide">
+              <div className="flex-1 overflow-y-auto px-4 py-3 scrollbar-hide">
                 <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">{yesterday.content}</p>
                 {getMeetings(yesterday).length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mt-3">
