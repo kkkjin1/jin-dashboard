@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "prebuild": "echo CWD=$(pwd) && node -e \"try{const r=require.resolve('@tiptap/react');console.log('@tiptap/react:',r)}catch(e){console.error('FAIL:',e.message);}\" && node -e \"try{require.resolve('date-fns');console.log('date-fns: ok')}catch(e){console.error('date-fns FAIL:',e.message);}\"",
+    "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint"
   },
@@ -13,6 +14,12 @@
     "@base-ui/react": "^1.5.0",
     "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.108.1",
+    "@tiptap/extension-color": "^3.27.2",
+    "@tiptap/extension-highlight": "^3.27.2",
+    "@tiptap/extension-text-style": "^3.27.2",
+    "@tiptap/extension-underline": "^3.27.2",
+    "@tiptap/react": "^3.27.2",
+    "@tiptap/starter-kit": "^3.27.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",
