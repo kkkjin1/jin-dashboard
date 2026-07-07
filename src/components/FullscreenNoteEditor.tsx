@@ -3,6 +3,7 @@
 import { useRef, useEffect } from 'react'
 import SmartTextarea from './SmartTextarea'
 import FormattingToolbar from './FormattingToolbar'
+import MarkdownContent from './MarkdownContent'
 
 interface Props {
   value: string
@@ -51,24 +52,32 @@ export default function FullscreenNoteEditor({ value, onChange, onSave, onClose,
         <div className="px-5 pt-3 flex-shrink-0 border-b border-gray-50">
           <FormattingToolbar textareaRef={ref} value={value} onChange={onChange} />
         </div>
-        {/* Textarea — scrollable area, auto-grow inside */}
-        <div className="flex-1 overflow-y-auto">
-          <SmartTextarea
-            ref={ref}
-            value={value}
-            onChange={onChange}
-            onKeyDown={e => {
-              if (e.key === 'Escape') { e.preventDefault(); onClose() }
-              if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-                e.preventDefault()
-                onSave?.()
-                onClose()
-              }
-            }}
-            placeholder="내용 입력... (Ctrl+Enter 저장)"
-            className="w-full text-sm text-gray-700 focus:outline-none resize-none px-5 py-4"
-            style={{ minHeight: '240px' }}
-          />
+        {/* Split: textarea left, live preview right */}
+        <div className="flex-1 flex overflow-hidden min-h-0">
+          <div className="flex-1 overflow-y-auto border-r border-gray-100">
+            <SmartTextarea
+              ref={ref}
+              value={value}
+              onChange={onChange}
+              onKeyDown={e => {
+                if (e.key === 'Escape') { e.preventDefault(); onClose() }
+                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                  e.preventDefault()
+                  onSave?.()
+                  onClose()
+                }
+              }}
+              placeholder="내용 입력... (Ctrl+Enter 저장)"
+              className="w-full text-sm text-gray-700 focus:outline-none resize-none px-5 py-4"
+              style={{ minHeight: '100%' }}
+            />
+          </div>
+          <div className="flex-1 overflow-y-auto px-5 py-4 bg-gray-50/50">
+            {value
+              ? <MarkdownContent content={value} />
+              : <p className="text-sm text-gray-300 italic">서식 미리보기</p>
+            }
+          </div>
         </div>
       </div>
     </>

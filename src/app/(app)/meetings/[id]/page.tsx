@@ -81,8 +81,13 @@ function NoteAccordion({ note, index, isOpen, onToggle, onDelete, onEdit, onFull
               value={editTitle}
               onClick={e => e.stopPropagation()}
               onChange={e => setEditTitle(e.target.value)}
-              onBlur={() => { setEditingTitle(false); onEdit(index, note.content, editTitle.trim() || note.title) }}
+              onBlur={e => {
+                const val = e.target.value.trim()
+                setEditingTitle(false)
+                onEdit(index, note.content, val || note.title)
+              }}
               onKeyDown={e => {
+                if (e.nativeEvent.isComposing) return
                 if (e.key === 'Enter') { e.currentTarget.blur() }
                 if (e.key === 'Escape') { setEditTitle(note.title); setEditingTitle(false) }
               }}
@@ -127,18 +132,27 @@ function NoteAccordion({ note, index, isOpen, onToggle, onDelete, onEdit, onFull
           {editing ? (
             <>
               <FormattingToolbar textareaRef={editRef} value={editContent} onChange={handleChange} onExpand={() => setFullscreen(true)} />
-              <SmartTextarea
-                ref={editRef}
-                autoFocus
-                value={editContent}
-                onChange={handleChange}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { onEdit(index, editContent.trim()); setEditing(false) }
-                  if (e.key === 'Escape') setEditing(false)
-                }}
-                className="w-full text-sm focus:outline-none resize-none text-gray-700 pt-2"
-                style={{ minHeight: '160px' }}
-              />
+              <div className="flex gap-0 min-h-[160px]">
+                <SmartTextarea
+                  ref={editRef}
+                  autoFocus
+                  value={editContent}
+                  onChange={handleChange}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { onEdit(index, editContent.trim()); setEditing(false) }
+                    if (e.key === 'Escape') setEditing(false)
+                  }}
+                  className="flex-1 text-sm focus:outline-none resize-none text-gray-700 pt-2 min-w-0"
+                  style={{ minHeight: '160px' }}
+                />
+                <div className="w-px bg-gray-100 flex-shrink-0 mx-3" />
+                <div className="flex-1 pt-2 min-w-0 overflow-y-auto max-h-[400px]">
+                  {editContent
+                    ? <MarkdownContent content={editContent} />
+                    : <p className="text-sm text-gray-300 italic">미리보기</p>
+                  }
+                </div>
+              </div>
               <div className="flex items-center justify-between mt-3">
                 <span className={`text-xs transition-opacity ${autoSaved ? 'text-emerald-500 opacity-100' : 'opacity-0'}`}>자동저장됨</span>
                 <div className="flex gap-2">
@@ -383,9 +397,13 @@ export default function MeetingDetailPage() {
   }
 
   async function editNote(index: number, newContent: string, newTitle?: string) {
-    if (!meeting || !newContent.trim()) return
+    if (!meeting) return
+    const existing = meeting.notes[index]
+    if (!existing) return
+    const safeContent = newContent.trim() || existing.content
+    if (!safeContent) return
     const updatedNotes = meeting.notes.map((n, i) =>
-      i === index ? { ...n, content: newContent, ...(newTitle ? { title: newTitle } : {}), edited_at: new Date().toISOString() } : n
+      i === index ? { ...n, content: safeContent, ...(newTitle ? { title: newTitle } : {}), edited_at: new Date().toISOString() } : n
     )
     await updateMeeting({ notes: updatedNotes })
   }
