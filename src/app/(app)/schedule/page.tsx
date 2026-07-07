@@ -63,6 +63,8 @@ export default function SchedulePage() {
   const [dragItemId, setDragItemId] = useState<string | null>(null)
   const [dragOverId, setDragOverId] = useState<string | null>(null)
   const [dayOrder, setDayOrder] = useState<Record<string, string[]>>({})
+  // 할일별 담당자 (task detail 페이지에서 localStorage 공유)
+  const [todoAssigneeMap, setTodoAssigneeMap] = useState<Record<string, string>>({})
   const router = useRouter()
 
   // 고정 회의 관리
@@ -111,6 +113,11 @@ export default function SchedulePage() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       setScheduledTodos((todoData ?? []).map((r: any) => ({ id: r.id, title: r.title, target_date: r.target_date, task: r.tasks })))
     })
+    // 할일별 담당자 맵 (task detail과 localStorage 공유)
+    try {
+      const raw = localStorage.getItem('todo_assignees')
+      if (raw) setTodoAssigneeMap(JSON.parse(raw))
+    } catch {}
   }, [])
 
   useEffect(() => {
@@ -195,7 +202,9 @@ export default function SchedulePage() {
     if (viewFilter === '회의만') return []
     return scheduledTodos.filter(t => {
       if (!isSameDay(parseISO(t.target_date), day)) return false
-      if (assigneeFilter !== '전체' && t.task.assignee_id !== assigneeFilter) return false
+      // 할일별 담당자 우선, 없으면 업무 담당자 사용
+      const effectiveAssignee = todoAssigneeMap[t.id] ?? t.task.assignee_id
+      if (assigneeFilter !== '전체' && effectiveAssignee !== assigneeFilter) return false
       if (partFilter !== '전체' && t.task.part !== partFilter) return false
       return true
     })

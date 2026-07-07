@@ -212,6 +212,8 @@ export default function TaskDetailPage() {
   const [todoInput, setTodoInput] = useState('')
   const [shortName, setShortName] = useState('')
   const [openDatePickerTodoId, setOpenDatePickerTodoId] = useState<string | null>(null)
+  // 할일별 담당자: localStorage 'todo_assignees' (Record<todoId, memberId>) 공유
+  const [todoAssigneeMap, setTodoAssigneeMap] = useState<Record<string, string>>({})
 
   const [showRetroModal, setShowRetroModal] = useState(false)
   const [retroGood, setRetroGood] = useState('')
@@ -234,6 +236,14 @@ export default function TaskDetailPage() {
   const noteTitleRef = useRef<HTMLInputElement>(null)
   const autoFocused = useRef(false)
   const noteDraftKey = `note_draft_${id}`
+
+  // 할일 담당자 맵 로드
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('todo_assignees')
+      if (raw) setTodoAssigneeMap(JSON.parse(raw))
+    } catch {}
+  }, [])
 
   // 새로고침 후 복원: localStorage에서 임시저장 불러오기
   useEffect(() => {
@@ -376,6 +386,14 @@ export default function TaskDetailPage() {
   async function updateTodoSpecificDate(todoId: string, date: string | null) {
     await supabase.from('task_todos').update({ target_date: date }).eq('id', todoId)
     setTodos(prev => prev.map(t => t.id === todoId ? { ...t, target_date: date } : t))
+  }
+
+  function setTodoAssigneeId(todoId: string, memberId: string | null) {
+    const next = { ...todoAssigneeMap }
+    if (memberId) next[todoId] = memberId
+    else delete next[todoId]
+    setTodoAssigneeMap(next)
+    try { localStorage.setItem('todo_assignees', JSON.stringify(next)) } catch {}
   }
 
   async function deleteTodo(todoId: string) {
@@ -948,10 +966,16 @@ export default function TaskDetailPage() {
                               : '날짜'}
                           </button>
                           {openDatePickerTodoId === todo.id && (
-                            <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl p-3 z-20 min-w-[180px]">
-                              {member && (
-                                <p className="text-[10px] text-gray-400 mb-2">담당: <span className="text-gray-600 font-medium">{member.name}</span></p>
-                              )}
+                            <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl p-3 z-20 min-w-[200px]">
+                              <p className="text-[10px] text-gray-400 mb-1.5 font-medium">담당자</p>
+                              <select
+                                value={todoAssigneeMap[todo.id] ?? (task.assignee_id ?? '')}
+                                onChange={e => setTodoAssigneeId(todo.id, e.target.value || null)}
+                                className="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none text-gray-600 bg-white mb-3">
+                                <option value="">미지정 (업무 담당자)</option>
+                                {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                              </select>
+                              <p className="text-[10px] text-gray-400 mb-1.5 font-medium">날짜</p>
                               <input type="date"
                                 value={todo.target_date ?? ''}
                                 onChange={e => {
