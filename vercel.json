@@ -1,4 +1,4 @@
 {
   "installCommand": "npm ci",
-  "buildCommand": "next build --webpack"
+  "buildCommand": "node -e \"require('@tiptap/react'); console.log('tiptap ok')\" && next build --webpack"
 }
