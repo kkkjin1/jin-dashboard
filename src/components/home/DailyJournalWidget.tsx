@@ -196,6 +196,12 @@ interface EditorProps {
   onClose: () => void
 }
 
+interface TodayCtx {
+  memos: { id: string; title: string; tag: string }[]
+  todayMeetings: { id: string; title: string }[]
+  todos: { id: string; title: string; taskTitle?: string }[]
+}
+
 function JournalFullscreenEditor({ selectedDate, current, yesterday, meetings, supabaseClient, onSaved, onClose }: EditorProps) {
   const [draft, setDraft] = useState(current?.content ?? '')
   const [linkedMeetingIds, setLinkedMeetingIds] = useState<string[]>(current?.linked_meeting_ids ?? [])
@@ -205,12 +211,34 @@ function JournalFullscreenEditor({ selectedDate, current, yesterday, meetings, s
   const [showMeetingPicker, setShowMeetingPicker] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
+  const [todayCtx, setTodayCtx] = useState<TodayCtx>({ memos: [], todayMeetings: [], todos: [] })
+  const [ctxTab, setCtxTab] = useState<'yesterday' | 'today'>('yesterday')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const meetingSearchRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     setTimeout(() => textareaRef.current?.focus(), 80)
   }, [])
+
+  useEffect(() => {
+    const dayStart = selectedDate + 'T00:00:00'
+    const dayEnd = selectedDate + 'T23:59:59'
+    Promise.all([
+      supabaseClient.from('quick_memos').select('id, title, tag').gte('created_at', dayStart).lte('created_at', dayEnd),
+      supabaseClient.from('meetings').select('id, title').eq('meeting_date', selectedDate),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      supabaseClient.from('task_todos').select('id, title, tasks(title)').eq('target_date', selectedDate).eq('done', false),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ]).then(([memoRes, mtgRes, todoRes]: any[]) => {
+      setTodayCtx({
+        memos: memoRes.data ?? [],
+        todayMeetings: mtgRes.data ?? [],
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        todos: (todoRes.data ?? []).map((t: any) => ({ id: t.id, title: t.title, taskTitle: t.tasks?.title })),
+      })
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDate])
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -298,29 +326,93 @@ function JournalFullscreenEditor({ selectedDate, current, yesterday, meetings, s
         {/* 본문: 좌(어제) + 우(오늘) */}
         <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
 
-          {/* ── 좌: 어제 회고 (어제이거나, yesterday 있을 때만) ── */}
-          {yesterday && (
+          {/* ── 좌: 어제 회고 + 오늘 컨텍스트 (탭 전환) ── */}
+          {(yesterday || todayCtx.todayMeetings.length > 0 || todayCtx.todos.length > 0 || todayCtx.memos.length > 0) && (
             <div className="md:w-2/5 flex flex-col border-b md:border-b-0 md:border-r border-gray-100 min-h-0">
-              <div className="px-4 py-2.5 border-b border-gray-100 flex-shrink-0">
-                <p className="text-[11px] font-semibold text-gray-400">어제 회고</p>
+              {/* 탭 헤더 */}
+              <div className="flex border-b border-gray-100 flex-shrink-0">
+                <button
+                  onClick={() => setCtxTab('yesterday')}
+                  className={`flex-1 px-4 py-2.5 text-[11px] font-semibold transition-colors ${ctxTab === 'yesterday' ? 'text-gray-700 border-b-2 border-gray-400' : 'text-gray-300 hover:text-gray-500'}`}>
+                  어제 회고
+                </button>
+                <button
+                  onClick={() => setCtxTab('today')}
+                  className={`flex-1 px-4 py-2.5 text-[11px] font-semibold transition-colors relative ${ctxTab === 'today' ? 'text-gray-700 border-b-2 border-gray-400' : 'text-gray-300 hover:text-gray-500'}`}>
+                  {dateLabel} 컨텍스트
+                  {(todayCtx.todayMeetings.length + todayCtx.todos.length + todayCtx.memos.length) > 0 && (
+                    <span className="ml-1 text-[9px] bg-violet-100 text-violet-600 px-1 rounded-full">
+                      {todayCtx.todayMeetings.length + todayCtx.todos.length + todayCtx.memos.length}
+                    </span>
+                  )}
+                </button>
               </div>
+
+              {/* 탭 콘텐츠 */}
               <div className="flex-1 overflow-y-auto px-4 py-3 scrollbar-hide">
-                <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">{yesterday.content}</p>
-                {getMeetings(yesterday).length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mt-3">
-                    {getMeetings(yesterday).map(m => (
-                      <Link key={m.id} href={`/meetings/${m.id}`}
-                        className="text-[10px] bg-blue-50 text-blue-600 border border-blue-200 px-2 py-0.5 rounded-full hover:bg-blue-100 transition-colors">
-                        @ {m.title}
-                      </Link>
-                    ))}
-                  </div>
-                )}
-                {yesterday.tags?.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mt-2">
-                    {yesterday.tags.map(t => (
-                      <span key={t} className="text-[10px] text-gray-400">#{t}</span>
-                    ))}
+                {ctxTab === 'yesterday' ? (
+                  yesterday ? (
+                    <>
+                      <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">{yesterday.content}</p>
+                      {getMeetings(yesterday).length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mt-3">
+                          {getMeetings(yesterday).map(m => (
+                            <Link key={m.id} href={`/meetings/${m.id}`}
+                              className="text-[10px] bg-blue-50 text-blue-600 border border-blue-200 px-2 py-0.5 rounded-full hover:bg-blue-100 transition-colors">
+                              @ {m.title}
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+                      {yesterday.tags?.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {yesterday.tags.map(t => (
+                            <span key={t} className="text-[10px] text-gray-400">#{t}</span>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-xs text-gray-200 italic">어제 기록 없음</p>
+                  )
+                ) : (
+                  <div className="space-y-4">
+                    {todayCtx.todayMeetings.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-semibold text-gray-300 tracking-wider mb-1.5">💬 회의</p>
+                        {todayCtx.todayMeetings.map(m => (
+                          <Link key={m.id} href={`/meetings/${m.id}`}
+                            className="block text-xs text-blue-500 hover:text-blue-700 truncate mb-1 transition-colors">
+                            · {m.title}
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                    {todayCtx.todos.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-semibold text-gray-300 tracking-wider mb-1.5">✅ 할일</p>
+                        {todayCtx.todos.map(t => (
+                          <p key={t.id} className="text-xs text-gray-500 truncate mb-1">
+                            · {t.title}
+                            {t.taskTitle && <span className="text-gray-300 ml-1 text-[10px]">[{t.taskTitle}]</span>}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                    {todayCtx.memos.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-semibold text-gray-300 tracking-wider mb-1.5">📝 메모</p>
+                        {todayCtx.memos.map(m => (
+                          <p key={m.id} className="text-xs text-gray-500 truncate mb-1">
+                            · {m.title}
+                            <span className="text-gray-300 ml-1 text-[10px]">{m.tag}</span>
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                    {todayCtx.todayMeetings.length === 0 && todayCtx.todos.length === 0 && todayCtx.memos.length === 0 && (
+                      <p className="text-xs text-gray-200 italic">이 날 기록된 활동 없음</p>
+                    )}
                   </div>
                 )}
               </div>

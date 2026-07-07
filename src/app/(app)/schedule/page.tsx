@@ -33,10 +33,18 @@ interface DayTask {
   dateType: 'mid' | 'end'
 }
 
+interface ScheduledTodo {
+  id: string
+  title: string
+  target_date: string
+  task: { id: string; title: string; short_name: string | null; assignee_id: string | null; part: string }
+}
+
 export default function SchedulePage() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [members, setMembers] = useState<Member[]>([])
   const [meetings, setMeetings] = useState<Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>[]>([])
+  const [scheduledTodos, setScheduledTodos] = useState<ScheduledTodo[]>([])
   const [current, setCurrent] = useState(new Date())
   const [selectedDay, setSelectedDay] = useState<Date | null>(null)
   const [assigneeFilter, setAssigneeFilter] = useState<string>('전체')
@@ -96,9 +104,12 @@ export default function SchedulePage() {
       fetchAllTasks(),
       fetchMembers(),
       supabase.from('meetings').select('id, title, meeting_date, category').not('meeting_date', 'is', null),
-    ]).then(([t, m, { data: mtgs }]) => {
+      supabase.from('task_todos').select('id, title, target_date, tasks!inner(id, title, short_name, assignee_id, part)').not('target_date', 'is', null).eq('done', false),
+    ]).then(([t, m, { data: mtgs }, { data: todoData }]) => {
       setTasks(t); setMembers(m)
       setMeetings((mtgs ?? []) as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>[])
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      setScheduledTodos((todoData ?? []).map((r: any) => ({ id: r.id, title: r.title, target_date: r.target_date, task: r.tasks })))
     })
   }, [])
 
@@ -180,17 +191,30 @@ export default function SchedulePage() {
     return meetings.filter(m => m.meeting_date && isSameDay(parseISO(m.meeting_date), day))
   }
 
+  function getDayScheduledTodos(day: Date): ScheduledTodo[] {
+    if (viewFilter === '회의만') return []
+    return scheduledTodos.filter(t => {
+      if (!isSameDay(parseISO(t.target_date), day)) return false
+      if (assigneeFilter !== '전체' && t.task.assignee_id !== assigneeFilter) return false
+      if (partFilter !== '전체' && t.task.part !== partFilter) return false
+      return true
+    })
+  }
+
   const selectedDayTasks = selectedDay ? getDayTasks(selectedDay) : []
   const selectedDayMeetings = selectedDay ? getDayMeetings(selectedDay) : []
+  const selectedDayTodos = selectedDay ? getDayScheduledTodos(selectedDay) : []
 
   type DayListItem =
     | { itemId: string; type: 'task'; data: DayTask }
     | { itemId: string; type: 'meeting'; data: Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'> }
+    | { itemId: string; type: 'todo'; data: ScheduledTodo }
 
   function getOrderedDayItems(): DayListItem[] {
     const all: DayListItem[] = [
       ...selectedDayMeetings.map(m => ({ itemId: `meeting-${m.id}`, type: 'meeting' as const, data: m })),
       ...selectedDayTasks.map(dt => ({ itemId: `task-${dt.task.id}-${dt.dateType}`, type: 'task' as const, data: dt })),
+      ...selectedDayTodos.map(t => ({ itemId: `todo-${t.id}`, type: 'todo' as const, data: t })),
     ]
     if (!selectedDay) return all
     const key = format(selectedDay, 'yyyy-MM-dd')
@@ -295,7 +319,12 @@ export default function SchedulePage() {
   function renderDay(day: Date, isOtherMonth: boolean) {
     const dayTasks = getDayTasks(day)
     const dayMeetings = getDayMeetings(day)
-    const allItems = [...dayTasks.map(dt => ({ type: 'task' as const, dt })), ...dayMeetings.map(m => ({ type: 'meeting' as const, m }))]
+    const dayTodos = getDayScheduledTodos(day)
+    const allItems = [
+      ...dayTasks.map(dt => ({ type: 'task' as const, dt })),
+      ...dayMeetings.map(m => ({ type: 'meeting' as const, m })),
+      ...dayTodos.map(t => ({ type: 'todo' as const, t })),
+    ]
     const isToday = isSameDay(day, new Date())
     const isSelected = selectedDay && isSameDay(day, selectedDay)
     return (
@@ -322,7 +351,7 @@ export default function SchedulePage() {
                   {' '}{dt.task.title}
                 </button>
               )
-            } else {
+            } else if (item.type === 'meeting') {
               const { m } = item
               return (
                 <button key={`meeting-${m.id}-${idx}`}
@@ -330,6 +359,16 @@ export default function SchedulePage() {
                   className={`w-full text-left rounded-lg px-1.5 py-0.5 truncate text-[11px] leading-tight hover:opacity-80 font-medium ${getMeetingColor(m.category)}`}
                   title={`회의 | ${m.title}`}>
                   {m.title}
+                </button>
+              )
+            } else {
+              const { t } = item
+              return (
+                <button key={`todo-${t.id}-${idx}`}
+                  onClick={e => { e.stopPropagation(); router.push(`/tasks/${t.task.id}`) }}
+                  className="w-full text-left rounded-lg px-1.5 py-0.5 truncate text-[11px] leading-tight hover:opacity-80 bg-violet-50/80 text-violet-800"
+                  title={`할일 | ${t.title}`}>
+                  <span className="opacity-50 mr-0.5">·</span>{t.title}
                 </button>
               )
             }
@@ -427,6 +466,10 @@ export default function SchedulePage() {
                   <div className="w-2 h-2.5 bg-[#90A7D8]/40 rounded" />
                 </div>
                 <span className="text-xs text-gray-400">회의</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-2.5 bg-violet-50/80 rounded border border-violet-200/50" />
+                <span className="text-xs text-gray-400">할일</span>
               </div>
               <div className="ml-auto">
                 <button onClick={() => setShowAnalysis(v => !v)}
@@ -619,9 +662,11 @@ export default function SchedulePage() {
                       onDragEnd={() => { setDragItemId(null); setDragOverId(null) }}
                       onDragOver={e => { e.preventDefault(); if (dragItemId !== item.itemId) setDragOverId(item.itemId) }}
                       onDrop={e => { e.preventDefault(); handleDayDrop(item.itemId) }}
-                      onClick={() => router.push(item.type === 'meeting'
-                        ? `/meetings/${(item.data as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>).id}`
-                        : `/tasks/${(item.data as DayTask).task.id}`)}
+                      onClick={() => {
+                        if (item.type === 'meeting') router.push(`/meetings/${(item.data as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>).id}`)
+                        else if (item.type === 'todo') router.push(`/tasks/${(item.data as ScheduledTodo).task.id}`)
+                        else router.push(`/tasks/${(item.data as DayTask).task.id}`)
+                      }}
                       className={`bg-white/60 rounded-2xl border p-3 transition-all cursor-grab active:cursor-grabbing select-none ${
                         item.type === 'meeting' ? 'border-[#BADEC8]/40 hover:border-[#BADEC8]/70' : 'border-white/80 hover:border-gray-200'
                       } ${dragItemId === item.itemId ? 'opacity-40 scale-95' : ''} ${
@@ -631,6 +676,8 @@ export default function SchedulePage() {
                         <span className="text-gray-300 text-xs">⠿</span>
                         {item.type === 'meeting' ? (
                           <span className="text-xs font-medium text-[#2D5A45]">💬 회의</span>
+                        ) : item.type === 'todo' ? (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-violet-50 text-violet-700">할일</span>
                         ) : (
                           <span className={`text-xs px-2 py-0.5 rounded-full ${(item.data as DayTask).dateType === 'mid' ? 'bg-[#F3E482]/50 text-[#5A4A10]' : 'bg-[#90A7D8]/30 text-[#1E3A6B]'}`}>
                             {(item.data as DayTask).dateType === 'mid' ? '중간공유' : '최종보고'}
@@ -640,10 +687,17 @@ export default function SchedulePage() {
                       <p className="text-sm font-medium text-gray-800 break-words leading-snug">
                         {item.type === 'meeting'
                           ? (item.data as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>).title
-                          : (item.data as DayTask).task.title}
+                          : item.type === 'todo'
+                            ? (item.data as ScheduledTodo).title
+                            : (item.data as DayTask).task.title}
                       </p>
                       {item.type === 'meeting' && (item.data as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>).category && (
                         <span className="text-xs text-[#2D5A45] mt-0.5 block">{(item.data as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>).category}</span>
+                      )}
+                      {item.type === 'todo' && (
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {(item.data as ScheduledTodo).task.short_name ?? (item.data as ScheduledTodo).task.title}
+                        </p>
                       )}
                       {item.type === 'task' && (
                         <div className="flex flex-wrap gap-1 mt-1">

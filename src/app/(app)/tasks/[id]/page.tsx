@@ -211,6 +211,7 @@ export default function TaskDetailPage() {
   const [todos, setTodos] = useState<TaskTodo[]>([])
   const [todoInput, setTodoInput] = useState('')
   const [shortName, setShortName] = useState('')
+  const [openDatePickerTodoId, setOpenDatePickerTodoId] = useState<string | null>(null)
 
   const [showRetroModal, setShowRetroModal] = useState(false)
   const [retroGood, setRetroGood] = useState('')
@@ -370,6 +371,11 @@ export default function TaskDetailPage() {
   async function updateShortName(val: string) {
     await supabase.from('tasks').update({ short_name: val || null }).eq('id', id)
     setTask(prev => prev ? { ...prev, short_name: val || null } : prev)
+  }
+
+  async function updateTodoSpecificDate(todoId: string, date: string | null) {
+    await supabase.from('task_todos').update({ target_date: date }).eq('id', todoId)
+    setTodos(prev => prev.map(t => t.id === todoId ? { ...t, target_date: date } : t))
   }
 
   async function deleteTodo(todoId: string) {
@@ -928,6 +934,41 @@ export default function TaskDetailPage() {
                             </button>
                           )
                         })}
+                        {/* 날짜지정 */}
+                        <div className="relative">
+                          <button
+                            onClick={() => setOpenDatePickerTodoId(openDatePickerTodoId === todo.id ? null : todo.id)}
+                            className={`text-[10px] px-1.5 py-0.5 rounded transition-colors font-medium ${
+                              todo.target_date
+                                ? 'bg-violet-50 text-violet-600 border border-violet-200'
+                                : 'text-gray-300 hover:text-gray-500'
+                            }`}>
+                            {todo.target_date
+                              ? (() => { const d = new Date(todo.target_date + 'T00:00:00'); return `${d.getMonth()+1}/${d.getDate()}` })()
+                              : '날짜'}
+                          </button>
+                          {openDatePickerTodoId === todo.id && (
+                            <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl p-3 z-20 min-w-[180px]">
+                              {member && (
+                                <p className="text-[10px] text-gray-400 mb-2">담당: <span className="text-gray-600 font-medium">{member.name}</span></p>
+                              )}
+                              <input type="date"
+                                value={todo.target_date ?? ''}
+                                onChange={e => {
+                                  updateTodoSpecificDate(todo.id, e.target.value || null)
+                                  setOpenDatePickerTodoId(null)
+                                }}
+                                className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none text-gray-600 w-full" />
+                              {todo.target_date && (
+                                <button
+                                  onClick={() => { updateTodoSpecificDate(todo.id, null); setOpenDatePickerTodoId(null) }}
+                                  className="text-[10px] text-gray-300 hover:text-red-400 mt-1.5 block w-full text-center transition-colors">
+                                  날짜 제거
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
                         <button onClick={() => deleteTodo(todo.id)}
                           className="text-gray-200 hover:text-red-400 text-base opacity-0 group-hover:opacity-100 transition-all leading-none ml-0.5">×</button>
                       </div>
