@@ -58,6 +58,11 @@ export default function DailyJournalWidget({ selectedDate, onNavigate, onDateCha
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
 
+  // 어제 참조 패널 (편집 중 위에 표시)
+  const [showRefPanel, setShowRefPanel] = useState(false)
+  // 아침 컨텍스트 카드 펼치기
+  const [yesterdayExpanded, setYesterdayExpanded] = useState(false)
+
   // @ 회의 연결
   const [linkedMeetingIds, setLinkedMeetingIds] = useState<string[]>([])
   const [showMeetingPicker, setShowMeetingPicker] = useState(false)
@@ -72,9 +77,10 @@ export default function DailyJournalWidget({ selectedDate, onNavigate, onDateCha
   const datePickerRef = useRef<HTMLInputElement>(null)
   const supabase = createClient()
 
-  // 날짜 변경 시 해당 날짜 데이터 로드
   useEffect(() => {
     setEditing(false)
+    setShowRefPanel(false)
+    setYesterdayExpanded(false)
     setShowMeetingPicker(false)
     if (!journals[selectedDate]) {
       supabase.from('daily_journals').select('*').eq('date', selectedDate).single()
@@ -85,7 +91,6 @@ export default function DailyJournalWidget({ selectedDate, onNavigate, onDateCha
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDate])
 
-  // 초기 로드: 최근 7일
   useEffect(() => {
     const dates = Array.from({ length: 7 }, (_, i) => {
       const d = new Date(); d.setDate(d.getDate() - i)
@@ -102,7 +107,7 @@ export default function DailyJournalWidget({ selectedDate, onNavigate, onDateCha
   }, [])
 
   useEffect(() => {
-    if (editing) setTimeout(() => textareaRef.current?.focus(), 30)
+    if (editing) setTimeout(() => textareaRef.current?.focus(), 50)
   }, [editing])
 
   useEffect(() => {
@@ -117,11 +122,22 @@ export default function DailyJournalWidget({ selectedDate, onNavigate, onDateCha
     setLinkedMeetingIds(current?.linked_meeting_ids ?? [])
     setTags(current?.tags ?? [])
     setSaveError('')
+    setShowRefPanel(false)
+    setEditing(true)
+  }
+
+  function startFromYesterday() {
+    setDraft('')
+    setLinkedMeetingIds(yesterday?.linked_meeting_ids ?? [])
+    setTags(yesterday?.tags ?? [])
+    setSaveError('')
+    setShowRefPanel(true)
     setEditing(true)
   }
 
   function cancelEdit() {
     setEditing(false)
+    setShowRefPanel(false)
     setSaveError('')
     setShowMeetingPicker(false)
   }
@@ -167,6 +183,7 @@ export default function DailyJournalWidget({ selectedDate, onNavigate, onDateCha
     }
     setSaving(false)
     setEditing(false)
+    setShowRefPanel(false)
     setShowMeetingPicker(false)
     onSaved?.(draft.trim())
   }
@@ -174,9 +191,7 @@ export default function DailyJournalWidget({ selectedDate, onNavigate, onDateCha
   const getMeetings = (j: DailyJournal) =>
     j.linked_meeting_ids.map(id => meetings.find(m => m.id === id)).filter(Boolean) as MeetingMin[]
 
-  const [showYesterdayFull, setShowYesterdayFull] = useState(false)
-
-  const showMorningContext = isToday && !current && !!yesterday
+  const showMorningContext = isToday && !current && !!yesterday && !editing
 
   const filteredMeetings = meetings.filter(m =>
     !linkedMeetingIds.includes(m.id) &&
@@ -191,7 +206,6 @@ export default function DailyJournalWidget({ selectedDate, onNavigate, onDateCha
         <span className="text-sm leading-none">🪴</span>
         <span className="text-xs font-semibold text-gray-700 flex-1">회고</span>
 
-        {/* 날짜 네비게이션 */}
         <div className="flex items-center gap-0.5 bg-white/60 text-gray-600 rounded-full px-1.5 py-0.5">
           <button onClick={() => onNavigate(-1)} className="hover:opacity-60 transition-opacity text-xs px-0.5">←</button>
           <span
@@ -219,58 +233,167 @@ export default function DailyJournalWidget({ selectedDate, onNavigate, onDateCha
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3 min-h-0">
+      <div className="flex-1 overflow-hidden flex flex-col min-h-0">
 
-        {/* 아침 컨텍스트 */}
+        {/* ── 아침 컨텍스트: 어제 이어받기 ── */}
         {showMorningContext && (
-          <div className="bg-white/50 border border-white/60 rounded-lg p-3 flex-shrink-0">
-            <div className="flex items-center justify-between mb-1.5">
-              <p className="text-[10px] font-semibold text-gray-500">어제 이어받기</p>
-              {yesterday!.content.length > 80 && (
-                <button onClick={() => setShowYesterdayFull(true)}
-                  className="text-[9px] text-gray-300 hover:text-blue-500 transition-colors">전체 보기</button>
+          <div className="flex-shrink-0 mx-3 mt-3 bg-amber-50/60 border border-amber-200/50 rounded-lg overflow-hidden">
+            {/* 카드 헤더 */}
+            <div className="flex items-center justify-between px-3 py-2 border-b border-amber-200/40">
+              <p className="text-[10px] font-semibold text-amber-700/80">📌 어제 이어받기</p>
+              <button
+                onClick={() => setYesterdayExpanded(e => !e)}
+                className="text-[9px] text-amber-600/60 hover:text-amber-700 transition-colors"
+              >
+                {yesterdayExpanded ? '접기' : '펼치기'}
+              </button>
+            </div>
+            {/* 내용 */}
+            <div className={`px-3 py-2 overflow-y-auto scrollbar-hide transition-all ${yesterdayExpanded ? 'max-h-40' : 'max-h-16'}`}>
+              <p className={`text-xs text-gray-600 leading-relaxed whitespace-pre-wrap ${yesterdayExpanded ? '' : 'line-clamp-2'}`}>
+                {yesterday!.content}
+              </p>
+              {yesterdayExpanded && getMeetings(yesterday!).length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {getMeetings(yesterday!).map(m => (
+                    <Link key={m.id} href={`/meetings/${m.id}`}
+                      className="text-[9px] bg-white/70 border border-gray-200/70 text-gray-600 px-1.5 py-0.5 rounded hover:bg-white transition-colors">
+                      @ {m.title}
+                    </Link>
+                  ))}
+                </div>
+              )}
+              {yesterdayExpanded && yesterday!.tags?.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {yesterday!.tags.map(t => (
+                    <span key={t} className="text-[9px] text-amber-600/60">#{t}</span>
+                  ))}
+                </div>
               )}
             </div>
-            <p
-              onClick={() => yesterday!.content.length > 80 && setShowYesterdayFull(true)}
-              className={`text-xs text-gray-600 leading-relaxed line-clamp-3 ${yesterday!.content.length > 80 ? 'cursor-pointer hover:text-gray-800' : ''}`}
-            >{yesterday!.content}</p>
-            {getMeetings(yesterday!).length > 0 && (
-              <div className="flex flex-wrap gap-1 mt-2">
-                {getMeetings(yesterday!).map(m => (
-                  <Link key={m.id} href={`/meetings/${m.id}`} className="text-[10px] bg-white/70 border border-gray-200/70 text-gray-600 px-1.5 py-0.5 rounded hover:bg-white/90 transition-colors">
-                    @ {m.title}
-                  </Link>
-                ))}
-              </div>
-            )}
-            {yesterday!.tags?.length > 0 && (
-              <div className="flex flex-wrap gap-1 mt-1">
-                {yesterday!.tags.map(t => (
-                  <span key={t} className="text-[10px] text-gray-400">#{t}</span>
-                ))}
-              </div>
-            )}
-            <button
-              onClick={() => {
-                setDraft(`[어제 이어서]\n${yesterday!.content.slice(0, 120)}${yesterday!.content.length > 120 ? '…' : ''}\n\n오늘: `)
-                setLinkedMeetingIds(yesterday!.linked_meeting_ids ?? [])
-                setTags(yesterday!.tags ?? [])
-                setEditing(true)
-              }}
-              className="mt-2 text-[10px] text-gray-600 border border-gray-200/70 bg-white/70 px-2 py-1 rounded hover:bg-white/90 transition-colors"
-            >
-              + 이어서 오늘 회고 시작
-            </button>
+            {/* 이어서 버튼 */}
+            <div className="px-3 py-2 border-t border-amber-200/40">
+              <button
+                onClick={startFromYesterday}
+                className="w-full text-[10px] text-amber-700 hover:text-amber-900 font-medium transition-colors text-left"
+              >
+                + 이어서 오늘 회고 작성 →
+              </button>
+            </div>
           </div>
         )}
 
-        {/* 읽기 모드 */}
+        {/* ── 편집 모드 ── */}
+        {editing && (
+          <div className="flex flex-col flex-1 min-h-0">
+
+            {/* 어제 참조 패널 (위) */}
+            {showRefPanel && yesterday && (
+              <div className="flex-shrink-0 mx-3 mt-3 bg-amber-50/60 border border-amber-200/50 rounded-lg overflow-hidden">
+                <div className="flex items-center justify-between px-3 py-1.5 border-b border-amber-200/40">
+                  <p className="text-[9px] font-semibold text-amber-700/80">📌 어제</p>
+                  <button
+                    onClick={() => setShowRefPanel(false)}
+                    className="text-[9px] text-amber-500/60 hover:text-amber-700 transition-colors">숨기기</button>
+                </div>
+                <div className="px-3 py-2 max-h-28 overflow-y-auto scrollbar-hide">
+                  <p className="text-[10px] text-gray-600 leading-relaxed whitespace-pre-wrap">{yesterday.content}</p>
+                </div>
+              </div>
+            )}
+
+            {/* 오늘 입력창 (아래) */}
+            <div className="flex flex-col flex-1 min-h-0 p-3 gap-2">
+              <textarea
+                ref={textareaRef}
+                value={draft}
+                onChange={e => setDraft(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="오늘 뭐했고, 어떤 고민이 있었는지, 어떤 진전이 있었는지 자유롭게…"
+                className="flex-1 text-xs text-gray-700 placeholder:text-gray-300 resize-none focus:outline-none leading-relaxed min-h-[60px] bg-transparent"
+              />
+
+              {/* @ 회의 연결 */}
+              <div className="flex-shrink-0 flex flex-col gap-1 border-t border-gray-100 pt-2">
+                <div className="flex flex-wrap gap-1 items-center min-h-[20px]">
+                  {linkedMeetingIds.map(mid => {
+                    const m = meetings.find(x => x.id === mid)
+                    return m ? (
+                      <span key={mid} className="flex items-center gap-0.5 text-[10px] bg-blue-50 text-blue-700 border border-blue-200 px-1.5 py-0.5 rounded-full">
+                        @ {m.title}
+                        <button onClick={() => setLinkedMeetingIds(prev => prev.filter(i => i !== mid))} className="ml-0.5 text-blue-400 hover:text-blue-600">×</button>
+                      </span>
+                    ) : null
+                  })}
+                  <button
+                    onClick={() => setShowMeetingPicker(p => !p)}
+                    className="text-[10px] text-gray-300 hover:text-blue-500 transition-colors"
+                  >
+                    @ 회의 연결
+                  </button>
+                </div>
+
+                {showMeetingPicker && (
+                  <div className="bg-white border border-gray-200 rounded-lg shadow-md p-2 flex flex-col gap-1">
+                    <input
+                      ref={meetingSearchRef}
+                      value={meetingSearch}
+                      onChange={e => setMeetingSearch(e.target.value)}
+                      placeholder="회의 검색…"
+                      className="text-xs border-b border-gray-100 pb-1 focus:outline-none text-gray-600 placeholder:text-gray-300"
+                    />
+                    {filteredMeetings.length === 0 ? (
+                      <p className="text-[10px] text-gray-300 py-1 text-center">검색 결과 없음</p>
+                    ) : filteredMeetings.map(m => (
+                      <button key={m.id} onClick={() => linkMeeting(m.id)}
+                        className="text-left text-xs px-1.5 py-1 hover:bg-gray-50 rounded text-gray-600 truncate">
+                        {m.title}
+                        {m.meeting_date && <span className="text-gray-300 ml-1">{m.meeting_date}</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* # 태그 */}
+                <div className="flex flex-wrap gap-1 items-center">
+                  {tags.map(t => (
+                    <span key={t} className="flex items-center gap-0.5 text-[10px] bg-gray-50 text-gray-500 border border-gray-200 px-1.5 py-0.5 rounded-full">
+                      #{t}
+                      <button onClick={() => setTags(prev => prev.filter(x => x !== t))} className="ml-0.5 text-gray-300 hover:text-gray-500">×</button>
+                    </span>
+                  ))}
+                  <input
+                    value={tagInput}
+                    onChange={e => setTagInput(e.target.value.replace(/\s/g, ''))}
+                    onKeyDown={e => {
+                      if (e.nativeEvent.isComposing) return
+                      if (e.key === 'Enter') { e.preventDefault(); addTag() }
+                    }}
+                    placeholder="# 태그 추가"
+                    className="text-[10px] text-gray-500 focus:outline-none w-20 placeholder:text-gray-300"
+                  />
+                </div>
+              </div>
+
+              {saveError && <p className="text-[10px] text-red-500 flex-shrink-0">{saveError}</p>}
+
+              <div className="flex items-center justify-between flex-shrink-0">
+                <button onClick={cancelEdit} className="text-[10px] text-gray-300 hover:text-gray-500">취소 (Esc)</button>
+                <button onClick={doSave} disabled={!draft.trim() || saving}
+                  className="text-[10px] text-gray-400 hover:text-gray-700 disabled:opacity-30">
+                  {saving ? '저장 중…' : 'Ctrl+Enter 저장'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── 읽기 모드 ── */}
         {current && !editing && (
-          <div className="flex flex-col gap-2 flex-shrink-0">
+          <div className="flex-1 overflow-y-auto p-3 scrollbar-hide">
             <p className="text-xs text-gray-600 leading-relaxed whitespace-pre-wrap">{current.content}</p>
             {getMeetings(current).length > 0 && (
-              <div className="flex flex-wrap gap-1">
+              <div className="flex flex-wrap gap-1 mt-2">
                 {getMeetings(current).map(m => (
                   <Link key={m.id} href={`/meetings/${m.id}`} className="text-[10px] bg-blue-50 text-blue-600 border border-blue-200 px-1.5 py-0.5 rounded hover:bg-blue-100 transition-colors">
                     @ {m.title}
@@ -279,7 +402,7 @@ export default function DailyJournalWidget({ selectedDate, onNavigate, onDateCha
               </div>
             )}
             {current.tags?.length > 0 && (
-              <div className="flex flex-wrap gap-1">
+              <div className="flex flex-wrap gap-1 mt-1">
                 {current.tags.map(t => (
                   <span key={t} className="text-[10px] text-gray-400">#{t}</span>
                 ))}
@@ -288,154 +411,16 @@ export default function DailyJournalWidget({ selectedDate, onNavigate, onDateCha
           </div>
         )}
 
-        {/* 빈 상태 */}
-        {!current && !editing && (
-          <button onClick={startEdit} className="text-left text-xs text-gray-300 hover:text-gray-500 transition-colors py-1">
-            {isToday ? '+ 오늘 회고 작성…' : '+ 이 날 회고 작성…'}
-          </button>
-        )}
-
-        {/* 편집 */}
-        {editing && (
-          <div className="flex flex-col gap-2 flex-1 min-h-0">
-            <textarea
-              ref={textareaRef}
-              value={draft}
-              onChange={e => setDraft(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="오늘 뭐했고, 어떤 고민이 있었는지, 어떤 진전이 있었는지 자유롭게…"
-              className="flex-1 text-xs text-gray-700 placeholder:text-gray-300 resize-none focus:outline-none leading-relaxed min-h-[90px] bg-transparent"
-            />
-
-            {/* @ 회의 연결 */}
-            <div className="flex-shrink-0 flex flex-col gap-1 border-t border-gray-100 pt-2">
-              <div className="flex flex-wrap gap-1 items-center min-h-[20px]">
-                {linkedMeetingIds.map(mid => {
-                  const m = meetings.find(x => x.id === mid)
-                  return m ? (
-                    <span key={mid} className="flex items-center gap-0.5 text-[10px] bg-blue-50 text-blue-700 border border-blue-200 px-1.5 py-0.5 rounded-full">
-                      @ {m.title}
-                      <button onClick={() => setLinkedMeetingIds(prev => prev.filter(i => i !== mid))} className="ml-0.5 text-blue-400 hover:text-blue-600">×</button>
-                    </span>
-                  ) : null
-                })}
-                <button
-                  onClick={() => setShowMeetingPicker(p => !p)}
-                  className="text-[10px] text-gray-300 hover:text-blue-500 transition-colors"
-                >
-                  @ 회의 연결
-                </button>
-              </div>
-
-              {/* 회의 검색 드롭다운 */}
-              {showMeetingPicker && (
-                <div className="bg-white border border-gray-200 rounded-lg shadow-md p-2 flex flex-col gap-1">
-                  <input
-                    ref={meetingSearchRef}
-                    value={meetingSearch}
-                    onChange={e => setMeetingSearch(e.target.value)}
-                    placeholder="회의 검색…"
-                    className="text-xs border-b border-gray-100 pb-1 focus:outline-none text-gray-600 placeholder:text-gray-300"
-                  />
-                  {filteredMeetings.length === 0 ? (
-                    <p className="text-[10px] text-gray-300 py-1 text-center">검색 결과 없음</p>
-                  ) : filteredMeetings.map(m => (
-                    <button key={m.id} onClick={() => linkMeeting(m.id)}
-                      className="text-left text-xs px-1.5 py-1 hover:bg-gray-50 rounded text-gray-600 truncate">
-                      {m.title}
-                      {m.meeting_date && <span className="text-gray-300 ml-1">{m.meeting_date}</span>}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {/* # 태그 */}
-              <div className="flex flex-wrap gap-1 items-center">
-                {tags.map(t => (
-                  <span key={t} className="flex items-center gap-0.5 text-[10px] bg-gray-50 text-gray-500 border border-gray-200 px-1.5 py-0.5 rounded-full">
-                    #{t}
-                    <button onClick={() => setTags(prev => prev.filter(x => x !== t))} className="ml-0.5 text-gray-300 hover:text-gray-500">×</button>
-                  </span>
-                ))}
-                <input
-                  value={tagInput}
-                  onChange={e => setTagInput(e.target.value.replace(/\s/g, ''))}
-                  onKeyDown={e => {
-                    if (e.nativeEvent.isComposing) return
-                    if (e.key === 'Enter') { e.preventDefault(); addTag() }
-                  }}
-                  placeholder="# 태그 추가"
-                  className="text-[10px] text-gray-500 focus:outline-none w-20 placeholder:text-gray-300"
-                />
-              </div>
-            </div>
-
-            {saveError && <p className="text-[10px] text-red-500 flex-shrink-0">{saveError}</p>}
-
-            <div className="flex items-center justify-between flex-shrink-0">
-              <button onClick={cancelEdit} className="text-[10px] text-gray-300 hover:text-gray-500">취소</button>
-              <button onClick={doSave} disabled={!draft.trim() || saving}
-                className="text-[10px] text-gray-400 hover:text-gray-700 disabled:opacity-30">
-                {saving ? '저장 중…' : 'Ctrl+Enter 저장'}
-              </button>
-            </div>
+        {/* ── 빈 상태 ── */}
+        {!current && !editing && !showMorningContext && (
+          <div className="flex-1 p-3">
+            <button onClick={startEdit} className="text-left text-xs text-gray-300 hover:text-gray-500 transition-colors py-1">
+              {isToday ? '+ 오늘 회고 작성…' : '+ 이 날 회고 작성…'}
+            </button>
           </div>
         )}
+
       </div>
-
-      {/* 어제 전체 보기 팝업 */}
-      {showYesterdayFull && yesterday && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
-          onClick={() => setShowYesterdayFull(false)}
-        >
-          <div
-            className="bg-white rounded-2xl shadow-2xl max-w-sm w-full mx-4 overflow-hidden"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-              <span className="text-xs font-semibold text-gray-600">어제 회고</span>
-              <button onClick={() => setShowYesterdayFull(false)}
-                className="text-gray-300 hover:text-gray-600 text-lg leading-none">×</button>
-            </div>
-            <div className="px-4 py-4 max-h-[60vh] overflow-y-auto">
-              <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{yesterday.content}</p>
-              {getMeetings(yesterday).length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mt-3">
-                  {getMeetings(yesterday).map(m => (
-                    <Link key={m.id} href={`/meetings/${m.id}`}
-                      onClick={() => setShowYesterdayFull(false)}
-                      className="text-[10px] bg-blue-50 text-blue-600 border border-blue-200 px-2 py-0.5 rounded-full hover:bg-blue-100 transition-colors">
-                      @ {m.title}
-                    </Link>
-                  ))}
-                </div>
-              )}
-              {yesterday.tags?.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-2">
-                  {yesterday.tags.map(t => (
-                    <span key={t} className="text-[10px] text-gray-400">#{t}</span>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div className="px-4 py-3 border-t border-gray-100">
-              <button
-                onClick={() => {
-                  setShowYesterdayFull(false)
-                  setDraft(`[어제 이어서]\n${yesterday.content.slice(0, 120)}${yesterday.content.length > 120 ? '…' : ''}\n\n오늘: `)
-                  setLinkedMeetingIds(yesterday.linked_meeting_ids ?? [])
-                  setTags(yesterday.tags ?? [])
-                  setEditing(true)
-                }}
-                className="w-full text-xs text-gray-600 border border-gray-200 bg-gray-50 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
-              >
-                + 이어서 오늘 회고 시작
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
