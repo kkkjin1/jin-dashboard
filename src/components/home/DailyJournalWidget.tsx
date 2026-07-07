@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import type { Task } from '@/types'
@@ -165,8 +166,8 @@ export default function DailyJournalWidget({ selectedDate, onNavigate, onDateCha
         )}
       </div>
 
-      {/* 풀스크린 에디터 */}
-      {showEditor && (
+      {/* 풀스크린 에디터 — backdrop-blur 부모에 갇히지 않도록 body에 portal */}
+      {showEditor && typeof document !== 'undefined' && createPortal(
         <JournalFullscreenEditor
           selectedDate={selectedDate}
           current={current}
@@ -175,7 +176,8 @@ export default function DailyJournalWidget({ selectedDate, onNavigate, onDateCha
           supabaseClient={supabase}
           onSaved={handleSaved}
           onClose={() => setShowEditor(false)}
-        />
+        />,
+        document.body
       )}
     </div>
   )
