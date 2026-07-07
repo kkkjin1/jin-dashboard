@@ -27,6 +27,9 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ko" style={{ colorScheme: 'light' }} suppressHydrationWarning>
+      <head>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/static/pretendard.css" />
+      </head>
       <body className="bg-[#F1F5F9] text-gray-900 antialiased font-sans" suppressHydrationWarning>
         {children}
       </body>
