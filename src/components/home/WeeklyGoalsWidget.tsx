@@ -140,7 +140,7 @@ export default function WeeklyGoalsWidget({ tasks }: Props) {
                 {goal.done && <span className="text-white text-[8px] leading-none flex items-center justify-center h-full">✓</span>}
               </button>
               <div className="flex-1 min-w-0">
-                <p className={`text-[11px] leading-snug ${goal.done ? 'line-through text-gray-300' : 'text-gray-700'}`}>
+                <p className={`text-xs leading-snug ${goal.done ? 'line-through text-gray-300' : 'text-gray-700'}`}>
                   {goal.text}
                 </p>
                 <div className="flex items-center gap-1 mt-0.5">

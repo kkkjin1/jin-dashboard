@@ -90,6 +90,7 @@ export default function MeetingBriefWidget() {
   const [linkingId, setLinkingId] = useState<string | null>(null)
   const [pickerStep, setPickerStep] = useState<PickerStep>('category')
   const [pickerCategory, setPickerCategory] = useState<string>('')
+  const [tempCategory, setTempCategory] = useState<string>('')
   const [dbMeetings, setDbMeetings] = useState<DbMeeting[]>([])
   const [loadingPicker, setLoadingPicker] = useState(false)
   const [creatingNew, setCreatingNew] = useState(false)
@@ -103,18 +104,15 @@ export default function MeetingBriefWidget() {
     setLinkingId(null)
     setPickerStep('category')
     setPickerCategory('')
+    setTempCategory('')
     setDbMeetings([])
   }
 
   function openLinkPicker(scheduleId: string) {
     setLinkingId(scheduleId)
     const schedule = schedules.find(s => s.id === scheduleId)
-    // 저장된 카테고리가 있으면 바로 리스트 단계로
-    if (schedule?.preferred_category) {
-      selectCategory(scheduleId, schedule.preferred_category, true)
-    } else {
-      setPickerStep('category')
-    }
+    setTempCategory(schedule?.preferred_category ?? '')
+    setPickerStep('category')
   }
 
   async function selectCategory(scheduleId: string, category: string, skipSave = false) {
@@ -241,7 +239,7 @@ export default function MeetingBriefWidget() {
                 {/* 회의 행 */}
                 <div className="flex items-center gap-2 px-1.5 py-1.5 rounded-lg hover:bg-white/50 transition-colors">
                   <span className="flex-shrink-0 text-[11px] font-mono text-gray-400 w-10">{m.time}</span>
-                  <span className="flex-1 text-[11px] text-gray-700 font-medium truncate">{m.title}</span>
+                  <span className="flex-1 text-xs text-gray-700 font-medium truncate">{m.title}</span>
                   {m.is_recurring && (
                     <span className="flex-shrink-0 text-[8px] text-gray-300">{(m.days_of_week ?? []).map(d => DOW_LABELS[d]).join('')}</span>
                   )}
@@ -294,12 +292,21 @@ export default function MeetingBriefWidget() {
                         <div className="flex flex-wrap gap-1">
                           {CATEGORIES.map(cat => (
                             <button key={cat}
-                              onClick={() => selectCategory(m.id, cat)}
-                              className={`text-[10px] px-2 py-1 rounded-full border transition-all hover:scale-105 ${CAT_COLORS[cat]}`}>
+                              onClick={() => setTempCategory(prev => prev === cat ? '' : cat)}
+                              className={`text-[10px] px-2 py-1 rounded-full border transition-all hover:scale-105 ${CAT_COLORS[cat]} ${tempCategory === cat ? 'ring-2 ring-offset-1 ring-gray-400 scale-105' : ''}`}>
                               {cat}
                             </button>
                           ))}
                         </div>
+                        {tempCategory && (
+                          <div className="flex justify-end mt-2">
+                            <button
+                              onClick={() => selectCategory(m.id, tempCategory)}
+                              className="text-[10px] text-blue-600 font-medium px-2.5 py-1 bg-blue-50 hover:bg-blue-100 rounded-full transition-colors">
+                              다음 →
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
 
@@ -343,7 +350,7 @@ export default function MeetingBriefWidget() {
                 {/* 메모 표시 */}
                 {note && editingNoteId !== m.id && (
                   <div className="flex items-start gap-1 pl-12 pr-2 pb-1">
-                    <p className="flex-1 text-[10px] text-gray-400 leading-relaxed">{note}</p>
+                    <p className="flex-1 text-[11px] text-gray-400 leading-relaxed">{note}</p>
                     {linkedId && <span className="text-[8px] text-blue-300 flex-shrink-0 mt-0.5">🔗</span>}
                   </div>
                 )}
