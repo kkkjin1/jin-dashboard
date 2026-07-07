@@ -174,6 +174,8 @@ export default function DailyJournalWidget({ selectedDate, onNavigate, onDateCha
   const getMeetings = (j: DailyJournal) =>
     j.linked_meeting_ids.map(id => meetings.find(m => m.id === id)).filter(Boolean) as MeetingMin[]
 
+  const [showYesterdayFull, setShowYesterdayFull] = useState(false)
+
   const showMorningContext = isToday && !current && !!yesterday
 
   const filteredMeetings = meetings.filter(m =>
@@ -222,8 +224,17 @@ export default function DailyJournalWidget({ selectedDate, onNavigate, onDateCha
         {/* 아침 컨텍스트 */}
         {showMorningContext && (
           <div className="bg-white/50 border border-white/60 rounded-lg p-3 flex-shrink-0">
-            <p className="text-[10px] font-semibold text-gray-500 mb-1.5">어제 이어받기</p>
-            <p className="text-xs text-gray-600 leading-relaxed line-clamp-3">{yesterday!.content}</p>
+            <div className="flex items-center justify-between mb-1.5">
+              <p className="text-[10px] font-semibold text-gray-500">어제 이어받기</p>
+              {yesterday!.content.length > 80 && (
+                <button onClick={() => setShowYesterdayFull(true)}
+                  className="text-[9px] text-gray-300 hover:text-blue-500 transition-colors">전체 보기</button>
+              )}
+            </div>
+            <p
+              onClick={() => yesterday!.content.length > 80 && setShowYesterdayFull(true)}
+              className={`text-xs text-gray-600 leading-relaxed line-clamp-3 ${yesterday!.content.length > 80 ? 'cursor-pointer hover:text-gray-800' : ''}`}
+            >{yesterday!.content}</p>
             {getMeetings(yesterday!).length > 0 && (
               <div className="flex flex-wrap gap-1 mt-2">
                 {getMeetings(yesterday!).map(m => (
@@ -371,6 +382,61 @@ export default function DailyJournalWidget({ selectedDate, onNavigate, onDateCha
           </div>
         )}
       </div>
+    </div>
+
+      {/* 어제 전체 보기 팝업 */}
+      {showYesterdayFull && yesterday && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+          onClick={() => setShowYesterdayFull(false)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl max-w-sm w-full mx-4 overflow-hidden"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+              <span className="text-xs font-semibold text-gray-600">어제 회고</span>
+              <button onClick={() => setShowYesterdayFull(false)}
+                className="text-gray-300 hover:text-gray-600 text-lg leading-none">×</button>
+            </div>
+            <div className="px-4 py-4 max-h-[60vh] overflow-y-auto">
+              <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{yesterday.content}</p>
+              {getMeetings(yesterday).length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-3">
+                  {getMeetings(yesterday).map(m => (
+                    <Link key={m.id} href={`/meetings/${m.id}`}
+                      onClick={() => setShowYesterdayFull(false)}
+                      className="text-[10px] bg-blue-50 text-blue-600 border border-blue-200 px-2 py-0.5 rounded-full hover:bg-blue-100 transition-colors">
+                      @ {m.title}
+                    </Link>
+                  ))}
+                </div>
+              )}
+              {yesterday.tags?.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {yesterday.tags.map(t => (
+                    <span key={t} className="text-[10px] text-gray-400">#{t}</span>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="px-4 py-3 border-t border-gray-100">
+              <button
+                onClick={() => {
+                  setShowYesterdayFull(false)
+                  setDraft(`[어제 이어서]\n${yesterday.content.slice(0, 120)}${yesterday.content.length > 120 ? '…' : ''}\n\n오늘: `)
+                  setLinkedMeetingIds(yesterday.linked_meeting_ids ?? [])
+                  setTags(yesterday.tags ?? [])
+                  setEditing(true)
+                }}
+                className="w-full text-xs text-gray-600 border border-gray-200 bg-gray-50 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                + 이어서 오늘 회고 시작
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
