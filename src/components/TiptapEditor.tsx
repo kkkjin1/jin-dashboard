@@ -87,6 +87,20 @@ export default function TiptapEditor({
       handleKeyDown: (_view, e) => {
         if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { onSubmit?.(); return true }
         if (e.key === 'Escape') { onEscape?.(); return true }
+        // Ctrl+Shift+H → 노랑 형광펜 토글
+        if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'H') {
+          editor?.chain().focus().toggleHighlight({ color: '#FEF08A' }).run()
+          return true
+        }
+        // Ctrl+Shift+R → 빨강 텍스트 토글
+        if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'R') {
+          if (editor?.isActive('textStyle', { color: '#EF4444' })) {
+            editor.chain().focus().unsetColor().run()
+          } else {
+            editor?.chain().focus().setColor('#EF4444').run()
+          }
+          return true
+        }
         return false
       },
     },
@@ -125,7 +139,7 @@ export default function TiptapEditor({
           <button key={label} type="button"
             onMouseDown={e => { e.preventDefault(); editor.chain().focus().setColor(hex).run() }}
             className="w-[14px] h-[14px] rounded-full hover:scale-125 flex-shrink-0 transition-transform"
-            style={{ backgroundColor: hex }} title={label} />
+            style={{ backgroundColor: hex }} title={`${label}${hex === '#EF4444' ? ' (Ctrl+Shift+R)' : ''}`} />
         ))}
         <button type="button"
           onMouseDown={e => { e.preventDefault(); editor.chain().focus().unsetColor().run() }}
@@ -137,7 +151,7 @@ export default function TiptapEditor({
           <button key={label} type="button"
             onMouseDown={e => { e.preventDefault(); editor.chain().focus().toggleHighlight({ color: hex }).run() }}
             className="w-[14px] h-[14px] rounded hover:scale-125 flex-shrink-0 transition-transform border border-gray-200"
-            style={{ backgroundColor: hex }} title={`형광 ${label}`} />
+            style={{ backgroundColor: hex }} title={`형광 ${label}${hex === '#FEF08A' ? ' (Ctrl+Shift+H)' : ''}`} />
         ))}
         <button type="button"
           onMouseDown={e => { e.preventDefault(); editor.chain().focus().unsetHighlight().run() }}
