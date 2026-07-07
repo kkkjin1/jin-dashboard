@@ -119,6 +119,8 @@ export default function MeetingBriefWidget() {
     setPickerCategory(category)
     setPickerStep('list')
     setLoadingPicker(true)
+    // "다음 →" 확정 시 preferred_category 저장
+    save(schedules.map(s => s.id === scheduleId ? { ...s, preferred_category: category } : s))
     const supabase = createClient()
     const { data } = await supabase
       .from('meetings')
@@ -247,9 +249,13 @@ export default function MeetingBriefWidget() {
                   )}
                   {/* 연동 상태 */}
                   {linkedId ? (
-                    <Link href={`/meetings/${linkedId}`}
-                      className="flex-shrink-0 text-[9px] text-blue-400 hover:text-blue-600"
-                      title="연동된 회의록">🔗</Link>
+                    <>
+                      <Link href={`/meetings/${linkedId}`}
+                        className="flex-shrink-0 text-[9px] text-blue-400 hover:text-blue-600"
+                        title="연동된 회의록">🔗</Link>
+                      <button onClick={() => openLinkPicker(m.id)}
+                        className="text-[9px] text-gray-200 hover:text-blue-400 opacity-0 group-hover:opacity-100 transition-all">편집</button>
+                    </>
                   ) : (
                     <button onClick={() => openLinkPicker(m.id)}
                       className="text-[9px] text-gray-200 hover:text-blue-400 opacity-0 group-hover:opacity-100 transition-all">연동</button>
@@ -294,15 +300,25 @@ export default function MeetingBriefWidget() {
                             </button>
                           ))}
                         </div>
-                        {tempCategory && (
-                          <div className="flex justify-end mt-2">
+                        <div className="flex items-center justify-between mt-2">
+                          {m.preferred_category && (
+                            <button
+                              onClick={() => {
+                                save(schedules.map(s => s.id === m.id ? { ...s, preferred_category: undefined } : s))
+                                closePicker()
+                              }}
+                              className="text-[9px] text-gray-400 hover:text-red-500 transition-colors">
+                              범주 해제
+                            </button>
+                          )}
+                          {tempCategory && (
                             <button
                               onClick={() => selectCategory(m.id, tempCategory)}
-                              className="text-[10px] text-blue-600 font-medium px-2.5 py-1 bg-blue-50 hover:bg-blue-100 rounded-full transition-colors">
+                              className="text-[10px] text-blue-600 font-medium px-2.5 py-1 bg-blue-50 hover:bg-blue-100 rounded-full transition-colors ml-auto">
                               다음 →
                             </button>
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </div>
                     )}
 
