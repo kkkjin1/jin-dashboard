@@ -8,6 +8,7 @@ import type { Meeting, NoteEntry, Task, TaskStatus, Note, Attachment } from '@/t
 import { generateMeetingMd, downloadMd } from '@/lib/markdown'
 import dynamic from 'next/dynamic'
 import MarkdownContent from '@/components/MarkdownContent'
+import TextSelectionCapture from '@/components/TextSelectionCapture'
 const FullscreenNoteEditor = dynamic(() => import('@/components/FullscreenNoteEditor'), { ssr: false })
 const TiptapEditor = dynamic(() => import('@/components/TiptapEditor'), { ssr: false })
 
@@ -476,6 +477,7 @@ export default function MeetingDetailPage() {
 
   return (
     <div className="h-full overflow-y-auto p-4 md:p-5 pretendard-page">
+      <TextSelectionCapture sourceName={meeting.title} sourceType="회의" />
       <div className="flex items-center justify-between mb-8">
         <Link href="/meetings" className="text-sm text-gray-400 hover:text-gray-600 inline-flex items-center gap-1">← 회의록 목록</Link>
         <button onClick={handleDownloadMd}

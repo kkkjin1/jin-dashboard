@@ -11,6 +11,7 @@ import { ko } from 'date-fns/locale'
 import { generateTaskMd, downloadMd } from '@/lib/markdown'
 import dynamic from 'next/dynamic'
 import MarkdownContent from '@/components/MarkdownContent'
+import TextSelectionCapture from '@/components/TextSelectionCapture'
 const FullscreenNoteEditor = dynamic(() => import('@/components/FullscreenNoteEditor'), { ssr: false })
 const TiptapEditor = dynamic(() => import('@/components/TiptapEditor'), { ssr: false })
 
@@ -583,6 +584,7 @@ export default function TaskDetailPage() {
       style={contentWidth ? { width: `${contentWidth}px` } : {}}
       onPaste={handlePaste}
     >
+      <TextSelectionCapture sourceName={task.title} sourceType="업무" />
       {toast && <Toast message={toast} onDone={() => setToast('')} />}
 
       {/* 이미지 라이트박스 */}
