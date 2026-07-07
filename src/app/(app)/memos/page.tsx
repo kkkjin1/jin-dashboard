@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { format, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import type { QuickMemo, MemoTag } from '@/types'
+import MarkdownContent from '@/components/MarkdownContent'
 
 const ALL_TAGS: MemoTag[] = ['공지', '업무관련', '회의관련', '아이디어', '완료']
 const FILTER_TAGS = ['전체', ...ALL_TAGS] as const
@@ -93,6 +94,7 @@ function EditModal({ memo, onSave, onClose }: EditModalProps) {
   const [title, setTitle] = useState(memo.title)
   const [content, setContent] = useState(memo.content)
   const [tag, setTag] = useState<MemoTag>(memo.tag)
+  const [mode, setMode] = useState<'edit' | 'preview'>(memo.content ? 'preview' : 'edit')
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
@@ -101,6 +103,7 @@ function EditModal({ memo, onSave, onClose }: EditModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 backdrop-blur-sm p-4" onClick={onClose}>
       <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/80 p-6 w-full max-w-sm md:max-w-3xl flex flex-col" style={{ height: 'min(82vh, 860px)', maxHeight: '90vh' }} onClick={e => e.stopPropagation()}>
+        {/* 태그 + 닫기 */}
         <div className="flex items-center justify-between mb-4 flex-shrink-0">
           <div className="flex gap-1.5 flex-wrap">
             {ALL_TAGS.map(t => (
@@ -112,17 +115,43 @@ function EditModal({ memo, onSave, onClose }: EditModalProps) {
           </div>
           <button onClick={onClose} className="text-gray-300 hover:text-gray-500 text-lg leading-none ml-3 flex-shrink-0">×</button>
         </div>
+        {/* 제목 */}
         <input value={title} onChange={e => setTitle(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') onSave(memo.id, title, content, tag) }}
-          autoFocus
+          autoFocus={!memo.content}
           placeholder="제목"
           className="w-full text-base font-semibold text-gray-800 border-b border-gray-200 pb-2 mb-3 focus:outline-none bg-transparent flex-shrink-0" />
-        <textarea value={content} onChange={e => setContent(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) onSave(memo.id, title, content, tag) }}
-          placeholder="내용 (Ctrl+Enter 저장)"
-          className="w-full text-sm text-gray-600 focus:outline-none resize-none bg-white/60 border border-gray-100 rounded-2xl p-3 flex-1 min-h-0" />
+        {/* 편집/미리보기 탭 */}
+        <div className="flex gap-1 mb-2 flex-shrink-0">
+          <button onClick={() => setMode('edit')}
+            className={`text-xs px-3 py-1 rounded-full border transition-all font-medium ${mode === 'edit' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white/60 text-gray-400 border-gray-200 hover:text-gray-600'}`}>
+            편집
+          </button>
+          <button onClick={() => setMode('preview')}
+            className={`text-xs px-3 py-1 rounded-full border transition-all font-medium ${mode === 'preview' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white/60 text-gray-400 border-gray-200 hover:text-gray-600'}`}>
+            미리보기
+          </button>
+        </div>
+        {/* 내용 영역 */}
+        {mode === 'edit' ? (
+          <textarea value={content} onChange={e => setContent(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) onSave(memo.id, title, content, tag) }}
+            autoFocus={!!memo.content}
+            placeholder="내용 (Ctrl+Enter 저장)"
+            className="w-full text-sm text-gray-600 focus:outline-none resize-none bg-white/60 border border-gray-100 rounded-2xl p-3 flex-1 min-h-0" />
+        ) : (
+          <div className="flex-1 min-h-0 overflow-y-auto bg-white/60 border border-gray-100 rounded-2xl p-4 cursor-text"
+            onClick={() => setMode('edit')}>
+            {content
+              ? <MarkdownContent content={content} className="text-sm text-gray-700" />
+              : <p className="text-sm text-gray-300">내용 없음 — 클릭해서 편집</p>}
+          </div>
+        )}
+        {/* 하단 버튼 */}
         <div className="flex justify-between items-center mt-4 flex-shrink-0">
-          <p className="text-[10px] text-gray-300">Ctrl+Enter 저장 · Esc 닫기</p>
+          <p className="text-[10px] text-gray-300">
+            {mode === 'edit' ? 'Ctrl+Enter 저장 · Esc 닫기' : '클릭하면 편집 모드로 전환'}
+          </p>
           <div className="flex gap-2">
             <button onClick={onClose} className={`${pill} ${pOff}`}>취소</button>
             <button onClick={() => onSave(memo.id, title, content, tag)} className={`${pill} ${pOn}`}>저장</button>
