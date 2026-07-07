@@ -80,6 +80,7 @@ export interface NoteEntry {
   content: string
   created_at: string
   edited_at?: string
+  is_prep?: boolean  // 홈탭 사전 메모에서 연동된 항목
 }
 
 export interface Meeting {

@@ -523,6 +523,23 @@ export default function MeetingDetailPage() {
             </div>
           </div>
 
+          {/* 📌 사전 메모 (홈탭에서 연동된 경우) */}
+          {meeting.notes.some(n => n.is_prep) && (
+            <div className="mb-4 bg-amber-50 border border-amber-200/60 rounded-xl p-4">
+              <p className="text-[11px] font-semibold text-amber-700 mb-2">📌 사전 메모</p>
+              {meeting.notes.filter(n => n.is_prep).map((n, i) => (
+                <div key={i}>
+                  <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{n.content}</p>
+                  {n.edited_at && (
+                    <p className="text-[10px] text-amber-500/70 mt-1">
+                      수정: {new Date(n.edited_at).toLocaleDateString('ko-KR')}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
           <div className="mb-6">
             <h2 className="text-sm font-semibold text-gray-700 mb-3">회의 내용</h2>
             <div className="bg-white rounded-lg border border-gray-100 p-4 mb-3">
@@ -555,10 +572,10 @@ export default function MeetingDetailPage() {
             )}
 
             <div className="space-y-2">
-              {meeting.notes.length === 0 ? (
+              {meeting.notes.filter(n => !n.is_prep).length === 0 ? (
                 <p className="text-sm text-gray-300 text-center py-4">아직 기록된 내용이 없습니다</p>
               ) : (
-                meeting.notes.map((note, idx) => (
+                meeting.notes.map((note, idx) => note.is_prep ? null : (
                   <NoteAccordion key={`${note.created_at}-${idx}`} note={note} index={idx}
                     isOpen={openIndexes.has(idx)} onToggle={() => toggleNote(idx)} onDelete={deleteNote}
                     onEdit={editNote} onFullscreen={(content) => { setFullscreenContent(content); setShowFullscreen(true) }} />
