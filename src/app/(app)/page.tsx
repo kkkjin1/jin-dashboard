@@ -172,7 +172,7 @@ function CompactCol({
                         {item.taskShortName}{(item.idxInTask ?? 0) + 1}
                       </span>
                     )}
-                    <span className={`text-sm leading-relaxed break-words min-w-0 ${itemTxt}`}>
+                    <span className={`text-xs leading-relaxed break-words min-w-0 ${itemTxt}`}>
                       {item.title || '제목 없음'}
                     </span>
                   </div>

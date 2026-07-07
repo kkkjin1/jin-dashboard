@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -54,7 +54,6 @@ export default function DailyJournalWidget({ selectedDate, onNavigate, onDateCha
   const [journals, setJournals] = useState<Record<string, DailyJournal>>({})
   const [showEditor, setShowEditor] = useState(false)
 
-  const datePickerRef = useRef<HTMLInputElement>(null)
   const supabase = createClient()
 
   useEffect(() => {
@@ -86,9 +85,6 @@ export default function DailyJournalWidget({ selectedDate, onNavigate, onDateCha
   const current = journals[selectedDate] ?? null
   const yesterday = journals[(() => { const d = new Date(); d.setDate(d.getDate() - 1); return localDateStr(d) })()] ?? null
 
-  const getMeetings = (j: DailyJournal) =>
-    j.linked_meeting_ids.map(id => meetings.find(m => m.id === id)).filter(Boolean) as MeetingMin[]
-
   function handleSaved(updated: DailyJournal) {
     setJournals(prev => ({ ...prev, [selectedDate]: updated }))
     setShowEditor(false)
@@ -101,69 +97,44 @@ export default function DailyJournalWidget({ selectedDate, onNavigate, onDateCha
       {/* 헤더 */}
       <div className="flex items-center gap-2 px-4 py-2.5 border-b border-black/5 flex-shrink-0">
         <span className="text-sm leading-none">🪴</span>
-        <span className="text-xs font-semibold text-gray-700 flex-1">회고</span>
-        <div className="flex items-center gap-0.5 bg-white/60 text-gray-600 rounded-full px-1.5 py-0.5">
-          <button onClick={() => onNavigate(-1)} className="hover:opacity-60 transition-opacity text-xs px-0.5">←</button>
-          <span
-            onClick={() => onDateChange && datePickerRef.current?.showPicker?.()}
-            className={`min-w-[2.5rem] text-center text-[11px] font-medium block px-0.5 transition-opacity ${onDateChange ? 'cursor-pointer hover:opacity-70' : ''}`}
-          >
-            {formatDateLabel(selectedDate)}
-          </span>
-          {onDateChange && (
-            <input ref={datePickerRef} type="date" max={todayStr()} value={selectedDate}
-              onChange={e => { if (e.target.value && e.target.value <= todayStr()) onDateChange(e.target.value) }}
-              className="sr-only" />
-          )}
-          <button onClick={() => onNavigate(1)} disabled={isToday} className="hover:opacity-60 disabled:opacity-20 transition-opacity text-xs px-0.5">→</button>
-        </div>
-        {current && (
-          <button onClick={() => setShowEditor(true)} className="text-[11px] text-gray-400 hover:text-gray-600">수정</button>
-        )}
+        <span className="text-xs font-semibold text-gray-700">회고</span>
       </div>
 
-      {/* 본문 */}
-      <div className="flex-1 overflow-y-auto p-3 scrollbar-hide flex flex-col gap-2 min-h-0">
+      {/* 본문: 세로 2분할 */}
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
 
-        {/* 저장된 회고 */}
-        {current && (
-          <>
-            <p className="text-xs text-gray-600 leading-relaxed whitespace-pre-wrap">{current.content}</p>
-            {getMeetings(current).length > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {getMeetings(current).map(m => (
-                  <Link key={m.id} href={`/meetings/${m.id}`} className="text-[10px] bg-blue-50 text-blue-600 border border-blue-200 px-1.5 py-0.5 rounded hover:bg-blue-100 transition-colors">
-                    @ {m.title}
-                  </Link>
-                ))}
-              </div>
-            )}
-            {current.tags?.length > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {current.tags.map(t => (
-                  <span key={t} className="text-[10px] text-gray-400">#{t}</span>
-                ))}
-              </div>
-            )}
-          </>
-        )}
+        {/* 상단: 어제 회고 */}
+        <div className="flex-1 min-h-0 overflow-y-auto px-4 pt-3 pb-2 scrollbar-hide">
+          <p className="text-[9px] font-semibold text-gray-300 tracking-wider mb-1.5 uppercase">어제</p>
+          {yesterday ? (
+            <p className="text-[13px] text-gray-300 leading-relaxed whitespace-pre-wrap">{yesterday.content}</p>
+          ) : (
+            <p className="text-xs text-gray-200 italic">어제 기록 없음</p>
+          )}
+        </div>
 
-        {/* 빈 상태 */}
-        {!current && (
-          <div className="flex flex-col gap-2">
-            {isToday && yesterday && (
-              <p className="text-[10px] text-amber-600/70 leading-relaxed line-clamp-2">
-                📌 어제: {yesterday.content}
-              </p>
-            )}
+        {/* 구분선 */}
+        <div className="flex-shrink-0 mx-4 border-t border-gray-100" />
+
+        {/* 하단: 오늘 회고 */}
+        <div className="flex-shrink-0 px-4 py-3">
+          {current ? (
+            <div className="flex items-start gap-2">
+              <p className="flex-1 text-xs text-gray-600 leading-relaxed line-clamp-3">{current.content}</p>
+              <button
+                onClick={() => setShowEditor(true)}
+                className="flex-shrink-0 text-[10px] text-gray-400 hover:text-gray-600 transition-colors">
+                수정
+              </button>
+            </div>
+          ) : (
             <button
               onClick={() => setShowEditor(true)}
-              className="text-left text-xs text-gray-300 hover:text-gray-500 transition-colors py-0.5"
-            >
-              {isToday ? '+ 오늘 회고 작성…' : '+ 이 날 회고 작성…'}
+              className="w-full py-2 text-xs text-gray-400 hover:text-gray-600 transition-colors text-center rounded-lg hover:bg-gray-50/50">
+              ✏️ {isToday ? '오늘 회고 작성하기' : '이 날 회고 작성하기'}
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* 풀스크린 에디터 — backdrop-blur 부모에 갇히지 않도록 body에 portal */}
