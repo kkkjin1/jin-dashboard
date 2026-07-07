@@ -243,11 +243,24 @@ export default function MeetingsPage() {
         </div>
       )}
 
-      {/* 범주 필터 pills + 추가/삭제 */}
+      {/* 범주 필터 pills + 추가/삭제 (pill 드래그로 순서 변경) */}
       <div className="flex-shrink-0 flex items-center gap-1.5 mb-5 overflow-x-auto scrollbar-hide">
         {pillFilters.map(c => (
-          <div key={c} className="relative group/pill flex-shrink-0">
-            <button onClick={() => setCatFilter(c)} className={`${pill} ${catFilter === c ? pOn : pOff}`}>{c}</button>
+          <div
+            key={c}
+            className={`relative group/pill flex-shrink-0 transition-opacity ${dragCat === c ? 'opacity-40' : ''}`}
+            draggable={c !== '전체' && c !== '기타'}
+            onDragStart={e => { if (c !== '전체' && c !== '기타') { e.dataTransfer.effectAllowed = 'move'; setDragCat(c) } }}
+            onDragOver={e => { e.preventDefault(); if (dragCat && dragCat !== c && c !== '전체' && c !== '기타') setDragOverCat(c) }}
+            onDrop={() => onCatDrop(c)}
+            onDragEnd={() => { setDragCat(null); setDragOverCat(null) }}
+          >
+            <button
+              onClick={() => setCatFilter(c)}
+              className={`${pill} transition-all ${catFilter === c ? pOn : pOff} ${dragOverCat === c && dragCat !== c ? 'ring-2 ring-blue-300 ring-offset-1' : ''}`}>
+              {c !== '전체' && c !== '기타' && <span className="text-[8px] opacity-30 mr-1 cursor-grab">⠿</span>}
+              {c}
+            </button>
             {/* '전체'와 '기타'는 삭제 불가 */}
             {c !== '전체' && c !== '기타' && (
               <button
@@ -285,7 +298,7 @@ export default function MeetingsPage() {
       {/* 콘텐츠 */}
       <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
         {loading ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 xl:grid-cols-6 gap-3">
             {[1,2,3,4,5,6,7,8].map(i => <div key={i} className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-2xl h-28 animate-pulse" />)}
           </div>
         ) : categoryGroups.length === 0 ? (
@@ -340,7 +353,7 @@ export default function MeetingsPage() {
                             </button>
 
                             {!isMonthCollapsed && (
-                              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 xl:grid-cols-6 gap-3">
                                 {monthItems.map(meeting => (
                                   <div key={meeting.id}
                                     onClick={() => router.push(`/meetings/${meeting.id}`)}
