@@ -53,22 +53,35 @@ export default function DailyJournalWidget({ selectedDate, onNavigate, onDateCha
 
   const [journals, setJournals] = useState<Record<string, DailyJournal>>({})
   const [showEditor, setShowEditor] = useState(false)
+  const datePickerRef = useRef<HTMLInputElement>(null)
 
   const supabase = createClient()
 
+  // selectedDate의 전날 계산
+  const prevDate = (() => {
+    const [y, m, d] = selectedDate.split('-').map(Number)
+    const dt = new Date(y, m - 1, d); dt.setDate(dt.getDate() - 1)
+    return localDateStr(dt)
+  })()
+
   useEffect(() => {
     setShowEditor(false)
-    if (!journals[selectedDate]) {
-      supabase.from('daily_journals').select('*').eq('date', selectedDate).single()
+    // selectedDate + 전날 모두 로드
+    const toLoad = [selectedDate, prevDate].filter(date => !journals[date])
+    if (toLoad.length > 0) {
+      supabase.from('daily_journals').select('*').in('date', toLoad)
         .then(({ data }) => {
-          if (data) setJournals(prev => ({ ...prev, [selectedDate]: data as DailyJournal }))
+          if (!data) return
+          const map: Record<string, DailyJournal> = {}
+          data.forEach(j => { map[j.date] = j as DailyJournal })
+          setJournals(prev => ({ ...prev, ...map }))
         })
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDate])
 
   useEffect(() => {
-    const dates = Array.from({ length: 7 }, (_, i) => {
+    const dates = Array.from({ length: 8 }, (_, i) => {
       const d = new Date(); d.setDate(d.getDate() - i)
       return localDateStr(d)
     })
@@ -83,7 +96,7 @@ export default function DailyJournalWidget({ selectedDate, onNavigate, onDateCha
   }, [])
 
   const current = journals[selectedDate] ?? null
-  const yesterday = journals[(() => { const d = new Date(); d.setDate(d.getDate() - 1); return localDateStr(d) })()] ?? null
+  const prevJournal = journals[prevDate] ?? null
 
   function handleSaved(updated: DailyJournal) {
     setJournals(prev => ({ ...prev, [selectedDate]: updated }))
@@ -97,30 +110,47 @@ export default function DailyJournalWidget({ selectedDate, onNavigate, onDateCha
       {/* 헤더 */}
       <div className="flex items-center gap-2 px-4 py-2.5 border-b border-black/5 flex-shrink-0">
         <span className="text-sm leading-none">🪴</span>
-        <span className="text-xs font-semibold text-gray-700">회고</span>
+        <span className="text-xs font-semibold text-gray-700 flex-1">회고</span>
+        <div className="flex items-center gap-0.5 bg-white/60 text-gray-600 rounded-full px-1.5 py-0.5">
+          <button onClick={() => onNavigate(-1)} className="hover:opacity-60 transition-opacity text-xs px-0.5">←</button>
+          <span
+            onClick={() => onDateChange && datePickerRef.current?.showPicker?.()}
+            className={`min-w-[2.5rem] text-center text-[11px] font-medium block px-0.5 transition-opacity ${onDateChange ? 'cursor-pointer hover:opacity-70' : ''}`}
+          >
+            {formatDateLabel(selectedDate)}
+          </span>
+          {onDateChange && (
+            <input ref={datePickerRef} type="date" max={todayStr()} value={selectedDate}
+              onChange={e => { if (e.target.value && e.target.value <= todayStr()) onDateChange(e.target.value) }}
+              className="sr-only" />
+          )}
+          <button onClick={() => onNavigate(1)} disabled={isToday} className="hover:opacity-60 disabled:opacity-20 transition-opacity text-xs px-0.5">→</button>
+        </div>
       </div>
 
-      {/* 본문: 세로 2분할 */}
+      {/* 본문: 세로 5:5 분할 */}
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
 
-        {/* 상단: 어제 회고 */}
+        {/* 상단: 전날 회고 */}
         <div className="flex-1 min-h-0 overflow-y-auto px-4 pt-3 pb-2 scrollbar-hide">
-          <p className="text-[9px] font-semibold text-gray-300 tracking-wider mb-1.5 uppercase">어제</p>
-          {yesterday ? (
-            <p className="text-[13px] text-gray-300 leading-relaxed whitespace-pre-wrap">{yesterday.content}</p>
+          <p className="text-[9px] font-semibold text-gray-300 tracking-wider mb-1.5 uppercase">
+            {formatDateLabel(prevDate)}
+          </p>
+          {prevJournal ? (
+            <p className="text-[13px] text-gray-300 leading-relaxed whitespace-pre-wrap">{prevJournal.content}</p>
           ) : (
-            <p className="text-xs text-gray-200 italic">어제 기록 없음</p>
+            <p className="text-xs text-gray-200 italic">기록 없음</p>
           )}
         </div>
 
         {/* 구분선 */}
         <div className="flex-shrink-0 mx-4 border-t border-gray-100" />
 
-        {/* 하단: 오늘 회고 */}
-        <div className="flex-shrink-0 px-4 py-3">
+        {/* 하단: 오늘(selectedDate) 회고 */}
+        <div className="flex-1 min-h-0 flex flex-col justify-center px-4 py-3">
           {current ? (
-            <div className="flex items-start gap-2">
-              <p className="flex-1 text-xs text-gray-600 leading-relaxed line-clamp-3">{current.content}</p>
+            <div className="flex items-start gap-2 min-h-0">
+              <p className="flex-1 text-xs text-gray-600 leading-relaxed overflow-y-auto scrollbar-hide">{current.content}</p>
               <button
                 onClick={() => setShowEditor(true)}
                 className="flex-shrink-0 text-[10px] text-gray-400 hover:text-gray-600 transition-colors">
@@ -130,7 +160,7 @@ export default function DailyJournalWidget({ selectedDate, onNavigate, onDateCha
           ) : (
             <button
               onClick={() => setShowEditor(true)}
-              className="w-full py-2 text-xs text-gray-400 hover:text-gray-600 transition-colors text-center rounded-lg hover:bg-gray-50/50">
+              className="w-full py-3 text-xs text-gray-400 hover:text-gray-600 transition-colors text-center rounded-lg border border-dashed border-gray-200 hover:border-gray-300 hover:bg-gray-50/50">
               ✏️ {isToday ? '오늘 회고 작성하기' : '이 날 회고 작성하기'}
             </button>
           )}
@@ -142,7 +172,7 @@ export default function DailyJournalWidget({ selectedDate, onNavigate, onDateCha
         <JournalFullscreenEditor
           selectedDate={selectedDate}
           current={current}
-          yesterday={isToday ? yesterday : null}
+          yesterday={prevJournal}
           meetings={meetings}
           supabaseClient={supabase}
           onSaved={handleSaved}
