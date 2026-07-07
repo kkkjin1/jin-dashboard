@@ -99,29 +99,35 @@ function EditModal({ memo, onSave, onClose }: EditModalProps) {
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/80 p-6 w-96" onClick={e => e.stopPropagation()}>
-        <h3 className="font-semibold text-gray-800 mb-4">메모 수정</h3>
-        <div className="flex gap-1.5 mb-4 flex-wrap">
-          {ALL_TAGS.map(t => (
-            <button key={t} onClick={() => setTag(t)}
-              className={`text-xs px-3 py-1.5 rounded-full border transition-all font-medium ${tag === t ? pOn : `border-gray-200 text-gray-500 hover:bg-gray-50 ${TAG_BADGE[t]}`}`}>
-              {t}
-            </button>
-          ))}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 backdrop-blur-sm p-4" onClick={onClose}>
+      <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/80 p-6 w-full max-w-sm md:max-w-2xl flex flex-col" style={{ maxHeight: '90vh' }} onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex gap-1.5 flex-wrap">
+            {ALL_TAGS.map(t => (
+              <button key={t} onClick={() => setTag(t)}
+                className={`text-xs px-3 py-1.5 rounded-full border transition-all font-medium ${tag === t ? pOn : `border-gray-200 text-gray-500 hover:bg-gray-50 ${TAG_BADGE[t]}`}`}>
+                {t}
+              </button>
+            ))}
+          </div>
+          <button onClick={onClose} className="text-gray-300 hover:text-gray-500 text-lg leading-none ml-3 flex-shrink-0">×</button>
         </div>
         <input value={title} onChange={e => setTitle(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') onSave(memo.id, title, content, tag) }}
           autoFocus
           placeholder="제목"
-          className="w-full text-sm font-semibold text-gray-800 border-b border-gray-200 pb-2 mb-3 focus:outline-none bg-transparent" />
+          className="w-full text-base font-semibold text-gray-800 border-b border-gray-200 pb-2 mb-3 focus:outline-none bg-transparent" />
         <textarea value={content} onChange={e => setContent(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) onSave(memo.id, title, content, tag) }}
           placeholder="내용 (Ctrl+Enter 저장)"
-          className="w-full text-sm text-gray-500 focus:outline-none resize-none bg-white/60 border border-gray-100 rounded-2xl p-3" rows={4} />
-        <div className="flex justify-end gap-2 mt-4">
-          <button onClick={onClose} className={`${pill} ${pOff}`}>취소</button>
-          <button onClick={() => onSave(memo.id, title, content, tag)} className={`${pill} ${pOn}`}>저장</button>
+          className="w-full text-sm text-gray-600 focus:outline-none resize-y bg-white/60 border border-gray-100 rounded-2xl p-3 flex-1"
+          style={{ minHeight: '8rem', height: '100%' }} />
+        <div className="flex justify-between items-center mt-4">
+          <p className="text-[10px] text-gray-300">Ctrl+Enter 저장 · Esc 닫기</p>
+          <div className="flex gap-2">
+            <button onClick={onClose} className={`${pill} ${pOff}`}>취소</button>
+            <button onClick={() => onSave(memo.id, title, content, tag)} className={`${pill} ${pOn}`}>저장</button>
+          </div>
         </div>
       </div>
     </div>
