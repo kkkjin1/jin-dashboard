@@ -569,7 +569,7 @@ export default function HomePage() {
           </div>
           <div className="min-h-0 overflow-hidden">
             <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full overflow-hidden font-sans">
-              <UnscheduledWidget todos={todos} onAssign={handleAssignTodo} />
+              <UnscheduledWidget todos={todos} onAssign={handleAssignTodo} onComplete={handleCompleteTodo} />
             </div>
           </div>
         </div>

@@ -7,6 +7,7 @@ import type { TaskTodo, ScheduleTag } from '@/types'
 interface Props {
   todos: TaskTodo[]
   onAssign: (todoId: string, tag: ScheduleTag) => void
+  onComplete?: (todoId: string) => void
 }
 
 const TAG_OPTIONS: { tag: ScheduleTag; label: string; cls: string }[] = [
@@ -15,7 +16,7 @@ const TAG_OPTIONS: { tag: ScheduleTag; label: string; cls: string }[] = [
   { tag: 'this_week', label: '금주',  cls: 'bg-blue-50 text-blue-600 hover:bg-blue-100' },
 ]
 
-export default function UnscheduledWidget({ todos, onAssign }: Props) {
+export default function UnscheduledWidget({ todos, onAssign, onComplete }: Props) {
   const unscheduled = todos.filter(t => !t.target_date && !t.schedule_tag)
 
   return (
@@ -40,6 +41,14 @@ export default function UnscheduledWidget({ todos, onAssign }: Props) {
             return (
               <div key={todo.id} className="group flex flex-col px-1.5 py-1.5 rounded-lg hover:bg-white/50 transition-colors">
                 <div className="flex items-start gap-1.5 min-w-0">
+                  {onComplete && (
+                    <button
+                      onClick={() => onComplete(todo.id)}
+                      className="flex-shrink-0 mt-0.5 w-3.5 h-3.5 rounded-full border border-gray-300 hover:border-emerald-400 hover:bg-emerald-50 transition-colors opacity-0 group-hover:opacity-100 flex items-center justify-center"
+                      title="완료">
+                      <span className="text-[8px] text-emerald-500 leading-none">✓</span>
+                    </button>
+                  )}
                   <Link href={`/tasks/${task?.id ?? ''}`} className="text-xs text-gray-700 leading-snug hover:text-gray-900 transition-colors min-w-0">
                     {todo.title}
                   </Link>
