@@ -382,7 +382,6 @@ export default function DailyJournalWidget({ selectedDate, onNavigate, onDateCha
           </div>
         )}
       </div>
-    </div>
 
       {/* 어제 전체 보기 팝업 */}
       {showYesterdayFull && yesterday && (
