@@ -37,19 +37,18 @@ export default function UnscheduledWidget({ todos, onAssign }: Props) {
         <div className="flex-1 overflow-y-auto min-h-0 space-y-1 scrollbar-hide">
           {unscheduled.map(todo => {
             const task = todo.tasks as { id: string; title: string; short_name?: string | null } | null
-            const badge = task?.short_name ?? ''
             return (
               <div key={todo.id} className="group flex flex-col px-1.5 py-1.5 rounded-lg hover:bg-white/50 transition-colors">
                 <div className="flex items-start gap-1.5 min-w-0">
-                  {badge && (
-                    <span className="inline-block flex-shrink-0 text-[9px] bg-gray-100 text-gray-500 rounded px-1 py-0.5 leading-none mt-0.5">
-                      {badge}
-                    </span>
-                  )}
                   <Link href={`/tasks/${task?.id ?? ''}`} className="text-xs text-gray-700 leading-snug hover:text-gray-900 transition-colors min-w-0">
                     {todo.title}
                   </Link>
                 </div>
+                {task?.title && (
+                  <p className="text-[9px] text-gray-400 truncate mt-0.5">
+                    {task.short_name ? `[${task.short_name}] ` : ''}{task.title}
+                  </p>
+                )}
                 <div className="overflow-hidden max-h-0 group-hover:max-h-6 transition-all duration-150 flex gap-0.5 mt-0.5">
                   {TAG_OPTIONS.map(({ tag, label, cls }) => (
                     <button
