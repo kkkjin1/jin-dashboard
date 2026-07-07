@@ -115,14 +115,10 @@ export default function MeetingBriefWidget() {
     setPickerStep('category')
   }
 
-  async function selectCategory(scheduleId: string, category: string, skipSave = false) {
+  async function selectCategory(scheduleId: string, category: string) {
     setPickerCategory(category)
     setPickerStep('list')
     setLoadingPicker(true)
-    if (!skipSave) {
-      // preferred_category 기억
-      save(schedules.map(s => s.id === scheduleId ? { ...s, preferred_category: category } : s))
-    }
     const supabase = createClient()
     const { data } = await supabase
       .from('meetings')
