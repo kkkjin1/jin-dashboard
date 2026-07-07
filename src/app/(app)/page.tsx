@@ -152,16 +152,15 @@ function CompactCol({
                   : dark ? 'bg-[#F0C048]/60' : 'bg-gray-300'
             return (
               <div key={item.id}
-                className={`group flex items-start gap-2 py-2 px-1 rounded transition-colors ${hoverCls}`}>
+                className={`group relative flex items-start gap-1.5 py-2 px-1 rounded transition-colors ${hoverCls}`}>
                 {onComplete && isTodo && (
                   <button
                     onClick={e => { e.stopPropagation(); onComplete(item.id) }}
-                    className={`flex-shrink-0 w-3.5 h-3.5 mt-0.5 rounded-full border transition-colors opacity-0 group-hover:opacity-100 flex items-center justify-center ${completeCls}`}
+                    className={`absolute left-0 top-[7px] w-3.5 h-3.5 rounded-full border transition-colors opacity-0 group-hover:opacity-100 flex items-center justify-center z-10 ${completeCls}`}
                     title="완료">
                     <span className={`text-[8px] leading-none ${checkCls}`}>✓</span>
                   </button>
                 )}
-                {(!onComplete || !isTodo) && <span className="w-3.5 flex-shrink-0" />}
                 <span className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${dotCls}`} />
                 <Link href={item.href ?? `/tasks/${item.taskId}`} className="flex-1 min-w-0"
                   draggable={isTodo && droppable}

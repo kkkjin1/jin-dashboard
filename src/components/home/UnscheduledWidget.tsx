@@ -37,7 +37,7 @@ export default function UnscheduledWidget({ todos, onAssign }: Props) {
         <div className="flex-1 overflow-y-auto min-h-0 space-y-1 scrollbar-hide">
           {unscheduled.map(todo => {
             const task = todo.tasks as { id: string; title: string; short_name?: string | null } | null
-            const badge = task?.short_name ?? task?.title?.slice(0, 4) ?? ''
+            const badge = task?.short_name ?? ''
             return (
               <div key={todo.id} className="group flex flex-col px-1.5 py-1.5 rounded-lg hover:bg-white/50 transition-colors">
                 <div className="flex items-start gap-1.5 min-w-0">
