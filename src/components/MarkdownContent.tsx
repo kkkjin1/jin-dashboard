@@ -29,13 +29,25 @@ function parseInline(text: string, keyPrefix: string = ''): React.ReactNode {
 
 const INDENT_SIZE = 5
 
+// HTML 콘텐츠에서 ■ □ 등으로 시작하는 <p>에 hanging-indent 적용
+const BULLET_CHARS = '■□●▪▫○•◆◇'
+function preprocessBulletHtml(html: string): string {
+  const re = new RegExp(
+    `<p([^>]*)>([${BULLET_CHARS}])\\s?((?:(?!</p>)[\\s\\S])*)</p>`,
+    'g'
+  )
+  return html.replace(re, (_, attrs, bullet, body) =>
+    `<p${attrs} class="note-bullet-p"><span class="note-bullet-sym">${bullet}</span><span class="note-bullet-body">${body}</span></p>`
+  )
+}
+
 function isListLine(line: string): boolean {
   return !!(
     line.match(/^( *)\d+\. /) ||
     line.match(/^( *)[가나다라마바사아자차카타파하]\. /) ||
     line.match(/^( *)\d+\) /) ||
-    line.match(/^( *)[▪●] /) ||
-    line.match(/^( *)[▫○] /)
+    line.match(/^( *)[▪●■] /) ||
+    line.match(/^( *)[▫○□] /)
   )
 }
 
@@ -80,23 +92,25 @@ function renderLine(line: string, keyVal: string | number): React.ReactNode {
     )
   }
 
-  const bulletMatch = line.match(/^( *)[▪●] (.*)$/)
+  const bulletMatch = line.match(/^( *)[▪●■] (.*)$/)
   if (bulletMatch) {
     const lvl = Math.floor(bulletMatch[1].length / INDENT_SIZE)
+    const sym = bulletMatch[0].trim()[0] // ▪ ● ■ 중 실제 사용 문자
     return (
       <div key={k} className="flex gap-1.5 text-sm text-gray-700 leading-relaxed" style={{ paddingLeft: `${lvl * 20}px` }}>
-        <span className="text-gray-800 flex-shrink-0 text-[9px] pt-[3px]">▪</span>
+        <span className="text-gray-700 flex-shrink-0 leading-relaxed">{sym}</span>
         <span className="flex-1 min-w-0">{parseInline(bulletMatch[2], `${k}`)}</span>
       </div>
     )
   }
 
-  const subBulletMatch = line.match(/^( *)[▫○] (.*)$/)
+  const subBulletMatch = line.match(/^( *)[▫○□] (.*)$/)
   if (subBulletMatch) {
     const lvl = Math.floor(subBulletMatch[1].length / INDENT_SIZE)
+    const sym = subBulletMatch[0].trim()[0] // ▫ ○ □ 중 실제 사용 문자
     return (
       <div key={k} className="flex gap-1.5 text-sm text-gray-600 leading-relaxed" style={{ paddingLeft: `${(lvl + 1) * 20}px` }}>
-        <span className="text-gray-400 flex-shrink-0 text-[9px] pt-[3px]">▫</span>
+        <span className="text-gray-500 flex-shrink-0 leading-relaxed">{sym}</span>
         <span className="flex-1 min-w-0">{parseInline(subBulletMatch[2], `${k}`)}</span>
       </div>
     )
@@ -129,9 +143,10 @@ function ToggleBlock({ title, lines, blockKey }: { title: string; lines: string[
 }
 
 export default function MarkdownContent({ content, className }: { content: string; className?: string }) {
-  // Tiptap으로 작성된 HTML 콘텐츠는 그대로 렌더링
+  // Tiptap HTML: bullet 문자로 시작하는 <p>에 hanging indent 전처리 후 렌더링
   if (content.trimStart().startsWith('<')) {
-    return <div className={`note-html ${className ?? ''}`} dangerouslySetInnerHTML={{ __html: content }} />
+    const processed = preprocessBulletHtml(content)
+    return <div className={`note-html ${className ?? ''}`} dangerouslySetInnerHTML={{ __html: processed }} />
   }
   const lines = content.split('\n')
   const nodes: React.ReactNode[] = []

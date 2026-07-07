@@ -247,3 +247,7 @@
 .note-html strong { font-weight: 700; }
 .note-html u { text-decoration: underline; }
 .note-html mark { border-radius: 2px; padding: 0 2px; }
+/* ■ □ 등 불릿 문자 hanging-indent */
+.note-html p.note-bullet-p { display: flex; gap: 4px; align-items: flex-start; margin: 0; }
+.note-html .note-bullet-sym { flex-shrink: 0; line-height: inherit; }
+.note-html .note-bullet-body { flex: 1; min-width: 0; }
