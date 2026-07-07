@@ -40,6 +40,13 @@ interface ScheduledTodo {
   task: { id: string; title: string; short_name: string | null; assignee_id: string | null; part: string }
 }
 
+interface ScheduledOneOnOne {
+  id: string
+  member_id: string
+  member_name: string
+  next_appointment_date: string
+}
+
 export default function SchedulePage() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [members, setMembers] = useState<Member[]>([])
@@ -65,6 +72,8 @@ export default function SchedulePage() {
   const [dayOrder, setDayOrder] = useState<Record<string, string[]>>({})
   // 할일별 담당자 (task detail 페이지에서 localStorage 공유)
   const [todoAssigneeMap, setTodoAssigneeMap] = useState<Record<string, string>>({})
+  // 예정 1on1 (next_appointment_date 기준)
+  const [scheduledOneOnOnes, setScheduledOneOnOnes] = useState<ScheduledOneOnOne[]>([])
   const router = useRouter()
 
   // 고정 회의 관리
@@ -118,6 +127,20 @@ export default function SchedulePage() {
       const raw = localStorage.getItem('todo_assignees')
       if (raw) setTodoAssigneeMap(JSON.parse(raw))
     } catch {}
+    // 예정 1on1 (next_appointment_date 설정된 것)
+    supabase
+      .from('one_on_ones')
+      .select('id, member_id, next_appointment_date, members(name)')
+      .not('next_appointment_date', 'is', null)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .then(({ data }) => {
+        if (data) setScheduledOneOnOnes((data as any[]).map(r => ({
+          id: r.id,
+          member_id: r.member_id,
+          member_name: r.members?.name ?? '팀원',
+          next_appointment_date: r.next_appointment_date,
+        })))
+      })
   }, [])
 
   useEffect(() => {
@@ -210,9 +233,15 @@ export default function SchedulePage() {
     })
   }
 
+  function getDayOneOnOnes(day: Date): ScheduledOneOnOne[] {
+    if (viewFilter === '업무만') return []
+    return scheduledOneOnOnes.filter(o => isSameDay(parseISO(o.next_appointment_date), day))
+  }
+
   const selectedDayTasks = selectedDay ? getDayTasks(selectedDay) : []
   const selectedDayMeetings = selectedDay ? getDayMeetings(selectedDay) : []
   const selectedDayTodos = selectedDay ? getDayScheduledTodos(selectedDay) : []
+  const selectedDayOneOnOnes = selectedDay ? getDayOneOnOnes(selectedDay) : []
 
   type DayListItem =
     | { itemId: string; type: 'task'; data: DayTask }
@@ -329,10 +358,12 @@ export default function SchedulePage() {
     const dayTasks = getDayTasks(day)
     const dayMeetings = getDayMeetings(day)
     const dayTodos = getDayScheduledTodos(day)
+    const dayOneOnOnes = getDayOneOnOnes(day)
     const allItems = [
       ...dayTasks.map(dt => ({ type: 'task' as const, dt })),
       ...dayMeetings.map(m => ({ type: 'meeting' as const, m })),
       ...dayTodos.map(t => ({ type: 'todo' as const, t })),
+      ...dayOneOnOnes.map(o => ({ type: 'one-on-one' as const, o })),
     ]
     const isToday = isSameDay(day, new Date())
     const isSelected = selectedDay && isSameDay(day, selectedDay)
@@ -370,7 +401,7 @@ export default function SchedulePage() {
                   {m.title}
                 </button>
               )
-            } else {
+            } else if (item.type === 'todo') {
               const { t } = item
               return (
                 <button key={`todo-${t.id}-${idx}`}
@@ -378,6 +409,16 @@ export default function SchedulePage() {
                   className="w-full text-left rounded-lg px-1.5 py-0.5 truncate text-[11px] leading-tight hover:opacity-80 bg-violet-50/80 text-violet-800"
                   title={`할일 | ${t.title}`}>
                   <span className="opacity-50 mr-0.5">·</span>{t.title}
+                </button>
+              )
+            } else {
+              const { o } = item
+              return (
+                <button key={`oo-${o.id}-${idx}`}
+                  onClick={e => { e.stopPropagation(); router.push(`/one-on-one/${o.member_id}`) }}
+                  className="w-full text-left rounded-lg px-1.5 py-0.5 truncate text-[11px] leading-tight hover:opacity-80 bg-purple-100/70 text-purple-800"
+                  title={`1on1 | ${o.member_name}`}>
+                  <span className="opacity-60 mr-0.5 text-[9px]">1:1</span>{o.member_name}
                 </button>
               )
             }
@@ -479,6 +520,10 @@ export default function SchedulePage() {
               <div className="flex items-center gap-1.5">
                 <div className="w-3 h-2.5 bg-violet-50/80 rounded border border-violet-200/50" />
                 <span className="text-xs text-gray-400">할일</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-2.5 bg-purple-100/70 rounded border border-purple-200/50" />
+                <span className="text-xs text-gray-400">1on1</span>
               </div>
               <div className="ml-auto">
                 <button onClick={() => setShowAnalysis(v => !v)}
@@ -660,7 +705,7 @@ export default function SchedulePage() {
               </h3>
               {!selectedDay ? (
                 <p className="text-xs text-gray-300 leading-relaxed">캘린더에서 날짜를 클릭하면 해당일 일정을 볼 수 있습니다</p>
-              ) : (selectedDayTasks.length === 0 && selectedDayMeetings.length === 0) ? (
+              ) : (selectedDayTasks.length === 0 && selectedDayMeetings.length === 0 && selectedDayTodos.length === 0 && selectedDayOneOnOnes.length === 0) ? (
                 <p className="text-xs text-gray-300">예정된 일정이 없습니다</p>
               ) : (
                 <div className="space-y-2">
@@ -716,6 +761,17 @@ export default function SchedulePage() {
                           )}
                         </div>
                       )}
+                    </div>
+                  ))}
+                  {selectedDayOneOnOnes.map(o => (
+                    <div key={`oo-panel-${o.id}`}
+                      onClick={() => router.push(`/one-on-one/${o.member_id}`)}
+                      className="bg-purple-50/60 rounded-2xl border border-purple-100/60 p-3 transition-all cursor-pointer hover:border-purple-200">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-700">1on1</span>
+                      </div>
+                      <p className="text-sm font-medium text-gray-800">{o.member_name}</p>
+                      <p className="text-xs text-purple-400 mt-0.5">다음 1on1 예정</p>
                     </div>
                   ))}
                 </div>

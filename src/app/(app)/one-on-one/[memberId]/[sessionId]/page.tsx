@@ -22,6 +22,7 @@ export default function OneOnOneSessionPage() {
   const [titleInput, setTitleInput] = useState('')
   const [contentInput, setContentInput] = useState('')
   const [nextAppointment, setNextAppointment] = useState('')
+  const [nextAppointmentDate, setNextAppointmentDate] = useState('')
   const [deleting, setDeleting] = useState(false)
   const [editingContent, setEditingContent] = useState(false)
 
@@ -46,6 +47,7 @@ export default function OneOnOneSessionPage() {
         setTitleInput(sess.title ?? '')
         setContentInput(sess.notes[0]?.content ?? '')
         setNextAppointment(sess.next_appointment ?? '')
+        setNextAppointmentDate(sess.next_appointment_date ?? '')
       }
       if (m) setMember(m as Member)
       if (allSessions && s) {
@@ -87,6 +89,10 @@ export default function OneOnOneSessionPage() {
 
   async function saveNextAppointment() {
     await updateSession({ next_appointment: nextAppointment.trim() || null })
+  }
+
+  async function saveNextAppointmentDate(date: string) {
+    await updateSession({ next_appointment_date: date || null })
   }
 
   async function deleteSession() {
@@ -208,6 +214,31 @@ export default function OneOnOneSessionPage() {
             <h2 className="text-sm font-semibold text-gray-700 mb-1">다음 약속</h2>
             <p className="text-xs text-gray-400 mb-3">다음 1on1에서 확인할 약속이나 과제</p>
             <div className="bg-white rounded-xl border border-gray-100 p-4">
+              {/* 다음 1on1 일자 — 일정탭 연동 */}
+              <div className="flex items-center gap-2 mb-3 pb-3 border-b border-gray-50">
+                <span className="text-xs text-gray-400 font-medium whitespace-nowrap">다음 1on1 일자</span>
+                <input
+                  type="date"
+                  value={nextAppointmentDate}
+                  onChange={e => {
+                    setNextAppointmentDate(e.target.value)
+                    saveNextAppointmentDate(e.target.value)
+                  }}
+                  className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none text-gray-600 bg-white"
+                />
+                {nextAppointmentDate && (
+                  <button
+                    onClick={() => { setNextAppointmentDate(''); saveNextAppointmentDate('') }}
+                    className="text-[10px] text-gray-300 hover:text-red-400 transition-colors">
+                    × 제거
+                  </button>
+                )}
+                {nextAppointmentDate && (
+                  <span className="text-[10px] text-purple-500 bg-purple-50 border border-purple-100 px-2 py-0.5 rounded-full ml-auto">
+                    일정탭 연동됨
+                  </span>
+                )}
+              </div>
               <textarea
                 value={nextAppointment}
                 onChange={e => setNextAppointment(e.target.value)}

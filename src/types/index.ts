@@ -111,6 +111,7 @@ export interface OneOnOne {
   title?: string | null
   notes: NoteEntry[]
   next_appointment?: string | null
+  next_appointment_date?: string | null
   created_at: string
   updated_at: string
 }
