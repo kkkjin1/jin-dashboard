@@ -4,7 +4,6 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "prebuild": "echo CWD=$(pwd) && node -e \"try{const r=require.resolve('@tiptap/react');console.log('@tiptap/react:',r)}catch(e){console.error('FAIL:',e.message);}\" && node -e \"try{require.resolve('date-fns');console.log('date-fns: ok')}catch(e){console.error('date-fns FAIL:',e.message);}\"",
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint"
