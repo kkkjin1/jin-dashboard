@@ -6,10 +6,9 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import type { Meeting, NoteEntry, Task, TaskStatus, Note, Attachment } from '@/types'
 import { generateMeetingMd, downloadMd } from '@/lib/markdown'
-import SmartTextarea from '@/components/SmartTextarea'
-import FormattingToolbar from '@/components/FormattingToolbar'
 import MarkdownContent from '@/components/MarkdownContent'
 import FullscreenNoteEditor from '@/components/FullscreenNoteEditor'
+import TiptapEditor from '@/components/TiptapEditor'
 
 const CATEGORIES = ['코어', '비즈', '경영진', '본부장', '타팀', '목표관리'] as const
 const CATEGORY_COLORS: Record<string, string> = {
@@ -53,15 +52,15 @@ function NoteAccordion({ note, index, isOpen, onToggle, onDelete, onEdit, onFull
   const [autoSaved, setAutoSaved] = useState(false)
   const [fullscreen, setFullscreen] = useState(false)
   const [copied, setCopied] = useState(false)
-  const editRef = useRef<HTMLTextAreaElement | null>(null)
+  const [tiptapKey, setTiptapKey] = useState(0)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
-  function handleChange(val: string) {
-    setEditContent(val)
+  function handleChange(html: string) {
+    setEditContent(html)
     clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(() => {
-      if (val.trim()) {
-        onEdit(index, val.trim())
+      if (html.replace(/<[^>]*>/g, '').trim()) {
+        onEdit(index, html)
         setAutoSaved(true)
         setTimeout(() => setAutoSaved(false), 2000)
       }
@@ -104,7 +103,7 @@ function NoteAccordion({ note, index, isOpen, onToggle, onDelete, onEdit, onFull
           )}
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          {!isOpen && <span className="text-xs text-gray-300 truncate max-w-40">{note.content.slice(0, 40)}</span>}
+          {!isOpen && <span className="text-xs text-gray-300 truncate max-w-40">{note.content.replace(/<[^>]*>/g, '').slice(0, 40)}</span>}
           <button onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(note.content).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000) }) }}
             className="text-xs text-gray-300 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-all">
             {copied ? '✓' : '복사'}
@@ -122,8 +121,8 @@ function NoteAccordion({ note, index, isOpen, onToggle, onDelete, onEdit, onFull
         <FullscreenNoteEditor
           value={editContent}
           onChange={handleChange}
-          onSave={() => { onEdit(index, editContent.trim()); setEditing(false) }}
-          onClose={() => setFullscreen(false)}
+          onSave={() => { onEdit(index, editContent); setEditing(false) }}
+          onClose={() => { setFullscreen(false); setTiptapKey(k => k + 1) }}
           title={note.title}
         />
       )}
@@ -131,33 +130,21 @@ function NoteAccordion({ note, index, isOpen, onToggle, onDelete, onEdit, onFull
         <div className="px-4 pb-4 border-t border-gray-50">
           {editing ? (
             <>
-              <FormattingToolbar textareaRef={editRef} value={editContent} onChange={handleChange} onExpand={() => setFullscreen(true)} />
-              <div className="flex gap-0 min-h-[160px]">
-                <SmartTextarea
-                  ref={editRef}
-                  autoFocus
-                  value={editContent}
-                  onChange={handleChange}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { onEdit(index, editContent.trim()); setEditing(false) }
-                    if (e.key === 'Escape') setEditing(false)
-                  }}
-                  className="flex-1 text-sm focus:outline-none resize-none text-gray-700 pt-2 min-w-0"
-                  style={{ minHeight: '160px' }}
-                />
-                <div className="w-px bg-gray-100 flex-shrink-0 mx-3" />
-                <div className="flex-1 pt-2 min-w-0 overflow-y-auto max-h-[400px]">
-                  {editContent
-                    ? <MarkdownContent content={editContent} />
-                    : <p className="text-sm text-gray-300 italic">미리보기</p>
-                  }
-                </div>
-              </div>
+              <TiptapEditor
+                key={tiptapKey}
+                value={editContent}
+                onChange={handleChange}
+                onSubmit={() => { onEdit(index, editContent); setEditing(false) }}
+                onEscape={() => setEditing(false)}
+                onExpand={() => setFullscreen(true)}
+                autoFocus
+                minHeight={160}
+              />
               <div className="flex items-center justify-between mt-3">
                 <span className={`text-xs transition-opacity ${autoSaved ? 'text-emerald-500 opacity-100' : 'opacity-0'}`}>자동저장됨</span>
                 <div className="flex gap-2">
                   <button onClick={() => setEditing(false)} className="text-xs text-gray-400 px-3 py-1 rounded-lg">취소</button>
-                  <button onClick={() => { onEdit(index, editContent.trim()); setEditing(false) }}
+                  <button onClick={() => { onEdit(index, editContent); setEditing(false) }}
                     className="text-xs bg-gray-900 text-white px-3 py-1 rounded-lg">저장</button>
                 </div>
               </div>
@@ -270,8 +257,8 @@ export default function MeetingDetailPage() {
   const [selectedTaskId, setSelectedTaskId] = useState('')
   const [relatedJournals, setRelatedJournals] = useState<{ id: string; date: string; content: string; tags: string[]; linked: boolean }[]>([])
 
+  const [newNoteKey, setNewNoteKey] = useState(0)
   const titleRef = useRef<HTMLInputElement>(null)
-  const noteAreaRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
     async function load() {
@@ -374,10 +361,10 @@ export default function MeetingDetailPage() {
   }
 
   async function saveNote() {
-    if (!noteInput.trim() || !meeting) return
+    if (!noteInput.replace(/<[^>]*>/g, '').trim() || !meeting) return
     const newNote: NoteEntry = {
       title: noteTitle.trim() || defaultNoteTitle(),
-      content: noteInput.trim(),
+      content: noteInput,
       created_at: new Date().toISOString(),
     }
     const updatedNotes = [newNote, ...meeting.notes]
@@ -385,6 +372,7 @@ export default function MeetingDetailPage() {
     setOpenIndexes(new Set([0]))
     setNoteInput('')
     setNoteTitle(defaultNoteTitle())
+    setNewNoteKey(k => k + 1)
     localStorage.removeItem(`meeting_draft_${id}`)
     localStorage.removeItem(`meeting_draft_title_${id}`)
   }
@@ -486,7 +474,7 @@ export default function MeetingDetailPage() {
   if (!meeting) return <div className="p-8 text-gray-400 text-sm animate-pulse">불러오는 중...</div>
 
   return (
-    <div className="h-full overflow-y-auto p-4 md:p-5">
+    <div className="h-full overflow-y-auto p-4 md:p-5 pretendard-page">
       <div className="flex items-center justify-between mb-8">
         <Link href="/meetings" className="text-sm text-gray-400 hover:text-gray-600 inline-flex items-center gap-1">← 회의록 목록</Link>
         <button onClick={handleDownloadMd}
@@ -498,7 +486,7 @@ export default function MeetingDetailPage() {
       <div className="mb-4 mt-1">
         <input ref={titleRef} value={titleInput} onChange={e => setTitleInput(e.target.value)}
           onKeyDown={e => {
-            if (e.key === 'Enter') { updateMeeting({ title: titleInput }); noteAreaRef.current?.focus() }
+            if (e.key === 'Enter') { updateMeeting({ title: titleInput }) }
             if (e.key === 'Escape') setTitleInput(meeting.title)
           }}
           onBlur={() => { if (titleInput.trim()) updateMeeting({ title: titleInput }) }}
@@ -540,14 +528,16 @@ export default function MeetingDetailPage() {
               <input value={noteTitle} onChange={e => handleNoteTitleChange(e.target.value)}
                 className="w-full text-xs font-medium text-gray-500 focus:outline-none mb-2 border-b border-gray-100 pb-1 bg-transparent"
                 placeholder="노트 제목" />
-              <FormattingToolbar textareaRef={noteAreaRef} value={noteInput} onChange={handleNoteInputChange} onExpand={() => setShowFullscreenNew(true)} />
-              <SmartTextarea ref={noteAreaRef} value={noteInput} onChange={handleNoteInputChange}
-                onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) saveNote() }}
-                placeholder="회의 내용 입력 (Ctrl+Enter 저장)"
-                className="w-full text-sm focus:outline-none resize-none text-gray-700 placeholder:text-gray-300"
-                style={{ minHeight: '200px' }} />
+              <TiptapEditor
+                key={newNoteKey}
+                value={noteInput}
+                onChange={handleNoteInputChange}
+                onSubmit={saveNote}
+                onExpand={() => setShowFullscreenNew(true)}
+                minHeight={200}
+              />
               <div className="flex justify-end mt-2">
-                <button onClick={saveNote} disabled={!noteInput.trim()}
+                <button onClick={saveNote} disabled={!noteInput.replace(/<[^>]*>/g, '').trim()}
                   className="text-xs bg-gray-900 text-white px-4 py-1.5 rounded-md hover:bg-gray-800 disabled:opacity-30 transition-colors">
                   저장 (Ctrl+Enter)
                 </button>

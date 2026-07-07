@@ -129,6 +129,10 @@ function ToggleBlock({ title, lines, blockKey }: { title: string; lines: string[
 }
 
 export default function MarkdownContent({ content, className }: { content: string; className?: string }) {
+  // Tiptap으로 작성된 HTML 콘텐츠는 그대로 렌더링
+  if (content.trimStart().startsWith('<')) {
+    return <div className={`note-html ${className ?? ''}`} dangerouslySetInnerHTML={{ __html: content }} />
+  }
   const lines = content.split('\n')
   const nodes: React.ReactNode[] = []
   let i = 0
