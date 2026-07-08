@@ -47,7 +47,6 @@ function parseLineInfo(line: string): LineInfo {
   n = trimmed.match(/^(\d+)\) (.*)$/)
   if (n) return { type: 'paren', seq: parseInt(n[1]), indentLevel, prefix: ' '.repeat(indentLevel * INDENT_SIZE) + n[1] + ') ', content: n[2] }
 
-  // Accept both old (●○) and new (▪▫) bullet symbols
   n = trimmed.match(/^[●▪] (.*)$/)
   if (n) return { type: 'bullet', seq: 0, indentLevel, prefix: ' '.repeat(indentLevel * INDENT_SIZE) + '▪ ', content: n[1] }
 
@@ -85,7 +84,6 @@ function findNextSeq(lines: string[], beforeIdx: number, type: ListType, indentL
   return type === 'korean' ? '가' : 1
 }
 
-// Full sequential renumber: fixes gaps after deletion/paste (empty line = scope boundary)
 function renumberSequential(lines: string[]): string[] {
   const result = [...lines]
   const lastSeq: Map<string, number | string> = new Map()
@@ -99,7 +97,6 @@ function renumberSequential(lines: string[]): string[] {
     }
     if (info.type === 'bullet' || info.type === 'subbullet') continue
 
-    // Reset deeper-level sequences when at a shallower level
     for (const k of [...lastSeq.keys()]) {
       if (parseInt(k.split('-')[1]) > info.indentLevel) lastSeq.delete(k)
     }
@@ -135,12 +132,48 @@ function replaceRange(el: HTMLTextAreaElement, start: number, end: number, text:
   document.execCommand('insertText', false, text)
 }
 
+// ── Custom undo/redo stack ──────────────────────────────────────────────────
+interface HistoryEntry { value: string; cursor: number }
+
 const SmartTextarea = forwardRef<HTMLTextAreaElement, Props>(function SmartTextarea(
   { value, onChange, onKeyDown, ...props },
   forwardedRef
 ) {
   const localRef = useRef<HTMLTextAreaElement | null>(null)
   const pendingCursor = useRef<number | null>(null)
+
+  // History
+  const historyStack = useRef<HistoryEntry[]>([])
+  const historyIndex = useRef(-1)
+  const historyDebounce = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Seed initial history entry once on mount
+  useEffect(() => {
+    historyStack.current = [{ value, cursor: value.length }]
+    historyIndex.current = 0
+    return () => { if (historyDebounce.current) clearTimeout(historyDebounce.current) }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function pushHistory(val: string, cursor: number) {
+    const top = historyStack.current[historyIndex.current]
+    if (top?.value === val) return
+    // Discard forward entries
+    historyStack.current = historyStack.current.slice(0, historyIndex.current + 1)
+    historyStack.current.push({ value: val, cursor })
+    // Keep at most 200 entries
+    if (historyStack.current.length > 200) historyStack.current.shift()
+    historyIndex.current = historyStack.current.length - 1
+  }
+
+  // Debounced push for regular typing; immediate for structural ops
+  function commitHistory(val: string, cursor: number, immediate = false) {
+    if (historyDebounce.current) clearTimeout(historyDebounce.current)
+    if (immediate) {
+      pushHistory(val, cursor)
+    } else {
+      historyDebounce.current = setTimeout(() => pushHistory(val, cursor), 500)
+    }
+  }
 
   function setRefs(el: HTMLTextAreaElement | null) {
     localRef.current = el
@@ -160,8 +193,6 @@ const SmartTextarea = forwardRef<HTMLTextAreaElement, Props>(function SmartTexta
   useEffect(() => {
     const el = localRef.current
     if (!el) return
-
-    // Find the actual scroll container (main element, not window)
     const scrollParent = (() => {
       let node: HTMLElement | null = el.parentElement
       while (node && node !== document.body) {
@@ -171,7 +202,6 @@ const SmartTextarea = forwardRef<HTMLTextAreaElement, Props>(function SmartTexta
       }
       return document.documentElement
     })()
-
     const savedScrollTop = scrollParent.scrollTop
     el.style.overflow = 'hidden'
     el.style.height = 'auto'
@@ -188,13 +218,39 @@ const SmartTextarea = forwardRef<HTMLTextAreaElement, Props>(function SmartTexta
     const line = value.slice(lineStart, lineEnd)
     const info = parseLineInfo(line)
 
+    // ── Undo / Redo ──────────────────────────────────────────────────────────
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key === 'z' && !e.shiftKey) {
+      e.preventDefault()
+      if (historyDebounce.current) { clearTimeout(historyDebounce.current); historyDebounce.current = null; pushHistory(value, start) }
+      if (historyIndex.current > 0) {
+        historyIndex.current--
+        const snap = historyStack.current[historyIndex.current]
+        onChange(snap.value)
+        pendingCursor.current = snap.cursor
+      }
+      return
+    }
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+      e.preventDefault()
+      if (historyIndex.current < historyStack.current.length - 1) {
+        historyIndex.current++
+        const snap = historyStack.current[historyIndex.current]
+        onChange(snap.value)
+        pendingCursor.current = snap.cursor
+      }
+      return
+    }
+
+    // ── Enter: continue list ─────────────────────────────────────────────────
     if (e.key === 'Enter' && !e.metaKey && !e.ctrlKey && !e.shiftKey) {
       if (info.type === 'none') { onKeyDown?.(e); return }
       if (e.nativeEvent.isComposing) { onKeyDown?.(e); return }
       e.preventDefault()
 
       if (!info.content.trim()) {
-        onChange(value.slice(0, lineStart) + value.slice(lineEnd))
+        const newVal = value.slice(0, lineStart) + value.slice(lineEnd)
+        onChange(newVal)
+        commitHistory(newVal, lineStart, true)
         pendingCursor.current = lineStart
         return
       }
@@ -202,12 +258,13 @@ const SmartTextarea = forwardRef<HTMLTextAreaElement, Props>(function SmartTexta
       const nSeq = advance(info.type, info.seq)
       const newPrefix = makePrefix(info.type, nSeq, info.indentLevel)
       const textAfterCursor = value.slice(start, lineEnd)
+      // replaceRange fires native input → handleNativeChange will commit history
       replaceRange(el, start, lineEnd, '\n' + newPrefix + textAfterCursor)
       pendingCursor.current = start + 1 + newPrefix.length
       return
     }
 
-    // '- ' → '▪ ' auto-conversion (Space after dash at any indent level)
+    // ── Space: '- ' → '▪ ' ──────────────────────────────────────────────────
     if (e.key === ' ' && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
       const linePos = start - lineStart
       const beforeCursor = line.slice(0, linePos)
@@ -219,7 +276,7 @@ const SmartTextarea = forwardRef<HTMLTextAreaElement, Props>(function SmartTexta
       }
     }
 
-    // '->' → ' → ', '-<' → ' ← ' (with space before if not already present)
+    // ── '->' / '-<' → arrow ─────────────────────────────────────────────────
     if ((e.key === '>' || e.key === '<') && !e.ctrlKey && !e.metaKey && !e.shiftKey && start === end) {
       const prevChar = value.slice(start - 1, start)
       if (prevChar === '-') {
@@ -232,39 +289,44 @@ const SmartTextarea = forwardRef<HTMLTextAreaElement, Props>(function SmartTexta
       }
     }
 
+    // ── Ctrl+B / Ctrl+U ──────────────────────────────────────────────────────
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey) {
-      const el = e.currentTarget
-      const start = el.selectionStart
-      const end = el.selectionEnd
       const sel = value.slice(start, end)
       if (e.key === 'b') {
         e.preventDefault()
-        onChange(value.slice(0, start) + '**' + sel + '**' + value.slice(end))
+        const newVal = value.slice(0, start) + '**' + sel + '**' + value.slice(end)
+        onChange(newVal)
+        commitHistory(newVal, start + 2, true)
         setTimeout(() => { el.selectionStart = start + 2; el.selectionEnd = end + 2 }, 0)
         return
       }
       if (e.key === 'u') {
         e.preventDefault()
-        onChange(value.slice(0, start) + '__' + sel + '__' + value.slice(end))
+        const newVal = value.slice(0, start) + '__' + sel + '__' + value.slice(end)
+        onChange(newVal)
+        commitHistory(newVal, start + 2, true)
         setTimeout(() => { el.selectionStart = start + 2; el.selectionEnd = end + 2 }, 0)
         return
       }
     }
 
+    // ── Tab: demote / promote ────────────────────────────────────────────────
     if (e.key === 'Tab') {
       e.preventDefault()
       const lines = value.split('\n')
       const lineIdx = value.slice(0, lineStart).split('\n').length - 1
 
       if (!e.shiftKey) {
-        // Demote: number→korean→paren→bullet→subbullet
         const demoteMap: Partial<Record<ListType, ListType>> = {
           number: 'korean', korean: 'paren', paren: 'bullet', bullet: 'subbullet',
         }
         const newType = demoteMap[info.type]
         if (!newType) {
-          onChange(value.slice(0, start) + ' '.repeat(INDENT_SIZE) + value.slice(end))
-          pendingCursor.current = start + INDENT_SIZE
+          const newVal = value.slice(0, start) + ' '.repeat(INDENT_SIZE) + value.slice(end)
+          onChange(newVal)
+          const cur = start + INDENT_SIZE
+          commitHistory(newVal, cur, true)
+          pendingCursor.current = cur
           return
         }
         const newIndent = info.indentLevel + 1
@@ -272,19 +334,23 @@ const SmartTextarea = forwardRef<HTMLTextAreaElement, Props>(function SmartTexta
         const newPrefix = makePrefix(newType, seq, newIndent)
         const newLines = [...lines]
         newLines[lineIdx] = newPrefix + info.content
-        // Apply renumberSequential so numbers before this line also renumber immediately
-        onChange(renumberSequential(newLines).join('\n'))
-        pendingCursor.current = lineStart + newPrefix.length
+        const newVal = renumberSequential(newLines).join('\n')
+        onChange(newVal)
+        const cur = lineStart + newPrefix.length
+        commitHistory(newVal, cur, true)
+        pendingCursor.current = cur
       } else {
-        // Promote: subbullet→bullet→paren→korean→number
         const promoteMap: Partial<Record<ListType, ListType>> = {
           subbullet: 'bullet', bullet: 'paren', paren: 'korean', korean: 'number',
         }
         const newType = promoteMap[info.type]
         if (!newType) {
           if (line.startsWith(' '.repeat(INDENT_SIZE))) {
-            onChange(value.slice(0, lineStart) + line.slice(INDENT_SIZE) + value.slice(lineEnd))
-            pendingCursor.current = Math.max(lineStart, start - INDENT_SIZE)
+            const newVal = value.slice(0, lineStart) + line.slice(INDENT_SIZE) + value.slice(lineEnd)
+            onChange(newVal)
+            const cur = Math.max(lineStart, start - INDENT_SIZE)
+            commitHistory(newVal, cur, true)
+            pendingCursor.current = cur
           }
           return
         }
@@ -293,8 +359,11 @@ const SmartTextarea = forwardRef<HTMLTextAreaElement, Props>(function SmartTexta
         const newPrefix = makePrefix(newType, seq, newIndent)
         const newLines = [...lines]
         newLines[lineIdx] = newPrefix + info.content
-        onChange(renumberSequential(newLines).join('\n'))
-        pendingCursor.current = lineStart + newPrefix.length
+        const newVal = renumberSequential(newLines).join('\n')
+        onChange(newVal)
+        const cur = lineStart + newPrefix.length
+        commitHistory(newVal, cur, true)
+        pendingCursor.current = cur
       }
       return
     }
@@ -310,8 +379,8 @@ const SmartTextarea = forwardRef<HTMLTextAreaElement, Props>(function SmartTexta
     const newValue = renumbered.join('\n')
     onChange(newValue)
 
+    let adjustedCursor = cursor
     if (newValue !== rawValue) {
-      // Recalculate cursor accounting for prefix-length changes in lines before cursor
       let charPos = 0
       let adjustment = 0
       for (let i = 0; i < lines.length; i++) {
@@ -320,8 +389,11 @@ const SmartTextarea = forwardRef<HTMLTextAreaElement, Props>(function SmartTexta
         adjustment += renumbered[i].length - lines[i].length
         charPos += lines[i].length + 1
       }
-      pendingCursor.current = cursor + adjustment
+      adjustedCursor = cursor + adjustment
+      pendingCursor.current = adjustedCursor
     }
+
+    commitHistory(newValue, adjustedCursor)
   }
 
   return (
