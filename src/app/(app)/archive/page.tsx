@@ -89,8 +89,8 @@ export default function ArchivePage() {
       {/* 헤더 */}
       <div className="flex-shrink-0 flex items-center justify-between">
         <div>
-          <h1 className="text-lg font-bold text-gray-900">일별 아카이브</h1>
-          <p className="text-xs text-gray-400 mt-0.5">날짜를 선택해 그 날의 일상 · 회고 · 계획을 돌아보세요</p>
+          <h1 className="text-lg font-bold text-gray-900">회고</h1>
+          <p className="text-xs text-gray-400 mt-0.5">날짜를 선택해 그 날의 기록을 돌아보세요</p>
         </div>
 
         {/* 날짜 네비게이션 */}

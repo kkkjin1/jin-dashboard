@@ -225,14 +225,31 @@ export default function LearningDetailPage() {
       <div className="mb-6 space-y-4">
         <div>
           <label className="text-xs text-gray-400 block mb-1">출처 (source)</label>
-          <input
-            value={sourceInput}
-            onChange={e => setSourceInput(e.target.value)}
-            onBlur={() => updateResource({ source: sourceInput })}
-            onKeyDown={e => { if (e.key === 'Enter') updateResource({ source: sourceInput }) }}
-            placeholder="URL, 도서명, 강의명 등"
-            className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none w-full max-w-md"
-          />
+          <div className="flex items-center gap-2 max-w-md">
+            <input
+              value={sourceInput}
+              onChange={e => setSourceInput(e.target.value)}
+              onBlur={() => updateResource({ source: sourceInput })}
+              onKeyDown={e => { if (e.key === 'Enter') updateResource({ source: sourceInput }) }}
+              placeholder="URL, 도서명, 강의명 등"
+              className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none flex-1"
+            />
+            {sourceInput.startsWith('http') && (
+              <a
+                href={sourceInput}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-lg border border-gray-200 text-gray-400 hover:text-blue-500 hover:border-blue-300 transition-colors"
+                title="링크 열기"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                  <polyline points="15 3 21 3 21 9"/>
+                  <line x1="10" y1="14" x2="21" y2="3"/>
+                </svg>
+              </a>
+            )}
+          </div>
         </div>
         <div>
           <label className="text-xs text-gray-400 block mb-1.5">매체 구분</label>
