@@ -657,7 +657,9 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
               {/* 이번 회의 헤더 */}
               {nowCol ? (
                 <th style={{ position:'sticky', top:0, zIndex:3, background:S.bgNow, borderBottom:S.bdL, borderLeft:S.bdL, width:W_NOW, minWidth:W_NOW }}>
-                  <div style={{ display:'flex', flexDirection:'column', alignItems:'center', padding:'8px 8px', gap:3 }}>
+                  <div onClick={() => router.push(`/meetings/${nowCol.id}`)}
+                    className="flex flex-col items-center hover:bg-blue-50/40 cursor-pointer transition-colors"
+                    style={{ padding:'8px 8px', gap:3 }} title="회의록 보기">
                     <span style={{ fontSize:13, fontWeight:600, color:S.t1 }}>{formatDate(nowCol.meeting_date)}</span>
                     <span style={{ fontSize:10, background:'#1B3A6B', color:'#fff', padding:'1px 8px', borderRadius:99, fontWeight:700, letterSpacing:'.04em' }}>이번 회의</span>
                   </div>
