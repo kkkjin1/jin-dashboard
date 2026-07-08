@@ -271,7 +271,7 @@ export default function MeetingsPage() {
         <div className="flex flex-col flex-1 min-h-0">
           {/* 파트 탭 */}
           <div className="flex-shrink-0 flex items-center gap-2 mb-4">
-            {['전체', ...catOrder].map(c => (
+            {['전체', '코어', '비즈', '개인'].map(c => (
               <button key={c}
                 onClick={() => setMatrixCat(c)}
                 className={`text-xs px-3.5 py-1.5 rounded-full border font-semibold transition-all ${
