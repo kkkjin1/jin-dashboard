@@ -319,7 +319,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                   <tr style={{ background: CAT_BG[group.category ?? ''] ?? hexToRgba(group.color, 0.09) }}>
                     <td colSpan={5} style={{ padding:0, borderTop:'3px solid #fff', borderBottom: S.bd, borderLeft: `3px solid ${CAT_BORDER[group.category ?? ''] ?? group.color}` }}>
                       <div className="flex items-center gap-2 group/grow" style={{ padding:'20px 16px' }}>
-                        <span style={{ width:3, height:14, borderRadius:2, background:group.color, flexShrink:0 }} />
+                        <span style={{ width:3, height:14, borderRadius:2, background: CAT_BORDER[group.category ?? ''] ?? group.color, flexShrink:0 }} />
                         <button
                           onClick={() => toggleGroup(group.id)}
                           style={{ fontSize:9, color:S.t3, background:'none', border:'none', cursor:'pointer', padding:0, lineHeight:1, display:'inline-block', transition:'transform .15s', transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}
