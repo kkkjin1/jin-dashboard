@@ -237,7 +237,7 @@ export default function QuickMemoPanel() {
         setPanels(prev => prev.slice(0, -1))
         return
       }
-      if ((e.ctrlKey || e.metaKey) && e.key === '2') {
+      if (e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && e.key === 'm') {
         e.preventDefault()
         addPanel()
         return
