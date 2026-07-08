@@ -58,7 +58,7 @@ export default function MeetingsPage() {
 
   // 뷰 모드
   const [viewMode, setViewMode] = useState<'list' | 'matrix'>('list')
-  const [matrixCat, setMatrixCat] = useState<string>('코어')
+  const [matrixCat, setMatrixCat] = useState<string>('전체')
 
   // 범주 추가
   const [addingCat, setAddingCat] = useState(false)

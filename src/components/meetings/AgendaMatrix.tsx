@@ -39,6 +39,12 @@ function formatDate(d: string | null) {
   return `${dt.getMonth()+1}/${dt.getDate()} (${days[dt.getDay()]})`
 }
 function nk(itemId: string, meetingId: string) { return `${itemId}_${meetingId}` }
+function hexToRgba(hex: string, alpha: number): string {
+  const r = parseInt(hex.slice(1, 3), 16)
+  const g = parseInt(hex.slice(3, 5), 16)
+  const b = parseInt(hex.slice(5, 7), 16)
+  return `rgba(${r},${g},${b},${alpha})`
+}
 
 // ── 스타일 헬퍼 ─────────────────────────────────────────────────────
 const S = {
@@ -307,9 +313,9 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
               return (
                 <Fragment key={group.id}>
                   {/* 범주 행 */}
-                  <tr style={{ background: S.bgRow }}>
-                    <td colSpan={5} style={{ padding:0, borderBottom: S.bd }}>
-                      <div className="flex items-center gap-2 group/grow" style={{ padding:'7px 16px' }}>
+                  <tr style={{ background: hexToRgba(group.color, 0.09) }}>
+                    <td colSpan={5} style={{ padding:0, borderBottom: S.bd, borderLeft: `3px solid ${group.color}` }}>
+                      <div className="flex items-center gap-2 group/grow" style={{ padding:'20px 16px' }}>
                         <span style={{ width:3, height:14, borderRadius:2, background:group.color, flexShrink:0 }} />
                         <button
                           onClick={() => toggleGroup(group.id)}
@@ -477,8 +483,8 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                 <Fragment key={group.id}>
                   {/* 범주 행 */}
                   <tr>
-                    <td colSpan={totalCols} style={{ position:'sticky', left:0, zIndex:2, background:S.bgRow, borderBottom:S.bd, padding:0 }}>
-                      <div className="flex items-center gap-2 hover:bg-gray-100/60 transition-colors group/grow" style={{ padding:'7px 16px', cursor:'pointer' }}
+                    <td colSpan={totalCols} style={{ position:'sticky', left:0, zIndex:2, background: hexToRgba(group.color, 0.09), borderBottom:S.bd, borderLeft: `3px solid ${group.color}`, padding:0 }}>
+                      <div className="flex items-center gap-2 transition-colors group/grow" style={{ padding:'20px 16px', cursor:'pointer' }}
                         onClick={() => toggleGroup(group.id)}>
                         <span style={{ width:3, height:14, borderRadius:2, background:group.color, flexShrink:0 }} />
                         <span style={{ fontSize:9, color:S.t3, display:'inline-block', transition:'transform .15s', transform: isOpen?'rotate(0deg)':'rotate(-90deg)' }}>▼</span>
@@ -515,7 +521,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                       <tr key={item.id} style={{ borderBottom:S.bd }} className="hover:bg-gray-50/40 group/irow">
 
                         {/* 안건 셀 */}
-                        <td style={{ position:'sticky', left:0, zIndex:2, background:'inherit', borderRight:S.bdL, width:W_ITEM, minWidth:W_ITEM, verticalAlign:'top' }}>
+                        <td style={{ position:'sticky', left:0, zIndex:2, background: S.bg, borderRight:S.bdL, width:W_ITEM, minWidth:W_ITEM, verticalAlign:'top' }}>
                           <div style={{ padding:'10px 16px', display:'flex', alignItems:'flex-start', gap:9 }}>
                             <button onClick={()=>cycleStatus(item)} title={`상태: ${STATUS_LABEL[item.status]}`}
                               style={{ width:8, height:8, borderRadius:'50%', flexShrink:0, marginTop:6, background:STATUS_COLOR[item.status], border:'none', cursor:'pointer', padding:0 }} />
