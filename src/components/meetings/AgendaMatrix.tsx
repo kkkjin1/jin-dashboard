@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, useMemo, Fragment } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import type { AgendaGroup, AgendaItem, AgendaUpdate } from '@/types'
+import type { AgendaGroup, AgendaItem, AgendaUpdate, AgendaSubTask } from '@/types'
 
 // ── 상수 ────────────────────────────────────────────────────────────
 const TYPE_LABEL: Record<string, string> = { do: '내 실행', fb: '피드백', rp: '보고수신', ag: '단순안건' }
@@ -86,6 +86,12 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
   const [deletingGroup, setDeletingGroup] = useState<string | null>(null)
   const [deletingItem,  setDeletingItem]  = useState<string | null>(null)
 
+  const [subTasks,      setSubTasks]      = useState<AgendaSubTask[]>([])
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set())
+  const [addingSubTask, setAddingSubTask] = useState<string | null>(null)
+  const [newSTTitle,    setNewSTTitle]    = useState('')
+  const [deletingST,    setDeletingST]    = useState<string | null>(null)
+
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
 
   const isAll = category === '전체'
@@ -111,9 +117,21 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
         .select('*')
         .in('group_id', fetchedGroups.map(g => g.id))
         .order('sort_order')
-      setItems((iData ?? []) as AgendaItem[])
+      const fetchedItems = (iData ?? []) as AgendaItem[]
+      setItems(fetchedItems)
+      if (fetchedItems.length > 0) {
+        const { data: stData } = await supabase
+          .from('agenda_sub_tasks')
+          .select('*')
+          .in('agenda_item_id', fetchedItems.map(i => i.id))
+          .order('sort_order')
+        setSubTasks((stData ?? []) as AgendaSubTask[])
+      } else {
+        setSubTasks([])
+      }
     } else {
       setItems([])
+      setSubTasks([])
     }
 
     if (!isAll) {
@@ -215,6 +233,42 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
     await supabase.from('agenda_items').delete().eq('id', itemId)
     setItems(p => p.filter(i => i.id !== itemId))
     setDeletingItem(null)
+  }
+
+  // ── 아이템 서브태스크 토글 ────────────────────────────────────────
+  function toggleExpandedItem(itemId: string) {
+    setExpandedItems(prev => {
+      const s = new Set(prev)
+      s.has(itemId) ? s.delete(itemId) : s.add(itemId)
+      return s
+    })
+  }
+
+  // ── 서브태스크 추가 ───────────────────────────────────────────────
+  async function addSubTask(itemId: string) {
+    const title = newSTTitle.trim()
+    if (!title) { setAddingSubTask(null); return }
+    const sort_order = subTasks.filter(st => st.agenda_item_id === itemId).length
+    const { data } = await supabase.from('agenda_sub_tasks')
+      .insert({ agenda_item_id: itemId, title, status: 'active', sort_order })
+      .select().single()
+    if (data) setSubTasks(p => [...p, data as AgendaSubTask])
+    setNewSTTitle(''); setAddingSubTask(null)
+  }
+
+  // ── 서브태스크 삭제 ───────────────────────────────────────────────
+  async function deleteSubTask(stId: string) {
+    await supabase.from('agenda_sub_tasks').delete().eq('id', stId)
+    setSubTasks(p => p.filter(st => st.id !== stId))
+    setDeletingST(null)
+  }
+
+  // ── 서브태스크 상태 순환 ─────────────────────────────────────────
+  async function cycleSubTaskStatus(st: AgendaSubTask) {
+    const order: AgendaSubTask['status'][] = ['active', 'hold', 'done']
+    const next = order[(order.indexOf(st.status) + 1) % order.length]
+    await supabase.from('agenda_sub_tasks').update({ status: next }).eq('id', st.id)
+    setSubTasks(p => p.map(s => s.id === st.id ? { ...s, status: next } : s))
   }
 
   // ── 안건 상태 순환 ───────────────────────────────────────────────
@@ -351,43 +405,107 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                   </tr>
 
                   {/* 안건 행들 */}
-                  {isOpen && groupItems.map(item => (
-                    <tr key={item.id} style={{ borderBottom: S.bd }} className="hover:bg-gray-50/60 group/irow">
-                      <td style={{ padding:'10px 16px', verticalAlign:'middle' }}>
-                        <div className="flex items-center gap-2">
-                          <button onClick={() => cycleStatus(item)} title={`상태: ${STATUS_LABEL[item.status]}`}
-                            style={{ width:8, height:8, borderRadius:'50%', flexShrink:0, background: item.status === 'active' ? (CAT_BORDER[group.category ?? ''] ?? group.color) : STATUS_COLOR[item.status], border:'none', cursor:'pointer', padding:0 }} />
-                          <span style={{ fontSize:14, fontWeight:500, color: item.status==='done' ? S.t3 : S.t1, textDecoration: item.status==='done' ? 'line-through' : 'none', lineHeight:1.35 }}>
-                            {item.title}
-                          </span>
-                        </div>
-                      </td>
-                      <td style={{ borderLeft:S.bd, padding:'10px 12px', verticalAlign:'middle' }}>
-                        <span className={`text-[11px] px-2 py-0.5 rounded-full border font-semibold ${CAT_CLS[groups.find(g=>g.id===item.group_id)?.category??'코어'] ?? CAT_CLS['코어']}`}>
-                          {groups.find(g=>g.id===item.group_id)?.category ?? '—'}
-                        </span>
-                      </td>
-                      <td style={{ borderLeft:S.bd, padding:'10px 12px', verticalAlign:'middle' }}>
-                        <span className={`text-[11px] px-2 py-0.5 rounded-full border font-semibold ${TYPE_CLS[item.item_type]}`}>
-                          {TYPE_LABEL[item.item_type]}
-                        </span>
-                      </td>
-                      <td style={{ borderLeft:S.bd, padding:'10px 12px', fontSize:12, color:S.t2, verticalAlign:'middle' }}>
-                        {STATUS_LABEL[item.status]}
-                      </td>
-                      <td style={{ borderLeft:S.bd, padding:'10px 12px', verticalAlign:'middle', textAlign:'center' }}>
-                        {deletingItem === item.id ? (
-                          <div className="flex items-center gap-1">
-                            <button onClick={() => deleteItem(item.id)} className="text-[10px] text-red-500 hover:text-red-700 font-semibold">삭제</button>
-                            <button onClick={() => setDeletingItem(null)} className="text-[10px] text-gray-400">취소</button>
-                          </div>
-                        ) : (
-                          <button onClick={() => setDeletingItem(item.id)}
-                            className="text-[10px] text-gray-300 hover:text-red-400 opacity-0 group-hover/irow:opacity-100 transition-all">삭제</button>
+                  {isOpen && groupItems.map(item => {
+                    const itemSubTasks = subTasks.filter(st => st.agenda_item_id === item.id)
+                    const isItemExpanded = expandedItems.has(item.id)
+                    const activeColor = item.status === 'active' ? (CAT_BORDER[group.category ?? ''] ?? group.color) : STATUS_COLOR[item.status]
+                    return (
+                      <Fragment key={item.id}>
+                        <tr style={{ borderBottom: isItemExpanded ? 'none' : S.bd }} className="hover:bg-gray-50/60 group/irow">
+                          <td style={{ padding:'10px 16px', verticalAlign:'middle' }}>
+                            <div className="flex items-center gap-2">
+                              <button onClick={() => toggleExpandedItem(item.id)}
+                                style={{ fontSize:8, color:S.t3, background:'none', border:'none', cursor:'pointer', padding:0, lineHeight:1, transition:'transform .15s', transform: isItemExpanded ? 'rotate(90deg)' : 'rotate(0deg)', flexShrink:0, width:10 }}>▶</button>
+                              <button onClick={() => cycleStatus(item)} title={`상태: ${STATUS_LABEL[item.status]}`}
+                                style={{ width:8, height:8, borderRadius:'50%', flexShrink:0, background: activeColor, border:'none', cursor:'pointer', padding:0 }} />
+                              <span style={{ fontSize:14, fontWeight:500, color: item.status==='done' ? S.t3 : S.t1, textDecoration: item.status==='done' ? 'line-through' : 'none', lineHeight:1.35 }}>
+                                {item.title}
+                              </span>
+                              {itemSubTasks.length > 0 && (
+                                <span style={{ fontSize:10, color:S.t3, background:'#E5E9F0', padding:'1px 6px', borderRadius:99, flexShrink:0 }}>
+                                  {itemSubTasks.filter(st=>st.status!=='done').length}/{itemSubTasks.length}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td style={{ borderLeft:S.bd, padding:'10px 12px', verticalAlign:'middle' }}>
+                            <span className={`text-[11px] px-2 py-0.5 rounded-full border font-semibold ${CAT_CLS[groups.find(g=>g.id===item.group_id)?.category??'코어'] ?? CAT_CLS['코어']}`}>
+                              {groups.find(g=>g.id===item.group_id)?.category ?? '—'}
+                            </span>
+                          </td>
+                          <td style={{ borderLeft:S.bd, padding:'10px 12px', verticalAlign:'middle' }}>
+                            <span className={`text-[11px] px-2 py-0.5 rounded-full border font-semibold ${TYPE_CLS[item.item_type]}`}>
+                              {TYPE_LABEL[item.item_type]}
+                            </span>
+                          </td>
+                          <td style={{ borderLeft:S.bd, padding:'10px 12px', fontSize:12, color:S.t2, verticalAlign:'middle' }}>
+                            {STATUS_LABEL[item.status]}
+                          </td>
+                          <td style={{ borderLeft:S.bd, padding:'10px 12px', verticalAlign:'middle', textAlign:'center' }}>
+                            {deletingItem === item.id ? (
+                              <div className="flex items-center gap-1">
+                                <button onClick={() => deleteItem(item.id)} className="text-[10px] text-red-500 hover:text-red-700 font-semibold">삭제</button>
+                                <button onClick={() => setDeletingItem(null)} className="text-[10px] text-gray-400">취소</button>
+                              </div>
+                            ) : (
+                              <button onClick={() => setDeletingItem(item.id)}
+                                className="text-[10px] text-gray-300 hover:text-red-400 opacity-0 group-hover/irow:opacity-100 transition-all">삭제</button>
+                            )}
+                          </td>
+                        </tr>
+
+                        {/* 하위 태스크 행들 */}
+                        {isItemExpanded && itemSubTasks.map(st => (
+                          <tr key={st.id} style={{ borderBottom: S.bd, background:'#FAFBFD' }} className="group/strow">
+                            <td style={{ padding:'7px 16px 7px 44px', verticalAlign:'middle' }}>
+                              <div className="flex items-center gap-2">
+                                <button onClick={() => cycleSubTaskStatus(st)} title={`상태: ${STATUS_LABEL[st.status]}`}
+                                  style={{ width:6, height:6, borderRadius:'50%', flexShrink:0, background: st.status === 'active' ? (CAT_BORDER[group.category ?? ''] ?? group.color) : STATUS_COLOR[st.status], border:'none', cursor:'pointer', padding:0 }} />
+                                <span style={{ fontSize:12, color: st.status==='done' ? S.t3 : S.t2, textDecoration: st.status==='done' ? 'line-through' : 'none', lineHeight:1.35 }}>
+                                  {st.title}
+                                </span>
+                              </div>
+                            </td>
+                            <td style={{ borderLeft:S.bd }} /><td style={{ borderLeft:S.bd }} /><td style={{ borderLeft:S.bd }} />
+                            <td style={{ borderLeft:S.bd, padding:'6px 12px', textAlign:'center' }}>
+                              {deletingST === st.id ? (
+                                <div className="flex items-center gap-1 justify-center">
+                                  <button onClick={() => deleteSubTask(st.id)} className="text-[10px] text-red-500 font-semibold">삭제</button>
+                                  <button onClick={() => setDeletingST(null)} className="text-[10px] text-gray-400">취소</button>
+                                </div>
+                              ) : (
+                                <button onClick={() => setDeletingST(st.id)}
+                                  className="text-[10px] text-gray-300 hover:text-red-400 opacity-0 group-hover/strow:opacity-100 transition-all">삭제</button>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+
+                        {/* 하위 태스크 추가 */}
+                        {isItemExpanded && (
+                          <tr key={`add-st-${item.id}`} style={{ borderBottom: S.bd, background:'#FAFBFD' }}>
+                            <td colSpan={5} style={{ padding:0 }}>
+                              {addingSubTask === item.id ? (
+                                <div className="flex items-center gap-2 px-10 py-2">
+                                  <input autoFocus value={newSTTitle} onChange={e=>setNewSTTitle(e.target.value)}
+                                    onKeyDown={e=>{ if(e.key==='Enter'&&!e.nativeEvent.isComposing)addSubTask(item.id); if(e.key==='Escape'){setAddingSubTask(null);setNewSTTitle('')} }}
+                                    placeholder="하위 태스크 입력 후 Enter"
+                                    className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-gray-400"/>
+                                  <button onClick={()=>addSubTask(item.id)} className="text-xs bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] px-3 py-1.5 rounded-lg">추가</button>
+                                  <button onClick={()=>{setAddingSubTask(null);setNewSTTitle('')}} className="text-xs text-gray-400 px-2">취소</button>
+                                </div>
+                              ) : (
+                                <div onClick={()=>setAddingSubTask(item.id)}
+                                  className="flex items-center gap-1 px-10 py-2 text-xs text-gray-400 hover:text-gray-600 hover:bg-gray-50 cursor-pointer transition-colors">
+                                  ＋ 하위 태스크
+                                </div>
+                              )}
+                            </td>
+                          </tr>
                         )}
-                      </td>
-                    </tr>
-                  ))}
+                      </Fragment>
+                    )
+                  })}
 
                   {/* 안건 추가 */}
                   {isOpen && (

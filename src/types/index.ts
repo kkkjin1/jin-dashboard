@@ -163,3 +163,12 @@ export interface AgendaUpdate {
   created_at: string
   updated_at: string
 }
+
+export interface AgendaSubTask {
+  id: string
+  agenda_item_id: string
+  title: string
+  status: AgendaItemStatus
+  sort_order: number
+  created_at: string
+}
