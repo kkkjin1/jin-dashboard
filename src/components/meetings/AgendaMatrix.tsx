@@ -86,6 +86,14 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
   const [deletingGroup, setDeletingGroup] = useState<string | null>(null)
   const [deletingItem,  setDeletingItem]  = useState<string | null>(null)
 
+  const [editingGroupId, setEditingGroupId] = useState<string | null>(null)
+  const [editGName,      setEditGName]      = useState('')
+  const [editGColor,     setEditGColor]     = useState(GROUP_COLORS[0])
+  const [editingItemId,  setEditingItemId]  = useState<string | null>(null)
+  const [editITitle,     setEditITitle]     = useState('')
+  const [editingSTId,    setEditingSTId]    = useState<string | null>(null)
+  const [editSTTitle,    setEditSTTitle]    = useState('')
+
   const [subTasks,      setSubTasks]      = useState<AgendaSubTask[]>([])
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set())
   const [addingSubTask, setAddingSubTask] = useState<string | null>(null)
@@ -263,6 +271,38 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
     setDeletingST(null)
   }
 
+  // ── 그룹 이름/색상 수정 ──────────────────────────────────────────
+  async function updateGroup(groupId: string) {
+    const name = editGName.trim(); if (!name) { setEditingGroupId(null); return }
+    await supabase.from('agenda_groups').update({ name, color: editGColor }).eq('id', groupId)
+    setGroups(p => p.map(g => g.id === groupId ? { ...g, name, color: editGColor } : g))
+    setEditingGroupId(null)
+  }
+
+  // ── 안건 제목 수정 ────────────────────────────────────────────────
+  async function updateItem(itemId: string) {
+    const title = editITitle.trim(); if (!title) { setEditingItemId(null); return }
+    await supabase.from('agenda_items').update({ title }).eq('id', itemId)
+    setItems(p => p.map(i => i.id === itemId ? { ...i, title } : i))
+    setEditingItemId(null)
+  }
+
+  // ── 안건 유형 순환 (클릭) ─────────────────────────────────────────
+  async function cycleItemType(item: AgendaItem) {
+    const order: AgendaItem['item_type'][] = ['do', 'fb', 'rp', 'ag']
+    const next = order[(order.indexOf(item.item_type) + 1) % order.length]
+    await supabase.from('agenda_items').update({ item_type: next }).eq('id', item.id)
+    setItems(p => p.map(i => i.id === item.id ? { ...i, item_type: next } : i))
+  }
+
+  // ── 서브태스크 제목 수정 ──────────────────────────────────────────
+  async function updateSubTask(stId: string) {
+    const title = editSTTitle.trim(); if (!title) { setEditingSTId(null); return }
+    await supabase.from('agenda_sub_tasks').update({ title }).eq('id', stId)
+    setSubTasks(p => p.map(s => s.id === stId ? { ...s, title } : s))
+    setEditingSTId(null)
+  }
+
   // ── 서브태스크 상태 순환 ─────────────────────────────────────────
   async function cycleSubTaskStatus(st: AgendaSubTask) {
     const order: AgendaSubTask['status'][] = ['active', 'hold', 'done']
@@ -372,35 +412,53 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                   {/* 범주 행 */}
                   <tr style={{ background: CAT_BG[group.category ?? ''] ?? hexToRgba(group.color, 0.09) }}>
                     <td colSpan={5} style={{ padding:0, borderTop:'3px solid #fff', borderBottom: S.bd, borderLeft: `3px solid ${CAT_BORDER[group.category ?? ''] ?? group.color}` }}>
-                      <div className="flex items-center gap-2 group/grow" style={{ padding:'20px 16px' }}>
-                        <span style={{ width:3, height:14, borderRadius:2, background: CAT_BORDER[group.category ?? ''] ?? group.color, flexShrink:0 }} />
-                        <button
-                          onClick={() => toggleGroup(group.id)}
-                          style={{ fontSize:9, color:S.t3, background:'none', border:'none', cursor:'pointer', padding:0, lineHeight:1, display:'inline-block', transition:'transform .15s', transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}
-                        >▼</button>
-                        <span style={{ fontSize:13, fontWeight:700, color:S.t1 }}>{group.name}</span>
-                        <span style={{ fontSize:11, color:S.t3, background:'#E5E9F0', padding:'1px 7px', borderRadius:99 }}>{groupItems.length}</span>
-                        {/* 파트 선택 pills (항상 표시) */}
-                        <div className="flex gap-1 ml-2">
-                          {MATRIX_CATS.map(c => (
-                            <button key={c} onClick={() => updateGroupCat(group.id, c)}
-                              className={`text-[11px] px-2.5 py-0.5 rounded-full border font-semibold transition-all ${group.category === c ? CAT_CLS[c] : 'bg-white text-gray-400 border-gray-200 hover:border-gray-300'}`}>
-                              {c}
-                            </button>
-                          ))}
+                      {editingGroupId === group.id ? (
+                        <div className="flex items-center gap-2 flex-wrap" style={{ padding:'14px 16px' }}>
+                          <input autoFocus value={editGName} onChange={e=>setEditGName(e.target.value)}
+                            onKeyDown={e=>{ if(e.key==='Enter'&&!e.nativeEvent.isComposing)updateGroup(group.id); if(e.key==='Escape')setEditingGroupId(null) }}
+                            className="border border-gray-300 rounded-lg px-2.5 py-1 text-sm focus:outline-none focus:border-gray-400 font-semibold w-40"
+                            style={{ color:S.t1 }}/>
+                          <div className="flex gap-1.5">
+                            {GROUP_COLORS.map(c=>(
+                              <div key={c} onClick={()=>setEditGColor(c)}
+                                style={{width:13,height:13,borderRadius:'50%',background:c,cursor:'pointer',border:editGColor===c?'2px solid #1A2233':'2px solid transparent',flexShrink:0}}/>
+                            ))}
+                          </div>
+                          <button onClick={()=>updateGroup(group.id)} className="text-xs bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] px-3 py-1 rounded-lg">저장</button>
+                          <button onClick={()=>setEditingGroupId(null)} className="text-xs text-gray-400 px-2">취소</button>
                         </div>
-                        <div className="ml-auto flex items-center gap-1.5 opacity-0 group-hover/grow:opacity-100 transition-opacity">
-                          {deletingGroup === group.id ? (
-                            <>
-                              <span className="text-[10px] text-gray-500">범주 삭제?</span>
-                              <button onClick={() => deleteGroup(group.id)} className="text-[10px] text-red-500 hover:text-red-700 font-semibold px-1.5 py-0.5 rounded">삭제</button>
-                              <button onClick={() => setDeletingGroup(null)} className="text-[10px] text-gray-400 hover:text-gray-600 px-1.5 py-0.5 rounded">취소</button>
-                            </>
-                          ) : (
-                            <button onClick={() => setDeletingGroup(group.id)} className="text-[10px] text-gray-300 hover:text-red-400 transition-colors px-1">삭제</button>
-                          )}
+                      ) : (
+                        <div className="flex items-center gap-2 group/grow" style={{ padding:'20px 16px' }}>
+                          <span style={{ width:3, height:14, borderRadius:2, background: CAT_BORDER[group.category ?? ''] ?? group.color, flexShrink:0 }} />
+                          <button
+                            onClick={() => toggleGroup(group.id)}
+                            style={{ fontSize:9, color:S.t3, background:'none', border:'none', cursor:'pointer', padding:0, lineHeight:1, display:'inline-block', transition:'transform .15s', transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}
+                          >▼</button>
+                          <span style={{ fontSize:13, fontWeight:700, color:S.t1 }}>{group.name}</span>
+                          <span style={{ fontSize:11, color:S.t3, background:'#E5E9F0', padding:'1px 7px', borderRadius:99 }}>{groupItems.length}</span>
+                          <div className="flex gap-1 ml-2">
+                            {MATRIX_CATS.map(c => (
+                              <button key={c} onClick={() => updateGroupCat(group.id, c)}
+                                className={`text-[11px] px-2.5 py-0.5 rounded-full border font-semibold transition-all ${group.category === c ? CAT_CLS[c] : 'bg-white text-gray-400 border-gray-200 hover:border-gray-300'}`}>
+                                {c}
+                              </button>
+                            ))}
+                          </div>
+                          <div className="ml-auto flex items-center gap-1.5 opacity-0 group-hover/grow:opacity-100 transition-opacity">
+                            <button onClick={() => { setEditingGroupId(group.id); setEditGName(group.name); setEditGColor(group.color) }}
+                              className="text-[10px] text-gray-400 hover:text-gray-700 transition-colors px-1">수정</button>
+                            {deletingGroup === group.id ? (
+                              <>
+                                <span className="text-[10px] text-gray-500">범주 삭제?</span>
+                                <button onClick={() => deleteGroup(group.id)} className="text-[10px] text-red-500 hover:text-red-700 font-semibold px-1.5 py-0.5 rounded">삭제</button>
+                                <button onClick={() => setDeletingGroup(null)} className="text-[10px] text-gray-400 hover:text-gray-600 px-1.5 py-0.5 rounded">취소</button>
+                              </>
+                            ) : (
+                              <button onClick={() => setDeletingGroup(group.id)} className="text-[10px] text-gray-300 hover:text-red-400 transition-colors px-1">삭제</button>
+                            )}
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </td>
                   </tr>
 
@@ -418,9 +476,16 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                                 style={{ fontSize:8, color:S.t3, background:'none', border:'none', cursor:'pointer', padding:0, lineHeight:1, transition:'transform .15s', transform: isItemExpanded ? 'rotate(90deg)' : 'rotate(0deg)', flexShrink:0, width:10 }}>▶</button>
                               <button onClick={() => cycleStatus(item)} title={`상태: ${STATUS_LABEL[item.status]}`}
                                 style={{ width:8, height:8, borderRadius:'50%', flexShrink:0, background: activeColor, border:'none', cursor:'pointer', padding:0 }} />
-                              <span style={{ fontSize:14, fontWeight:500, color: item.status==='done' ? S.t3 : S.t1, textDecoration: item.status==='done' ? 'line-through' : 'none', lineHeight:1.35 }}>
-                                {item.title}
-                              </span>
+                              {editingItemId === item.id ? (
+                                <input autoFocus value={editITitle} onChange={e=>setEditITitle(e.target.value)}
+                                  onKeyDown={e=>{ if(e.key==='Enter'&&!e.nativeEvent.isComposing)updateItem(item.id); if(e.key==='Escape')setEditingItemId(null) }}
+                                  className="border border-gray-300 rounded px-2 py-0.5 text-sm focus:outline-none focus:border-gray-400 font-medium flex-1 min-w-0"
+                                  style={{ color:S.t1 }}/>
+                              ) : (
+                                <span style={{ fontSize:14, fontWeight:500, color: item.status==='done' ? S.t3 : S.t1, textDecoration: item.status==='done' ? 'line-through' : 'none', lineHeight:1.35 }}>
+                                  {item.title}
+                                </span>
+                              )}
                               {itemSubTasks.length > 0 && (
                                 <span style={{ fontSize:10, color:S.t3, background:'#E5E9F0', padding:'1px 6px', borderRadius:99, flexShrink:0 }}>
                                   {itemSubTasks.filter(st=>st.status!=='done').length}/{itemSubTasks.length}
@@ -434,23 +499,30 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                             </span>
                           </td>
                           <td style={{ borderLeft:S.bd, padding:'10px 12px', verticalAlign:'middle' }}>
-                            <span className={`text-[11px] px-2 py-0.5 rounded-full border font-semibold ${TYPE_CLS[item.item_type]}`}>
+                            <button onClick={()=>cycleItemType(item)} title="클릭하여 유형 변경"
+                              className={`text-[11px] px-2 py-0.5 rounded-full border font-semibold hover:opacity-70 transition-opacity cursor-pointer ${TYPE_CLS[item.item_type]}`}>
                               {TYPE_LABEL[item.item_type]}
-                            </span>
+                            </button>
                           </td>
                           <td style={{ borderLeft:S.bd, padding:'10px 12px', fontSize:12, color:S.t2, verticalAlign:'middle' }}>
                             {STATUS_LABEL[item.status]}
                           </td>
                           <td style={{ borderLeft:S.bd, padding:'10px 12px', verticalAlign:'middle', textAlign:'center' }}>
-                            {deletingItem === item.id ? (
-                              <div className="flex items-center gap-1">
-                                <button onClick={() => deleteItem(item.id)} className="text-[10px] text-red-500 hover:text-red-700 font-semibold">삭제</button>
-                                <button onClick={() => setDeletingItem(null)} className="text-[10px] text-gray-400">취소</button>
-                              </div>
-                            ) : (
-                              <button onClick={() => setDeletingItem(item.id)}
-                                className="text-[10px] text-gray-300 hover:text-red-400 opacity-0 group-hover/irow:opacity-100 transition-all">삭제</button>
-                            )}
+                            <div className="flex items-center gap-1.5 justify-center opacity-0 group-hover/irow:opacity-100 transition-all">
+                              {editingItemId !== item.id && (
+                                <button onClick={()=>{ setEditingItemId(item.id); setEditITitle(item.title) }}
+                                  className="text-[10px] text-gray-400 hover:text-gray-700">수정</button>
+                              )}
+                              {deletingItem === item.id ? (
+                                <>
+                                  <button onClick={() => deleteItem(item.id)} className="text-[10px] text-red-500 hover:text-red-700 font-semibold">삭제</button>
+                                  <button onClick={() => setDeletingItem(null)} className="text-[10px] text-gray-400">취소</button>
+                                </>
+                              ) : (
+                                <button onClick={() => setDeletingItem(item.id)}
+                                  className="text-[10px] text-gray-300 hover:text-red-400">삭제</button>
+                              )}
+                            </div>
                           </td>
                         </tr>
 
@@ -461,22 +533,35 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                               <div className="flex items-center gap-2">
                                 <button onClick={() => cycleSubTaskStatus(st)} title={`상태: ${STATUS_LABEL[st.status]}`}
                                   style={{ width:6, height:6, borderRadius:'50%', flexShrink:0, background: st.status === 'active' ? (CAT_BORDER[group.category ?? ''] ?? group.color) : STATUS_COLOR[st.status], border:'none', cursor:'pointer', padding:0 }} />
-                                <span style={{ fontSize:12, color: st.status==='done' ? S.t3 : S.t2, textDecoration: st.status==='done' ? 'line-through' : 'none', lineHeight:1.35 }}>
-                                  {st.title}
-                                </span>
+                                {editingSTId === st.id ? (
+                                  <input autoFocus value={editSTTitle} onChange={e=>setEditSTTitle(e.target.value)}
+                                    onKeyDown={e=>{ if(e.key==='Enter'&&!e.nativeEvent.isComposing)updateSubTask(st.id); if(e.key==='Escape')setEditingSTId(null) }}
+                                    className="border border-gray-300 rounded px-2 py-0.5 text-xs focus:outline-none focus:border-gray-400 flex-1 min-w-0"
+                                    style={{ color:S.t2 }}/>
+                                ) : (
+                                  <span style={{ fontSize:12, color: st.status==='done' ? S.t3 : S.t2, textDecoration: st.status==='done' ? 'line-through' : 'none', lineHeight:1.35 }}>
+                                    {st.title}
+                                  </span>
+                                )}
                               </div>
                             </td>
                             <td style={{ borderLeft:S.bd }} /><td style={{ borderLeft:S.bd }} /><td style={{ borderLeft:S.bd }} />
                             <td style={{ borderLeft:S.bd, padding:'6px 12px', textAlign:'center' }}>
-                              {deletingST === st.id ? (
-                                <div className="flex items-center gap-1 justify-center">
-                                  <button onClick={() => deleteSubTask(st.id)} className="text-[10px] text-red-500 font-semibold">삭제</button>
-                                  <button onClick={() => setDeletingST(null)} className="text-[10px] text-gray-400">취소</button>
-                                </div>
-                              ) : (
-                                <button onClick={() => setDeletingST(st.id)}
-                                  className="text-[10px] text-gray-300 hover:text-red-400 opacity-0 group-hover/strow:opacity-100 transition-all">삭제</button>
-                              )}
+                              <div className="flex items-center gap-1.5 justify-center opacity-0 group-hover/strow:opacity-100 transition-all">
+                                {editingSTId !== st.id && (
+                                  <button onClick={()=>{ setEditingSTId(st.id); setEditSTTitle(st.title) }}
+                                    className="text-[10px] text-gray-400 hover:text-gray-700">수정</button>
+                                )}
+                                {deletingST === st.id ? (
+                                  <>
+                                    <button onClick={() => deleteSubTask(st.id)} className="text-[10px] text-red-500 font-semibold">삭제</button>
+                                    <button onClick={() => setDeletingST(null)} className="text-[10px] text-gray-400">취소</button>
+                                  </>
+                                ) : (
+                                  <button onClick={() => setDeletingST(st.id)}
+                                    className="text-[10px] text-gray-300 hover:text-red-400">삭제</button>
+                                )}
+                              </div>
                             </td>
                           </tr>
                         ))}
@@ -609,8 +694,27 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                         onClick={() => toggleGroup(group.id)}>
                         <span style={{ width:3, height:14, borderRadius:2, background:group.color, flexShrink:0 }} />
                         <span style={{ fontSize:9, color:S.t3, display:'inline-block', transition:'transform .15s', transform: isOpen?'rotate(0deg)':'rotate(-90deg)' }}>▼</span>
-                        <span style={{ fontSize:13, fontWeight:700, color:S.t1 }}>{group.name}</span>
-                        <span style={{ fontSize:11, color:S.t3, background:'#E5E9F0', padding:'1px 7px', borderRadius:99 }}>{groupItems.length}</span>
+                        {editingGroupId === group.id ? (
+                          <div className="flex items-center gap-2" onClick={e=>e.stopPropagation()}>
+                            <input autoFocus value={editGName} onChange={e=>setEditGName(e.target.value)}
+                              onKeyDown={e=>{ if(e.key==='Enter'&&!e.nativeEvent.isComposing)updateGroup(group.id); if(e.key==='Escape')setEditingGroupId(null) }}
+                              className="w-40 border border-gray-300 rounded px-2 py-0.5 text-sm font-bold focus:outline-none focus:border-gray-400"
+                              style={{ color:S.t1 }}/>
+                            <div className="flex gap-1">
+                              {GROUP_COLORS.map(c => (
+                                <button key={c} onClick={()=>setEditGColor(c)}
+                                  style={{ width:13, height:13, borderRadius:'50%', background:c, border: editGColor===c ? `2px solid ${c}` : '2px solid transparent', outline: editGColor===c ? `2px solid ${c}` : 'none', cursor:'pointer', padding:0 }}/>
+                              ))}
+                            </div>
+                            <button onClick={()=>updateGroup(group.id)} className="text-[11px] bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] px-2 py-0.5 rounded-lg">저장</button>
+                            <button onClick={()=>setEditingGroupId(null)} className="text-[11px] text-gray-400 px-1">취소</button>
+                          </div>
+                        ) : (
+                          <>
+                            <span style={{ fontSize:13, fontWeight:700, color:S.t1 }}>{group.name}</span>
+                            <span style={{ fontSize:11, color:S.t3, background:'#E5E9F0', padding:'1px 7px', borderRadius:99 }}>{groupItems.length}</span>
+                          </>
+                        )}
                         {/* 파트 변경 pills (hover 시 표시) */}
                         <div className="flex gap-1 ml-1 opacity-0 group-hover/grow:opacity-100 transition-opacity" onClick={e=>e.stopPropagation()}>
                           {MATRIX_CATS.map(c => (
@@ -621,6 +725,8 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                           ))}
                         </div>
                         <div className="ml-auto flex items-center gap-1.5 opacity-0 group-hover/grow:opacity-100 transition-opacity" onClick={e=>e.stopPropagation()}>
+                          <button onClick={()=>{ setEditingGroupId(group.id); setEditGName(group.name); setEditGColor(group.color) }}
+                            className="text-[10px] text-gray-400 hover:text-gray-700 transition-colors">수정</button>
                           {deletingGroup === group.id ? (
                             <>
                               <span className="text-[10px] text-gray-500">범주 삭제?</span>
@@ -652,13 +758,21 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                               <button onClick={()=>cycleStatus(item)} title={`상태: ${STATUS_LABEL[item.status]}`}
                                 style={{ width:8, height:8, borderRadius:'50%', flexShrink:0, marginTop:6, background: item.status === 'active' ? (CAT_BORDER[group.category ?? ''] ?? group.color) : STATUS_COLOR[item.status], border:'none', cursor:'pointer', padding:0 }} />
                               <div style={{ flex:1, minWidth:0 }}>
-                                <div style={{ fontSize:14, fontWeight:500, color: item.status==='done' ? S.t3 : S.t1, lineHeight:1.4, marginBottom:4, textDecoration: item.status==='done'?'line-through':'none' }}>
-                                  {item.title}
-                                </div>
+                                {editingItemId === item.id ? (
+                                  <input autoFocus value={editITitle} onChange={e=>setEditITitle(e.target.value)}
+                                    onKeyDown={e=>{ if(e.key==='Enter'&&!e.nativeEvent.isComposing)updateItem(item.id); if(e.key==='Escape')setEditingItemId(null) }}
+                                    className="border border-gray-300 rounded px-2 py-0.5 text-sm focus:outline-none focus:border-gray-400 font-medium w-full mb-1"
+                                    style={{ color:S.t1 }}/>
+                                ) : (
+                                  <div style={{ fontSize:14, fontWeight:500, color: item.status==='done' ? S.t3 : S.t1, lineHeight:1.4, marginBottom:4, textDecoration: item.status==='done'?'line-through':'none' }}>
+                                    {item.title}
+                                  </div>
+                                )}
                                 <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                                  <span className={`text-[11px] px-1.5 py-0.5 rounded-full border font-semibold ${TYPE_CLS[item.item_type]}`}>
+                                  <button onClick={()=>cycleItemType(item)} title="클릭하여 유형 변경"
+                                    className={`text-[11px] px-1.5 py-0.5 rounded-full border font-semibold hover:opacity-70 transition-opacity cursor-pointer ${TYPE_CLS[item.item_type]}`}>
                                     {TYPE_LABEL[item.item_type]}
-                                  </span>
+                                  </button>
                                   {itemSubTasks.length > 0 && (
                                     <span style={{ fontSize:10, color:S.t3, background:'#E5E9F0', padding:'1px 6px', borderRadius:99 }}>
                                       {itemSubTasks.filter(st=>st.status!=='done').length}/{itemSubTasks.length}
@@ -666,7 +780,11 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                                   )}
                                 </div>
                               </div>
-                              <div className="flex items-center gap-1 opacity-0 group-hover/irow:opacity-100 transition-opacity flex-shrink-0">
+                              <div className="flex items-center gap-1.5 opacity-0 group-hover/irow:opacity-100 transition-opacity flex-shrink-0">
+                                {editingItemId !== item.id && (
+                                  <button onClick={()=>{ setEditingItemId(item.id); setEditITitle(item.title) }}
+                                    className="text-[10px] text-gray-400 hover:text-gray-700">수정</button>
+                                )}
                                 {deletingItem === item.id ? (
                                   <>
                                     <button onClick={()=>deleteItem(item.id)} className="text-[10px] text-red-500 font-semibold">삭제</button>
@@ -731,10 +849,21 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                               <div style={{ padding:'7px 16px 7px 42px', display:'flex', alignItems:'center', gap:8 }}>
                                 <button onClick={()=>cycleSubTaskStatus(st)} title={`상태: ${STATUS_LABEL[st.status]}`}
                                   style={{ width:6, height:6, borderRadius:'50%', flexShrink:0, background: st.status === 'active' ? (CAT_BORDER[group.category ?? ''] ?? group.color) : STATUS_COLOR[st.status], border:'none', cursor:'pointer', padding:0 }} />
-                                <span style={{ fontSize:12, color: st.status==='done' ? S.t3 : S.t2, textDecoration: st.status==='done' ? 'line-through' : 'none', flex:1, minWidth:0 }}>
-                                  {st.title}
-                                </span>
-                                <div className="opacity-0 group-hover/strow:opacity-100 transition-opacity flex-shrink-0">
+                                {editingSTId === st.id ? (
+                                  <input autoFocus value={editSTTitle} onChange={e=>setEditSTTitle(e.target.value)}
+                                    onKeyDown={e=>{ if(e.key==='Enter'&&!e.nativeEvent.isComposing)updateSubTask(st.id); if(e.key==='Escape')setEditingSTId(null) }}
+                                    className="border border-gray-300 rounded px-2 py-0.5 text-xs focus:outline-none focus:border-gray-400 flex-1 min-w-0"
+                                    style={{ color:S.t2 }}/>
+                                ) : (
+                                  <span style={{ fontSize:12, color: st.status==='done' ? S.t3 : S.t2, textDecoration: st.status==='done' ? 'line-through' : 'none', flex:1, minWidth:0 }}>
+                                    {st.title}
+                                  </span>
+                                )}
+                                <div className="opacity-0 group-hover/strow:opacity-100 transition-opacity flex-shrink-0 flex items-center gap-1.5">
+                                  {editingSTId !== st.id && (
+                                    <button onClick={()=>{ setEditingSTId(st.id); setEditSTTitle(st.title) }}
+                                      className="text-[10px] text-gray-400 hover:text-gray-700">수정</button>
+                                  )}
                                   {deletingST === st.id ? (
                                     <div className="flex items-center gap-1">
                                       <button onClick={()=>deleteSubTask(st.id)} className="text-[10px] text-red-500 font-semibold">삭제</button>
