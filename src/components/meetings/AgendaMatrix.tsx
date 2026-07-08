@@ -540,7 +540,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                                     style={{ color:S.t2 }}/>
                                 ) : (
                                   <button onClick={()=>router.push(`/subtasks/${st.id}`)}
-                                    style={{ fontSize:12, color: st.status==='done' ? S.t3 : S.t2, textDecoration: st.status==='done' ? 'line-through' : 'none', lineHeight:1.35, background:'none', border:'none', cursor:'pointer', padding:0, textAlign:'left' }}
+                                    style={{ fontSize:13, color: st.status==='done' ? S.t3 : S.t2, textDecoration: st.status==='done' ? 'line-through' : 'none', lineHeight:1.35, background:'none', border:'none', cursor:'pointer', padding:0, textAlign:'left' }}
                                     className="hover:underline">
                                     {st.title}
                                   </button>
@@ -860,7 +860,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                                     style={{ color:S.t2 }}/>
                                 ) : (
                                   <button onClick={()=>router.push(`/subtasks/${st.id}`)}
-                                    style={{ fontSize:12, color: st.status==='done' ? S.t3 : S.t2, textDecoration: st.status==='done' ? 'line-through' : 'none', flex:1, minWidth:0, background:'none', border:'none', cursor:'pointer', padding:0, textAlign:'left' }}
+                                    style={{ fontSize:13, color: st.status==='done' ? S.t3 : S.t2, textDecoration: st.status==='done' ? 'line-through' : 'none', flex:1, minWidth:0, background:'none', border:'none', cursor:'pointer', padding:0, textAlign:'left' }}
                                     className="hover:underline">
                                     {st.title}
                                   </button>

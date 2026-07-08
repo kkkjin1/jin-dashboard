@@ -6,13 +6,14 @@ import { useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
   Home, ClipboardList, Trophy, MessageSquare, CalendarDays,
-  StickyNote, Users, BookOpen, Settings, Brain, ChevronLeft, ChevronRight, NotebookPen,
+  StickyNote, Users, BookOpen, Settings, Brain, ChevronLeft, ChevronRight, NotebookPen, LayoutGrid,
 } from 'lucide-react'
 
 const navItems = [
   { href: '/',              label: '홈',        key: '1', icon: Home },
-  { href: '/tasks',         label: '업무 목록',  key: '2', icon: ClipboardList },
-  { href: '/completed',     label: '완료 성과',  key: '3', icon: Trophy },
+  { href: '/project',       label: '프로젝트',   key: '2', icon: LayoutGrid },
+  { href: '/tasks',         label: '업무 목록',  key: '3', icon: ClipboardList },
+  { href: '/completed',     label: '완료 성과',  key: '', icon: Trophy },
   { href: '/meetings',      label: '회의록',     key: '4', icon: MessageSquare },
   { href: '/schedule',      label: '일정',       key: '5', icon: CalendarDays },
   { href: '/memos',         label: '메모',       key: '6', icon: StickyNote },
@@ -24,7 +25,7 @@ const navItems = [
 ]
 
 const KEY_ROUTES: Record<string, string> = {
-  '1': '/', '2': '/tasks', '3': '/completed',
+  '1': '/', '2': '/project', '3': '/tasks',
   '4': '/meetings', '5': '/schedule', '6': '/memos',
   '7': '/one-on-one', '8': '/learning', '9': '/decisions',
 }
