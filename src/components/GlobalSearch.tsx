@@ -101,12 +101,23 @@ export default function GlobalSearch() {
                 <div className="px-3 py-2">
                   <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">회의록</p>
                   {matchedMeetings.map(m => (
-                    <Link key={m.id} href={`/meetings/${m.id}`} onClick={() => { setOpen(false); setQuery('') }}>
-                      <div className="py-2 px-2 hover:bg-gray-50 rounded-lg flex items-center gap-2">
-                        <span className="text-xs text-emerald-400">💬</span>
+                    <div key={m.id} className="group/row py-2 px-2 hover:bg-gray-50 rounded-lg flex items-center gap-2">
+                      <Link href={`/meetings/${m.id}`} onClick={() => { setOpen(false); setQuery('') }}
+                        className="flex items-center gap-2 flex-1 min-w-0">
+                        <span className="text-xs text-emerald-400 flex-shrink-0">💬</span>
                         <span className="text-sm text-gray-800 truncate">{m.title || '제목 없음'}</span>
-                      </div>
-                    </Link>
+                      </Link>
+                      <button
+                        onClick={async e => {
+                          e.stopPropagation()
+                          if (!confirm(`'${m.title}' 회의록을 삭제하시겠습니까?`)) return
+                          await supabase.from('meetings').delete().eq('id', m.id)
+                          setMeetings(prev => prev.filter(x => x.id !== m.id))
+                        }}
+                        className="opacity-0 group-hover/row:opacity-100 flex-shrink-0 text-[10px] text-red-400 hover:text-red-600 px-1.5 py-0.5 rounded transition-all">
+                        삭제
+                      </button>
+                    </div>
                   ))}
                 </div>
               )}

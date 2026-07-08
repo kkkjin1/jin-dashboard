@@ -201,7 +201,7 @@ export default function MeetingsPage() {
       return [{ cat: catFilter, items: all, months: buildMonths(all) }]
     }
 
-    return effectiveCats
+    const groups = effectiveCats
       .map(cat => {
         const items = cat === '기타'
           ? all.filter(m => m.category === '기타' || !m.category || !nonGitaCats.includes(m.category ?? ''))
@@ -210,6 +210,17 @@ export default function MeetingsPage() {
         return { cat, items, months: buildMonths(items) }
       })
       .filter(Boolean) as { cat: string; items: Meeting[]; months: { ym: string; items: Meeting[] }[] }[]
+
+    // catOrder에 '기타'가 없어도 미분류 회의록은 항상 표시
+    if (!catOrder.includes('기타')) {
+      const assignedIds = new Set(groups.flatMap(g => g.items.map(m => m.id)))
+      const leftovers = all.filter(m => !assignedIds.has(m.id))
+      if (leftovers.length > 0) {
+        groups.push({ cat: '기타', items: leftovers, months: buildMonths(leftovers) })
+      }
+    }
+
+    return groups
   }, [meetings, catFilter, catOrder])
 
   const totalFiltered = categoryGroups.reduce((s, g) => s + g.items.length, 0)
