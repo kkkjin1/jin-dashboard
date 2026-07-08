@@ -356,7 +356,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                       <td style={{ padding:'10px 16px', verticalAlign:'middle' }}>
                         <div className="flex items-center gap-2">
                           <button onClick={() => cycleStatus(item)} title={`상태: ${STATUS_LABEL[item.status]}`}
-                            style={{ width:8, height:8, borderRadius:'50%', flexShrink:0, background:STATUS_COLOR[item.status], border:'none', cursor:'pointer', padding:0 }} />
+                            style={{ width:8, height:8, borderRadius:'50%', flexShrink:0, background: item.status === 'active' ? (CAT_BORDER[group.category ?? ''] ?? group.color) : STATUS_COLOR[item.status], border:'none', cursor:'pointer', padding:0 }} />
                           <span style={{ fontSize:14, fontWeight:500, color: item.status==='done' ? S.t3 : S.t1, textDecoration: item.status==='done' ? 'line-through' : 'none', lineHeight:1.35 }}>
                             {item.title}
                           </span>
@@ -527,7 +527,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                         <td style={{ position:'sticky', left:0, zIndex:2, background: S.bg, borderRight:S.bdL, width:W_ITEM, minWidth:W_ITEM, verticalAlign:'top' }}>
                           <div style={{ padding:'10px 16px', display:'flex', alignItems:'flex-start', gap:9 }}>
                             <button onClick={()=>cycleStatus(item)} title={`상태: ${STATUS_LABEL[item.status]}`}
-                              style={{ width:8, height:8, borderRadius:'50%', flexShrink:0, marginTop:6, background:STATUS_COLOR[item.status], border:'none', cursor:'pointer', padding:0 }} />
+                              style={{ width:8, height:8, borderRadius:'50%', flexShrink:0, marginTop:6, background: item.status === 'active' ? (CAT_BORDER[group.category ?? ''] ?? group.color) : STATUS_COLOR[item.status], border:'none', cursor:'pointer', padding:0 }} />
                             <div style={{ flex:1, minWidth:0 }}>
                               <div style={{ fontSize:14, fontWeight:500, color: item.status==='done' ? S.t3 : S.t1, lineHeight:1.4, marginBottom:4, textDecoration: item.status==='done'?'line-through':'none' }}>
                                 {item.title}
