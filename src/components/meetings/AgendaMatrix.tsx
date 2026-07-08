@@ -206,6 +206,37 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
   const isAll = category === '전체'
 
+  // ── 달력용 전체 날짜 범위 (90일 전 ~ 오늘 + 14일) ──────────────────
+  const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), [])
+  const containerRef = useRef<HTMLDivElement | null>(null)
+  const todayColRef  = useRef<HTMLTableCellElement | null>(null)
+
+  const dateRange = useMemo((): string[] => {
+    if (isAll) return []
+    const dates: string[] = []
+    const start = new Date(); start.setDate(start.getDate() - 90)
+    const end   = new Date(); end.setDate(end.getDate() + 14)
+    let cur = new Date(start)
+    while (cur <= end) {
+      dates.push(cur.toISOString().slice(0, 10))
+      cur = new Date(cur.getFullYear(), cur.getMonth(), cur.getDate() + 1)
+    }
+    return dates
+  }, [isAll])
+
+  const meetingByDate = useMemo(() => {
+    const map: Record<string, MeetingCol> = {}
+    cols.forEach(m => { if (m.meeting_date) map[m.meeting_date] = m })
+    return map
+  }, [cols])
+
+  // ── 오늘로 자동 스크롤 ───────────────────────────────────────────
+  useEffect(() => {
+    if (isAll || loading || !containerRef.current || !todayColRef.current) return
+    const offset = todayColRef.current.offsetLeft - containerRef.current.clientWidth * 0.65
+    containerRef.current.scrollLeft = Math.max(0, offset)
+  }, [isAll, loading, dateRange.length])
+
   // ── 데이터 로드 ──────────────────────────────────────────────────
   useEffect(() => { load() }, [category])
 
@@ -344,12 +375,13 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
     setCols(prev => [...prev, newCol].sort((a, b) => (a.meeting_date ?? '').localeCompare(b.meeting_date ?? '')))
   }
 
-  // ── 이전 회의 노트 계산 (팝업용) ─────────────────────────────────
+  // ── 이전 회의 노트 계산 (팝업용) — 날짜 기준으로 직전 회의 찾기 ──
   const prevNotesForPopup = useMemo(() => {
-    if (!selectedMeeting) return {}
-    const idx = cols.findIndex(m => m.id === selectedMeeting.id)
-    if (idx <= 0) return {}
-    const prevMeeting = cols[idx - 1]
+    if (!selectedMeeting?.meeting_date) return {}
+    const prevMeeting = [...cols]
+      .filter(m => m.meeting_date && m.meeting_date < selectedMeeting.meeting_date!)
+      .sort((a, b) => b.meeting_date!.localeCompare(a.meeting_date!))[0]
+    if (!prevMeeting) return {}
     const map: Record<string, string> = {}
     items.forEach(item => {
       const note = notes[nk(item.id, prevMeeting.id)]
@@ -612,13 +644,13 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
   }
 
   // ── 달력 칸반 모드 ────────────────────────────────────────────────
-  const catColor = CAT_BORDER[category] ?? '#1B3A6B'
-  const catDot   = CAT_DOT[category]   ?? '#1B3A6B'
-  const minTotalW = W_LEFT + cols.length * W_CAL + 56
+  const catColor  = CAT_BORDER[category] ?? '#1B3A6B'
+  const catDot    = CAT_DOT[category]   ?? '#1B3A6B'
+  const minTotalW = W_LEFT + dateRange.length * W_CAL + 56
 
   return (
     <>
-      <div className="flex-1 min-h-0 overflow-auto w-full">
+      <div className="flex-1 min-h-0 overflow-auto w-full" ref={containerRef}>
         <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: minTotalW }}>
           <thead>
             <tr>
@@ -627,21 +659,31 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                 <span style={{ marginLeft: 8, fontSize: 10, color: S.t3, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>날짜 열 클릭으로 회의 오픈</span>
               </th>
 
-              {/* 날짜 헤더들 — 전부 표시 */}
-              {cols.map((m, idx) => {
-                const dayLabel = formatDayLabel(m.meeting_date)
-                const isSun = dayLabel === '일', isSat = dayLabel === '토'
-                const isLatest = idx === cols.length - 1
+              {/* 날짜 헤더 — 전체 날짜 범위 (90일 전~오늘+14일) */}
+              {dateRange.map(date => {
+                const meeting   = meetingByDate[date]
+                const dayLabel  = formatDayLabel(date)
+                const isSun     = dayLabel === '일', isSat = dayLabel === '토'
+                const isToday   = date === todayStr
+                const hasMeeting = !!meeting
                 return (
-                  <th key={m.id}
-                    onClick={() => setSelectedMeeting(m)}
-                    style={{ position: 'sticky', top: 0, zIndex: 3, background: isLatest ? '#F5F8FF' : S.bg, borderBottom: isLatest ? S.bdL : S.bd, borderLeft: S.bd, width: W_CAL, minWidth: W_CAL, cursor: 'pointer' }}
-                    className="hover:bg-blue-50/50 transition-colors">
+                  <th key={date}
+                    ref={isToday ? (el => { todayColRef.current = el }) as React.Ref<HTMLTableCellElement> : undefined}
+                    onClick={hasMeeting ? () => setSelectedMeeting(meeting) : undefined}
+                    style={{
+                      position: 'sticky', top: 0, zIndex: 3,
+                      background: isToday ? hexToRgba(catColor, 0.1) : S.bg,
+                      borderBottom: isToday ? `2px solid ${catColor}` : hasMeeting ? S.bdL : S.bd,
+                      borderLeft: S.bd, width: W_CAL, minWidth: W_CAL,
+                      cursor: hasMeeting ? 'pointer' : 'default',
+                    }}
+                    className={hasMeeting ? 'hover:bg-blue-50/50 transition-colors' : ''}>
                     <div style={{ padding: '8px 2px', textAlign: 'center' }}>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: isSun ? '#EF4444' : isSat ? '#3B82F6' : S.t1, lineHeight: 1.2 }}>
-                        {formatDateShort(m.meeting_date)}
+                      <div style={{ fontSize: hasMeeting ? 12 : 11, fontWeight: hasMeeting ? 700 : 400, color: isToday ? catColor : isSun ? '#EF4444' : isSat ? '#3B82F6' : hasMeeting ? S.t1 : S.t3, lineHeight: 1.2 }}>
+                        {formatDateShort(date)}
                       </div>
-                      <div style={{ fontSize: 9, color: isSun ? '#FCA5A5' : isSat ? '#93C5FD' : S.t3, marginTop: 1 }}>{dayLabel}</div>
+                      <div style={{ fontSize: 9, color: isToday ? catColor : isSun ? '#FCA5A5' : isSat ? '#93C5FD' : S.t3, marginTop: 1 }}>{dayLabel}</div>
+                      {hasMeeting && <div style={{ width: 4, height: 2, borderRadius: 1, background: catColor, margin: '2px auto 0' }} />}
                     </div>
                   </th>
                 )
@@ -666,7 +708,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                 <Fragment key={group.id}>
                   {/* 범주 헤더 — 전체 행 클릭으로 토글 */}
                   <tr>
-                    <td colSpan={cols.length + 2}
+                    <td colSpan={dateRange.length + 2}
                       style={{ position: 'sticky', left: 0, zIndex: 2, background: hexToRgba(group.color, 0.08), borderTop: '3px solid #fff', borderBottom: S.bd, borderLeft: `3px solid ${group.color}`, padding: 0, cursor: 'pointer' }}
                       onClick={() => toggleGroup(group.id)}>
                       <div className="flex items-center gap-2 group/grow" style={{ padding: '20px 16px' }}>
@@ -696,21 +738,31 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                         </div>
                       </td>
 
-                      {/* 날짜 셀들 */}
-                      {cols.map((m, idx) => {
-                        const note = notes[nk(item.id, m.id)] ?? ''
+                      {/* 날짜 셀들 — 전체 날짜 범위 */}
+                      {dateRange.map(date => {
+                        const meeting    = meetingByDate[date]
+                        const note       = meeting ? (notes[nk(item.id, meeting.id)] ?? '') : ''
                         const hasContent = note.trim().length > 0
-                        const isLatest = idx === cols.length - 1
+                        const isToday    = date === todayStr
+                        const hasMeeting = !!meeting
                         return (
-                          <td key={m.id}
-                            onClick={() => setSelectedMeeting(m)}
-                            style={{ borderLeft: S.bd, background: isLatest ? 'rgba(235,242,255,0.4)' : 'transparent', width: W_CAL, minWidth: W_CAL, textAlign: 'center', verticalAlign: 'middle', cursor: 'pointer', padding: '12px 2px' }}
-                            className="hover:bg-blue-50/50 transition-colors">
+                          <td key={date}
+                            onClick={hasMeeting ? () => setSelectedMeeting(meeting) : undefined}
+                            style={{
+                              borderLeft: S.bd,
+                              background: isToday ? hexToRgba(catColor, 0.05) : 'transparent',
+                              width: W_CAL, minWidth: W_CAL,
+                              textAlign: 'center', verticalAlign: 'middle',
+                              cursor: hasMeeting ? 'pointer' : 'default',
+                              padding: '12px 2px',
+                            }}
+                            className={hasMeeting ? 'hover:bg-blue-50/50 transition-colors' : ''}>
                             {hasContent ? (
-                              <div style={{ width: 9, height: 9, borderRadius: '50%', background: catDot, margin: '0 auto', boxShadow: `0 0 0 2px ${hexToRgba(catDot, 0.2)}` }} />
-                            ) : (
-                              <div style={{ width: 4, height: 4, borderRadius: '50%', background: '#E5E9F0', margin: '0 auto' }} />
-                            )}
+                              <div title={note.slice(0, 60)}
+                                style={{ width: 9, height: 9, borderRadius: '50%', background: catDot, margin: '0 auto', boxShadow: `0 0 0 2px ${hexToRgba(catDot, 0.2)}` }} />
+                            ) : hasMeeting ? (
+                              <div style={{ width: 5, height: 5, borderRadius: '50%', border: `1.5px solid ${hexToRgba(catDot, 0.4)}`, margin: '0 auto' }} />
+                            ) : null}
                           </td>
                         )
                       })}
@@ -721,7 +773,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                   {/* 안건 추가 */}
                   {isOpen && (
                     <tr key={`add-i-${group.id}`} style={{ borderBottom: S.bd }}>
-                      <td colSpan={cols.length + 2} style={{ padding: 0 }}>
+                      <td colSpan={dateRange.length + 2} style={{ padding: 0 }}>
                         {addingItem === group.id ? (
                           <div className="flex items-center gap-2 px-5 py-2.5">
                             <input autoFocus value={newITitle} onChange={e => setNewITitle(e.target.value)}
@@ -743,7 +795,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                 </Fragment>
               )
             })}
-            <AddGroupForm colSpan={cols.length + 2} />
+            <AddGroupForm colSpan={dateRange.length + 2} />
           </tbody>
         </table>
 
