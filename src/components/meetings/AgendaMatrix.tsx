@@ -49,12 +49,14 @@ function hexToRgba(hex: string, alpha: number) {
 const S = { bd: '1px solid #E5E9F0', bdL: '1px solid #BDD0EA', bg: '#fff', bgRow: '#F7F9FC', t1: '#1A2233', t2: '#4A5A72', t3: '#8FA0B5' }
 
 // ── 회의 팝업 ────────────────────────────────────────────────────────
+interface PrevRecord { date: string; note: string; meetingId: string }
+
 interface MeetingPopupProps {
   meeting: MeetingCol
   items: AgendaItem[]
   groups: AgendaGroup[]
   notes: Record<string, string>
-  prevNotes: Record<string, string>   // keyed by item.id
+  allPrevNotes: Record<string, PrevRecord[]>   // item.id → 이전 회의 기록 배열 (최신순)
   onNote: (itemId: string, meetingId: string, value: string) => void
   onClose: () => void
   onOpenMeeting: (meetingId: string) => void
@@ -62,12 +64,18 @@ interface MeetingPopupProps {
   category: string
 }
 
-function MeetingPopup({ meeting, items, groups, notes, prevNotes, onNote, onClose, onOpenMeeting, catColor, category }: MeetingPopupProps) {
+function MeetingPopup({ meeting, items, groups, notes, allPrevNotes, onNote, onClose, onOpenMeeting, catColor, category }: MeetingPopupProps) {
+  const [openPrev, setOpenPrev] = useState<Set<string>>(new Set())   // "itemId_meetingId"
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [onClose])
+
+  function togglePrev(key: string) {
+    setOpenPrev(prev => { const s = new Set(prev); s.has(key) ? s.delete(key) : s.add(key); return s })
+  }
 
   const byGroup = groups
     .map(g => ({ group: g, items: items.filter(i => i.group_id === g.id) }))
@@ -77,7 +85,7 @@ function MeetingPopup({ meeting, items, groups, notes, prevNotes, onNote, onClos
     <div className="fixed inset-0 z-[100] flex items-center justify-center" style={{ background: 'rgba(0,0,0,.28)' }}
       onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 flex flex-col overflow-hidden"
-        style={{ width: '90vw', maxWidth: 1100, height: '82vh' }}
+        style={{ width: '92vw', maxWidth: 1160, height: '86vh' }}
         onClick={e => e.stopPropagation()}>
 
         {/* 헤더 */}
@@ -110,10 +118,14 @@ function MeetingPopup({ meeting, items, groups, notes, prevNotes, onNote, onClos
             </div>
           ) : (
             <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+              <colgroup>
+                <col style={{ width: 220 }} />
+                <col />
+              </colgroup>
               <thead>
                 <tr style={{ borderBottom: S.bd }}>
-                  <th style={{ position: 'sticky', top: 0, background: '#fff', zIndex: 2, padding: '10px 20px', fontSize: 11, fontWeight: 700, color: S.t3, textTransform: 'uppercase', letterSpacing: '.05em', textAlign: 'left', width: 240, borderBottom: S.bd }}>안건</th>
-                  <th style={{ position: 'sticky', top: 0, background: '#fff', zIndex: 2, padding: '10px 20px', fontSize: 11, fontWeight: 700, color: S.t3, textTransform: 'uppercase', letterSpacing: '.05em', textAlign: 'left', borderLeft: S.bd, borderBottom: S.bd }}>진전 내용</th>
+                  <th style={{ position: 'sticky', top: 0, background: '#fff', zIndex: 2, padding: '10px 20px', fontSize: 11, fontWeight: 700, color: S.t3, textTransform: 'uppercase', letterSpacing: '.05em', textAlign: 'left', borderBottom: S.bd }}>안건</th>
+                  <th style={{ position: 'sticky', top: 0, background: '#fff', zIndex: 2, padding: '10px 20px', fontSize: 11, fontWeight: 700, color: S.t3, textTransform: 'uppercase', letterSpacing: '.05em', textAlign: 'left', borderLeft: S.bd, borderBottom: S.bd }}>기록</th>
                 </tr>
               </thead>
               <tbody>
@@ -125,31 +137,77 @@ function MeetingPopup({ meeting, items, groups, notes, prevNotes, onNote, onClos
                       </td>
                     </tr>
                     {gItems.map(item => {
-                      const prevNote = prevNotes[item.id] ?? ''
+                      const prevRecords = allPrevNotes[item.id] ?? []
+                      const currentNote = notes[nk(item.id, meeting.id)] ?? ''
                       return (
-                        <tr key={item.id} style={{ borderBottom: S.bd }}>
-                          <td style={{ padding: '14px 20px', verticalAlign: 'top', width: 240 }}>
+                        <tr key={item.id} style={{ borderBottom: S.bd, verticalAlign: 'top' }}>
+                          {/* 안건 이름 */}
+                          <td style={{ padding: '14px 20px', verticalAlign: 'top' }}>
                             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
                               <span style={{ width: 8, height: 8, borderRadius: '50%', background: STATUS_COLOR[item.status], flexShrink: 0, marginTop: 4 }} />
                               <span style={{ fontSize: 13, fontWeight: 500, color: item.status === 'done' ? S.t3 : S.t1, lineHeight: 1.4, textDecoration: item.status === 'done' ? 'line-through' : 'none' }}>
                                 {item.title}
                               </span>
                             </div>
-                          </td>
-                          <td style={{ borderLeft: S.bd, padding: '10px 16px', verticalAlign: 'top' }}>
-                            {prevNote && (
-                              <div style={{ marginBottom: 8, padding: '6px 10px', background: '#F7F9FC', borderLeft: `2px solid ${catColor}30`, borderRadius: '0 6px 6px 0' }}>
-                                <div style={{ fontSize: 9, fontWeight: 700, color: S.t3, textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 3 }}>직전 회의</div>
-                                <div style={{ fontSize: 12, color: S.t3, lineHeight: 1.55, whiteSpace: 'pre-wrap', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}>{prevNote}</div>
+                            {prevRecords.length > 0 && (
+                              <div style={{ marginTop: 6, marginLeft: 16, fontSize: 10, color: S.t3 }}>
+                                이전 기록 {prevRecords.length}건
                               </div>
                             )}
-                            <textarea
-                              value={notes[nk(item.id, meeting.id)] ?? ''}
-                              onChange={e => onNote(item.id, meeting.id, e.target.value)}
-                              placeholder="진전 내용, 결정사항, 다음 액션 등…"
-                              rows={4}
-                              style={{ width: '100%', border: 'none', background: 'transparent', resize: 'vertical', fontSize: 13, color: S.t1, lineHeight: 1.65, fontFamily: 'inherit', outline: 'none', minHeight: 72 }}
-                            />
+                          </td>
+
+                          {/* 기록 영역 */}
+                          <td style={{ borderLeft: S.bd, padding: '12px 16px', verticalAlign: 'top' }}>
+
+                            {/* 이전 회의 기록 — 토글 아코디언 */}
+                            {prevRecords.length > 0 && (
+                              <div style={{ marginBottom: 12 }}>
+                                {prevRecords.map(rec => {
+                                  const key    = `${item.id}_${rec.meetingId}`
+                                  const isOpen = openPrev.has(key)
+                                  const preview = rec.note.split('\n')[0].slice(0, 60)
+                                  return (
+                                    <div key={rec.meetingId}
+                                      style={{ marginBottom: 4, border: `1px solid ${catColor}22`, borderRadius: 8, overflow: 'hidden' }}>
+                                      {/* 토글 헤더 */}
+                                      <button
+                                        onClick={() => togglePrev(key)}
+                                        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', background: isOpen ? `${catColor}0A` : '#F8FAFC', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
+                                        <span style={{ fontSize: 8, color: catColor, display: 'inline-block', transition: 'transform .15s', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', flexShrink: 0, lineHeight: 1 }}>▶</span>
+                                        <span style={{ fontSize: 11, fontWeight: 700, color: catColor, flexShrink: 0, minWidth: 56 }}>{formatDate(rec.date)}</span>
+                                        {!isOpen && preview && (
+                                          <span style={{ fontSize: 11, color: S.t3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                                            {preview}{rec.note.length > 60 ? '…' : ''}
+                                          </span>
+                                        )}
+                                      </button>
+                                      {/* 토글 본문 */}
+                                      {isOpen && (
+                                        <div style={{ padding: '8px 12px 10px 28px', background: '#FAFBFD', borderTop: `1px solid ${catColor}15` }}>
+                                          <pre style={{ margin: 0, fontSize: 12, color: S.t2, lineHeight: 1.65, whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>{rec.note}</pre>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            )}
+
+                            {/* 현재 회의 입력 */}
+                            <div style={{ borderTop: prevRecords.length > 0 ? `1px dashed ${catColor}30` : 'none', paddingTop: prevRecords.length > 0 ? 10 : 0 }}>
+                              {prevRecords.length > 0 && (
+                                <div style={{ fontSize: 10, fontWeight: 700, color: catColor, textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 }}>
+                                  {formatDate(meeting.meeting_date)} 기록
+                                </div>
+                              )}
+                              <textarea
+                                value={currentNote}
+                                onChange={e => onNote(item.id, meeting.id, e.target.value)}
+                                placeholder="진전 내용, 결정사항, 다음 액션 등…"
+                                rows={currentNote ? Math.max(3, currentNote.split('\n').length + 1) : 3}
+                                style={{ width: '100%', border: 'none', background: 'transparent', resize: 'vertical', fontSize: 13, color: S.t1, lineHeight: 1.65, fontFamily: 'inherit', outline: 'none', minHeight: 64 }}
+                              />
+                            </div>
                           </td>
                         </tr>
                       )
@@ -375,17 +433,19 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
     setCols(prev => [...prev, newCol].sort((a, b) => (a.meeting_date ?? '').localeCompare(b.meeting_date ?? '')))
   }
 
-  // ── 이전 회의 노트 계산 (팝업용) — 날짜 기준으로 직전 회의 찾기 ──
-  const prevNotesForPopup = useMemo(() => {
+  // ── 이전 회의 노트 전체 계산 (팝업용) — 클릭된 날짜보다 이전 회의 모두 ─
+  const allPrevNotesForPopup = useMemo((): Record<string, PrevRecord[]> => {
     if (!selectedMeeting?.meeting_date) return {}
-    const prevMeeting = [...cols]
+    const prevMeetings = [...cols]
       .filter(m => m.meeting_date && m.meeting_date < selectedMeeting.meeting_date!)
-      .sort((a, b) => b.meeting_date!.localeCompare(a.meeting_date!))[0]
-    if (!prevMeeting) return {}
-    const map: Record<string, string> = {}
+      .sort((a, b) => b.meeting_date!.localeCompare(a.meeting_date!)) // 최신순
+    if (prevMeetings.length === 0) return {}
+    const map: Record<string, PrevRecord[]> = {}
     items.forEach(item => {
-      const note = notes[nk(item.id, prevMeeting.id)]
-      if (note?.trim()) map[item.id] = note
+      const records = prevMeetings
+        .map(m => ({ date: m.meeting_date!, note: notes[nk(item.id, m.id)] ?? '', meetingId: m.id }))
+        .filter(r => r.note.trim())
+      if (records.length > 0) map[item.id] = records
     })
     return map
   }, [selectedMeeting, cols, items, notes])
@@ -813,7 +873,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
           items={items}
           groups={groups}
           notes={notes}
-          prevNotes={prevNotesForPopup}
+          allPrevNotes={allPrevNotesForPopup}
           onNote={handleNote}
           onClose={() => setSelectedMeeting(null)}
           onOpenMeeting={id => { router.push(`/meetings/${id}`); setSelectedMeeting(null) }}
