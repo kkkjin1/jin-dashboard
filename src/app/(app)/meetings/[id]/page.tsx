@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { format, parseISO } from 'date-fns'
 import { createClient } from '@/lib/supabase/client'
 import type { Meeting, NoteEntry, Task, TaskStatus, Note, Attachment } from '@/types'
 import { generateMeetingMd, downloadMd } from '@/lib/markdown'
@@ -258,6 +259,7 @@ export default function MeetingDetailPage() {
   const [allTasks, setAllTasks] = useState<Pick<Task, 'id' | 'title' | 'status' | 'part'>[]>([])
   const [selectedTaskId, setSelectedTaskId] = useState('')
   const [relatedJournals, setRelatedJournals] = useState<{ id: string; date: string; content: string; tags: string[]; linked: boolean }[]>([])
+  const [sameCatMeetings, setSameCatMeetings] = useState<Pick<Meeting, 'id' | 'title' | 'meeting_date'>[]>([])
 
   const [newNoteKey, setNewNoteKey] = useState(0)
   const titleRef = useRef<HTMLInputElement>(null)
@@ -338,6 +340,17 @@ export default function MeetingDetailPage() {
     }
     loadJournals()
   }, [meeting?.meeting_date, id])
+
+  useEffect(() => {
+    if (!meeting?.category) return
+    supabase.from('meetings')
+      .select('id, title, meeting_date')
+      .eq('category', meeting.category)
+      .neq('id', id)
+      .order('meeting_date', { ascending: false, nullsFirst: false })
+      .limit(15)
+      .then(({ data }) => setSameCatMeetings((data ?? []) as Pick<Meeting, 'id' | 'title' | 'meeting_date'>[]))
+  }, [meeting?.category, id])
 
   useEffect(() => {
     function onEsc(e: KeyboardEvent) {
@@ -663,6 +676,28 @@ export default function MeetingDetailPage() {
                 {linkedTasks.map(t => (
                   <LinkedTaskCard key={t.id} task={t} onUnlink={unlinkTask} />
                 ))}
+              </div>
+            )}
+
+            {sameCatMeetings.length > 0 && (
+              <div className="mt-6 pt-5 border-t border-gray-100">
+                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">
+                  {meeting?.category} 이전 회의
+                </h3>
+                <div className="space-y-1">
+                  {sameCatMeetings.map(m => (
+                    <Link key={m.id} href={`/meetings/${m.id}`}
+                      className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-gray-50 transition-colors group">
+                      <span className="text-[10px] text-gray-400 flex-shrink-0 w-12">
+                        {m.meeting_date ? format(parseISO(m.meeting_date), 'M.d') : '—'}
+                      </span>
+                      <span className="text-xs text-gray-600 group-hover:text-gray-900 truncate flex-1 transition-colors">
+                        {m.title || '제목 없음'}
+                      </span>
+                      <span className="text-[10px] text-gray-300 group-hover:text-gray-500 flex-shrink-0">↗</span>
+                    </Link>
+                  ))}
+                </div>
               </div>
             )}
 

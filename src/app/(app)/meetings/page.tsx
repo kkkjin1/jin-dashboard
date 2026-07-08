@@ -2,6 +2,7 @@
 
 import { createPortal } from 'react-dom'
 import { useEffect, useState, useMemo } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { format, parseISO } from 'date-fns'
@@ -41,8 +42,14 @@ const pill  = 'text-xs px-3.5 py-1.5 rounded-full border font-medium transition-
 const pOn  = 'bg-[#1B3A6B] text-white border-[#1B3A6B] shadow-sm'
 const pOff = 'bg-white/40 backdrop-blur-xl border-white/60 text-gray-500 hover:bg-white/60 hover:text-gray-700'
 
+interface TaskLinkRow {
+  meeting_id: string
+  tasks: { id: string; title: string; status: string } | null
+}
+
 export default function MeetingsPage() {
   const [meetings, setMeetings] = useState<Meeting[]>([])
+  const [taskLinks, setTaskLinks] = useState<TaskLinkRow[]>([])
   const [loading, setLoading] = useState(true)
   const [newTitle, setNewTitle] = useState('')
   const [adding, setAdding] = useState(false)
@@ -50,25 +57,26 @@ export default function MeetingsPage() {
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set())
   const [collapsedCats, setCollapsedCats] = useState<Set<string>>(new Set())
   const [collapsedMonths, setCollapsedMonths] = useState<Set<string>>(new Set())
-
   const [catOrder, setCatOrder] = useState<string[]>([...DEFAULT_CATS])
   const [dragCat, setDragCat] = useState<string | null>(null)
   const [dragOverCat, setDragOverCat] = useState<string | null>(null)
-
-  // 범주 추가
   const [addingCat, setAddingCat] = useState(false)
   const [newCatName, setNewCatName] = useState('')
-
-  // 카드 범주 수정
   const [editingCatId, setEditingCatId] = useState<string | null>(null)
   const [editCatPos, setEditCatPos] = useState({ x: 0, y: 0 })
-
+  const [expandedTaskCards, setExpandedTaskCards] = useState<Set<string>>(new Set())
   const supabase = createClient()
   const router = useRouter()
 
   useEffect(() => {
-    supabase.from('meetings').select('*').order('meeting_date', { ascending: false, nullsFirst: false })
-      .then(({ data }) => { setMeetings((data ?? []) as Meeting[]); setLoading(false) })
+    Promise.all([
+      supabase.from('meetings').select('*').order('meeting_date', { ascending: false, nullsFirst: false }),
+      supabase.from('task_meeting_links').select('meeting_id, tasks(id, title, status)'),
+    ]).then(([{ data: m }, { data: l }]) => {
+      setMeetings((m ?? []) as Meeting[])
+      setTaskLinks((l ?? []) as unknown as TaskLinkRow[])
+      setLoading(false)
+    })
   }, [])
 
   useEffect(() => {
@@ -218,6 +226,20 @@ export default function MeetingsPage() {
     return groups
   }, [meetings, catFilter, catOrder])
 
+  const tasksMap = useMemo(() => {
+    const map: Record<string, { id: string; title: string; status: string }[]> = {}
+    taskLinks.forEach(l => {
+      if (!l.tasks) return
+      if (!map[l.meeting_id]) map[l.meeting_id] = []
+      map[l.meeting_id].push(l.tasks)
+    })
+    return map
+  }, [taskLinks])
+
+  function toggleTaskCard(id: string) {
+    setExpandedTaskCards(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s })
+  }
+
   const totalFiltered = categoryGroups.reduce((s, g) => s + g.items.length, 0)
   const pillFilters = ['전체', ...catOrder]
 
@@ -336,7 +358,7 @@ export default function MeetingsPage() {
                   onDragEnd={() => { setDragCat(null); setDragOverCat(null) }}
                   className={`transition-all ${isDragOver ? 'translate-y-1 opacity-70' : ''} ${dragCat === cat ? 'opacity-40' : ''}`}>
 
-                  {catFilter === '전체' && (
+                  {catFilter === '전체' ? (
                     <button onClick={() => toggleCat(cat)}
                       className="flex items-center gap-2.5 w-full text-left group py-2 mb-3 border-b border-white/40 pb-3">
                       <span className="text-gray-300 text-xs cursor-grab select-none" title="드래그하여 순서 변경">⠿</span>
@@ -348,6 +370,15 @@ export default function MeetingsPage() {
                         {isCatCollapsed ? '▶' : '▼'}
                       </span>
                     </button>
+                  ) : (
+                    <div className="flex items-center gap-2.5 py-2 mb-3 border-b border-white/40 pb-3">
+                      <span className={`text-xs font-semibold px-3 py-1 rounded-full border ${CATEGORY_COLORS[cat] ?? 'bg-gray-100/80 text-gray-400 border-gray-200'}`}>
+                        {cat}
+                      </span>
+                      <span className="text-xs text-gray-400 bg-white/60 border border-white/70 px-2 py-0.5 rounded-full">
+                        {items.length}건
+                      </span>
+                    </div>
                   )}
 
                   {!isCatCollapsed && (
@@ -368,35 +399,58 @@ export default function MeetingsPage() {
 
                             {!isMonthCollapsed && (
                               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 xl:grid-cols-6 gap-3">
-                                {monthItems.map(meeting => (
-                                  <div key={meeting.id}
-                                    onClick={() => router.push(`/meetings/${meeting.id}`)}
-                                    className={`group/card bg-white/40 backdrop-blur-xl border-t-2 border border-white/60 rounded-2xl p-3 hover:bg-white/60 hover:shadow-sm transition-all h-28 flex flex-col cursor-pointer ${CAT_CARD_BG[meeting.category ?? cat] ?? CAT_CARD_BG['기타']}`}>
-                                    <p className="text-xs font-bold text-gray-800 leading-snug line-clamp-2 flex-1">
-                                      {meeting.title || '제목 없음'}
-                                    </p>
-                                    <div className="flex items-center gap-1 mt-1.5 flex-shrink-0">
-                                      <input type="checkbox" checked={checkedIds.has(meeting.id)}
-                                        onChange={() => toggleCheck(meeting.id)}
-                                        onClick={e => e.stopPropagation()}
-                                        className="w-3 h-3 rounded accent-gray-700 flex-shrink-0 cursor-pointer" />
-                                      <span className="text-[9px] text-neutral-400 flex-1">
-                                        {meeting.meeting_date ? format(parseISO(meeting.meeting_date), 'M.d (E)', { locale: ko }) : '날짜 미지정'}
-                                      </span>
-                                      <button
-                                        data-cat-trigger="true"
-                                        onClick={e => openCatEdit(e, meeting.id)}
-                                        className={`text-[9px] px-1.5 py-0.5 rounded-full border font-medium transition-all opacity-0 group-hover/card:opacity-100 ${CATEGORY_COLORS[meeting.category ?? '기타'] ?? CATEGORY_COLORS['기타']}`}>
-                                        {meeting.category ?? '분류'}
-                                      </button>
-                                      {meeting.notes.length > 0 && (
-                                        <span className="text-[9px] text-gray-400 bg-white/60 border border-white/70 px-1 py-0.5 rounded-full flex-shrink-0">
-                                          {meeting.notes.length}노트
-                                        </span>
+                                {monthItems.map(meeting => {
+                                  const meetingTasks = tasksMap[meeting.id] ?? []
+                                  const isTasksExpanded = expandedTaskCards.has(meeting.id)
+                                  const visibleTasks = isTasksExpanded ? meetingTasks : meetingTasks.slice(0, 2)
+                                  return (
+                                    <div key={meeting.id}
+                                      onClick={() => router.push(`/meetings/${meeting.id}`)}
+                                      className={`group/card bg-white/40 backdrop-blur-xl border-t-2 border border-white/60 rounded-2xl p-3 hover:bg-white/60 hover:shadow-sm transition-all min-h-28 flex flex-col cursor-pointer ${CAT_CARD_BG[meeting.category ?? cat] ?? CAT_CARD_BG['기타']}`}>
+                                      <p className="text-xs font-bold text-gray-800 leading-snug line-clamp-2 flex-1">
+                                        {meeting.title || '제목 없음'}
+                                      </p>
+                                      {meetingTasks.length > 0 && (
+                                        <div className="mt-1.5 mb-1" onClick={e => e.stopPropagation()}>
+                                          {visibleTasks.map(t => (
+                                            <Link key={t.id} href={`/tasks/${t.id}`}
+                                              onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                                              className="block text-[9px] text-gray-500 hover:text-gray-700 truncate leading-snug">
+                                              · {t.title || '제목 없음'}
+                                            </Link>
+                                          ))}
+                                          {meetingTasks.length > 2 && (
+                                            <button
+                                              onClick={e => { e.stopPropagation(); toggleTaskCard(meeting.id) }}
+                                              className="text-[9px] text-gray-400 hover:text-gray-600 mt-0.5 transition-colors">
+                                              {isTasksExpanded ? '접기 ▲' : `+${meetingTasks.length - 2}개 더 ▼`}
+                                            </button>
+                                          )}
+                                        </div>
                                       )}
+                                      <div className="flex items-center gap-1 mt-1 flex-shrink-0">
+                                        <input type="checkbox" checked={checkedIds.has(meeting.id)}
+                                          onChange={() => toggleCheck(meeting.id)}
+                                          onClick={e => e.stopPropagation()}
+                                          className="w-3 h-3 rounded accent-gray-700 flex-shrink-0 cursor-pointer" />
+                                        <span className="text-[9px] text-neutral-400 flex-1">
+                                          {meeting.meeting_date ? format(parseISO(meeting.meeting_date), 'M.d (E)', { locale: ko }) : '날짜 미지정'}
+                                        </span>
+                                        <button
+                                          data-cat-trigger="true"
+                                          onClick={e => openCatEdit(e, meeting.id)}
+                                          className={`text-[9px] px-1.5 py-0.5 rounded-full border font-medium transition-all opacity-0 group-hover/card:opacity-100 ${CATEGORY_COLORS[meeting.category ?? '기타'] ?? CATEGORY_COLORS['기타']}`}>
+                                          {meeting.category ?? '분류'}
+                                        </button>
+                                        {meeting.notes.length > 0 && (
+                                          <span className="text-[9px] text-gray-400 bg-white/60 border border-white/70 px-1 py-0.5 rounded-full flex-shrink-0">
+                                            {meeting.notes.length}노트
+                                          </span>
+                                        )}
+                                      </div>
                                     </div>
-                                  </div>
-                                ))}
+                                  )
+                                })}
                               </div>
                             )}
                           </div>
