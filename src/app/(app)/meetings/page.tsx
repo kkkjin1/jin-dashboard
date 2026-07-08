@@ -10,7 +10,7 @@ import type { Meeting } from '@/types'
 import { generateMeetingsContextMd, downloadMd } from '@/lib/markdown'
 import AgendaMatrix from '@/components/meetings/AgendaMatrix'
 
-const DEFAULT_CATS = ['코어', '비즈', '경영진', '본부장', '타팀', '목표관리']
+const DEFAULT_CATS = ['코어', '비즈', '개인']
 // '기타'는 항상 마지막 고정. catOrder에 포함하지 않음.
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -262,7 +262,7 @@ export default function MeetingsPage() {
         <div className="flex flex-col flex-1 min-h-0">
           {/* 파트 탭 */}
           <div className="flex-shrink-0 flex items-center gap-2 mb-4">
-            {[...catOrder].map(c => (
+            {['전체', ...catOrder].map(c => (
               <button key={c}
                 onClick={() => setMatrixCat(c)}
                 className={`text-xs px-3.5 py-1.5 rounded-full border font-semibold transition-all ${
@@ -273,12 +273,14 @@ export default function MeetingsPage() {
                 {c}
               </button>
             ))}
-            <div className="flex items-center gap-1.5 ml-2 px-3 py-1 rounded-full text-[11px] font-semibold border text-emerald-700 bg-emerald-50 border-emerald-200">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              회의록 탭과 동기화
-            </div>
+            {matrixCat !== '전체' && (
+              <div className="flex items-center gap-1.5 ml-1 px-2.5 py-1 rounded-full text-[10px] font-semibold border text-emerald-700 bg-emerald-50 border-emerald-200">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                회의록 동기화
+              </div>
+            )}
           </div>
-          <AgendaMatrix key={matrixCat} category={matrixCat} />
+          <AgendaMatrix key={matrixCat} category={matrixCat} allCats={catOrder} />
         </div>
       )}
 
