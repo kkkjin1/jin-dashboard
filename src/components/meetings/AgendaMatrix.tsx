@@ -637,80 +637,144 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
 
                   {/* 안건 행들 */}
                   {isOpen && groupItems.map(item => {
+                    const itemSubTasks = subTasks.filter(st => st.agenda_item_id === item.id)
+                    const isItemExpanded = expandedItems.has(item.id)
                     const pNote = prevNote(item.id)
                     return (
-                      <tr key={item.id} style={{ borderBottom:S.bd }} className="hover:bg-gray-50/40 group/irow">
+                      <Fragment key={item.id}>
+                        <tr style={{ borderBottom: isItemExpanded ? 'none' : S.bd }} className="hover:bg-gray-50/40 group/irow">
 
-                        {/* 안건 셀 */}
-                        <td style={{ position:'sticky', left:0, zIndex:2, background: S.bg, borderRight:S.bdL, width:W_ITEM, minWidth:W_ITEM, verticalAlign:'top' }}>
-                          <div style={{ padding:'10px 16px', display:'flex', alignItems:'flex-start', gap:9 }}>
-                            <button onClick={()=>cycleStatus(item)} title={`상태: ${STATUS_LABEL[item.status]}`}
-                              style={{ width:8, height:8, borderRadius:'50%', flexShrink:0, marginTop:6, background: item.status === 'active' ? (CAT_BORDER[group.category ?? ''] ?? group.color) : STATUS_COLOR[item.status], border:'none', cursor:'pointer', padding:0 }} />
-                            <div style={{ flex:1, minWidth:0 }}>
-                              <div style={{ fontSize:14, fontWeight:500, color: item.status==='done' ? S.t3 : S.t1, lineHeight:1.4, marginBottom:4, textDecoration: item.status==='done'?'line-through':'none' }}>
-                                {item.title}
-                              </div>
-                              <span className={`text-[11px] px-1.5 py-0.5 rounded-full border font-semibold ${TYPE_CLS[item.item_type]}`}>
-                                {TYPE_LABEL[item.item_type]}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-1 opacity-0 group-hover/irow:opacity-100 transition-opacity flex-shrink-0">
-                              {deletingItem === item.id ? (
-                                <>
-                                  <button onClick={()=>deleteItem(item.id)} className="text-[10px] text-red-500 font-semibold">삭제</button>
-                                  <button onClick={()=>setDeletingItem(null)} className="text-[10px] text-gray-400">취소</button>
-                                </>
-                              ) : (
-                                <button onClick={()=>setDeletingItem(item.id)} className="text-[10px] text-gray-300 hover:text-red-400">삭제</button>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-
-                        {/* 직전 회의 노트 셀들 */}
-                        {pastCols.map(m => {
-                          const note = notes[nk(item.id, m.id)] ?? ''
-                          return (
-                            <td key={m.id}
-                              style={{ borderLeft:S.bd, width:W_PAST, minWidth:W_PAST, verticalAlign:'top', cursor: note?'pointer':'default' }}
-                              onClick={() => note && setExpandedNote({ date:formatDate(m.meeting_date), itemTitle:item.title, note, meetingId:m.id })}
-                              className={note ? 'hover:bg-blue-50/30' : ''}
-                            >
-                              <div style={{ padding:'9px 11px', minHeight:68 }}>
-                                {note
-                                  ? <div style={{ fontSize:13, color:S.t2, lineHeight:1.6, display:'-webkit-box', WebkitLineClamp:5, WebkitBoxOrient:'vertical', overflow:'hidden' }}>{note}</div>
-                                  : <div style={{ fontSize:12, color:'#C8D5E8' }}>—</div>
-                                }
-                              </div>
-                            </td>
-                          )
-                        })}
-
-                        {/* 이번 회의 노트 셀 */}
-                        {nowCol ? (
-                          <td style={{ borderLeft:S.bdL, background:S.bgNow, width:W_NOW, minWidth:W_NOW, verticalAlign:'top' }}>
-                            <div style={{ padding:'9px 11px' }}>
-                              {pNote && (
-                                <div style={{ marginBottom:6, padding:'4px 8px', borderLeft:`2px solid #BDD0EA`, borderRadius:'0 4px 4px 0', background:'rgba(15,30,54,.04)' }}>
-                                  <div style={{ fontSize:10, fontWeight:700, color:S.t3, textTransform:'uppercase', letterSpacing:'.04em', marginBottom:1 }}>직전</div>
-                                  <div style={{ fontSize:11, color:S.t3, lineHeight:1.5, overflow:'hidden', display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical' }}>{pNote}</div>
+                          {/* 안건 셀 */}
+                          <td style={{ position:'sticky', left:0, zIndex:2, background: S.bg, borderRight:S.bdL, width:W_ITEM, minWidth:W_ITEM, verticalAlign:'top' }}>
+                            <div style={{ padding:'10px 16px', display:'flex', alignItems:'flex-start', gap:9 }}>
+                              <button onClick={()=>toggleExpandedItem(item.id)}
+                                style={{ fontSize:8, color:S.t3, background:'none', border:'none', cursor:'pointer', padding:0, lineHeight:1, transition:'transform .15s', transform: isItemExpanded ? 'rotate(90deg)' : 'rotate(0deg)', flexShrink:0, marginTop:6, width:10 }}>▶</button>
+                              <button onClick={()=>cycleStatus(item)} title={`상태: ${STATUS_LABEL[item.status]}`}
+                                style={{ width:8, height:8, borderRadius:'50%', flexShrink:0, marginTop:6, background: item.status === 'active' ? (CAT_BORDER[group.category ?? ''] ?? group.color) : STATUS_COLOR[item.status], border:'none', cursor:'pointer', padding:0 }} />
+                              <div style={{ flex:1, minWidth:0 }}>
+                                <div style={{ fontSize:14, fontWeight:500, color: item.status==='done' ? S.t3 : S.t1, lineHeight:1.4, marginBottom:4, textDecoration: item.status==='done'?'line-through':'none' }}>
+                                  {item.title}
                                 </div>
-                              )}
-                              <textarea
-                                value={notes[nk(item.id, nowCol.id)] ?? ''}
-                                onChange={e => handleNote(item.id, nowCol.id, e.target.value)}
-                                placeholder="오늘 논의 내용 입력…"
-                                rows={4}
-                                style={{ width:'100%', border:'none', background:'transparent', resize:'none', fontSize:13, color:S.t1, lineHeight:1.65, fontFamily:'inherit', outline:'none', minHeight:60 }}
-                              />
+                                <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                                  <span className={`text-[11px] px-1.5 py-0.5 rounded-full border font-semibold ${TYPE_CLS[item.item_type]}`}>
+                                    {TYPE_LABEL[item.item_type]}
+                                  </span>
+                                  {itemSubTasks.length > 0 && (
+                                    <span style={{ fontSize:10, color:S.t3, background:'#E5E9F0', padding:'1px 6px', borderRadius:99 }}>
+                                      {itemSubTasks.filter(st=>st.status!=='done').length}/{itemSubTasks.length}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1 opacity-0 group-hover/irow:opacity-100 transition-opacity flex-shrink-0">
+                                {deletingItem === item.id ? (
+                                  <>
+                                    <button onClick={()=>deleteItem(item.id)} className="text-[10px] text-red-500 font-semibold">삭제</button>
+                                    <button onClick={()=>setDeletingItem(null)} className="text-[10px] text-gray-400">취소</button>
+                                  </>
+                                ) : (
+                                  <button onClick={()=>setDeletingItem(item.id)} className="text-[10px] text-gray-300 hover:text-red-400">삭제</button>
+                                )}
+                              </div>
                             </div>
                           </td>
-                        ) : (
-                          <td style={{ borderLeft:S.bd, width:W_NOW, minWidth:W_NOW }} />
-                        )}
 
-                        <td style={{ borderLeft:S.bd, width:W_ADD, minWidth:W_ADD }} />
-                      </tr>
+                          {/* 직전 회의 노트 셀들 */}
+                          {pastCols.map(m => {
+                            const note = notes[nk(item.id, m.id)] ?? ''
+                            return (
+                              <td key={m.id}
+                                style={{ borderLeft:S.bd, width:W_PAST, minWidth:W_PAST, verticalAlign:'top', cursor: note?'pointer':'default' }}
+                                onClick={() => note && setExpandedNote({ date:formatDate(m.meeting_date), itemTitle:item.title, note, meetingId:m.id })}
+                                className={note ? 'hover:bg-blue-50/30' : ''}
+                              >
+                                <div style={{ padding:'9px 11px', minHeight:68 }}>
+                                  {note
+                                    ? <div style={{ fontSize:13, color:S.t2, lineHeight:1.6, display:'-webkit-box', WebkitLineClamp:5, WebkitBoxOrient:'vertical', overflow:'hidden' }}>{note}</div>
+                                    : <div style={{ fontSize:12, color:'#C8D5E8' }}>—</div>
+                                  }
+                                </div>
+                              </td>
+                            )
+                          })}
+
+                          {/* 이번 회의 노트 셀 */}
+                          {nowCol ? (
+                            <td style={{ borderLeft:S.bdL, background:S.bgNow, width:W_NOW, minWidth:W_NOW, verticalAlign:'top' }}>
+                              <div style={{ padding:'9px 11px' }}>
+                                {pNote && (
+                                  <div style={{ marginBottom:6, padding:'4px 8px', borderLeft:`2px solid #BDD0EA`, borderRadius:'0 4px 4px 0', background:'rgba(15,30,54,.04)' }}>
+                                    <div style={{ fontSize:10, fontWeight:700, color:S.t3, textTransform:'uppercase', letterSpacing:'.04em', marginBottom:1 }}>직전</div>
+                                    <div style={{ fontSize:11, color:S.t3, lineHeight:1.5, overflow:'hidden', display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical' }}>{pNote}</div>
+                                  </div>
+                                )}
+                                <textarea
+                                  value={notes[nk(item.id, nowCol.id)] ?? ''}
+                                  onChange={e => handleNote(item.id, nowCol.id, e.target.value)}
+                                  placeholder="오늘 논의 내용 입력…"
+                                  rows={4}
+                                  style={{ width:'100%', border:'none', background:'transparent', resize:'none', fontSize:13, color:S.t1, lineHeight:1.65, fontFamily:'inherit', outline:'none', minHeight:60 }}
+                                />
+                              </div>
+                            </td>
+                          ) : (
+                            <td style={{ borderLeft:S.bd, width:W_NOW, minWidth:W_NOW }} />
+                          )}
+
+                          <td style={{ borderLeft:S.bd, width:W_ADD, minWidth:W_ADD }} />
+                        </tr>
+
+                        {/* 하위 태스크 행들 */}
+                        {isItemExpanded && itemSubTasks.map(st => (
+                          <tr key={st.id} style={{ borderBottom: S.bd, background:'#FAFBFD' }} className="group/strow">
+                            <td style={{ position:'sticky', left:0, zIndex:2, background:'#FAFBFD', borderRight:S.bdL, width:W_ITEM, minWidth:W_ITEM, verticalAlign:'middle' }}>
+                              <div style={{ padding:'7px 16px 7px 42px', display:'flex', alignItems:'center', gap:8 }}>
+                                <button onClick={()=>cycleSubTaskStatus(st)} title={`상태: ${STATUS_LABEL[st.status]}`}
+                                  style={{ width:6, height:6, borderRadius:'50%', flexShrink:0, background: st.status === 'active' ? (CAT_BORDER[group.category ?? ''] ?? group.color) : STATUS_COLOR[st.status], border:'none', cursor:'pointer', padding:0 }} />
+                                <span style={{ fontSize:12, color: st.status==='done' ? S.t3 : S.t2, textDecoration: st.status==='done' ? 'line-through' : 'none', flex:1, minWidth:0 }}>
+                                  {st.title}
+                                </span>
+                                <div className="opacity-0 group-hover/strow:opacity-100 transition-opacity flex-shrink-0">
+                                  {deletingST === st.id ? (
+                                    <div className="flex items-center gap-1">
+                                      <button onClick={()=>deleteSubTask(st.id)} className="text-[10px] text-red-500 font-semibold">삭제</button>
+                                      <button onClick={()=>setDeletingST(null)} className="text-[10px] text-gray-400">취소</button>
+                                    </div>
+                                  ) : (
+                                    <button onClick={()=>setDeletingST(st.id)} className="text-[10px] text-gray-300 hover:text-red-400">삭제</button>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                            {pastCols.map(m => <td key={m.id} style={{ borderLeft:S.bd, background:'rgba(0,0,0,0.01)' }} />)}
+                            {nowCol ? <td style={{ borderLeft:S.bdL, background:'rgba(240,244,250,0.5)' }} /> : <td />}
+                            <td style={{ borderLeft:S.bd }} />
+                          </tr>
+                        ))}
+
+                        {/* 하위 태스크 추가 행 */}
+                        {isItemExpanded && (
+                          <tr key={`add-st-${item.id}`} style={{ borderBottom: S.bd, background:'#FAFBFD' }}>
+                            <td colSpan={totalCols} style={{ padding:0 }}>
+                              {addingSubTask === item.id ? (
+                                <div className="flex items-center gap-2 px-10 py-2">
+                                  <input autoFocus value={newSTTitle} onChange={e=>setNewSTTitle(e.target.value)}
+                                    onKeyDown={e=>{ if(e.key==='Enter'&&!e.nativeEvent.isComposing)addSubTask(item.id); if(e.key==='Escape'){setAddingSubTask(null);setNewSTTitle('')} }}
+                                    placeholder="하위 태스크 입력 후 Enter"
+                                    className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-gray-400"/>
+                                  <button onClick={()=>addSubTask(item.id)} className="text-xs bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] px-3 py-1.5 rounded-lg">추가</button>
+                                  <button onClick={()=>{setAddingSubTask(null);setNewSTTitle('')}} className="text-xs text-gray-400 px-2">취소</button>
+                                </div>
+                              ) : (
+                                <div onClick={()=>setAddingSubTask(item.id)}
+                                  className="flex items-center gap-1 px-10 py-2 text-xs text-gray-400 hover:text-gray-600 hover:bg-gray-50 cursor-pointer transition-colors">
+                                  ＋ 하위 태스크
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
                     )
                   })}
 
