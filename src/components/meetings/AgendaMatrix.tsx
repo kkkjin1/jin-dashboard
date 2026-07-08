@@ -539,9 +539,11 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                                     className="border border-gray-300 rounded px-2 py-0.5 text-xs focus:outline-none focus:border-gray-400 flex-1 min-w-0"
                                     style={{ color:S.t2 }}/>
                                 ) : (
-                                  <span style={{ fontSize:12, color: st.status==='done' ? S.t3 : S.t2, textDecoration: st.status==='done' ? 'line-through' : 'none', lineHeight:1.35 }}>
+                                  <button onClick={()=>router.push(`/subtasks/${st.id}`)}
+                                    style={{ fontSize:12, color: st.status==='done' ? S.t3 : S.t2, textDecoration: st.status==='done' ? 'line-through' : 'none', lineHeight:1.35, background:'none', border:'none', cursor:'pointer', padding:0, textAlign:'left' }}
+                                    className="hover:underline">
                                     {st.title}
-                                  </span>
+                                  </button>
                                 )}
                               </div>
                             </td>
@@ -857,9 +859,11 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                                     className="border border-gray-300 rounded px-2 py-0.5 text-xs focus:outline-none focus:border-gray-400 flex-1 min-w-0"
                                     style={{ color:S.t2 }}/>
                                 ) : (
-                                  <span style={{ fontSize:12, color: st.status==='done' ? S.t3 : S.t2, textDecoration: st.status==='done' ? 'line-through' : 'none', flex:1, minWidth:0 }}>
+                                  <button onClick={()=>router.push(`/subtasks/${st.id}`)}
+                                    style={{ fontSize:12, color: st.status==='done' ? S.t3 : S.t2, textDecoration: st.status==='done' ? 'line-through' : 'none', flex:1, minWidth:0, background:'none', border:'none', cursor:'pointer', padding:0, textAlign:'left' }}
+                                    className="hover:underline">
                                     {st.title}
-                                  </span>
+                                  </button>
                                 )}
                                 <div className="opacity-0 group-hover/strow:opacity-100 transition-opacity flex-shrink-0 flex items-center gap-1.5">
                                   {editingSTId !== st.id && (

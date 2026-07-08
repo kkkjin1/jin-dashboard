@@ -59,6 +59,7 @@ export interface Attachment {
   id: string
   task_id: string | null
   meeting_id?: string | null
+  sub_task_id?: string | null
   name: string
   type: AttachmentType
   url: string
@@ -170,5 +171,16 @@ export interface AgendaSubTask {
   title: string
   status: AgendaItemStatus
   sort_order: number
+  assignee_id?: string | null
+  due_date?: string | null
   created_at: string
+}
+
+export interface SubTaskNote {
+  id: string
+  sub_task_id: string
+  title?: string | null
+  content: string
+  created_at: string
+  edited_at?: string | null
 }
