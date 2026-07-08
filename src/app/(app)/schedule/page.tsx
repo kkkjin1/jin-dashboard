@@ -430,7 +430,7 @@ export default function SchedulePage() {
   }
 
   const pillBase = 'text-xs px-3.5 py-1.5 rounded-full border font-medium transition-all whitespace-nowrap'
-  const pillActive = 'bg-gray-900 text-white border-gray-900 shadow-sm'
+  const pillActive = 'bg-[#1B3A6B] text-white border-[#1B3A6B] shadow-sm'
   const pillInactive = 'bg-white/40 backdrop-blur-xl border-white/60 text-gray-500 hover:bg-white/60 hover:text-gray-700'
 
   return (

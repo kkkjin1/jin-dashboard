@@ -101,7 +101,7 @@ export default function TopNav() {
                   <Link key={item.href} href={item.href}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
                       isActive
-                        ? 'bg-gray-900 text-white shadow-sm'
+                        ? 'bg-[#1B3A6B] text-white shadow-sm'
                         : 'text-gray-500 hover:text-gray-800 hover:bg-white/60'
                     }`}>
                     <item.icon size={12} strokeWidth={1.5} />
@@ -116,7 +116,7 @@ export default function TopNav() {
                   onClick={() => setMoreOpen(p => !p)}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
                     isSecondaryActive
-                      ? 'bg-gray-900 text-white shadow-sm'
+                      ? 'bg-[#1B3A6B] text-white shadow-sm'
                       : 'text-gray-500 hover:text-gray-800 hover:bg-white/60'
                   }`}>
                   <MoreHorizontal size={12} strokeWidth={1.5} />

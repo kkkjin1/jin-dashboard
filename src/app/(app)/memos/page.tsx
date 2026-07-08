@@ -36,7 +36,7 @@ const TAG_ACCENT: Record<MemoTag, string> = {
 }
 
 const pill  = 'text-xs px-3.5 py-1.5 rounded-full border font-medium transition-all whitespace-nowrap'
-const pOn  = 'bg-gray-900 text-white border-gray-900 shadow-sm'
+const pOn  = 'bg-[#1B3A6B] text-white border-[#1B3A6B] shadow-sm'
 const pOff = 'bg-white/40 backdrop-blur-xl border-white/60 text-gray-500 hover:bg-white/60 hover:text-gray-700'
 
 interface MemoCardProps {
@@ -125,11 +125,11 @@ function EditModal({ memo, onSave, onClose }: EditModalProps) {
         {/* 편집/미리보기 탭 */}
         <div className="flex gap-1 mb-2 flex-shrink-0">
           <button onClick={() => setMode('edit')}
-            className={`text-xs px-3 py-1 rounded-full border transition-all font-medium ${mode === 'edit' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white/60 text-gray-400 border-gray-200 hover:text-gray-600'}`}>
+            className={`text-xs px-3 py-1 rounded-full border transition-all font-medium ${mode === 'edit' ? 'bg-[#1B3A6B] text-white border-[#1B3A6B]' : 'bg-white/60 text-gray-400 border-gray-200 hover:text-gray-600'}`}>
             편집
           </button>
           <button onClick={() => setMode('preview')}
-            className={`text-xs px-3 py-1 rounded-full border transition-all font-medium ${mode === 'preview' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white/60 text-gray-400 border-gray-200 hover:text-gray-600'}`}>
+            className={`text-xs px-3 py-1 rounded-full border transition-all font-medium ${mode === 'preview' ? 'bg-[#1B3A6B] text-white border-[#1B3A6B]' : 'bg-white/60 text-gray-400 border-gray-200 hover:text-gray-600'}`}>
             미리보기
           </button>
         </div>

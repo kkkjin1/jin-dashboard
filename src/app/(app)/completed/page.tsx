@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 export const dynamic = 'force-dynamic'
 
@@ -399,7 +399,7 @@ export default function CompletedPage() {
           <button key={p} onClick={() => selectQuick(p)}
             className={`text-sm px-4 py-2 rounded-full font-medium transition-all whitespace-nowrap border ${
               quickPeriod === p
-                ? 'bg-gray-900 text-white border-gray-900 shadow-sm'
+                ? 'bg-[#1B3A6B] text-white border-[#1B3A6B] shadow-sm'
                 : 'bg-white/40 backdrop-blur-xl border-white/60 text-gray-500 hover:bg-white/60 hover:text-gray-700'
             }`}>
             {p}

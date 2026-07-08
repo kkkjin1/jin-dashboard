@@ -39,7 +39,7 @@ function formatYM(ym: string): string {
 }
 
 const pill  = 'text-xs px-3.5 py-1.5 rounded-full border font-medium transition-all whitespace-nowrap'
-const pOn  = 'bg-gray-900 text-white border-gray-900 shadow-sm'
+const pOn  = 'bg-[#1B3A6B] text-white border-[#1B3A6B] shadow-sm'
 const pOff = 'bg-white/40 backdrop-blur-xl border-white/60 text-gray-500 hover:bg-white/60 hover:text-gray-700'
 
 export default function MeetingsPage() {
@@ -226,12 +226,12 @@ export default function MeetingsPage() {
         <div className="flex items-center gap-0.5 bg-white/50 border border-white/70 rounded-full px-1 py-1">
           <button
             onClick={() => setViewMode('list')}
-            className={`text-xs px-3 py-1 rounded-full transition-all font-medium ${viewMode === 'list' ? 'bg-gray-900 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+            className={`text-xs px-3 py-1 rounded-full transition-all font-medium ${viewMode === 'list' ? 'bg-[#1B3A6B] text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
             목록
           </button>
           <button
             onClick={() => setViewMode('matrix')}
-            className={`text-xs px-3 py-1 rounded-full transition-all font-medium ${viewMode === 'matrix' ? 'bg-gray-900 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+            className={`text-xs px-3 py-1 rounded-full transition-all font-medium ${viewMode === 'matrix' ? 'bg-[#1B3A6B] text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
             안건 매트릭스
           </button>
         </div>
@@ -265,7 +265,7 @@ export default function MeetingsPage() {
                 onClick={() => setMatrixCat(c)}
                 className={`text-xs px-3.5 py-1.5 rounded-full border font-semibold transition-all ${
                   matrixCat === c
-                    ? 'bg-gray-900 text-white border-gray-900 shadow-sm'
+                    ? 'bg-[#1B3A6B] text-white border-[#1B3A6B] shadow-sm'
                     : 'bg-white/40 border-white/60 text-gray-500 hover:bg-white/60'
                 }`}>
                 {c}

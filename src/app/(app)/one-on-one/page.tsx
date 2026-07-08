@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
@@ -51,7 +51,7 @@ function formatMonth(month: string): string {
 }
 
 const pill  = 'text-xs px-3.5 py-1.5 rounded-full border font-medium transition-all whitespace-nowrap'
-const pOn  = 'bg-gray-900 text-white border-gray-900 shadow-sm'
+const pOn  = 'bg-[#1B3A6B] text-white border-[#1B3A6B] shadow-sm'
 const pOff = 'bg-white/40 backdrop-blur-xl border-white/60 text-gray-500 hover:bg-white/60 hover:text-gray-700'
 
 // ─── 분석 패널 ────────────────────────────────────────────────────────────────
@@ -570,13 +570,13 @@ export default function OneOnOnePage() {
         <div className="flex items-center bg-white/40 backdrop-blur-xl border border-white/60 rounded-full p-1">
           <button onClick={() => setView('team')}
             className={`text-xs px-3.5 py-1.5 rounded-full transition-all font-medium ${
-              view === 'team' ? 'bg-gray-900 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              view === 'team' ? 'bg-[#1B3A6B] text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'
             }`}>
             팀원 1on1
           </button>
           <button onClick={() => setView('my-feedback')}
             className={`text-xs px-3.5 py-1.5 rounded-full transition-all font-medium ${
-              view === 'my-feedback' ? 'bg-gray-900 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              view === 'my-feedback' ? 'bg-[#1B3A6B] text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'
             }`}>
             내 피드백
           </button>

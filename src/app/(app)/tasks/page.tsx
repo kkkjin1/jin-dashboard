@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState, useMemo, useRef } from 'react'
 import Link from 'next/link'
@@ -36,7 +36,7 @@ function formatMonth(ym: string): string {
 }
 
 const pill  = 'text-xs px-3.5 py-1.5 rounded-full border font-medium transition-all whitespace-nowrap'
-const pOn  = 'bg-gray-900 text-white border-gray-900 shadow-sm'
+const pOn  = 'bg-[#1B3A6B] text-white border-[#1B3A6B] shadow-sm'
 const pOff = 'bg-white/40 backdrop-blur-xl border-white/60 text-gray-500 hover:bg-white/60 hover:text-gray-700'
 
 export default function TasksPage() {

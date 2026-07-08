@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -56,7 +56,7 @@ interface Log {
 }
 
 const pill  = 'text-xs px-3.5 py-1.5 rounded-full border font-medium transition-all whitespace-nowrap'
-const pOn  = 'bg-gray-900 text-white border-gray-900 shadow-sm'
+const pOn  = 'bg-[#1B3A6B] text-white border-[#1B3A6B] shadow-sm'
 const pOff = 'bg-white/40 backdrop-blur-xl border-white/60 text-gray-500 hover:bg-white/60 hover:text-gray-700'
 
 export default function DecisionsPage() {
@@ -258,7 +258,7 @@ export default function DecisionsPage() {
           {PERSONAS.map(p => (
             <button key={p} onClick={() => setActiveTab(p)}
               className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all flex items-center gap-1.5 whitespace-nowrap ${
-                activeTab === p ? 'bg-gray-900 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                activeTab === p ? 'bg-[#1B3A6B] text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'
               }`}>
               {p}
               {countByPersona(p) > 0 && (
