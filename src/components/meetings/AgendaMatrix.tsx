@@ -644,14 +644,13 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
               {/* 직전 회의 헤더들 */}
               {pastCols.map(m => (
                 <th key={m.id} style={{ position:'sticky', top:0, zIndex:3, background:S.bg, borderBottom:S.bd, borderLeft:S.bd, width:W_PAST, minWidth:W_PAST }}>
-                  <div
-                    onClick={() => router.push(`/meetings/${m.id}`)}
-                    className="flex flex-col items-center gap-0.5 hover:bg-gray-50 cursor-pointer transition-colors"
-                    style={{ padding:'8px 6px' }}
-                    title="회의록 보기"
-                  >
+                  <div className="flex flex-col items-center gap-1" style={{ padding:'8px 6px' }}>
                     <span style={{ fontSize:13, fontWeight:600, color:S.t1 }}>{formatDate(m.meeting_date)}</span>
                     <span style={{ fontSize:10, background:S.bgRow, color:S.t3, border:S.bd, padding:'1px 6px', borderRadius:99, fontWeight:600 }}>완료</span>
+                    <button onClick={() => router.push(`/meetings/${m.id}`)}
+                      className="text-[10px] text-gray-400 hover:text-gray-700 border border-gray-200 px-2 py-0.5 rounded-full hover:bg-gray-50 transition-colors whitespace-nowrap">
+                      회의록 →
+                    </button>
                   </div>
                 </th>
               ))}
@@ -659,11 +658,13 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
               {/* 이번 회의 헤더 */}
               {nowCol ? (
                 <th style={{ position:'sticky', top:0, zIndex:3, background:S.bgNow, borderBottom:S.bdL, borderLeft:S.bdL, width:W_NOW, minWidth:W_NOW }}>
-                  <div onClick={() => router.push(`/meetings/${nowCol.id}`)}
-                    className="flex flex-col items-center hover:bg-blue-50/40 cursor-pointer transition-colors"
-                    style={{ padding:'8px 8px', gap:3 }} title="회의록 보기">
+                  <div className="flex flex-col items-center" style={{ padding:'8px 8px', gap:4 }}>
                     <span style={{ fontSize:13, fontWeight:600, color:S.t1 }}>{formatDate(nowCol.meeting_date)}</span>
                     <span style={{ fontSize:10, background:'#1B3A6B', color:'#fff', padding:'1px 8px', borderRadius:99, fontWeight:700, letterSpacing:'.04em' }}>이번 회의</span>
+                    <button onClick={() => router.push(`/meetings/${nowCol.id}`)}
+                      className="text-[10px] text-[#1B3A6B] bg-[#E8F0FB] border border-[#C5D8F0] px-2.5 py-0.5 rounded-full hover:bg-[#D5E6F7] transition-colors font-semibold whitespace-nowrap">
+                      회의록 상세 →
+                    </button>
                   </div>
                 </th>
               ) : (
