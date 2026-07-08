@@ -249,7 +249,7 @@ export default function MeetingsPage() {
         )}
         {viewMode === 'list' && (
           <button onClick={() => setAdding(true)}
-            className="text-sm bg-gray-900 text-white px-4 py-2 rounded-full hover:bg-gray-800 transition-colors shadow-sm">
+            className="text-sm bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] px-4 py-2 rounded-full hover:bg-[#D5E6F7] transition-colors shadow-sm">
             + 새 회의록
           </button>
         )}

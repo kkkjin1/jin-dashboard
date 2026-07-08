@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState, useRef, useMemo, Fragment } from 'react'
 import { useRouter } from 'next/navigation'
@@ -268,7 +268,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                     style={{width:14,height:14,borderRadius:'50%',background:c,cursor:'pointer',border:newGColor===c?'2px solid #1A2233':'2px solid transparent',flexShrink:0}}/>
                 ))}
               </div>
-              <button onClick={addGroup} className="text-xs bg-gray-900 text-white px-3 py-1.5 rounded-lg">추가</button>
+              <button onClick={addGroup} className="text-xs bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] px-3 py-1.5 rounded-lg">추가</button>
               <button onClick={()=>{setAddingGroup(false);setNewGName('')}} className="text-xs text-gray-400 px-2 py-1">취소</button>
             </div>
           ) : (
@@ -390,7 +390,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                               onKeyDown={e=>{ if(e.key==='Enter'&&!e.nativeEvent.isComposing)addItem(group.id); if(e.key==='Escape'){setAddingItem(null);setNewITitle('')} }}
                               placeholder="안건명 입력 후 Enter"
                               className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-gray-400"/>
-                            <button onClick={()=>addItem(group.id)} className="text-xs bg-gray-900 text-white px-3 py-1.5 rounded-lg">추가</button>
+                            <button onClick={()=>addItem(group.id)} className="text-xs bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] px-3 py-1.5 rounded-lg">추가</button>
                             <button onClick={()=>{setAddingItem(null);setNewITitle('')}} className="text-xs text-gray-400 px-2 py-1">취소</button>
                           </div>
                         ) : (
@@ -597,7 +597,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                               onKeyDown={e=>{ if(e.key==='Enter'&&!e.nativeEvent.isComposing)addItem(group.id); if(e.key==='Escape'){setAddingItem(null);setNewITitle('')} }}
                               placeholder="안건명 입력 후 Enter"
                               className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-gray-400"/>
-                            <button onClick={()=>addItem(group.id)} className="text-xs bg-gray-900 text-white px-3 py-1.5 rounded-lg">추가</button>
+                            <button onClick={()=>addItem(group.id)} className="text-xs bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] px-3 py-1.5 rounded-lg">추가</button>
                             <button onClick={()=>{setAddingItem(null);setNewITitle('')}} className="text-xs text-gray-400 px-2 py-1">취소</button>
                           </div>
                         ) : (

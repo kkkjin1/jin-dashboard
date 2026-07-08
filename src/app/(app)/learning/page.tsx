@@ -169,7 +169,7 @@ export default function LearningPage() {
         <h1 className="text-xl font-bold text-gray-900 mr-auto">학습자료</h1>
         <span className="text-xs text-gray-400">{resources.length}개</span>
         <button onClick={() => setShowAddForm(v => !v)}
-          className="text-sm bg-gray-900 text-white px-4 py-2 rounded-full hover:bg-gray-800 transition-colors shadow-sm">
+          className="text-sm bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] px-4 py-2 rounded-full hover:bg-[#D5E6F7] transition-colors shadow-sm">
           + 새 자료
         </button>
       </div>
@@ -205,7 +205,7 @@ export default function LearningPage() {
               onKeyDown={e => { if (e.key === 'Enter') addCustomTag(); if (e.key === 'Escape') { setShowAddTag(false); setNewTagInput('') } }}
               placeholder="범주명"
               className="text-xs bg-white/50 border border-white/70 rounded-full px-3 py-1.5 focus:outline-none w-24" />
-            <button onClick={addCustomTag} className="text-xs bg-gray-900 text-white px-2.5 py-1.5 rounded-full">추가</button>
+            <button onClick={addCustomTag} className="text-xs bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] px-2.5 py-1.5 rounded-full">추가</button>
             <button onClick={() => { setShowAddTag(false); setNewTagInput('') }} className="text-xs text-gray-400 hover:text-gray-600">취소</button>
           </div>
         ) : (

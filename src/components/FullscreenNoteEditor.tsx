@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect } from 'react'
 import TiptapEditor from './TiptapEditor'
@@ -32,7 +32,7 @@ export default function FullscreenNoteEditor({ value, onChange, onSave, onClose,
             {onSave && (
               <button
                 onClick={() => { onSave(); onClose() }}
-                className="text-xs bg-gray-900 text-white px-3.5 py-1.5 rounded-lg hover:bg-gray-800 transition-colors">
+                className="text-xs bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] px-3.5 py-1.5 rounded-lg hover:bg-[#D5E6F7] transition-colors">
                 저장
               </button>
             )}

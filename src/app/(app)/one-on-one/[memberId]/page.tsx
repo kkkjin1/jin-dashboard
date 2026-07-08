@@ -143,7 +143,7 @@ export default function MemberOneOnOnePage() {
             </button>
           )}
           <button onClick={() => setShowModal(true)}
-            className="text-sm bg-gray-900 text-white px-4 py-2 rounded-md hover:bg-gray-800 transition-colors">
+            className="text-sm bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] px-4 py-2 rounded-md hover:bg-[#D5E6F7] transition-colors">
             + 새 1on1
           </button>
         </div>

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -219,7 +219,7 @@ export default function QuickTaskInput({ tasks, onAdded }: Props) {
                 <button
                   onClick={handleSubmit}
                   disabled={saving}
-                  className="flex-shrink-0 text-[11px] bg-gray-900 text-white px-3 py-1 rounded-lg hover:bg-gray-700 disabled:opacity-40 transition-colors"
+                  className="flex-shrink-0 text-[11px] bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] px-3 py-1 rounded-lg hover:bg-[#D5E6F7] disabled:opacity-40 transition-colors"
                 >
                   {saving ? '저장…' : '추가 ↵'}
                 </button>

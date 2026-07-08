@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -115,7 +115,7 @@ export default function SettingsPage() {
             {PARTS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
           </select>
           <button onClick={addMember}
-            className="text-sm bg-gray-900 text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors">
+            className="text-sm bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] px-4 py-2 rounded-lg hover:bg-[#D5E6F7] transition-colors">
             추가
           </button>
         </div>
@@ -153,7 +153,7 @@ export default function SettingsPage() {
                       <div className="flex gap-1.5 flex-1 flex-wrap">
                         {PARTS.filter(p => p.value !== member.part).map(p => (
                           <button key={p.value} onClick={() => moveMember(member.id, p.value)}
-                            className="text-xs px-2.5 py-1 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-900 hover:text-white hover:border-gray-900 transition-colors">
+                            className="text-xs px-2.5 py-1 rounded-lg border border-gray-200 text-gray-600 hover:bg-[#E8F0FB] hover:text-[#1B3A6B] hover:border-[#C5D8F0] transition-colors">
                             {p.label}
                           </button>
                         ))}

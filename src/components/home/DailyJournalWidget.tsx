@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -316,7 +316,7 @@ function JournalFullscreenEditor({ selectedDate, current, yesterday, meetings, s
           <button
             onClick={doSave}
             disabled={!draft.trim() || saving}
-            className="flex-shrink-0 text-xs bg-gray-900 text-white px-3 py-1.5 rounded-lg hover:bg-gray-800 disabled:opacity-40 transition-colors"
+            className="flex-shrink-0 text-xs bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] px-3 py-1.5 rounded-lg hover:bg-[#D5E6F7] disabled:opacity-40 transition-colors"
           >
             {saving ? '저장 중…' : '저장'}
           </button>

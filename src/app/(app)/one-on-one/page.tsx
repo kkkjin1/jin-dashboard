@@ -633,7 +633,7 @@ export default function OneOnOnePage() {
                               </Link>
                             )}
                             <button onClick={() => createSession(member.id)}
-                              className="text-[10px] bg-gray-900 text-white px-2 py-0.5 rounded-full hover:bg-gray-800 transition-colors text-center whitespace-nowrap">
+                              className="text-[10px] bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] px-2 py-0.5 rounded-full hover:bg-[#D5E6F7] transition-colors text-center whitespace-nowrap">
                               + 신규
                             </button>
                           </div>

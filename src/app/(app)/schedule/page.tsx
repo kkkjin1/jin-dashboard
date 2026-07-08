@@ -805,7 +805,7 @@ export default function SchedulePage() {
             <div className="flex justify-end gap-2 mt-5">
               <button onClick={() => setShowRepeatModal(false)} className="text-xs text-gray-400 hover:text-gray-600 px-3 py-1.5">취소</button>
               <button onClick={handleCreateRepeating} disabled={!repeatTitle.trim()}
-                className="text-xs bg-gray-900 text-white px-4 py-1.5 rounded-full hover:bg-gray-800 disabled:opacity-30">
+                className="text-xs bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] px-4 py-1.5 rounded-full hover:bg-[#D5E6F7] disabled:opacity-30">
                 {repeatMonthCount}개 일정 생성
               </button>
             </div>

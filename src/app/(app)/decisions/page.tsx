@@ -312,7 +312,7 @@ export default function DecisionsPage() {
                   <span className="text-xs text-gray-400">{PERSONA_META[activeTab].role} · {tabLogs.length}건</span>
                 </div>
                 <button onClick={() => { setAddOpen(v => !v); setSaveError(''); setTimeout(() => titleRef.current?.focus(), 50) }}
-                  className={addOpen ? `${pill} ${pOff}` : 'text-xs bg-gray-900 text-white px-4 py-1.5 rounded-full font-medium hover:bg-gray-800 transition-colors'}>
+                  className={addOpen ? `${pill} ${pOff}` : 'text-xs bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] px-4 py-1.5 rounded-full font-medium hover:bg-[#D5E6F7] transition-colors'}>
                   {addOpen ? '취소' : '+ 기록 추가'}
                 </button>
               </div>
@@ -352,7 +352,7 @@ export default function DecisionsPage() {
                     <div className="flex gap-2">
                       <button onClick={() => { setAddOpen(false); setSaveError('') }} className={`${pill} ${pOff}`}>취소</button>
                       <button onClick={addLog} disabled={!newTitle.trim() || !newContent.trim() || saving}
-                        className="text-xs bg-gray-900 text-white px-5 py-1.5 rounded-full disabled:opacity-30 hover:bg-gray-800 transition-colors font-medium">
+                        className="text-xs bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] px-5 py-1.5 rounded-full disabled:opacity-30 hover:bg-[#D5E6F7] transition-colors font-medium">
                         {saving ? '저장 중...' : '저장'}
                       </button>
                     </div>
@@ -443,7 +443,7 @@ export default function DecisionsPage() {
                 onClick={copyPrompt}
                 disabled={tabLogs.length === 0 || !question.trim()}
                 className={`w-full py-3 rounded-2xl text-sm font-semibold transition-all ${
-                  copied ? 'bg-[#BADEC8] text-[#2D5A45]' : 'bg-gray-900 text-white hover:bg-gray-800'
+                  copied ? 'bg-[#BADEC8] text-[#2D5A45]' : 'bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] hover:bg-[#D5E6F7]'
                 } disabled:opacity-30 disabled:cursor-not-allowed`}>
                 {copied ? '✓ 복사됨 — Claude.ai에 붙여넣기' : `${activeTab} 페르소나 프롬프트 복사`}
               </button>

@@ -452,7 +452,7 @@ export default function TasksPage() {
               className="flex-1 text-xs bg-white border border-stone-200 rounded-lg px-2 py-1.5 focus:outline-none focus:border-gray-400 placeholder:text-gray-300"
             />
             <button onClick={addPart}
-              className="text-xs bg-gray-900 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700 transition-colors whitespace-nowrap">
+              className="text-xs bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] px-3 py-1.5 rounded-lg hover:bg-[#D5E6F7] transition-colors whitespace-nowrap">
               + 추가
             </button>
           </div>

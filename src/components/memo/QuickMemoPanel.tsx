@@ -190,7 +190,7 @@ function SingleMemoPanel({
         <div className="flex justify-between items-center mt-3">
           <span className="text-xs text-gray-300">ESC 닫기 · Ctrl+Enter 저장</span>
           <button onClick={handleSave} disabled={!title.trim() || saving}
-            className="text-xs bg-gray-900 text-white px-4 py-2 rounded-lg hover:bg-gray-800 disabled:opacity-30 transition-colors">
+            className="text-xs bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] px-4 py-2 rounded-lg hover:bg-[#D5E6F7] disabled:opacity-30 transition-colors">
             {savedMsg || (saving ? '저장 중...' : (meetingDate ? '일정 등록' : '저장'))}
           </button>
         </div>

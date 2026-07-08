@@ -321,7 +321,7 @@ export default function MemosPage() {
           총 {memos.length}개
         </span>
         <button onClick={() => setShowAddForm(v => !v)}
-          className="text-sm bg-gray-900 text-white px-4 py-2 rounded-full hover:bg-gray-800 transition-colors shadow-sm">
+          className="text-sm bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] px-4 py-2 rounded-full hover:bg-[#D5E6F7] transition-colors shadow-sm">
           + 메모 추가
         </button>
       </div>

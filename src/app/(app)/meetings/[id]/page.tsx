@@ -147,7 +147,7 @@ function NoteAccordion({ note, index, isOpen, onToggle, onDelete, onEdit, onFull
                 <div className="flex gap-2">
                   <button onClick={() => setEditing(false)} className="text-xs text-gray-400 px-3 py-1 rounded-lg">취소</button>
                   <button onClick={() => { onEdit(index, editContent); setEditing(false) }}
-                    className="text-xs bg-gray-900 text-white px-3 py-1 rounded-lg">저장</button>
+                    className="text-xs bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] px-3 py-1 rounded-lg">저장</button>
                 </div>
               </div>
             </>
@@ -558,7 +558,7 @@ export default function MeetingDetailPage() {
               />
               <div className="flex justify-end mt-2">
                 <button onClick={saveNote} disabled={!noteInput.replace(/<[^>]*>/g, '').trim()}
-                  className="text-xs bg-gray-900 text-white px-4 py-1.5 rounded-md hover:bg-gray-800 disabled:opacity-30 transition-colors">
+                  className="text-xs bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] px-4 py-1.5 rounded-md hover:bg-[#D5E6F7] disabled:opacity-30 transition-colors">
                   저장 (Ctrl+Enter)
                 </button>
               </div>
