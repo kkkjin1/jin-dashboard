@@ -22,6 +22,9 @@ const CAT_CLS: Record<string, string> = {
   '비즈':  'bg-amber-50 text-amber-700 border-amber-200',
   '개인':  'bg-emerald-50 text-emerald-700 border-emerald-200',
 }
+// 전체 모드에서 카테고리별 배경색
+const CAT_BG: Record<string, string>     = { '코어': 'rgba(59,130,246,0.09)',  '비즈': 'rgba(245,158,11,0.09)',  '개인': 'rgba(16,185,129,0.09)' }
+const CAT_BORDER: Record<string, string> = { '코어': '#3B82F6',                '비즈': '#F59E0B',                '개인': '#10B981' }
 
 const W_ITEM  = 280
 const W_PAST  = 260
@@ -313,8 +316,8 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
               return (
                 <Fragment key={group.id}>
                   {/* 범주 행 */}
-                  <tr style={{ background: hexToRgba(group.color, 0.09) }}>
-                    <td colSpan={5} style={{ padding:0, borderBottom: S.bd, borderLeft: `3px solid ${group.color}` }}>
+                  <tr style={{ background: CAT_BG[group.category ?? ''] ?? hexToRgba(group.color, 0.09) }}>
+                    <td colSpan={5} style={{ padding:0, borderTop:'3px solid #fff', borderBottom: S.bd, borderLeft: `3px solid ${CAT_BORDER[group.category ?? ''] ?? group.color}` }}>
                       <div className="flex items-center gap-2 group/grow" style={{ padding:'20px 16px' }}>
                         <span style={{ width:3, height:14, borderRadius:2, background:group.color, flexShrink:0 }} />
                         <button
@@ -483,7 +486,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                 <Fragment key={group.id}>
                   {/* 범주 행 */}
                   <tr>
-                    <td colSpan={totalCols} style={{ position:'sticky', left:0, zIndex:2, background: hexToRgba(group.color, 0.09), borderBottom:S.bd, borderLeft: `3px solid ${group.color}`, padding:0 }}>
+                    <td colSpan={totalCols} style={{ position:'sticky', left:0, zIndex:2, background: hexToRgba(group.color, 0.09), borderTop:'3px solid #fff', borderBottom:S.bd, borderLeft: `3px solid ${group.color}`, padding:0 }}>
                       <div className="flex items-center gap-2 transition-colors group/grow" style={{ padding:'20px 16px', cursor:'pointer' }}
                         onClick={() => toggleGroup(group.id)}>
                         <span style={{ width:3, height:14, borderRadius:2, background:group.color, flexShrink:0 }} />
