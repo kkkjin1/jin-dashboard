@@ -146,6 +146,7 @@ export interface AgendaItem {
   id: string
   group_id: string
   title: string
+  description?: string | null
   item_type: AgendaItemType
   status: AgendaItemStatus
   linked_task_id: string | null
