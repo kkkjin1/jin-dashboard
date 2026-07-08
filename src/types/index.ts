@@ -125,3 +125,41 @@ export interface MyFeedback {
   from_member?: string | null
   created_at: string
 }
+
+// ── 안건 매트릭스 ────────────────────────────────────────────────
+
+export type AgendaItemType = 'do' | 'fb' | 'rp' | 'ag'
+export type AgendaItemStatus = 'active' | 'hold' | 'done'
+
+export interface AgendaGroup {
+  id: string
+  category: string          // meetings.category 와 동일 (코어, 비즈 등)
+  name: string              // 평가/보상, 노무 등
+  color: string
+  sort_order: number
+  is_open: boolean
+  created_at: string
+}
+
+export interface AgendaItem {
+  id: string
+  group_id: string
+  title: string
+  item_type: AgendaItemType
+  status: AgendaItemStatus
+  linked_task_id: string | null
+  sort_order: number
+  hidden: boolean
+  created_at: string
+  updated_at: string
+  agenda_groups?: AgendaGroup
+}
+
+export interface AgendaUpdate {
+  id: string
+  agenda_item_id: string
+  meeting_id: string
+  note: string
+  created_at: string
+  updated_at: string
+}

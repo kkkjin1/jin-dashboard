@@ -8,6 +8,7 @@ import { format, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import type { Meeting } from '@/types'
 import { generateMeetingsContextMd, downloadMd } from '@/lib/markdown'
+import AgendaMatrix from '@/components/meetings/AgendaMatrix'
 
 const DEFAULT_CATS = ['코어', '비즈', '경영진', '본부장', '타팀', '목표관리']
 // '기타'는 항상 마지막 고정. catOrder에 포함하지 않음.
@@ -56,6 +57,10 @@ export default function MeetingsPage() {
   const [catOrder, setCatOrder] = useState<string[]>([...DEFAULT_CATS])
   const [dragCat, setDragCat] = useState<string | null>(null)
   const [dragOverCat, setDragOverCat] = useState<string | null>(null)
+
+  // 뷰 모드
+  const [viewMode, setViewMode] = useState<'list' | 'matrix'>('list')
+  const [matrixCat, setMatrixCat] = useState<string>('코어')
 
   // 범주 추가
   const [addingCat, setAddingCat] = useState(false)
@@ -217,8 +222,25 @@ export default function MeetingsPage() {
 
       {/* 헤더 */}
       <div className="flex-shrink-0 pt-6 pb-4 flex items-center gap-3 flex-wrap">
-        <h1 className="text-xl font-bold text-gray-900 mr-auto">회의록</h1>
-        {checkedIds.size > 0 && (
+        <h1 className="text-xl font-bold text-gray-900">회의록</h1>
+
+        {/* 뷰 토글 */}
+        <div className="flex items-center gap-0.5 bg-white/50 border border-white/70 rounded-full px-1 py-1">
+          <button
+            onClick={() => setViewMode('list')}
+            className={`text-xs px-3 py-1 rounded-full transition-all font-medium ${viewMode === 'list' ? 'bg-gray-900 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+            목록
+          </button>
+          <button
+            onClick={() => setViewMode('matrix')}
+            className={`text-xs px-3 py-1 rounded-full transition-all font-medium ${viewMode === 'matrix' ? 'bg-gray-900 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+            안건 매트릭스
+          </button>
+        </div>
+
+        <div className="flex-1" />
+
+        {viewMode === 'list' && checkedIds.size > 0 && (
           <>
             <button onClick={downloadChecked} className={`${pill} ${pOff}`}>MD 다운로드 ({checkedIds.size})</button>
             <button onClick={deleteChecked}
@@ -227,11 +249,42 @@ export default function MeetingsPage() {
             </button>
           </>
         )}
-        <button onClick={() => setAdding(true)}
-          className="text-sm bg-gray-900 text-white px-4 py-2 rounded-full hover:bg-gray-800 transition-colors shadow-sm">
-          + 새 회의록
-        </button>
+        {viewMode === 'list' && (
+          <button onClick={() => setAdding(true)}
+            className="text-sm bg-gray-900 text-white px-4 py-2 rounded-full hover:bg-gray-800 transition-colors shadow-sm">
+            + 새 회의록
+          </button>
+        )}
       </div>
+
+      {/* 안건 매트릭스 뷰 */}
+      {viewMode === 'matrix' && (
+        <div className="flex flex-col flex-1 min-h-0">
+          {/* 파트 탭 */}
+          <div className="flex-shrink-0 flex items-center gap-2 mb-4">
+            {[...catOrder].map(c => (
+              <button key={c}
+                onClick={() => setMatrixCat(c)}
+                className={`text-xs px-3.5 py-1.5 rounded-full border font-semibold transition-all ${
+                  matrixCat === c
+                    ? 'bg-gray-900 text-white border-gray-900 shadow-sm'
+                    : 'bg-white/40 border-white/60 text-gray-500 hover:bg-white/60'
+                }`}>
+                {c}
+              </button>
+            ))}
+            <div className="flex items-center gap-1.5 ml-2 px-3 py-1 rounded-full text-[11px] font-semibold border text-emerald-700 bg-emerald-50 border-emerald-200">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              회의록 탭과 동기화
+            </div>
+          </div>
+          <AgendaMatrix key={matrixCat} category={matrixCat} />
+        </div>
+      )}
+
+      {/* 목록 뷰 */}
+      {viewMode === 'list' && (
+        <>
 
       {adding && (
         <div className="flex-shrink-0 bg-white/60 backdrop-blur-xl rounded-2xl border border-white/80 px-5 py-4 mb-3 shadow-sm">
@@ -401,6 +454,8 @@ export default function MeetingsPage() {
           </div>
         )}
       </div>
+      </>
+      )}
 
       {/* 범주 수정 드롭다운 */}
       {editingCatId && typeof document !== 'undefined' && createPortal(
