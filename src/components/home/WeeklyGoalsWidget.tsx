@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import Link from 'next/link'
@@ -133,7 +133,7 @@ export default function WeeklyGoalsWidget({ tasks }: Props) {
                 onClick={() => toggleDone(goal.id)}
                 className={`flex-shrink-0 mt-0.5 w-3.5 h-3.5 rounded border transition-colors ${
                   goal.done
-                    ? 'bg-[#0F1E36] border-[#0F1E36]'
+                    ? 'bg-[#1B3A6B] border-[#1B3A6B]'
                     : 'border-gray-300 hover:border-gray-500'
                 }`}
               >

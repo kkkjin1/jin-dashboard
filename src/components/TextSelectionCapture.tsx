@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
@@ -98,7 +98,7 @@ export default function TextSelectionCapture({ sourceName, sourceType }: Props) 
       ) : !showForm ? (
         <button
           onClick={() => setShowForm(true)}
-          className="flex items-center gap-1 bg-[#0F1E36]/90 backdrop-blur-sm text-white text-[11px] px-2.5 py-1.5 rounded-lg shadow-lg hover:bg-[#1a2f50] transition-colors whitespace-nowrap"
+          className="flex items-center gap-1 bg-[#1B3A6B]/90 backdrop-blur-sm text-white text-[11px] px-2.5 py-1.5 rounded-lg shadow-lg hover:bg-[#22497E] transition-colors whitespace-nowrap"
         >
           💡 메모 저장
         </button>
@@ -110,7 +110,7 @@ export default function TextSelectionCapture({ sourceName, sourceType }: Props) 
                 key={t}
                 onClick={() => setTag(t)}
                 className={`text-[9px] px-2 py-0.5 rounded-full border font-medium transition-colors ${
-                  tag === t ? 'bg-[#0F1E36] text-white border-[#0F1E36]' : cls
+                  tag === t ? 'bg-[#1B3A6B] text-white border-[#1B3A6B]' : cls
                 }`}
               >
                 {label}
@@ -142,7 +142,7 @@ export default function TextSelectionCapture({ sourceName, sourceType }: Props) 
             <button
               onClick={save}
               disabled={saving || !title.trim()}
-              className="text-[10px] bg-[#0F1E36] text-white px-3 py-1 rounded-lg hover:bg-[#1a2f50] disabled:opacity-40 transition-colors"
+              className="text-[10px] bg-[#1B3A6B] text-white px-3 py-1 rounded-lg hover:bg-[#22497E] disabled:opacity-40 transition-colors"
             >
               {saving ? '저장 중…' : '저장'}
             </button>

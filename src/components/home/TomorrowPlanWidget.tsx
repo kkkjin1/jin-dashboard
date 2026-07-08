@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -84,7 +84,7 @@ export default function TomorrowPlanWidget({ selectedDate, journalContent }: Pro
         </span>
         {saving && <span className="text-[9px] text-gray-400">저장 중…</span>}
         {isToday && totalAdded > 0 && !saving && (
-          <span className="text-[9px] text-[#0F1E36]/50">{totalAdded}개 추가됨</span>
+          <span className="text-[9px] text-[#1B3A6B]/50">{totalAdded}개 추가됨</span>
         )}
       </div>
 
@@ -100,7 +100,7 @@ export default function TomorrowPlanWidget({ selectedDate, journalContent }: Pro
           <div key={`manual-${i}`} className="flex items-start gap-2 px-2 py-1.5">
             <span className="w-1 h-1 rounded-full flex-shrink-0 mt-1.5 bg-[#A8C0E0]" />
             <span className="flex-1 text-xs leading-relaxed text-gray-600">{item}</span>
-            <span className="flex-shrink-0 text-[9px] text-[#0F1E36]/40">✓</span>
+            <span className="flex-shrink-0 text-[9px] text-[#1B3A6B]/40">✓</span>
           </div>
         ))}
 
@@ -147,7 +147,7 @@ export default function TomorrowPlanWidget({ selectedDate, journalContent }: Pro
                     {line}
                   </span>
                   {!isDone && (
-                    <span className="flex-shrink-0 text-[11px] text-[#0F1E36]/30 group-hover:text-[#0F1E36] transition-colors font-semibold opacity-0 group-hover:opacity-100">
+                    <span className="flex-shrink-0 text-[11px] text-[#1B3A6B]/30 group-hover:text-[#1B3A6B] transition-colors font-semibold opacity-0 group-hover:opacity-100">
                       +
                     </span>
                   )}

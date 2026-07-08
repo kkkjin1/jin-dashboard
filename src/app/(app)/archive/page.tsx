@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -142,7 +142,7 @@ export default function ArchivePage() {
               onClick={() => { setSelectedDate(ds); setJournalContent('') }}
               className={`flex-shrink-0 flex flex-col items-center gap-0.5 px-2.5 py-2 rounded-xl border transition-all text-center ${
                 isSelected
-                  ? 'bg-[#0F1E36] border-[#0F1E36] text-white shadow-md'
+                  ? 'bg-[#1B3A6B] border-[#1B3A6B] text-white shadow-md'
                   : hasJournal
                     ? 'bg-white/70 border-[#A8C0E0]/60 text-gray-700 hover:bg-white/90'
                     : 'bg-white/40 border-white/50 text-gray-400 hover:bg-white/60'

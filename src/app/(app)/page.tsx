@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
@@ -100,11 +100,11 @@ function CompactCol({
   title, items, dark, droppable, onDrop, onDragOver, onDragLeave,
   isDragOver, onComplete, completedCount = 0, colBadge,
 }: CompactColProps) {
-  const dragRing = isDragOver && droppable ? (dark ? 'ring-1 ring-white/20' : 'ring-1 ring-[#0F1E36]/20') : ''
+  const dragRing = isDragOver && droppable ? (dark ? 'ring-1 ring-white/20' : 'ring-1 ring-[#1B3A6B]/20') : ''
 
   const cardBase = 'rounded-2xl p-4 min-w-0 flex flex-col relative overflow-hidden h-full transition-all font-sans'
   const cardCls = dark
-    ? `bg-[#0F1E36] border border-white/8 shadow-2xl ${cardBase} ${dragRing}`
+    ? `bg-[#1B3A6B] border border-white/8 shadow-2xl ${cardBase} ${dragRing}`
     : `bg-white/40 backdrop-blur-md border border-white/60 shadow-sm ${cardBase} ${dragRing}`
 
   const emptyTxt  = dark ? 'text-white/25' : 'text-gray-300'
@@ -115,8 +115,8 @@ function CompactCol({
   const divideCls = dark ? 'divide-white/5' : 'divide-gray-100/60'
   const completeCls = dark
     ? 'border-white/20 hover:border-white/50'
-    : 'border-gray-300/60 hover:border-[#0F1E36]/40 hover:bg-[#EFF6FF]'
-  const checkCls  = dark ? 'text-white/50' : 'text-[#0F1E36]'
+    : 'border-gray-300/60 hover:border-[#1B3A6B]/40 hover:bg-[#EFF6FF]'
+  const checkCls  = dark ? 'text-white/50' : 'text-[#1B3A6B]'
   const titleCls  = dark ? 'text-white/40' : 'text-gray-400'
   const badgeBg   = dark ? 'bg-white/10 text-white/50' : 'bg-gray-100/80 text-gray-500'
 

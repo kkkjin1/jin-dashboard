@@ -23,10 +23,10 @@ const CAT_CLS: Record<string, string> = {
   '개인':  'bg-emerald-50 text-emerald-700 border-emerald-200',
 }
 
-const W_ITEM  = 232
-const W_PAST  = 224
-const W_NOW   = 592
-const W_ADD   = 56
+const W_ITEM  = 280
+const W_PAST  = 260
+const W_NOW   = 680
+const W_ADD   = 64
 
 // ── 타입 ────────────────────────────────────────────────────────────
 interface MeetingCol { id: string; title: string; meeting_date: string | null }
@@ -43,10 +43,10 @@ function nk(itemId: string, meetingId: string) { return `${itemId}_${meetingId}`
 // ── 스타일 헬퍼 ─────────────────────────────────────────────────────
 const S = {
   bd:    '1px solid #E5E9F0',
-  bdL:   '1px solid #BDD0EA',   // 왼쪽 구분선 강조
+  bdL:   '1px solid #BDD0EA',
   bg:    '#fff',
-  bgRow: '#F7F9FC',             // 범주 행 배경
-  bgNow: '#F0F4FA',             // 이번 회의 열 배경
+  bgRow: '#F7F9FC',
+  bgNow: '#F0F4FA',
   t1:    '#1A2233',
   t2:    '#4A5A72',
   t3:    '#8FA0B5',
@@ -63,17 +63,17 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
   const [notes,   setNotes]   = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
 
-  const [openGroups,  setOpenGroups]  = useState<Set<string>>(new Set())
-  const [hiddenCols,  setHiddenCols]  = useState<Set<string>>(new Set())
+  const [openGroups,   setOpenGroups]   = useState<Set<string>>(new Set())
+  const [hiddenCols,   setHiddenCols]   = useState<Set<string>>(new Set())
   const [expandedNote, setExpandedNote] = useState<ExpandedNote | null>(null)
 
   const [addingGroup, setAddingGroup] = useState(false)
   const [newGName,    setNewGName]    = useState('')
   const [newGColor,   setNewGColor]   = useState(GROUP_COLORS[0])
+  const [newGCat,     setNewGCat]     = useState<string>(MATRIX_CATS[0])
   const [addingItem,  setAddingItem]  = useState<string | null>(null)
   const [newITitle,   setNewITitle]   = useState('')
 
-  // 삭제 확인 대상
   const [deletingGroup, setDeletingGroup] = useState<string | null>(null)
   const [deletingItem,  setDeletingItem]  = useState<string | null>(null)
 
@@ -87,7 +87,6 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
   async function load() {
     setLoading(true)
 
-    // 그룹: 전체 모드면 모든 카테고리, 아니면 해당 카테고리만
     const gQuery = supabase.from('agenda_groups').select('*').order('sort_order')
     const { data: gData } = isAll
       ? await gQuery
@@ -97,7 +96,6 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
     setGroups(fetchedGroups)
     setOpenGroups(new Set(fetchedGroups.filter(g => g.is_open).map(g => g.id)))
 
-    // 아이템
     if (fetchedGroups.length > 0) {
       const { data: iData } = await supabase
         .from('agenda_items')
@@ -109,7 +107,6 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
       setItems([])
     }
 
-    // 회의 열 (전체 모드는 열 없음)
     if (!isAll) {
       const { data: mData } = await supabase
         .from('meetings')
@@ -119,7 +116,6 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
       const fetchedCols = (mData ?? []) as MeetingCol[]
       setCols(fetchedCols)
 
-      // 기본: 마지막 3개만 표시
       const hidden = new Set<string>()
       fetchedCols.forEach((m, i) => { if (i < fetchedCols.length - 3) hidden.add(m.id) })
       setHiddenCols(hidden)
@@ -160,18 +156,24 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
     await supabase.from('agenda_groups').update({ is_open: !isOpen }).eq('id', id)
   }
 
-  // ── 그룹 카테고리 변경 (전체 모드) ───────────────────────────────
+  // ── 그룹 카테고리 변경 ────────────────────────────────────────────
   async function updateGroupCat(groupId: string, cat: string) {
     await supabase.from('agenda_groups').update({ category: cat }).eq('id', groupId)
     setGroups(prev => prev.map(g => g.id === groupId ? { ...g, category: cat } : g))
   }
 
   // ── 그룹 추가 ────────────────────────────────────────────────────
+  function openAddGroup() {
+    setNewGCat(isAll ? MATRIX_CATS[0] : category)
+    setNewGName('')
+    setNewGColor(GROUP_COLORS[0])
+    setAddingGroup(true)
+  }
+
   async function addGroup() {
     const name = newGName.trim(); if (!name) { setAddingGroup(false); return }
-    const targetCat = isAll ? MATRIX_CATS[0] : category
     const { data } = await supabase.from('agenda_groups')
-      .insert({ category: targetCat, name, color: newGColor, sort_order: groups.length, is_open: true })
+      .insert({ category: newGCat, name, color: newGColor, sort_order: groups.length, is_open: true })
       .select().single()
     if (data) {
       setGroups(p => [...p, data as AgendaGroup])
@@ -239,6 +241,47 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
     return notes[nk(itemId, cols[nowIdx - 1].id)] ?? ''
   }
 
+  // ── 범주 추가 폼 (공통) ───────────────────────────────────────────
+  function AddGroupForm({ colSpan }: { colSpan: number }) {
+    return (
+      <tr>
+        <td colSpan={colSpan} style={{ background:S.bgRow, padding:0 }}>
+          {addingGroup ? (
+            <div className="flex items-center gap-2 px-5 py-2.5 flex-wrap">
+              <input autoFocus value={newGName} onChange={e=>setNewGName(e.target.value)}
+                onKeyDown={e=>{ if(e.key==='Enter'&&!e.nativeEvent.isComposing)addGroup(); if(e.key==='Escape'){setAddingGroup(false);setNewGName('')} }}
+                placeholder="범주명 입력 후 Enter"
+                className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-gray-400 w-40"/>
+              {/* 파트 선택 */}
+              <div className="flex gap-1">
+                {MATRIX_CATS.map(c => (
+                  <button key={c} type="button" onClick={()=>setNewGCat(c)}
+                    className={`text-xs px-2.5 py-1 rounded-full border font-semibold transition-all ${newGCat === c ? CAT_CLS[c] : 'bg-white text-gray-400 border-gray-200 hover:border-gray-300'}`}>
+                    {c}
+                  </button>
+                ))}
+              </div>
+              {/* 색상 선택 */}
+              <div className="flex gap-1.5">
+                {GROUP_COLORS.map(c=>(
+                  <div key={c} onClick={()=>setNewGColor(c)}
+                    style={{width:14,height:14,borderRadius:'50%',background:c,cursor:'pointer',border:newGColor===c?'2px solid #1A2233':'2px solid transparent',flexShrink:0}}/>
+                ))}
+              </div>
+              <button onClick={addGroup} className="text-xs bg-gray-900 text-white px-3 py-1.5 rounded-lg">추가</button>
+              <button onClick={()=>{setAddingGroup(false);setNewGName('')}} className="text-xs text-gray-400 px-2 py-1">취소</button>
+            </div>
+          ) : (
+            <div onClick={openAddGroup}
+              className="flex items-center gap-1 px-5 py-2.5 text-xs text-gray-400 hover:text-gray-600 hover:bg-gray-100/60 cursor-pointer transition-colors">
+              ＋ 범주 추가
+            </div>
+          )}
+        </td>
+      </tr>
+    )
+  }
+
   if (loading) return (
     <div className="flex items-center justify-center h-32 text-sm text-gray-400 animate-pulse">불러오는 중…</div>
   )
@@ -250,11 +293,11 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
         <table style={{ borderCollapse: 'collapse', width: '100%' }}>
           <thead>
             <tr style={{ borderBottom: S.bd }}>
-              <th style={{ position:'sticky', left:0, top:0, zIndex:5, background:S.bg, padding:'8px 14px', textAlign:'left', fontSize:11, fontWeight:700, color:S.t3, letterSpacing:'.05em', textTransform:'uppercase', borderBottom:S.bd, width:'40%' }}>안건</th>
-              <th style={{ position:'sticky', top:0, zIndex:3, background:S.bg, padding:'8px 10px', textAlign:'left', fontSize:11, fontWeight:700, color:S.t3, letterSpacing:'.05em', textTransform:'uppercase', borderBottom:S.bd, borderLeft:S.bd }}>파트</th>
-              <th style={{ position:'sticky', top:0, zIndex:3, background:S.bg, padding:'8px 10px', textAlign:'left', fontSize:11, fontWeight:700, color:S.t3, letterSpacing:'.05em', textTransform:'uppercase', borderBottom:S.bd, borderLeft:S.bd }}>유형</th>
-              <th style={{ position:'sticky', top:0, zIndex:3, background:S.bg, padding:'8px 10px', textAlign:'left', fontSize:11, fontWeight:700, color:S.t3, letterSpacing:'.05em', textTransform:'uppercase', borderBottom:S.bd, borderLeft:S.bd }}>상태</th>
-              <th style={{ position:'sticky', top:0, zIndex:3, background:S.bg, padding:'8px 10px', borderBottom:S.bd, borderLeft:S.bd, width:60 }} />
+              <th style={{ position:'sticky', left:0, top:0, zIndex:5, background:S.bg, padding:'10px 16px', textAlign:'left', fontSize:12, fontWeight:700, color:S.t3, letterSpacing:'.05em', textTransform:'uppercase', borderBottom:S.bd, width:'40%' }}>안건</th>
+              <th style={{ position:'sticky', top:0, zIndex:3, background:S.bg, padding:'10px 12px', textAlign:'left', fontSize:12, fontWeight:700, color:S.t3, letterSpacing:'.05em', textTransform:'uppercase', borderBottom:S.bd, borderLeft:S.bd }}>파트</th>
+              <th style={{ position:'sticky', top:0, zIndex:3, background:S.bg, padding:'10px 12px', textAlign:'left', fontSize:12, fontWeight:700, color:S.t3, letterSpacing:'.05em', textTransform:'uppercase', borderBottom:S.bd, borderLeft:S.bd }}>유형</th>
+              <th style={{ position:'sticky', top:0, zIndex:3, background:S.bg, padding:'10px 12px', textAlign:'left', fontSize:12, fontWeight:700, color:S.t3, letterSpacing:'.05em', textTransform:'uppercase', borderBottom:S.bd, borderLeft:S.bd }}>상태</th>
+              <th style={{ position:'sticky', top:0, zIndex:3, background:S.bg, padding:'10px 12px', borderBottom:S.bd, borderLeft:S.bd, width:60 }} />
             </tr>
           </thead>
           <tbody>
@@ -266,19 +309,19 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                   {/* 범주 행 */}
                   <tr style={{ background: S.bgRow }}>
                     <td colSpan={5} style={{ padding:0, borderBottom: S.bd }}>
-                      <div className="flex items-center gap-2 group/grow" style={{ padding:'6px 14px' }}>
+                      <div className="flex items-center gap-2 group/grow" style={{ padding:'7px 16px' }}>
                         <span style={{ width:3, height:14, borderRadius:2, background:group.color, flexShrink:0 }} />
                         <button
                           onClick={() => toggleGroup(group.id)}
                           style={{ fontSize:9, color:S.t3, background:'none', border:'none', cursor:'pointer', padding:0, lineHeight:1, display:'inline-block', transition:'transform .15s', transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}
                         >▼</button>
-                        <span style={{ fontSize:12, fontWeight:700, color:S.t1 }}>{group.name}</span>
-                        <span style={{ fontSize:10, color:S.t3, background:'#E5E9F0', padding:'1px 7px', borderRadius:99 }}>{groupItems.length}</span>
-                        {/* 파트 선택 pills */}
+                        <span style={{ fontSize:13, fontWeight:700, color:S.t1 }}>{group.name}</span>
+                        <span style={{ fontSize:11, color:S.t3, background:'#E5E9F0', padding:'1px 7px', borderRadius:99 }}>{groupItems.length}</span>
+                        {/* 파트 선택 pills (항상 표시) */}
                         <div className="flex gap-1 ml-2">
                           {MATRIX_CATS.map(c => (
                             <button key={c} onClick={() => updateGroupCat(group.id, c)}
-                              className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold transition-all ${group.category === c ? CAT_CLS[c] : 'bg-white text-gray-400 border-gray-200 hover:border-gray-300'}`}>
+                              className={`text-[11px] px-2.5 py-0.5 rounded-full border font-semibold transition-all ${group.category === c ? CAT_CLS[c] : 'bg-white text-gray-400 border-gray-200 hover:border-gray-300'}`}>
                               {c}
                             </button>
                           ))}
@@ -301,29 +344,29 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                   {/* 안건 행들 */}
                   {isOpen && groupItems.map(item => (
                     <tr key={item.id} style={{ borderBottom: S.bd }} className="hover:bg-gray-50/60 group/irow">
-                      <td style={{ padding:'8px 14px', verticalAlign:'middle' }}>
+                      <td style={{ padding:'10px 16px', verticalAlign:'middle' }}>
                         <div className="flex items-center gap-2">
                           <button onClick={() => cycleStatus(item)} title={`상태: ${STATUS_LABEL[item.status]}`}
                             style={{ width:8, height:8, borderRadius:'50%', flexShrink:0, background:STATUS_COLOR[item.status], border:'none', cursor:'pointer', padding:0 }} />
-                          <span style={{ fontSize:12.5, fontWeight:500, color: item.status==='done' ? S.t3 : S.t1, textDecoration: item.status==='done' ? 'line-through' : 'none', lineHeight:1.35 }}>
+                          <span style={{ fontSize:14, fontWeight:500, color: item.status==='done' ? S.t3 : S.t1, textDecoration: item.status==='done' ? 'line-through' : 'none', lineHeight:1.35 }}>
                             {item.title}
                           </span>
                         </div>
                       </td>
-                      <td style={{ borderLeft:S.bd, padding:'8px 10px', verticalAlign:'middle' }}>
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${CAT_CLS[groups.find(g=>g.id===item.group_id)?.category??'코어'] ?? CAT_CLS['코어']}`}>
+                      <td style={{ borderLeft:S.bd, padding:'10px 12px', verticalAlign:'middle' }}>
+                        <span className={`text-[11px] px-2 py-0.5 rounded-full border font-semibold ${CAT_CLS[groups.find(g=>g.id===item.group_id)?.category??'코어'] ?? CAT_CLS['코어']}`}>
                           {groups.find(g=>g.id===item.group_id)?.category ?? '—'}
                         </span>
                       </td>
-                      <td style={{ borderLeft:S.bd, padding:'8px 10px', verticalAlign:'middle' }}>
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${TYPE_CLS[item.item_type]}`}>
+                      <td style={{ borderLeft:S.bd, padding:'10px 12px', verticalAlign:'middle' }}>
+                        <span className={`text-[11px] px-2 py-0.5 rounded-full border font-semibold ${TYPE_CLS[item.item_type]}`}>
                           {TYPE_LABEL[item.item_type]}
                         </span>
                       </td>
-                      <td style={{ borderLeft:S.bd, padding:'8px 10px', fontSize:11, color:S.t2, verticalAlign:'middle' }}>
+                      <td style={{ borderLeft:S.bd, padding:'10px 12px', fontSize:12, color:S.t2, verticalAlign:'middle' }}>
                         {STATUS_LABEL[item.status]}
                       </td>
-                      <td style={{ borderLeft:S.bd, padding:'8px 10px', verticalAlign:'middle', textAlign:'center' }}>
+                      <td style={{ borderLeft:S.bd, padding:'10px 12px', verticalAlign:'middle', textAlign:'center' }}>
                         {deletingItem === item.id ? (
                           <div className="flex items-center gap-1">
                             <button onClick={() => deleteItem(item.id)} className="text-[10px] text-red-500 hover:text-red-700 font-semibold">삭제</button>
@@ -342,17 +385,17 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                     <tr key={`add-i-${group.id}`} style={{ borderBottom: S.bd }}>
                       <td colSpan={5} style={{ padding:0 }}>
                         {addingItem === group.id ? (
-                          <div className="flex items-center gap-2 px-4 py-1.5">
+                          <div className="flex items-center gap-2 px-5 py-2">
                             <input autoFocus value={newITitle} onChange={e=>setNewITitle(e.target.value)}
                               onKeyDown={e=>{ if(e.key==='Enter'&&!e.nativeEvent.isComposing)addItem(group.id); if(e.key==='Escape'){setAddingItem(null);setNewITitle('')} }}
                               placeholder="안건명 입력 후 Enter"
-                              className="flex-1 border border-gray-200 rounded-lg px-3 py-1 text-sm focus:outline-none focus:border-gray-400"/>
-                            <button onClick={()=>addItem(group.id)} className="text-xs bg-gray-900 text-white px-3 py-1 rounded-lg">추가</button>
+                              className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-gray-400"/>
+                            <button onClick={()=>addItem(group.id)} className="text-xs bg-gray-900 text-white px-3 py-1.5 rounded-lg">추가</button>
                             <button onClick={()=>{setAddingItem(null);setNewITitle('')}} className="text-xs text-gray-400 px-2 py-1">취소</button>
                           </div>
                         ) : (
                           <div onClick={()=>{setAddingItem(group.id);setNewITitle('')}}
-                            className="flex items-center gap-1 px-4 py-1.5 text-xs text-gray-400 hover:text-gray-600 hover:bg-gray-50 cursor-pointer transition-colors">
+                            className="flex items-center gap-1 px-5 py-2 text-xs text-gray-400 hover:text-gray-600 hover:bg-gray-50 cursor-pointer transition-colors">
                             ＋ {group.name}에 안건 추가
                           </div>
                         )}
@@ -363,32 +406,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
               )
             })}
 
-            {/* 범주 추가 */}
-            <tr>
-              <td colSpan={5} style={{ background:S.bgRow, padding:0 }}>
-                {addingGroup ? (
-                  <div className="flex items-center gap-2 px-4 py-2 flex-wrap">
-                    <input autoFocus value={newGName} onChange={e=>setNewGName(e.target.value)}
-                      onKeyDown={e=>{ if(e.key==='Enter'&&!e.nativeEvent.isComposing)addGroup(); if(e.key==='Escape'){setAddingGroup(false);setNewGName('')} }}
-                      placeholder="범주명 입력 후 Enter"
-                      className="border border-gray-200 rounded-lg px-3 py-1 text-sm focus:outline-none focus:border-gray-400 w-40"/>
-                    <div className="flex gap-1.5">
-                      {GROUP_COLORS.map(c=>(
-                        <div key={c} onClick={()=>setNewGColor(c)}
-                          style={{width:14,height:14,borderRadius:'50%',background:c,cursor:'pointer',border:newGColor===c?'2px solid #1A2233':'2px solid transparent',flexShrink:0}}/>
-                      ))}
-                    </div>
-                    <button onClick={addGroup} className="text-xs bg-gray-900 text-white px-3 py-1 rounded-lg">추가</button>
-                    <button onClick={()=>{setAddingGroup(false);setNewGName('')}} className="text-xs text-gray-400 px-2 py-1">취소</button>
-                  </div>
-                ) : (
-                  <div onClick={()=>setAddingGroup(true)}
-                    className="flex items-center gap-1 px-4 py-2 text-xs text-gray-400 hover:text-gray-600 hover:bg-gray-100/60 cursor-pointer transition-colors">
-                    ＋ 범주 추가
-                  </div>
-                )}
-              </td>
-            </tr>
+            <AddGroupForm colSpan={5} />
           </tbody>
         </table>
       </div>
@@ -406,7 +424,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
             <tr>
               {/* 안건 헤더 */}
               <th style={{ position:'sticky', left:0, top:0, zIndex:5, background:S.bg, borderBottom:S.bd, borderRight:S.bdL, width:W_ITEM, minWidth:W_ITEM }}>
-                <div style={{ padding:'8px 14px', fontSize:11, fontWeight:700, color:S.t3, letterSpacing:'.05em', textTransform:'uppercase' }}>안건</div>
+                <div style={{ padding:'10px 16px', fontSize:12, fontWeight:700, color:S.t3, letterSpacing:'.05em', textTransform:'uppercase' }}>안건</div>
               </th>
 
               {/* 직전 회의 헤더들 */}
@@ -415,11 +433,11 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                   <div
                     onClick={() => router.push(`/meetings/${m.id}`)}
                     className="flex flex-col items-center gap-0.5 hover:bg-gray-50 cursor-pointer transition-colors"
-                    style={{ padding:'7px 6px' }}
+                    style={{ padding:'8px 6px' }}
                     title="회의록 보기"
                   >
-                    <span style={{ fontSize:12, fontWeight:600, color:S.t1 }}>{formatDate(m.meeting_date)}</span>
-                    <span style={{ fontSize:9, background:S.bgRow, color:S.t3, border:S.bd, padding:'1px 6px', borderRadius:99, fontWeight:600 }}>완료</span>
+                    <span style={{ fontSize:13, fontWeight:600, color:S.t1 }}>{formatDate(m.meeting_date)}</span>
+                    <span style={{ fontSize:10, background:S.bgRow, color:S.t3, border:S.bd, padding:'1px 6px', borderRadius:99, fontWeight:600 }}>완료</span>
                   </div>
                 </th>
               ))}
@@ -427,14 +445,14 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
               {/* 이번 회의 헤더 */}
               {nowCol ? (
                 <th style={{ position:'sticky', top:0, zIndex:3, background:S.bgNow, borderBottom:S.bdL, borderLeft:S.bdL, width:W_NOW, minWidth:W_NOW }}>
-                  <div style={{ display:'flex', flexDirection:'column', alignItems:'center', padding:'7px 8px', gap:2 }}>
-                    <span style={{ fontSize:12, fontWeight:600, color:S.t1 }}>{formatDate(nowCol.meeting_date)}</span>
-                    <span style={{ fontSize:9, background:'#0F1E36', color:'#fff', padding:'1px 8px', borderRadius:99, fontWeight:700, letterSpacing:'.04em' }}>이번 회의</span>
+                  <div style={{ display:'flex', flexDirection:'column', alignItems:'center', padding:'8px 8px', gap:3 }}>
+                    <span style={{ fontSize:13, fontWeight:600, color:S.t1 }}>{formatDate(nowCol.meeting_date)}</span>
+                    <span style={{ fontSize:10, background:'#1B3A6B', color:'#fff', padding:'1px 8px', borderRadius:99, fontWeight:700, letterSpacing:'.04em' }}>이번 회의</span>
                   </div>
                 </th>
               ) : (
                 <th style={{ position:'sticky', top:0, zIndex:3, background:S.bg, borderBottom:S.bd, borderLeft:S.bd, width:W_NOW, minWidth:W_NOW }}>
-                  <div style={{ display:'flex', alignItems:'center', justifyContent:'center', padding:'14px 8px', fontSize:12, color:S.t3 }}>날짜를 추가해 시작하세요</div>
+                  <div style={{ display:'flex', alignItems:'center', justifyContent:'center', padding:'16px 8px', fontSize:13, color:S.t3 }}>날짜를 추가해 시작하세요</div>
                 </th>
               )}
 
@@ -442,9 +460,9 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
               <th style={{ position:'sticky', top:0, zIndex:3, background:S.bg, borderBottom:S.bd, borderLeft:S.bd, width:W_ADD, minWidth:W_ADD }}>
                 <button onClick={addMeeting}
                   className="w-full h-full hover:bg-gray-50 transition-colors flex flex-col items-center justify-center gap-1"
-                  style={{ border:'none', cursor:'pointer', background:'none', padding:'8px 4px', color:S.t3, fontSize:16 }}>
+                  style={{ border:'none', cursor:'pointer', background:'none', padding:'8px 4px', color:S.t3, fontSize:18 }}>
                   ＋
-                  <span style={{ fontSize:9, lineHeight:1.3, textAlign:'center' }}>날짜<br/>추가</span>
+                  <span style={{ fontSize:10, lineHeight:1.3, textAlign:'center' }}>날짜<br/>추가</span>
                 </button>
               </th>
             </tr>
@@ -460,12 +478,21 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                   {/* 범주 행 */}
                   <tr>
                     <td colSpan={totalCols} style={{ position:'sticky', left:0, zIndex:2, background:S.bgRow, borderBottom:S.bd, padding:0 }}>
-                      <div className="flex items-center gap-2 hover:bg-gray-100/60 transition-colors group/grow" style={{ padding:'6px 14px', cursor:'pointer' }}
+                      <div className="flex items-center gap-2 hover:bg-gray-100/60 transition-colors group/grow" style={{ padding:'7px 16px', cursor:'pointer' }}
                         onClick={() => toggleGroup(group.id)}>
                         <span style={{ width:3, height:14, borderRadius:2, background:group.color, flexShrink:0 }} />
                         <span style={{ fontSize:9, color:S.t3, display:'inline-block', transition:'transform .15s', transform: isOpen?'rotate(0deg)':'rotate(-90deg)' }}>▼</span>
-                        <span style={{ fontSize:12, fontWeight:700, color:S.t1 }}>{group.name}</span>
-                        <span style={{ fontSize:10, color:S.t3, background:'#E5E9F0', padding:'1px 7px', borderRadius:99 }}>{groupItems.length}</span>
+                        <span style={{ fontSize:13, fontWeight:700, color:S.t1 }}>{group.name}</span>
+                        <span style={{ fontSize:11, color:S.t3, background:'#E5E9F0', padding:'1px 7px', borderRadius:99 }}>{groupItems.length}</span>
+                        {/* 파트 변경 pills (hover 시 표시) */}
+                        <div className="flex gap-1 ml-1 opacity-0 group-hover/grow:opacity-100 transition-opacity" onClick={e=>e.stopPropagation()}>
+                          {MATRIX_CATS.map(c => (
+                            <button key={c} onClick={() => updateGroupCat(group.id, c)}
+                              className={`text-[11px] px-2.5 py-0.5 rounded-full border font-semibold transition-all ${group.category === c ? CAT_CLS[c] : 'bg-white text-gray-400 border-gray-200 hover:border-gray-300'}`}>
+                              {c}
+                            </button>
+                          ))}
+                        </div>
                         <div className="ml-auto flex items-center gap-1.5 opacity-0 group-hover/grow:opacity-100 transition-opacity" onClick={e=>e.stopPropagation()}>
                           {deletingGroup === group.id ? (
                             <>
@@ -489,14 +516,14 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
 
                         {/* 안건 셀 */}
                         <td style={{ position:'sticky', left:0, zIndex:2, background:'inherit', borderRight:S.bdL, width:W_ITEM, minWidth:W_ITEM, verticalAlign:'top' }}>
-                          <div style={{ padding:'8px 14px', display:'flex', alignItems:'flex-start', gap:8 }}>
+                          <div style={{ padding:'10px 16px', display:'flex', alignItems:'flex-start', gap:9 }}>
                             <button onClick={()=>cycleStatus(item)} title={`상태: ${STATUS_LABEL[item.status]}`}
-                              style={{ width:7, height:7, borderRadius:'50%', flexShrink:0, marginTop:5, background:STATUS_COLOR[item.status], border:'none', cursor:'pointer', padding:0 }} />
+                              style={{ width:8, height:8, borderRadius:'50%', flexShrink:0, marginTop:6, background:STATUS_COLOR[item.status], border:'none', cursor:'pointer', padding:0 }} />
                             <div style={{ flex:1, minWidth:0 }}>
-                              <div style={{ fontSize:12.5, fontWeight:500, color: item.status==='done' ? S.t3 : S.t1, lineHeight:1.35, marginBottom:3, textDecoration: item.status==='done'?'line-through':'none' }}>
+                              <div style={{ fontSize:14, fontWeight:500, color: item.status==='done' ? S.t3 : S.t1, lineHeight:1.4, marginBottom:4, textDecoration: item.status==='done'?'line-through':'none' }}>
                                 {item.title}
                               </div>
-                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full border font-semibold ${TYPE_CLS[item.item_type]}`}>
+                              <span className={`text-[11px] px-1.5 py-0.5 rounded-full border font-semibold ${TYPE_CLS[item.item_type]}`}>
                                 {TYPE_LABEL[item.item_type]}
                               </span>
                             </div>
@@ -522,10 +549,10 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                               onClick={() => note && setExpandedNote({ date:formatDate(m.meeting_date), itemTitle:item.title, note, meetingId:m.id })}
                               className={note ? 'hover:bg-blue-50/30' : ''}
                             >
-                              <div style={{ padding:'7px 9px', minHeight:56 }}>
+                              <div style={{ padding:'9px 11px', minHeight:68 }}>
                                 {note
-                                  ? <div style={{ fontSize:11.5, color:S.t2, lineHeight:1.6, display:'-webkit-box', WebkitLineClamp:5, WebkitBoxOrient:'vertical', overflow:'hidden' }}>{note}</div>
-                                  : <div style={{ fontSize:11, color:'#C8D5E8' }}>—</div>
+                                  ? <div style={{ fontSize:13, color:S.t2, lineHeight:1.6, display:'-webkit-box', WebkitLineClamp:5, WebkitBoxOrient:'vertical', overflow:'hidden' }}>{note}</div>
+                                  : <div style={{ fontSize:12, color:'#C8D5E8' }}>—</div>
                                 }
                               </div>
                             </td>
@@ -535,19 +562,19 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                         {/* 이번 회의 노트 셀 */}
                         {nowCol ? (
                           <td style={{ borderLeft:S.bdL, background:S.bgNow, width:W_NOW, minWidth:W_NOW, verticalAlign:'top' }}>
-                            <div style={{ padding:'7px 9px' }}>
+                            <div style={{ padding:'9px 11px' }}>
                               {pNote && (
-                                <div style={{ marginBottom:5, padding:'3px 7px', borderLeft:`2px solid #BDD0EA`, borderRadius:'0 4px 4px 0', background:'rgba(15,30,54,.04)' }}>
-                                  <div style={{ fontSize:9, fontWeight:700, color:S.t3, textTransform:'uppercase', letterSpacing:'.04em', marginBottom:1 }}>직전</div>
-                                  <div style={{ fontSize:10, color:S.t3, lineHeight:1.5, overflow:'hidden', display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical' }}>{pNote}</div>
+                                <div style={{ marginBottom:6, padding:'4px 8px', borderLeft:`2px solid #BDD0EA`, borderRadius:'0 4px 4px 0', background:'rgba(15,30,54,.04)' }}>
+                                  <div style={{ fontSize:10, fontWeight:700, color:S.t3, textTransform:'uppercase', letterSpacing:'.04em', marginBottom:1 }}>직전</div>
+                                  <div style={{ fontSize:11, color:S.t3, lineHeight:1.5, overflow:'hidden', display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical' }}>{pNote}</div>
                                 </div>
                               )}
                               <textarea
                                 value={notes[nk(item.id, nowCol.id)] ?? ''}
                                 onChange={e => handleNote(item.id, nowCol.id, e.target.value)}
                                 placeholder="오늘 논의 내용 입력…"
-                                rows={3}
-                                style={{ width:'100%', border:'none', background:'transparent', resize:'none', fontSize:12, color:S.t1, lineHeight:1.65, fontFamily:'inherit', outline:'none', minHeight:48 }}
+                                rows={4}
+                                style={{ width:'100%', border:'none', background:'transparent', resize:'none', fontSize:13, color:S.t1, lineHeight:1.65, fontFamily:'inherit', outline:'none', minHeight:60 }}
                               />
                             </div>
                           </td>
@@ -565,17 +592,17 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                     <tr key={`add-i-${group.id}`} style={{ borderBottom:S.bd }}>
                       <td colSpan={totalCols} style={{ padding:0 }}>
                         {addingItem === group.id ? (
-                          <div className="flex items-center gap-2 px-4 py-1.5">
+                          <div className="flex items-center gap-2 px-5 py-2">
                             <input autoFocus value={newITitle} onChange={e=>setNewITitle(e.target.value)}
                               onKeyDown={e=>{ if(e.key==='Enter'&&!e.nativeEvent.isComposing)addItem(group.id); if(e.key==='Escape'){setAddingItem(null);setNewITitle('')} }}
                               placeholder="안건명 입력 후 Enter"
-                              className="flex-1 border border-gray-200 rounded-lg px-3 py-1 text-sm focus:outline-none focus:border-gray-400"/>
-                            <button onClick={()=>addItem(group.id)} className="text-xs bg-gray-900 text-white px-3 py-1 rounded-lg">추가</button>
+                              className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-gray-400"/>
+                            <button onClick={()=>addItem(group.id)} className="text-xs bg-gray-900 text-white px-3 py-1.5 rounded-lg">추가</button>
                             <button onClick={()=>{setAddingItem(null);setNewITitle('')}} className="text-xs text-gray-400 px-2 py-1">취소</button>
                           </div>
                         ) : (
                           <div onClick={()=>{setAddingItem(group.id);setNewITitle('')}}
-                            className="flex items-center gap-1 px-4 py-1.5 text-xs text-gray-400 hover:text-gray-600 hover:bg-gray-50 cursor-pointer transition-colors">
+                            className="flex items-center gap-1 px-5 py-2 text-xs text-gray-400 hover:text-gray-600 hover:bg-gray-50 cursor-pointer transition-colors">
                             ＋ {group.name}에 안건 추가
                           </div>
                         )}
@@ -586,32 +613,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
               )
             })}
 
-            {/* 범주 추가 */}
-            <tr>
-              <td colSpan={totalCols} style={{ background:S.bgRow, padding:0 }}>
-                {addingGroup ? (
-                  <div className="flex items-center gap-2 px-4 py-2 flex-wrap">
-                    <input autoFocus value={newGName} onChange={e=>setNewGName(e.target.value)}
-                      onKeyDown={e=>{ if(e.key==='Enter'&&!e.nativeEvent.isComposing)addGroup(); if(e.key==='Escape'){setAddingGroup(false);setNewGName('')} }}
-                      placeholder="범주명 입력 후 Enter"
-                      className="border border-gray-200 rounded-lg px-3 py-1 text-sm focus:outline-none focus:border-gray-400 w-40"/>
-                    <div className="flex gap-1.5">
-                      {GROUP_COLORS.map(c=>(
-                        <div key={c} onClick={()=>setNewGColor(c)}
-                          style={{width:14,height:14,borderRadius:'50%',background:c,cursor:'pointer',border:newGColor===c?'2px solid #1A2233':'2px solid transparent',flexShrink:0}}/>
-                      ))}
-                    </div>
-                    <button onClick={addGroup} className="text-xs bg-gray-900 text-white px-3 py-1 rounded-lg">추가</button>
-                    <button onClick={()=>{setAddingGroup(false);setNewGName('')}} className="text-xs text-gray-400 px-2 py-1">취소</button>
-                  </div>
-                ) : (
-                  <div onClick={()=>setAddingGroup(true)}
-                    className="flex items-center gap-1 px-4 py-2 text-xs text-gray-400 hover:text-gray-600 hover:bg-gray-100/60 cursor-pointer transition-colors">
-                    ＋ 범주 추가
-                  </div>
-                )}
-              </td>
-            </tr>
+            <AddGroupForm colSpan={totalCols} />
           </tbody>
         </table>
       </div>

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
@@ -243,7 +243,7 @@ export default function TodayTodoWidget() {
           {done.length > 0 && (
             <button
               onClick={() => setShowDonePopup(true)}
-              className="text-[9px] text-gray-400 hover:text-[#0F1E36] bg-gray-50 hover:bg-gray-100 border border-gray-200 px-2 py-0.5 rounded-full transition-colors flex-shrink-0">
+              className="text-[9px] text-gray-400 hover:text-[#1B3A6B] bg-gray-50 hover:bg-gray-100 border border-gray-200 px-2 py-0.5 rounded-full transition-colors flex-shrink-0">
               완료보기 {done.length}
             </button>
           )}
@@ -269,7 +269,7 @@ export default function TodayTodoWidget() {
                     <button
                       onClick={() => completeMemo(m.id)}
                       title="완료 처리"
-                      className="flex-shrink-0 w-3 h-3 mt-0.5 rounded-full border border-gray-300 hover:border-[#0F1E36]/40 hover:bg-[#EFF6FF] transition-colors"
+                      className="flex-shrink-0 w-3 h-3 mt-0.5 rounded-full border border-gray-300 hover:border-[#1B3A6B]/40 hover:bg-[#EFF6FF] transition-colors"
                     />
                     <button
                       className="flex-1 min-w-0 text-left"
@@ -280,7 +280,7 @@ export default function TodayTodoWidget() {
                       }}
                       onMouseLeave={scheduleHide}
                       onClick={() => openMemo(m.id)}>
-                      <p className={`text-xs leading-relaxed break-words ${m.content ? 'text-gray-800 underline decoration-dotted decoration-[#0F1E36]/30 underline-offset-2' : 'text-gray-700'}`}>{m.title}</p>
+                      <p className={`text-xs leading-relaxed break-words ${m.content ? 'text-gray-800 underline decoration-dotted decoration-[#1B3A6B]/30 underline-offset-2' : 'text-gray-700'}`}>{m.title}</p>
                     </button>
                     <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
                       onMouseEnter={() => { if (hideTimer.current) clearTimeout(hideTimer.current); setTooltip(null) }}>
@@ -308,7 +308,7 @@ export default function TodayTodoWidget() {
           <p className="text-gray-600 leading-relaxed whitespace-pre-wrap flex-1 overflow-y-auto mb-2 pr-0.5">{tooltip.memo.content}</p>
           <button
             onClick={() => { setTooltip(null); openMemo(tooltip.memo.id) }}
-            className="text-[#0F1E36] hover:text-[#162844] text-[11px] font-medium transition-colors">
+            className="text-[#1B3A6B] hover:text-[#1F4070] text-[11px] font-medium transition-colors">
             메모에서 열기 →
           </button>
         </div>,

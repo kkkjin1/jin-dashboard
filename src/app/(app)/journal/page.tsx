@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 export const dynamic = 'force-dynamic'
 
@@ -182,7 +182,7 @@ export default function JournalPage() {
               onClick={() => selectRange(r.from, r.to)}
               className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
                 fromDate === r.from && toDate === r.to
-                  ? 'bg-[#0F1E36] text-white border-[#0F1E36]'
+                  ? 'bg-[#1B3A6B] text-white border-[#1B3A6B]'
                   : 'bg-white/60 text-gray-600 border-white/70 hover:bg-white/90'
               }`}
             >
@@ -240,7 +240,7 @@ export default function JournalPage() {
                   onClick={() => toggleDate(j.date)}
                   className={`text-left p-2.5 rounded-xl border transition-all ${
                     isSelected
-                      ? 'bg-[#0F1E36] border-[#0F1E36] text-white'
+                      ? 'bg-[#1B3A6B] border-[#1B3A6B] text-white'
                       : 'bg-white/50 border-white/70 text-gray-700 hover:bg-white/80'
                   }`}
                 >
@@ -285,7 +285,7 @@ export default function JournalPage() {
             <button
               onClick={handleDownload}
               disabled={selected.size === 0}
-              className="text-xs px-4 py-2 rounded-xl bg-[#0F1E36] text-white hover:bg-[#1a2f52] disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+              className="text-xs px-4 py-2 rounded-xl bg-[#1B3A6B] text-white hover:bg-[#22497E] disabled:opacity-30 disabled:cursor-not-allowed transition-all"
             >
               MD 다운로드
             </button>

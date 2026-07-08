@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useRef, useState } from 'react'
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, parseISO, getDay, addMonths, subMonths, getDaysInMonth } from 'date-fns'
@@ -621,7 +621,7 @@ export default function SchedulePage() {
                       {DOW_LABELS_SCHED.map((label, d) => (
                         <button key={d} type="button" onClick={() => toggleMeetDow(d)}
                           className={`text-[9px] w-6 h-6 rounded-full font-medium transition-colors ${
-                            meetForm.days_of_week.includes(d) ? 'bg-[#0F1E36] text-white' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+                            meetForm.days_of_week.includes(d) ? 'bg-[#1B3A6B] text-white' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
                           }`}>
                           {label}
                         </button>
@@ -639,7 +639,7 @@ export default function SchedulePage() {
                     <button onClick={() => setShowMeetingForm(false)}
                       className="text-[10px] text-gray-400 hover:text-gray-600">취소</button>
                     <button onClick={addMeetingSchedule} disabled={!meetForm.title.trim()}
-                      className="text-[10px] bg-[#0F1E36] text-white px-2.5 py-1 rounded-full disabled:opacity-40">
+                      className="text-[10px] bg-[#1B3A6B] text-white px-2.5 py-1 rounded-full disabled:opacity-40">
                       저장
                     </button>
                   </div>

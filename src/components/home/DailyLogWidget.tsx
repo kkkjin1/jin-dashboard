@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useRef, useState } from 'react'
 
@@ -77,7 +77,7 @@ export default function DailyLogWidget({ selectedDate, onDraftReady }: Props) {
           <button
             onClick={handleSend}
             disabled={!text.trim()}
-            className="text-[11px] font-medium bg-[#0F1E36] text-white px-3 py-1.5 rounded-full hover:bg-[#162844] disabled:opacity-40 disabled:cursor-not-allowed transition-all">
+            className="text-[11px] font-medium bg-[#1B3A6B] text-white px-3 py-1.5 rounded-full hover:bg-[#1F4070] disabled:opacity-40 disabled:cursor-not-allowed transition-all">
             → 회고로 전달
           </button>
         </div>

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { createPortal } from 'react-dom'
 import { useEffect, useState, useMemo } from 'react'
@@ -10,8 +10,7 @@ import type { Meeting } from '@/types'
 import { generateMeetingsContextMd, downloadMd } from '@/lib/markdown'
 import AgendaMatrix from '@/components/meetings/AgendaMatrix'
 
-const DEFAULT_CATS = ['코어', '비즈', '개인']
-// '기타'는 항상 마지막 고정. catOrder에 포함하지 않음.
+const DEFAULT_CATS = ['코어', '비즈', '개인', '기타']
 
 const CATEGORY_COLORS: Record<string, string> = {
   '코어':    'bg-[#C7D8F0]/40 text-[#1A3562] border-[#C7D8F0]/55',
@@ -53,7 +52,6 @@ export default function MeetingsPage() {
   const [collapsedCats, setCollapsedCats] = useState<Set<string>>(new Set())
   const [collapsedMonths, setCollapsedMonths] = useState<Set<string>>(new Set())
 
-  // 범주 순서. '기타'는 항상 마지막으로 고정이므로 여기엔 포함하지 않음.
   const [catOrder, setCatOrder] = useState<string[]>([...DEFAULT_CATS])
   const [dragCat, setDragCat] = useState<string | null>(null)
   const [dragOverCat, setDragOverCat] = useState<string | null>(null)
@@ -83,7 +81,7 @@ export default function MeetingsPage() {
       const saved = localStorage.getItem('meetings_cat_order')
       if (saved) {
         const parsed = JSON.parse(saved) as string[]
-        const filtered = parsed.filter(c => c !== '기타')
+        const filtered = parsed.filter((c: string) => typeof c === 'string')
         if (filtered.length > 0) setCatOrder(filtered)
       }
     } catch {}
@@ -150,16 +148,15 @@ export default function MeetingsPage() {
   }
 
   function onCatDragStart(e: React.DragEvent, cat: string) {
-    if (cat === '기타') return
     e.dataTransfer.effectAllowed = 'move'
     setDragCat(cat)
   }
   function onCatDragOver(e: React.DragEvent, cat: string) {
     e.preventDefault()
-    if (dragCat && dragCat !== cat && cat !== '기타') setDragOverCat(cat)
+    if (dragCat && dragCat !== cat) setDragOverCat(cat)
   }
   function onCatDrop(targetCat: string) {
-    if (!dragCat || dragCat === targetCat || targetCat === '기타') return
+    if (!dragCat || dragCat === targetCat) return
     const next = [...catOrder]
     const fi = next.indexOf(dragCat), ti = next.indexOf(targetCat)
     if (fi === -1 || ti === -1) return
@@ -181,11 +178,12 @@ export default function MeetingsPage() {
   }
 
   const categoryGroups = useMemo(() => {
-    const effectiveCats = [...catOrder, '기타']
+    const effectiveCats = catOrder
+    const nonGitaCats = catOrder.filter(c => c !== '기타')
     const all = catFilter === '전체'
       ? meetings
       : catFilter === '기타'
-        ? meetings.filter(m => !m.category || !catOrder.includes(m.category))
+        ? meetings.filter(m => m.category === '기타' || !m.category || !nonGitaCats.includes(m.category ?? ''))
         : meetings.filter(m => m.category === catFilter)
 
     function buildMonths(items: Meeting[]) {
@@ -206,7 +204,7 @@ export default function MeetingsPage() {
     return effectiveCats
       .map(cat => {
         const items = cat === '기타'
-          ? all.filter(m => !m.category || !catOrder.includes(m.category))
+          ? all.filter(m => m.category === '기타' || !m.category || !nonGitaCats.includes(m.category ?? ''))
           : all.filter(m => m.category === cat)
         if (items.length === 0) return null
         return { cat, items, months: buildMonths(items) }
@@ -215,7 +213,7 @@ export default function MeetingsPage() {
   }, [meetings, catFilter, catOrder])
 
   const totalFiltered = categoryGroups.reduce((s, g) => s + g.items.length, 0)
-  const pillFilters = ['전체', ...catOrder, '기타']
+  const pillFilters = ['전체', ...catOrder]
 
   return (
     <div className="h-full flex flex-col overflow-hidden font-sans">
@@ -304,16 +302,16 @@ export default function MeetingsPage() {
           <div
             key={c}
             className={`relative group/pill flex-shrink-0 transition-opacity ${dragCat === c ? 'opacity-40' : ''}`}
-            draggable={c !== '전체' && c !== '기타'}
-            onDragStart={e => { if (c !== '전체' && c !== '기타') { e.dataTransfer.effectAllowed = 'move'; setDragCat(c) } }}
-            onDragOver={e => { e.preventDefault(); if (dragCat && dragCat !== c && c !== '전체' && c !== '기타') setDragOverCat(c) }}
+            draggable={c !== '전체'}
+            onDragStart={e => { if (c !== '전체') { e.dataTransfer.effectAllowed = 'move'; setDragCat(c) } }}
+            onDragOver={e => { e.preventDefault(); if (dragCat && dragCat !== c && c !== '전체') setDragOverCat(c) }}
             onDrop={() => onCatDrop(c)}
             onDragEnd={() => { setDragCat(null); setDragOverCat(null) }}
           >
             <button
               onClick={() => setCatFilter(c)}
               className={`${pill} transition-all ${catFilter === c ? pOn : pOff} ${dragOverCat === c && dragCat !== c ? 'ring-2 ring-blue-300 ring-offset-1' : ''}`}>
-              {c !== '전체' && c !== '기타' && <span className="text-[8px] opacity-30 mr-1 cursor-grab">⠿</span>}
+              {c !== '전체' && <span className="text-[8px] opacity-30 mr-1 cursor-grab">⠿</span>}
               {c}
             </button>
             {/* '전체'와 '기타'는 삭제 불가 */}
@@ -368,7 +366,7 @@ export default function MeetingsPage() {
               const isDragOver = dragOverCat === cat && dragCat !== cat
               return (
                 <div key={cat}
-                  draggable={catFilter === '전체' && cat !== '기타'}
+                  draggable={catFilter === '전체'}
                   onDragStart={e => onCatDragStart(e, cat)}
                   onDragOver={e => onCatDragOver(e, cat)}
                   onDrop={() => onCatDrop(cat)}
@@ -378,9 +376,7 @@ export default function MeetingsPage() {
                   {catFilter === '전체' && (
                     <button onClick={() => toggleCat(cat)}
                       className="flex items-center gap-2.5 w-full text-left group py-2 mb-3 border-b border-white/40 pb-3">
-                      {cat !== '기타' && (
-                        <span className="text-gray-300 text-xs cursor-grab select-none" title="드래그하여 순서 변경">⠿</span>
-                      )}
+                      <span className="text-gray-300 text-xs cursor-grab select-none" title="드래그하여 순서 변경">⠿</span>
                       <span className={`text-xs font-semibold px-3 py-1 rounded-full border ${CATEGORY_COLORS[cat] ?? 'bg-gray-100/80 text-gray-400 border-gray-200'}`}>
                         {cat}
                       </span>
@@ -403,7 +399,7 @@ export default function MeetingsPage() {
                               className="flex items-center gap-2 w-full text-left group mb-2">
                               <span className="text-xs font-semibold text-gray-500 group-hover:text-gray-700 transition-colors">{formatYM(ym)}</span>
                               <span className="text-[10px] text-gray-400 bg-white/50 border border-white/60 px-1.5 py-0.5 rounded-full">{monthItems.length}건</span>
-                              {isLatest && <span className="text-[9px] text-[#0F1E36] bg-[#C7D8F0]/30 border border-[#C7D8F0]/40 px-1.5 py-0.5 rounded-full">최신</span>}
+                              {isLatest && <span className="text-[9px] text-[#1B3A6B] bg-[#C7D8F0]/30 border border-[#C7D8F0]/40 px-1.5 py-0.5 rounded-full">최신</span>}
                               <span className="text-[10px] text-gray-300 group-hover:text-gray-500 transition-colors ml-auto">{isMonthCollapsed ? '▶' : '▼'}</span>
                             </button>
 
@@ -465,7 +461,7 @@ export default function MeetingsPage() {
           data-cat-dd="true"
           style={{ position: 'fixed', left: editCatPos.x, top: editCatPos.y, zIndex: 1000 }}
           className="bg-white/95 backdrop-blur-xl border border-gray-200 rounded-xl shadow-2xl p-1.5 min-w-[90px]">
-          {[...catOrder, '기타'].map(c => (
+          {catOrder.map(c => (
             <button key={c} onClick={() => updateMeetingCat(editingCatId, c)}
               className={`w-full text-left text-[11px] px-2.5 py-1.5 rounded-lg transition-colors ${
                 meetings.find(m => m.id === editingCatId)?.category === c

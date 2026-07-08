@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { MemoPageSkeleton } from '@/components/ui/Skeleton'
@@ -460,7 +460,7 @@ export default function MemosPage() {
                     className="flex items-center gap-2 mb-4 w-full text-left group py-1 border-b border-white/50 pb-2">
                     <span className="text-sm font-semibold text-gray-600 group-hover:text-gray-800 transition-colors">{formatMonthLabel(ym)}</span>
                     <span className="text-xs text-gray-400 bg-white/60 border border-white/70 px-2 py-0.5 rounded-full">{items.length}개</span>
-                    {idx === 0 && <span className="text-[10px] text-[#0F1E36] bg-[#C7D8F0]/30 border border-[#C7D8F0]/40 px-2 py-0.5 rounded-full">최신</span>}
+                    {idx === 0 && <span className="text-[10px] text-[#1B3A6B] bg-[#C7D8F0]/30 border border-[#C7D8F0]/40 px-2 py-0.5 rounded-full">최신</span>}
                     <span className="text-xs text-gray-300 ml-auto group-hover:text-gray-500 transition-colors">{isCollapsed ? '▶' : '▼'}</span>
                   </button>
                   {!isCollapsed && (
