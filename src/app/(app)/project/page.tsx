@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import AgendaMatrix from '@/components/meetings/AgendaMatrix'
 
 const DISPLAY_CATS = ['전체', '코어회의록', '비즈회의록', '개인']
@@ -11,9 +11,21 @@ const CAT_VALUE: Record<string, string> = {
   '개인': '개인',
 }
 const ALL_CATS_VALUES = ['코어', '비즈', '개인']
+const SESSION_KEY = 'project-tab'
 
 export default function ProjectPage() {
   const [cat, setCat] = useState('전체')
+
+  useEffect(() => {
+    const saved = sessionStorage.getItem(SESSION_KEY)
+    if (saved && DISPLAY_CATS.includes(saved)) setCat(saved)
+  }, [])
+
+  function selectCat(c: string) {
+    setCat(c)
+    sessionStorage.setItem(SESSION_KEY, c)
+  }
+
   const catValue = CAT_VALUE[cat]
 
   return (
@@ -23,7 +35,7 @@ export default function ProjectPage() {
         <h1 className="text-lg font-bold text-gray-900">프로젝트</h1>
         <div className="flex items-center gap-1.5">
           {DISPLAY_CATS.map(c => (
-            <button key={c} onClick={() => setCat(c)}
+            <button key={c} onClick={() => selectCat(c)}
               className={`text-xs px-3.5 py-1.5 rounded-full border font-semibold transition-all ${
                 cat === c
                   ? 'bg-[#1B3A6B] text-white border-[#1B3A6B] shadow-sm'
