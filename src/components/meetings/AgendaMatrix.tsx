@@ -586,13 +586,27 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
   async function openOrCreateMeeting(dateStr: string) {
     const existing = meetingByDate[dateStr]
     if (existing) { setSelectedMeeting(existing); return }
-    const { data } = await supabase.from('meetings')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase.from('meetings') as any)
       .insert({ title: `${category} ${dateStr}`, meeting_date: dateStr, category, notes: [] })
       .select('id, title, meeting_date').single()
-    if (!data) return
-    const newCol = data as MeetingCol
-    setCols(prev => [...prev, newCol].sort((a, b) => (a.meeting_date ?? '').localeCompare(b.meeting_date ?? '')))
-    setSelectedMeeting(newCol)
+    if (data) {
+      const newCol = data as MeetingCol
+      setCols(prev => [...prev, newCol].sort((a, b) => (a.meeting_date ?? '').localeCompare(b.meeting_date ?? '')))
+      setSelectedMeeting(newCol)
+      return
+    }
+    // insert 실패(중복 등) 시 DB에서 기존 회의 조회
+    if (error) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: found } = await (supabase.from('meetings') as any)
+        .select('id, title, meeting_date').eq('category', category).eq('meeting_date', dateStr).single()
+      if (found) {
+        const col = found as MeetingCol
+        setCols(prev => prev.some(c => c.id === col.id) ? prev : [...prev, col].sort((a, b) => (a.meeting_date ?? '').localeCompare(b.meeting_date ?? '')))
+        setSelectedMeeting(col)
+      }
+    }
   }
 
   // ── 이전 회의 노트 전체 계산 ─────────────────────────────────────
@@ -1072,16 +1086,17 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                     <tr key={`add-i-${group.id}`} style={{ borderBottom: S.bd }}>
                       <td colSpan={dateRange.length + 2} style={{ padding: 0 }}>
                         {addingItem === group.id ? (
-                          <div className="flex items-center gap-2 px-5 py-2.5">
+                          <div className="flex items-center gap-2 px-5 py-2.5" style={{ position: 'sticky', left: 0, width: 'max-content' }}>
                             <input autoFocus value={newITitle} onChange={e => setNewITitle(e.target.value)}
                               onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) addItem(group.id); if (e.key === 'Escape') { setAddingItem(null); setNewITitle('') } }}
                               placeholder="안건명 입력 후 Enter"
-                              className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-gray-400" />
+                              className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-gray-400 w-48" />
                             <button onClick={() => addItem(group.id)} className="text-xs bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] px-3 py-1.5 rounded-lg">추가</button>
                             <button onClick={() => { setAddingItem(null); setNewITitle('') }} className="text-xs text-gray-400 px-2 py-1">취소</button>
                           </div>
                         ) : (
                           <div onClick={() => { setAddingItem(group.id); setNewITitle('') }}
+                            style={{ position: 'sticky', left: 0, width: 'max-content' }}
                             className="flex items-center gap-1 px-5 py-3 text-xs text-gray-400 hover:text-gray-600 hover:bg-gray-50 cursor-pointer transition-colors">
                             ＋ {group.name}에 안건 추가
                           </div>
@@ -1095,7 +1110,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
             <tr>
               <td colSpan={dateRange.length + 2} style={{ background: S.bgRow, padding: 0 }}>
                 {addingGroup ? (
-                  <div className="flex items-center gap-2 px-5 py-3 flex-wrap">
+                  <div className="flex items-center gap-2 px-5 py-3 flex-wrap" style={{ position: 'sticky', left: 0, width: 'max-content' }}>
                     <input autoFocus value={newGName} onChange={e => setNewGName(e.target.value)}
                       onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) addGroup(); if (e.key === 'Escape') { setAddingGroup(false); setNewGName('') } }}
                       placeholder="범주명 입력 후 Enter"
@@ -1108,6 +1123,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                   </div>
                 ) : (
                   <div onClick={openAddGroup}
+                    style={{ position: 'sticky', left: 0, width: 'max-content' }}
                     className="flex items-center gap-1 px-5 py-3 text-xs text-gray-400 hover:text-gray-600 hover:bg-gray-100/60 cursor-pointer transition-colors">
                     ＋ 범주 추가
                   </div>
