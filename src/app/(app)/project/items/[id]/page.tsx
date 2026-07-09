@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import type { AgendaItem, AgendaSubTask } from '@/types'
+import type { AgendaItem, AgendaSubTask, Attachment } from '@/types'
 
 const STATUS_CYCLE = ['active', 'hold', 'done'] as const
 type Status = typeof STATUS_CYCLE[number]
@@ -48,6 +48,10 @@ export default function AgendaItemDetailPage() {
   const [addingSubTask, setAddingSubTask] = useState(false)
   const [newSTTitle,    setNewSTTitle]    = useState('')
   const [deletingST,    setDeletingST]    = useState<string | null>(null)
+
+  // 첨부파일
+  const [attachments, setAttachments] = useState<Attachment[]>([])
+  const [uploadingFor, setUploadingFor] = useState<string | null>(null) // 'item' | stId
 
   // 노트 저장 타이머
   const noteTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
@@ -96,6 +100,18 @@ export default function AgendaItemDetailPage() {
     } else {
       setSubTasks([])
     }
+
+    // 첨부파일 로드 — 업무 전체(task_id=id) + 서브태스크별(sub_task_id in stIds)
+    const stIds = fetchedSTs.map(s => s.id)
+    const attFilter = stIds.length > 0
+      ? `task_id.eq.${id},sub_task_id.in.(${stIds.join(',')})`
+      : `task_id.eq.${id}`
+    const { data: attData } = await supabase
+      .from('attachments')
+      .select('*')
+      .or(attFilter)
+      .order('created_at', { ascending: false })
+    setAttachments((attData ?? []) as Attachment[])
 
     setLoading(false)
   }, [id])
@@ -162,6 +178,45 @@ export default function AgendaItemDetailPage() {
       }
     }, 600)
   }
+
+  // ── 첨부파일 업로드 ─────────────────────────────────────────────
+  // target: 'item' → 업무 전체, stId → 특정 서브태스크
+  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>, target: 'item' | string) {
+    const files = Array.from(e.target.files ?? [])
+    if (!files.length) return
+    setUploadingFor(target)
+    try {
+      for (const file of files) {
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+        const path = target === 'item'
+          ? `agenda-items/${id}/${Date.now()}_${safeName}`
+          : `agenda-items/${id}/subtasks/${target}/${Date.now()}_${safeName}`
+        const { error } = await supabase.storage.from('attachments').upload(path, file)
+        if (error) continue
+        const { data: urlData } = supabase.storage.from('attachments').getPublicUrl(path)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const insertRow: any = target === 'item'
+          ? { task_id: id,   sub_task_id: null,   meeting_id: null, name: file.name, type: '파일', url: urlData.publicUrl }
+          : { task_id: null, sub_task_id: target, meeting_id: null, name: file.name, type: '파일', url: urlData.publicUrl }
+        const { data } = await supabase.from('attachments').insert(insertRow).select().single()
+        if (data) setAttachments(prev => [data as Attachment, ...prev])
+      }
+    } finally {
+      setUploadingFor(null)
+      e.target.value = ''
+    }
+  }
+
+  async function deleteAttachment(att: Attachment) {
+    const path = att.url.split('/object/public/attachments/')[1]
+    if (path) await supabase.storage.from('attachments').remove([path])
+    await supabase.from('attachments').delete().eq('id', att.id)
+    setAttachments(prev => prev.filter(a => a.id !== att.id))
+  }
+
+  // 분류 헬퍼
+  const itemAtts  = attachments.filter(a => a.task_id === id && !a.sub_task_id)
+  const stAtts    = (stId: string) => attachments.filter(a => a.sub_task_id === stId)
 
   // ── 하위태스크 추가 ──────────────────────────────────────────────
   async function addSubTask() {
@@ -256,7 +311,7 @@ export default function AgendaItemDetailPage() {
 
         {/* ── 전반적인 메모 박스 ── */}
         <div className="rounded-2xl border border-gray-200 overflow-hidden bg-white/70">
-          <div className="flex items-center px-5 py-3 border-b border-gray-100">
+          <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">업무 개요 · 메모</span>
           </div>
           <textarea
@@ -266,6 +321,32 @@ export default function AgendaItemDetailPage() {
             className="w-full px-5 py-4 text-sm text-gray-700 bg-transparent focus:outline-none resize-none leading-relaxed"
             style={{ minHeight: 140, fontFamily: 'inherit' }}
           />
+          {/* 업무 첨부파일 */}
+          <div className="border-t border-gray-100 px-5 py-3 bg-gray-50/60">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">업무 첨부파일</span>
+              <label className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md cursor-pointer transition-colors ${uploadingFor === 'item' ? 'bg-gray-100 text-gray-300' : 'bg-white border border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700'}`}>
+                📎 {uploadingFor === 'item' ? '업로드 중…' : '파일 추가'}
+                <input type="file" multiple className="hidden" onChange={e => handleUpload(e, 'item')} disabled={uploadingFor === 'item'} />
+              </label>
+            </div>
+            {itemAtts.length === 0 ? (
+              <p className="text-[10px] text-gray-300">이 업무 전체에 해당하는 파일을 첨부하세요</p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {itemAtts.map(att => (
+                  <div key={att.id} className="flex items-center gap-1 text-[11px] bg-white border border-gray-200 rounded-lg px-2.5 py-1 group/att">
+                    <a href={att.url} target="_blank" rel="noopener noreferrer"
+                      className="text-gray-600 hover:text-gray-900 hover:underline transition-colors truncate max-w-[180px]">
+                      📄 {att.name}
+                    </a>
+                    <button onClick={() => deleteAttachment(att)}
+                      className="text-gray-300 hover:text-red-400 transition-colors opacity-0 group-hover/att:opacity-100 ml-0.5">×</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* ── 하위태스크 아코디언 ── */}
@@ -337,6 +418,36 @@ export default function AgendaItemDetailPage() {
                       style={{ minHeight: 120, fontFamily: 'inherit' }}
                       autoFocus={isFocus && focusSTId === st.id}
                     />
+                    {/* 서브태스크 첨부파일 */}
+                    <div className="border-t border-gray-100/80 px-5 py-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: stColor }}>
+                          📎 {st.title} · 첨부파일
+                        </span>
+                        <label className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md cursor-pointer transition-colors ${uploadingFor === st.id ? 'text-gray-300' : 'bg-white border border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700'}`}>
+                          {uploadingFor === st.id ? '업로드 중…' : '파일 추가'}
+                          <input type="file" multiple className="hidden" onChange={e => handleUpload(e, st.id)} disabled={uploadingFor === st.id} />
+                        </label>
+                      </div>
+                      {stAtts(st.id).length === 0 ? (
+                        <p className="text-[10px] text-gray-300">이 하위 태스크에만 연결된 파일을 첨부하세요</p>
+                      ) : (
+                        <div className="flex flex-wrap gap-1.5">
+                          {stAtts(st.id).map(att => (
+                            <div key={att.id} className="flex items-center gap-1 text-[11px] bg-white border rounded-lg px-2.5 py-1 group/att"
+                              style={{ borderColor: `${stColor}40` }}>
+                              <a href={att.url} target="_blank" rel="noopener noreferrer"
+                                className="hover:underline transition-colors truncate max-w-[180px]"
+                                style={{ color: stColor }}>
+                                📄 {att.name}
+                              </a>
+                              <button onClick={() => deleteAttachment(att)}
+                                className="text-gray-300 hover:text-red-400 transition-colors opacity-0 group-hover/att:opacity-100 ml-0.5">×</button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
