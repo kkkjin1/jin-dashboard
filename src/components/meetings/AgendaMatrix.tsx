@@ -51,6 +51,13 @@ function hexToRgba(hex: string, alpha: number) {
 
 const S = { bd: '1px solid #E5E9F0', bdL: '1px solid #BDD0EA', bg: '#fff', bgRow: '#F7F9FC', t1: '#1A2233', t2: '#4A5A72', t3: '#8FA0B5' }
 
+function stDateLabel(date: string, today: string, tomorrow: string): string {
+  if (date === today) return '오늘'
+  if (date === tomorrow) return '내일'
+  const d = new Date(date + 'T00:00:00')
+  return `${d.getMonth()+1}/${d.getDate()}`
+}
+
 // HTML vs Markdown 둘 다 처리하는 읽기 전용 렌더러
 function renderNote(note: string, style?: React.CSSProperties) {
   const base: React.CSSProperties = { fontSize: 12, color: S.t2, lineHeight: 1.65, ...style }
@@ -399,6 +406,15 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
   const isAll = category === '전체'
 
+  const sched = useMemo(() => {
+    const d = new Date()
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const fmt = (dt: Date) => `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}`
+    const tom = new Date(d); tom.setDate(d.getDate()+1)
+    const fri = new Date(d); fri.setDate(d.getDate() + (5 - d.getDay() + 7) % 7)
+    return { today: fmt(d), tomorrow: fmt(tom), friday: fmt(fri) }
+  }, [])
+
   // ── 달력용 전체 날짜 범위 ────────────────────────────────────────
   const todayStr     = useMemo(() => new Date().toISOString().slice(0, 10), [])
   const containerRef = useRef<HTMLDivElement | null>(null)
@@ -555,6 +571,11 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
     const title = editITitle.trim(); if (!title) { setEditingItemId(null); return }
     await supabase.from('agenda_items').update({ title }).eq('id', itemId)
     setItems(p => p.map(i => i.id === itemId ? { ...i, title } : i)); setEditingItemId(null)
+  }
+  async function updateSubTaskDate(stId: string, date: string | null) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase.from('agenda_sub_tasks') as any).update({ target_date: date }).eq('id', stId)
+    setSubTasks(p => p.map(s => s.id === stId ? { ...s, target_date: date } : s))
   }
   async function updateSubTask(stId: string) {
     const title = editSTTitle.trim(); if (!title) { setEditingSTId(null); return }
@@ -777,19 +798,45 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                             </td>
                             <td style={{ borderLeft: S.bd }} />
                             <td style={{ borderLeft: S.bd }} />
-                            <td style={{ borderLeft: S.bd, padding: '12px', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
-                              <div className="flex items-center gap-1.5 justify-center opacity-0 group-hover/strow:opacity-100 transition-all">
-                                {editingSTId !== st.id && (
-                                  <button onClick={() => { setEditingSTId(st.id); setEditSTTitle(st.title) }} className="text-[10px] text-gray-400 hover:text-gray-700">수정</button>
+                            <td style={{ borderLeft: S.bd, padding: '8px 12px', verticalAlign: 'middle' }} onClick={e => e.stopPropagation()}>
+                              <div className="flex items-center gap-1.5 justify-end">
+                                {/* 날짜 뱃지 (설정된 경우 항상 표시) */}
+                                {st.target_date && (
+                                  <button
+                                    onClick={() => updateSubTaskDate(st.id, null)}
+                                    style={{
+                                      fontSize: 9, padding: '2px 7px', borderRadius: 999, fontWeight: 600, flexShrink: 0, border: 'none', cursor: 'pointer',
+                                      background: st.target_date === sched.today ? '#FEE2E2' : st.target_date === sched.tomorrow ? '#FEF3C7' : '#EFF6FF',
+                                      color: st.target_date === sched.today ? '#DC2626' : st.target_date === sched.tomorrow ? '#92400E' : '#1D4ED8',
+                                    }}>
+                                    {stDateLabel(st.target_date, sched.today, sched.tomorrow)} ×
+                                  </button>
                                 )}
-                                {deletingST === st.id ? (
-                                  <>
-                                    <button onClick={() => deleteSubTask(st.id)} className="text-[10px] text-red-500 font-semibold">삭제</button>
-                                    <button onClick={() => setDeletingST(null)} className="text-[10px] text-gray-400">취소</button>
-                                  </>
-                                ) : (
-                                  <button onClick={() => setDeletingST(st.id)} className="text-[10px] text-gray-300 hover:text-red-400">삭제</button>
+                                {/* 날짜 칩 (미설정일 때 hover 시 표시) */}
+                                {!st.target_date && (
+                                  <div className="opacity-0 group-hover/strow:opacity-100 transition-all flex items-center gap-0.5">
+                                    <button onClick={() => updateSubTaskDate(st.id, sched.today)} className="text-[9px] px-1.5 py-0.5 rounded bg-red-50 text-red-600 hover:bg-red-100 border border-red-100 font-medium">오늘</button>
+                                    <button onClick={() => updateSubTaskDate(st.id, sched.tomorrow)} className="text-[9px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-100 font-medium">내일</button>
+                                    <button onClick={() => updateSubTaskDate(st.id, sched.friday)} className="text-[9px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-100 font-medium">금주</button>
+                                    <label className="cursor-pointer text-gray-400 hover:text-gray-600 text-[10px] px-0.5" title="특정일 선택">
+                                      📅<input type="date" className="sr-only" onChange={e => e.target.value && updateSubTaskDate(st.id, e.target.value)} />
+                                    </label>
+                                  </div>
                                 )}
+                                {/* 수정/삭제 (hover) */}
+                                <div className="opacity-0 group-hover/strow:opacity-100 transition-all flex items-center gap-1.5">
+                                  {editingSTId !== st.id && (
+                                    <button onClick={() => { setEditingSTId(st.id); setEditSTTitle(st.title) }} className="text-[10px] text-gray-400 hover:text-gray-700">수정</button>
+                                  )}
+                                  {deletingST === st.id ? (
+                                    <>
+                                      <button onClick={() => deleteSubTask(st.id)} className="text-[10px] text-red-500 font-semibold">삭제</button>
+                                      <button onClick={() => setDeletingST(null)} className="text-[10px] text-gray-400">취소</button>
+                                    </>
+                                  ) : (
+                                    <button onClick={() => setDeletingST(st.id)} className="text-[10px] text-gray-300 hover:text-red-400">삭제</button>
+                                  )}
+                                </div>
                               </div>
                             </td>
                           </tr>

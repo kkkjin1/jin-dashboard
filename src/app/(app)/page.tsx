@@ -69,6 +69,16 @@ interface TodoColItem {
   itemType?: 'todo' | 'meeting' | 'milestone' | 'oneonone'
   href?: string
   itemBadge?: { label: string; cls: string }
+  isSubTask?: boolean
+}
+
+interface AgendaSTHome {
+  id: string
+  title: string
+  target_date: string
+  status: string
+  agenda_item_id: string
+  agenda_items: { id: string; title: string; agenda_groups: { id: string; name: string } | null } | null
 }
 
 interface CompactColProps {
@@ -80,7 +90,7 @@ interface CompactColProps {
   onDragOver?: (e: React.DragEvent) => void
   onDragLeave?: () => void
   isDragOver?: boolean
-  onComplete?: (todoId: string) => void
+  onComplete?: (todoId: string, isSubTask?: boolean) => void
   completedCount?: number
   colBadge?: { label: string; bg: string; text: string }
 }
@@ -155,7 +165,7 @@ function CompactCol({
                 className={`group relative flex items-start gap-1.5 py-2 px-1 rounded transition-colors ${hoverCls}`}>
                 {onComplete && isTodo && (
                   <button
-                    onClick={e => { e.stopPropagation(); onComplete(item.id) }}
+                    onClick={e => { e.stopPropagation(); onComplete(item.id, item.isSubTask) }}
                     className={`absolute left-0 top-[7px] w-3.5 h-3.5 rounded-full border transition-colors opacity-0 group-hover:opacity-100 flex items-center justify-center z-10 ${completeCls}`}
                     title="완료">
                     <span className={`text-[8px] leading-none ${checkCls}`}>✓</span>
@@ -235,6 +245,7 @@ export default function HomePage() {
   const [dragOverBucket, setDragOverBucket]       = useState<string | null>(null)
   const [meetings, setMeetings]                   = useState<Pick<Meeting, 'id' | 'title' | 'meeting_date'>[]>([])
   const [oneOnOnes, setOneOnOnes]                 = useState<{ id: string; session_date: string }[]>([])
+  const [agendaSubTasks, setAgendaSubTasks]       = useState<AgendaSTHome[]>([])
   const supabase = createClient()
   const [sharedDate, setSharedDate] = useState(todayStr())
 
@@ -278,12 +289,17 @@ export default function HomePage() {
       supabase.from('one_on_ones')
         .select('id, session_date')
         .not('session_date', 'is', null),
-    ]).then(([taskData, { data: meetingData }, { data: todosData }, { data: completedData }, { data: ooData }]) => {
+      supabase.from('agenda_sub_tasks')
+        .select('id, title, target_date, status, agenda_item_id, agenda_items(id, title, agenda_groups(id, name))')
+        .neq('status', 'done')
+        .not('target_date', 'is', null),
+    ]).then(([taskData, { data: meetingData }, { data: todosData }, { data: completedData }, { data: ooData }, { data: stData }]) => {
       setTasks(taskData)
       setMeetings((meetingData ?? []) as Pick<Meeting, 'id' | 'title' | 'meeting_date'>[])
       setTodos((todosData ?? []) as unknown as TaskTodo[])
       setCompletedThisWeek((completedData ?? []) as unknown as TaskTodo[])
       setOneOnOnes((ooData ?? []) as { id: string; session_date: string }[])
+      setAgendaSubTasks((stData ?? []) as unknown as AgendaSTHome[])
       setLoading(false)
     })
   }, [])
@@ -338,6 +354,22 @@ export default function HomePage() {
     })
   }
 
+  function stToColItem(st: AgendaSTHome): TodoColItem {
+    const groupName = st.agenda_items?.agenda_groups?.name
+    const itemTitle = st.agenda_items?.title ?? null
+    return {
+      id: st.id,
+      title: st.title,
+      taskId: st.agenda_item_id,
+      taskTitle: itemTitle ? (groupName ? `${groupName} · ${itemTitle}` : itemTitle) : null,
+      taskShortName: null,
+      itemType: 'todo',
+      href: `/project/items/${st.agenda_item_id}`,
+      itemBadge: { label: '안건', cls: 'bg-blue-50 text-blue-600 border border-blue-100' },
+      isSubTask: true,
+    }
+  }
+
   function getMeetingItems(date: string): TodoColItem[]
   function getMeetingItems(from: string, to: string): TodoColItem[]
   function getMeetingItems(dateOrFrom: string, to?: string): TodoColItem[] {
@@ -384,9 +416,9 @@ export default function HomePage() {
     }))
   }
 
-  const todayItems    = [...toColItems(todos.filter(t => t.target_date === today)), ...getMeetingItems(today), ...getMilestoneItems(today), ...getOneOnOneItems(today)]
-  const tomorrowItems = [...toColItems(todos.filter(t => t.target_date === tomorrow)), ...getMeetingItems(tomorrow), ...getMilestoneItems(tomorrow), ...getOneOnOneItems(tomorrow)]
-  const weekItems     = [...toColItems(todos.filter(t => t.target_date && t.target_date > tomorrow && t.target_date <= thisFriday)), ...getMeetingItems(tomorrow, thisFriday), ...getMilestoneItems(tomorrow, thisFriday), ...getOneOnOneItems(tomorrow, thisFriday)]
+  const todayItems    = [...toColItems(todos.filter(t => t.target_date === today)), ...agendaSubTasks.filter(st => st.target_date === today).map(stToColItem), ...getMeetingItems(today), ...getMilestoneItems(today), ...getOneOnOneItems(today)]
+  const tomorrowItems = [...toColItems(todos.filter(t => t.target_date === tomorrow)), ...agendaSubTasks.filter(st => st.target_date === tomorrow).map(stToColItem), ...getMeetingItems(tomorrow), ...getMilestoneItems(tomorrow), ...getOneOnOneItems(tomorrow)]
+  const weekItems     = [...toColItems(todos.filter(t => t.target_date && t.target_date > tomorrow && t.target_date <= thisFriday)), ...agendaSubTasks.filter(st => st.target_date > tomorrow && st.target_date <= thisFriday).map(stToColItem), ...getMeetingItems(tomorrow, thisFriday), ...getMilestoneItems(tomorrow, thisFriday), ...getOneOnOneItems(tomorrow, thisFriday)]
 
   function handleDragOver(e: React.DragEvent, bucket: string) {
     e.preventDefault(); setDragOverBucket(bucket)
@@ -402,7 +434,12 @@ export default function HomePage() {
     setTodos(prev => prev.map(todo => todo.id === todoId ? { ...todo, target_date: targetDate } : todo))
   }
 
-  async function handleCompleteTodo(todoId: string) {
+  async function handleCompleteTodo(todoId: string, isSubTask?: boolean) {
+    if (isSubTask) {
+      await supabase.from('agenda_sub_tasks').update({ status: 'done' }).eq('id', todoId)
+      setAgendaSubTasks(prev => prev.filter(st => st.id !== todoId))
+      return
+    }
     const doneAt = new Date().toISOString()
     await supabase.from('task_todos').update({ done: true, done_at: doneAt }).eq('id', todoId)
     const completed = todos.find(t => t.id === todoId)

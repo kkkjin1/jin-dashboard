@@ -175,6 +175,7 @@ export interface AgendaSubTask {
   sort_order: number
   assignee_id?: string | null
   due_date?: string | null
+  target_date?: string | null
   created_at: string
 }
 
