@@ -227,8 +227,17 @@
 .tiptap-input h1 { font-size: 1.2rem; font-weight: 700; color: #111827; margin: 0.5rem 0 0.25rem; }
 .tiptap-input h2 { font-size: 1.05rem; font-weight: 600; color: #1f2937; margin: 0.4rem 0 0.2rem; }
 .tiptap-input h3 { font-size: 0.95rem; font-weight: 600; color: #374151; margin: 0.3rem 0 0.1rem; }
-.tiptap-input ul { padding-left: 1.25rem; list-style-type: disc; }
-.tiptap-input ol { padding-left: 1.5rem; list-style-type: decimal; }
+.tiptap-input ul { padding-left: 1.4rem; list-style-type: disc; }
+/* 번호 목록: Tailwind reset 우회 위해 CSS counter 사용. 3단계: 1. → 가. → 1) */
+.tiptap-input ol { list-style: none; counter-reset: tipol; padding-left: 1.8rem; }
+.tiptap-input ol > li { counter-increment: tipol; position: relative; }
+.tiptap-input ol > li::before { content: counter(tipol) "."; position: absolute; left: -1.8rem; width: 1.6rem; text-align: right; }
+.tiptap-input ol ol { list-style: none; counter-reset: tipol2; padding-left: 1.6rem; }
+.tiptap-input ol ol > li { counter-increment: tipol2; }
+.tiptap-input ol ol > li::before { content: counter(tipol2, hangul) "."; width: 1.4rem; left: -1.6rem; }
+.tiptap-input ol ol ol { list-style: none; counter-reset: tipol3; padding-left: 1.6rem; }
+.tiptap-input ol ol ol > li { counter-increment: tipol3; }
+.tiptap-input ol ol ol > li::before { content: counter(tipol3) ")"; width: 1.4rem; left: -1.6rem; }
 .tiptap-input li > p { margin: 0; min-height: auto; }
 .tiptap-input strong { font-weight: 700; }
 .tiptap-input u { text-decoration: underline; }
@@ -241,8 +250,16 @@
 .note-html h1 { font-size: 1.2rem; font-weight: 700; color: #111827; margin: 0.5rem 0 0.25rem; }
 .note-html h2 { font-size: 1.05rem; font-weight: 600; color: #1f2937; margin: 0.4rem 0 0.2rem; }
 .note-html h3 { font-size: 0.95rem; font-weight: 600; color: #374151; margin: 0.3rem 0 0.1rem; }
-.note-html ul { padding-left: 1.25rem; list-style-type: disc; }
-.note-html ol { padding-left: 1.5rem; list-style-type: decimal; }
+.note-html ul { padding-left: 1.4rem; list-style-type: disc; }
+.note-html ol { list-style: none; counter-reset: noteol; padding-left: 1.8rem; }
+.note-html ol > li { counter-increment: noteol; position: relative; }
+.note-html ol > li::before { content: counter(noteol) "."; position: absolute; left: -1.8rem; width: 1.6rem; text-align: right; }
+.note-html ol ol { list-style: none; counter-reset: noteol2; padding-left: 1.6rem; }
+.note-html ol ol > li { counter-increment: noteol2; }
+.note-html ol ol > li::before { content: counter(noteol2, hangul) "."; width: 1.4rem; left: -1.6rem; }
+.note-html ol ol ol { list-style: none; counter-reset: noteol3; padding-left: 1.6rem; }
+.note-html ol ol ol > li { counter-increment: noteol3; }
+.note-html ol ol ol > li::before { content: counter(noteol3) ")"; width: 1.4rem; left: -1.6rem; }
 .note-html li > p { margin: 0; }
 .note-html strong { font-weight: 700; }
 .note-html u { text-decoration: underline; }
