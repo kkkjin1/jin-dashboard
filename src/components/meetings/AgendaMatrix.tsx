@@ -838,16 +838,23 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
               const isOpen     = openGroups.has(group.id)
               return (
                 <Fragment key={group.id}>
-                  {/* 범주 헤더 — sticky 셀 + 나머지 colSpan 셀 분리 (colSpan+sticky 동시 사용 금지) */}
-                  <tr style={{ borderTop: '3px solid #fff', borderBottom: S.bd }}>
-                    {/* 왼쪽: sticky 고정 셀 (범주명 표시) */}
-                    <td style={{ position: 'sticky', left: 0, zIndex: 2, background: hexToRgba(group.color, 0.08), borderLeft: `3px solid ${group.color}`, borderBottom: S.bd, padding: 0, cursor: 'pointer', width: W_LEFT, minWidth: W_LEFT }}
+                  {/* 범주 헤더
+                      border-collapse:collapse 환경에서 sticky <td> 는 내용이 clipping됨
+                      → 전체 행을 하나의 colSpan <td> 로 만들고, 내부 <div> 에 sticky 적용 */}
+                  <tr>
+                    <td colSpan={dateRange.length + 2}
+                      style={{ background: hexToRgba(group.color, 0.08), borderTop: '3px solid #fff', borderBottom: S.bd, padding: 0, cursor: 'pointer' }}
                       onClick={() => toggleGroup(group.id)}>
-                      <div className="flex items-center gap-2" style={{ padding: '20px 16px' }}>
-                        <span style={{ width: 3, height: 12, borderRadius: 2, background: group.color, flexShrink: 0 }} />
+                      <div style={{
+                        position: 'sticky', left: 0,
+                        width: W_LEFT, boxSizing: 'border-box',
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        padding: '16px 16px',
+                        borderLeft: `3px solid ${group.color}`,
+                        background: hexToRgba(group.color, 0.08),
+                      }}>
                         <span style={{ fontSize: 9, color: S.t3, display: 'inline-block', transition: 'transform .15s', transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)', flexShrink: 0 }}>▼</span>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: S.t1 }}>{group.name}</span>
-                        {/* 범주 배지 */}
+                        <span style={{ fontSize: 13, fontWeight: 700, color: S.t1, flexShrink: 0 }}>{group.name}</span>
                         {group.category && CAT_BORDER[group.category] && (
                           <span style={{ fontSize: 10, fontWeight: 600, color: CAT_BORDER[group.category], background: CAT_BG[group.category], border: `1px solid ${CAT_BORDER[group.category]}30`, padding: '1px 7px', borderRadius: 99, flexShrink: 0 }}>
                             {group.category}
@@ -856,10 +863,6 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                         <span style={{ fontSize: 10, color: S.t3, background: '#E5E9F0', padding: '1px 6px', borderRadius: 99, flexShrink: 0 }}>{groupItems.length}</span>
                       </div>
                     </td>
-                    {/* 오른쪽: 나머지 날짜 열 채우기 (non-sticky colSpan) */}
-                    <td colSpan={dateRange.length + 1}
-                      style={{ background: hexToRgba(group.color, 0.08), borderBottom: S.bd, cursor: 'pointer' }}
-                      onClick={() => toggleGroup(group.id)} />
                   </tr>
 
                   {/* 안건 행들 */}
