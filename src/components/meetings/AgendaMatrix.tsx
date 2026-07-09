@@ -57,6 +57,7 @@ interface MeetingPopupProps {
   allMeetings: MeetingCol[]
   items: AgendaItem[]
   groups: AgendaGroup[]
+  subTasks: AgendaSubTask[]
   notes: Record<string, string>
   allPrevNotes: Record<string, PrevRecord[]>
   onNote: (itemId: string, meetingId: string, value: string) => void
@@ -66,7 +67,7 @@ interface MeetingPopupProps {
   category: string
 }
 
-function MeetingPopup({ meeting, allMeetings, items, groups, notes, allPrevNotes, onNote, onClose, onSelectMeeting, catColor, category }: MeetingPopupProps) {
+function MeetingPopup({ meeting, allMeetings, items, groups, subTasks, notes, allPrevNotes, onNote, onClose, onSelectMeeting, catColor, category }: MeetingPopupProps) {
   const supabase = createClient()
   const [openPrev,     setOpenPrev]     = useState<Set<string>>(new Set())
   const [attachments,  setAttachments]  = useState<Attachment[]>([])
@@ -239,14 +240,32 @@ function MeetingPopup({ meeting, allMeetings, items, groups, notes, allPrevNotes
                       {gItems.map(item => {
                         const prevRecords  = allPrevNotes[item.id] ?? []
                         const currentNote  = notes[nk(item.id, meeting.id)] ?? ''
+                        const itemSubTasks = subTasks.filter(st => st.agenda_item_id === item.id)
                         return (
                           <tr key={item.id} style={{ borderBottom: S.bd, verticalAlign: 'top' }}>
                             <td style={{ padding: '14px 20px', verticalAlign: 'top' }}>
                               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
                                 <span style={{ width: 8, height: 8, borderRadius: '50%', background: STATUS_COLOR[item.status], flexShrink: 0, marginTop: 4 }} />
-                                <span style={{ fontSize: 13, fontWeight: 500, color: item.status === 'done' ? S.t3 : S.t1, lineHeight: 1.4, textDecoration: item.status === 'done' ? 'line-through' : 'none' }}>
-                                  {item.title}
-                                </span>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <span style={{ fontSize: 13, fontWeight: 500, color: item.status === 'done' ? S.t3 : S.t1, lineHeight: 1.4, textDecoration: item.status === 'done' ? 'line-through' : 'none', display: 'block' }}>
+                                    {item.title}
+                                  </span>
+                                  {itemSubTasks.length > 0 && (
+                                    <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                                      {itemSubTasks.map(st => (
+                                        <div key={st.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                          <span style={{ width: 5, height: 5, borderRadius: '50%', flexShrink: 0, background: STATUS_COLOR[st.status] }} />
+                                          <span style={{ fontSize: 11, color: st.status === 'done' ? S.t3 : S.t2, textDecoration: st.status === 'done' ? 'line-through' : 'none', lineHeight: 1.4 }}>
+                                            {st.title}
+                                          </span>
+                                          <span style={{ fontSize: 9, color: S.t3, background: '#E5E9F0', padding: '1px 5px', borderRadius: 99, flexShrink: 0 }}>
+                                            {STATUS_LABEL[st.status]}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                               {prevRecords.length > 0 && (
                                 <div style={{ marginTop: 4, marginLeft: 16, fontSize: 10, color: S.t3 }}>이전 기록 {prevRecords.length}건</div>
@@ -1049,6 +1068,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
           allMeetings={cols}
           items={items}
           groups={groups}
+          subTasks={subTasks}
           notes={notes}
           allPrevNotes={allPrevNotesForPopup}
           onNote={handleNote}
