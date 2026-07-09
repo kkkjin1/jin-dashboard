@@ -546,41 +546,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
     return map
   }, [selectedMeeting, cols, items, notes])
 
-  // ── 범주 추가 폼 ─────────────────────────────────────────────────
-  function AddGroupForm({ colSpan }: { colSpan: number }) {
-    return (
-      <tr>
-        <td colSpan={colSpan} style={{ background: S.bgRow, padding: 0 }}>
-          {addingGroup ? (
-            <div className="flex items-center gap-2 px-5 py-3 flex-wrap">
-              <input autoFocus value={newGName} onChange={e => setNewGName(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) addGroup(); if (e.key === 'Escape') { setAddingGroup(false); setNewGName('') } }}
-                placeholder="범주명 입력 후 Enter"
-                className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-gray-400 w-40" />
-              {isAll && (
-                <div className="flex gap-1">
-                  {MATRIX_CATS.map(c => (
-                    <button key={c} type="button" onClick={() => setNewGCat(c)}
-                      className={`text-xs px-2.5 py-1 rounded-full border font-semibold transition-all ${newGCat === c ? CAT_CLS[c] : 'bg-white text-gray-400 border-gray-200 hover:border-gray-300'}`}>{c}</button>
-                  ))}
-                </div>
-              )}
-              <div className="flex gap-1.5">
-                {GROUP_COLORS.map(c => <div key={c} onClick={() => setNewGColor(c)} style={{ width: 14, height: 14, borderRadius: '50%', background: c, cursor: 'pointer', border: newGColor === c ? '2px solid #1A2233' : '2px solid transparent', flexShrink: 0 }} />)}
-              </div>
-              <button onClick={addGroup} className="text-xs bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] px-3 py-1.5 rounded-lg">추가</button>
-              <button onClick={() => { setAddingGroup(false); setNewGName('') }} className="text-xs text-gray-400 px-2 py-1">취소</button>
-            </div>
-          ) : (
-            <div onClick={openAddGroup}
-              className="flex items-center gap-1 px-5 py-3 text-xs text-gray-400 hover:text-gray-600 hover:bg-gray-100/60 cursor-pointer transition-colors">
-              ＋ 범주 추가
-            </div>
-          )}
-        </td>
-      </tr>
-    )
-  }
+
 
   if (loading) return <div className="flex items-center justify-center h-32 text-sm text-gray-400 animate-pulse">불러오는 중…</div>
 
@@ -800,7 +766,36 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                 </Fragment>
               )
             })}
-            <AddGroupForm colSpan={4} />
+            <tr>
+              <td colSpan={4} style={{ background: S.bgRow, padding: 0 }}>
+                {addingGroup ? (
+                  <div className="flex items-center gap-2 px-5 py-3 flex-wrap">
+                    <input autoFocus value={newGName} onChange={e => setNewGName(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) addGroup(); if (e.key === 'Escape') { setAddingGroup(false); setNewGName('') } }}
+                      placeholder="범주명 입력 후 Enter"
+                      className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-gray-400 w-40" />
+                    {isAll && (
+                      <div className="flex gap-1">
+                        {MATRIX_CATS.map(c => (
+                          <button key={c} type="button" onClick={() => setNewGCat(c)}
+                            className={`text-xs px-2.5 py-1 rounded-full border font-semibold transition-all ${newGCat === c ? CAT_CLS[c] : 'bg-white text-gray-400 border-gray-200 hover:border-gray-300'}`}>{c}</button>
+                        ))}
+                      </div>
+                    )}
+                    <div className="flex gap-1.5">
+                      {GROUP_COLORS.map(c => <div key={c} onClick={() => setNewGColor(c)} style={{ width: 14, height: 14, borderRadius: '50%', background: c, cursor: 'pointer', border: newGColor === c ? '2px solid #1A2233' : '2px solid transparent', flexShrink: 0 }} />)}
+                    </div>
+                    <button onClick={addGroup} className="text-xs bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] px-3 py-1.5 rounded-lg">추가</button>
+                    <button onClick={() => { setAddingGroup(false); setNewGName('') }} className="text-xs text-gray-400 px-2 py-1">취소</button>
+                  </div>
+                ) : (
+                  <div onClick={openAddGroup}
+                    className="flex items-center gap-1 px-5 py-3 text-xs text-gray-400 hover:text-gray-600 hover:bg-gray-100/60 cursor-pointer transition-colors">
+                    ＋ 범주 추가
+                  </div>
+                )}
+              </td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -1006,7 +1001,28 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                 </Fragment>
               )
             })}
-            <AddGroupForm colSpan={dateRange.length + 2} />
+            <tr>
+              <td colSpan={dateRange.length + 2} style={{ background: S.bgRow, padding: 0 }}>
+                {addingGroup ? (
+                  <div className="flex items-center gap-2 px-5 py-3 flex-wrap">
+                    <input autoFocus value={newGName} onChange={e => setNewGName(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) addGroup(); if (e.key === 'Escape') { setAddingGroup(false); setNewGName('') } }}
+                      placeholder="범주명 입력 후 Enter"
+                      className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-gray-400 w-40" />
+                    <div className="flex gap-1.5">
+                      {GROUP_COLORS.map(c => <div key={c} onClick={() => setNewGColor(c)} style={{ width: 14, height: 14, borderRadius: '50%', background: c, cursor: 'pointer', border: newGColor === c ? '2px solid #1A2233' : '2px solid transparent', flexShrink: 0 }} />)}
+                    </div>
+                    <button onClick={addGroup} className="text-xs bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] px-3 py-1.5 rounded-lg">추가</button>
+                    <button onClick={() => { setAddingGroup(false); setNewGName('') }} className="text-xs text-gray-400 px-2 py-1">취소</button>
+                  </div>
+                ) : (
+                  <div onClick={openAddGroup}
+                    className="flex items-center gap-1 px-5 py-3 text-xs text-gray-400 hover:text-gray-600 hover:bg-gray-100/60 cursor-pointer transition-colors">
+                    ＋ 범주 추가
+                  </div>
+                )}
+              </td>
+            </tr>
           </tbody>
         </table>
 
