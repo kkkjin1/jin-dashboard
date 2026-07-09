@@ -382,9 +382,9 @@ export default function HomePage() {
     }))
   }
 
-  const todayItems       = [...agendaSubTasks.filter(st => st.target_date === today).map(stToColItem), ...getMeetingItems(today), ...getMilestoneItems(today), ...getOneOnOneItems(today)]
-  const tomorrowItems    = [...agendaSubTasks.filter(st => st.target_date === tomorrow).map(stToColItem), ...getMeetingItems(tomorrow), ...getMilestoneItems(tomorrow), ...getOneOnOneItems(tomorrow)]
-  const weekItems        = [...agendaSubTasks.filter(st => st.target_date && st.target_date > tomorrow && st.target_date <= thisFriday).map(stToColItem), ...getMeetingItems(tomorrow, thisFriday), ...getMilestoneItems(tomorrow, thisFriday), ...getOneOnOneItems(tomorrow, thisFriday)]
+  const todayItems       = [...agendaSubTasks.filter(st => st.target_date === today).map(stToColItem), ...getMeetingItems(today), ...getOneOnOneItems(today)]
+  const tomorrowItems    = [...agendaSubTasks.filter(st => st.target_date === tomorrow).map(stToColItem), ...getMeetingItems(tomorrow), ...getOneOnOneItems(tomorrow)]
+  const weekItems        = [...agendaSubTasks.filter(st => st.target_date && st.target_date > tomorrow && st.target_date <= thisFriday).map(stToColItem), ...getMeetingItems(tomorrow, thisFriday), ...getOneOnOneItems(tomorrow, thisFriday)]
   const unscheduledItems = agendaSubTasks.filter(st => !st.target_date).map(stToColItem)
 
   function handleDragOver(e: React.DragEvent, bucket: string) {
