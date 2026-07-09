@@ -398,6 +398,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
   const [addingSubTask, setAddingSubTask] = useState<string | null>(null)
   const [newSTTitle,    setNewSTTitle]    = useState('')
   const [deletingST,    setDeletingST]    = useState<string | null>(null)
+  const [meetingErr,    setMeetingErr]    = useState<string>('')
 
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
   const isAll = category === '전체'
@@ -584,11 +585,12 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
 
   // ── 날짜 클릭 — 기존 회의면 열고, 없으면 생성 후 열기 ──────────
   async function openOrCreateMeeting(dateStr: string) {
+    setMeetingErr('')
     const existing = meetingByDate[dateStr]
     if (existing) { setSelectedMeeting(existing); return }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error } = await (supabase.from('meetings') as any)
-      .insert({ title: `${category} ${dateStr}`, meeting_date: dateStr, category, notes: [] })
+      .insert({ title: `${category} ${dateStr}`, meeting_date: dateStr, category })
       .select('id, title, meeting_date').single()
     if (data) {
       const newCol = data as MeetingCol
@@ -597,16 +599,16 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
       return
     }
     // insert 실패(중복 등) 시 DB에서 기존 회의 조회
-    if (error) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: found } = await (supabase.from('meetings') as any)
-        .select('id, title, meeting_date').eq('category', category).eq('meeting_date', dateStr).single()
-      if (found) {
-        const col = found as MeetingCol
-        setCols(prev => prev.some(c => c.id === col.id) ? prev : [...prev, col].sort((a, b) => (a.meeting_date ?? '').localeCompare(b.meeting_date ?? '')))
-        setSelectedMeeting(col)
-      }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: found } = await (supabase.from('meetings') as any)
+      .select('id, title, meeting_date').eq('category', category).eq('meeting_date', dateStr).single()
+    if (found) {
+      const col = found as MeetingCol
+      setCols(prev => prev.some(c => c.id === col.id) ? prev : [...prev, col].sort((a, b) => (a.meeting_date ?? '').localeCompare(b.meeting_date ?? '')))
+      setSelectedMeeting(col)
+      return
     }
+    setMeetingErr(`회의 생성 실패: ${error?.message ?? '알 수 없는 오류'} (category=${category}, date=${dateStr})`)
   }
 
   // ── 이전 회의 노트 전체 계산 ─────────────────────────────────────
@@ -987,19 +989,19 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                     return (
                       <Fragment key={item.id}>
                         <tr style={{ borderBottom: S.bd }} className="hover:bg-gray-50/30 group/irow">
-                          <td style={{ position: 'sticky', left: 0, zIndex: 2, background: S.bg, borderRight: S.bdL, width: W_LEFT, minWidth: W_LEFT, verticalAlign: 'middle' }}>
-                            <div style={{ padding: '18px 16px', display: 'flex', alignItems: 'center', gap: 7 }}>
-                              {/* 서브태스크 토글 버튼 */}
-                              {itemSubTasks.length > 0 && (
-                                <button onClick={() => toggleExpandedCalItem(item.id)}
-                                  style={{ fontSize: 8, color: S.t3, background: 'none', border: 'none', cursor: 'pointer', padding: 0, lineHeight: 1, transition: 'transform .15s', transform: isCalExpanded ? 'rotate(90deg)' : 'rotate(0deg)', flexShrink: 0, width: 10 }}>▶</button>
-                              )}
-                              {itemSubTasks.length === 0 && <span style={{ width: 10, flexShrink: 0 }} />}
-                              <button onClick={() => router.push(`/project/items/${item.id}`)} title="업무 상세 보기"
-                                style={{ width: 10, height: 10, borderRadius: '50%', flexShrink: 0, background: item.status === 'active' ? catDot : STATUS_COLOR[item.status], border: 'none', cursor: 'pointer', padding: 0 }} />
+                          {/* 왼쪽 흰박스: 전체 영역 클릭 → 서브태스크 토글, 제목 클릭 → 상세 이동 */}
+                          <td
+                            onClick={() => itemSubTasks.length > 0 && toggleExpandedCalItem(item.id)}
+                            style={{ position: 'sticky', left: 0, zIndex: 2, background: S.bg, borderRight: S.bdL, width: W_LEFT, minWidth: W_LEFT, verticalAlign: 'middle', cursor: itemSubTasks.length > 0 ? 'pointer' : 'default' }}>
+                            <div style={{ padding: '16px 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                              {/* 토글 화살표 — 시각 지시자만, 버튼 아님 */}
+                              <span style={{ fontSize: 9, color: S.t3, lineHeight: 1, transition: 'transform .15s', transform: isCalExpanded ? 'rotate(90deg)' : 'rotate(0deg)', flexShrink: 0, width: 10, display: 'inline-block', opacity: itemSubTasks.length > 0 ? 1 : 0 }}>▶</span>
+                              {/* 상태 점 — 시각 지시자만 */}
+                              <span style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: item.status === 'active' ? catDot : STATUS_COLOR[item.status], display: 'inline-block' }} />
+                              {/* 제목 클릭 → 업무 상세 이동 (td 토글과 독립) */}
                               <span
-                                style={{ fontSize: 13, fontWeight: 500, color: item.status === 'done' ? S.t3 : S.t1, lineHeight: 1.35, flex: 1, minWidth: 0, textDecoration: item.status === 'done' ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer' }}
-                                onClick={() => router.push(`/project/items/${item.id}`)}>
+                                onClick={e => { e.stopPropagation(); router.push(`/project/items/${item.id}`) }}
+                                style={{ fontSize: 13, fontWeight: 500, color: item.status === 'done' ? S.t3 : '#1B3A6B', lineHeight: 1.35, flex: 1, minWidth: 0, textDecoration: item.status === 'done' ? 'line-through' : 'underline', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer', textUnderlineOffset: 3 }}>
                                 {item.title}
                               </span>
                               {itemSubTasks.length > 0 && (
@@ -1152,6 +1154,14 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
           </div>
         )}
       </div>
+
+      {/* 회의 생성 에러 토스트 */}
+      {meetingErr && (
+        <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', background: '#1A2233', color: '#fff', padding: '10px 20px', borderRadius: 8, fontSize: 12, zIndex: 9999, maxWidth: '90vw', wordBreak: 'break-all' }}
+          onClick={() => setMeetingErr('')}>
+          ⚠ {meetingErr}
+        </div>
+      )}
 
       {/* 회의 팝업 */}
       {selectedMeeting && (
