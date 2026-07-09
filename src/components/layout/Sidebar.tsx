@@ -49,7 +49,7 @@ function loadConfig(): NavConfig {
       return { order: [...parsed.order, ...extra], hidden: parsed.hidden ?? [] }
     }
   } catch {}
-  return { order: ALL_NAV_ITEMS.map(i => i.href), hidden: [] }
+  return { order: ALL_NAV_ITEMS.map(i => i.href), hidden: ['/tasks'] }
 }
 
 interface SidebarProps {

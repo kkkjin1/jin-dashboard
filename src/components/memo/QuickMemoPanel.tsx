@@ -244,12 +244,7 @@ export default function QuickMemoPanel() {
       }
       if ((e.ctrlKey || e.metaKey) && e.key === '1') {
         e.preventDefault()
-        const supabaseClient = createClient()
-        const { data } = await supabaseClient
-          .from('tasks')
-          .insert({ title: '', part: '코어', type: '기획', status: '진행필요' })
-          .select('id').single()
-        if (data) router.push(`/tasks/${(data as { id: string }).id}`)
+        router.push('/project')
       }
     }
     window.addEventListener('keydown', onKey)
