@@ -59,15 +59,17 @@ interface MeetingPopupProps {
   groups: AgendaGroup[]
   subTasks: AgendaSubTask[]
   notes: Record<string, string>
+  stNotes: Record<string, string>
   allPrevNotes: Record<string, PrevRecord[]>
   onNote: (itemId: string, meetingId: string, value: string) => void
+  onSTNote: (stId: string, meetingId: string, value: string) => void
   onClose: () => void
   onSelectMeeting: (m: MeetingCol) => void
   catColor: string
   category: string
 }
 
-function MeetingPopup({ meeting, allMeetings, items, groups, subTasks, notes, allPrevNotes, onNote, onClose, onSelectMeeting, catColor, category }: MeetingPopupProps) {
+function MeetingPopup({ meeting, allMeetings, items, groups, subTasks, notes, stNotes, allPrevNotes, onNote, onSTNote, onClose, onSelectMeeting, catColor, category }: MeetingPopupProps) {
   const supabase = createClient()
   const [openPrev,     setOpenPrev]     = useState<Set<string>>(new Set())
   const [attachments,  setAttachments]  = useState<Attachment[]>([])
@@ -242,30 +244,14 @@ function MeetingPopup({ meeting, allMeetings, items, groups, subTasks, notes, al
                         const currentNote  = notes[nk(item.id, meeting.id)] ?? ''
                         const itemSubTasks = subTasks.filter(st => st.agenda_item_id === item.id)
                         return (
-                          <tr key={item.id} style={{ borderBottom: S.bd, verticalAlign: 'top' }}>
+                          <Fragment key={item.id}>
+                          <tr style={{ borderBottom: itemSubTasks.length > 0 ? 'none' : S.bd, verticalAlign: 'top' }}>
                             <td style={{ padding: '14px 20px', verticalAlign: 'top' }}>
                               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
                                 <span style={{ width: 8, height: 8, borderRadius: '50%', background: STATUS_COLOR[item.status], flexShrink: 0, marginTop: 4 }} />
-                                <div style={{ flex: 1, minWidth: 0 }}>
-                                  <span style={{ fontSize: 13, fontWeight: 500, color: item.status === 'done' ? S.t3 : S.t1, lineHeight: 1.4, textDecoration: item.status === 'done' ? 'line-through' : 'none', display: 'block' }}>
-                                    {item.title}
-                                  </span>
-                                  {itemSubTasks.length > 0 && (
-                                    <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 3 }}>
-                                      {itemSubTasks.map(st => (
-                                        <div key={st.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                          <span style={{ width: 5, height: 5, borderRadius: '50%', flexShrink: 0, background: STATUS_COLOR[st.status] }} />
-                                          <span style={{ fontSize: 11, color: st.status === 'done' ? S.t3 : S.t2, textDecoration: st.status === 'done' ? 'line-through' : 'none', lineHeight: 1.4 }}>
-                                            {st.title}
-                                          </span>
-                                          <span style={{ fontSize: 9, color: S.t3, background: '#E5E9F0', padding: '1px 5px', borderRadius: 99, flexShrink: 0 }}>
-                                            {STATUS_LABEL[st.status]}
-                                          </span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
+                                <span style={{ fontSize: 13, fontWeight: 600, color: item.status === 'done' ? S.t3 : S.t1, lineHeight: 1.4, textDecoration: item.status === 'done' ? 'line-through' : 'none' }}>
+                                  {item.title}
+                                </span>
                               </div>
                               {prevRecords.length > 0 && (
                                 <div style={{ marginTop: 4, marginLeft: 16, fontSize: 10, color: S.t3 }}>이전 기록 {prevRecords.length}건</div>
@@ -325,6 +311,39 @@ function MeetingPopup({ meeting, allMeetings, items, groups, subTasks, notes, al
                               </div>
                             </td>
                           </tr>
+                          {itemSubTasks.map((st, idx) => {
+                            const stNote = stNotes[nk(st.id, meeting.id)] ?? ''
+                            return (
+                              <tr key={st.id} style={{ borderBottom: idx === itemSubTasks.length - 1 ? S.bd : 'none', background: '#FAFBFD', verticalAlign: 'top' }}>
+                                <td style={{ padding: '10px 20px 10px 44px', verticalAlign: 'top' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <span style={{ width: 5, height: 5, borderRadius: '50%', flexShrink: 0, background: STATUS_COLOR[st.status] }} />
+                                    <span style={{ fontSize: 12, color: st.status === 'done' ? S.t3 : S.t2, textDecoration: st.status === 'done' ? 'line-through' : 'none', lineHeight: 1.4 }}>
+                                      {st.title}
+                                    </span>
+                                    <span style={{ fontSize: 9, color: S.t3, background: '#E5E9F0', padding: '1px 5px', borderRadius: 99, flexShrink: 0 }}>
+                                      {STATUS_LABEL[st.status]}
+                                    </span>
+                                  </div>
+                                </td>
+                                <td style={{ borderLeft: S.bd, verticalAlign: 'top' }}>
+                                  <textarea
+                                    value={stNote}
+                                    onChange={e => onSTNote(st.id, meeting.id, e.target.value)}
+                                    placeholder="task 진척 및 논의 내용…"
+                                    className="w-full bg-transparent focus:outline-none resize-none"
+                                    style={{ minHeight: 52, fontFamily: 'inherit', fontSize: 12, padding: '10px 16px', lineHeight: 1.65, color: S.t2, display: 'block', border: 'none', outline: 'none' }}
+                                  />
+                                  {stNote.trim() && (
+                                    <div className="md-preview" style={{ borderTop: `1px dashed ${catColor}20`, padding: '6px 16px 8px', fontSize: 12, color: S.t2, lineHeight: 1.65, fontFamily: 'inherit' }}>
+                                      <ReactMarkdown>{stNote}</ReactMarkdown>
+                                    </div>
+                                  )}
+                                </td>
+                              </tr>
+                            )
+                          })}
+                          </Fragment>
                         )
                       })}
                     </Fragment>
@@ -348,6 +367,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
   const [items,   setItems]   = useState<AgendaItem[]>([])
   const [cols,    setCols]    = useState<MeetingCol[]>([])
   const [notes,   setNotes]   = useState<Record<string, string>>({})
+  const [stNotes, setSTNotes] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
 
   const [openGroups,       setOpenGroups]       = useState<Set<string>>(new Set())
@@ -443,8 +463,13 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
         const map: Record<string, string> = {}
         ;(uData ?? []).forEach((u: AgendaUpdate) => { map[nk(u.agenda_item_id, u.meeting_id)] = u.note })
         setNotes(map)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: stUData } = await supabase.from('sub_task_updates').select('*').in('meeting_id', fetchedCols.map(m => m.id))
+        const stMap: Record<string, string> = {}
+        ;(stUData ?? []).forEach((u: any) => { stMap[nk(u.sub_task_id, u.meeting_id)] = u.note })
+        setSTNotes(stMap)
       }
-    } else { setCols([]); setNotes({}) }
+    } else { setCols([]); setNotes({}); setSTNotes({}) }
 
     const { data: memberListData } = await supabase.from('members').select('id, name').is('archived_at', null).order('name')
     setMembers((memberListData ?? []) as Member[])
@@ -461,6 +486,19 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
       await supabase.from('agenda_updates').upsert(
         { agenda_item_id: itemId, meeting_id: meetingId, note: value },
         { onConflict: 'agenda_item_id,meeting_id' }
+      )
+    }, 600)
+  }
+
+  function handleSTNote(stId: string, meetingId: string, value: string) {
+    const key = nk(stId, meetingId)
+    setSTNotes(prev => ({ ...prev, [key]: value }))
+    clearTimeout(saveTimers.current[`st_${key}`])
+    saveTimers.current[`st_${key}`] = setTimeout(async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from('sub_task_updates') as any).upsert(
+        { sub_task_id: stId, meeting_id: meetingId, note: value },
+        { onConflict: 'sub_task_id,meeting_id' }
       )
     }, 600)
   }
@@ -1070,8 +1108,10 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
           groups={groups}
           subTasks={subTasks}
           notes={notes}
+          stNotes={stNotes}
           allPrevNotes={allPrevNotesForPopup}
           onNote={handleNote}
+          onSTNote={handleSTNote}
           onClose={() => setSelectedMeeting(null)}
           onSelectMeeting={m => setSelectedMeeting(m)}
           catColor={catColor}
