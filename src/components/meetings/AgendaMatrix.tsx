@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, useMemo, Fragment } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import type { AgendaGroup, AgendaItem, AgendaUpdate, AgendaSubTask } from '@/types'
+import type { AgendaGroup, AgendaItem, AgendaUpdate, AgendaSubTask, Attachment } from '@/types'
 
 // ── 상수 ────────────────────────────────────────────────────────────
 const STATUS_COLOR: Record<string, string> = { active: '#3B82F6', hold: '#9CA3AF', done: '#10B981' }
@@ -23,6 +23,7 @@ const W_LEFT = 240
 const W_CAL  = 52
 
 interface MeetingCol { id: string; title: string; meeting_date: string | null }
+interface PrevRecord { date: string; note: string; meetingId: string }
 
 function formatDate(d: string | null) {
   if (!d) return '날짜 미지정'
@@ -49,23 +50,26 @@ function hexToRgba(hex: string, alpha: number) {
 const S = { bd: '1px solid #E5E9F0', bdL: '1px solid #BDD0EA', bg: '#fff', bgRow: '#F7F9FC', t1: '#1A2233', t2: '#4A5A72', t3: '#8FA0B5' }
 
 // ── 회의 팝업 ────────────────────────────────────────────────────────
-interface PrevRecord { date: string; note: string; meetingId: string }
-
 interface MeetingPopupProps {
   meeting: MeetingCol
+  allMeetings: MeetingCol[]
   items: AgendaItem[]
   groups: AgendaGroup[]
   notes: Record<string, string>
-  allPrevNotes: Record<string, PrevRecord[]>   // item.id → 이전 회의 기록 배열 (최신순)
+  allPrevNotes: Record<string, PrevRecord[]>
   onNote: (itemId: string, meetingId: string, value: string) => void
   onClose: () => void
-  onOpenMeeting: (meetingId: string) => void
+  onSelectMeeting: (m: MeetingCol) => void
   catColor: string
   category: string
 }
 
-function MeetingPopup({ meeting, items, groups, notes, allPrevNotes, onNote, onClose, onOpenMeeting, catColor, category }: MeetingPopupProps) {
-  const [openPrev, setOpenPrev] = useState<Set<string>>(new Set())   // "itemId_meetingId"
+function MeetingPopup({ meeting, allMeetings, items, groups, notes, allPrevNotes, onNote, onClose, onSelectMeeting, catColor, category }: MeetingPopupProps) {
+  const supabase = createClient()
+  const [openPrev,     setOpenPrev]     = useState<Set<string>>(new Set())
+  const [attachments,  setAttachments]  = useState<Attachment[]>([])
+  const [uploading,    setUploading]    = useState(false)
+  const [uploadError,  setUploadError]  = useState('')
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
@@ -73,9 +77,47 @@ function MeetingPopup({ meeting, items, groups, notes, allPrevNotes, onNote, onC
     return () => document.removeEventListener('keydown', onKey)
   }, [onClose])
 
+  useEffect(() => {
+    supabase.from('attachments').select('*').eq('meeting_id', meeting.id)
+      .order('created_at', { ascending: false })
+      .then(({ data }) => setAttachments((data ?? []) as Attachment[]))
+  }, [meeting.id])
+
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? [])
+    if (!files.length) return
+    setUploading(true); setUploadError('')
+    try {
+      for (const file of files) {
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+        const path = `meetings/${meeting.id}/${Date.now()}_${safeName}`
+        const { error } = await supabase.storage.from('attachments').upload(path, file)
+        if (error) { setUploadError(`업로드 실패: ${error.message}`); continue }
+        const { data: urlData } = supabase.storage.from('attachments').getPublicUrl(path)
+        const { data } = await supabase.from('attachments')
+          .insert({ meeting_id: meeting.id, task_id: null, name: file.name, type: '파일', url: urlData.publicUrl })
+          .select().single()
+        if (data) setAttachments(prev => [data as Attachment, ...prev])
+      }
+    } finally { setUploading(false); e.target.value = '' }
+  }
+
+  async function deleteAttachment(att: Attachment) {
+    if (att.type === '파일') {
+      const path = att.url.split('/object/public/attachments/')[1]
+      if (path) await supabase.storage.from('attachments').remove([path])
+    }
+    await supabase.from('attachments').delete().eq('id', att.id)
+    setAttachments(prev => prev.filter(a => a.id !== att.id))
+  }
+
   function togglePrev(key: string) {
     setOpenPrev(prev => { const s = new Set(prev); s.has(key) ? s.delete(key) : s.add(key); return s })
   }
+
+  const pastMeetings = allMeetings
+    .filter(m => m.id !== meeting.id && m.meeting_date)
+    .sort((a, b) => b.meeting_date!.localeCompare(a.meeting_date!))
 
   const byGroup = groups
     .map(g => ({ group: g, items: items.filter(i => i.group_id === g.id) }))
@@ -85,7 +127,7 @@ function MeetingPopup({ meeting, items, groups, notes, allPrevNotes, onNote, onC
     <div className="fixed inset-0 z-[100] flex items-center justify-center" style={{ background: 'rgba(0,0,0,.28)' }}
       onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 flex flex-col overflow-hidden"
-        style={{ width: '92vw', maxWidth: 1160, height: '86vh' }}
+        style={{ width: '94vw', maxWidth: 1300, height: '88vh' }}
         onClick={e => e.stopPropagation()}>
 
         {/* 헤더 */}
@@ -98,10 +140,11 @@ function MeetingPopup({ meeting, items, groups, notes, allPrevNotes, onNote, onC
             <div style={{ fontSize: 17, fontWeight: 700, color: S.t1 }}>{formatDate(meeting.meeting_date)}</div>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => onOpenMeeting(meeting.id)}
-              className="text-xs border border-gray-200 px-3 py-1.5 rounded-full text-gray-500 hover:bg-gray-50 hover:text-gray-800 transition-colors font-medium">
-              회의록 상세 →
-            </button>
+            <label className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg cursor-pointer transition-colors ${uploading ? 'bg-gray-50 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'}`}>
+              📎 {uploading ? '업로드 중…' : '파일 첨부'}
+              <input type="file" multiple className="hidden" onChange={handleFileUpload} disabled={uploading} />
+            </label>
+            {uploadError && <span className="text-[10px] text-red-400">{uploadError}</span>}
             <span className="text-xs text-gray-300">ESC</span>
             <button onClick={onClose}
               className="w-7 h-7 flex items-center justify-center rounded-full text-gray-300 hover:text-gray-600 hover:bg-gray-100 text-lg leading-none transition-colors ml-1">
@@ -110,113 +153,141 @@ function MeetingPopup({ meeting, items, groups, notes, allPrevNotes, onNote, onC
           </div>
         </div>
 
-        {/* 내용 */}
-        <div className="flex-1 overflow-y-auto">
-          {byGroup.length === 0 ? (
-            <div style={{ padding: 48, textAlign: 'center', fontSize: 13, color: S.t3 }}>
-              안건이 없습니다. 전체 탭에서 안건을 먼저 추가해주세요.
+        {/* 첨부파일 목록 */}
+        {attachments.length > 0 && (
+          <div className="flex-shrink-0 flex gap-2 px-6 py-2 bg-gray-50/80 border-b border-gray-100 flex-wrap">
+            {attachments.map(att => (
+              <div key={att.id} className="flex items-center gap-1.5 text-xs bg-white border border-gray-200 rounded-lg px-2.5 py-1 group">
+                <a href={att.url} target="_blank" rel="noopener noreferrer"
+                  className="text-gray-600 hover:text-gray-900 hover:underline transition-colors truncate max-w-[160px]">
+                  📄 {att.name}
+                </a>
+                <button onClick={() => deleteAttachment(att)}
+                  className="text-gray-300 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100">×</button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* 본문: 사이드바 + 메인 */}
+        <div className="flex-1 min-h-0 flex overflow-hidden">
+
+          {/* 왼쪽: 이전 회의 목록 */}
+          {pastMeetings.length > 0 && (
+            <div className="w-40 flex-shrink-0 border-r border-gray-100 overflow-y-auto bg-gray-50/60">
+              <div style={{ padding: '10px 12px 6px', fontSize: 10, fontWeight: 700, color: S.t3, textTransform: 'uppercase', letterSpacing: '.05em' }}>
+                이전 회의
+              </div>
+              {pastMeetings.map(m => {
+                const isCurrent = m.id === meeting.id
+                return (
+                  <button key={m.id} onClick={() => onSelectMeeting(m)}
+                    className="w-full text-left px-3 py-2.5 hover:bg-white/80 transition-colors"
+                    style={{ borderRight: isCurrent ? `2px solid ${catColor}` : '2px solid transparent', background: isCurrent ? 'white' : 'transparent' }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: isCurrent ? catColor : S.t2 }}>
+                      {formatDateShort(m.meeting_date)}
+                    </div>
+                    <div style={{ fontSize: 10, color: S.t3, marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {m.title || '—'}
+                    </div>
+                  </button>
+                )
+              })}
             </div>
-          ) : (
-            <table style={{ borderCollapse: 'collapse', width: '100%' }}>
-              <colgroup>
-                <col style={{ width: 220 }} />
-                <col />
-              </colgroup>
-              <thead>
-                <tr style={{ borderBottom: S.bd }}>
-                  <th style={{ position: 'sticky', top: 0, background: '#fff', zIndex: 2, padding: '10px 20px', fontSize: 11, fontWeight: 700, color: S.t3, textTransform: 'uppercase', letterSpacing: '.05em', textAlign: 'left', borderBottom: S.bd }}>안건</th>
-                  <th style={{ position: 'sticky', top: 0, background: '#fff', zIndex: 2, padding: '10px 20px', fontSize: 11, fontWeight: 700, color: S.t3, textTransform: 'uppercase', letterSpacing: '.05em', textAlign: 'left', borderLeft: S.bd, borderBottom: S.bd }}>기록</th>
-                </tr>
-              </thead>
-              <tbody>
-                {byGroup.map(({ group, items: gItems }) => (
-                  <Fragment key={group.id}>
-                    <tr style={{ background: hexToRgba(group.color, 0.07), borderBottom: S.bd }}>
-                      <td colSpan={2} style={{ padding: '7px 20px', fontSize: 11, fontWeight: 700, letterSpacing: '.04em', borderLeft: `3px solid ${group.color}` }}>
-                        <span style={{ color: group.color }}>{group.name}</span>
-                      </td>
-                    </tr>
-                    {gItems.map(item => {
-                      const prevRecords = allPrevNotes[item.id] ?? []
-                      const currentNote = notes[nk(item.id, meeting.id)] ?? ''
-                      return (
-                        <tr key={item.id} style={{ borderBottom: S.bd, verticalAlign: 'top' }}>
-                          {/* 안건 이름 */}
-                          <td style={{ padding: '14px 20px', verticalAlign: 'top' }}>
-                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                              <span style={{ width: 8, height: 8, borderRadius: '50%', background: STATUS_COLOR[item.status], flexShrink: 0, marginTop: 4 }} />
-                              <span style={{ fontSize: 13, fontWeight: 500, color: item.status === 'done' ? S.t3 : S.t1, lineHeight: 1.4, textDecoration: item.status === 'done' ? 'line-through' : 'none' }}>
-                                {item.title}
-                              </span>
-                            </div>
-                            {prevRecords.length > 0 && (
-                              <div style={{ marginTop: 6, marginLeft: 16, fontSize: 10, color: S.t3 }}>
-                                이전 기록 {prevRecords.length}건
+          )}
+
+          {/* 오른쪽: 안건별 기록 */}
+          <div className="flex-1 overflow-y-auto">
+            {byGroup.length === 0 ? (
+              <div style={{ padding: 48, textAlign: 'center', fontSize: 13, color: S.t3 }}>
+                안건이 없습니다. 전체 탭에서 안건을 먼저 추가해주세요.
+              </div>
+            ) : (
+              <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+                <colgroup><col style={{ width: 200 }} /><col /></colgroup>
+                <thead>
+                  <tr style={{ borderBottom: S.bd }}>
+                    <th style={{ position: 'sticky', top: 0, background: '#fff', zIndex: 2, padding: '10px 20px', fontSize: 11, fontWeight: 700, color: S.t3, textTransform: 'uppercase', letterSpacing: '.05em', textAlign: 'left', borderBottom: S.bd }}>안건</th>
+                    <th style={{ position: 'sticky', top: 0, background: '#fff', zIndex: 2, padding: '10px 20px', fontSize: 11, fontWeight: 700, color: S.t3, textTransform: 'uppercase', letterSpacing: '.05em', textAlign: 'left', borderLeft: S.bd, borderBottom: S.bd }}>기록</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {byGroup.map(({ group, items: gItems }) => (
+                    <Fragment key={group.id}>
+                      <tr style={{ background: hexToRgba(group.color, 0.07), borderBottom: S.bd }}>
+                        <td colSpan={2} style={{ padding: '7px 20px', fontSize: 11, fontWeight: 700, letterSpacing: '.04em', borderLeft: `3px solid ${group.color}` }}>
+                          <span style={{ color: group.color }}>{group.name}</span>
+                        </td>
+                      </tr>
+                      {gItems.map(item => {
+                        const prevRecords  = allPrevNotes[item.id] ?? []
+                        const currentNote  = notes[nk(item.id, meeting.id)] ?? ''
+                        return (
+                          <tr key={item.id} style={{ borderBottom: S.bd, verticalAlign: 'top' }}>
+                            <td style={{ padding: '14px 20px', verticalAlign: 'top' }}>
+                              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                                <span style={{ width: 8, height: 8, borderRadius: '50%', background: STATUS_COLOR[item.status], flexShrink: 0, marginTop: 4 }} />
+                                <span style={{ fontSize: 13, fontWeight: 500, color: item.status === 'done' ? S.t3 : S.t1, lineHeight: 1.4, textDecoration: item.status === 'done' ? 'line-through' : 'none' }}>
+                                  {item.title}
+                                </span>
                               </div>
-                            )}
-                          </td>
-
-                          {/* 기록 영역 */}
-                          <td style={{ borderLeft: S.bd, padding: '12px 16px', verticalAlign: 'top' }}>
-
-                            {/* 이전 회의 기록 — 토글 아코디언 */}
-                            {prevRecords.length > 0 && (
-                              <div style={{ marginBottom: 12 }}>
-                                {prevRecords.map(rec => {
-                                  const key    = `${item.id}_${rec.meetingId}`
-                                  const isOpen = openPrev.has(key)
-                                  const preview = rec.note.split('\n')[0].slice(0, 60)
-                                  return (
-                                    <div key={rec.meetingId}
-                                      style={{ marginBottom: 4, border: `1px solid ${catColor}22`, borderRadius: 8, overflow: 'hidden' }}>
-                                      {/* 토글 헤더 */}
-                                      <button
-                                        onClick={() => togglePrev(key)}
-                                        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', background: isOpen ? `${catColor}0A` : '#F8FAFC', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
-                                        <span style={{ fontSize: 8, color: catColor, display: 'inline-block', transition: 'transform .15s', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', flexShrink: 0, lineHeight: 1 }}>▶</span>
-                                        <span style={{ fontSize: 11, fontWeight: 700, color: catColor, flexShrink: 0, minWidth: 56 }}>{formatDate(rec.date)}</span>
-                                        {!isOpen && preview && (
-                                          <span style={{ fontSize: 11, color: S.t3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
-                                            {preview}{rec.note.length > 60 ? '…' : ''}
-                                          </span>
-                                        )}
-                                      </button>
-                                      {/* 토글 본문 */}
-                                      {isOpen && (
-                                        <div style={{ padding: '8px 12px 10px 28px', background: '#FAFBFD', borderTop: `1px solid ${catColor}15` }}>
-                                          <pre style={{ margin: 0, fontSize: 12, color: S.t2, lineHeight: 1.65, whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>{rec.note}</pre>
-                                        </div>
-                                      )}
-                                    </div>
-                                  )
-                                })}
-                              </div>
-                            )}
-
-                            {/* 현재 회의 입력 */}
-                            <div style={{ borderTop: prevRecords.length > 0 ? `1px dashed ${catColor}30` : 'none', paddingTop: prevRecords.length > 0 ? 10 : 0 }}>
                               {prevRecords.length > 0 && (
-                                <div style={{ fontSize: 10, fontWeight: 700, color: catColor, textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 }}>
-                                  {formatDate(meeting.meeting_date)} 기록
+                                <div style={{ marginTop: 4, marginLeft: 16, fontSize: 10, color: S.t3 }}>이전 기록 {prevRecords.length}건</div>
+                              )}
+                            </td>
+                            <td style={{ borderLeft: S.bd, padding: '12px 16px', verticalAlign: 'top' }}>
+                              {prevRecords.length > 0 && (
+                                <div style={{ marginBottom: 12 }}>
+                                  {prevRecords.map(rec => {
+                                    const key    = `${item.id}_${rec.meetingId}`
+                                    const isOpen = openPrev.has(key)
+                                    const preview = rec.note.split('\n')[0].slice(0, 60)
+                                    return (
+                                      <div key={rec.meetingId} style={{ marginBottom: 4, border: `1px solid ${catColor}22`, borderRadius: 8, overflow: 'hidden' }}>
+                                        <button onClick={() => togglePrev(key)}
+                                          style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', background: isOpen ? `${catColor}0A` : '#F8FAFC', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
+                                          <span style={{ fontSize: 8, color: catColor, display: 'inline-block', transition: 'transform .15s', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', flexShrink: 0 }}>▶</span>
+                                          <span style={{ fontSize: 11, fontWeight: 700, color: catColor, flexShrink: 0, minWidth: 52 }}>{formatDate(rec.date)}</span>
+                                          {!isOpen && preview && (
+                                            <span style={{ fontSize: 11, color: S.t3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                                              {preview}{rec.note.length > 60 ? '…' : ''}
+                                            </span>
+                                          )}
+                                        </button>
+                                        {isOpen && (
+                                          <div style={{ padding: '8px 12px 10px 28px', background: '#FAFBFD', borderTop: `1px solid ${catColor}15` }}>
+                                            <pre style={{ margin: 0, fontSize: 12, color: S.t2, lineHeight: 1.65, whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>{rec.note}</pre>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )
+                                  })}
                                 </div>
                               )}
-                              <textarea
-                                value={currentNote}
-                                onChange={e => onNote(item.id, meeting.id, e.target.value)}
-                                placeholder="진전 내용, 결정사항, 다음 액션 등…"
-                                rows={currentNote ? Math.max(3, currentNote.split('\n').length + 1) : 3}
-                                style={{ width: '100%', border: 'none', background: 'transparent', resize: 'vertical', fontSize: 13, color: S.t1, lineHeight: 1.65, fontFamily: 'inherit', outline: 'none', minHeight: 64 }}
-                              />
-                            </div>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </Fragment>
-                ))}
-              </tbody>
-            </table>
-          )}
+                              <div style={{ borderTop: prevRecords.length > 0 ? `1px dashed ${catColor}30` : 'none', paddingTop: prevRecords.length > 0 ? 10 : 0 }}>
+                                {prevRecords.length > 0 && (
+                                  <div style={{ fontSize: 10, fontWeight: 700, color: catColor, textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 }}>
+                                    {formatDate(meeting.meeting_date)} 기록
+                                  </div>
+                                )}
+                                <textarea
+                                  value={currentNote}
+                                  onChange={e => onNote(item.id, meeting.id, e.target.value)}
+                                  placeholder="진전 내용, 결정사항, 다음 액션 등…"
+                                  rows={currentNote ? Math.max(3, currentNote.split('\n').length + 1) : 3}
+                                  style={{ width: '100%', border: 'none', background: 'transparent', resize: 'vertical', fontSize: 13, color: S.t1, lineHeight: 1.65, fontFamily: 'inherit', outline: 'none', minHeight: 64 }}
+                                />
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </Fragment>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -234,9 +305,10 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
   const [notes,   setNotes]   = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
 
-  const [openGroups,      setOpenGroups]      = useState<Set<string>>(new Set())
-  const [expandedItems,   setExpandedItems]   = useState<Set<string>>(new Set())
-  const [selectedMeeting, setSelectedMeeting] = useState<MeetingCol | null>(null)
+  const [openGroups,       setOpenGroups]       = useState<Set<string>>(new Set())
+  const [expandedItems,    setExpandedItems]    = useState<Set<string>>(new Set())   // 전체 모드
+  const [expandedCalItems, setExpandedCalItems] = useState<Set<string>>(new Set())  // 달력 모드 서브태스크
+  const [selectedMeeting,  setSelectedMeeting]  = useState<MeetingCol | null>(null)
 
   const [addingGroup, setAddingGroup] = useState(false)
   const [newGName,    setNewGName]    = useState('')
@@ -264,8 +336,8 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
   const isAll = category === '전체'
 
-  // ── 달력용 전체 날짜 범위 (90일 전 ~ 오늘 + 14일) ──────────────────
-  const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), [])
+  // ── 달력용 전체 날짜 범위 ────────────────────────────────────────
+  const todayStr     = useMemo(() => new Date().toISOString().slice(0, 10), [])
   const containerRef = useRef<HTMLDivElement | null>(null)
   const todayColRef  = useRef<HTMLTableCellElement | null>(null)
 
@@ -356,7 +428,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
     setGroups(prev => prev.map(g => g.id === groupId ? { ...g, category: cat } : g))
   }
 
-  // ── 그룹 추가/삭제 ───────────────────────────────────────────────
+  // ── CRUD ─────────────────────────────────────────────────────────
   function openAddGroup() { setNewGCat(isAll ? MATRIX_CATS[0] : category); setNewGName(''); setNewGColor(GROUP_COLORS[0]); setAddingGroup(true) }
   async function addGroup() {
     const name = newGName.trim(); if (!name) { setAddingGroup(false); return }
@@ -368,8 +440,6 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
     await supabase.from('agenda_groups').delete().eq('id', groupId)
     setGroups(p => p.filter(g => g.id !== groupId)); setItems(p => p.filter(i => i.group_id !== groupId)); setDeletingGroup(null)
   }
-
-  // ── 안건 추가/삭제 ───────────────────────────────────────────────
   async function addItem(groupId: string) {
     const title = newITitle.trim(); if (!title) { setAddingItem(null); return }
     const { data } = await supabase.from('agenda_items').insert({ group_id: groupId, title, item_type: 'do', status: 'active', sort_order: items.filter(i => i.group_id === groupId).length }).select().single()
@@ -380,9 +450,8 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
     await supabase.from('agenda_items').delete().eq('id', itemId)
     setItems(p => p.filter(i => i.id !== itemId)); setDeletingItem(null)
   }
-
-  // ── 하위태스크 추가/삭제 ─────────────────────────────────────────
   function toggleExpandedItem(itemId: string) { setExpandedItems(prev => { const s = new Set(prev); s.has(itemId) ? s.delete(itemId) : s.add(itemId); return s }) }
+  function toggleExpandedCalItem(itemId: string) { setExpandedCalItems(prev => { const s = new Set(prev); s.has(itemId) ? s.delete(itemId) : s.add(itemId); return s }) }
   async function addSubTask(itemId: string) {
     const title = newSTTitle.trim(); if (!title) { setAddingSubTask(null); return }
     const { data } = await supabase.from('agenda_sub_tasks').insert({ agenda_item_id: itemId, title, status: 'active', sort_order: subTasks.filter(st => st.agenda_item_id === itemId).length }).select().single()
@@ -393,8 +462,6 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
     await supabase.from('agenda_sub_tasks').delete().eq('id', stId)
     setSubTasks(p => p.filter(st => st.id !== stId)); setDeletingST(null)
   }
-
-  // ── 수정 함수들 ──────────────────────────────────────────────────
   async function updateGroup(groupId: string) {
     const name = editGName.trim(); if (!name) { setEditingGroupId(null); return }
     await supabase.from('agenda_groups').update({ name, color: editGColor }).eq('id', groupId)
@@ -423,22 +490,25 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
     setSubTasks(p => p.map(s => s.id === st.id ? { ...s, status: next } : s))
   }
 
-  // ── 날짜 추가 ────────────────────────────────────────────────────
-  async function addMeeting() {
-    const dateStr = prompt('회의 날짜 (YYYY-MM-DD)')
-    if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return
-    const { data } = await supabase.from('meetings').insert({ title: `${category} ${dateStr}`, meeting_date: dateStr, category, notes: [] }).select('id, title, meeting_date').single()
+  // ── 날짜 클릭 — 기존 회의면 열고, 없으면 생성 후 열기 ──────────
+  async function openOrCreateMeeting(dateStr: string) {
+    const existing = meetingByDate[dateStr]
+    if (existing) { setSelectedMeeting(existing); return }
+    const { data } = await supabase.from('meetings')
+      .insert({ title: `${category} ${dateStr}`, meeting_date: dateStr, category, notes: [] })
+      .select('id, title, meeting_date').single()
     if (!data) return
     const newCol = data as MeetingCol
     setCols(prev => [...prev, newCol].sort((a, b) => (a.meeting_date ?? '').localeCompare(b.meeting_date ?? '')))
+    setSelectedMeeting(newCol)
   }
 
-  // ── 이전 회의 노트 전체 계산 (팝업용) — 클릭된 날짜보다 이전 회의 모두 ─
+  // ── 이전 회의 노트 전체 계산 ─────────────────────────────────────
   const allPrevNotesForPopup = useMemo((): Record<string, PrevRecord[]> => {
     if (!selectedMeeting?.meeting_date) return {}
     const prevMeetings = [...cols]
       .filter(m => m.meeting_date && m.meeting_date < selectedMeeting.meeting_date!)
-      .sort((a, b) => b.meeting_date!.localeCompare(a.meeting_date!)) // 최신순
+      .sort((a, b) => b.meeting_date!.localeCompare(a.meeting_date!))
     if (prevMeetings.length === 0) return {}
     const map: Record<string, PrevRecord[]> = {}
     items.forEach(item => {
@@ -506,7 +576,6 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
               const isOpen = openGroups.has(group.id)
               return (
                 <Fragment key={group.id}>
-                  {/* 범주 행 — 전체 행 클릭으로 토글 */}
                   <tr style={{ background: CAT_BG[group.category ?? ''] ?? hexToRgba(group.color, 0.09) }}>
                     <td colSpan={3} style={{ padding: 0, borderTop: '3px solid #fff', borderBottom: S.bd, borderLeft: `3px solid ${CAT_BORDER[group.category ?? ''] ?? group.color}` }}>
                       {editingGroupId === group.id ? (
@@ -521,15 +590,13 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                           <button onClick={() => setEditingGroupId(null)} className="text-xs text-gray-400 px-2">취소</button>
                         </div>
                       ) : (
-                        <div
-                          onClick={() => toggleGroup(group.id)}
+                        <div onClick={() => toggleGroup(group.id)}
                           className="flex items-center gap-2 group/grow cursor-pointer hover:brightness-95 transition-all"
                           style={{ padding: '24px 16px' }}>
                           <span style={{ width: 3, height: 14, borderRadius: 2, background: CAT_BORDER[group.category ?? ''] ?? group.color, flexShrink: 0 }} />
                           <span style={{ fontSize: 9, color: S.t3, display: 'inline-block', transition: 'transform .15s', transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}>▼</span>
                           <span style={{ fontSize: 13, fontWeight: 700, color: S.t1 }}>{group.name}</span>
                           <span style={{ fontSize: 11, color: S.t3, background: '#E5E9F0', padding: '1px 7px', borderRadius: 99 }}>{groupItems.length}</span>
-                          {/* 파트 변경 pills */}
                           <div className="flex gap-1 ml-2" onClick={e => e.stopPropagation()}>
                             {MATRIX_CATS.map(c => (
                               <button key={c} onClick={() => updateGroupCat(group.id, c)}
@@ -553,14 +620,12 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                     </td>
                   </tr>
 
-                  {/* 안건 행들 */}
                   {isOpen && groupItems.map(item => {
-                    const itemSubTasks = subTasks.filter(st => st.agenda_item_id === item.id)
+                    const itemSubTasks  = subTasks.filter(st => st.agenda_item_id === item.id)
                     const isItemExpanded = expandedItems.has(item.id)
-                    const activeColor = item.status === 'active' ? (CAT_BORDER[group.category ?? ''] ?? group.color) : STATUS_COLOR[item.status]
+                    const activeColor   = item.status === 'active' ? (CAT_BORDER[group.category ?? ''] ?? group.color) : STATUS_COLOR[item.status]
                     return (
                       <Fragment key={item.id}>
-                        {/* 안건 행 — 전체 클릭 = 상세 페이지 이동 */}
                         <tr style={{ borderBottom: isItemExpanded ? 'none' : S.bd }} className="group/irow cursor-pointer"
                           onClick={() => router.push(`/project/items/${item.id}`)}>
                           <td style={{ padding: '18px 16px', verticalAlign: 'middle' }}>
@@ -592,8 +657,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                           <td style={{ borderLeft: S.bd, padding: '18px 12px', verticalAlign: 'middle', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
                             <div className="flex items-center gap-1.5 justify-center opacity-0 group-hover/irow:opacity-100 transition-all">
                               {editingItemId !== item.id && (
-                                <button onClick={() => { setEditingItemId(item.id); setEditITitle(item.title) }}
-                                  className="text-[10px] text-gray-400 hover:text-gray-700">수정</button>
+                                <button onClick={() => { setEditingItemId(item.id); setEditITitle(item.title) }} className="text-[10px] text-gray-400 hover:text-gray-700">수정</button>
                               )}
                               {deletingItem === item.id ? (
                                 <>
@@ -607,7 +671,6 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                           </td>
                         </tr>
 
-                        {/* 하위 태스크 행들 — 클릭 시 부모 안건 상세로 이동 */}
                         {isItemExpanded && itemSubTasks.map(st => (
                           <tr key={st.id} style={{ borderBottom: S.bd, background: '#FAFBFD' }} className="group/strow cursor-pointer hover:bg-blue-50/30"
                             onClick={() => router.push(`/project/items/${item.id}?focus=${st.id}`)}>
@@ -619,8 +682,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                                   <input autoFocus value={editSTTitle} onChange={e => setEditSTTitle(e.target.value)}
                                     onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) updateSubTask(st.id); if (e.key === 'Escape') setEditingSTId(null) }}
                                     className="border border-gray-300 rounded px-2 py-0.5 text-xs focus:outline-none focus:border-gray-400 flex-1 min-w-0"
-                                    style={{ color: S.t2 }}
-                                    onClick={e => e.stopPropagation()} />
+                                    style={{ color: S.t2 }} onClick={e => e.stopPropagation()} />
                                 ) : (
                                   <span style={{ fontSize: 13, color: st.status === 'done' ? S.t3 : S.t2, textDecoration: st.status === 'done' ? 'line-through' : 'none', lineHeight: 1.35 }}>
                                     {st.title}
@@ -705,7 +767,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
 
   // ── 달력 칸반 모드 ────────────────────────────────────────────────
   const catColor  = CAT_BORDER[category] ?? '#1B3A6B'
-  const catDot    = CAT_DOT[category]   ?? '#1B3A6B'
+  const catDot    = CAT_DOT[category]    ?? '#1B3A6B'
   const minTotalW = W_LEFT + dateRange.length * W_CAL + 56
 
   return (
@@ -714,30 +776,31 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
         <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: minTotalW }}>
           <thead>
             <tr>
+              {/* 왼쪽 고정 헤더 */}
               <th style={{ position: 'sticky', left: 0, top: 0, zIndex: 5, background: S.bg, borderBottom: S.bdL, borderRight: S.bdL, width: W_LEFT, minWidth: W_LEFT, padding: '12px 16px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: S.t3, letterSpacing: '.05em', textTransform: 'uppercase' }}>
                 안건
-                <span style={{ marginLeft: 8, fontSize: 10, color: S.t3, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>날짜 열 클릭으로 회의 오픈</span>
+                <span style={{ marginLeft: 8, fontSize: 10, color: S.t3, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>빈 날짜 클릭 → 회의 생성</span>
               </th>
 
-              {/* 날짜 헤더 — 전체 날짜 범위 (90일 전~오늘+14일) */}
+              {/* 날짜 헤더 */}
               {dateRange.map(date => {
-                const meeting   = meetingByDate[date]
-                const dayLabel  = formatDayLabel(date)
-                const isSun     = dayLabel === '일', isSat = dayLabel === '토'
-                const isToday   = date === todayStr
+                const meeting    = meetingByDate[date]
+                const dayLabel   = formatDayLabel(date)
+                const isSun      = dayLabel === '일', isSat = dayLabel === '토'
+                const isToday    = date === todayStr
                 const hasMeeting = !!meeting
                 return (
                   <th key={date}
                     ref={isToday ? (el => { todayColRef.current = el }) as React.Ref<HTMLTableCellElement> : undefined}
-                    onClick={hasMeeting ? () => setSelectedMeeting(meeting) : undefined}
+                    onClick={() => openOrCreateMeeting(date)}
                     style={{
                       position: 'sticky', top: 0, zIndex: 3,
                       background: isToday ? hexToRgba(catColor, 0.1) : S.bg,
                       borderBottom: isToday ? `2px solid ${catColor}` : hasMeeting ? S.bdL : S.bd,
                       borderLeft: S.bd, width: W_CAL, minWidth: W_CAL,
-                      cursor: hasMeeting ? 'pointer' : 'default',
+                      cursor: 'pointer',
                     }}
-                    className={hasMeeting ? 'hover:bg-blue-50/50 transition-colors' : ''}>
+                    className="hover:bg-blue-50/50 transition-colors">
                     <div style={{ padding: '8px 2px', textAlign: 'center' }}>
                       <div style={{ fontSize: hasMeeting ? 12 : 11, fontWeight: hasMeeting ? 700 : 400, color: isToday ? catColor : isSun ? '#EF4444' : isSat ? '#3B82F6' : hasMeeting ? S.t1 : S.t3, lineHeight: 1.2 }}>
                         {formatDateShort(date)}
@@ -749,24 +812,18 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                 )
               })}
 
-              {/* + 날짜 */}
-              <th style={{ position: 'sticky', top: 0, zIndex: 3, background: S.bg, borderBottom: S.bd, borderLeft: S.bd, width: 56, minWidth: 56 }}>
-                <button onClick={addMeeting}
-                  className="w-full h-full flex flex-col items-center justify-center gap-0.5 hover:bg-gray-50 transition-colors"
-                  style={{ border: 'none', cursor: 'pointer', background: 'none', padding: '8px 2px', color: S.t3, fontSize: 14 }}>
-                  ＋<span style={{ fontSize: 8, color: S.t3 }}>날짜</span>
-                </button>
-              </th>
+              {/* + 날짜 (수동 추가) */}
+              <th style={{ position: 'sticky', top: 0, zIndex: 3, background: S.bg, borderBottom: S.bd, borderLeft: S.bd, width: 56, minWidth: 56 }} />
             </tr>
           </thead>
 
           <tbody>
             {groups.map(group => {
               const groupItems = items.filter(i => i.group_id === group.id)
-              const isOpen = openGroups.has(group.id)
+              const isOpen     = openGroups.has(group.id)
               return (
                 <Fragment key={group.id}>
-                  {/* 범주 헤더 — 전체 행 클릭으로 토글 */}
+                  {/* 범주 헤더 — 범주명 + 카테고리 배지 */}
                   <tr>
                     <td colSpan={dateRange.length + 2}
                       style={{ position: 'sticky', left: 0, zIndex: 2, background: hexToRgba(group.color, 0.08), borderTop: '3px solid #fff', borderBottom: S.bd, borderLeft: `3px solid ${group.color}`, padding: 0, cursor: 'pointer' }}
@@ -775,60 +832,105 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                         <span style={{ width: 3, height: 12, borderRadius: 2, background: group.color, flexShrink: 0 }} />
                         <span style={{ fontSize: 9, color: S.t3, display: 'inline-block', transition: 'transform .15s', transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}>▼</span>
                         <span style={{ fontSize: 13, fontWeight: 700, color: S.t1 }}>{group.name}</span>
+                        {/* 범주 배지 */}
+                        {group.category && CAT_BORDER[group.category] && (
+                          <span style={{ fontSize: 10, fontWeight: 600, color: CAT_BORDER[group.category], background: CAT_BG[group.category], border: `1px solid ${CAT_BORDER[group.category]}30`, padding: '1px 7px', borderRadius: 99 }}>
+                            {group.category}
+                          </span>
+                        )}
                         <span style={{ fontSize: 10, color: S.t3, background: '#E5E9F0', padding: '1px 6px', borderRadius: 99 }}>{groupItems.length}</span>
                       </div>
                     </td>
                   </tr>
 
                   {/* 안건 행들 */}
-                  {isOpen && groupItems.map(item => (
-                    <tr key={item.id} style={{ borderBottom: S.bd }} className="hover:bg-gray-50/30 group/irow">
-                      <td style={{ position: 'sticky', left: 0, zIndex: 2, background: S.bg, borderRight: S.bdL, width: W_LEFT, minWidth: W_LEFT, verticalAlign: 'middle' }}>
-                        <div style={{ padding: '18px 16px', display: 'flex', alignItems: 'center', gap: 7 }}>
-                          <button onClick={() => cycleStatus(item)} title={STATUS_LABEL[item.status]}
-                            style={{ width: 7, height: 7, borderRadius: '50%', flexShrink: 0, background: item.status === 'active' ? catDot : STATUS_COLOR[item.status], border: 'none', cursor: 'pointer', padding: 0 }} />
-                          <span
-                            style={{ fontSize: 13, fontWeight: 500, color: item.status === 'done' ? S.t3 : S.t1, lineHeight: 1.35, flex: 1, minWidth: 0, textDecoration: item.status === 'done' ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer' }}
-                            onClick={() => router.push(`/project/items/${item.id}`)}>
-                            {item.title}
-                          </span>
-                          <button onClick={() => router.push(`/project/items/${item.id}`)}
-                            style={{ fontSize: 10, color: catColor, opacity: 0, transition: 'opacity .15s', flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', fontWeight: 600 }}
-                            className="group-hover/irow:opacity-100">→</button>
-                        </div>
-                      </td>
-
-                      {/* 날짜 셀들 — 전체 날짜 범위 */}
-                      {dateRange.map(date => {
-                        const meeting    = meetingByDate[date]
-                        const note       = meeting ? (notes[nk(item.id, meeting.id)] ?? '') : ''
-                        const hasContent = note.trim().length > 0
-                        const isToday    = date === todayStr
-                        const hasMeeting = !!meeting
-                        return (
-                          <td key={date}
-                            onClick={hasMeeting ? () => setSelectedMeeting(meeting) : undefined}
-                            style={{
-                              borderLeft: S.bd,
-                              background: isToday ? hexToRgba(catColor, 0.05) : 'transparent',
-                              width: W_CAL, minWidth: W_CAL,
-                              textAlign: 'center', verticalAlign: 'middle',
-                              cursor: hasMeeting ? 'pointer' : 'default',
-                              padding: '12px 2px',
-                            }}
-                            className={hasMeeting ? 'hover:bg-blue-50/50 transition-colors' : ''}>
-                            {hasContent ? (
-                              <div title={note.slice(0, 60)}
-                                style={{ width: 9, height: 9, borderRadius: '50%', background: catDot, margin: '0 auto', boxShadow: `0 0 0 2px ${hexToRgba(catDot, 0.2)}` }} />
-                            ) : hasMeeting ? (
-                              <div style={{ width: 5, height: 5, borderRadius: '50%', border: `1.5px solid ${hexToRgba(catDot, 0.4)}`, margin: '0 auto' }} />
-                            ) : null}
+                  {isOpen && groupItems.map(item => {
+                    const itemSubTasks    = subTasks.filter(st => st.agenda_item_id === item.id)
+                    const isCalExpanded   = expandedCalItems.has(item.id)
+                    return (
+                      <Fragment key={item.id}>
+                        <tr style={{ borderBottom: S.bd }} className="hover:bg-gray-50/30 group/irow">
+                          <td style={{ position: 'sticky', left: 0, zIndex: 2, background: S.bg, borderRight: S.bdL, width: W_LEFT, minWidth: W_LEFT, verticalAlign: 'middle' }}>
+                            <div style={{ padding: '18px 16px', display: 'flex', alignItems: 'center', gap: 7 }}>
+                              {/* 서브태스크 토글 버튼 */}
+                              {itemSubTasks.length > 0 && (
+                                <button onClick={() => toggleExpandedCalItem(item.id)}
+                                  style={{ fontSize: 8, color: S.t3, background: 'none', border: 'none', cursor: 'pointer', padding: 0, lineHeight: 1, transition: 'transform .15s', transform: isCalExpanded ? 'rotate(90deg)' : 'rotate(0deg)', flexShrink: 0, width: 10 }}>▶</button>
+                              )}
+                              {itemSubTasks.length === 0 && <span style={{ width: 10, flexShrink: 0 }} />}
+                              <button onClick={() => cycleStatus(item)} title={STATUS_LABEL[item.status]}
+                                style={{ width: 7, height: 7, borderRadius: '50%', flexShrink: 0, background: item.status === 'active' ? catDot : STATUS_COLOR[item.status], border: 'none', cursor: 'pointer', padding: 0 }} />
+                              <span
+                                style={{ fontSize: 13, fontWeight: 500, color: item.status === 'done' ? S.t3 : S.t1, lineHeight: 1.35, flex: 1, minWidth: 0, textDecoration: item.status === 'done' ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer' }}
+                                onClick={() => router.push(`/project/items/${item.id}`)}>
+                                {item.title}
+                              </span>
+                              {itemSubTasks.length > 0 && (
+                                <span style={{ fontSize: 9, color: S.t3, background: '#E5E9F0', padding: '1px 5px', borderRadius: 99, flexShrink: 0 }}>
+                                  {itemSubTasks.filter(st => st.status !== 'done').length}/{itemSubTasks.length}
+                                </span>
+                              )}
+                            </div>
                           </td>
-                        )
-                      })}
-                      <td style={{ borderLeft: S.bd }} />
-                    </tr>
-                  ))}
+
+                          {/* 날짜 셀들 */}
+                          {dateRange.map(date => {
+                            const meeting    = meetingByDate[date]
+                            const note       = meeting ? (notes[nk(item.id, meeting.id)] ?? '') : ''
+                            const hasContent = note.trim().length > 0
+                            const isToday    = date === todayStr
+                            const hasMeeting = !!meeting
+                            return (
+                              <td key={date}
+                                onClick={() => openOrCreateMeeting(date)}
+                                style={{
+                                  borderLeft: S.bd,
+                                  background: isToday ? hexToRgba(catColor, 0.05) : 'transparent',
+                                  width: W_CAL, minWidth: W_CAL,
+                                  textAlign: 'center', verticalAlign: 'middle',
+                                  cursor: 'pointer', padding: '12px 2px',
+                                }}
+                                className="hover:bg-blue-50/50 transition-colors">
+                                {hasContent ? (
+                                  <div title={note.slice(0, 60)}
+                                    style={{ width: 9, height: 9, borderRadius: '50%', background: catDot, margin: '0 auto', boxShadow: `0 0 0 2px ${hexToRgba(catDot, 0.2)}` }} />
+                                ) : hasMeeting ? (
+                                  <div style={{ width: 5, height: 5, borderRadius: '50%', border: `1.5px solid ${hexToRgba(catDot, 0.4)}`, margin: '0 auto' }} />
+                                ) : null}
+                              </td>
+                            )
+                          })}
+                          <td style={{ borderLeft: S.bd }} />
+                        </tr>
+
+                        {/* 서브태스크 토글 행 */}
+                        {isCalExpanded && itemSubTasks.map(st => (
+                          <tr key={st.id} style={{ borderBottom: S.bd, background: '#FAFBFD' }} className="group/stcal">
+                            <td style={{ position: 'sticky', left: 0, zIndex: 2, background: '#FAFBFD', borderRight: S.bdL, width: W_LEFT, minWidth: W_LEFT, padding: '12px 16px 12px 36px', verticalAlign: 'middle' }}>
+                              <div className="flex items-center gap-2">
+                                <button onClick={() => cycleSubTaskStatus(st)}
+                                  style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, background: st.status === 'active' ? hexToRgba(catDot, 0.6) : STATUS_COLOR[st.status], border: 'none', cursor: 'pointer', padding: 0 }} />
+                                <span style={{ fontSize: 12, color: st.status === 'done' ? S.t3 : S.t2, textDecoration: st.status === 'done' ? 'line-through' : 'none', lineHeight: 1.3, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer' }}
+                                  onClick={() => router.push(`/project/items/${item.id}?focus=${st.id}`)}>
+                                  {st.title}
+                                </span>
+                                <span className={`text-[9px] px-1.5 py-0.5 rounded-full border font-semibold flex-shrink-0 ${st.status === 'active' ? 'text-blue-600 border-blue-200 bg-blue-50' : st.status === 'hold' ? 'text-amber-600 border-amber-200 bg-amber-50' : 'text-gray-400 border-gray-200 bg-gray-100'}`}>
+                                  {STATUS_LABEL[st.status]}
+                                </span>
+                              </div>
+                            </td>
+                            {dateRange.map(date => (
+                              <td key={date}
+                                onClick={() => openOrCreateMeeting(date)}
+                                style={{ borderLeft: S.bd, width: W_CAL, minWidth: W_CAL, cursor: 'pointer', padding: '8px 2px' }}
+                                className="hover:bg-blue-50/30 transition-colors" />
+                            ))}
+                            <td style={{ borderLeft: S.bd }} />
+                          </tr>
+                        ))}
+                      </Fragment>
+                    )
+                  })}
 
                   {/* 안건 추가 */}
                   {isOpen && (
@@ -861,7 +963,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
 
         {groups.length === 0 && (
           <div style={{ padding: 48, textAlign: 'center', fontSize: 13, color: S.t3 }}>
-            전체 탭에서 {category === '코어' ? '코어' : category === '비즈' ? '비즈' : category} 범주를 추가하면 나타납니다.
+            전체 탭에서 {category} 범주를 추가하면 나타납니다.
           </div>
         )}
       </div>
@@ -870,13 +972,14 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
       {selectedMeeting && (
         <MeetingPopup
           meeting={selectedMeeting}
+          allMeetings={cols}
           items={items}
           groups={groups}
           notes={notes}
           allPrevNotes={allPrevNotesForPopup}
           onNote={handleNote}
           onClose={() => setSelectedMeeting(null)}
-          onOpenMeeting={id => { router.push(`/meetings/${id}`); setSelectedMeeting(null) }}
+          onSelectMeeting={m => setSelectedMeeting(m)}
           catColor={catColor}
           category={category}
         />
