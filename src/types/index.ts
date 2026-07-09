@@ -150,6 +150,7 @@ export interface AgendaItem {
   item_type: AgendaItemType
   status: AgendaItemStatus
   linked_task_id: string | null
+  assignee_id?: string | null
   sort_order: number
   hidden: boolean
   created_at: string

@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, useMemo, Fragment } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import type { AgendaGroup, AgendaItem, AgendaUpdate, AgendaSubTask, Attachment } from '@/types'
+import type { AgendaGroup, AgendaItem, AgendaUpdate, AgendaSubTask, Attachment, Member } from '@/types'
 import ReactMarkdown from 'react-markdown'
 import MarkdownEditor from '@/components/MarkdownEditor'
 
@@ -345,6 +345,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
   const [editingSTId,    setEditingSTId]    = useState<string | null>(null)
   const [editSTTitle,    setEditSTTitle]    = useState('')
 
+  const [members,       setMembers]       = useState<Member[]>([])
   const [subTasks,      setSubTasks]      = useState<AgendaSubTask[]>([])
   const [addingSubTask, setAddingSubTask] = useState<string | null>(null)
   const [newSTTitle,    setNewSTTitle]    = useState('')
@@ -416,6 +417,9 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
         setNotes(map)
       }
     } else { setCols([]); setNotes({}) }
+
+    const { data: memberListData } = await supabase.from('members').select('id, name').is('archived_at', null).order('name')
+    setMembers((memberListData ?? []) as Member[])
 
     setLoading(false)
   }
@@ -493,6 +497,11 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
     const title = editSTTitle.trim(); if (!title) { setEditingSTId(null); return }
     await supabase.from('agenda_sub_tasks').update({ title }).eq('id', stId)
     setSubTasks(p => p.map(s => s.id === stId ? { ...s, title } : s)); setEditingSTId(null)
+  }
+  async function updateItemAssignee(itemId: string, assigneeId: string | null) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await supabase.from('agenda_items').update({ assignee_id: assigneeId } as any).eq('id', itemId)
+    setItems(p => p.map(i => i.id === itemId ? { ...i, assignee_id: assigneeId } : i))
   }
   async function cycleStatus(item: AgendaItem) {
     const order: AgendaItem['status'][] = ['active', 'hold', 'done']
@@ -584,6 +593,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
             <tr style={{ borderBottom: S.bd }}>
               <th style={{ position: 'sticky', left: 0, top: 0, zIndex: 5, background: S.bg, padding: '12px 16px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: S.t3, letterSpacing: '.05em', textTransform: 'uppercase', borderBottom: S.bd, width: '60%' }}>안건</th>
               <th style={{ position: 'sticky', top: 0, zIndex: 3, background: S.bg, padding: '12px 12px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: S.t3, letterSpacing: '.05em', textTransform: 'uppercase', borderBottom: S.bd, borderLeft: S.bd, width: 90 }}>상태</th>
+              <th style={{ position: 'sticky', top: 0, zIndex: 3, background: S.bg, padding: '12px 12px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: S.t3, letterSpacing: '.05em', textTransform: 'uppercase', borderBottom: S.bd, borderLeft: S.bd, width: 120 }}>담당자</th>
               <th style={{ position: 'sticky', top: 0, zIndex: 3, background: S.bg, padding: '12px 12px', borderBottom: S.bd, borderLeft: S.bd, width: 100 }} />
             </tr>
           </thead>
@@ -594,7 +604,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
               return (
                 <Fragment key={group.id}>
                   <tr style={{ background: CAT_BG[group.category ?? ''] ?? hexToRgba(group.color, 0.09) }}>
-                    <td colSpan={3} style={{ padding: 0, borderTop: '3px solid #fff', borderBottom: S.bd, borderLeft: `3px solid ${CAT_BORDER[group.category ?? ''] ?? group.color}` }}>
+                    <td colSpan={4} style={{ padding: 0, borderTop: '3px solid #fff', borderBottom: S.bd, borderLeft: `3px solid ${CAT_BORDER[group.category ?? ''] ?? group.color}` }}>
                       {editingGroupId === group.id ? (
                         <div className="flex items-center gap-2 flex-wrap" style={{ padding: '24px 16px' }}>
                           <input autoFocus value={editGName} onChange={e => setEditGName(e.target.value)}
@@ -644,9 +654,10 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                     return (
                       <Fragment key={item.id}>
                         <tr style={{ borderBottom: isItemExpanded ? 'none' : S.bd }} className="group/irow cursor-pointer"
-                          onClick={() => router.push(`/project/items/${item.id}`)}>
+                          onClick={() => toggleExpandedItem(item.id)}
+                          onMouseEnter={() => router.prefetch(`/project/items/${item.id}`)}>
                           <td style={{ padding: '18px 16px', verticalAlign: 'middle' }}>
-                            <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                            <div className="flex items-center gap-2">
                               <button onClick={e => { e.stopPropagation(); toggleExpandedItem(item.id) }}
                                 style={{ fontSize: 8, color: S.t3, background: 'none', border: 'none', cursor: 'pointer', padding: 0, lineHeight: 1, transition: 'transform .15s', transform: isItemExpanded ? 'rotate(90deg)' : 'rotate(0deg)', flexShrink: 0, width: 10 }}>▶</button>
                               <button onClick={e => { e.stopPropagation(); cycleStatus(item) }} title={`상태: ${STATUS_LABEL[item.status]}`}
@@ -657,7 +668,8 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                                   className="border border-gray-300 rounded px-2 py-0.5 text-sm focus:outline-none focus:border-gray-400 font-medium flex-1 min-w-0"
                                   style={{ color: S.t1 }} />
                               ) : (
-                                <span className="hover:text-blue-600 transition-colors" style={{ fontSize: 14, fontWeight: 500, color: item.status === 'done' ? S.t3 : S.t1, textDecoration: item.status === 'done' ? 'line-through' : 'none', lineHeight: 1.35 }}>
+                                <span className="hover:text-blue-600 transition-colors cursor-pointer" style={{ fontSize: 14, fontWeight: 500, color: item.status === 'done' ? S.t3 : S.t1, textDecoration: item.status === 'done' ? 'line-through' : 'none', lineHeight: 1.35 }}
+                                  onClick={e => { e.stopPropagation(); router.push(`/project/items/${item.id}`) }}>
                                   {item.title}
                                 </span>
                               )}
@@ -670,6 +682,17 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                           </td>
                           <td style={{ borderLeft: S.bd, padding: '18px 12px', fontSize: 12, color: S.t2, verticalAlign: 'middle' }}>
                             {STATUS_LABEL[item.status]}
+                          </td>
+                          <td style={{ borderLeft: S.bd, padding: '10px 12px', fontSize: 12, verticalAlign: 'middle', width: 120 }} onClick={e => e.stopPropagation()}>
+                            <select
+                              value={item.assignee_id ?? ''}
+                              onChange={e => updateItemAssignee(item.id, e.target.value || null)}
+                              className="text-xs bg-transparent border-none outline-none cursor-pointer w-full"
+                              style={{ color: item.assignee_id ? S.t2 : S.t3 }}
+                            >
+                              <option value="">-</option>
+                              {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                            </select>
                           </td>
                           <td style={{ borderLeft: S.bd, padding: '18px 12px', verticalAlign: 'middle', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
                             <div className="flex items-center gap-1.5 justify-center opacity-0 group-hover/irow:opacity-100 transition-all">
@@ -690,7 +713,8 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
 
                         {isItemExpanded && itemSubTasks.map(st => (
                           <tr key={st.id} style={{ borderBottom: S.bd, background: '#FAFBFD' }} className="group/strow cursor-pointer hover:bg-blue-50/30"
-                            onClick={() => router.push(`/project/items/${item.id}?focus=${st.id}`)}>
+                            onClick={() => router.push(`/project/items/${item.id}?focus=${st.id}`)}
+                            onMouseEnter={() => router.prefetch(`/project/items/${item.id}`)}>
                             <td style={{ padding: '14px 16px 14px 44px', verticalAlign: 'middle' }}>
                               <div className="flex items-center gap-2">
                                 <button onClick={e => { e.stopPropagation(); cycleSubTaskStatus(st) }} title={`상태: ${STATUS_LABEL[st.status]}`}
@@ -707,6 +731,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                                 )}
                               </div>
                             </td>
+                            <td style={{ borderLeft: S.bd }} />
                             <td style={{ borderLeft: S.bd }} />
                             <td style={{ borderLeft: S.bd, padding: '12px', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
                               <div className="flex items-center gap-1.5 justify-center opacity-0 group-hover/strow:opacity-100 transition-all">
@@ -728,7 +753,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
 
                         {isItemExpanded && (
                           <tr key={`add-st-${item.id}`} style={{ borderBottom: S.bd, background: '#FAFBFD' }}>
-                            <td colSpan={3} style={{ padding: 0 }}>
+                            <td colSpan={4} style={{ padding: 0 }}>
                               {addingSubTask === item.id ? (
                                 <div className="flex items-center gap-2 px-10 py-2">
                                   <input autoFocus value={newSTTitle} onChange={e => setNewSTTitle(e.target.value)}
@@ -753,7 +778,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
 
                   {isOpen && (
                     <tr key={`add-i-${group.id}`} style={{ borderBottom: S.bd }}>
-                      <td colSpan={3} style={{ padding: 0 }}>
+                      <td colSpan={4} style={{ padding: 0 }}>
                         {addingItem === group.id ? (
                           <div className="flex items-center gap-2 px-5 py-2.5">
                             <input autoFocus value={newITitle} onChange={e => setNewITitle(e.target.value)}
@@ -775,7 +800,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                 </Fragment>
               )
             })}
-            <AddGroupForm colSpan={3} />
+            <AddGroupForm colSpan={4} />
           </tbody>
         </table>
       </div>
