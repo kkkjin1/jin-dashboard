@@ -84,12 +84,9 @@ function SingleMemoPanel({
     if (!title.trim()) return
     setSaving(true)
     if (tag === '회의관련' && meetingDate) {
-      const notes = content.trim()
-        ? [{ title: '메모', content: content.trim(), created_at: new Date().toISOString() }]
-        : []
-      const { data: newMeeting } = await supabase.from('meetings').insert({
-        title: title.trim(), meeting_date: meetingDate, notes,
-      }).select().single()
+      const { data: newMeeting } = await supabase.from('project_meetings').insert({
+        title: title.trim(), meeting_date: meetingDate,
+      }).select('id, title, meeting_date').single()
       if (newMeeting) window.dispatchEvent(new CustomEvent('quick-meeting-created', { detail: newMeeting }))
       setSavedMsg('📅 일정에 추가됨!')
     } else {

@@ -468,18 +468,18 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
     } else { setItems([]); setSubTasks([]) }
 
     if (!isAll) {
-      const { data: mData } = await supabase.from('meetings').select('id, title, meeting_date').eq('category', category).order('meeting_date', { ascending: true })
+      const { data: mData } = await supabase.from('project_meetings').select('id, title, meeting_date').eq('category', category).order('meeting_date', { ascending: true })
       const fetchedCols = (mData ?? []) as MeetingCol[]
       setCols(fetchedCols)
       if (fetchedCols.length > 0) {
-        const { data: uData } = await supabase.from('agenda_updates').select('*').in('meeting_id', fetchedCols.map(m => m.id))
+        const { data: uData } = await supabase.from('agenda_updates').select('*').in('project_meeting_id', fetchedCols.map(m => m.id))
         const map: Record<string, string> = {}
-        ;(uData ?? []).forEach((u: AgendaUpdate) => { map[nk(u.agenda_item_id, u.meeting_id)] = u.note })
+        ;(uData ?? []).forEach((u: AgendaUpdate) => { map[nk(u.agenda_item_id, u.project_meeting_id)] = u.note })
         setNotes(map)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: stUData } = await supabase.from('sub_task_updates').select('*').in('meeting_id', fetchedCols.map(m => m.id))
+        const { data: stUData } = await supabase.from('sub_task_updates').select('*').in('project_meeting_id', fetchedCols.map(m => m.id))
         const stMap: Record<string, string> = {}
-        ;(stUData ?? []).forEach((u: any) => { stMap[nk(u.sub_task_id, u.meeting_id)] = u.note })
+        ;(stUData ?? []).forEach((u: any) => { stMap[nk(u.sub_task_id, u.project_meeting_id)] = u.note })
         setSTNotes(stMap)
       }
     } else { setCols([]); setNotes({}); setSTNotes({}) }
@@ -497,8 +497,8 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
     clearTimeout(saveTimers.current[key])
     saveTimers.current[key] = setTimeout(async () => {
       await supabase.from('agenda_updates').upsert(
-        { agenda_item_id: itemId, meeting_id: meetingId, note: value },
-        { onConflict: 'agenda_item_id,meeting_id' }
+        { agenda_item_id: itemId, project_meeting_id: meetingId, note: value },
+        { onConflict: 'agenda_item_id,project_meeting_id' }
       )
     }, 600)
   }
@@ -510,8 +510,8 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
     saveTimers.current[`st_${key}`] = setTimeout(async () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (supabase.from('sub_task_updates') as any).upsert(
-        { sub_task_id: stId, meeting_id: meetingId, note: value },
-        { onConflict: 'sub_task_id,meeting_id' }
+        { sub_task_id: stId, project_meeting_id: meetingId, note: value },
+        { onConflict: 'sub_task_id,project_meeting_id' }
       )
     }, 600)
   }
@@ -606,7 +606,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
     const existing = meetingByDate[dateStr]
     if (existing) { setSelectedMeeting(existing); return }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (supabase.from('meetings') as any)
+    const { data, error } = await (supabase.from('project_meetings') as any)
       .insert({ title: `${category} ${dateStr}`, meeting_date: dateStr, category })
       .select('id, title, meeting_date').single()
     if (data) {
@@ -617,7 +617,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
     }
     // insert 실패(중복 등) 시 DB에서 기존 회의 조회
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: found } = await (supabase.from('meetings') as any)
+    const { data: found } = await (supabase.from('project_meetings') as any)
       .select('id, title, meeting_date').eq('category', category).eq('meeting_date', dateStr).single()
     if (found) {
       const col = found as MeetingCol

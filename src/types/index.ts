@@ -161,7 +161,7 @@ export interface AgendaItem {
 export interface AgendaUpdate {
   id: string
   agenda_item_id: string
-  meeting_id: string
+  project_meeting_id: string
   note: string
   created_at: string
   updated_at: string

@@ -272,7 +272,7 @@ export default function HomePage() {
   useEffect(() => {
     Promise.all([
       fetchAllTasks(),
-      supabase.from('meetings').select('id, title, meeting_date').order('meeting_date', { ascending: true }),
+      supabase.from('project_meetings').select('id, title, meeting_date').order('meeting_date', { ascending: true }),
       supabase.from('one_on_ones')
         .select('id, session_date')
         .not('session_date', 'is', null),
