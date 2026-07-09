@@ -480,6 +480,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
   const [newSTTitle,    setNewSTTitle]    = useState('')
   const [deletingST,    setDeletingST]    = useState<string | null>(null)
   const [meetingErr,    setMeetingErr]    = useState<string>('')
+  const [dndErr,        setDndErr]        = useState<string>('')
   const [draggingItemId,  setDraggingItemId]  = useState<string | null>(null)
   const [dragOverGroupId, setDragOverGroupId] = useState<string | null>(null)
   const [dragOverItemId,  setDragOverItemId]  = useState<string | null>(null)
@@ -684,36 +685,47 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
   }
   async function moveItemToGroup(itemId: string, newGroupId: string) {
     setItems(p => p.map(i => i.id === itemId ? { ...i, group_id: newGroupId } : i))
-    await supabase.from('agenda_items').update({ group_id: newGroupId }).eq('id', itemId)
+    const { error } = await supabase.from('agenda_items').update({ group_id: newGroupId }).eq('id', itemId)
+    if (error) { setDndErr(`범주 이동 실패: ${error.message}`); setTimeout(() => setDndErr(''), 4000) }
   }
   async function reorderItem(dragId: string, targetId: string) {
-    const draggedItem = items.find(i => i.id === dragId)
-    if (!draggedItem) return
-    const groupItems = items.filter(i => i.group_id === draggedItem.group_id).sort((a, b) => a.sort_order - b.sort_order)
-    const dragIdx = groupItems.findIndex(i => i.id === dragId)
-    const targetIdx = groupItems.findIndex(i => i.id === targetId)
-    if (dragIdx < 0 || targetIdx < 0 || dragIdx === targetIdx) return
-    const newOrder = [...groupItems]
-    const [moved] = newOrder.splice(dragIdx, 1)
-    newOrder.splice(targetIdx, 0, moved)
-    setItems(p => p.map(item => { const idx = newOrder.findIndex(i => i.id === item.id); return idx >= 0 ? { ...item, sort_order: idx } : item }))
+    let newOrder: AgendaItem[] = []
+    setItems(prev => {
+      const draggedItem = prev.find(i => i.id === dragId)
+      if (!draggedItem) return prev
+      const groupItems = prev.filter(i => i.group_id === draggedItem.group_id).sort((a, b) => a.sort_order - b.sort_order)
+      const dragIdx = groupItems.findIndex(i => i.id === dragId)
+      const targetIdx = groupItems.findIndex(i => i.id === targetId)
+      if (dragIdx < 0 || targetIdx < 0 || dragIdx === targetIdx) return prev
+      newOrder = [...groupItems]
+      const [moved] = newOrder.splice(dragIdx, 1)
+      newOrder.splice(targetIdx, 0, moved)
+      return prev.map(item => { const idx = newOrder.findIndex(i => i.id === item.id); return idx >= 0 ? { ...item, sort_order: idx } : item })
+    })
+    if (newOrder.length === 0) { setDndErr('순서 변경 실패: 항목을 찾을 수 없음'); setTimeout(() => setDndErr(''), 4000); return }
     for (let i = 0; i < newOrder.length; i++) {
-      await supabase.from('agenda_items').update({ sort_order: i }).eq('id', newOrder[i].id)
+      const { error } = await supabase.from('agenda_items').update({ sort_order: i }).eq('id', newOrder[i].id)
+      if (error) { setDndErr(`순서 저장 실패: ${error.message}`); setTimeout(() => setDndErr(''), 4000); return }
     }
   }
   async function reorderSubTask(dragId: string, targetId: string) {
-    const draggedST = subTasks.find(s => s.id === dragId)
-    if (!draggedST) return
-    const groupSTs = subTasks.filter(s => s.agenda_item_id === draggedST.agenda_item_id).sort((a, b) => a.sort_order - b.sort_order)
-    const dragIdx = groupSTs.findIndex(s => s.id === dragId)
-    const targetIdx = groupSTs.findIndex(s => s.id === targetId)
-    if (dragIdx < 0 || targetIdx < 0 || dragIdx === targetIdx) return
-    const newOrder = [...groupSTs]
-    const [moved] = newOrder.splice(dragIdx, 1)
-    newOrder.splice(targetIdx, 0, moved)
-    setSubTasks(p => p.map(st => { const idx = newOrder.findIndex(s => s.id === st.id); return idx >= 0 ? { ...st, sort_order: idx } : st }))
+    let newOrder: AgendaSubTask[] = []
+    setSubTasks(prev => {
+      const draggedST = prev.find(s => s.id === dragId)
+      if (!draggedST) return prev
+      const groupSTs = prev.filter(s => s.agenda_item_id === draggedST.agenda_item_id).sort((a, b) => a.sort_order - b.sort_order)
+      const dragIdx = groupSTs.findIndex(s => s.id === dragId)
+      const targetIdx = groupSTs.findIndex(s => s.id === targetId)
+      if (dragIdx < 0 || targetIdx < 0 || dragIdx === targetIdx) return prev
+      newOrder = [...groupSTs]
+      const [moved] = newOrder.splice(dragIdx, 1)
+      newOrder.splice(targetIdx, 0, moved)
+      return prev.map(st => { const idx = newOrder.findIndex(s => s.id === st.id); return idx >= 0 ? { ...st, sort_order: idx } : st })
+    })
+    if (newOrder.length === 0) { setDndErr('순서 변경 실패: task를 찾을 수 없음'); setTimeout(() => setDndErr(''), 4000); return }
     for (let i = 0; i < newOrder.length; i++) {
-      await supabase.from('agenda_sub_tasks').update({ sort_order: i }).eq('id', newOrder[i].id)
+      const { error } = await supabase.from('agenda_sub_tasks').update({ sort_order: i }).eq('id', newOrder[i].id)
+      if (error) { setDndErr(`task 순서 저장 실패: ${error.message}`); setTimeout(() => setDndErr(''), 4000); return }
     }
   }
 
@@ -840,11 +852,8 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                     return (
                       <Fragment key={item.id}>
                         <tr
-                          style={{ borderBottom: isItemExpanded ? 'none' : S.bd, opacity: draggingItemId === item.id ? 0.35 : 1, cursor: 'grab', borderTop: dragOverItemId === item.id ? `2px solid #3B82F6` : undefined }}
+                          style={{ borderBottom: isItemExpanded ? 'none' : S.bd, opacity: draggingItemId === item.id ? 0.35 : 1, borderTop: dragOverItemId === item.id ? `2px solid #3B82F6` : undefined }}
                           className="group/irow"
-                          draggable
-                          onDragStart={e => { e.stopPropagation(); _dragItemId = item.id; _dragSTId = null; e.dataTransfer.effectAllowed = 'move'; setDraggingItemId(item.id) }}
-                          onDragEnd={() => { _dragItemId = null; setDraggingItemId(null); setDragOverGroupId(null); setDragOverItemId(null) }}
                           onDragOver={e => {
                             if (!_dragItemId) return
                             e.preventDefault(); e.dataTransfer.dropEffect = 'move'
@@ -869,6 +878,14 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                           onMouseEnter={() => router.prefetch(`/project/items/${item.id}`)}>
                           <td style={{ padding: '18px 16px', verticalAlign: 'middle' }}>
                             <div className="flex items-center gap-2">
+                              <span
+                                draggable
+                                onDragStart={e => { e.stopPropagation(); _dragItemId = item.id; _dragSTId = null; e.dataTransfer.effectAllowed = 'move'; setDraggingItemId(item.id) }}
+                                onDragEnd={e => { e.stopPropagation(); _dragItemId = null; setDraggingItemId(null); setDragOverGroupId(null); setDragOverItemId(null) }}
+                                onClick={e => e.stopPropagation()}
+                                title="드래그하여 이동"
+                                style={{ cursor: 'grab', color: '#CBD5E1', fontSize: 14, userSelect: 'none', flexShrink: 0, lineHeight: 1 }}
+                              >⠿</span>
                               <button onClick={e => { e.stopPropagation(); toggleExpandedItem(item.id) }}
                                 style={{ fontSize: 8, color: S.t3, background: 'none', border: 'none', cursor: 'pointer', padding: 0, lineHeight: 1, transition: 'transform .15s', transform: isItemExpanded ? 'rotate(90deg)' : 'rotate(0deg)', flexShrink: 0, width: 10 }}>▶</button>
                               <button onClick={e => { e.stopPropagation(); cycleStatus(item) }} title={`상태: ${STATUS_LABEL[item.status]}`}
@@ -924,18 +941,23 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
 
                         {isItemExpanded && itemSubTasks.map(st => (
                           <tr key={st.id}
-                            style={{ borderBottom: S.bd, background: '#FAFBFD', opacity: draggingSTId === st.id ? 0.35 : 1, borderTop: dragOverSTId === st.id ? `2px solid #3B82F6` : undefined, cursor: 'grab' }}
+                            style={{ borderBottom: S.bd, background: '#FAFBFD', opacity: draggingSTId === st.id ? 0.35 : 1, borderTop: dragOverSTId === st.id ? `2px solid #3B82F6` : undefined }}
                             className="group/strow hover:bg-blue-50/30"
-                            draggable
-                            onDragStart={e => { e.stopPropagation(); _dragSTId = st.id; _dragItemId = null; e.dataTransfer.effectAllowed = 'move'; setDraggingSTId(st.id) }}
-                            onDragEnd={() => { _dragSTId = null; setDraggingSTId(null); setDragOverSTId(null) }}
                             onDragOver={e => { if (!_dragSTId) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverSTId(st.id) }}
                             onDrop={e => { e.preventDefault(); const dragId = _dragSTId; _dragSTId = null; if (dragId && dragId !== st.id) reorderSubTask(dragId, st.id); setDraggingSTId(null); setDragOverSTId(null) }}
                             onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverSTId(null) }}
                             onClick={() => router.push(`/project/items/${item.id}?focus=${st.id}`)}
                             onMouseEnter={() => router.prefetch(`/project/items/${item.id}`)}>
-                            <td style={{ padding: '14px 16px 14px 44px', verticalAlign: 'middle' }}>
+                            <td style={{ padding: '14px 16px 14px 36px', verticalAlign: 'middle' }}>
                               <div className="flex items-center gap-2">
+                                <span
+                                  draggable
+                                  onDragStart={e => { e.stopPropagation(); _dragSTId = st.id; _dragItemId = null; e.dataTransfer.effectAllowed = 'move'; setDraggingSTId(st.id) }}
+                                  onDragEnd={e => { e.stopPropagation(); _dragSTId = null; setDraggingSTId(null); setDragOverSTId(null) }}
+                                  onClick={e => e.stopPropagation()}
+                                  title="드래그하여 이동"
+                                  style={{ cursor: 'grab', color: '#CBD5E1', fontSize: 12, userSelect: 'none', flexShrink: 0, lineHeight: 1 }}
+                                >⠿</span>
                                 <button onClick={e => { e.stopPropagation(); cycleSubTaskStatus(st) }} title={`상태: ${STATUS_LABEL[st.status]}`}
                                   style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, background: st.status === 'active' ? (CAT_BORDER[group.category ?? ''] ?? group.color) : STATUS_COLOR[st.status], border: 'none', cursor: 'pointer', padding: 0 }} />
                                 {editingSTId === st.id ? (
@@ -1357,6 +1379,14 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
         <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', background: '#1A2233', color: '#fff', padding: '10px 20px', borderRadius: 8, fontSize: 12, zIndex: 9999, maxWidth: '90vw', wordBreak: 'break-all' }}
           onClick={() => setMeetingErr('')}>
           ⚠ {meetingErr}
+        </div>
+      )}
+
+      {/* 드래그앤드롭 에러 토스트 */}
+      {dndErr && (
+        <div style={{ position: 'fixed', bottom: 60, left: '50%', transform: 'translateX(-50%)', background: '#DC2626', color: '#fff', padding: '10px 20px', borderRadius: 8, fontSize: 12, zIndex: 9999, maxWidth: '90vw', wordBreak: 'break-all' }}
+          onClick={() => setDndErr('')}>
+          ⠿ {dndErr}
         </div>
       )}
 
