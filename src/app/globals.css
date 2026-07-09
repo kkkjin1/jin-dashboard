@@ -258,10 +258,10 @@
 .md-preview h1 { font-size: 1.1rem; font-weight: 700; color: #111827; margin: 0.75rem 0 0.2rem; }
 .md-preview h2 { font-size: 0.975rem; font-weight: 600; color: #1f2937; margin: 0.6rem 0 0.15rem; }
 .md-preview h3 { font-size: 0.875rem; font-weight: 600; color: #374151; margin: 0.5rem 0 0.1rem; }
-.md-preview ul { padding-left: 0; list-style-type: disc; list-style-position: inside; margin: 0.2rem 0; }
-.md-preview ol { padding-left: 0; list-style-type: decimal; list-style-position: inside; margin: 0.2rem 0; }
+.md-preview ul { padding-left: 1rem; list-style-type: disc; margin: 0.2rem 0; }
+.md-preview ol { padding-left: 1.2rem; list-style-type: decimal; margin: 0.2rem 0; }
 .md-preview li { margin: 0.08rem 0; line-height: 1.65; }
-.md-preview li > p { display: inline; margin: 0; }
+.md-preview li > p { margin: 0; }
 .md-preview strong { font-weight: 700; }
 .md-preview em { font-style: italic; color: #4B5563; }
 .md-preview code { font-family: 'Menlo', 'Monaco', monospace; font-size: 0.82em; background: #F1F5F9; color: #374151; padding: 1px 5px; border-radius: 4px; }

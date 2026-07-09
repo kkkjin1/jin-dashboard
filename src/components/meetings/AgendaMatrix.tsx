@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { AgendaGroup, AgendaItem, AgendaUpdate, AgendaSubTask, Attachment, Member } from '@/types'
 import ReactMarkdown from 'react-markdown'
-import MarkdownEditor from '@/components/MarkdownEditor'
+import TiptapEditor from '@/components/TiptapEditor'
 
 // ── 상수 ────────────────────────────────────────────────────────────
 const STATUS_COLOR: Record<string, string> = { active: '#3B82F6', hold: '#9CA3AF', done: '#10B981' }
@@ -50,6 +50,15 @@ function hexToRgba(hex: string, alpha: number) {
 }
 
 const S = { bd: '1px solid #E5E9F0', bdL: '1px solid #BDD0EA', bg: '#fff', bgRow: '#F7F9FC', t1: '#1A2233', t2: '#4A5A72', t3: '#8FA0B5' }
+
+// HTML vs Markdown 둘 다 처리하는 읽기 전용 렌더러
+function renderNote(note: string, style?: React.CSSProperties) {
+  const base: React.CSSProperties = { fontSize: 12, color: S.t2, lineHeight: 1.65, ...style }
+  if (note.trimStart().startsWith('<')) {
+    return <div className="note-html" style={base} dangerouslySetInnerHTML={{ __html: note }} />
+  }
+  return <div className="md-preview" style={base}><ReactMarkdown>{note}</ReactMarkdown></div>
+}
 
 // ── 회의 팝업 ────────────────────────────────────────────────────────
 interface MeetingPopupProps {
@@ -263,7 +272,8 @@ function MeetingPopup({ meeting, allMeetings, items, groups, subTasks, notes, st
                                   {prevRecords.map(rec => {
                                     const key    = `${item.id}_${rec.meetingId}`
                                     const isOpen = openPrev.has(key)
-                                    const preview = rec.note.split('\n')[0].slice(0, 60)
+                                    const rawText = rec.note.trimStart().startsWith('<') ? rec.note.replace(/<[^>]*>/g, '').trim() : rec.note.split('\n')[0]
+                                    const preview = rawText.slice(0, 60)
                                     return (
                                       <div key={rec.meetingId} style={{ marginBottom: 4, border: `1px solid ${catColor}22`, borderRadius: 8, overflow: 'hidden' }}>
                                         <button onClick={() => togglePrev(key)}
@@ -272,13 +282,13 @@ function MeetingPopup({ meeting, allMeetings, items, groups, subTasks, notes, st
                                           <span style={{ fontSize: 11, fontWeight: 700, color: catColor, flexShrink: 0, minWidth: 52 }}>{formatDate(rec.date)}</span>
                                           {!isOpen && preview && (
                                             <span style={{ fontSize: 11, color: S.t3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
-                                              {preview}{rec.note.length > 60 ? '…' : ''}
+                                              {preview}{rawText.length > 60 ? '…' : ''}
                                             </span>
                                           )}
                                         </button>
                                         {isOpen && (
-                                          <div className="md-preview" style={{ padding: '8px 12px 10px 28px', background: '#FAFBFD', borderTop: `1px solid ${catColor}15`, fontSize: 12, color: S.t2, lineHeight: 1.65, fontFamily: 'inherit' }}>
-                                            <ReactMarkdown>{rec.note}</ReactMarkdown>
+                                          <div style={{ padding: '8px 12px 10px 28px', background: '#FAFBFD', borderTop: `1px solid ${catColor}15`, fontFamily: 'inherit' }}>
+                                            {renderNote(rec.note)}
                                           </div>
                                         )}
                                       </div>
@@ -292,22 +302,13 @@ function MeetingPopup({ meeting, allMeetings, items, groups, subTasks, notes, st
                                     {formatDate(meeting.meeting_date)} 기록
                                   </div>
                                 )}
-                                <div>
-                                  <textarea
-                                    value={currentNote}
-                                    onChange={e => onNote(item.id, meeting.id, e.target.value)}
-                                    placeholder="진전 내용, 결정사항, 다음 액션 등…"
-                                    className="w-full bg-transparent focus:outline-none resize-none"
-                                    style={{ minHeight: 72, fontFamily: 'inherit', fontSize: 13, padding: '10px 12px', lineHeight: 1.65, color: S.t2, display: 'block', border: 'none', outline: 'none' }}
-                                  />
-                                  {currentNote.trim() && (
-                                    <div className="md-preview" style={{ borderTop: `1px dashed ${catColor}20`, padding: '8px 12px 6px', fontSize: 12, color: S.t2, lineHeight: 1.65, fontFamily: 'inherit' }}>
-                                      <div style={{ fontSize: 9, color: S.t3, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '.05em', fontWeight: 700 }}>미리보기</div>
-                                      <ReactMarkdown>{currentNote}</ReactMarkdown>
-                                    </div>
-                                  )}
-                                  <div style={{ textAlign: 'right', padding: '0 12px 4px', fontSize: 9, color: S.t3 }}>Markdown 지원</div>
-                                </div>
+                                <TiptapEditor
+                                  key={nk(item.id, meeting.id)}
+                                  value={currentNote}
+                                  onChange={(html) => onNote(item.id, meeting.id, html)}
+                                  minHeight={72}
+                                  className="px-3 py-2"
+                                />
                               </div>
                             </td>
                           </tr>
@@ -315,7 +316,7 @@ function MeetingPopup({ meeting, allMeetings, items, groups, subTasks, notes, st
                             const stNote = stNotes[nk(st.id, meeting.id)] ?? ''
                             return (
                               <tr key={st.id} style={{ borderBottom: idx === itemSubTasks.length - 1 ? S.bd : 'none', background: '#FAFBFD', verticalAlign: 'top' }}>
-                                <td style={{ padding: '10px 20px 10px 44px', verticalAlign: 'top' }}>
+                                <td style={{ padding: '10px 20px 10px 24px', verticalAlign: 'top' }}>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                                     <span style={{ width: 5, height: 5, borderRadius: '50%', flexShrink: 0, background: STATUS_COLOR[st.status] }} />
                                     <span style={{ fontSize: 12, color: st.status === 'done' ? S.t3 : S.t2, textDecoration: st.status === 'done' ? 'line-through' : 'none', lineHeight: 1.4 }}>
@@ -327,18 +328,13 @@ function MeetingPopup({ meeting, allMeetings, items, groups, subTasks, notes, st
                                   </div>
                                 </td>
                                 <td style={{ borderLeft: S.bd, verticalAlign: 'top' }}>
-                                  <textarea
+                                  <TiptapEditor
+                                    key={nk(st.id, meeting.id)}
                                     value={stNote}
-                                    onChange={e => onSTNote(st.id, meeting.id, e.target.value)}
-                                    placeholder="task 진척 및 논의 내용…"
-                                    className="w-full bg-transparent focus:outline-none resize-none"
-                                    style={{ minHeight: 52, fontFamily: 'inherit', fontSize: 12, padding: '10px 16px', lineHeight: 1.65, color: S.t2, display: 'block', border: 'none', outline: 'none' }}
+                                    onChange={(html) => onSTNote(st.id, meeting.id, html)}
+                                    minHeight={52}
+                                    className="px-3 py-2"
                                   />
-                                  {stNote.trim() && (
-                                    <div className="md-preview" style={{ borderTop: `1px dashed ${catColor}20`, padding: '6px 16px 8px', fontSize: 12, color: S.t2, lineHeight: 1.65, fontFamily: 'inherit' }}>
-                                      <ReactMarkdown>{stNote}</ReactMarkdown>
-                                    </div>
-                                  )}
                                 </td>
                               </tr>
                             )
