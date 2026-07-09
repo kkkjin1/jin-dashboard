@@ -49,6 +49,7 @@ export default function AgendaItemDetailPage() {
   const [addingSubTask, setAddingSubTask] = useState(false)
   const [newSTTitle,    setNewSTTitle]    = useState('')
   const [deletingST,    setDeletingST]    = useState<string | null>(null)
+  const [expandFor,     setExpandFor]     = useState<string | null>(null)
 
   // 첨부파일
   const [attachments, setAttachments] = useState<Attachment[]>([])
@@ -128,6 +129,16 @@ export default function AgendaItemDetailPage() {
       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
     }, 150)
   }, [focusSTId, subTasks.length])
+
+  // 크게 편집 ESC 닫기
+  useEffect(() => {
+    if (!expandFor) return
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') { e.stopImmediatePropagation(); setExpandFor(null) }
+    }
+    document.addEventListener('keydown', onKey, true)
+    return () => document.removeEventListener('keydown', onKey, true)
+  }, [expandFor])
 
   // ── description 자동 저장 ────────────────────────────────────────
   function handleDescription(value: string) {
@@ -257,6 +268,8 @@ export default function AgendaItemDetailPage() {
 
   const groupColor = group?.color ?? '#3B82F6'
   const doneCount  = subTasks.filter(s => s.status === 'done').length
+  const expandST   = (expandFor && expandFor !== 'description')
+    ? (subTasks.find(s => s.id === expandFor) ?? null) : null
 
   return (
     <div className="flex flex-col h-full min-h-0 overflow-y-auto">
@@ -314,6 +327,10 @@ export default function AgendaItemDetailPage() {
         <div className="rounded-2xl border border-gray-200 overflow-hidden bg-white/70">
           <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">업무 개요 · 메모</span>
+            <button onClick={() => setExpandFor('description')}
+              className="text-[10px] text-gray-400 hover:text-gray-600 px-2 py-0.5 rounded hover:bg-gray-100 transition-colors">
+              크게 편집
+            </button>
           </div>
           <MarkdownEditor
             value={description}
@@ -410,6 +427,12 @@ export default function AgendaItemDetailPage() {
                 {/* 아코디언 본문 */}
                 {isOpen && (
                   <div style={{ borderTop: '1px solid #E5E9F0', background: '#FAFBFD' }}>
+                    <div className="flex justify-end px-5 pt-2 pb-0.5">
+                      <button onClick={e => { e.stopPropagation(); setExpandFor(st.id) }}
+                        className="text-[10px] text-gray-400 hover:text-gray-600 px-2 py-0.5 rounded hover:bg-gray-100 transition-colors">
+                        크게 편집
+                      </button>
+                    </div>
                     <MarkdownEditor
                       value={st.noteContent}
                       onChange={v => handleNote(st, v)}
@@ -481,6 +504,43 @@ export default function AgendaItemDetailPage() {
           )}
         </div>
       </div>
+
+      {/* 크게 편집 오버레이 */}
+      {expandFor && (
+        <div className="fixed inset-0 z-[200] bg-white flex flex-col">
+          <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200 flex-shrink-0"
+            style={{ borderLeft: `4px solid ${groupColor}` }}>
+            <div>
+              <div className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider mb-0.5">
+                {expandFor === 'description' ? '업무 개요 · 메모' : '세부task · 노트'}
+              </div>
+              <div className="text-sm font-semibold text-gray-800">
+                {expandFor === 'description' ? (item?.title ?? '') : (expandST?.title ?? '세부task 노트')}
+              </div>
+            </div>
+            <button onClick={() => setExpandFor(null)}
+              className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-600 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200">
+              <span>ESC</span><span> 닫기</span>
+            </button>
+          </div>
+          <div className="flex-1 min-h-0 flex flex-col relative">
+            <textarea
+              autoFocus
+              value={expandFor === 'description' ? description : (expandST?.noteContent ?? '')}
+              onChange={e => {
+                if (expandFor === 'description') handleDescription(e.target.value)
+                else if (expandST) handleNote(expandST, e.target.value)
+              }}
+              placeholder={expandFor === 'description'
+                ? '이 업무에 대한 전반적인 맥락, 목표, 진행 상황 등을 자유롭게 기록하세요…'
+                : `${expandST?.title ?? ''}에 대한 진전 내용, 결정사항, 링크 등을 아카이빙하세요…`}
+              className="flex-1 w-full resize-none focus:outline-none text-gray-700"
+              style={{ fontFamily: 'inherit', fontSize: 15, lineHeight: 1.75, padding: '24px 32px' }}
+            />
+            <span className="absolute bottom-4 right-8 text-[10px] text-gray-200 pointer-events-none select-none">Markdown 지원</span>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -91,12 +91,21 @@ function MeetingPopup({ meeting, allMeetings, items, groups, subTasks, notes, st
   const [attachments,  setAttachments]  = useState<Attachment[]>([])
   const [uploading,    setUploading]    = useState(false)
   const [uploadError,  setUploadError]  = useState('')
+  const [expandKey,    setExpandKey]    = useState<string | null>(null)
+  const [expandLabel,  setExpandLabel]  = useState('')
+  const [refreshKey,   setRefreshKey]   = useState(0)
+  const expandOnChangeRef = useRef<((v: string) => void) | null>(null)
 
   useEffect(() => {
-    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        if (expandKey) { setExpandKey(null); setRefreshKey(r => r + 1) }
+        else onClose()
+      }
+    }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [onClose])
+  }, [onClose, expandKey])
 
   useEffect(() => {
     supabase.from('attachments').select('*').eq('meeting_id', meeting.id)
@@ -310,11 +319,16 @@ function MeetingPopup({ meeting, allMeetings, items, groups, subTasks, notes, st
                                   </div>
                                 )}
                                 <TiptapEditor
-                                  key={nk(item.id, meeting.id)}
+                                  key={`${nk(item.id, meeting.id)}-${refreshKey}`}
                                   value={currentNote}
                                   onChange={(html) => onNote(item.id, meeting.id, html)}
                                   minHeight={72}
                                   className="px-3 py-2"
+                                  onExpand={() => {
+                                    setExpandKey(nk(item.id, meeting.id))
+                                    setExpandLabel(item.title)
+                                    expandOnChangeRef.current = (html) => onNote(item.id, meeting.id, html)
+                                  }}
                                 />
                               </div>
                             </td>
@@ -336,11 +350,16 @@ function MeetingPopup({ meeting, allMeetings, items, groups, subTasks, notes, st
                                 </td>
                                 <td style={{ borderLeft: S.bd, verticalAlign: 'top' }}>
                                   <TiptapEditor
-                                    key={nk(st.id, meeting.id)}
+                                    key={`${nk(st.id, meeting.id)}-${refreshKey}`}
                                     value={stNote}
                                     onChange={(html) => onSTNote(st.id, meeting.id, html)}
                                     minHeight={52}
                                     className="px-3 py-2"
+                                    onExpand={() => {
+                                      setExpandKey(nk(st.id, meeting.id))
+                                      setExpandLabel(st.title)
+                                      expandOnChangeRef.current = (html) => onSTNote(st.id, meeting.id, html)
+                                    }}
                                   />
                                 </td>
                               </tr>
@@ -357,6 +376,34 @@ function MeetingPopup({ meeting, allMeetings, items, groups, subTasks, notes, st
           </div>
         </div>
       </div>
+
+      {expandKey && (
+        <div className="fixed inset-0 z-[200] bg-white flex flex-col">
+          <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200 flex-shrink-0"
+            style={{ borderLeft: `4px solid ${catColor}` }}>
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: S.t3, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 2 }}>
+                {formatDate(meeting.meeting_date)} · 회의 기록
+              </div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: S.t1 }}>{expandLabel}</div>
+            </div>
+            <button onClick={() => { setExpandKey(null); setRefreshKey(r => r + 1) }}
+              className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-600 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200">
+              <span>ESC</span><span> 닫기</span>
+            </button>
+          </div>
+          <div className="flex-1 min-h-0 overflow-auto">
+            <TiptapEditor
+              key={`expand-${expandKey}`}
+              value={notes[expandKey] ?? stNotes[expandKey] ?? ''}
+              onChange={v => expandOnChangeRef.current?.(v)}
+              minHeight={500}
+              className="px-8 py-6"
+              autoFocus
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
