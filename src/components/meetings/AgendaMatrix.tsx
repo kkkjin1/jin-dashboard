@@ -287,13 +287,22 @@ function MeetingPopup({ meeting, allMeetings, items, groups, notes, allPrevNotes
                                     {formatDate(meeting.meeting_date)} 기록
                                   </div>
                                 )}
-                                <MarkdownEditor
-                                  value={currentNote}
-                                  onChange={v => onNote(item.id, meeting.id, v)}
-                                  placeholder="진전 내용, 결정사항, 다음 액션 등…"
-                                  minHeight={72}
-                                  style={{ fontSize: 13, padding: '10px 12px' }}
-                                />
+                                <div>
+                                  <textarea
+                                    value={currentNote}
+                                    onChange={e => onNote(item.id, meeting.id, e.target.value)}
+                                    placeholder="진전 내용, 결정사항, 다음 액션 등…"
+                                    className="w-full bg-transparent focus:outline-none resize-none"
+                                    style={{ minHeight: 72, fontFamily: 'inherit', fontSize: 13, padding: '10px 12px', lineHeight: 1.65, color: S.t2, display: 'block', border: 'none', outline: 'none' }}
+                                  />
+                                  {currentNote.trim() && (
+                                    <div className="md-preview" style={{ borderTop: `1px dashed ${catColor}20`, padding: '8px 12px 6px', fontSize: 12, color: S.t2, lineHeight: 1.65, fontFamily: 'inherit' }}>
+                                      <div style={{ fontSize: 9, color: S.t3, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '.05em', fontWeight: 700 }}>미리보기</div>
+                                      <ReactMarkdown>{currentNote}</ReactMarkdown>
+                                    </div>
+                                  )}
+                                  <div style={{ textAlign: 'right', padding: '0 12px 4px', fontSize: 9, color: S.t3 }}>Markdown 지원</div>
+                                </div>
                               </div>
                             </td>
                           </tr>
