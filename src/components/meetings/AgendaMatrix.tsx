@@ -1029,13 +1029,31 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                                 </span>
                               </div>
                             </td>
-                            {dateRange.map(date => (
-                              <td key={date}
-                                onClick={() => openOrCreateMeeting(date)}
-                                style={{ borderLeft: S.bd, width: W_CAL, minWidth: W_CAL, cursor: 'pointer', padding: '8px 2px' }}
-                                className="hover:bg-blue-50/30 transition-colors" />
-                            ))}
-                            <td style={{ borderLeft: S.bd }} />
+                            {dateRange.map(date => {
+                              const mtg = meetingByDate[date]
+                              const stNote = mtg ? (stNotes[nk(st.id, mtg.id)] ?? '') : ''
+                              const hasSTContent = stNote.trim().length > 0
+                              const isToday = date === todayStr
+                              return (
+                                <td key={date}
+                                  onClick={() => openOrCreateMeeting(date)}
+                                  style={{
+                                    borderLeft: S.bd,
+                                    background: isToday ? hexToRgba(catColor, 0.03) : 'transparent',
+                                    width: W_CAL, minWidth: W_CAL,
+                                    cursor: 'pointer', padding: '8px 2px',
+                                    textAlign: 'center', verticalAlign: 'middle',
+                                  }}
+                                  className="hover:bg-blue-50/30 transition-colors">
+                                  {hasSTContent ? (
+                                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: catDot, margin: '0 auto', opacity: 0.7 }} />
+                                  ) : mtg ? (
+                                    <div style={{ width: 4, height: 4, borderRadius: '50%', border: `1.5px solid ${hexToRgba(catDot, 0.3)}`, margin: '0 auto' }} />
+                                  ) : null}
+                                </td>
+                              )
+                            })}
+                            <td style={{ borderLeft: S.bd }}></td>
                           </tr>
                         ))}
                       </Fragment>
