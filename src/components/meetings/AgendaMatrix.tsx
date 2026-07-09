@@ -115,9 +115,15 @@ function MeetingPopup({ meeting, allMeetings, items, groups, notes, allPrevNotes
     setOpenPrev(prev => { const s = new Set(prev); s.has(key) ? s.delete(key) : s.add(key); return s })
   }
 
-  const pastMeetings = allMeetings
-    .filter(m => m.id !== meeting.id && m.meeting_date)
+  // 전체 회의 목록 (현재 포함), 날짜 내림차순
+  const allSortedMeetings = [...allMeetings]
+    .filter(m => m.meeting_date)
     .sort((a, b) => b.meeting_date!.localeCompare(a.meeting_date!))
+
+  // 안건별 노트 유무 (내용 있으면 dot 표시)
+  function meetingHasNotes(meetingId: string) {
+    return items.some(i => (notes[nk(i.id, meetingId)] ?? '').trim().length > 0)
+  }
 
   const byGroup = groups
     .map(g => ({ group: g, items: items.filter(i => i.group_id === g.id) }))
@@ -172,23 +178,32 @@ function MeetingPopup({ meeting, allMeetings, items, groups, notes, allPrevNotes
         {/* 본문: 사이드바 + 메인 */}
         <div className="flex-1 min-h-0 flex overflow-hidden">
 
-          {/* 왼쪽: 이전 회의 목록 */}
-          {pastMeetings.length > 0 && (
+          {/* 왼쪽: 회의 네비게이션 (전체 목록) */}
+          {allSortedMeetings.length > 0 && (
             <div className="w-40 flex-shrink-0 border-r border-gray-100 overflow-y-auto bg-gray-50/60">
               <div style={{ padding: '10px 12px 6px', fontSize: 10, fontWeight: 700, color: S.t3, textTransform: 'uppercase', letterSpacing: '.05em' }}>
-                이전 회의
+                회의 목록
               </div>
-              {pastMeetings.map(m => {
+              {allSortedMeetings.map(m => {
                 const isCurrent = m.id === meeting.id
+                const hasNotes  = meetingHasNotes(m.id)
+                const isFuture  = m.meeting_date! > (meeting.meeting_date ?? '')
                 return (
                   <button key={m.id} onClick={() => onSelectMeeting(m)}
-                    className="w-full text-left px-3 py-2.5 hover:bg-white/80 transition-colors"
+                    className="w-full text-left px-3 py-2 hover:bg-white/80 transition-colors"
                     style={{ borderRight: isCurrent ? `2px solid ${catColor}` : '2px solid transparent', background: isCurrent ? 'white' : 'transparent' }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: isCurrent ? catColor : S.t2 }}>
-                      {formatDateShort(m.meeting_date)}
+                    <div className="flex items-center gap-1.5">
+                      {/* 내용 유무 dot */}
+                      <span style={{ width: 5, height: 5, borderRadius: '50%', flexShrink: 0,
+                        background: hasNotes ? catColor : 'transparent',
+                        border: hasNotes ? 'none' : `1.5px solid ${isCurrent ? catColor : '#CBD5E0'}` }} />
+                      <span style={{ fontSize: 12, fontWeight: isCurrent ? 700 : 500, color: isCurrent ? catColor : isFuture ? S.t2 : S.t2, flex: 1 }}>
+                        {formatDateShort(m.meeting_date)}
+                      </span>
+                      {isFuture && <span style={{ fontSize: 9, color: S.t3 }}>예정</span>}
                     </div>
-                    <div style={{ fontSize: 10, color: S.t3, marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {m.title || '—'}
+                    <div style={{ fontSize: 10, color: S.t3, marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingLeft: 12 }}>
+                      {hasNotes ? '기록 있음' : '미작성'}
                     </div>
                   </button>
                 )
@@ -823,24 +838,28 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
               const isOpen     = openGroups.has(group.id)
               return (
                 <Fragment key={group.id}>
-                  {/* 범주 헤더 — 범주명 + 카테고리 배지 */}
-                  <tr>
-                    <td colSpan={dateRange.length + 2}
-                      style={{ position: 'sticky', left: 0, zIndex: 2, background: hexToRgba(group.color, 0.08), borderTop: '3px solid #fff', borderBottom: S.bd, borderLeft: `3px solid ${group.color}`, padding: 0, cursor: 'pointer' }}
+                  {/* 범주 헤더 — sticky 셀 + 나머지 colSpan 셀 분리 (colSpan+sticky 동시 사용 금지) */}
+                  <tr style={{ borderTop: '3px solid #fff', borderBottom: S.bd }}>
+                    {/* 왼쪽: sticky 고정 셀 (범주명 표시) */}
+                    <td style={{ position: 'sticky', left: 0, zIndex: 2, background: hexToRgba(group.color, 0.08), borderLeft: `3px solid ${group.color}`, borderBottom: S.bd, padding: 0, cursor: 'pointer', width: W_LEFT, minWidth: W_LEFT }}
                       onClick={() => toggleGroup(group.id)}>
-                      <div className="flex items-center gap-2 group/grow" style={{ padding: '20px 16px' }}>
+                      <div className="flex items-center gap-2" style={{ padding: '20px 16px' }}>
                         <span style={{ width: 3, height: 12, borderRadius: 2, background: group.color, flexShrink: 0 }} />
-                        <span style={{ fontSize: 9, color: S.t3, display: 'inline-block', transition: 'transform .15s', transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}>▼</span>
+                        <span style={{ fontSize: 9, color: S.t3, display: 'inline-block', transition: 'transform .15s', transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)', flexShrink: 0 }}>▼</span>
                         <span style={{ fontSize: 13, fontWeight: 700, color: S.t1 }}>{group.name}</span>
                         {/* 범주 배지 */}
                         {group.category && CAT_BORDER[group.category] && (
-                          <span style={{ fontSize: 10, fontWeight: 600, color: CAT_BORDER[group.category], background: CAT_BG[group.category], border: `1px solid ${CAT_BORDER[group.category]}30`, padding: '1px 7px', borderRadius: 99 }}>
+                          <span style={{ fontSize: 10, fontWeight: 600, color: CAT_BORDER[group.category], background: CAT_BG[group.category], border: `1px solid ${CAT_BORDER[group.category]}30`, padding: '1px 7px', borderRadius: 99, flexShrink: 0 }}>
                             {group.category}
                           </span>
                         )}
-                        <span style={{ fontSize: 10, color: S.t3, background: '#E5E9F0', padding: '1px 6px', borderRadius: 99 }}>{groupItems.length}</span>
+                        <span style={{ fontSize: 10, color: S.t3, background: '#E5E9F0', padding: '1px 6px', borderRadius: 99, flexShrink: 0 }}>{groupItems.length}</span>
                       </div>
                     </td>
+                    {/* 오른쪽: 나머지 날짜 열 채우기 (non-sticky colSpan) */}
+                    <td colSpan={dateRange.length + 1}
+                      style={{ background: hexToRgba(group.color, 0.08), borderBottom: S.bd, cursor: 'pointer' }}
+                      onClick={() => toggleGroup(group.id)} />
                   </tr>
 
                   {/* 안건 행들 */}
