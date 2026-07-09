@@ -54,6 +54,7 @@ export default function AgendaItemDetailPage() {
   // 첨부파일
   const [attachments, setAttachments] = useState<Attachment[]>([])
   const [uploadingFor, setUploadingFor] = useState<string | null>(null) // 'item' | stId
+  const [uploadError,  setUploadError]  = useState<string>('')
 
   // 노트 저장 타이머
   const noteTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
@@ -197,20 +198,22 @@ export default function AgendaItemDetailPage() {
     const files = Array.from(e.target.files ?? [])
     if (!files.length) return
     setUploadingFor(target)
+    setUploadError('')
     try {
       for (const file of files) {
         const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
         const path = target === 'item'
           ? `agenda-items/${id}/${Date.now()}_${safeName}`
           : `agenda-items/${id}/subtasks/${target}/${Date.now()}_${safeName}`
-        const { error } = await supabase.storage.from('attachments').upload(path, file)
-        if (error) continue
+        const { error: storageErr } = await supabase.storage.from('attachments').upload(path, file)
+        if (storageErr) { setUploadError(`스토리지 오류: ${storageErr.message}`); continue }
         const { data: urlData } = supabase.storage.from('attachments').getPublicUrl(path)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const insertRow: any = target === 'item'
           ? { task_id: id,   sub_task_id: null,   meeting_id: null, name: file.name, type: '파일', url: urlData.publicUrl }
           : { task_id: null, sub_task_id: target, meeting_id: null, name: file.name, type: '파일', url: urlData.publicUrl }
-        const { data } = await supabase.from('attachments').insert(insertRow).select().single()
+        const { data, error: dbErr } = await supabase.from('attachments').insert(insertRow).select().single()
+        if (dbErr) { setUploadError(`DB 오류: ${dbErr.message}`); continue }
         if (data) setAttachments(prev => [data as Attachment, ...prev])
       }
     } finally {
@@ -346,6 +349,7 @@ export default function AgendaItemDetailPage() {
                 📎 {uploadingFor === 'item' ? '업로드 중…' : '파일 추가'}
                 <input type="file" multiple className="hidden" onChange={e => handleUpload(e, 'item')} disabled={uploadingFor === 'item'} />
               </label>
+              {uploadError && <span className="text-[10px] text-red-500 ml-1">{uploadError}</span>}
             </div>
             {itemAtts.length === 0 ? (
               <p className="text-[10px] text-gray-300">이 업무 전체에 해당하는 파일을 첨부하세요</p>

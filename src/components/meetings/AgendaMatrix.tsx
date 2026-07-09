@@ -478,6 +478,9 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
   const [meetingErr,    setMeetingErr]    = useState<string>('')
   const [draggingItemId,  setDraggingItemId]  = useState<string | null>(null)
   const [dragOverGroupId, setDragOverGroupId] = useState<string | null>(null)
+  const [dragOverItemId,  setDragOverItemId]  = useState<string | null>(null)
+  const [draggingSTId,    setDraggingSTId]    = useState<string | null>(null)
+  const [dragOverSTId,    setDragOverSTId]    = useState<string | null>(null)
 
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
   const isAll = category === '전체'
@@ -679,6 +682,36 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
     setItems(p => p.map(i => i.id === itemId ? { ...i, group_id: newGroupId } : i))
     await supabase.from('agenda_items').update({ group_id: newGroupId }).eq('id', itemId)
   }
+  async function reorderItem(dragId: string, targetId: string) {
+    const draggedItem = items.find(i => i.id === dragId)
+    if (!draggedItem) return
+    const groupItems = items.filter(i => i.group_id === draggedItem.group_id).sort((a, b) => a.sort_order - b.sort_order)
+    const dragIdx = groupItems.findIndex(i => i.id === dragId)
+    const targetIdx = groupItems.findIndex(i => i.id === targetId)
+    if (dragIdx < 0 || targetIdx < 0 || dragIdx === targetIdx) return
+    const newOrder = [...groupItems]
+    const [moved] = newOrder.splice(dragIdx, 1)
+    newOrder.splice(targetIdx, 0, moved)
+    setItems(p => p.map(item => { const idx = newOrder.findIndex(i => i.id === item.id); return idx >= 0 ? { ...item, sort_order: idx } : item }))
+    for (let i = 0; i < newOrder.length; i++) {
+      await supabase.from('agenda_items').update({ sort_order: i }).eq('id', newOrder[i].id)
+    }
+  }
+  async function reorderSubTask(dragId: string, targetId: string) {
+    const draggedST = subTasks.find(s => s.id === dragId)
+    if (!draggedST) return
+    const groupSTs = subTasks.filter(s => s.agenda_item_id === draggedST.agenda_item_id).sort((a, b) => a.sort_order - b.sort_order)
+    const dragIdx = groupSTs.findIndex(s => s.id === dragId)
+    const targetIdx = groupSTs.findIndex(s => s.id === targetId)
+    if (dragIdx < 0 || targetIdx < 0 || dragIdx === targetIdx) return
+    const newOrder = [...groupSTs]
+    const [moved] = newOrder.splice(dragIdx, 1)
+    newOrder.splice(targetIdx, 0, moved)
+    setSubTasks(p => p.map(st => { const idx = newOrder.findIndex(s => s.id === st.id); return idx >= 0 ? { ...st, sort_order: idx } : st }))
+    for (let i = 0; i < newOrder.length; i++) {
+      await supabase.from('agenda_sub_tasks').update({ sort_order: i }).eq('id', newOrder[i].id)
+    }
+  }
 
   // ── 날짜 클릭 — 기존 회의면 열고, 없으면 생성 후 열기 ──────────
   async function openOrCreateMeeting(dateStr: string) {
@@ -802,10 +835,32 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                     const activeColor   = item.status === 'active' ? (CAT_BORDER[group.category ?? ''] ?? group.color) : STATUS_COLOR[item.status]
                     return (
                       <Fragment key={item.id}>
-                        <tr style={{ borderBottom: isItemExpanded ? 'none' : S.bd, opacity: draggingItemId === item.id ? 0.4 : 1, cursor: 'grab' }} className="group/irow"
+                        <tr
+                          style={{ borderBottom: isItemExpanded ? 'none' : S.bd, opacity: draggingItemId === item.id ? 0.35 : 1, cursor: 'grab', borderTop: dragOverItemId === item.id ? `2px solid #3B82F6` : undefined }}
+                          className="group/irow"
                           draggable
                           onDragStart={e => { e.stopPropagation(); setDraggingItemId(item.id) }}
-                          onDragEnd={() => { setDraggingItemId(null); setDragOverGroupId(null) }}
+                          onDragEnd={() => { setDraggingItemId(null); setDragOverGroupId(null); setDragOverItemId(null) }}
+                          onDragOver={e => {
+                            if (!draggingItemId || draggingItemId === item.id) return
+                            e.preventDefault()
+                            const di = items.find(i => i.id === draggingItemId)
+                            if (!di) return
+                            if (di.group_id !== group.id) { setDragOverGroupId(group.id); setDragOverItemId(null) }
+                            else { setDragOverItemId(item.id); setDragOverGroupId(null) }
+                          }}
+                          onDrop={e => {
+                            e.preventDefault()
+                            if (draggingItemId && draggingItemId !== item.id) {
+                              const di = items.find(i => i.id === draggingItemId)
+                              if (di) {
+                                if (di.group_id !== group.id) moveItemToGroup(draggingItemId, group.id)
+                                else reorderItem(draggingItemId, item.id)
+                              }
+                            }
+                            setDraggingItemId(null); setDragOverGroupId(null); setDragOverItemId(null)
+                          }}
+                          onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) { if (dragOverItemId === item.id) setDragOverItemId(null) } }}
                           onClick={() => toggleExpandedItem(item.id)}
                           onMouseEnter={() => router.prefetch(`/project/items/${item.id}`)}>
                           <td style={{ padding: '18px 16px', verticalAlign: 'middle' }}>
@@ -864,7 +919,15 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                         </tr>
 
                         {isItemExpanded && itemSubTasks.map(st => (
-                          <tr key={st.id} style={{ borderBottom: S.bd, background: '#FAFBFD' }} className="group/strow cursor-pointer hover:bg-blue-50/30"
+                          <tr key={st.id}
+                            style={{ borderBottom: S.bd, background: '#FAFBFD', opacity: draggingSTId === st.id ? 0.35 : 1, borderTop: dragOverSTId === st.id ? `2px solid #3B82F6` : undefined, cursor: 'grab' }}
+                            className="group/strow hover:bg-blue-50/30"
+                            draggable
+                            onDragStart={e => { e.stopPropagation(); setDraggingSTId(st.id) }}
+                            onDragEnd={() => { setDraggingSTId(null); setDragOverSTId(null) }}
+                            onDragOver={e => { if (draggingSTId && draggingSTId !== st.id) { e.preventDefault(); setDragOverSTId(st.id) } }}
+                            onDrop={e => { e.preventDefault(); if (draggingSTId && draggingSTId !== st.id) reorderSubTask(draggingSTId, st.id); setDraggingSTId(null); setDragOverSTId(null) }}
+                            onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverSTId(null) }}
                             onClick={() => router.push(`/project/items/${item.id}?focus=${st.id}`)}
                             onMouseEnter={() => router.prefetch(`/project/items/${item.id}`)}>
                             <td style={{ padding: '14px 16px 14px 44px', verticalAlign: 'middle' }}>

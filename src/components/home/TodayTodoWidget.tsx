@@ -237,7 +237,6 @@ export default function TodayTodoWidget() {
     <>
       <div className="h-full flex flex-col p-4 font-sans">
         <div className="flex items-center gap-2 mb-3 flex-shrink-0">
-          <span className="w-1.5 h-1.5 rounded-full bg-sky-400 flex-shrink-0" />
           <h3 className="text-xs font-semibold text-gray-800">✅ 오늘 할 일</h3>
           <span className="text-[9px] text-gray-400 mr-auto">Ctrl+2</span>
           {done.length > 0 && (
