@@ -435,6 +435,10 @@ function MeetingPopup({ meeting, allMeetings, items, groups, subTasks, notes, st
   )
 }
 
+// ── 드래그 소스 추적 (모듈 레벨 — React state/dataTransfer 우회) ────
+let _dragItemId: string | null = null
+let _dragSTId: string | null = null
+
 // ── 메인 컴포넌트 ────────────────────────────────────────────────────
 export default function AgendaMatrix({ category, allCats }: { category: string; allCats: string[] }) {
   const supabase = createClient()
@@ -783,8 +787,8 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                 <Fragment key={group.id}>
                   <tr
                     style={{ background: dragOverGroupId === group.id ? hexToRgba(group.color, 0.22) : (CAT_BG[group.category ?? ''] ?? hexToRgba(group.color, 0.09)), transition: 'background .15s' }}
-                    onDragOver={e => { if (!e.dataTransfer.types.includes('text/plain')) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverGroupId(group.id); setDragOverItemId(null) }}
-                    onDrop={e => { e.preventDefault(); const data = e.dataTransfer.getData('text/plain'); if (data.startsWith('item:')) { const dragId = data.slice(5); const di = items.find(i => i.id === dragId); if (di && di.group_id !== group.id) moveItemToGroup(dragId, group.id) } setDraggingItemId(null); setDragOverGroupId(null); setDragOverItemId(null) }}
+                    onDragOver={e => { if (!_dragItemId) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverGroupId(group.id); setDragOverItemId(null) }}
+                    onDrop={e => { e.preventDefault(); const dragId = _dragItemId; _dragItemId = null; if (dragId) { const di = items.find(i => i.id === dragId); if (di && di.group_id !== group.id) moveItemToGroup(dragId, group.id) } setDraggingItemId(null); setDragOverGroupId(null); setDragOverItemId(null) }}
                     onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverGroupId(null) }}>
                     <td colSpan={4} style={{ padding: 0, borderTop: dragOverGroupId === group.id ? `2px solid ${group.color}` : '3px solid #fff', borderBottom: S.bd, borderLeft: `3px solid ${CAT_BORDER[group.category ?? ''] ?? group.color}` }}>
                       {editingGroupId === group.id ? (
@@ -839,26 +843,23 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                           style={{ borderBottom: isItemExpanded ? 'none' : S.bd, opacity: draggingItemId === item.id ? 0.35 : 1, cursor: 'grab', borderTop: dragOverItemId === item.id ? `2px solid #3B82F6` : undefined }}
                           className="group/irow"
                           draggable
-                          onDragStart={e => { e.stopPropagation(); e.dataTransfer.setData('text/plain', `item:${item.id}`); e.dataTransfer.effectAllowed = 'move'; setDraggingItemId(item.id) }}
-                          onDragEnd={() => { setDraggingItemId(null); setDragOverGroupId(null); setDragOverItemId(null) }}
+                          onDragStart={e => { e.stopPropagation(); _dragItemId = item.id; _dragSTId = null; e.dataTransfer.effectAllowed = 'move'; setDraggingItemId(item.id) }}
+                          onDragEnd={() => { _dragItemId = null; setDraggingItemId(null); setDragOverGroupId(null); setDragOverItemId(null) }}
                           onDragOver={e => {
-                            if (!e.dataTransfer.types.includes('text/plain')) return
+                            if (!_dragItemId) return
                             e.preventDefault(); e.dataTransfer.dropEffect = 'move'
-                            const di = draggingItemId ? items.find(i => i.id === draggingItemId) : null
+                            const di = items.find(i => i.id === _dragItemId)
                             if (di?.group_id === group.id) { setDragOverItemId(item.id); setDragOverGroupId(null) }
                             else { setDragOverGroupId(group.id); setDragOverItemId(null) }
                           }}
                           onDrop={e => {
                             e.preventDefault()
-                            const data = e.dataTransfer.getData('text/plain')
-                            if (data.startsWith('item:')) {
-                              const dragId = data.slice(5)
-                              if (dragId !== item.id) {
-                                const di = items.find(i => i.id === dragId)
-                                if (di) {
-                                  if (di.group_id !== group.id) moveItemToGroup(dragId, group.id)
-                                  else reorderItem(dragId, item.id)
-                                }
+                            const dragId = _dragItemId; _dragItemId = null
+                            if (dragId && dragId !== item.id) {
+                              const di = items.find(i => i.id === dragId)
+                              if (di) {
+                                if (di.group_id !== group.id) moveItemToGroup(dragId, group.id)
+                                else reorderItem(dragId, item.id)
                               }
                             }
                             setDraggingItemId(null); setDragOverGroupId(null); setDragOverItemId(null)
@@ -926,10 +927,10 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                             style={{ borderBottom: S.bd, background: '#FAFBFD', opacity: draggingSTId === st.id ? 0.35 : 1, borderTop: dragOverSTId === st.id ? `2px solid #3B82F6` : undefined, cursor: 'grab' }}
                             className="group/strow hover:bg-blue-50/30"
                             draggable
-                            onDragStart={e => { e.stopPropagation(); e.dataTransfer.setData('text/plain', `st:${st.id}`); e.dataTransfer.effectAllowed = 'move'; setDraggingSTId(st.id) }}
-                            onDragEnd={() => { setDraggingSTId(null); setDragOverSTId(null) }}
-                            onDragOver={e => { if (!e.dataTransfer.types.includes('text/plain')) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverSTId(st.id) }}
-                            onDrop={e => { e.preventDefault(); const data = e.dataTransfer.getData('text/plain'); if (data.startsWith('st:')) { const dragId = data.slice(3); if (dragId !== st.id) reorderSubTask(dragId, st.id) } setDraggingSTId(null); setDragOverSTId(null) }}
+                            onDragStart={e => { e.stopPropagation(); _dragSTId = st.id; _dragItemId = null; e.dataTransfer.effectAllowed = 'move'; setDraggingSTId(st.id) }}
+                            onDragEnd={() => { _dragSTId = null; setDraggingSTId(null); setDragOverSTId(null) }}
+                            onDragOver={e => { if (!_dragSTId) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverSTId(st.id) }}
+                            onDrop={e => { e.preventDefault(); const dragId = _dragSTId; _dragSTId = null; if (dragId && dragId !== st.id) reorderSubTask(dragId, st.id); setDraggingSTId(null); setDragOverSTId(null) }}
                             onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverSTId(null) }}
                             onClick={() => router.push(`/project/items/${item.id}?focus=${st.id}`)}
                             onMouseEnter={() => router.prefetch(`/project/items/${item.id}`)}>
