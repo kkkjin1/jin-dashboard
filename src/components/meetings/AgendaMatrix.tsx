@@ -4,6 +4,8 @@ import { useEffect, useState, useRef, useMemo, Fragment } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { AgendaGroup, AgendaItem, AgendaUpdate, AgendaSubTask, Attachment } from '@/types'
+import ReactMarkdown from 'react-markdown'
+import MarkdownEditor from '@/components/MarkdownEditor'
 
 // ── 상수 ────────────────────────────────────────────────────────────
 const STATUS_COLOR: Record<string, string> = { active: '#3B82F6', hold: '#9CA3AF', done: '#10B981' }
@@ -270,8 +272,8 @@ function MeetingPopup({ meeting, allMeetings, items, groups, notes, allPrevNotes
                                           )}
                                         </button>
                                         {isOpen && (
-                                          <div style={{ padding: '8px 12px 10px 28px', background: '#FAFBFD', borderTop: `1px solid ${catColor}15` }}>
-                                            <pre style={{ margin: 0, fontSize: 12, color: S.t2, lineHeight: 1.65, whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>{rec.note}</pre>
+                                          <div className="md-preview" style={{ padding: '8px 12px 10px 28px', background: '#FAFBFD', borderTop: `1px solid ${catColor}15`, fontSize: 12, color: S.t2, lineHeight: 1.65, fontFamily: 'inherit' }}>
+                                            <ReactMarkdown>{rec.note}</ReactMarkdown>
                                           </div>
                                         )}
                                       </div>
@@ -285,12 +287,12 @@ function MeetingPopup({ meeting, allMeetings, items, groups, notes, allPrevNotes
                                     {formatDate(meeting.meeting_date)} 기록
                                   </div>
                                 )}
-                                <textarea
+                                <MarkdownEditor
                                   value={currentNote}
-                                  onChange={e => onNote(item.id, meeting.id, e.target.value)}
+                                  onChange={v => onNote(item.id, meeting.id, v)}
                                   placeholder="진전 내용, 결정사항, 다음 액션 등…"
-                                  rows={currentNote ? Math.max(3, currentNote.split('\n').length + 1) : 3}
-                                  style={{ width: '100%', border: 'none', background: 'transparent', resize: 'vertical', fontSize: 13, color: S.t1, lineHeight: 1.65, fontFamily: 'inherit', outline: 'none', minHeight: 64 }}
+                                  minHeight={72}
+                                  style={{ fontSize: 13, padding: '10px 12px' }}
                                 />
                               </div>
                             </td>

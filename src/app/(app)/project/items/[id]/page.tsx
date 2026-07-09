@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { AgendaItem, AgendaSubTask, Attachment } from '@/types'
+import MarkdownEditor from '@/components/MarkdownEditor'
 
 const STATUS_CYCLE = ['active', 'hold', 'done'] as const
 type Status = typeof STATUS_CYCLE[number]
@@ -314,12 +315,11 @@ export default function AgendaItemDetailPage() {
           <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">업무 개요 · 메모</span>
           </div>
-          <textarea
+          <MarkdownEditor
             value={description}
-            onChange={e => handleDescription(e.target.value)}
+            onChange={handleDescription}
             placeholder="이 업무에 대한 전반적인 맥락, 목표, 진행 상황 등을 자유롭게 기록하세요…"
-            className="w-full px-5 py-4 text-sm text-gray-700 bg-transparent focus:outline-none resize-none leading-relaxed"
-            style={{ minHeight: 140, fontFamily: 'inherit' }}
+            minHeight={140}
           />
           {/* 업무 첨부파일 */}
           <div className="border-t border-gray-100 px-5 py-3 bg-gray-50/60">
@@ -410,12 +410,11 @@ export default function AgendaItemDetailPage() {
                 {/* 아코디언 본문 */}
                 {isOpen && (
                   <div style={{ borderTop: '1px solid #E5E9F0', background: '#FAFBFD' }}>
-                    <textarea
+                    <MarkdownEditor
                       value={st.noteContent}
-                      onChange={e => handleNote(st, e.target.value)}
+                      onChange={v => handleNote(st, v)}
                       placeholder={`${st.title}에 대한 진전 내용, 결정사항, 링크 등을 아카이빙하세요…`}
-                      className="w-full px-5 py-4 text-sm text-gray-700 bg-transparent focus:outline-none resize-none leading-relaxed"
-                      style={{ minHeight: 120, fontFamily: 'inherit' }}
+                      minHeight={120}
                       autoFocus={isFocus && focusSTId === st.id}
                     />
                     {/* 서브태스크 첨부파일 */}

@@ -251,3 +251,26 @@
 .note-html p.note-bullet-p { display: flex; gap: 4px; align-items: flex-start; margin: 0; }
 .note-html .note-bullet-sym { flex-shrink: 0; line-height: inherit; }
 .note-html .note-bullet-body { flex: 1; min-width: 0; }
+
+/* ── Markdown 미리보기 (.md-preview) ── */
+.md-preview p { margin: 0; line-height: 1.7; }
+.md-preview p + p { margin-top: 0.45rem; }
+.md-preview h1 { font-size: 1.1rem; font-weight: 700; color: #111827; margin: 0.75rem 0 0.2rem; }
+.md-preview h2 { font-size: 0.975rem; font-weight: 600; color: #1f2937; margin: 0.6rem 0 0.15rem; }
+.md-preview h3 { font-size: 0.875rem; font-weight: 600; color: #374151; margin: 0.5rem 0 0.1rem; }
+.md-preview ul { padding-left: 1.2rem; list-style-type: disc; margin: 0.2rem 0; }
+.md-preview ol { padding-left: 1.4rem; list-style-type: decimal; margin: 0.2rem 0; }
+.md-preview li { margin: 0.08rem 0; line-height: 1.65; }
+.md-preview li > p { margin: 0; }
+.md-preview strong { font-weight: 700; }
+.md-preview em { font-style: italic; color: #4B5563; }
+.md-preview code { font-family: 'Menlo', 'Monaco', monospace; font-size: 0.82em; background: #F1F5F9; color: #374151; padding: 1px 5px; border-radius: 4px; }
+.md-preview pre { background: #F1F5F9; padding: 10px 14px; border-radius: 8px; overflow-x: auto; font-size: 0.82em; margin: 0.5rem 0; line-height: 1.55; }
+.md-preview pre code { background: none; padding: 0; font-size: 1em; }
+.md-preview blockquote { border-left: 3px solid #CBD5E0; padding-left: 12px; color: #6B7280; margin: 0.4rem 0; font-style: italic; }
+.md-preview a { color: #3B82F6; text-decoration: underline; }
+.md-preview a:hover { color: #1d4ed8; }
+.md-preview hr { border: none; border-top: 1px solid #E5E9F0; margin: 0.6rem 0; }
+.md-preview table { border-collapse: collapse; width: 100%; margin: 0.4rem 0; font-size: 0.875em; }
+.md-preview th { background: #F8FAFC; font-weight: 600; padding: 5px 10px; border: 1px solid #E5E9F0; text-align: left; }
+.md-preview td { padding: 4px 10px; border: 1px solid #E5E9F0; }
