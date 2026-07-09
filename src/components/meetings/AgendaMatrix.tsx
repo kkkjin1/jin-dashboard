@@ -476,6 +476,8 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
   const [newSTTitle,    setNewSTTitle]    = useState('')
   const [deletingST,    setDeletingST]    = useState<string | null>(null)
   const [meetingErr,    setMeetingErr]    = useState<string>('')
+  const [draggingItemId,  setDraggingItemId]  = useState<string | null>(null)
+  const [dragOverGroupId, setDragOverGroupId] = useState<string | null>(null)
 
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
   const isAll = category === '전체'
@@ -673,6 +675,10 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
     await supabase.from('agenda_sub_tasks').update({ status: next }).eq('id', st.id)
     setSubTasks(p => p.map(s => s.id === st.id ? { ...s, status: next } : s))
   }
+  async function moveItemToGroup(itemId: string, newGroupId: string) {
+    setItems(p => p.map(i => i.id === itemId ? { ...i, group_id: newGroupId } : i))
+    await supabase.from('agenda_items').update({ group_id: newGroupId }).eq('id', itemId)
+  }
 
   // ── 날짜 클릭 — 기존 회의면 열고, 없으면 생성 후 열기 ──────────
   async function openOrCreateMeeting(dateStr: string) {
@@ -742,8 +748,12 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
               const isOpen = openGroups.has(group.id)
               return (
                 <Fragment key={group.id}>
-                  <tr style={{ background: CAT_BG[group.category ?? ''] ?? hexToRgba(group.color, 0.09) }}>
-                    <td colSpan={4} style={{ padding: 0, borderTop: '3px solid #fff', borderBottom: S.bd, borderLeft: `3px solid ${CAT_BORDER[group.category ?? ''] ?? group.color}` }}>
+                  <tr
+                    style={{ background: dragOverGroupId === group.id ? hexToRgba(group.color, 0.22) : (CAT_BG[group.category ?? ''] ?? hexToRgba(group.color, 0.09)), transition: 'background .15s' }}
+                    onDragOver={e => { if (draggingItemId && items.find(i => i.id === draggingItemId)?.group_id !== group.id) { e.preventDefault(); setDragOverGroupId(group.id) } }}
+                    onDrop={e => { e.preventDefault(); if (draggingItemId) { const di = items.find(i => i.id === draggingItemId); if (di && di.group_id !== group.id) moveItemToGroup(draggingItemId, group.id) } setDraggingItemId(null); setDragOverGroupId(null) }}
+                    onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverGroupId(null) }}>
+                    <td colSpan={4} style={{ padding: 0, borderTop: dragOverGroupId === group.id ? `2px solid ${group.color}` : '3px solid #fff', borderBottom: S.bd, borderLeft: `3px solid ${CAT_BORDER[group.category ?? ''] ?? group.color}` }}>
                       {editingGroupId === group.id ? (
                         <div className="flex items-center gap-2 flex-wrap" style={{ padding: '24px 16px' }}>
                           <input autoFocus value={editGName} onChange={e => setEditGName(e.target.value)}
@@ -792,7 +802,10 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                     const activeColor   = item.status === 'active' ? (CAT_BORDER[group.category ?? ''] ?? group.color) : STATUS_COLOR[item.status]
                     return (
                       <Fragment key={item.id}>
-                        <tr style={{ borderBottom: isItemExpanded ? 'none' : S.bd }} className="group/irow cursor-pointer"
+                        <tr style={{ borderBottom: isItemExpanded ? 'none' : S.bd, opacity: draggingItemId === item.id ? 0.4 : 1, cursor: 'grab' }} className="group/irow"
+                          draggable
+                          onDragStart={e => { e.stopPropagation(); setDraggingItemId(item.id) }}
+                          onDragEnd={() => { setDraggingItemId(null); setDragOverGroupId(null) }}
                           onClick={() => toggleExpandedItem(item.id)}
                           onMouseEnter={() => router.prefetch(`/project/items/${item.id}`)}>
                           <td style={{ padding: '18px 16px', verticalAlign: 'middle' }}>
