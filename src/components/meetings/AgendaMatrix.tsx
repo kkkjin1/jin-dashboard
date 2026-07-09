@@ -95,6 +95,7 @@ function MeetingPopup({ meeting, allMeetings, items, groups, subTasks, notes, st
   const [expandLabel,  setExpandLabel]  = useState('')
   const [refreshKey,   setRefreshKey]   = useState(0)
   const expandOnChangeRef = useRef<((v: string) => void) | null>(null)
+  const [collapsedItems, setCollapsedItems] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -143,6 +144,9 @@ function MeetingPopup({ meeting, allMeetings, items, groups, subTasks, notes, st
 
   function togglePrev(key: string) {
     setOpenPrev(prev => { const s = new Set(prev); s.has(key) ? s.delete(key) : s.add(key); return s })
+  }
+  function toggleItem(itemId: string) {
+    setCollapsedItems(prev => { const s = new Set(prev); s.has(itemId) ? s.delete(itemId) : s.add(itemId); return s })
   }
 
   // 전체 회의 목록 (현재 포함), 날짜 내림차순
@@ -268,11 +272,32 @@ function MeetingPopup({ meeting, allMeetings, items, groups, subTasks, notes, st
                         const prevRecords  = allPrevNotes[item.id] ?? []
                         const currentNote  = notes[nk(item.id, meeting.id)] ?? ''
                         const itemSubTasks = subTasks.filter(st => st.agenda_item_id === item.id)
+                        const isCollapsed  = collapsedItems.has(item.id)
+                        const hasNote      = currentNote.replace(/<[^>]*>/g, '').trim().length > 0
+                                          || itemSubTasks.some(st => (stNotes[nk(st.id, meeting.id)] ?? '').replace(/<[^>]*>/g, '').trim().length > 0)
                         return (
                           <Fragment key={item.id}>
+                          {isCollapsed ? (
+                            <tr style={{ borderBottom: S.bd, cursor: 'pointer' }} onClick={() => toggleItem(item.id)}>
+                              <td colSpan={2} style={{ padding: '10px 20px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                  <span style={{ fontSize: 8, color: S.t3, flexShrink: 0 }}>▶</span>
+                                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: STATUS_COLOR[item.status], flexShrink: 0 }} />
+                                  <span style={{ fontSize: 13, fontWeight: 600, color: item.status === 'done' ? S.t3 : S.t1, textDecoration: item.status === 'done' ? 'line-through' : 'none', flex: 1 }}>
+                                    {item.title}
+                                  </span>
+                                  {hasNote && <span style={{ fontSize: 9, color: catColor, background: `${catColor}18`, padding: '1px 6px', borderRadius: 99, flexShrink: 0 }}>기록</span>}
+                                  {prevRecords.length > 0 && <span style={{ fontSize: 10, color: S.t3, flexShrink: 0 }}>이전 {prevRecords.length}건</span>}
+                                  {itemSubTasks.length > 0 && <span style={{ fontSize: 9, color: S.t3, flexShrink: 0 }}>세부 {itemSubTasks.length}</span>}
+                                </div>
+                              </td>
+                            </tr>
+                          ) : (
+                          <>
                           <tr style={{ borderBottom: itemSubTasks.length > 0 ? 'none' : S.bd, verticalAlign: 'top' }}>
                             <td style={{ padding: '14px 20px', verticalAlign: 'top' }}>
-                              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer' }} onClick={() => toggleItem(item.id)}>
+                                <span style={{ fontSize: 8, color: S.t3, display: 'inline-block', transition: 'transform .15s', transform: 'rotate(90deg)', flexShrink: 0, marginTop: 4 }}>▶</span>
                                 <span style={{ width: 8, height: 8, borderRadius: '50%', background: STATUS_COLOR[item.status], flexShrink: 0, marginTop: 4 }} />
                                 <span style={{ fontSize: 13, fontWeight: 600, color: item.status === 'done' ? S.t3 : S.t1, lineHeight: 1.4, textDecoration: item.status === 'done' ? 'line-through' : 'none' }}>
                                   {item.title}
@@ -365,6 +390,8 @@ function MeetingPopup({ meeting, allMeetings, items, groups, subTasks, notes, st
                               </tr>
                             )
                           })}
+                          </>
+                          )}
                           </Fragment>
                         )
                       })}

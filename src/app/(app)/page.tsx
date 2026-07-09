@@ -93,6 +93,7 @@ interface CompactColProps {
   onComplete?: (todoId: string) => void
   completedCount?: number
   colBadge?: { label: string; bg: string; text: string }
+  alertIcon?: boolean
 }
 
 function DotGrid({ total, filled }: { total: number; filled: number }) {
@@ -108,7 +109,7 @@ function DotGrid({ total, filled }: { total: number; filled: number }) {
 
 function CompactCol({
   title, items, dark, droppable, onDrop, onDragOver, onDragLeave,
-  isDragOver, onComplete, completedCount = 0, colBadge,
+  isDragOver, onComplete, completedCount = 0, colBadge, alertIcon,
 }: CompactColProps) {
   const dragRing = isDragOver && droppable ? (dark ? 'ring-1 ring-white/20' : 'ring-1 ring-[#1B3A6B]/20') : ''
 
@@ -137,7 +138,15 @@ function CompactCol({
       onDragLeave={droppable ? onDragLeave : undefined}
     >
       <div className="flex items-center justify-between mb-3 flex-shrink-0">
-        <span className={`text-xs font-semibold ${titleCls}`}>{title}</span>
+        <div className="flex items-center gap-1.5">
+          <span className={`text-xs font-semibold ${titleCls}`}>{title}</span>
+          {alertIcon && items.length > 0 && (
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+            </span>
+          )}
+        </div>
         {items.length > 0 && (
           <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${badgeBg}`}>
             {items.length > 9 ? '9+' : items.length}
@@ -582,6 +591,7 @@ export default function HomePage() {
               isDragOver={dragOverBucket === 'unscheduled'}
               onComplete={handleCompleteTodo}
               colBadge={{ label: '미배정', bg: 'bg-gray-100/80', text: 'text-gray-400' }}
+              alertIcon={unscheduledItems.length > 0}
             />
           </div>
         </div>
