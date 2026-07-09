@@ -438,6 +438,7 @@ function MeetingPopup({ meeting, allMeetings, items, groups, subTasks, notes, st
 // ── 드래그 소스 추적 (모듈 레벨 — React state/dataTransfer 우회) ────
 let _dragItemId: string | null = null
 let _dragSTId: string | null = null
+let _dragGroupId: string | null = null
 
 // ── 메인 컴포넌트 ────────────────────────────────────────────────────
 export default function AgendaMatrix({ category, allCats }: { category: string; allCats: string[] }) {
@@ -481,6 +482,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
   const [deletingST,    setDeletingST]    = useState<string | null>(null)
   const [meetingErr,    setMeetingErr]    = useState<string>('')
   const [dndErr,        setDndErr]        = useState<string>('')
+  const [draggingGroupId, setDraggingGroupId] = useState<string | null>(null)
   const [draggingItemId,  setDraggingItemId]  = useState<string | null>(null)
   const [dragOverGroupId, setDragOverGroupId] = useState<string | null>(null)
   const [dragOverItemId,  setDragOverItemId]  = useState<string | null>(null)
@@ -688,41 +690,47 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
     const { error } = await supabase.from('agenda_items').update({ group_id: newGroupId }).eq('id', itemId)
     if (error) { setDndErr(`범주 이동 실패: ${error.message}`); setTimeout(() => setDndErr(''), 4000) }
   }
+  async function reorderGroup(dragId: string, targetId: string) {
+    const sortedG = [...groups].sort((a, b) => a.sort_order - b.sort_order)
+    const dragIdx = sortedG.findIndex(g => g.id === dragId)
+    const targetIdx = sortedG.findIndex(g => g.id === targetId)
+    if (dragIdx < 0 || targetIdx < 0 || dragIdx === targetIdx) return
+    const newOrder = [...sortedG]
+    const [moved] = newOrder.splice(dragIdx, 1)
+    newOrder.splice(targetIdx, 0, moved)
+    setGroups(p => p.map(g => { const idx = newOrder.findIndex(x => x.id === g.id); return idx >= 0 ? { ...g, sort_order: idx } : g }))
+    for (let i = 0; i < newOrder.length; i++) {
+      const { error } = await supabase.from('agenda_groups').update({ sort_order: i }).eq('id', newOrder[i].id)
+      if (error) { setDndErr(`범주 순서 저장 실패: ${error.message}`); setTimeout(() => setDndErr(''), 4000); return }
+    }
+  }
   async function reorderItem(dragId: string, targetId: string) {
-    let newOrder: AgendaItem[] = []
-    setItems(prev => {
-      const draggedItem = prev.find(i => i.id === dragId)
-      if (!draggedItem) return prev
-      const groupItems = prev.filter(i => i.group_id === draggedItem.group_id).sort((a, b) => a.sort_order - b.sort_order)
-      const dragIdx = groupItems.findIndex(i => i.id === dragId)
-      const targetIdx = groupItems.findIndex(i => i.id === targetId)
-      if (dragIdx < 0 || targetIdx < 0 || dragIdx === targetIdx) return prev
-      newOrder = [...groupItems]
-      const [moved] = newOrder.splice(dragIdx, 1)
-      newOrder.splice(targetIdx, 0, moved)
-      return prev.map(item => { const idx = newOrder.findIndex(i => i.id === item.id); return idx >= 0 ? { ...item, sort_order: idx } : item })
-    })
-    if (newOrder.length === 0) { setDndErr('순서 변경 실패: 항목을 찾을 수 없음'); setTimeout(() => setDndErr(''), 4000); return }
+    const draggedItem = items.find(i => i.id === dragId)
+    if (!draggedItem) { setDndErr(`항목 못 찾음: ${dragId.slice(0, 8)}`); setTimeout(() => setDndErr(''), 4000); return }
+    const groupItems = items.filter(i => i.group_id === draggedItem.group_id).sort((a, b) => a.sort_order - b.sort_order)
+    const dragIdx = groupItems.findIndex(i => i.id === dragId)
+    const targetIdx = groupItems.findIndex(i => i.id === targetId)
+    if (dragIdx < 0 || targetIdx < 0 || dragIdx === targetIdx) return
+    const newOrder = [...groupItems]
+    const [moved] = newOrder.splice(dragIdx, 1)
+    newOrder.splice(targetIdx, 0, moved)
+    setItems(p => p.map(item => { const idx = newOrder.findIndex(i => i.id === item.id); return idx >= 0 ? { ...item, sort_order: idx } : item }))
     for (let i = 0; i < newOrder.length; i++) {
       const { error } = await supabase.from('agenda_items').update({ sort_order: i }).eq('id', newOrder[i].id)
       if (error) { setDndErr(`순서 저장 실패: ${error.message}`); setTimeout(() => setDndErr(''), 4000); return }
     }
   }
   async function reorderSubTask(dragId: string, targetId: string) {
-    let newOrder: AgendaSubTask[] = []
-    setSubTasks(prev => {
-      const draggedST = prev.find(s => s.id === dragId)
-      if (!draggedST) return prev
-      const groupSTs = prev.filter(s => s.agenda_item_id === draggedST.agenda_item_id).sort((a, b) => a.sort_order - b.sort_order)
-      const dragIdx = groupSTs.findIndex(s => s.id === dragId)
-      const targetIdx = groupSTs.findIndex(s => s.id === targetId)
-      if (dragIdx < 0 || targetIdx < 0 || dragIdx === targetIdx) return prev
-      newOrder = [...groupSTs]
-      const [moved] = newOrder.splice(dragIdx, 1)
-      newOrder.splice(targetIdx, 0, moved)
-      return prev.map(st => { const idx = newOrder.findIndex(s => s.id === st.id); return idx >= 0 ? { ...st, sort_order: idx } : st })
-    })
-    if (newOrder.length === 0) { setDndErr('순서 변경 실패: task를 찾을 수 없음'); setTimeout(() => setDndErr(''), 4000); return }
+    const draggedST = subTasks.find(s => s.id === dragId)
+    if (!draggedST) { setDndErr(`task 못 찾음: ${dragId.slice(0, 8)}`); setTimeout(() => setDndErr(''), 4000); return }
+    const groupSTs = subTasks.filter(s => s.agenda_item_id === draggedST.agenda_item_id).sort((a, b) => a.sort_order - b.sort_order)
+    const dragIdx = groupSTs.findIndex(s => s.id === dragId)
+    const targetIdx = groupSTs.findIndex(s => s.id === targetId)
+    if (dragIdx < 0 || targetIdx < 0 || dragIdx === targetIdx) return
+    const newOrder = [...groupSTs]
+    const [moved] = newOrder.splice(dragIdx, 1)
+    newOrder.splice(targetIdx, 0, moved)
+    setSubTasks(p => p.map(st => { const idx = newOrder.findIndex(s => s.id === st.id); return idx >= 0 ? { ...st, sort_order: idx } : st }))
     for (let i = 0; i < newOrder.length; i++) {
       const { error } = await supabase.from('agenda_sub_tasks').update({ sort_order: i }).eq('id', newOrder[i].id)
       if (error) { setDndErr(`task 순서 저장 실패: ${error.message}`); setTimeout(() => setDndErr(''), 4000); return }
@@ -792,15 +800,27 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
             </tr>
           </thead>
           <tbody>
-            {groups.map(group => {
-              const groupItems = items.filter(i => i.group_id === group.id)
+            {[...groups].sort((a, b) => a.sort_order - b.sort_order).map(group => {
+              const groupItems = items.filter(i => i.group_id === group.id).sort((a, b) => a.sort_order - b.sort_order)
               const isOpen = openGroups.has(group.id)
               return (
                 <Fragment key={group.id}>
                   <tr
-                    style={{ background: dragOverGroupId === group.id ? hexToRgba(group.color, 0.22) : (CAT_BG[group.category ?? ''] ?? hexToRgba(group.color, 0.09)), transition: 'background .15s' }}
-                    onDragOver={e => { if (!_dragItemId) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverGroupId(group.id); setDragOverItemId(null) }}
-                    onDrop={e => { e.preventDefault(); const dragId = _dragItemId; _dragItemId = null; if (dragId) { const di = items.find(i => i.id === dragId); if (di && di.group_id !== group.id) moveItemToGroup(dragId, group.id) } setDraggingItemId(null); setDragOverGroupId(null); setDragOverItemId(null) }}
+                    style={{ background: draggingGroupId === group.id ? 'rgba(0,0,0,0.04)' : dragOverGroupId === group.id ? hexToRgba(group.color, 0.22) : (CAT_BG[group.category ?? ''] ?? hexToRgba(group.color, 0.09)), opacity: draggingGroupId === group.id ? 0.4 : 1, transition: 'background .15s' }}
+                    onDragOver={e => { if (!_dragItemId && !_dragGroupId) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverGroupId(group.id); setDragOverItemId(null) }}
+                    onDrop={e => {
+                      e.preventDefault()
+                      if (_dragGroupId) {
+                        const gId = _dragGroupId; _dragGroupId = null
+                        if (gId !== group.id) reorderGroup(gId, group.id)
+                        setDraggingGroupId(null); setDragOverGroupId(null)
+                      } else if (_dragItemId) {
+                        const dragId = _dragItemId; _dragItemId = null
+                        const di = items.find(i => i.id === dragId)
+                        if (di && di.group_id !== group.id) moveItemToGroup(dragId, group.id)
+                        setDraggingItemId(null); setDragOverGroupId(null); setDragOverItemId(null)
+                      }
+                    }}
                     onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverGroupId(null) }}>
                     <td colSpan={4} style={{ padding: 0, borderTop: dragOverGroupId === group.id ? `2px solid ${group.color}` : '3px solid #fff', borderBottom: S.bd, borderLeft: `3px solid ${CAT_BORDER[group.category ?? ''] ?? group.color}` }}>
                       {editingGroupId === group.id ? (
@@ -818,6 +838,14 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                         <div onClick={() => toggleGroup(group.id)}
                           className="flex items-center gap-2 group/grow cursor-pointer hover:brightness-95 transition-all"
                           style={{ padding: '24px 16px' }}>
+                          <span
+                            draggable
+                            onDragStart={e => { e.stopPropagation(); _dragGroupId = group.id; _dragItemId = null; _dragSTId = null; e.dataTransfer.effectAllowed = 'move'; setDraggingGroupId(group.id) }}
+                            onDragEnd={e => { e.stopPropagation(); _dragGroupId = null; setDraggingGroupId(null); setDragOverGroupId(null) }}
+                            onClick={e => e.stopPropagation()}
+                            title="드래그하여 범주 이동"
+                            style={{ cursor: 'grab', color: '#A0AEC0', fontSize: 14, userSelect: 'none', flexShrink: 0, lineHeight: 1 }}
+                          >⠿</span>
                           <span style={{ width: 3, height: 14, borderRadius: 2, background: CAT_BORDER[group.category ?? ''] ?? group.color, flexShrink: 0 }} />
                           <span style={{ fontSize: 9, color: S.t3, display: 'inline-block', transition: 'transform .15s', transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}>▼</span>
                           <span style={{ fontSize: 13, fontWeight: 700, color: S.t1 }}>{group.name}</span>
@@ -846,7 +874,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                   </tr>
 
                   {isOpen && groupItems.map(item => {
-                    const itemSubTasks  = subTasks.filter(st => st.agenda_item_id === item.id)
+                    const itemSubTasks  = subTasks.filter(st => st.agenda_item_id === item.id).sort((a, b) => a.sort_order - b.sort_order)
                     const isItemExpanded = expandedItems.has(item.id)
                     const activeColor   = item.status === 'active' ? (CAT_BORDER[group.category ?? ''] ?? group.color) : STATUS_COLOR[item.status]
                     return (
@@ -1156,8 +1184,8 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
           </thead>
 
           <tbody>
-            {groups.map(group => {
-              const groupItems = items.filter(i => i.group_id === group.id)
+            {[...groups].sort((a, b) => a.sort_order - b.sort_order).map(group => {
+              const groupItems = items.filter(i => i.group_id === group.id).sort((a, b) => a.sort_order - b.sort_order)
               const isOpen     = openGroups.has(group.id)
               return (
                 <Fragment key={group.id}>
@@ -1203,7 +1231,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
 
                   {/* 안건 행들 */}
                   {isOpen && groupItems.map(item => {
-                    const itemSubTasks    = subTasks.filter(st => st.agenda_item_id === item.id)
+                    const itemSubTasks    = subTasks.filter(st => st.agenda_item_id === item.id).sort((a, b) => a.sort_order - b.sort_order)
                     const isCalExpanded   = expandedCalItems.has(item.id)
                     return (
                       <Fragment key={item.id}>
