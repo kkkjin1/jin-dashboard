@@ -139,9 +139,6 @@ function CompactCol({
     >
       <div className="flex items-center justify-between mb-3 flex-shrink-0">
         <div className="flex items-center gap-1.5">
-          {alertIcon && items.length > 0 && (
-            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 13, height: 13, borderRadius: '50%', background: '#EF4444', fontSize: 8, fontWeight: 900, color: 'white', flexShrink: 0, lineHeight: 1 }}>!</span>
-          )}
           <span className={`text-xs font-semibold ${titleCls}`}>{title}</span>
         </div>
         {items.length > 0 && (
@@ -580,7 +577,8 @@ export default function HomePage() {
           </div>
           <div className="min-h-0">
             <CompactCol
-              title="미배정" items={unscheduledItems}
+              title={unscheduledItems.length > 0 ? '❗ 미배정' : '미배정'}
+              items={unscheduledItems}
               droppable
               onDrop={handleDropUnscheduled}
               onDragOver={e => handleDragOver(e, 'unscheduled')}
@@ -588,7 +586,6 @@ export default function HomePage() {
               isDragOver={dragOverBucket === 'unscheduled'}
               onComplete={handleCompleteTodo}
               colBadge={{ label: '미배정', bg: 'bg-gray-100/80', text: 'text-gray-400' }}
-              alertIcon={unscheduledItems.length > 0}
             />
           </div>
         </div>

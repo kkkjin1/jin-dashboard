@@ -104,11 +104,11 @@ export default function AgendaItemDetailPage() {
       setSubTasks([])
     }
 
-    // 첨부파일 로드 — 업무 전체(task_id=id) + 서브태스크별(sub_task_id in stIds)
+    // 첨부파일 로드 — 업무(agenda_item_id=id) + 서브태스크별(sub_task_id in stIds)
     const stIds = fetchedSTs.map(s => s.id)
     const attFilter = stIds.length > 0
-      ? `task_id.eq.${id},sub_task_id.in.(${stIds.join(',')})`
-      : `task_id.eq.${id}`
+      ? `agenda_item_id.eq.${id},sub_task_id.in.(${stIds.join(',')})`
+      : `agenda_item_id.eq.${id}`
     const { data: attData } = await supabase
       .from('attachments')
       .select('*')
@@ -210,8 +210,8 @@ export default function AgendaItemDetailPage() {
         const { data: urlData } = supabase.storage.from('attachments').getPublicUrl(path)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const insertRow: any = target === 'item'
-          ? { task_id: id,   sub_task_id: null,   meeting_id: null, name: file.name, type: '파일', url: urlData.publicUrl }
-          : { task_id: null, sub_task_id: target, meeting_id: null, name: file.name, type: '파일', url: urlData.publicUrl }
+          ? { task_id: null, agenda_item_id: id,   sub_task_id: null,   meeting_id: null, name: file.name, type: '파일', url: urlData.publicUrl }
+          : { task_id: null, agenda_item_id: null, sub_task_id: target, meeting_id: null, name: file.name, type: '파일', url: urlData.publicUrl }
         const { data, error: dbErr } = await supabase.from('attachments').insert(insertRow).select().single()
         if (dbErr) { setUploadError(`DB 오류: ${dbErr.message}`); continue }
         if (data) setAttachments(prev => [data as Attachment, ...prev])
@@ -230,7 +230,7 @@ export default function AgendaItemDetailPage() {
   }
 
   // 분류 헬퍼
-  const itemAtts  = attachments.filter(a => a.task_id === id && !a.sub_task_id)
+  const itemAtts  = attachments.filter(a => a.agenda_item_id === id && !a.sub_task_id)
   const stAtts    = (stId: string) => attachments.filter(a => a.sub_task_id === stId)
 
   // ── 하위태스크 추가 ──────────────────────────────────────────────

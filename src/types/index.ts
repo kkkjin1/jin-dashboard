@@ -58,6 +58,7 @@ export interface Note {
 export interface Attachment {
   id: string
   task_id: string | null
+  agenda_item_id?: string | null
   meeting_id?: string | null
   sub_task_id?: string | null
   name: string
