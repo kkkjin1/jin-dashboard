@@ -64,32 +64,36 @@ interface WeekActiveTask { id: string; title: string; status: string; part: stri
 interface WeekCompletedTask { id: string; title: string; part: string; type: string }
 interface WeekMeeting { id: string; title: string; meeting_date: string; notePreview: string | null }
 interface WeekOneOnOne { id: string; session_date: string | null; member_id: string; member_name: string }
+interface CompletedAgendaItem { id: string; title: string; group_name: string; group_color: string; updated_at: string }
 
 interface PeriodSummary {
   activeTasks: WeekActiveTask[]
   completedTasks: WeekCompletedTask[]
+  completedAgendaItems: CompletedAgendaItem[]
   meetings: WeekMeeting[]
   oneOnOnes: WeekOneOnOne[]
   loading: boolean
 }
 
-const EMPTY_SUMMARY: PeriodSummary = { activeTasks: [], completedTasks: [], meetings: [], oneOnOnes: [], loading: false }
+const EMPTY_SUMMARY: PeriodSummary = { activeTasks: [], completedTasks: [], completedAgendaItems: [], meetings: [], oneOnOnes: [], loading: false }
 
 function SummaryGrid({ data }: { data: PeriodSummary }) {
   const fmt = (d: string) => d.slice(5).replace('-', '/')
 
+  const allCompleted = [
+    ...data.completedTasks.map(t => ({ key: t.id, href: `/tasks/${t.id}`, primary: t.title || '제목 없음', secondary: t.part })),
+    ...data.completedAgendaItems.map(a => ({ key: `a-${a.id}`, href: `/project/items/${a.id}`, primary: a.title || '제목 없음', secondary: a.group_name })),
+  ]
+
   const cards = [
     {
-      title: '완료한 업무',
-      count: data.completedTasks.length,
+      title: '완료한 안건',
+      count: allCompleted.length,
       bg: 'bg-[#BADEC8]/25 border-[#BADEC8]/45',
       numColor: 'text-[#2D5A45]',
       subColor: 'text-[#2D5A45]/55',
       divider: 'border-[#BADEC8]/30',
-      items: data.completedTasks.map(t => ({
-        key: t.id, href: `/tasks/${t.id}`,
-        primary: t.title || '제목 없음', secondary: t.part,
-      })),
+      items: allCompleted,
     },
     {
       title: '기록한 업무',
@@ -162,6 +166,7 @@ function SummaryGrid({ data }: { data: PeriodSummary }) {
 
 export default function CompletedPage() {
   const [tasks, setTasks] = useState<Task[]>([])
+  const [agendaItems, setAgendaItems] = useState<CompletedAgendaItem[]>([])
   const [quickPeriod, setQuickPeriod] = useState<QuickPeriod>('주간')
   const [draggedId, setDraggedId] = useState<string | null>(null)
   const [dragOverCol, setDragOverCol] = useState<string | null>(null)
@@ -184,6 +189,17 @@ export default function CompletedPage() {
 
   useEffect(() => {
     fetchAllTasks().then(all => setTasks(all.filter(t => t.status === '완료')))
+    supabase
+      .from('agenda_items')
+      .select('id, title, updated_at, agenda_groups(name, color)')
+      .eq('status', 'done')
+      .order('updated_at', { ascending: false })
+      .then(({ data }) => {
+        setAgendaItems((data ?? []).map((a: { id: string; title: string; updated_at: string; agenda_groups: { name: string; color: string }[] | { name: string; color: string } | null }) => {
+          const g = Array.isArray(a.agenda_groups) ? a.agenda_groups[0] : a.agenda_groups
+          return { id: a.id, title: a.title, updated_at: a.updated_at, group_name: g?.name ?? '', group_color: g?.color ?? '#9CA3AF' }
+        }))
+      })
   }, [])
 
   useEffect(() => {
@@ -201,8 +217,9 @@ export default function CompletedPage() {
       supabase.from('meetings').select('id, title, meeting_date, notes').gte('meeting_date', wsDate).lt('meeting_date', weDate).order('meeting_date'),
       supabase.from('one_on_ones').select('id, session_date, member_id').gte('session_date', wsDate).lt('session_date', weDate).order('session_date'),
       supabase.from('members').select('id, name'),
-    ]).then(async ([notesRes, completedRes, meetingsRes, oo1Res, mbRes]) => {
-      setWeekData(await buildPeriodSummary(notesRes, completedRes, meetingsRes, oo1Res, mbRes))
+      supabase.from('agenda_items').select('id, title, updated_at, agenda_groups(name, color)').eq('status', 'done').gte('updated_at', wsISO).lt('updated_at', weISO),
+    ]).then(async ([notesRes, completedRes, meetingsRes, oo1Res, mbRes, agendaRes]) => {
+      setWeekData(await buildPeriodSummary(notesRes, completedRes, meetingsRes, oo1Res, mbRes, agendaRes))
     })
   }, [quickPeriod, weekStart])
 
@@ -222,8 +239,9 @@ export default function CompletedPage() {
       supabase.from('meetings').select('id, title, meeting_date, notes').gte('meeting_date', wsDate).lt('meeting_date', weDate).order('meeting_date'),
       supabase.from('one_on_ones').select('id, session_date, member_id').gte('session_date', wsDate).lt('session_date', weDate).order('session_date'),
       supabase.from('members').select('id, name'),
-    ]).then(async ([notesRes, completedRes, meetingsRes, oo1Res, mbRes]) => {
-      setMonthData(await buildPeriodSummary(notesRes, completedRes, meetingsRes, oo1Res, mbRes))
+      supabase.from('agenda_items').select('id, title, updated_at, agenda_groups(name, color)').eq('status', 'done').gte('updated_at', wsISO).lt('updated_at', weISO),
+    ]).then(async ([notesRes, completedRes, meetingsRes, oo1Res, mbRes, agendaRes]) => {
+      setMonthData(await buildPeriodSummary(notesRes, completedRes, meetingsRes, oo1Res, mbRes, agendaRes))
     })
   }, [quickPeriod, selectedMonth])
 
@@ -231,6 +249,11 @@ export default function CompletedPage() {
     if (fromMonth && toMonth) return tasks.filter(t => { const m = getTaskMonth(t); return m ? m >= fromMonth && m <= toMonth : false })
     return tasks
   }, [tasks, fromMonth, toMonth])
+
+  const filteredAgenda = useMemo(() => {
+    if (fromMonth && toMonth) return agendaItems.filter(a => { const m = a.updated_at.slice(0, 7); return m >= fromMonth && m <= toMonth })
+    return agendaItems
+  }, [agendaItems, fromMonth, toMonth])
 
   function selectQuick(p: QuickPeriod) {
     setQuickPeriod(p)
@@ -336,6 +359,28 @@ export default function CompletedPage() {
           })}
         </div>
 
+        {filteredAgenda.length > 0 && (
+          <div className="mb-8">
+            <div className="flex items-center gap-2 mb-4">
+              <h2 className="text-sm font-bold text-gray-800">완료 안건</h2>
+              <span className="text-xs text-gray-400 bg-[#BADEC8]/30 px-2 py-0.5 rounded-full">{filteredAgenda.length}건</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {filteredAgenda.map(a => (
+                <Link key={a.id} href={`/project/items/${a.id}`}
+                  className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl p-4 hover:bg-white/60 transition-all flex items-center gap-3">
+                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: a.group_color }} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-800 leading-snug truncate">{a.title}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{a.group_name}</p>
+                  </div>
+                  <span className="text-[10px] text-gray-300 flex-shrink-0">{a.updated_at.slice(0, 7)}</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div>
           <div className="flex items-center gap-2 mb-4">
             <h2 className="text-sm font-bold text-gray-800">회고 기록</h2>
@@ -439,33 +484,60 @@ export default function CompletedPage() {
         {(quickPeriod === '분기' || quickPeriod === '상반기' || quickPeriod === '하반기') && renderKanban()}
 
         {quickPeriod === '포트폴리오' && (
-          <div className="flex flex-col gap-4">
-            <p className="text-sm text-gray-400">완료한 업무 전체 — 업무 단위 성과 아카이브</p>
-            {tasks.length === 0 ? (
-              <p className="text-sm text-gray-300 text-center py-12">완료된 업무가 없습니다</p>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {tasks.map(t => (
-                  <Link key={t.id} href={`/tasks/${t.id}`}
-                    className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl p-5 hover:bg-white/60 transition-all flex flex-col gap-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <span className="text-sm font-semibold text-gray-800 leading-snug">{t.title}</span>
-                      <span className="text-[10px] text-gray-400 flex-shrink-0 bg-white/60 px-1.5 py-0.5 rounded-full">{t.part}</span>
-                    </div>
-                    <div className="flex gap-1.5 flex-wrap">
-                      <span className="text-[10px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full">{t.type}</span>
-                      {t.end_date && <span className="text-[10px] text-gray-400">{t.end_date.slice(0, 7)} 완료</span>}
-                    </div>
-                    {t.retrospective && (t.retrospective.good || t.retrospective.bad) && (
-                      <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed border-t border-white/60 pt-2">
-                        {t.retrospective.good || t.retrospective.bad}
-                      </p>
-                    )}
-                  </Link>
-                ))}
+          <div className="flex flex-col gap-6">
+            {agendaItems.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <h2 className="text-sm font-bold text-gray-800">완료 안건</h2>
+                  <span className="text-xs text-gray-400 bg-[#BADEC8]/30 px-2 py-0.5 rounded-full">{agendaItems.length}건</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {agendaItems.map(a => (
+                    <Link key={a.id} href={`/project/items/${a.id}`}
+                      className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl p-4 hover:bg-white/60 transition-all flex items-center gap-3">
+                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: a.group_color }} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-gray-800 leading-snug truncate">{a.title}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">{a.group_name}</p>
+                      </div>
+                      <span className="text-[10px] text-gray-300 flex-shrink-0">{a.updated_at.slice(0, 7)}</span>
+                    </Link>
+                  ))}
+                </div>
               </div>
             )}
-            <div className="mt-2 flex justify-end">
+            {tasks.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <h2 className="text-sm font-bold text-gray-800">완료 업무</h2>
+                  <span className="text-xs text-gray-400">{tasks.length}건</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {tasks.map(t => (
+                    <Link key={t.id} href={`/tasks/${t.id}`}
+                      className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl p-5 hover:bg-white/60 transition-all flex flex-col gap-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="text-sm font-semibold text-gray-800 leading-snug">{t.title}</span>
+                        <span className="text-[10px] text-gray-400 flex-shrink-0 bg-white/60 px-1.5 py-0.5 rounded-full">{t.part}</span>
+                      </div>
+                      <div className="flex gap-1.5 flex-wrap">
+                        <span className="text-[10px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full">{t.type}</span>
+                        {t.end_date && <span className="text-[10px] text-gray-400">{t.end_date.slice(0, 7)} 완료</span>}
+                      </div>
+                      {t.retrospective && (t.retrospective.good || t.retrospective.bad) && (
+                        <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed border-t border-white/60 pt-2">
+                          {t.retrospective.good || t.retrospective.bad}
+                        </p>
+                      )}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+            {agendaItems.length === 0 && tasks.length === 0 && (
+              <p className="text-sm text-gray-300 text-center py-12">완료된 안건/업무가 없습니다</p>
+            )}
+            <div className="flex justify-end">
               <Link href="/journal?tab=selfeval"
                 className="text-sm text-gray-500 bg-white/40 backdrop-blur-xl border border-white/60 px-4 py-2 rounded-full hover:bg-white/60 transition-all">
                 → 자기평가 초안 만들기
@@ -485,9 +557,12 @@ async function buildPeriodSummary(
   meetingsRes: { data: unknown[] | null },
   oo1Res: { data: unknown[] | null },
   mbRes: { data: unknown[] | null },
+  agendaRes?: { data: unknown[] | null },
 ): Promise<PeriodSummary> {
   const supabase = createClient()
   const completedTasks = (completedRes.data ?? []) as WeekCompletedTask[]
+  const completedAgendaItems: CompletedAgendaItem[] = ((agendaRes?.data ?? []) as { id: string; title: string; updated_at: string; agenda_groups: { name: string; color: string }[] | { name: string; color: string } | null }[])
+    .map(a => { const g = Array.isArray(a.agenda_groups) ? a.agenda_groups[0] : a.agenda_groups; return { id: a.id, title: a.title, updated_at: a.updated_at, group_name: g?.name ?? '', group_color: g?.color ?? '#9CA3AF' } })
   const meetings: WeekMeeting[] = ((meetingsRes.data ?? []) as { id: string; title: string; meeting_date: string; notes: { title: string; content: string }[] }[])
     .map(m => ({
       id: m.id, title: m.title, meeting_date: m.meeting_date,
@@ -507,5 +582,5 @@ async function buildPeriodSummary(
       .map(t => ({ ...t, noteCount: noteCountMap[t.id] ?? 0 }))
       .sort((a, b) => b.noteCount - a.noteCount)
   }
-  return { activeTasks, completedTasks, meetings, oneOnOnes, loading: false }
+  return { activeTasks, completedTasks, completedAgendaItems, meetings, oneOnOnes, loading: false }
 }
