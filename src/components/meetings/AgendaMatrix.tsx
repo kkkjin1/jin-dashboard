@@ -482,6 +482,10 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
   const [deletingST,    setDeletingST]    = useState<string | null>(null)
   const [meetingErr,    setMeetingErr]    = useState<string>('')
   const [dndErr,        setDndErr]        = useState<string>('')
+  const [showDoneGroups, setShowDoneGroups] = useState<Set<string>>(new Set())
+  function toggleShowDone(groupId: string) {
+    setShowDoneGroups(prev => { const s = new Set(prev); s.has(groupId) ? s.delete(groupId) : s.add(groupId); return s })
+  }
   const [draggingGroupId, setDraggingGroupId] = useState<string | null>(null)
   const [draggingItemId,  setDraggingItemId]  = useState<string | null>(null)
   const [dragOverGroupId, setDragOverGroupId] = useState<string | null>(null)
@@ -802,6 +806,8 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
           <tbody>
             {[...groups].sort((a, b) => a.sort_order - b.sort_order).map(group => {
               const groupItems = items.filter(i => i.group_id === group.id).sort((a, b) => a.sort_order - b.sort_order)
+              const doneGroupItems = groupItems.filter(i => i.status === 'done')
+              const visibleGroupItems = showDoneGroups.has(group.id) ? groupItems : groupItems.filter(i => i.status !== 'done')
               const isOpen = openGroups.has(group.id)
               return (
                 <Fragment key={group.id}>
@@ -873,7 +879,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                     </td>
                   </tr>
 
-                  {isOpen && groupItems.map(item => {
+                  {isOpen && visibleGroupItems.map(item => {
                     const itemSubTasks  = subTasks.filter(st => st.agenda_item_id === item.id).sort((a, b) => a.sort_order - b.sort_order)
                     const isItemExpanded = expandedItems.has(item.id)
                     const activeColor   = item.status === 'active' ? (CAT_BORDER[group.category ?? ''] ?? group.color) : STATUS_COLOR[item.status]
@@ -1071,6 +1077,18 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                     )
                   })}
 
+                  {isOpen && doneGroupItems.length > 0 && (
+                    <tr key={`done-toggle-${group.id}`} style={{ borderBottom: S.bd }}>
+                      <td colSpan={4} style={{ padding: 0 }}>
+                        <button onClick={() => toggleShowDone(group.id)}
+                          className="w-full flex items-center gap-1.5 px-5 py-2 text-xs text-gray-400 hover:text-gray-500 hover:bg-gray-50 cursor-pointer transition-colors">
+                          <span style={{ fontSize: 8, transform: showDoneGroups.has(group.id) ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block', transition: 'transform .15s' }}>▶</span>
+                          완료 {doneGroupItems.length}건
+                        </button>
+                      </td>
+                    </tr>
+                  )}
+
                   {isOpen && (
                     <tr key={`add-i-${group.id}`} style={{ borderBottom: S.bd }}>
                       <td colSpan={4} style={{ padding: 0 }}>
@@ -1186,6 +1204,8 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
           <tbody>
             {[...groups].sort((a, b) => a.sort_order - b.sort_order).map(group => {
               const groupItems = items.filter(i => i.group_id === group.id).sort((a, b) => a.sort_order - b.sort_order)
+              const doneGroupItems = groupItems.filter(i => i.status === 'done')
+              const visibleGroupItems = showDoneGroups.has(group.id) ? groupItems : groupItems.filter(i => i.status !== 'done')
               const isOpen     = openGroups.has(group.id)
               return (
                 <Fragment key={group.id}>
@@ -1230,7 +1250,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                   </tr>
 
                   {/* 안건 행들 */}
-                  {isOpen && groupItems.map(item => {
+                  {isOpen && visibleGroupItems.map(item => {
                     const itemSubTasks    = subTasks.filter(st => st.agenda_item_id === item.id).sort((a, b) => a.sort_order - b.sort_order)
                     const isCalExpanded   = expandedCalItems.has(item.id)
                     return (
@@ -1266,6 +1286,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                             const hasContent = note.trim().length > 0
                             const isToday    = date === todayStr
                             const hasMeeting = !!meeting
+                            const hasSubtaskOnDate = !isCalExpanded && itemSubTasks.some(st => st.target_date === date && st.status !== 'done')
                             return (
                               <td key={date}
                                 onClick={() => openOrCreateMeeting(date)}
@@ -1281,6 +1302,9 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                                 {hasContent ? (
                                   <div title={note.slice(0, 60)}
                                     style={{ width: 9, height: 9, borderRadius: '50%', background: catDot, margin: '0 auto', boxShadow: `0 0 0 2px ${hexToRgba(catDot, 0.2)}` }} />
+                                ) : hasSubtaskOnDate ? (
+                                  <div title="세부업무 예정일"
+                                    style={{ width: 7, height: 7, borderRadius: 2, background: hexToRgba(catDot, 0.55), margin: '0 auto' }} />
                                 ) : hasMeeting ? (
                                   <div style={{ width: 5, height: 5, borderRadius: '50%', border: `1.5px solid ${hexToRgba(catDot, 0.4)}`, margin: '0 auto' }} />
                                 ) : (
@@ -1314,6 +1338,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                               const stNote = mtg ? (stNotes[nk(st.id, mtg.id)] ?? '') : ''
                               const hasSTContent = stNote.trim().length > 0
                               const isToday = date === todayStr
+                              const isTargetDate = st.target_date === date
                               return (
                                 <td key={date}
                                   onClick={() => openOrCreateMeeting(date)}
@@ -1327,6 +1352,9 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                                   className="hover:bg-blue-50/30 transition-colors group/stdatecell">
                                   {hasSTContent ? (
                                     <div style={{ width: 6, height: 6, borderRadius: '50%', background: catDot, margin: '0 auto', opacity: 0.7 }} />
+                                  ) : isTargetDate ? (
+                                    <div title={`목표일: ${st.title}`}
+                                      style={{ width: 8, height: 8, borderRadius: 2, background: catDot, margin: '0 auto', opacity: 0.8 }} />
                                   ) : mtg ? (
                                     <div style={{ width: 4, height: 4, borderRadius: '50%', border: `1.5px solid ${hexToRgba(catDot, 0.3)}`, margin: '0 auto' }} />
                                   ) : (
@@ -1342,6 +1370,20 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                       </Fragment>
                     )
                   })}
+
+                  {/* 완료 안건 토글 */}
+                  {isOpen && doneGroupItems.length > 0 && (
+                    <tr key={`done-toggle-cal-${group.id}`} style={{ borderBottom: S.bd }}>
+                      <td colSpan={dateRange.length + 2} style={{ padding: 0 }}>
+                        <button onClick={() => toggleShowDone(group.id)}
+                          style={{ position: 'sticky', left: 0, width: 'max-content' }}
+                          className="flex items-center gap-1.5 px-5 py-2 text-xs text-gray-400 hover:text-gray-500 hover:bg-gray-50 cursor-pointer transition-colors">
+                          <span style={{ fontSize: 8, transform: showDoneGroups.has(group.id) ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block', transition: 'transform .15s' }}>▶</span>
+                          완료 {doneGroupItems.length}건
+                        </button>
+                      </td>
+                    </tr>
+                  )}
 
                   {/* 안건 추가 */}
                   {isOpen && (
