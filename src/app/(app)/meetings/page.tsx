@@ -69,25 +69,36 @@ export default function MeetingsPage() {
   const router = useRouter()
 
   useEffect(() => {
-    Promise.all([
-      supabase.from('meetings').select('*').order('meeting_date', { ascending: false, nullsFirst: false }),
-      supabase.from('task_meeting_links').select('meeting_id, tasks(id, title, status)'),
-    ]).then(([{ data: m }, { data: l }]) => {
-      setMeetings((m ?? []) as Meeting[])
-      setTaskLinks((l ?? []) as unknown as TaskLinkRow[])
-      setLoading(false)
-    })
-  }, [])
-
-  useEffect(() => {
+    let savedOrder: string[] = [...DEFAULT_CATS]
     try {
       const saved = localStorage.getItem('meetings_cat_order')
       if (saved) {
         const parsed = JSON.parse(saved) as string[]
         const filtered = parsed.filter((c: string) => typeof c === 'string')
-        if (filtered.length > 0) setCatOrder(filtered)
+        if (filtered.length > 0) savedOrder = filtered
       }
     } catch {}
+
+    Promise.all([
+      supabase.from('meetings').select('*').order('meeting_date', { ascending: false, nullsFirst: false }),
+      supabase.from('task_meeting_links').select('meeting_id, tasks(id, title, status)'),
+    ]).then(([{ data: m }, { data: l }]) => {
+      const loadedMeetings = (m ?? []) as Meeting[]
+      setMeetings(loadedMeetings)
+      setTaskLinks((l ?? []) as unknown as TaskLinkRow[])
+
+      // DB에 있는 범주 중 catOrder에 없는 것을 자동 추가
+      const dbCats = [...new Set(loadedMeetings.map(mt => mt.category).filter((c): c is string => !!c && c !== '기타'))]
+      const missing = dbCats.filter(c => !savedOrder.includes(c))
+      if (missing.length > 0) {
+        const withoutGita = savedOrder.filter(c => c !== '기타')
+        const next = [...withoutGita, ...missing, ...(savedOrder.includes('기타') ? ['기타'] : [])]
+        savedOrder = next
+        localStorage.setItem('meetings_cat_order', JSON.stringify(next))
+      }
+      setCatOrder(savedOrder)
+      setLoading(false)
+    })
   }, [])
 
   useEffect(() => {
