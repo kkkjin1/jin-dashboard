@@ -37,6 +37,13 @@ function defaultNoteTitle(): string {
   return `${yy}${mm}${dd} 논의`
 }
 
+interface AgendaItemOption {
+  id: string
+  title: string
+  groupName: string
+  category: string
+}
+
 interface NoteAccordionProps {
   note: NoteEntry
   index: number
@@ -45,9 +52,11 @@ interface NoteAccordionProps {
   onDelete: (index: number) => void
   onEdit: (index: number, newContent: string, newTitle?: string) => void
   onFullscreen: (content: string) => void
+  agendaItems: AgendaItemOption[]
+  onAddToItem: (itemId: string, noteContent: string, noteTitle: string) => Promise<void>
 }
 
-function NoteAccordion({ note, index, isOpen, onToggle, onDelete, onEdit, onFullscreen }: NoteAccordionProps) {
+function NoteAccordion({ note, index, isOpen, onToggle, onDelete, onEdit, onFullscreen, agendaItems, onAddToItem }: NoteAccordionProps) {
   const [editing, setEditing] = useState(false)
   const [editContent, setEditContent] = useState(note.content)
   const [editingTitle, setEditingTitle] = useState(false)
@@ -56,7 +65,35 @@ function NoteAccordion({ note, index, isOpen, onToggle, onDelete, onEdit, onFull
   const [fullscreen, setFullscreen] = useState(false)
   const [copied, setCopied] = useState(false)
   const [tiptapKey, setTiptapKey] = useState(0)
+  const [showItemPicker, setShowItemPicker] = useState(false)
+  const [itemSearch, setItemSearch] = useState('')
+  const [addingToItem, setAddingToItem] = useState(false)
+  const [addedToItem, setAddedToItem] = useState('')
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const pickerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!showItemPicker) return
+    function handleClick(e: MouseEvent) {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) setShowItemPicker(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [showItemPicker])
+
+  const filteredItems = agendaItems.filter(i =>
+    !itemSearch.trim() || i.title.includes(itemSearch) || i.groupName.includes(itemSearch)
+  )
+
+  async function handleAddToItem(item: AgendaItemOption) {
+    setAddingToItem(true)
+    await onAddToItem(item.id, note.content, note.title)
+    setAddingToItem(false)
+    setShowItemPicker(false)
+    setItemSearch('')
+    setAddedToItem(item.title)
+    setTimeout(() => setAddedToItem(''), 3000)
+  }
 
   function handleChange(html: string) {
     setEditContent(html)
@@ -107,6 +144,48 @@ function NoteAccordion({ note, index, isOpen, onToggle, onDelete, onEdit, onFull
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           {!isOpen && <span className="text-xs text-gray-300 truncate max-w-40">{note.content.replace(/<[^>]*>/g, '').slice(0, 40)}</span>}
+          {/* 업무 추가 완료 메시지 */}
+          {addedToItem && (
+            <span className="text-[10px] text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full flex-shrink-0">
+              ✓ {addedToItem}에 추가됨
+            </span>
+          )}
+          {/* 업무에 추가 버튼 + 피커 */}
+          <div className="relative" ref={pickerRef}>
+            <button
+              onClick={e => { e.stopPropagation(); setShowItemPicker(v => !v) }}
+              className="text-[10px] text-gray-300 hover:text-blue-500 opacity-0 group-hover:opacity-100 transition-all px-1.5 py-0.5 rounded hover:bg-blue-50 border border-transparent hover:border-blue-100"
+              title="프로젝트 업무에 추가">
+              업무에 추가
+            </button>
+            {showItemPicker && (
+              <div className="absolute right-0 top-full mt-1 w-64 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden"
+                onClick={e => e.stopPropagation()}>
+                <div className="p-2 border-b border-gray-100">
+                  <input
+                    autoFocus
+                    value={itemSearch}
+                    onChange={e => setItemSearch(e.target.value)}
+                    placeholder="업무 검색…"
+                    className="w-full text-xs px-2 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-300"
+                  />
+                </div>
+                <div className="max-h-52 overflow-y-auto">
+                  {filteredItems.length === 0 ? (
+                    <p className="text-[10px] text-gray-300 px-3 py-2">업무 없음</p>
+                  ) : filteredItems.map(item => (
+                    <button key={item.id}
+                      onClick={() => handleAddToItem(item)}
+                      disabled={addingToItem}
+                      className="w-full text-left px-3 py-2 hover:bg-blue-50 transition-colors border-b border-gray-50 last:border-0 disabled:opacity-50">
+                      <div className="text-xs text-gray-700 truncate font-medium">{item.title}</div>
+                      <div className="text-[9px] text-gray-400 mt-0.5">{item.groupName} · {item.category}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
           <button onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(note.content).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000) }) }}
             className="text-xs text-gray-300 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-all">
             {copied ? '✓' : '복사'}
@@ -260,17 +339,19 @@ export default function MeetingDetailPage() {
   const [selectedTaskId, setSelectedTaskId] = useState('')
   const [relatedJournals, setRelatedJournals] = useState<{ id: string; date: string; content: string; tags: string[]; linked: boolean }[]>([])
   const [sameCatMeetings, setSameCatMeetings] = useState<Pick<Meeting, 'id' | 'title' | 'meeting_date'>[]>([])
+  const [agendaItems, setAgendaItems] = useState<AgendaItemOption[]>([])
 
   const [newNoteKey, setNewNoteKey] = useState(0)
   const titleRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     async function load() {
-      const [meetingRes, linksRes, tasksRes, attsRes] = await Promise.all([
+      const [meetingRes, linksRes, tasksRes, attsRes, agendaRes] = await Promise.all([
         supabase.from('meetings').select('*').eq('id', id).single(),
         supabase.from('task_meeting_links').select('task_id, tasks(*, members(id, name, part))').eq('meeting_id', id),
         supabase.from('tasks').select('id, title, status, part').order('created_at', { ascending: false }),
         supabase.from('attachments').select('*').eq('meeting_id', id).order('created_at', { ascending: false }),
+        supabase.from('agenda_items').select('id, title, status, group_id, agenda_groups(name, category)').neq('status', 'done').order('sort_order'),
       ])
       if (meetingRes.data) {
         setMeeting(meetingRes.data as Meeting)
@@ -279,6 +360,15 @@ export default function MeetingDetailPage() {
       if (linksRes.data) setLinkedTasks((linksRes.data as any[]).map(l => l.tasks).filter(Boolean) as Task[])
       if (tasksRes.data) setAllTasks(tasksRes.data as Pick<Task, 'id' | 'title' | 'status' | 'part'>[])
       setAttachments((attsRes.data ?? []) as Attachment[])
+      if (agendaRes.data) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        setAgendaItems((agendaRes.data as any[]).map(i => ({
+          id: i.id,
+          title: i.title,
+          groupName: i.agenda_groups?.name ?? '미분류',
+          category: i.agenda_groups?.category ?? '',
+        })))
+      }
       // Restore draft if present
       const draft = localStorage.getItem(`meeting_draft_${id}`)
       const draftTitle = localStorage.getItem(`meeting_draft_title_${id}`)
@@ -288,6 +378,16 @@ export default function MeetingDetailPage() {
     load()
     setTimeout(() => titleRef.current?.focus(), 100)
   }, [id])
+
+  async function addNoteToItem(itemId: string, noteContent: string, noteTitle: string) {
+    const { data } = await supabase.from('agenda_items').select('description').eq('id', itemId).single()
+    const existing = (data as { description: string | null } | null)?.description ?? ''
+    const meetingLabel = meeting ? `${meeting.title}${meeting.meeting_date ? ` (${meeting.meeting_date})` : ''}` : '회의'
+    const separator = existing ? `<hr>` : ''
+    const header = `<p><strong>[회의 연동] ${noteTitle} — ${meetingLabel}</strong></p>`
+    const appended = existing + separator + header + noteContent
+    await supabase.from('agenda_items').update({ description: appended }).eq('id', itemId)
+  }
 
   function handleNoteInputChange(val: string) {
     setNoteInput(val)
@@ -593,7 +693,8 @@ export default function MeetingDetailPage() {
                 meeting.notes.map((note, idx) => note.is_prep ? null : (
                   <NoteAccordion key={`${note.created_at}-${idx}`} note={note} index={idx}
                     isOpen={openIndexes.has(idx)} onToggle={() => toggleNote(idx)} onDelete={deleteNote}
-                    onEdit={editNote} onFullscreen={(content) => { setFullscreenContent(content); setShowFullscreen(true) }} />
+                    onEdit={editNote} onFullscreen={(content) => { setFullscreenContent(content); setShowFullscreen(true) }}
+                    agendaItems={agendaItems} onAddToItem={addNoteToItem} />
                 ))
               )}
             </div>
