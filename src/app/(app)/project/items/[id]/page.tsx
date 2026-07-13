@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { AgendaItem, AgendaSubTask, Attachment } from '@/types'
-import MarkdownEditor from '@/components/MarkdownEditor'
+import TiptapEditor from '@/components/TiptapEditor'
 
 const STATUS_CYCLE = ['active', 'hold', 'done'] as const
 type Status = typeof STATUS_CYCLE[number]
@@ -335,11 +335,11 @@ export default function AgendaItemDetailPage() {
               크게 편집
             </button>
           </div>
-          <MarkdownEditor
+          <TiptapEditor
             value={description}
             onChange={handleDescription}
-            placeholder="이 업무에 대한 전반적인 맥락, 목표, 진행 상황 등을 자유롭게 기록하세요…"
             minHeight={140}
+            className="px-5 py-4"
           />
           {/* 업무 첨부파일 */}
           <div className="border-t border-gray-100 px-5 py-3 bg-gray-50/60">
@@ -437,12 +437,12 @@ export default function AgendaItemDetailPage() {
                         크게 편집
                       </button>
                     </div>
-                    <MarkdownEditor
+                    <TiptapEditor
                       value={st.noteContent}
                       onChange={v => handleNote(st, v)}
-                      placeholder={`${st.title}에 대한 진전 내용, 결정사항, 링크 등을 아카이빙하세요…`}
                       minHeight={120}
                       autoFocus={isFocus && focusSTId === st.id}
+                      className="px-5 py-3"
                     />
                     {/* 서브태스크 첨부파일 */}
                     <div className="border-t border-gray-100/80 px-5 py-3">
@@ -527,21 +527,17 @@ export default function AgendaItemDetailPage() {
               <span>ESC</span><span> 닫기</span>
             </button>
           </div>
-          <div className="flex-1 min-h-0 flex flex-col relative">
-            <textarea
-              autoFocus
+          <div className="flex-1 min-h-0 flex flex-col overflow-auto">
+            <TiptapEditor
               value={expandFor === 'description' ? description : (expandST?.noteContent ?? '')}
-              onChange={e => {
-                if (expandFor === 'description') handleDescription(e.target.value)
-                else if (expandST) handleNote(expandST, e.target.value)
+              onChange={v => {
+                if (expandFor === 'description') handleDescription(v)
+                else if (expandST) handleNote(expandST, v)
               }}
-              placeholder={expandFor === 'description'
-                ? '이 업무에 대한 전반적인 맥락, 목표, 진행 상황 등을 자유롭게 기록하세요…'
-                : `${expandST?.title ?? ''}에 대한 진전 내용, 결정사항, 링크 등을 아카이빙하세요…`}
-              className="flex-1 w-full resize-none focus:outline-none text-gray-700"
-              style={{ fontFamily: 'inherit', fontSize: 15, lineHeight: 1.75, padding: '24px 32px' }}
+              autoFocus
+              minHeight={400}
+              className="px-8 py-6"
             />
-            <span className="absolute bottom-4 right-8 text-[10px] text-gray-200 pointer-events-none select-none">Markdown 지원</span>
           </div>
         </div>
       )}
