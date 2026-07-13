@@ -420,15 +420,15 @@ export default function AgendaItemDetailPage() {
                     {editingSTId === st.id ? (
                       <input autoFocus value={editSTTitle}
                         onChange={e => setEditSTTitle(e.target.value)}
-                        onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) updateSTTitle(st.id); if (e.key === 'Escape') setEditingSTId(null) }}
-                        onBlur={() => updateSTTitle(st.id)}
+                        onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) updateSTTitle(st.id); if (e.key === 'Escape') { setEditingSTId(null) } }}
+                        onBlur={e => { const val = e.target.value.trim(); if (val) { supabase.from('agenda_sub_tasks').update({ title: val }).eq('id', st.id); setSubTasks(p => p.map(s => s.id === st.id ? { ...s, title: val } : s)) } setEditingSTId(null) }}
                         className="text-sm font-semibold text-gray-800 w-full border-b border-blue-400 focus:outline-none bg-transparent"
                         onClick={e => e.stopPropagation()} />
                     ) : (
                       <span
                         className="text-sm font-semibold cursor-text"
                         style={{ color: st.status === 'done' ? '#9CA3AF' : '#1A2233', textDecoration: st.status === 'done' ? 'line-through' : 'none' }}
-                        onDoubleClick={e => { e.stopPropagation(); setEditingSTId(st.id); setEditSTTitle(st.title) }}>
+                        onClick={e => { e.stopPropagation(); setEditingSTId(st.id); setEditSTTitle(st.title) }}>
                         {st.title}
                       </span>
                     )}
@@ -457,7 +457,7 @@ export default function AgendaItemDetailPage() {
                     )}
                   </div>
                   <div className="flex items-center gap-1.5 opacity-0 group-hover/acc:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
-                    <button onClick={() => { setEditingSTId(st.id); setEditSTTitle(st.title) }}
+                    <button onClick={e => { e.stopPropagation(); setEditingSTId(st.id); setEditSTTitle(st.title) }}
                       className="text-[10px] text-gray-400 hover:text-gray-700 transition-colors px-1">수정</button>
                     {deletingST === st.id ? (
                       <>
