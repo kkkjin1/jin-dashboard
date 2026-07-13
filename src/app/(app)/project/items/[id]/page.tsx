@@ -59,6 +59,22 @@ export default function AgendaItemDetailPage() {
   // 노트 저장 타이머
   const noteTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
 
+  // ── 날짜 헬퍼 ──────────────────────────────────────────────────
+  const sched = (() => {
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`
+    const d = new Date(), tom = new Date(d), fri = new Date(d)
+    tom.setDate(d.getDate() + 1)
+    fri.setDate(d.getDate() + (5 - d.getDay() + 7) % 7)
+    return { today: fmt(d), tomorrow: fmt(tom), friday: fmt(fri) }
+  })()
+  function stDateLabel(date: string) {
+    if (date === sched.today) return '오늘'
+    if (date === sched.tomorrow) return '내일'
+    const d = new Date(date + 'T00:00:00')
+    return `${d.getMonth()+1}/${d.getDate()}`
+  }
+
   // ── 데이터 로드 ─────────────────────────────────────────────────
   const load = useCallback(async () => {
     setLoading(true)
@@ -266,6 +282,12 @@ export default function AgendaItemDetailPage() {
     setDeletingST(null)
   }
 
+  async function updateSubTaskDate(stId: string, date: string | null) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase.from('agenda_sub_tasks') as any).update({ target_date: date }).eq('id', stId)
+    setSubTasks(p => p.map(s => s.id === stId ? { ...s, target_date: date ?? undefined } : s))
+  }
+
   if (loading) return <div className="flex items-center justify-center h-40 text-sm text-gray-400 animate-pulse">불러오는 중…</div>
   if (!item)   return <div className="flex items-center justify-center h-40 text-sm text-gray-400">안건을 찾을 수 없습니다.</div>
 
@@ -409,6 +431,29 @@ export default function AgendaItemDetailPage() {
                         onDoubleClick={e => { e.stopPropagation(); setEditingSTId(st.id); setEditSTTitle(st.title) }}>
                         {st.title}
                       </span>
+                    )}
+                  </div>
+                  {/* 날짜 뱃지 / 지정 버튼 */}
+                  <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                    {st.target_date ? (
+                      <button
+                        onClick={() => updateSubTaskDate(st.id, null)}
+                        className="text-[10px] px-2 py-0.5 rounded-full font-semibold border-none cursor-pointer flex-shrink-0"
+                        style={{
+                          background: st.target_date === sched.today ? '#FEE2E2' : st.target_date === sched.tomorrow ? '#FEF3C7' : '#EFF6FF',
+                          color:      st.target_date === sched.today ? '#DC2626' : st.target_date === sched.tomorrow ? '#92400E' : '#1D4ED8',
+                        }}>
+                        {stDateLabel(st.target_date)} ×
+                      </button>
+                    ) : (
+                      <div className="flex items-center gap-0.5 opacity-0 group-hover/acc:opacity-100 transition-opacity">
+                        <button onClick={() => updateSubTaskDate(st.id, sched.today)}    className="text-[9px] px-1.5 py-0.5 rounded bg-red-50   text-red-600   hover:bg-red-100   border border-red-100   font-medium">오늘</button>
+                        <button onClick={() => updateSubTaskDate(st.id, sched.tomorrow)} className="text-[9px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-100 font-medium">내일</button>
+                        <button onClick={() => updateSubTaskDate(st.id, sched.friday)}   className="text-[9px] px-1.5 py-0.5 rounded bg-blue-50  text-blue-600  hover:bg-blue-100  border border-blue-100  font-medium">금주</button>
+                        <label className="cursor-pointer text-gray-400 hover:text-gray-600 text-[10px] px-0.5" title="특정일 선택">
+                          📅<input type="date" className="sr-only" onChange={e => e.target.value && updateSubTaskDate(st.id, e.target.value)} />
+                        </label>
+                      </div>
                     )}
                   </div>
                   <div className="flex items-center gap-1.5 opacity-0 group-hover/acc:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
