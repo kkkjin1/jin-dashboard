@@ -446,70 +446,70 @@ function JournalFullscreenEditor({ selectedDate, current, yesterday, meetings, s
 
               {/* 회의록 */}
               <div className="px-4 py-3">
-                <p className="text-[10px] font-semibold text-gray-300 tracking-wider mb-1.5">💬 회의록</p>
+                <p className="text-[10px] font-semibold text-gray-400 tracking-wider mb-2">💬 회의록</p>
                 {todayCtx.meetings.length > 0 ? todayCtx.meetings.map(m => (
                   <Link key={m.id} href={`/meetings/${m.id}`}
-                    className="block text-xs text-blue-500 hover:text-blue-700 truncate mb-1 transition-colors">
+                    className="block text-[13px] text-blue-500 hover:text-blue-700 truncate mb-1.5 transition-colors">
                     · {m.title}
                   </Link>
-                )) : <p className="text-[11px] text-gray-200">—</p>}
+                )) : <p className="text-[12px] text-gray-300">—</p>}
               </div>
 
               {/* 1on1 */}
               <div className="px-4 py-3">
-                <p className="text-[10px] font-semibold text-gray-300 tracking-wider mb-1.5">👥 1on1</p>
+                <p className="text-[10px] font-semibold text-gray-400 tracking-wider mb-2">👥 1on1</p>
                 {todayCtx.oneOnOnes.length > 0 ? todayCtx.oneOnOnes.map(o => (
                   <Link key={o.id} href={`/one-on-one/${o.memberId}/${o.id}`}
-                    className="block text-xs text-purple-500 hover:text-purple-700 truncate mb-1 transition-colors">
+                    className="block text-[13px] text-purple-500 hover:text-purple-700 truncate mb-1.5 transition-colors">
                     · {o.memberName ?? '1on1 세션'}
                   </Link>
-                )) : <p className="text-[11px] text-gray-200">—</p>}
+                )) : <p className="text-[12px] text-gray-300">—</p>}
               </div>
 
               {/* 메모 */}
               <div className="px-4 py-3">
-                <p className="text-[10px] font-semibold text-gray-300 tracking-wider mb-1.5">📝 메모</p>
+                <p className="text-[10px] font-semibold text-gray-400 tracking-wider mb-2">📝 메모</p>
                 {todayCtx.memos.length > 0 ? todayCtx.memos.map(m => (
-                  <div key={m.id} className="flex items-baseline gap-1 mb-1">
-                    <span className="text-xs text-gray-500 truncate">· {m.title}</span>
-                    {m.tag && <span className="text-[10px] text-gray-300 flex-shrink-0">{m.tag}</span>}
+                  <div key={m.id} className="flex items-baseline gap-1.5 mb-1.5">
+                    <span className="text-[13px] text-gray-700 truncate">· {m.title}</span>
+                    {m.tag && <span className="text-[11px] text-gray-400 flex-shrink-0">{m.tag}</span>}
                   </div>
-                )) : <p className="text-[11px] text-gray-200">—</p>}
+                )) : <p className="text-[12px] text-gray-300">—</p>}
               </div>
 
               {/* 프로젝트 업무 (상세task 기준) */}
               <div className="px-4 py-3">
-                <p className="text-[10px] font-semibold text-gray-300 tracking-wider mb-1.5">📋 프로젝트 업무</p>
+                <p className="text-[10px] font-semibold text-gray-400 tracking-wider mb-2">📋 프로젝트 업무</p>
                 {todayCtx.newTasks.length > 0 ? todayCtx.newTasks.map(t => (
-                  <div key={t.id} className="mb-1.5 flex items-start gap-1.5">
-                    <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium flex-shrink-0 mt-0.5 ${TASK_STATUS_CLS[t.status] ?? 'bg-gray-100 text-gray-400'}`}>
+                  <div key={t.id} className="mb-2 flex items-start gap-1.5">
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium flex-shrink-0 mt-0.5 ${TASK_STATUS_CLS[t.status] ?? 'bg-gray-100 text-gray-400'}`}>
                       {TASK_STATUS_LABEL[t.status] ?? t.status}
                     </span>
                     <div className="min-w-0">
-                      <p className="text-xs text-gray-500 truncate">{t.title}</p>
+                      <p className="text-[13px] text-gray-700 truncate">{t.title}</p>
                       {t.agendaItemTitle && (
-                        <p className="text-[10px] text-gray-300">[{t.agendaItemTitle}]</p>
+                        <p className="text-[11px] text-gray-400">[{t.agendaItemTitle}]</p>
                       )}
                     </div>
                   </div>
-                )) : <p className="text-[11px] text-gray-200">—</p>}
+                )) : <p className="text-[12px] text-gray-300">—</p>}
               </div>
 
               {/* 업무 노트 */}
               <div className="px-4 py-3">
-                <p className="text-[10px] font-semibold text-gray-300 tracking-wider mb-1.5">💡 업무 노트</p>
+                <p className="text-[10px] font-semibold text-gray-400 tracking-wider mb-2">💡 업무 노트</p>
                 {todayCtx.taskNotes.length > 0 ? todayCtx.taskNotes.map(n => (
-                  <div key={n.id} className="mb-2">
+                  <div key={n.id} className="mb-2.5">
                     {(n.subTaskTitle || n.agendaItemTitle) && (
-                      <p className="text-[10px] text-gray-300 mb-0.5">
+                      <p className="text-[11px] text-gray-400 mb-0.5">
                         {n.agendaItemTitle && `[${n.agendaItemTitle}] `}{n.subTaskTitle}
                       </p>
                     )}
-                    <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed">
-                      · {n.title || n.content.slice(0, 60)}
+                    <p className="text-[13px] text-gray-700 line-clamp-2 leading-relaxed">
+                      · {n.title || n.content.slice(0, 80)}
                     </p>
                   </div>
-                )) : <p className="text-[11px] text-gray-200">—</p>}
+                )) : <p className="text-[12px] text-gray-300">—</p>}
               </div>
 
             </div>
