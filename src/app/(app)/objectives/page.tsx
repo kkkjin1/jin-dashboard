@@ -58,7 +58,7 @@ function SubCell({ entry, subItemId, date, onSave, onDelete }: SubCellProps) {
           if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') save()
           if (e.key === 'Escape') { setVal(entry?.content ?? ''); setEditing(false) }
         }}
-        className="w-full min-w-[200px] text-sm text-gray-700 leading-relaxed bg-white border border-[#1B3A6B]/25 rounded-lg p-2 focus:outline-none resize-none"
+        className="w-full min-w-[200px] text-[13px] text-gray-700 leading-relaxed bg-white border border-[#1B3A6B]/25 rounded-lg p-2 focus:outline-none resize-none"
         rows={3}
       />
     )
@@ -68,7 +68,7 @@ function SubCell({ entry, subItemId, date, onSave, onDelete }: SubCellProps) {
     return (
       <div
         onClick={() => { setVal(entry.content); setEditing(true) }}
-        className="min-w-[200px] text-sm text-gray-700 leading-relaxed whitespace-pre-wrap cursor-text bg-gray-50/80 rounded-lg px-2.5 py-2 hover:bg-gray-100/60 transition-colors"
+        className="min-w-[200px] text-[13px] text-gray-700 leading-relaxed whitespace-pre-wrap cursor-text bg-gray-50/80 rounded-lg px-2.5 py-2 hover:bg-gray-100/60 transition-colors"
       >
         {entry.content}
       </div>
@@ -152,10 +152,10 @@ function ObjectiveBlock({
               if (e.key === 'Escape') { setTitleVal(obj.title); setEditingTitle(false) }
             }}
             onBlur={saveTitle}
-            className="text-sm font-medium text-gray-800 border-b border-gray-200 focus:outline-none bg-transparent flex-1 max-w-xs"
+            className="text-[13px] font-medium text-gray-800 border-b border-gray-200 focus:outline-none bg-transparent flex-1 max-w-xs"
           />
         ) : (
-          <span className="text-sm font-medium text-gray-700">{obj.title}</span>
+          <span className="text-[13px] font-medium text-gray-700">{obj.title}</span>
         )}
         <div className="flex items-center gap-0.5 opacity-0 group-hover/obj:opacity-100 transition-opacity ml-1">
           <button onClick={() => { setEditingTitle(true); setTitleVal(obj.title) }}
@@ -167,7 +167,7 @@ function ObjectiveBlock({
 
       {/* Sub-item table */}
       <div className="overflow-x-auto pb-3 px-4" style={{ scrollbarWidth: 'thin' }}>
-        <table className="border-collapse text-sm" style={{ minWidth: '100%' }}>
+        <table className="border-collapse text-[13px]" style={{ minWidth: '100%' }}>
           {/* Header */}
           <thead>
             <tr>
@@ -206,7 +206,7 @@ function ObjectiveBlock({
                 <td className="pr-4 py-2.5 align-top w-48 min-w-[192px]"
                   style={{ position: 'sticky', left: 0, background: 'white', zIndex: 1 }}>
                   <div className="flex items-start gap-1 group/sititle">
-                    <span className="text-sm text-gray-600 leading-relaxed flex-1">{si.title}</span>
+                    <span className="text-[13px] text-gray-600 leading-relaxed flex-1">{si.title}</span>
                     <div className="flex items-center gap-0.5 opacity-0 group-hover/sititle:opacity-100 transition-opacity flex-shrink-0 mt-0.5">
                       <button onClick={() => onDeleteSubItem(si.id)}
                         className="text-gray-200 hover:text-red-400 p-0.5 transition-colors"><Trash2 size={8} /></button>
@@ -243,7 +243,7 @@ function ObjectiveBlock({
                         if (e.key === 'Escape') { setAddingItem(false); setNewItemTitle('') }
                       }}
                       placeholder="안건 입력"
-                      className="text-sm text-gray-700 border-b border-gray-200 focus:outline-none bg-transparent w-28"
+                      className="text-[13px] text-gray-700 border-b border-gray-200 focus:outline-none bg-transparent w-28"
                     />
                     <button onClick={submitItem}
                       className="text-xs text-[#1B3A6B] font-medium hover:opacity-70 transition-opacity">확인</button>
@@ -275,10 +275,10 @@ function GroupNameEditor({ name, onSave }: { name: string; onSave: (v: string) =
       onClick={e => e.stopPropagation()}
       onKeyDown={e => { e.stopPropagation(); if (e.key === 'Enter' && !e.nativeEvent.isComposing) commit(); if (e.key === 'Escape') { setVal(name); setEditing(false) } }}
       onBlur={commit}
-      className="text-sm font-semibold text-gray-800 border-b border-gray-300 focus:outline-none bg-transparent w-32" />
+      className="text-[13px] font-semibold text-gray-800 border-b border-gray-300 focus:outline-none bg-transparent w-32" />
   )
   return (
-    <span className="text-sm font-semibold text-gray-800 hover:text-[#1B3A6B] transition-colors"
+    <span className="text-[13px] font-semibold text-gray-800 hover:text-[#1B3A6B] transition-colors"
       onDoubleClick={e => { e.stopPropagation(); setEditing(true) }}>{name}</span>
   )
 }
@@ -448,9 +448,9 @@ export default function ObjectivesPage() {
       {/* Content */}
       <div className="flex-1 min-h-0 overflow-y-auto px-4 md:px-6 pb-8">
         {loading ? (
-          <div className="flex items-center justify-center h-32 text-sm text-gray-400">불러오는 중…</div>
+          <div className="flex items-center justify-center h-32 text-[13px] text-gray-400">불러오는 중…</div>
         ) : groups.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-48 gap-3 text-sm text-gray-400">
+          <div className="flex flex-col items-center justify-center h-48 gap-3 text-[13px] text-gray-400">
             <p>팀을 추가하고 {quarterLabel(activeQ)} 목표를 관리하세요</p>
             <button onClick={() => setAddingGroup(true)}
               className="text-xs px-4 py-2 rounded-full bg-[#1B3A6B]/10 text-[#1B3A6B] hover:bg-[#1B3A6B]/15 transition-colors">+ 첫 번째 팀 추가</button>
@@ -524,5 +524,6 @@ export default function ObjectivesPage() {
     </div>
   )
 }
+
 
 
