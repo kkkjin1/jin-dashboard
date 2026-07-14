@@ -236,7 +236,13 @@ export default function AgendaItemDetailPage() {
 
   // ── 아코디언 토글 ────────────────────────────────────────────────
   function toggleST(stId: string) {
-    setOpenST(prev => { const s = new Set(prev); s.has(stId) ? s.delete(stId) : s.add(stId); return s })
+    console.log('🔵 toggleST called', stId)
+    setOpenST(prev => {
+      const s = new Set(prev)
+      s.has(stId) ? s.delete(stId) : s.add(stId)
+      console.log('🔵 openST after:', [...s])
+      return s
+    })
   }
 
   function saveSTTitle() {
@@ -524,7 +530,7 @@ export default function AgendaItemDetailPage() {
                   className="flex items-center gap-2.5 px-4 py-4 select-none group/acc hover:bg-gray-50/70 transition-colors"
                   style={{ background: isOpen ? `${stColor}08` : 'white' }}>
                   {/* ▶ 토글 */}
-                  <button type="button" onClick={() => toggleST(st.id)}
+                  <button type="button" onClick={() => { console.log('🟡 ▶ clicked', st.id); toggleST(st.id) }}
                     className="flex-shrink-0 bg-transparent border-none cursor-pointer p-1 -m-1"
                     style={{ fontSize: 8, lineHeight: 1 }}>
                     <span style={{ display: 'inline-block', transition: 'transform .15s', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', color: '#8FA0B5' }}>▶</span>
