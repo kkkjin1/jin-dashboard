@@ -24,9 +24,17 @@ function STTitleInput({
   onSave: (stId: string, title: string) => void
 }) {
   const [val, setVal] = useState(st.title)
+  const inputRef = useRef<HTMLInputElement>(null)
   useEffect(() => { setVal(st.title) }, [st.title])
+  useEffect(() => {
+    const el = inputRef.current
+    if (!el) return
+    el.style.width = '2px'
+    el.style.width = el.scrollWidth + 'px'
+  }, [val])
   return (
     <input
+      ref={inputRef}
       value={val}
       onChange={e => setVal(e.target.value)}
       onKeyDown={e => {
@@ -41,10 +49,12 @@ function STTitleInput({
       }}
       onClick={e => e.stopPropagation()}
       onFocus={e => e.stopPropagation()}
-      className="text-sm font-semibold bg-transparent border-b border-transparent hover:border-gray-200 focus:border-blue-400 focus:outline-none transition-colors min-w-0 flex-1 cursor-text"
+      className="text-sm font-semibold bg-transparent border-b border-transparent hover:border-gray-200 focus:border-blue-400 focus:outline-none transition-colors cursor-text"
       style={{
         color: st.status === 'done' ? '#9CA3AF' : '#1A2233',
         textDecoration: st.status === 'done' ? 'line-through' : 'none',
+        minWidth: '60px',
+        maxWidth: '100%',
       }}
     />
   )
@@ -66,9 +76,17 @@ function NoteTitleInput({
   onSave: (title: string) => void
 }) {
   const [val, setVal] = useState(note.title ?? '')
+  const inputRef = useRef<HTMLInputElement>(null)
   useEffect(() => { setVal(note.title ?? '') }, [note.title])
+  useEffect(() => {
+    const el = inputRef.current
+    if (!el) return
+    el.style.width = '2px'
+    el.style.width = el.scrollWidth + 'px'
+  }, [val])
   return (
     <input
+      ref={inputRef}
       value={val}
       onChange={e => setVal(e.target.value)}
       onKeyDown={e => {
@@ -80,7 +98,8 @@ function NoteTitleInput({
       onClick={e => e.stopPropagation()}
       onFocus={e => e.stopPropagation()}
       placeholder={placeholder}
-      className="text-xs font-medium bg-transparent border-b border-transparent hover:border-gray-200 focus:border-blue-400 focus:outline-none transition-colors cursor-text flex-1 min-w-0 text-gray-600 placeholder:text-gray-400"
+      className="text-xs font-medium bg-transparent border-b border-transparent hover:border-gray-200 focus:border-blue-400 focus:outline-none transition-colors cursor-text text-gray-600 placeholder:text-gray-400"
+      style={{ minWidth: '40px', maxWidth: '100%' }}
     />
   )
 }
@@ -429,7 +448,7 @@ export default function AgendaItemDetailPage() {
     ? (subTasks.find(s => s.id === expandFor) ?? null) : null
 
   return (
-    <div className="flex flex-col h-full min-h-0 overflow-y-auto">
+    <div className="h-full overflow-y-auto">
       <div className="max-w-3xl w-full mx-auto px-4 md:px-6 py-6 pb-16 flex flex-col gap-6">
 
         {/* ── 브레드크럼 ── */}
