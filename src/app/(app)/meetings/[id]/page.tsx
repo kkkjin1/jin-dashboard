@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { format, parseISO } from 'date-fns'
 import { createClient } from '@/lib/supabase/client'
-import type { Meeting, NoteEntry, Task, TaskStatus, Note, Attachment } from '@/types'
+import type { Meeting, NoteEntry, Attachment } from '@/types'
 import { generateMeetingMd, downloadMd } from '@/lib/markdown'
 import dynamic from 'next/dynamic'
 import MarkdownContent from '@/components/MarkdownContent'
@@ -23,12 +23,6 @@ const CATEGORY_COLORS: Record<string, string> = {
   '목표관리': 'bg-indigo-50 text-indigo-600 border-indigo-200',
 }
 
-const STATUS_COLORS: Record<TaskStatus, string> = {
-  '진행필요': 'bg-gray-100 text-gray-600',
-  '진행중': 'bg-blue-50 text-blue-600',
-  '완료': 'bg-green-50 text-green-600',
-}
-
 function defaultNoteTitle(): string {
   const now = new Date()
   const yy = String(now.getFullYear()).slice(2)
@@ -40,6 +34,15 @@ function defaultNoteTitle(): string {
 interface AgendaItemOption {
   id: string
   title: string
+  groupName: string
+  category: string
+}
+
+interface LinkedAgendaItem {
+  linkId: string
+  id: string
+  title: string
+  status: string
   groupName: string
   category: string
 }
@@ -248,73 +251,6 @@ function NoteAccordion({ note, index, isOpen, onToggle, onDelete, onEdit, onFull
   )
 }
 
-interface LinkedTaskCardProps {
-  task: Task
-  onUnlink: (id: string) => void
-}
-
-function LinkedTaskCard({ task, onUnlink }: LinkedTaskCardProps) {
-  const [expanded, setExpanded] = useState(false)
-  const [notes, setNotes] = useState<Note[]>([])
-  const [loaded, setLoaded] = useState(false)
-  const supabase = createClient()
-
-  async function handleExpand() {
-    if (!expanded && !loaded) {
-      const { data } = await supabase.from('notes').select('*').eq('task_id', task.id).order('created_at', { ascending: false })
-      setNotes((data ?? []) as Note[])
-      setLoaded(true)
-    }
-    setExpanded(prev => !prev)
-  }
-
-  return (
-    <div className="border border-gray-100 rounded-lg overflow-hidden group/task">
-      <div className="flex items-center justify-between px-3 py-2.5 bg-gray-50">
-        <button onClick={handleExpand} className="flex items-center gap-2 flex-1 min-w-0 text-left">
-          <span className="text-xs text-gray-400 flex-shrink-0">{expanded ? '▼' : '▶'}</span>
-          <span className={`text-xs px-2 py-0.5 rounded flex-shrink-0 ${STATUS_COLORS[task.status]}`}>{task.status}</span>
-          <span className="text-sm text-gray-700 hover:text-gray-900 truncate">
-            {task.title || <span className="text-gray-300 italic">제목 없음</span>}
-          </span>
-        </button>
-        <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
-          <Link href={`/tasks/${task.id}`}
-            className="text-xs text-gray-300 hover:text-blue-500 opacity-0 group-hover/task:opacity-100 transition-all">
-            열기
-          </Link>
-          <button onClick={() => onUnlink(task.id)}
-            className="text-xs text-gray-200 hover:text-red-400 opacity-0 group-hover/task:opacity-100 transition-all">
-            해제
-          </button>
-        </div>
-      </div>
-      {expanded && (
-        <div className="border-t border-gray-100">
-          <div className="px-3 py-2 flex items-center gap-2">
-            <span className="text-xs text-gray-400">{task.part}파트</span>
-            {task.type && <span className="text-xs text-gray-400">· {task.type}</span>}
-          </div>
-          {!loaded ? (
-            <div className="px-3 pb-3 text-xs text-gray-300 animate-pulse">불러오는 중...</div>
-          ) : notes.length === 0 ? (
-            <div className="px-3 pb-3 text-xs text-gray-300">기록된 노트 없음</div>
-          ) : (
-            <div className="divide-y divide-gray-50">
-              {notes.map(note => (
-                <div key={note.id} className="px-3 py-2.5">
-                  <p className="text-xs text-gray-400 mb-1">{note.created_at.slice(0, 10)}</p>
-                  <MarkdownContent content={note.content} className="text-xs text-gray-600" />
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
 export default function MeetingDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
@@ -334,9 +270,10 @@ export default function MeetingDetailPage() {
   const [linkName, setLinkName] = useState('')
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState('')
-  const [linkedTasks, setLinkedTasks] = useState<Task[]>([])
-  const [allTasks, setAllTasks] = useState<Pick<Task, 'id' | 'title' | 'status' | 'part'>[]>([])
-  const [selectedTaskId, setSelectedTaskId] = useState('')
+  const [linkedAgendaItems, setLinkedAgendaItems] = useState<LinkedAgendaItem[]>([])
+  const [sidebarSearch, setSidebarSearch] = useState('')
+  const [showSidebarSearch, setShowSidebarSearch] = useState(false)
+  const [linkingItemId, setLinkingItemId] = useState<string | null>(null)
   const [relatedJournals, setRelatedJournals] = useState<{ id: string; date: string; content: string; tags: string[]; linked: boolean }[]>([])
   const [sameCatMeetings, setSameCatMeetings] = useState<Pick<Meeting, 'id' | 'title' | 'meeting_date'>[]>([])
   const [agendaItems, setAgendaItems] = useState<AgendaItemOption[]>([])
@@ -346,10 +283,9 @@ export default function MeetingDetailPage() {
 
   useEffect(() => {
     async function load() {
-      const [meetingRes, linksRes, tasksRes, attsRes, agendaRes] = await Promise.all([
+      const [meetingRes, agendaLinksRes, attsRes, agendaRes] = await Promise.all([
         supabase.from('meetings').select('*').eq('id', id).single(),
-        supabase.from('task_meeting_links').select('task_id, tasks(*, members(id, name, part))').eq('meeting_id', id),
-        supabase.from('tasks').select('id, title, status, part').order('created_at', { ascending: false }),
+        supabase.from('meeting_agenda_links').select('id, agenda_item_id, agenda_items(id, title, status, agenda_groups(name, category))').eq('meeting_id', id),
         supabase.from('attachments').select('*').eq('meeting_id', id).order('created_at', { ascending: false }),
         supabase.from('agenda_items').select('id, title, status, group_id, agenda_groups(name, category)').neq('status', 'done').order('sort_order'),
       ])
@@ -357,8 +293,17 @@ export default function MeetingDetailPage() {
         setMeeting(meetingRes.data as Meeting)
         setTitleInput((meetingRes.data as Meeting).title)
       }
-      if (linksRes.data) setLinkedTasks((linksRes.data as any[]).map(l => l.tasks).filter(Boolean) as Task[])
-      if (tasksRes.data) setAllTasks(tasksRes.data as Pick<Task, 'id' | 'title' | 'status' | 'part'>[])
+      if (agendaLinksRes.data) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        setLinkedAgendaItems((agendaLinksRes.data as any[]).filter(l => l.agenda_items).map(l => ({
+          linkId: l.id,
+          id: l.agenda_item_id,
+          title: l.agenda_items.title,
+          status: l.agenda_items.status,
+          groupName: l.agenda_items.agenda_groups?.name ?? '미분류',
+          category: l.agenda_items.agenda_groups?.category ?? '',
+        })))
+      }
       setAttachments((attsRes.data ?? []) as Attachment[])
       if (agendaRes.data) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -387,6 +332,25 @@ export default function MeetingDetailPage() {
     const header = `<p><strong>[회의 연동] ${noteTitle} — ${meetingLabel}</strong></p>`
     const appended = existing + separator + header + noteContent
     await supabase.from('agenda_items').update({ description: appended }).eq('id', itemId)
+    // 사이드바에도 자동 연동
+    if (!linkedAgendaItems.some(l => l.id === itemId)) {
+      const found = agendaItems.find(i => i.id === itemId)
+      if (found) {
+        const { data: linkData } = await supabase.from('meeting_agenda_links')
+          .upsert({ meeting_id: id, agenda_item_id: itemId }, { onConflict: 'meeting_id,agenda_item_id' })
+          .select('id').single()
+        if (linkData) {
+          setLinkedAgendaItems(prev => [...prev, {
+            linkId: (linkData as { id: string }).id,
+            id: itemId,
+            title: found.title,
+            status: '',
+            groupName: found.groupName,
+            category: found.category,
+          }])
+        }
+      }
+    }
   }
 
   function handleNoteInputChange(val: string) {
@@ -518,17 +482,28 @@ export default function MeetingDetailPage() {
     router.push('/meetings')
   }
 
-  async function linkTask() {
-    if (!selectedTaskId) return
-    await supabase.from('task_meeting_links').insert({ task_id: selectedTaskId, meeting_id: id })
-    const found = allTasks.find(t => t.id === selectedTaskId)
-    if (found) setLinkedTasks(prev => [...prev, found as Task])
-    setSelectedTaskId('')
+  async function linkAgendaItem(item: AgendaItemOption) {
+    if (linkedAgendaItems.some(l => l.id === item.id)) return
+    setLinkingItemId(item.id)
+    const { data } = await supabase.from('meeting_agenda_links').insert({ meeting_id: id, agenda_item_id: item.id }).select('id').single()
+    if (data) {
+      setLinkedAgendaItems(prev => [...prev, {
+        linkId: (data as { id: string }).id,
+        id: item.id,
+        title: item.title,
+        status: '',
+        groupName: item.groupName,
+        category: item.category,
+      }])
+    }
+    setLinkingItemId(null)
+    setShowSidebarSearch(false)
+    setSidebarSearch('')
   }
 
-  async function unlinkTask(taskId: string) {
-    await supabase.from('task_meeting_links').delete().eq('task_id', taskId).eq('meeting_id', id)
-    setLinkedTasks(prev => prev.filter(t => t.id !== taskId))
+  async function unlinkAgendaItem(linkId: string) {
+    await supabase.from('meeting_agenda_links').delete().eq('id', linkId)
+    setLinkedAgendaItems(prev => prev.filter(l => l.linkId !== linkId))
   }
 
   async function addLink() {
@@ -567,17 +542,6 @@ export default function MeetingDetailPage() {
     }
     await supabase.from('attachments').delete().eq('id', att.id)
     setAttachments(prev => prev.filter(a => a.id !== att.id))
-  }
-
-  async function createAndLinkTask() {
-    const { data } = await supabase.from('tasks')
-      .insert({ title: '', part: '코어', type: '기획', status: '진행필요' })
-      .select('id').single()
-    if (data) {
-      const newId = (data as { id: string }).id
-      await supabase.from('task_meeting_links').insert({ task_id: newId, meeting_id: id })
-      router.push(`/tasks/${newId}`)
-    }
   }
 
   function handleDownloadMd() {
@@ -748,34 +712,78 @@ export default function MeetingDetailPage() {
           </div>
         </div>
 
-        {/* 오른쪽: 연관 업무 (확장 가능) */}
+        {/* 오른쪽: 연관 프로젝트 업무 */}
         <div className="flex-[45]">
           <div className="bg-white rounded-lg border border-gray-100 p-5 sticky top-6">
-            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">연관 업무</h3>
-
-            <div className="flex gap-2 mb-4">
-              <select value={selectedTaskId} onChange={e => setSelectedTaskId(e.target.value)}
-                className="flex-1 text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none bg-white text-gray-600">
-                <option value="">기존 업무 연결...</option>
-                {allTasks.filter(t => !linkedTasks.some(lt => lt.id === t.id)).map(t => (
-                  <option key={t.id} value={t.id}>
-                    {t.title || '(제목 없음)'} · {t.part} · {t.status}
-                  </option>
-                ))}
-              </select>
-              <button onClick={linkTask} disabled={!selectedTaskId}
-                className="text-xs bg-gray-100 hover:bg-gray-200 px-2.5 py-1.5 rounded-lg disabled:opacity-30 transition-colors">연결</button>
-              <button onClick={createAndLinkTask}
-                className="text-xs bg-[#5DBD97] text-white px-2.5 py-1.5 rounded-lg hover:bg-[#4aab84] transition-colors whitespace-nowrap">새 업무</button>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide">연관 업무</h3>
+              <button
+                onClick={() => { setShowSidebarSearch(p => !p); setSidebarSearch('') }}
+                className="text-xs text-[#5DBD97] hover:text-[#4aab84] transition-colors">
+                {showSidebarSearch ? '닫기' : '+ 업무 연결'}
+              </button>
             </div>
 
-            {linkedTasks.length === 0 ? (
-              <p className="text-xs text-gray-300 text-center py-6">연결된 업무가 없습니다</p>
+            {showSidebarSearch && (
+              <div className="mb-4">
+                <input
+                  autoFocus
+                  value={sidebarSearch}
+                  onChange={e => setSidebarSearch(e.target.value)}
+                  placeholder="업무명 또는 범주 검색..."
+                  className="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-[#5DBD97] mb-2"
+                />
+                <div className="max-h-48 overflow-y-auto space-y-1">
+                  {agendaItems
+                    .filter(i =>
+                      !linkedAgendaItems.some(l => l.id === i.id) &&
+                      (!sidebarSearch.trim() || i.title.includes(sidebarSearch) || i.groupName.includes(sidebarSearch))
+                    )
+                    .map(item => (
+                      <button
+                        key={item.id}
+                        onClick={() => linkAgendaItem(item)}
+                        disabled={linkingItemId === item.id}
+                        className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-gray-50 transition-colors group flex items-center gap-2 disabled:opacity-50">
+                        <span className="text-[10px] text-gray-400 flex-shrink-0 truncate max-w-[70px]">{item.groupName}</span>
+                        <span className="text-xs text-gray-700 truncate flex-1">{item.title}</span>
+                        <span className="text-[10px] text-[#5DBD97] opacity-0 group-hover:opacity-100 flex-shrink-0">연결</span>
+                      </button>
+                    ))}
+                  {agendaItems.filter(i =>
+                    !linkedAgendaItems.some(l => l.id === i.id) &&
+                    (!sidebarSearch.trim() || i.title.includes(sidebarSearch) || i.groupName.includes(sidebarSearch))
+                  ).length === 0 && (
+                    <p className="text-xs text-gray-300 text-center py-3">검색 결과 없음</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {linkedAgendaItems.length === 0 ? (
+              <p className="text-xs text-gray-300 text-center py-6">
+                연결된 프로젝트 업무가 없습니다<br/>
+                <span className="text-[10px]">노트의 &apos;업무에 추가&apos; 또는 &apos;업무 연결&apos;로 연동하세요</span>
+              </p>
             ) : (
-              <div className="space-y-2">
-                <p className="text-xs text-gray-400 mb-1">▶ 클릭하면 노트가 펼쳐집니다</p>
-                {linkedTasks.map(t => (
-                  <LinkedTaskCard key={t.id} task={t} onUnlink={unlinkTask} />
+              <div className="space-y-1.5">
+                {linkedAgendaItems.map(item => (
+                  <div key={item.linkId} className="border border-gray-100 rounded-lg px-3 py-2.5 flex items-center gap-2 group hover:border-gray-200 transition-colors">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] text-gray-400 truncate">{item.groupName}</p>
+                      <p className="text-xs text-gray-700 truncate font-medium">{item.title}</p>
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Link href={`/project/items/${item.id}`}
+                        className="text-[10px] text-gray-400 hover:text-blue-500 transition-colors">
+                        열기
+                      </Link>
+                      <button onClick={() => unlinkAgendaItem(item.linkId)}
+                        className="text-[10px] text-gray-300 hover:text-red-400 transition-colors">
+                        해제
+                      </button>
+                    </div>
+                  </div>
                 ))}
               </div>
             )}

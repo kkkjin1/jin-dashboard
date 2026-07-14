@@ -16,9 +16,16 @@ const STATUS_CLS: Record<Status, string> = {
 }
 const STATUS_DOT: Record<Status, string> = { active: '#3B82F6', hold: '#F59E0B', done: '#10B981' }
 
+interface SubTaskNote {
+  id: string
+  content: string
+  created_at: string
+  edited_at?: string | null
+}
+
 interface SubTaskWithNote extends AgendaSubTask {
-  noteId?: string
-  noteContent: string
+  currentNote: SubTaskNote | null
+  historyNotes: SubTaskNote[]
 }
 
 export default function AgendaItemDetailPage() {
@@ -106,16 +113,16 @@ export default function AgendaItemDetailPage() {
         .in('sub_task_id', fetchedSTs.map(s => s.id))
         .order('created_at', { ascending: false })
 
-      const latestNoteMap: Record<string, { id: string; content: string }> = {}
-      ;(noteData ?? []).forEach((n: { id: string; sub_task_id: string; content: string }) => {
-        if (!latestNoteMap[n.sub_task_id]) latestNoteMap[n.sub_task_id] = { id: n.id, content: n.content }
+      const allNotesMap: Record<string, SubTaskNote[]> = {}
+      ;(noteData ?? []).forEach((n: SubTaskNote & { sub_task_id: string }) => {
+        if (!allNotesMap[n.sub_task_id]) allNotesMap[n.sub_task_id] = []
+        allNotesMap[n.sub_task_id].push(n)
       })
 
-      setSubTasks(fetchedSTs.map(st => ({
-        ...st,
-        noteId:      latestNoteMap[st.id]?.id,
-        noteContent: latestNoteMap[st.id]?.content ?? '',
-      })))
+      setSubTasks(fetchedSTs.map(st => {
+        const stNotes = allNotesMap[st.id] ?? []
+        return { ...st, currentNote: stNotes[0] ?? null, historyNotes: stNotes.slice(1) }
+      }))
     } else {
       setSubTasks([])
     }
@@ -146,6 +153,10 @@ export default function AgendaItemDetailPage() {
       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
     }, 150)
   }, [focusSTId, subTasks.length])
+
+  // 기록 토글 상태 (stId → Set<noteId>)
+  const [openHistoryNotes, setOpenHistoryNotes] = useState<Record<string, Set<string>>>({})
+  const [addingNoteFor, setAddingNoteFor] = useState<string | null>(null)
 
   // 크게 편집 ESC 닫기
   useEffect(() => {
@@ -194,18 +205,69 @@ export default function AgendaItemDetailPage() {
     setOpenST(prev => { const s = new Set(prev); s.has(stId) ? s.delete(stId) : s.add(stId); return s })
   }
 
-  // ── 노트 저장 ────────────────────────────────────────────────────
-  function handleNote(st: SubTaskWithNote, value: string) {
-    setSubTasks(p => p.map(s => s.id === st.id ? { ...s, noteContent: value } : s))
-    clearTimeout(noteTimers.current[st.id])
-    noteTimers.current[st.id] = setTimeout(async () => {
-      if (st.noteId) {
-        await supabase.from('sub_task_notes').update({ content: value, edited_at: new Date().toISOString() }).eq('id', st.noteId)
+  // ── 날짜 포맷 ──────────────────────────────────────────────────
+  function formatNoteDate(dateStr: string) {
+    const d = new Date(dateStr)
+    const now = new Date()
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1)
+    const noteDay = new Date(d.getFullYear(), d.getMonth(), d.getDate())
+    if (noteDay.getTime() === today.getTime()) return '오늘'
+    if (noteDay.getTime() === yesterday.getTime()) return '어제'
+    return `${d.getMonth()+1}/${d.getDate()}`
+  }
+
+  function hasNoteContent(html: string) {
+    return html.replace(/<[^>]*>/g, '').trim().length > 0
+  }
+
+  // ── 현재 노트 저장 ──────────────────────────────────────────────
+  function handleCurrentNote(st: SubTaskWithNote, value: string) {
+    setSubTasks(p => p.map(s => s.id === st.id
+      ? { ...s, currentNote: s.currentNote ? { ...s.currentNote, content: value } : { id: '_new', content: value, created_at: new Date().toISOString() } }
+      : s
+    ))
+    const timerKey = st.currentNote?.id ?? `new_${st.id}`
+    clearTimeout(noteTimers.current[timerKey])
+    noteTimers.current[timerKey] = setTimeout(async () => {
+      if (st.currentNote && st.currentNote.id !== '_new') {
+        await supabase.from('sub_task_notes').update({ content: value, edited_at: new Date().toISOString() }).eq('id', st.currentNote.id)
       } else {
-        const { data } = await supabase.from('sub_task_notes').insert({ sub_task_id: st.id, title: st.title, content: value }).select('id').single()
-        if (data) setSubTasks(p => p.map(s => s.id === st.id ? { ...s, noteId: (data as { id: string }).id } : s))
+        const { data } = await supabase.from('sub_task_notes').insert({ sub_task_id: st.id, title: null, content: value }).select('id, content, created_at, edited_at').single()
+        if (data) {
+          setSubTasks(p => p.map(s => s.id === st.id ? { ...s, currentNote: data as SubTaskNote } : s))
+        }
       }
     }, 600)
+  }
+
+  // ── 새 기록 추가 ────────────────────────────────────────────────
+  async function addNoteEntry(st: SubTaskWithNote) {
+    setAddingNoteFor(st.id)
+    const { data } = await supabase.from('sub_task_notes')
+      .insert({ sub_task_id: st.id, title: null, content: '' })
+      .select('id, content, created_at, edited_at').single()
+    if (data) {
+      const newNote = data as SubTaskNote
+      setSubTasks(p => p.map(s => {
+        if (s.id !== st.id) return s
+        return {
+          ...s,
+          currentNote: newNote,
+          historyNotes: s.currentNote ? [s.currentNote, ...s.historyNotes] : s.historyNotes,
+        }
+      }))
+    }
+    setAddingNoteFor(null)
+  }
+
+  // ── 과거 기록 토글 ──────────────────────────────────────────────
+  function toggleHistoryNote(stId: string, noteId: string) {
+    setOpenHistoryNotes(p => {
+      const cur = new Set(p[stId] ?? [])
+      cur.has(noteId) ? cur.delete(noteId) : cur.add(noteId)
+      return { ...p, [stId]: cur }
+    })
   }
 
   // ── 첨부파일 업로드 ─────────────────────────────────────────────
@@ -257,7 +319,7 @@ export default function AgendaItemDetailPage() {
       .insert({ agenda_item_id: id, title, status: 'active', sort_order: subTasks.length })
       .select().single()
     if (data) {
-      const newST: SubTaskWithNote = { ...(data as AgendaSubTask), noteContent: '' }
+      const newST: SubTaskWithNote = { ...(data as AgendaSubTask), currentNote: null, historyNotes: [] }
       setSubTasks(p => [...p, newST])
       setOpenST(prev => { const s = new Set(prev); s.add(newST.id); return s })
     }
@@ -293,7 +355,7 @@ export default function AgendaItemDetailPage() {
 
   const groupColor = group?.color ?? '#3B82F6'
   const doneCount  = subTasks.filter(s => s.status === 'done').length
-  const expandST   = (expandFor && expandFor !== 'description')
+  const expandST = (expandFor && expandFor !== 'description')
     ? (subTasks.find(s => s.id === expandFor) ?? null) : null
 
   return (
@@ -476,19 +538,73 @@ export default function AgendaItemDetailPage() {
                 {/* 아코디언 본문 */}
                 {isOpen && (
                   <div style={{ borderTop: '1px solid #E5E9F0', background: '#FAFBFD' }}>
-                    <div className="flex justify-end px-5 pt-2 pb-0.5">
+                    {/* ── 현재 기록 헤더 ── */}
+                    <div className="flex items-center justify-between px-5 pt-2.5 pb-0.5">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-semibold text-gray-500">
+                          {st.currentNote ? formatNoteDate(st.currentNote.created_at) : '새 기록'}
+                        </span>
+                        {(st.currentNote || st.historyNotes.length > 0) && (
+                          <span className="text-[9px] bg-blue-50 text-blue-400 border border-blue-100 px-1.5 py-0.5 rounded-full">최신</span>
+                        )}
+                      </div>
                       <button onClick={e => { e.stopPropagation(); setExpandFor(st.id) }}
                         className="text-[10px] text-gray-400 hover:text-gray-600 px-2 py-0.5 rounded hover:bg-gray-100 transition-colors">
                         크게 편집
                       </button>
                     </div>
                     <TiptapEditor
-                      value={st.noteContent}
-                      onChange={v => handleNote(st, v)}
-                      minHeight={120}
+                      value={st.currentNote?.content ?? ''}
+                      onChange={v => handleCurrentNote(st, v)}
+                      minHeight={100}
                       autoFocus={isFocus && focusSTId === st.id}
-                      className="px-5 py-3"
+                      className="px-5 py-2"
                     />
+
+                    {/* ── 새 기록 추가 버튼 ── */}
+                    <div className="px-5 pb-3 flex justify-end">
+                      <button
+                        onClick={e => { e.stopPropagation(); addNoteEntry(st) }}
+                        disabled={addingNoteFor === st.id || !hasNoteContent(st.currentNote?.content ?? '')}
+                        className="text-[10px] text-[#5DBD97] hover:text-[#4aab84] disabled:text-gray-300 disabled:cursor-not-allowed transition-colors flex items-center gap-1">
+                        {addingNoteFor === st.id ? '추가 중…' : '+ 새 기록 추가'}
+                      </button>
+                    </div>
+
+                    {/* ── 과거 기록 타임라인 ── */}
+                    {st.historyNotes.length > 0 && (
+                      <div className="border-t border-gray-100/80">
+                        <div className="px-5 py-1.5">
+                          <span className="text-[9px] font-semibold text-gray-400 uppercase tracking-wide">과거 기록 · {st.historyNotes.length}개</span>
+                        </div>
+                        {st.historyNotes.map(note => {
+                          const isNoteOpen = openHistoryNotes[st.id]?.has(note.id) ?? false
+                          return (
+                            <div key={note.id} className="border-t border-gray-100/60">
+                              <button
+                                onClick={e => { e.stopPropagation(); toggleHistoryNote(st.id, note.id) }}
+                                className="w-full flex items-center gap-2 px-5 py-2 hover:bg-gray-50/80 transition-colors text-left">
+                                <span style={{ fontSize: 8, color: '#94A3B8', display: 'inline-block', transition: 'transform .12s', transform: isNoteOpen ? 'rotate(90deg)' : 'rotate(0deg)', flexShrink: 0 }}>▶</span>
+                                <span className="text-xs text-gray-500 font-medium">{formatNoteDate(note.created_at)}</span>
+                                {note.edited_at && note.edited_at !== note.created_at && (
+                                  <span className="text-[9px] text-gray-300">수정됨</span>
+                                )}
+                              </button>
+                              {isNoteOpen && (
+                                <div className="border-t border-gray-100/40 bg-white/60">
+                                  <TiptapEditor
+                                    value={note.content}
+                                    onChange={() => {}}
+                                    minHeight={60}
+                                    className="px-5 py-2 opacity-80"
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
                     {/* 서브태스크 첨부파일 */}
                     <div className="border-t border-gray-100/80 px-5 py-3">
                       <div className="flex items-center gap-2 mb-2">
@@ -574,10 +690,10 @@ export default function AgendaItemDetailPage() {
           </div>
           <div className="flex-1 min-h-0 flex flex-col overflow-auto">
             <TiptapEditor
-              value={expandFor === 'description' ? description : (expandST?.noteContent ?? '')}
+              value={expandFor === 'description' ? description : (expandST?.currentNote?.content ?? '')}
               onChange={v => {
                 if (expandFor === 'description') handleDescription(v)
-                else if (expandST) handleNote(expandST, v)
+                else if (expandST) handleCurrentNote(expandST, v)
               }}
               autoFocus
               minHeight={400}
