@@ -235,15 +235,20 @@ function JournalFullscreenEditor({ selectedDate, current, yesterday, meetings, s
       supabaseClient.from('project_meetings').select('id, title').eq('meeting_date', selectedDate),
       supabaseClient.from('one_on_ones').select('id, member_id, members(name)').eq('session_date', selectedDate),
       supabaseClient.from('agenda_sub_tasks')
-        .select('id, title, status, agenda_items(title)')
+        .select('id, title, status, agenda_item_id, agenda_items(title)')
         .gte('updated_at', dayStart)
         .lte('updated_at', dayEnd),
       supabaseClient.from('sub_task_notes')
         .select('id, content, title, agenda_sub_tasks(title, agenda_items(title))')
         .gte('created_at', dayStart)
         .lte('created_at', dayEnd),
+      supabaseClient.from('agenda_updates')
+        .select('agenda_item_id')
+        .gte('created_at', dayStart)
+        .lte('created_at', dayEnd),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ]).then(([memoRes, mtgRes, oonRes, newTaskRes, notesRes]: any[]) => {
+    ]).then(([memoRes, mtgRes, oonRes, newTaskRes, notesRes, agendaUpdateRes]: any[]) => {
+      const meetingItemIds = new Set((agendaUpdateRes.data ?? []).map((u: any) => u.agenda_item_id))
       setTodayCtx({
         memos: memoRes.data ?? [],
         meetings: mtgRes.data ?? [],
@@ -252,7 +257,7 @@ function JournalFullscreenEditor({ selectedDate, current, yesterday, meetings, s
           id: o.id, memberId: o.member_id, memberName: o.members?.name,
         })),
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        newTasks: (newTaskRes.data ?? []).map((t: any) => ({
+        newTasks: (newTaskRes.data ?? []).filter((t: any) => !meetingItemIds.has(t.agenda_item_id)).map((t: any) => ({
           id: t.id, title: t.title, status: t.status, agendaItemTitle: t.agenda_items?.title,
         })),
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
