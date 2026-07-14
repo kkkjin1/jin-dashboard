@@ -992,8 +992,11 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                                   title="드래그하여 이동"
                                   style={{ cursor: 'grab', color: '#CBD5E1', fontSize: 12, userSelect: 'none', flexShrink: 0, lineHeight: 1 }}
                                 >⠿</span>
-                                <button onClick={e => { e.stopPropagation(); cycleSubTaskStatus(st) }} title={`상태: ${STATUS_LABEL[st.status]}`}
-                                  style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, background: st.status === 'active' ? (CAT_BORDER[group.category ?? ''] ?? group.color) : STATUS_COLOR[st.status], border: 'none', cursor: 'pointer', padding: 0 }} />
+                                <button onClick={e => { e.stopPropagation(); cycleSubTaskStatus(st) }} title={`클릭하여 완료 처리 (현재: ${STATUS_LABEL[st.status]})`}
+                                  style={{ width: 14, height: 14, borderRadius: 3, flexShrink: 0, border: `1.5px solid ${st.status === 'done' ? '#10B981' : st.status === 'hold' ? '#F59E0B' : (CAT_BORDER[group.category ?? ''] ?? group.color)}`, background: st.status === 'done' ? '#10B981' : 'transparent', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
+                                  {st.status === 'done' && <span style={{ color: 'white', fontSize: 9, fontWeight: 800, lineHeight: 1 }}>✓</span>}
+                                  {st.status === 'hold' && <span style={{ color: '#F59E0B', fontSize: 9, lineHeight: 1 }}>−</span>}
+                                </button>
                                 {editingSTId === st.id ? (
                                   <input autoFocus value={editSTTitle} onChange={e => setEditSTTitle(e.target.value)}
                                     onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) updateSubTask(st.id); if (e.key === 'Escape') setEditingSTId(null) }}
@@ -1322,8 +1325,11 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                           <tr key={st.id} style={{ borderBottom: S.bd, background: '#FAFBFD' }} className="group/stcal">
                             <td style={{ position: 'sticky', left: 0, zIndex: 2, background: '#FAFBFD', borderRight: S.bdL, width: W_LEFT, minWidth: W_LEFT, padding: '12px 16px 12px 36px', verticalAlign: 'middle' }}>
                               <div className="flex items-center gap-2">
-                                <button onClick={() => cycleSubTaskStatus(st)}
-                                  style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, background: st.status === 'active' ? hexToRgba(catDot, 0.6) : STATUS_COLOR[st.status], border: 'none', cursor: 'pointer', padding: 0 }} />
+                                <button onClick={() => cycleSubTaskStatus(st)} title={`클릭하여 완료 처리 (현재: ${STATUS_LABEL[st.status]})`}
+                                  style={{ width: 14, height: 14, borderRadius: 3, flexShrink: 0, border: `1.5px solid ${st.status === 'done' ? '#10B981' : st.status === 'hold' ? '#F59E0B' : hexToRgba(catDot, 0.7)}`, background: st.status === 'done' ? '#10B981' : 'transparent', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
+                                  {st.status === 'done' && <span style={{ color: 'white', fontSize: 9, fontWeight: 800, lineHeight: 1 }}>✓</span>}
+                                  {st.status === 'hold' && <span style={{ color: '#F59E0B', fontSize: 9, lineHeight: 1 }}>−</span>}
+                                </button>
                                 <span style={{ fontSize: 12, color: st.status === 'done' ? S.t3 : S.t2, textDecoration: st.status === 'done' ? 'line-through' : 'none', lineHeight: 1.3, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer' }}
                                   onClick={() => router.push(`/project/items/${item.id}?focus=${st.id}`)}>
                                   {st.title}

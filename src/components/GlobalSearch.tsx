@@ -12,12 +12,17 @@ const STATUS_COLORS: Record<string, string> = {
   '완료': 'bg-green-50 text-green-600',
 }
 
+interface AgendaItem { id: string; title: string; status: string; group_name: string }
+interface AgendaSubTask { id: string; title: string; status: string; agenda_item_id: string; item_title: string }
+
 export default function GlobalSearch() {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [tasks, setTasks] = useState<Task[]>([])
   const [meetings, setMeetings] = useState<Pick<Meeting, 'id' | 'title'>[]>([])
   const [memos, setMemos] = useState<Pick<QuickMemo, 'id' | 'title' | 'tag'>[]>([])
+  const [agendaItems, setAgendaItems] = useState<AgendaItem[]>([])
+  const [agendaSubTasks, setAgendaSubTasks] = useState<AgendaSubTask[]>([])
   const [loaded, setLoaded] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
@@ -43,10 +48,20 @@ export default function GlobalSearch() {
           supabase.from('tasks').select('id, title, status, part, type').order('created_at', { ascending: false }),
           supabase.from('meetings').select('id, title').order('created_at', { ascending: false }),
           supabase.from('quick_memos').select('id, title, tag').order('created_at', { ascending: false }),
-        ]).then(([{ data: t }, { data: m }, { data: memo }]) => {
+          supabase.from('agenda_items').select('id, title, status, agenda_groups(name)').neq('status', 'done').order('sort_order'),
+          supabase.from('agenda_sub_tasks').select('id, title, status, agenda_item_id, agenda_items(title)').neq('status', 'done').order('sort_order'),
+        ]).then(([{ data: t }, { data: m }, { data: memo }, { data: ai }, { data: ast }]) => {
           setTasks((t ?? []) as Task[])
           setMeetings((m ?? []) as Pick<Meeting, 'id' | 'title'>[])
           setMemos((memo ?? []) as Pick<QuickMemo, 'id' | 'title' | 'tag'>[])
+          setAgendaItems((ai ?? []).map((a: any) => {
+            const g = Array.isArray(a.agenda_groups) ? a.agenda_groups[0] : a.agenda_groups
+            return { id: a.id, title: a.title, status: a.status, group_name: g?.name ?? '' }
+          }))
+          setAgendaSubTasks((ast ?? []).map((s: any) => {
+            const item = Array.isArray(s.agenda_items) ? s.agenda_items[0] : s.agenda_items
+            return { id: s.id, title: s.title, status: s.status, agenda_item_id: s.agenda_item_id, item_title: item?.title ?? '' }
+          }))
           setLoaded(true)
         })
       }
@@ -54,10 +69,12 @@ export default function GlobalSearch() {
   }, [open])
 
   const q = query.trim().toLowerCase()
-  const matchedTasks = q ? tasks.filter(t => t.title?.toLowerCase().includes(q)).slice(0, 5) : []
-  const matchedMeetings = q ? meetings.filter(m => m.title?.toLowerCase().includes(q)).slice(0, 4) : []
-  const matchedMemos = q ? memos.filter(m => m.title?.toLowerCase().includes(q)).slice(0, 4) : []
-  const hasResults = matchedTasks.length > 0 || matchedMeetings.length > 0 || matchedMemos.length > 0
+  const matchedTasks = q ? tasks.filter(t => t.title?.toLowerCase().includes(q)).slice(0, 4) : []
+  const matchedMeetings = q ? meetings.filter(m => m.title?.toLowerCase().includes(q)).slice(0, 3) : []
+  const matchedMemos = q ? memos.filter(m => m.title?.toLowerCase().includes(q)).slice(0, 3) : []
+  const matchedAgendaItems = q ? agendaItems.filter(a => a.title?.toLowerCase().includes(q) || a.group_name?.toLowerCase().includes(q)).slice(0, 5) : []
+  const matchedAgendaSubTasks = q ? agendaSubTasks.filter(s => s.title?.toLowerCase().includes(q) || s.item_title?.toLowerCase().includes(q)).slice(0, 4) : []
+  const hasResults = matchedTasks.length > 0 || matchedMeetings.length > 0 || matchedMemos.length > 0 || matchedAgendaItems.length > 0 || matchedAgendaSubTasks.length > 0
 
   if (!open) return null
 
@@ -71,7 +88,7 @@ export default function GlobalSearch() {
             ref={inputRef}
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder="업무 · 회의록 · 메모 검색..."
+            placeholder="안건 · 세부업무 · 업무 · 회의록 · 메모 검색..."
             className="flex-1 text-sm text-gray-700 focus:outline-none bg-transparent"
           />
           <kbd className="text-[10px] text-gray-300 bg-gray-100 px-2 py-0.5 rounded">ESC</kbd>
@@ -83,6 +100,31 @@ export default function GlobalSearch() {
             <p className="text-xs text-gray-400 text-center py-6">검색 결과 없음</p>
           ) : (
             <div className="divide-y divide-gray-50">
+              {matchedAgendaItems.length > 0 && (
+                <div className="px-3 py-2">
+                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">프로젝트 안건</p>
+                  {matchedAgendaItems.map(a => (
+                    <div key={a.id} className="py-2 px-2 hover:bg-gray-50 rounded-lg flex items-center gap-2.5 cursor-pointer"
+                      onClick={() => { router.push(`/project/items/${a.id}`); setOpen(false); setQuery('') }}>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 flex-shrink-0">{a.group_name || '안건'}</span>
+                      <span className="text-sm text-gray-800 truncate">{a.title || '제목 없음'}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {matchedAgendaSubTasks.length > 0 && (
+                <div className="px-3 py-2">
+                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">세부업무</p>
+                  {matchedAgendaSubTasks.map(s => (
+                    <div key={s.id} className="py-2 px-2 hover:bg-gray-50 rounded-lg flex items-center gap-2.5 cursor-pointer"
+                      onClick={() => { router.push(`/project/items/${s.agenda_item_id}?focus=${s.id}`); setOpen(false); setQuery('') }}>
+                      <span className="text-xs text-purple-300 flex-shrink-0">└</span>
+                      <span className="text-sm text-gray-800 truncate">{s.title || '제목 없음'}</span>
+                      <span className="text-[10px] text-gray-300 ml-auto flex-shrink-0 truncate max-w-[100px]">{s.item_title}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
               {matchedTasks.length > 0 && (
                 <div className="px-3 py-2">
                   <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">업무</p>

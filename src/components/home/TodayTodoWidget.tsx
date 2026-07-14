@@ -21,7 +21,7 @@ interface TooltipState {
   y: number
 }
 
-interface LinkTask { id: string; title: string; status: string }
+interface LinkTask { id: string; title: string; status: string; group_name: string }
 interface LinkTodo { id: string; content: string; done: boolean; sort_order: number }
 interface LinkPopup {
   memo: QuickMemo
@@ -141,7 +141,7 @@ export default function TodayTodoWidget() {
     }
   }
 
-  // 업무연동 팝업 열기
+  // 프로젝트 안건 연동 팝업 열기
   async function openLinkPopup(memo: QuickMemo, e: React.MouseEvent) {
     e.stopPropagation()
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
@@ -150,33 +150,37 @@ export default function TodayTodoWidget() {
     const y = rect.bottom + 6
     setLinkPopup({ memo, x, y, step: 1, search: '', tasks: null, task: null, todos: [] })
     const { data } = await supabase
-      .from('tasks')
-      .select('id, title, status')
-      .not('status', 'eq', '완료')
-      .order('created_at', { ascending: false })
-    setLinkPopup(prev => prev ? { ...prev, tasks: (data ?? []) as LinkTask[] } : null)
+      .from('agenda_items')
+      .select('id, title, status, agenda_groups(name)')
+      .neq('status', 'done')
+      .order('sort_order')
+    const items: LinkTask[] = (data ?? []).map((a: any) => {
+      const g = Array.isArray(a.agenda_groups) ? a.agenda_groups[0] : a.agenda_groups
+      return { id: a.id, title: a.title, status: a.status, group_name: g?.name ?? '' }
+    })
+    setLinkPopup(prev => prev ? { ...prev, tasks: items } : null)
   }
 
-  // 업무 선택 → 할일 목록 로드
+  // 안건 선택 → 세부업무 목록 로드
   async function selectLinkTask(task: LinkTask) {
     setLinkPopup(prev => prev ? { ...prev, step: 2, task, todos: [] } : null)
     const { data } = await supabase
-      .from('task_todos')
-      .select('id, content, done, sort_order')
-      .eq('task_id', task.id)
+      .from('agenda_sub_tasks')
+      .select('id, title, status, sort_order')
+      .eq('agenda_item_id', task.id)
       .order('sort_order')
-      .order('created_at')
-    setLinkPopup(prev => prev ? { ...prev, todos: (data ?? []) as LinkTodo[] } : null)
+    const todos: LinkTodo[] = (data ?? []).map((s: any) => ({ id: s.id, content: s.title, done: s.status === 'done', sort_order: s.sort_order }))
+    setLinkPopup(prev => prev ? { ...prev, todos } : null)
   }
 
-  // 선택 위치에 할일 삽입 + 메모 완료 처리
+  // 선택 위치에 세부업무로 삽입 + 메모 완료 처리
   async function insertTodoAt(insertBefore: string | 'end') {
     if (!linkPopup?.task) return
     const { memo, task, todos: existingTodos } = linkPopup
 
     const { data: inserted } = await supabase
-      .from('task_todos')
-      .insert({ task_id: task.id, content: memo.title, done: false, sort_order: 0 })
+      .from('agenda_sub_tasks')
+      .insert({ agenda_item_id: task.id, title: memo.title, status: 'active', sort_order: 0 })
       .select('id')
       .single()
     if (!inserted) return
@@ -195,7 +199,7 @@ export default function TodayTodoWidget() {
       ]
     }
     await Promise.all(newIds.map((id, i) =>
-      supabase.from('task_todos').update({ sort_order: i * 1000 }).eq('id', id)
+      supabase.from('agenda_sub_tasks').update({ sort_order: i * 1000 }).eq('id', id)
     ))
 
     // 메모 완료 처리
@@ -381,7 +385,7 @@ export default function TodayTodoWidget() {
         document.body
       )}
 
-      {/* 업무 연동 팝업 */}
+      {/* 프로젝트 안건 연동 팝업 */}
       {linkPopup && typeof document !== 'undefined' && createPortal(
         <>
           {/* 외부 클릭 닫기 */}
@@ -391,10 +395,10 @@ export default function TodayTodoWidget() {
             className="bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden">
 
             {linkPopup.step === 1 ? (
-              /* ── Step 1: 업무 선택 ── */
+              /* ── Step 1: 안건 선택 ── */
               <>
                 <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100">
-                  <span className="text-xs font-semibold text-gray-700">업무 연동</span>
+                  <span className="text-xs font-semibold text-gray-700">프로젝트 안건 연동</span>
                   <button onClick={() => setLinkPopup(null)} className="text-gray-300 hover:text-gray-500 text-xs leading-none">✕</button>
                 </div>
                 <div className="px-3 py-2 border-b border-gray-100">
@@ -402,7 +406,7 @@ export default function TodayTodoWidget() {
                     autoFocus
                     value={linkPopup.search}
                     onChange={e => setLinkPopup(prev => prev ? { ...prev, search: e.target.value } : null)}
-                    placeholder="업무 검색..."
+                    placeholder="안건 검색..."
                     className="w-full text-xs text-gray-700 focus:outline-none placeholder-gray-300"
                   />
                 </div>
@@ -410,27 +414,20 @@ export default function TodayTodoWidget() {
                   {linkPopup.tasks === null ? (
                     <p className="text-xs text-gray-300 text-center py-4">불러오는 중...</p>
                   ) : linkPopup.tasks
-                      .filter(t => t.title.toLowerCase().includes(linkPopup.search.toLowerCase()))
+                      .filter(t => t.title.toLowerCase().includes(linkPopup.search.toLowerCase()) || t.group_name.toLowerCase().includes(linkPopup.search.toLowerCase()))
                       .length === 0 ? (
                     <p className="text-xs text-gray-300 text-center py-4">검색 결과 없음</p>
                   ) : (
                     linkPopup.tasks
-                      .filter(t => t.title.toLowerCase().includes(linkPopup.search.toLowerCase()))
+                      .filter(t => t.title.toLowerCase().includes(linkPopup.search.toLowerCase()) || t.group_name.toLowerCase().includes(linkPopup.search.toLowerCase()))
                       .map(task => (
                         <button key={task.id} onClick={() => selectLinkTask(task)}
                           className="w-full text-left px-3 py-2 text-xs hover:bg-gray-50 flex items-center gap-2 transition-colors">
+                          <span className="text-[10px] text-blue-400 flex-shrink-0 bg-blue-50 px-1.5 py-0.5 rounded-full">{task.group_name || '안건'}</span>
                           <span className="flex-1 truncate text-gray-700">{task.title}</span>
-                          <span className="text-[10px] text-gray-300 flex-shrink-0">{task.status}</span>
                         </button>
                       ))
                   )}
-                </div>
-                <div className="border-t border-gray-100">
-                  <button
-                    onClick={() => { setLinkPopup(null); convertToTask(linkPopup.memo, true) }}
-                    className="w-full text-left px-3 py-2 text-xs text-indigo-500 hover:bg-indigo-50 transition-colors flex items-center gap-1.5">
-                    + New 업무 생성
-                  </button>
                 </div>
               </>
             ) : (
@@ -443,12 +440,12 @@ export default function TodayTodoWidget() {
                   <span className="text-xs font-semibold text-gray-700 truncate flex-1">{linkPopup.task?.title}</span>
                   <button onClick={() => setLinkPopup(null)} className="text-gray-300 hover:text-gray-500 text-xs flex-shrink-0 leading-none">✕</button>
                 </div>
-                <p className="text-[10px] text-gray-400 px-3 pt-2">추가할 위치를 선택하세요</p>
+                <p className="text-[10px] text-gray-400 px-3 pt-2">세부업무로 추가할 위치 선택</p>
                 <div className="max-h-64 overflow-y-auto pb-1">
                   {linkPopup.todos.length === 0 ? (
                     <button onClick={() => insertTodoAt('end')}
                       className="w-full py-3 text-xs text-indigo-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors">
-                      + 첫 번째 할일로 추가
+                      + 첫 번째 세부업무로 추가
                     </button>
                   ) : (
                     <>
@@ -459,8 +456,11 @@ export default function TodayTodoWidget() {
                       </button>
                       {linkPopup.todos.map((todo, i) => (
                         <div key={todo.id}>
-                          <div className={`px-3 py-1.5 text-xs ${todo.done ? 'text-gray-300 line-through' : 'text-gray-600'}`}>
-                            {i + 1}. {todo.content}
+                          <div className={`px-3 py-1.5 text-xs flex items-center gap-1.5 ${todo.done ? 'text-gray-300 line-through' : 'text-gray-600'}`}>
+                            <span style={{ width: 8, height: 8, borderRadius: 2, flexShrink: 0, border: `1.5px solid ${todo.done ? '#10B981' : '#CBD5E1'}`, background: todo.done ? '#10B981' : 'transparent', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                              {todo.done && <span style={{ color: 'white', fontSize: 6, fontWeight: 800, lineHeight: 1 }}>✓</span>}
+                            </span>
+                            {todo.content}
                           </div>
                           <button
                             onClick={() => insertTodoAt(linkPopup.todos[i + 1]?.id ?? 'end')}
