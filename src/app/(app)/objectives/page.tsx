@@ -58,7 +58,7 @@ function SubCell({ entry, subItemId, date, onSave, onDelete }: SubCellProps) {
           if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') save()
           if (e.key === 'Escape') { setVal(entry?.content ?? ''); setEditing(false) }
         }}
-        className="w-full min-w-[140px] text-[11px] text-gray-700 leading-relaxed bg-white border border-[#1B3A6B]/25 rounded-lg p-2 focus:outline-none resize-none"
+        className="w-full min-w-[200px] text-sm text-gray-700 leading-relaxed bg-white border border-[#1B3A6B]/25 rounded-lg p-2 focus:outline-none resize-none"
         rows={3}
       />
     )
@@ -68,7 +68,7 @@ function SubCell({ entry, subItemId, date, onSave, onDelete }: SubCellProps) {
     return (
       <div
         onClick={() => { setVal(entry.content); setEditing(true) }}
-        className="min-w-[140px] text-[11px] text-gray-700 leading-relaxed whitespace-pre-wrap cursor-text bg-gray-50/80 rounded-lg px-2 py-1.5 hover:bg-gray-100/60 transition-colors"
+        className="min-w-[200px] text-sm text-gray-700 leading-relaxed whitespace-pre-wrap cursor-text bg-gray-50/80 rounded-lg px-2.5 py-2 hover:bg-gray-100/60 transition-colors"
       >
         {entry.content}
       </div>
@@ -78,9 +78,9 @@ function SubCell({ entry, subItemId, date, onSave, onDelete }: SubCellProps) {
   return (
     <div
       onClick={() => { setVal(''); setEditing(true) }}
-      className="min-w-[140px] h-8 rounded-lg border border-dashed border-transparent hover:border-gray-200 cursor-pointer transition-colors flex items-center justify-center"
+      className="min-w-[200px] h-11 rounded-lg border border-dashed border-transparent hover:border-gray-200 cursor-pointer transition-colors flex items-center justify-center"
     >
-      <span className="text-[10px] text-gray-200 select-none">—</span>
+      <span className="text-xs text-gray-200 select-none">—</span>
     </div>
   )
 }
@@ -152,10 +152,10 @@ function ObjectiveBlock({
               if (e.key === 'Escape') { setTitleVal(obj.title); setEditingTitle(false) }
             }}
             onBlur={saveTitle}
-            className="text-xs font-medium text-gray-800 border-b border-gray-200 focus:outline-none bg-transparent flex-1 max-w-xs"
+            className="text-sm font-medium text-gray-800 border-b border-gray-200 focus:outline-none bg-transparent flex-1 max-w-xs"
           />
         ) : (
-          <span className="text-xs font-medium text-gray-700">{obj.title}</span>
+          <span className="text-sm font-medium text-gray-700">{obj.title}</span>
         )}
         <div className="flex items-center gap-0.5 opacity-0 group-hover/obj:opacity-100 transition-opacity ml-1">
           <button onClick={() => { setEditingTitle(true); setTitleVal(obj.title) }}
@@ -167,30 +167,30 @@ function ObjectiveBlock({
 
       {/* Sub-item table */}
       <div className="overflow-x-auto pb-3 px-4" style={{ scrollbarWidth: 'thin' }}>
-        <table className="border-collapse text-[11px]" style={{ minWidth: '100%' }}>
+        <table className="border-collapse text-sm" style={{ minWidth: '100%' }}>
           {/* Header */}
           <thead>
             <tr>
-              <th className="text-left text-[10px] text-gray-400 font-normal pb-1.5 pr-4 w-36 min-w-[144px]"
+              <th className="text-left text-xs text-gray-400 font-normal pb-2.5 pr-4 w-48 min-w-[192px]"
                 style={{ position: 'sticky', left: 0, background: 'white', zIndex: 2 }}>
                 안건
               </th>
               {allDates.map(d => (
-                <th key={d} className="text-[10px] text-gray-400 font-normal pb-1.5 px-2 whitespace-nowrap min-w-[148px] text-center">
+                <th key={d} className="text-xs text-gray-400 font-normal pb-2.5 px-2 whitespace-nowrap min-w-[200px] text-center">
                   {formatDate(d)}
                 </th>
               ))}
-              <th className="pb-1.5 pl-2 min-w-[80px]">
+              <th className="pb-2.5 pl-2 min-w-[80px]">
                 {addingDate ? (
                   <div className="flex items-center gap-1">
                     <input type="date" value={newDate} onChange={e => setNewDate(e.target.value)}
                       onKeyDown={e => { if (e.key === 'Enter') confirmDate(); if (e.key === 'Escape') setAddingDate(false) }}
-                      className="text-[9px] text-gray-600 border border-gray-200 rounded px-1 py-0.5 focus:outline-none bg-white w-24" />
-                    <button onClick={confirmDate} className="text-[#1B3A6B] text-[9px] font-medium hover:opacity-70 transition-opacity">확인</button>
+                      className="text-xs text-gray-600 border border-gray-200 rounded px-1 py-0.5 focus:outline-none bg-white w-24" />
+                    <button onClick={confirmDate} className="text-[#1B3A6B] text-xs font-medium hover:opacity-70 transition-opacity">확인</button>
                   </div>
                 ) : (
                   <button onClick={() => setAddingDate(true)}
-                    className="flex items-center gap-0.5 text-[10px] text-gray-300 hover:text-gray-500 transition-colors whitespace-nowrap">
+                    className="flex items-center gap-0.5 text-xs text-gray-300 hover:text-gray-500 transition-colors whitespace-nowrap">
                     <Plus size={9} />날짜
                   </button>
                 )}
@@ -203,10 +203,10 @@ function ObjectiveBlock({
             {subItems.map(si => (
               <tr key={si.id} className="group/si">
                 {/* Sub-item title — sticky */}
-                <td className="pr-4 py-1 align-top w-36 min-w-[144px]"
+                <td className="pr-4 py-2.5 align-top w-48 min-w-[192px]"
                   style={{ position: 'sticky', left: 0, background: 'white', zIndex: 1 }}>
                   <div className="flex items-start gap-1 group/sititle">
-                    <span className="text-[11px] text-gray-600 leading-relaxed flex-1">{si.title}</span>
+                    <span className="text-sm text-gray-600 leading-relaxed flex-1">{si.title}</span>
                     <div className="flex items-center gap-0.5 opacity-0 group-hover/sititle:opacity-100 transition-opacity flex-shrink-0 mt-0.5">
                       <button onClick={() => onDeleteSubItem(si.id)}
                         className="text-gray-200 hover:text-red-400 p-0.5 transition-colors"><Trash2 size={8} /></button>
@@ -216,7 +216,7 @@ function ObjectiveBlock({
 
                 {/* Entry cells */}
                 {allDates.map(d => (
-                  <td key={d} className="px-2 py-1 align-top min-w-[148px]">
+                  <td key={d} className="px-2 py-2.5 align-top min-w-[200px]">
                     <SubCell
                       entry={subEntries.find(e => e.sub_item_id === si.id && e.entry_date === d)}
                       subItemId={si.id}
@@ -232,7 +232,7 @@ function ObjectiveBlock({
 
             {/* Add sub-item row */}
             <tr>
-              <td className="pt-2 pb-1" style={{ position: 'sticky', left: 0, background: 'white', zIndex: 1 }}>
+              <td className="pt-3 pb-2" style={{ position: 'sticky', left: 0, background: 'white', zIndex: 1 }}>
                 {addingItem ? (
                   <div className="flex items-center gap-1">
                     <input
@@ -243,16 +243,16 @@ function ObjectiveBlock({
                         if (e.key === 'Escape') { setAddingItem(false); setNewItemTitle('') }
                       }}
                       placeholder="안건 입력"
-                      className="text-[11px] text-gray-700 border-b border-gray-200 focus:outline-none bg-transparent w-28"
+                      className="text-sm text-gray-700 border-b border-gray-200 focus:outline-none bg-transparent w-28"
                     />
                     <button onClick={submitItem}
-                      className="text-[9px] text-[#1B3A6B] font-medium hover:opacity-70 transition-opacity">확인</button>
+                      className="text-xs text-[#1B3A6B] font-medium hover:opacity-70 transition-opacity">확인</button>
                     <button onClick={() => { setAddingItem(false); setNewItemTitle('') }}
-                      className="text-[9px] text-gray-400 hover:text-gray-600 transition-colors">취소</button>
+                      className="text-xs text-gray-400 hover:text-gray-600 transition-colors">취소</button>
                   </div>
                 ) : (
                   <button onClick={() => setAddingItem(true)}
-                    className="flex items-center gap-1 text-[10px] text-gray-300 hover:text-gray-500 transition-colors">
+                    className="flex items-center gap-1 text-xs text-gray-300 hover:text-gray-500 transition-colors">
                     <Plus size={9} />안건 추가
                   </button>
                 )}
@@ -468,7 +468,7 @@ export default function ObjectivesPage() {
                       className="flex items-center gap-2 hover:opacity-75 transition-opacity select-none">
                       <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: group.color }} />
                       <GroupNameEditor name={group.name} onSave={name => saveGroupName(group.id, name)} />
-                      <span className="text-[10px] text-gray-400 font-normal">{groupObjs.length}개</span>
+                      <span className="text-xs text-gray-400 font-normal">{groupObjs.length}개</span>
                       <span style={{ fontSize: 9, color: '#94A3B8', display: 'inline-block', transition: 'transform .13s', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}>&#9654;</span>
                     </button>
                     <button onClick={() => deleteGroup(group.id)} className="text-gray-200 hover:text-red-400 transition-colors p-0.5"><Trash2 size={11} /></button>
@@ -478,11 +478,11 @@ export default function ObjectivesPage() {
                           onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) addObjective(group.id); if (e.key === 'Escape') { setAddingObjFor(null); setNewObjTitle('') } }}
                           placeholder="목표 입력" className="text-xs px-2 py-1 border border-gray-200 rounded-lg focus:outline-none focus:border-[#1B3A6B]/40 w-40" />
                         <button onClick={() => addObjective(group.id)} className="text-xs px-2 py-1 bg-[#1B3A6B] text-white rounded-lg hover:bg-[#22497E] transition-colors">추가</button>
-                        <button onClick={() => { setAddingObjFor(null); setNewObjTitle('') }} className="text-[10px] text-gray-400 hover:text-gray-600 transition-colors">취소</button>
+                        <button onClick={() => { setAddingObjFor(null); setNewObjTitle('') }} className="text-xs text-gray-400 hover:text-gray-600 transition-colors">취소</button>
                       </div>
                     ) : (
                       <button onClick={() => setAddingObjFor(group.id)}
-                        className="ml-1 flex items-center gap-1 text-[10px] text-gray-400 hover:text-gray-600 border border-dashed border-gray-200 hover:border-gray-300 px-2 py-0.5 rounded-lg transition-all">
+                        className="ml-1 flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 border border-dashed border-gray-200 hover:border-gray-300 px-2 py-0.5 rounded-lg transition-all">
                         <Plus size={9} /> 목표 추가
                       </button>
                     ))}
@@ -524,4 +524,5 @@ export default function ObjectivesPage() {
     </div>
   )
 }
+
 
