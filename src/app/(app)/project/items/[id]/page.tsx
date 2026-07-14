@@ -636,6 +636,7 @@ export default function AgendaItemDetailPage() {
                       </div>
                     </div>
                     <TiptapEditor
+                      key={st.currentNote?.id ?? `empty_${st.id}`}
                       value={st.currentNote?.content ?? ''}
                       onChange={v => handleCurrentNote(st, v)}
                       minHeight={100}
