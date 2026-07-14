@@ -37,7 +37,7 @@ export default function TextSelectionCapture({ sourceName, sourceType }: Props) 
   const [tag, setTag] = useState<MemoTag>('아이디어')
   const [saving, setSaving] = useState(false)
   const [itemSearch, setItemSearch] = useState('')
-  const [itemResults, setItemResults] = useState<AgendaItemResult[]>([])
+  const [allItems, setAllItems] = useState<AgendaItemResult[]>([])
   const [itemSearching, setItemSearching] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const supabase = createClient()
@@ -46,7 +46,7 @@ export default function TextSelectionCapture({ sourceName, sourceType }: Props) 
     setFloat(null)
     setMode('button')
     setItemSearch('')
-    setItemResults([])
+    setAllItems([])
   }, [])
 
   const handleMouseUp = useCallback((e: MouseEvent) => {
@@ -61,7 +61,7 @@ export default function TextSelectionCapture({ sourceName, sourceType }: Props) 
     setTag('아이디어')
     setMode('button')
     setItemSearch('')
-    setItemResults([])
+    setAllItems([])
   }, [])
 
   const handleMouseDown = useCallback((e: MouseEvent) => {
@@ -78,30 +78,26 @@ export default function TextSelectionCapture({ sourceName, sourceType }: Props) 
     }
   }, [handleMouseUp, handleMouseDown])
 
+  // link-item 모드 진입 시 전체 로드 (meetings 페이지와 동일한 패턴)
   useEffect(() => {
-    if (mode !== 'link-item' || itemSearch.trim().length < 1) {
-      setItemResults([])
-      return
-    }
-    const timer = setTimeout(async () => {
-      setItemSearching(true)
-      const { data } = await supabase
-        .from('agenda_items')
-        .select('id, title, agenda_groups(name)')
-        .ilike('title', `%${itemSearch.trim()}%`)
-        .neq('status', 'done')
-        .limit(6)
-      setItemResults(
-        (data ?? []).map((d: any) => ({
-          id: d.id,
-          title: d.title,
-          groupName: d.agenda_groups?.name ?? '',
-        }))
-      )
-      setItemSearching(false)
-    }, 250)
-    return () => clearTimeout(timer)
-  }, [itemSearch, mode])
+    if (mode !== 'link-item') return
+    setItemSearching(true)
+    supabase
+      .from('agenda_items')
+      .select('id, title, agenda_groups(name)')
+      .neq('status', 'done')
+      .order('sort_order')
+      .then(({ data }) => {
+        setAllItems(
+          (data ?? []).map((d: any) => ({
+            id: d.id,
+            title: d.title,
+            groupName: d.agenda_groups?.name ?? '',
+          }))
+        )
+        setItemSearching(false)
+      })
+  }, [mode])
 
   async function saveMemo() {
     if (!float || !title.trim()) return
@@ -231,13 +227,17 @@ export default function TextSelectionCapture({ sourceName, sourceType }: Props) 
             className="w-full text-xs text-gray-700 border-b border-gray-100 pb-1.5 mb-1.5 focus:outline-none bg-transparent"
           />
           {itemSearching && (
-            <p className="text-[9px] text-gray-300 mb-1">검색 중…</p>
+            <p className="text-[9px] text-gray-300 mb-1">불러오는 중…</p>
           )}
-          {!itemSearching && itemSearch.trim().length > 0 && itemResults.length === 0 && (
+          {!itemSearching && itemSearch.trim().length > 0 &&
+            allItems.filter(i => i.title.includes(itemSearch.trim()) || i.groupName.includes(itemSearch.trim())).length === 0 && (
             <p className="text-[9px] text-gray-300 mb-1">결과 없음</p>
           )}
           <div className="flex flex-col gap-0.5 max-h-36 overflow-y-auto">
-            {itemResults.map(item => (
+            {(itemSearch.trim()
+              ? allItems.filter(i => i.title.includes(itemSearch.trim()) || i.groupName.includes(itemSearch.trim()))
+              : allItems.slice(0, 8)
+            ).map(item => (
               <button
                 key={item.id}
                 onClick={() => linkToItem(item)}

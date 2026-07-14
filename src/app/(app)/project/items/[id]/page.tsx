@@ -24,17 +24,9 @@ function STTitleInput({
   onSave: (stId: string, title: string) => void
 }) {
   const [val, setVal] = useState(st.title)
-  const inputRef = useRef<HTMLInputElement>(null)
   useEffect(() => { setVal(st.title) }, [st.title])
-  useEffect(() => {
-    const el = inputRef.current
-    if (!el) return
-    el.style.width = '2px'
-    el.style.width = el.scrollWidth + 'px'
-  }, [val])
   return (
     <input
-      ref={inputRef}
       value={val}
       onChange={e => setVal(e.target.value)}
       onKeyDown={e => {
@@ -53,9 +45,10 @@ function STTitleInput({
       style={{
         color: st.status === 'done' ? '#9CA3AF' : '#1A2233',
         textDecoration: st.status === 'done' ? 'line-through' : 'none',
-        minWidth: '60px',
+        minWidth: '40px',
         maxWidth: '100%',
-      }}
+        fieldSizing: 'content',
+      } as React.CSSProperties}
     />
   )
 }
@@ -76,17 +69,9 @@ function NoteTitleInput({
   onSave: (title: string) => void
 }) {
   const [val, setVal] = useState(note.title ?? '')
-  const inputRef = useRef<HTMLInputElement>(null)
   useEffect(() => { setVal(note.title ?? '') }, [note.title])
-  useEffect(() => {
-    const el = inputRef.current
-    if (!el) return
-    el.style.width = '2px'
-    el.style.width = el.scrollWidth + 'px'
-  }, [val])
   return (
     <input
-      ref={inputRef}
       value={val}
       onChange={e => setVal(e.target.value)}
       onKeyDown={e => {
@@ -99,7 +84,7 @@ function NoteTitleInput({
       onFocus={e => e.stopPropagation()}
       placeholder={placeholder}
       className="text-xs font-medium bg-transparent border-b border-transparent hover:border-gray-200 focus:border-blue-400 focus:outline-none transition-colors cursor-text text-gray-600 placeholder:text-gray-400"
-      style={{ minWidth: '40px', maxWidth: '100%' }}
+      style={{ minWidth: '40px', maxWidth: '100%', fieldSizing: 'content' } as React.CSSProperties}
     />
   )
 }
@@ -567,7 +552,7 @@ export default function AgendaItemDetailPage() {
                   <span style={{ fontSize: 8, color: '#8FA0B5', display: 'inline-block', transition: 'transform .15s', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', flexShrink: 0, lineHeight: 1 }}>▶</span>
                   <button onClick={e => { e.stopPropagation(); cycleSTStatus(st) }} title={STATUS_LABEL[st.status as Status]}
                     style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: stColor, border: 'none', cursor: 'pointer', padding: 0 }} />
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-0" onClick={e => { e.stopPropagation(); toggleST(st.id) }}>
                     <STTitleInput st={st} stColor={stColor} onSave={updateSTTitle} />
                   </div>
                   {/* 날짜 뱃지 / 지정 버튼 */}
