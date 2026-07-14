@@ -8,23 +8,24 @@ import {
   Home, ClipboardList, Trophy, MessageSquare, CalendarDays,
   StickyNote, Users, BookOpen, Brain, NotebookPen, Settings,
   ChevronDown, LogOut, MoreHorizontal, Archive, LayoutGrid,
-  GripVertical, Eye, EyeOff, X,
+  GripVertical, Eye, EyeOff, X, Target,
 } from 'lucide-react'
 
 const ALL_NAV = [
-  { href: '/',           label: '홈',       key: '1', icon: Home },
-  { href: '/project',    label: '프로젝트',  key: '2', icon: LayoutGrid },
-  { href: '/tasks',      label: '업무',     key: '3', icon: ClipboardList },
-  { href: '/completed',  label: '완료',     key: '',  icon: Trophy },
-  { href: '/meetings',   label: '회의록',   key: '4', icon: MessageSquare },
-  { href: '/schedule',   label: '일정',     key: '5', icon: CalendarDays },
-  { href: '/memos',      label: '메모',     key: '6', icon: StickyNote },
-  { href: '/one-on-one', label: '1on1',     key: '7', icon: Users },
-  { href: '/learning',   label: '학습',     key: '8', icon: BookOpen },
-  { href: '/decisions',  label: '의사결정', key: '9', icon: Brain },
-  { href: '/archive',    label: '회고',     key: '',  icon: Archive },
-  { href: '/journal',    label: '일지',     key: '',  icon: NotebookPen },
-  { href: '/settings',   label: '설정',     key: '',  icon: Settings },
+  { href: '/',            label: '홈',       key: '1', icon: Home },
+  { href: '/project',     label: '프로젝트',  key: '2', icon: LayoutGrid },
+  { href: '/tasks',       label: '업무',     key: '3', icon: ClipboardList },
+  { href: '/completed',   label: '완료',     key: '',  icon: Trophy },
+  { href: '/meetings',    label: '회의록',   key: '4', icon: MessageSquare },
+  { href: '/objectives',  label: '목표관리', key: '',  icon: Target },
+  { href: '/schedule',    label: '일정',     key: '5', icon: CalendarDays },
+  { href: '/memos',       label: '메모',     key: '6', icon: StickyNote },
+  { href: '/one-on-one',  label: '1on1',     key: '7', icon: Users },
+  { href: '/learning',    label: '학습',     key: '8', icon: BookOpen },
+  { href: '/decisions',   label: '의사결정', key: '9', icon: Brain },
+  { href: '/archive',     label: '회고',     key: '',  icon: Archive },
+  { href: '/journal',     label: '일지',     key: '',  icon: NotebookPen },
+  { href: '/settings',    label: '설정',     key: '',  icon: Settings },
 ]
 
 const KEY_ROUTES: Record<string, string> = {

@@ -18,7 +18,6 @@ const CATEGORY_COLORS: Record<string, string> = {
   '경영진':  'bg-[#90A7D8]/30 text-[#1E3A6B] border-[#90A7D8]/45',
   '본부장':  'bg-[#BFE4B5]/40 text-[#2D5A35] border-[#BFE4B5]/55',
   '타팀':    'bg-gray-100/80 text-gray-500 border-gray-200',
-  '목표관리':'bg-[#EBA698]/25 text-[#6B2D25] border-[#EBA698]/40',
   '기타':    'bg-gray-100/80 text-gray-400 border-gray-200',
 }
 
@@ -28,7 +27,6 @@ const CAT_CARD_BG: Record<string, string> = {
   '경영진':  'border-t-[#90A7D8]',
   '본부장':  'border-t-[#BFE4B5]',
   '타팀':    'border-t-gray-200',
-  '목표관리':'border-t-[#EBA698]',
   '기타':    'border-t-gray-200',
 }
 
