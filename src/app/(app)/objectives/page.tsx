@@ -433,7 +433,7 @@ export default function ObjectivesPage() {
                 }`}>Q{q}</button>
             ))}
           </div>
-        </div>        </div>
+        </div>
         <div className="ml-auto flex-shrink-0">
           {addingGroup ? (
             <div className="flex items-center gap-1.5">
@@ -531,6 +531,7 @@ export default function ObjectivesPage() {
     </div>
   )
 }
+
 
 
 
