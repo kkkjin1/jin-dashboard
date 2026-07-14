@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -48,6 +48,7 @@ function localDateStr(d: Date) {
 function todayStr() { return localDateStr(new Date()) }
 
 export default function DailyJournalWidget({ selectedDate, onNavigate, onDateChange, tasks, meetings, onSaved }: Props) {
+  void tasks
   const TODAY = todayStr()
   const isToday = selectedDate === TODAY
 
@@ -57,7 +58,6 @@ export default function DailyJournalWidget({ selectedDate, onNavigate, onDateCha
 
   const supabase = createClient()
 
-  // selectedDate의 전날 계산
   const prevDate = (() => {
     const [y, m, d] = selectedDate.split('-').map(Number)
     const dt = new Date(y, m - 1, d); dt.setDate(dt.getDate() - 1)
@@ -66,7 +66,6 @@ export default function DailyJournalWidget({ selectedDate, onNavigate, onDateCha
 
   useEffect(() => {
     setShowEditor(false)
-    // selectedDate + 전날 모두 로드
     const toLoad = [selectedDate, prevDate].filter(date => !journals[date])
     if (toLoad.length > 0) {
       supabase.from('daily_journals').select('*').in('date', toLoad)
@@ -198,8 +197,9 @@ interface EditorProps {
 
 interface TodayCtx {
   memos: { id: string; title: string; tag: string }[]
-  todayMeetings: { id: string; title: string }[]
-  todos: { id: string; title: string; taskTitle?: string }[]
+  meetings: { id: string; title: string }[]
+  completedTasks: { id: string; title: string; agendaItemTitle?: string }[]
+  taskNotes: { id: string; content: string; title?: string | null }[]
 }
 
 function JournalFullscreenEditor({ selectedDate, current, yesterday, meetings, supabaseClient, onSaved, onClose }: EditorProps) {
@@ -211,8 +211,7 @@ function JournalFullscreenEditor({ selectedDate, current, yesterday, meetings, s
   const [showMeetingPicker, setShowMeetingPicker] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
-  const [todayCtx, setTodayCtx] = useState<TodayCtx>({ memos: [], todayMeetings: [], todos: [] })
-  const [ctxTab, setCtxTab] = useState<'yesterday' | 'today'>('yesterday')
+  const [todayCtx, setTodayCtx] = useState<TodayCtx>({ memos: [], meetings: [], completedTasks: [], taskNotes: [] })
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const meetingSearchRef = useRef<HTMLInputElement>(null)
 
@@ -225,16 +224,29 @@ function JournalFullscreenEditor({ selectedDate, current, yesterday, meetings, s
     const dayEnd = selectedDate + 'T23:59:59'
     Promise.all([
       supabaseClient.from('quick_memos').select('id, title, tag').gte('created_at', dayStart).lte('created_at', dayEnd),
-      supabaseClient.from('meetings').select('id, title').eq('meeting_date', selectedDate),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      supabaseClient.from('task_todos').select('id, title, tasks(title)').eq('target_date', selectedDate).eq('done', false),
+      supabaseClient.from('project_meetings').select('id, title').eq('meeting_date', selectedDate),
+      supabaseClient.from('agenda_sub_tasks')
+        .select('id, title, agenda_items(title)')
+        .eq('status', 'done')
+        .gte('updated_at', dayStart)
+        .lte('updated_at', dayEnd),
+      supabaseClient.from('sub_task_notes')
+        .select('id, content, title')
+        .gte('created_at', dayStart)
+        .lte('created_at', dayEnd),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ]).then(([memoRes, mtgRes, todoRes]: any[]) => {
+    ]).then(([memoRes, mtgRes, doneRes, notesRes]: any[]) => {
       setTodayCtx({
         memos: memoRes.data ?? [],
-        todayMeetings: mtgRes.data ?? [],
+        meetings: mtgRes.data ?? [],
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        todos: (todoRes.data ?? []).map((t: any) => ({ id: t.id, title: t.title, taskTitle: t.tasks?.title })),
+        completedTasks: (doneRes.data ?? []).map((t: any) => ({
+          id: t.id, title: t.title, agendaItemTitle: t.agenda_items?.title,
+        })),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        taskNotes: (notesRes.data ?? []).map((n: any) => ({
+          id: n.id, content: n.content, title: n.title ?? null,
+        })),
       })
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -253,9 +265,6 @@ function JournalFullscreenEditor({ selectedDate, current, yesterday, meetings, s
   useEffect(() => {
     if (showMeetingPicker) setTimeout(() => meetingSearchRef.current?.focus(), 30)
   }, [showMeetingPicker])
-
-  const getMeetings = (j: DailyJournal) =>
-    j.linked_meeting_ids.map(id => meetings.find(m => m.id === id)).filter(Boolean) as MeetingMin[]
 
   async function doSave() {
     if (!draft.trim()) return
@@ -298,8 +307,8 @@ function JournalFullscreenEditor({ selectedDate, current, yesterday, meetings, s
     m.title.toLowerCase().includes(meetingSearch.toLowerCase())
   ).slice(0, 8)
 
-  const today = todayStr()
   const dateLabel = formatDateLabel(selectedDate)
+  const totalActivity = todayCtx.memos.length + todayCtx.meetings.length + todayCtx.completedTasks.length + todayCtx.taskNotes.length
 
   return (
     <>
@@ -323,108 +332,23 @@ function JournalFullscreenEditor({ selectedDate, current, yesterday, meetings, s
           <button onClick={onClose} className="flex-shrink-0 text-gray-400 hover:text-gray-600 text-xl leading-none px-1">×</button>
         </div>
 
-        {/* 본문: 좌(어제) + 우(오늘) */}
+        {/* 본문: 좌(작성) + 우(오늘 활동) */}
         <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
 
-          {/* ── 좌: 어제 회고 + 오늘 컨텍스트 (탭 전환) ── */}
-          {(yesterday || todayCtx.todayMeetings.length > 0 || todayCtx.todos.length > 0 || todayCtx.memos.length > 0) && (
-            <div className="md:w-2/5 flex flex-col border-b md:border-b-0 md:border-r border-gray-100 min-h-0">
-              {/* 탭 헤더 */}
-              <div className="flex border-b border-gray-100 flex-shrink-0">
-                <button
-                  onClick={() => setCtxTab('yesterday')}
-                  className={`flex-1 px-4 py-2.5 text-[11px] font-semibold transition-colors ${ctxTab === 'yesterday' ? 'text-gray-700 border-b-2 border-gray-400' : 'text-gray-300 hover:text-gray-500'}`}>
-                  어제 회고
-                </button>
-                <button
-                  onClick={() => setCtxTab('today')}
-                  className={`flex-1 px-4 py-2.5 text-[11px] font-semibold transition-colors relative ${ctxTab === 'today' ? 'text-gray-700 border-b-2 border-gray-400' : 'text-gray-300 hover:text-gray-500'}`}>
-                  {dateLabel} 컨텍스트
-                  {(todayCtx.todayMeetings.length + todayCtx.todos.length + todayCtx.memos.length) > 0 && (
-                    <span className="ml-1 text-[9px] bg-violet-100 text-violet-600 px-1 rounded-full">
-                      {todayCtx.todayMeetings.length + todayCtx.todos.length + todayCtx.memos.length}
-                    </span>
-                  )}
-                </button>
-              </div>
+          {/* ── 좌: 어제 회고(compact) + 오늘 작성 ── */}
+          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
 
-              {/* 탭 콘텐츠 */}
-              <div className="flex-1 overflow-y-auto px-4 py-3 scrollbar-hide">
-                {ctxTab === 'yesterday' ? (
-                  yesterday ? (
-                    <>
-                      <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">{yesterday.content}</p>
-                      {getMeetings(yesterday).length > 0 && (
-                        <div className="flex flex-wrap gap-1.5 mt-3">
-                          {getMeetings(yesterday).map(m => (
-                            <Link key={m.id} href={`/meetings/${m.id}`}
-                              className="text-[10px] bg-blue-50 text-blue-600 border border-blue-200 px-2 py-0.5 rounded-full hover:bg-blue-100 transition-colors">
-                              @ {m.title}
-                            </Link>
-                          ))}
-                        </div>
-                      )}
-                      {yesterday.tags?.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {yesterday.tags.map(t => (
-                            <span key={t} className="text-[10px] text-gray-400">#{t}</span>
-                          ))}
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <p className="text-xs text-gray-200 italic">어제 기록 없음</p>
-                  )
-                ) : (
-                  <div className="space-y-4">
-                    {todayCtx.todayMeetings.length > 0 && (
-                      <div>
-                        <p className="text-[10px] font-semibold text-gray-300 tracking-wider mb-1.5">💬 회의</p>
-                        {todayCtx.todayMeetings.map(m => (
-                          <Link key={m.id} href={`/meetings/${m.id}`}
-                            className="block text-xs text-blue-500 hover:text-blue-700 truncate mb-1 transition-colors">
-                            · {m.title}
-                          </Link>
-                        ))}
-                      </div>
-                    )}
-                    {todayCtx.todos.length > 0 && (
-                      <div>
-                        <p className="text-[10px] font-semibold text-gray-300 tracking-wider mb-1.5">✅ 할일</p>
-                        {todayCtx.todos.map(t => (
-                          <p key={t.id} className="text-xs text-gray-500 truncate mb-1">
-                            · {t.title}
-                            {t.taskTitle && <span className="text-gray-300 ml-1 text-[10px]">[{t.taskTitle}]</span>}
-                          </p>
-                        ))}
-                      </div>
-                    )}
-                    {todayCtx.memos.length > 0 && (
-                      <div>
-                        <p className="text-[10px] font-semibold text-gray-300 tracking-wider mb-1.5">📝 메모</p>
-                        {todayCtx.memos.map(m => (
-                          <p key={m.id} className="text-xs text-gray-500 truncate mb-1">
-                            · {m.title}
-                            <span className="text-gray-300 ml-1 text-[10px]">{m.tag}</span>
-                          </p>
-                        ))}
-                      </div>
-                    )}
-                    {todayCtx.todayMeetings.length === 0 && todayCtx.todos.length === 0 && todayCtx.memos.length === 0 && (
-                      <p className="text-xs text-gray-200 italic">이 날 기록된 활동 없음</p>
-                    )}
-                  </div>
-                )}
+            {/* 어제 회고 — 상단 compact 표시 */}
+            {yesterday && (
+              <div className="flex-shrink-0 px-5 py-2.5 border-b border-gray-100 bg-gray-50/60">
+                <p className="text-[10px] font-semibold text-gray-300 tracking-wider mb-1 uppercase">어제 회고</p>
+                <p className="text-xs text-gray-400 leading-relaxed line-clamp-3 whitespace-pre-wrap">{yesterday.content}</p>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* ── 우(또는 전체): 오늘 입력 ── */}
-          <div className={`flex flex-col min-h-0 overflow-hidden ${yesterday ? 'md:flex-1' : 'flex-1'}`}>
-            <div className="px-5 py-3 border-b border-gray-100 flex-shrink-0">
-              <p className="text-[11px] font-semibold text-gray-400">{dateLabel} 회고 작성</p>
-            </div>
+            {/* 오늘 작성 영역 */}
             <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-3 min-h-0">
+              <p className="text-[11px] font-semibold text-gray-400 flex-shrink-0">{dateLabel} 회고 작성</p>
               <textarea
                 ref={textareaRef}
                 value={draft}
@@ -433,7 +357,7 @@ function JournalFullscreenEditor({ selectedDate, current, yesterday, meetings, s
                 className="flex-1 text-sm text-gray-700 placeholder:text-gray-300 resize-none focus:outline-none leading-relaxed min-h-[200px] bg-transparent w-full"
               />
 
-              {/* @ 회의 연결 */}
+              {/* @ 회의 연결 + # 태그 */}
               <div className="flex-shrink-0 border-t border-gray-100 pt-3 flex flex-col gap-2">
                 <div className="flex flex-wrap gap-1.5 items-center">
                   {linkedMeetingIds.map(mid => {
@@ -470,7 +394,6 @@ function JournalFullscreenEditor({ selectedDate, current, yesterday, meetings, s
                   </div>
                 )}
 
-                {/* # 태그 */}
                 <div className="flex flex-wrap gap-1.5 items-center">
                   {tags.map(t => (
                     <span key={t} className="flex items-center gap-0.5 text-[10px] bg-gray-50 text-gray-500 border border-gray-200 px-2 py-0.5 rounded-full">
@@ -489,6 +412,71 @@ function JournalFullscreenEditor({ selectedDate, current, yesterday, meetings, s
 
                 {saveError && <p className="text-xs text-red-500">{saveError}</p>}
               </div>
+            </div>
+          </div>
+
+          {/* ── 우: 오늘 활동 피드 ── */}
+          <div className="md:w-[300px] flex flex-col border-t md:border-t-0 md:border-l border-gray-100 min-h-0 bg-gray-50/40">
+            <div className="px-4 py-3 border-b border-gray-100 flex-shrink-0 flex items-center gap-2">
+              <p className="text-[11px] font-semibold text-gray-500 flex-1">{dateLabel} 활동</p>
+              {totalActivity > 0 && (
+                <span className="text-[9px] bg-violet-100 text-violet-600 px-1.5 py-0.5 rounded-full font-medium">{totalActivity}</span>
+              )}
+            </div>
+            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4 scrollbar-hide">
+
+              {todayCtx.meetings.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-semibold text-gray-300 tracking-wider mb-1.5">💬 회의</p>
+                  {todayCtx.meetings.map(m => (
+                    <Link key={m.id} href={`/meetings/${m.id}`}
+                      className="block text-xs text-blue-500 hover:text-blue-700 truncate mb-1 transition-colors">
+                      · {m.title}
+                    </Link>
+                  ))}
+                </div>
+              )}
+
+              {todayCtx.memos.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-semibold text-gray-300 tracking-wider mb-1.5">📝 메모</p>
+                  {todayCtx.memos.map(m => (
+                    <div key={m.id} className="flex items-baseline gap-1 mb-1">
+                      <span className="text-xs text-gray-500 truncate">· {m.title}</span>
+                      {m.tag && <span className="text-[10px] text-gray-300 flex-shrink-0">{m.tag}</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {todayCtx.completedTasks.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-semibold text-gray-300 tracking-wider mb-1.5">✅ 완료 업무</p>
+                  {todayCtx.completedTasks.map(t => (
+                    <div key={t.id} className="mb-1">
+                      <p className="text-xs text-gray-500 truncate">· {t.title}</p>
+                      {t.agendaItemTitle && (
+                        <p className="text-[10px] text-gray-300 ml-2">[{t.agendaItemTitle}]</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {todayCtx.taskNotes.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-semibold text-gray-300 tracking-wider mb-1.5">💡 업무 노트</p>
+                  {todayCtx.taskNotes.map(n => (
+                    <p key={n.id} className="text-xs text-gray-500 mb-1 line-clamp-2 leading-relaxed">
+                      · {n.title || n.content.slice(0, 60)}
+                    </p>
+                  ))}
+                </div>
+              )}
+
+              {totalActivity === 0 && (
+                <p className="text-xs text-gray-200 italic text-center py-8">이 날 기록된 활동 없음</p>
+              )}
             </div>
           </div>
         </div>

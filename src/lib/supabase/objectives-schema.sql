@@ -22,7 +22,7 @@ create table if not exists obj_objectives (
 create table if not exists obj_entries (
   id uuid primary key default gen_random_uuid(),
   objective_id uuid not null references obj_objectives(id) on delete cascade,
-  entry_date date not null default current_date,
+  entry_date date not null default (now()::date),
   content text not null default '',
   created_at timestamptz not null default now()
 );
