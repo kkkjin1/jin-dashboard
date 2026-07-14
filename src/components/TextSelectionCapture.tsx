@@ -114,7 +114,7 @@ export default function TextSelectionCapture({ sourceName, sourceType }: Props) 
     if (!float) return
     setSaving(true)
     const today = new Date().toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' })
-    const stTitle = `[${sourceType}] ${sourceName.slice(0, 24)} · ${today}`
+    const stTitle = `${sourceName.slice(0, 30)} · ${today}`
 
     // 기존 서브태스크의 최대 sort_order 조회
     const { data: existingSTs } = await supabase
