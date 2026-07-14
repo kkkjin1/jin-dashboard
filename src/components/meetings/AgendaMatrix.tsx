@@ -486,6 +486,8 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
   function toggleShowDone(groupId: string) {
     setShowDoneGroups(prev => { const s = new Set(prev); s.has(groupId) ? s.delete(groupId) : s.add(groupId); return s })
   }
+  const [viewMode, setViewMode] = useState<'calendar' | 'monthly'>('calendar')
+  const [monthNav, setMonthNav] = useState(() => { const d = new Date(); return { year: d.getFullYear(), month: d.getMonth() } })
   const [draggingGroupId, setDraggingGroupId] = useState<string | null>(null)
   const [draggingItemId,  setDraggingItemId]  = useState<string | null>(null)
   const [dragOverGroupId, setDragOverGroupId] = useState<string | null>(null)
@@ -528,6 +530,14 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
     cols.forEach(m => { if (m.meeting_date) map[m.meeting_date] = m })
     return map
   }, [cols])
+
+  const monthDays = useMemo((): string[] => {
+    if (isAll) return []
+    const { year, month } = monthNav
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const days = new Date(year, month + 1, 0).getDate()
+    return Array.from({ length: days }, (_, i) => `${year}-${pad(month + 1)}-${pad(i + 1)}`)
+  }, [isAll, monthNav])
 
   // ── 오늘로 자동 스크롤 ───────────────────────────────────────────
   useEffect(() => {
@@ -1152,13 +1162,171 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
     )
   }
 
-  // ── 달력 칸반 모드 ────────────────────────────────────────────────
+  // ── 달력/월별 공통 상수 ───────────────────────────────────────────
   const catColor  = CAT_BORDER[category] ?? '#1B3A6B'
   const catDot    = CAT_DOT[category]    ?? '#1B3A6B'
   const minTotalW = W_LEFT + dateRange.length * W_CAL + 56
+  const W_MONTH_COL = 28
+  const DAYS_KO = ['일','월','화','수','목','금','토']
 
+  // ── 뷰 토글 헤더 (달력/월별 공통) ────────────────────────────────
+  const viewToggle = (
+    <div className="flex-shrink-0 flex items-center gap-3 px-4 md:px-6 pb-3">
+      <div className="flex items-center gap-0.5 bg-gray-100/80 rounded-lg p-0.5">
+        <button onClick={() => setViewMode('calendar')}
+          className={`text-xs px-3 py-1 rounded-md transition-all font-medium ${viewMode === 'calendar' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>달력</button>
+        <button onClick={() => setViewMode('monthly')}
+          className={`text-xs px-3 py-1 rounded-md transition-all font-medium ${viewMode === 'monthly' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>월별 플랜</button>
+      </div>
+      {viewMode === 'monthly' && (
+        <div className="flex items-center gap-1.5">
+          <button onClick={() => setMonthNav(p => { const d = new Date(p.year, p.month - 1, 1); return { year: d.getFullYear(), month: d.getMonth() } })}
+            className="text-gray-400 hover:text-gray-700 text-base px-1 leading-none">‹</button>
+          <span className="text-sm font-semibold text-gray-700 w-20 text-center">{monthNav.year}년 {monthNav.month + 1}월</span>
+          <button onClick={() => setMonthNav(p => { const d = new Date(p.year, p.month + 1, 1); return { year: d.getFullYear(), month: d.getMonth() } })}
+            className="text-gray-400 hover:text-gray-700 text-base px-1 leading-none">›</button>
+        </div>
+      )}
+    </div>
+  )
+
+  // ── 월별 Gantt 모드 ────────────────────────────────────────────────
+  if (!isAll && viewMode === 'monthly') {
+    return (
+      <>
+        {viewToggle}
+        <div className="flex-1 min-h-0 overflow-auto">
+          <table style={{ borderCollapse: 'collapse', minWidth: W_LEFT + monthDays.length * W_MONTH_COL }}>
+            <thead>
+              <tr>
+                <th style={{ position: 'sticky', left: 0, top: 0, zIndex: 5, background: S.bg, borderBottom: S.bdL, borderRight: S.bdL, width: W_LEFT, minWidth: W_LEFT, padding: '10px 16px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: S.t3, letterSpacing: '.05em', textTransform: 'uppercase' }}>
+                  안건
+                </th>
+                {monthDays.map(day => {
+                  const dt = new Date(day + 'T00:00:00')
+                  const dow = dt.getDay()
+                  const isToday = day === todayStr
+                  const isSun = dow === 0, isSat = dow === 6
+                  return (
+                    <th key={day} style={{ position: 'sticky', top: 0, zIndex: 3, background: isToday ? '#EFF6FF' : 'white', borderBottom: isToday ? `2px solid ${catColor}` : S.bd, borderLeft: S.bd, width: W_MONTH_COL, minWidth: W_MONTH_COL, padding: 0 }}>
+                      <div style={{ padding: '6px 2px', textAlign: 'center' }}>
+                        <div style={{ fontSize: 10, fontWeight: isToday ? 700 : 400, color: isToday ? catColor : isSun ? '#EF4444' : isSat ? '#3B82F6' : S.t3, lineHeight: 1.2 }}>{dt.getDate()}</div>
+                        <div style={{ fontSize: 8, color: isToday ? catColor : isSun ? '#FCA5A5' : isSat ? '#93C5FD' : '#C8D4E3', marginTop: 1 }}>{DAYS_KO[dow]}</div>
+                      </div>
+                    </th>
+                  )
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              {[...groups].sort((a, b) => a.sort_order - b.sort_order).map(group => {
+                const groupItems = items.filter(i => i.group_id === group.id).sort((a, b) => a.sort_order - b.sort_order)
+                const doneGroupItems = groupItems.filter(i => i.status === 'done')
+                const visibleItems = showDoneGroups.has(group.id) ? groupItems : groupItems.filter(i => i.status !== 'done')
+                const isOpen = openGroups.has(group.id)
+                const gColor = CAT_BORDER[group.category ?? ''] ?? group.color
+                const gBg = CAT_BG[group.category ?? ''] ?? hexToRgba(group.color, 0.09)
+                return (
+                  <Fragment key={group.id}>
+                    {/* 범주 헤더 행 */}
+                    <tr>
+                      <td onClick={() => toggleGroup(group.id)} style={{ position: 'sticky', left: 0, zIndex: 2, background: gBg, borderBottom: S.bd, borderRight: S.bdL, padding: '7px 16px', cursor: 'pointer' }}>
+                        <div className="flex items-center gap-2">
+                          <span style={{ fontSize: 8, transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block', transition: 'transform .15s', color: gColor }}>▶</span>
+                          <span style={{ width: 8, height: 8, borderRadius: '50%', background: group.color, flexShrink: 0, display: 'inline-block' }} />
+                          <span style={{ fontSize: 12, fontWeight: 700, color: gColor, letterSpacing: '.03em' }}>{group.name}</span>
+                        </div>
+                      </td>
+                      {monthDays.map(day => (
+                        <td key={day} style={{ borderLeft: S.bd, borderBottom: S.bd, background: day === todayStr ? hexToRgba(catColor, 0.05) : gBg }} />
+                      ))}
+                    </tr>
+                    {/* 안건 + 세부task 행 */}
+                    {isOpen && visibleItems.map(item => {
+                      const itemSTs = subTasks.filter(st => st.agenda_item_id === item.id && st.status !== 'done' && st.target_date)
+                      const stDates = itemSTs.map(st => st.target_date!).sort()
+                      const minDate = stDates[0] ?? null
+                      const maxDate = stDates[stDates.length - 1] ?? null
+                      const isDone = item.status === 'done'
+                      return (
+                        <Fragment key={item.id}>
+                          {/* 안건 행 */}
+                          <tr style={{ borderBottom: S.bd, opacity: isDone ? 0.45 : 1 }} className="hover:bg-gray-50/40">
+                            <td style={{ position: 'sticky', left: 0, zIndex: 2, background: 'white', borderRight: S.bdL, padding: '9px 16px', cursor: 'pointer' }}
+                              onClick={() => router.push(`/project/items/${item.id}`)}>
+                              <div className="flex items-center gap-2">
+                                <span style={{ width: 6, height: 6, borderRadius: '50%', background: item.status === 'done' ? '#10B981' : item.status === 'hold' ? '#F59E0B' : gColor, flexShrink: 0, display: 'inline-block' }} />
+                                <span style={{ fontSize: 13, fontWeight: 500, color: isDone ? S.t3 : S.t1, textDecoration: isDone ? 'line-through' : 'none', lineHeight: 1.3 }}>{item.title}</span>
+                                {itemSTs.length > 0 && <span style={{ fontSize: 10, color: S.t3 }}>· {itemSTs.length}건</span>}
+                              </div>
+                            </td>
+                            {monthDays.map(day => {
+                              if (!minDate || !maxDate) return <td key={day} style={{ borderLeft: S.bd, background: day === todayStr ? hexToRgba(catColor, 0.04) : 'transparent' }} />
+                              const inRange = day >= minDate && day <= maxDate
+                              const isFirst = day === minDate, isLast = day === maxDate, isSingle = minDate === maxDate
+                              return (
+                                <td key={day} style={{ borderLeft: S.bd, padding: '0 1px', verticalAlign: 'middle', background: day === todayStr ? hexToRgba(catColor, 0.04) : 'transparent' }}>
+                                  {inRange && <div style={{ height: 5, background: gColor, opacity: 0.4, borderRadius: isSingle ? 3 : isFirst ? '3px 0 0 3px' : isLast ? '0 3px 3px 0' : 0 }} />}
+                                </td>
+                              )
+                            })}
+                          </tr>
+                          {/* 세부task 행 */}
+                          {subTasks.filter(st => st.agenda_item_id === item.id && st.status !== 'done').map(st => (
+                            <tr key={st.id} style={{ borderBottom: S.bd, background: '#FAFBFD' }} className="group/mst hover:bg-blue-50/20">
+                              <td style={{ position: 'sticky', left: 0, zIndex: 2, background: '#FAFBFD', borderRight: S.bdL, padding: '6px 16px 6px 32px', cursor: 'pointer' }}
+                                onClick={() => router.push(`/project/items/${item.id}?focus=${st.id}`)}>
+                                <div className="flex items-center gap-2">
+                                  <button onClick={e => { e.stopPropagation(); cycleSubTaskStatus(st) }}
+                                    title={`완료 처리 (현재: ${STATUS_LABEL[st.status]})`}
+                                    style={{ width: 12, height: 12, borderRadius: 3, flexShrink: 0, border: `1.5px solid ${st.status === 'hold' ? '#F59E0B' : gColor}`, background: 'transparent', cursor: 'pointer', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    {st.status === 'hold' && <span style={{ color: '#F59E0B', fontSize: 8, lineHeight: 1 }}>−</span>}
+                                  </button>
+                                  <span style={{ fontSize: 12, color: S.t2, lineHeight: 1.3 }}>{st.title}</span>
+                                  {st.target_date && <span style={{ fontSize: 9, color: S.t3, marginLeft: 2 }}>{stDateLabel(st.target_date, sched.today, sched.tomorrow)}</span>}
+                                </div>
+                              </td>
+                              {monthDays.map(day => {
+                                const isTarget = st.target_date === day
+                                return (
+                                  <td key={day} style={{ borderLeft: S.bd, verticalAlign: 'middle', textAlign: 'center', padding: 0, background: day === todayStr ? hexToRgba(catColor, 0.04) : 'transparent' }}>
+                                    {isTarget && <div style={{ width: 10, height: 10, borderRadius: 3, background: st.status === 'hold' ? '#F59E0B' : gColor, margin: '0 auto' }} />}
+                                  </td>
+                                )
+                              })}
+                            </tr>
+                          ))}
+                        </Fragment>
+                      )
+                    })}
+                    {/* 완료 안건 토글 */}
+                    {isOpen && doneGroupItems.length > 0 && (
+                      <tr style={{ borderBottom: S.bd }}>
+                        <td colSpan={monthDays.length + 1} style={{ padding: 0 }}>
+                          <button onClick={() => toggleShowDone(group.id)}
+                            style={{ position: 'sticky', left: 0, width: 'max-content' }}
+                            className="flex items-center gap-1.5 px-5 py-2 text-xs text-gray-400 hover:text-gray-500 hover:bg-gray-50 cursor-pointer transition-colors">
+                            <span style={{ fontSize: 8, transform: showDoneGroups.has(group.id) ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block', transition: 'transform .15s' }}>▶</span>
+                            완료 {doneGroupItems.length}건
+                          </button>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+        {dndErr && <div style={{ position: 'fixed', bottom: 60, left: '50%', transform: 'translateX(-50%)', background: '#DC2626', color: '#fff', padding: '10px 20px', borderRadius: 8, fontSize: 12, zIndex: 9999 }} onClick={() => setDndErr('')}>⠿ {dndErr}</div>}
+      </>
+    )
+  }
+
+  // ── 달력 칸반 모드 ────────────────────────────────────────────────
   return (
     <>
+      {viewToggle}
       <div className="flex-1 min-h-0 overflow-auto w-full" ref={containerRef}>
         <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: minTotalW }}>
           <thead>
