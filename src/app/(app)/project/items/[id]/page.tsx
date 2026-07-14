@@ -16,6 +16,40 @@ const STATUS_CLS: Record<Status, string> = {
 }
 const STATUS_DOT: Record<Status, string> = { active: '#3B82F6', hold: '#F59E0B', done: '#10B981' }
 
+function STTitleInput({
+  st, stColor, onSave,
+}: {
+  st: { id: string; title: string; status: string }
+  stColor: string
+  onSave: (stId: string, title: string) => void
+}) {
+  const [val, setVal] = useState(st.title)
+  useEffect(() => { setVal(st.title) }, [st.title])
+  return (
+    <input
+      value={val}
+      onChange={e => setVal(e.target.value)}
+      onKeyDown={e => {
+        e.stopPropagation()
+        if (e.key === 'Enter' && !e.nativeEvent.isComposing) e.currentTarget.blur()
+        if (e.key === 'Escape') { setVal(st.title); e.currentTarget.blur() }
+      }}
+      onBlur={() => {
+        const t = val.trim()
+        if (t && t !== st.title) onSave(st.id, t)
+        else setVal(st.title)
+      }}
+      onClick={e => e.stopPropagation()}
+      onFocus={e => e.stopPropagation()}
+      className="text-sm font-semibold bg-transparent border-b border-transparent hover:border-gray-200 focus:border-blue-400 focus:outline-none transition-colors min-w-0 flex-1 cursor-text"
+      style={{
+        color: st.status === 'done' ? '#9CA3AF' : '#1A2233',
+        textDecoration: st.status === 'done' ? 'line-through' : 'none',
+      }}
+    />
+  )
+}
+
 interface SubTaskNote {
   id: string
   content: string
@@ -327,14 +361,9 @@ export default function AgendaItemDetailPage() {
   }
 
   // ── 하위태스크 제목 수정 ─────────────────────────────────────────
-  const [editingSTId, setEditingSTId] = useState<string | null>(null)
-  const [editSTTitle, setEditSTTitle] = useState('')
-  async function updateSTTitle(stId: string) {
-    const title = editSTTitle.trim()
-    if (!title) { setEditingSTId(null); return }
+  async function updateSTTitle(stId: string, title: string) {
     await supabase.from('agenda_sub_tasks').update({ title }).eq('id', stId)
     setSubTasks(p => p.map(s => s.id === stId ? { ...s, title } : s))
-    setEditingSTId(null)
   }
 
   // ── 하위태스크 삭제 ──────────────────────────────────────────────
@@ -478,22 +507,8 @@ export default function AgendaItemDetailPage() {
                   <span style={{ fontSize: 8, color: '#8FA0B5', display: 'inline-block', transition: 'transform .15s', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', flexShrink: 0, lineHeight: 1 }}>▶</span>
                   <button onClick={e => { e.stopPropagation(); cycleSTStatus(st) }} title={STATUS_LABEL[st.status as Status]}
                     style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: stColor, border: 'none', cursor: 'pointer', padding: 0 }} />
-                  <div className="flex-1 min-w-0" onClick={e => e.stopPropagation()}>
-                    {editingSTId === st.id ? (
-                      <input autoFocus value={editSTTitle}
-                        onChange={e => setEditSTTitle(e.target.value)}
-                        onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) updateSTTitle(st.id); if (e.key === 'Escape') { setEditingSTId(null) } }}
-                        onBlur={e => { const val = e.target.value.trim(); if (val) { supabase.from('agenda_sub_tasks').update({ title: val }).eq('id', st.id); setSubTasks(p => p.map(s => s.id === st.id ? { ...s, title: val } : s)) } setEditingSTId(null) }}
-                        className="text-sm font-semibold text-gray-800 w-full border-b border-blue-400 focus:outline-none bg-transparent"
-                        onClick={e => e.stopPropagation()} />
-                    ) : (
-                      <span
-                        className="text-sm font-semibold cursor-text"
-                        style={{ color: st.status === 'done' ? '#9CA3AF' : '#1A2233', textDecoration: st.status === 'done' ? 'line-through' : 'none' }}
-                        onClick={e => { e.stopPropagation(); setEditingSTId(st.id); setEditSTTitle(st.title) }}>
-                        {st.title}
-                      </span>
-                    )}
+                  <div className="flex-1 min-w-0">
+                    <STTitleInput st={st} stColor={stColor} onSave={updateSTTitle} />
                   </div>
                   {/* 날짜 뱃지 / 지정 버튼 */}
                   <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
@@ -519,8 +534,6 @@ export default function AgendaItemDetailPage() {
                     )}
                   </div>
                   <div className="flex items-center gap-1.5 opacity-0 group-hover/acc:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
-                    <button onClick={e => { e.stopPropagation(); setEditingSTId(st.id); setEditSTTitle(st.title) }}
-                      className="text-[10px] text-gray-400 hover:text-gray-700 transition-colors px-1">수정</button>
                     {deletingST === st.id ? (
                       <>
                         <button onClick={() => deleteSubTask(st.id)} className="text-[10px] text-red-500 font-semibold px-1">삭제</button>
