@@ -198,6 +198,7 @@ interface EditorProps {
 interface TodayCtx {
   memos: { id: string; title: string; tag: string }[]
   meetings: { id: string; title: string }[]
+  oneOnOnes: { id: string; memberId: string; memberName?: string }[]
   completedTasks: { id: string; title: string; agendaItemTitle?: string }[]
   taskNotes: { id: string; content: string; title?: string | null }[]
 }
@@ -211,7 +212,7 @@ function JournalFullscreenEditor({ selectedDate, current, yesterday, meetings, s
   const [showMeetingPicker, setShowMeetingPicker] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
-  const [todayCtx, setTodayCtx] = useState<TodayCtx>({ memos: [], meetings: [], completedTasks: [], taskNotes: [] })
+  const [todayCtx, setTodayCtx] = useState<TodayCtx>({ memos: [], meetings: [], oneOnOnes: [], completedTasks: [], taskNotes: [] })
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const meetingSearchRef = useRef<HTMLInputElement>(null)
 
@@ -225,6 +226,7 @@ function JournalFullscreenEditor({ selectedDate, current, yesterday, meetings, s
     Promise.all([
       supabaseClient.from('quick_memos').select('id, title, tag').gte('created_at', dayStart).lte('created_at', dayEnd),
       supabaseClient.from('project_meetings').select('id, title').eq('meeting_date', selectedDate),
+      supabaseClient.from('one_on_ones').select('id, member_id, members(name)').eq('session_date', selectedDate),
       supabaseClient.from('agenda_sub_tasks')
         .select('id, title, agenda_items(title)')
         .eq('status', 'done')
@@ -235,10 +237,14 @@ function JournalFullscreenEditor({ selectedDate, current, yesterday, meetings, s
         .gte('created_at', dayStart)
         .lte('created_at', dayEnd),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ]).then(([memoRes, mtgRes, doneRes, notesRes]: any[]) => {
+    ]).then(([memoRes, mtgRes, oonRes, doneRes, notesRes]: any[]) => {
       setTodayCtx({
         memos: memoRes.data ?? [],
         meetings: mtgRes.data ?? [],
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        oneOnOnes: (oonRes.data ?? []).map((o: any) => ({
+          id: o.id, memberId: o.member_id, memberName: o.members?.name,
+        })),
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         completedTasks: (doneRes.data ?? []).map((t: any) => ({
           id: t.id, title: t.title, agendaItemTitle: t.agenda_items?.title,
@@ -308,7 +314,7 @@ function JournalFullscreenEditor({ selectedDate, current, yesterday, meetings, s
   ).slice(0, 8)
 
   const dateLabel = formatDateLabel(selectedDate)
-  const totalActivity = todayCtx.memos.length + todayCtx.meetings.length + todayCtx.completedTasks.length + todayCtx.taskNotes.length
+  const totalActivity = todayCtx.memos.length + todayCtx.meetings.length + todayCtx.oneOnOnes.length + todayCtx.completedTasks.length + todayCtx.taskNotes.length
 
   return (
     <>
@@ -336,7 +342,7 @@ function JournalFullscreenEditor({ selectedDate, current, yesterday, meetings, s
         <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
 
           {/* ── 좌: 어제 회고(compact) + 오늘 작성 ── */}
-          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          <div className="flex-1 md:w-1/2 flex flex-col min-h-0 overflow-hidden">
 
             {/* 어제 회고 — 상단 compact 표시 */}
             {yesterday && (
@@ -416,7 +422,7 @@ function JournalFullscreenEditor({ selectedDate, current, yesterday, meetings, s
           </div>
 
           {/* ── 우: 오늘 활동 피드 ── */}
-          <div className="md:w-[300px] flex flex-col border-t md:border-t-0 md:border-l border-gray-100 min-h-0 bg-gray-50/40">
+          <div className="md:w-1/2 flex flex-col border-t md:border-t-0 md:border-l border-gray-100 min-h-0 bg-gray-50/40">
             <div className="px-4 py-3 border-b border-gray-100 flex-shrink-0 flex items-center gap-2">
               <p className="text-[11px] font-semibold text-gray-500 flex-1">{dateLabel} 활동</p>
               {totalActivity > 0 && (
@@ -427,11 +433,23 @@ function JournalFullscreenEditor({ selectedDate, current, yesterday, meetings, s
 
               {todayCtx.meetings.length > 0 && (
                 <div>
-                  <p className="text-[10px] font-semibold text-gray-300 tracking-wider mb-1.5">💬 회의</p>
+                  <p className="text-[10px] font-semibold text-gray-300 tracking-wider mb-1.5">💬 회의록</p>
                   {todayCtx.meetings.map(m => (
                     <Link key={m.id} href={`/meetings/${m.id}`}
                       className="block text-xs text-blue-500 hover:text-blue-700 truncate mb-1 transition-colors">
                       · {m.title}
+                    </Link>
+                  ))}
+                </div>
+              )}
+
+              {todayCtx.oneOnOnes.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-semibold text-gray-300 tracking-wider mb-1.5">👥 1on1</p>
+                  {todayCtx.oneOnOnes.map(o => (
+                    <Link key={o.id} href={`/one-on-one/${o.memberId}/${o.id}`}
+                      className="block text-xs text-purple-500 hover:text-purple-700 truncate mb-1 transition-colors">
+                      · {o.memberName ?? '1on1 세션'}
                     </Link>
                   ))}
                 </div>
