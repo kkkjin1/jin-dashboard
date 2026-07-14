@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { format, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
-import { Plus, Pencil, Trash2 } from 'lucide-react'
+import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
 
 interface ObjGroup    { id: string; name: string; color: string; sort_order: number }
 interface ObjObjective { id: string; group_id: string; title: string; quarter: string; sort_order: number }
@@ -15,14 +15,6 @@ const GROUP_COLORS = ['#4A7FC0','#5DBD97','#E8914A','#A855F7','#EF4444','#F59E0B
 
 function currentQuarter(d = new Date()): string {
   return `${d.getFullYear()}-Q${Math.ceil((d.getMonth() + 1) / 3)}`
-}
-function generateQuarters(count: number): string[] {
-  const now = new Date(); let month = now.getMonth(); let year = now.getFullYear(); const out: string[] = []
-  for (let i = 0; i < count; i++) {
-    out.push(`${year}-Q${Math.ceil((month + 1) / 3)}`); month -= 3
-    if (month < 0) { month += 12; year -= 1 }
-  }
-  return out
 }
 function quarterLabel(q: string): string { const [y, qp] = q.split('-'); return `${y} ${qp}` }
 function formatDate(d: string) { try { return format(parseISO(d), 'M/d(eee)', { locale: ko }) } catch { return d } }
@@ -286,8 +278,10 @@ function GroupNameEditor({ name, onSave }: { name: string; onSave: (v: string) =
 // ── Main Page ──────────────────────────────────────────────
 export default function ObjectivesPage() {
   const supabase = createClient()
-  const [quarters] = useState(() => generateQuarters(5))
-  const [activeQ, setActiveQ] = useState(() => currentQuarter())
+  const nowInit = new Date()
+  const [selectedYear, setSelectedYear] = useState(() => nowInit.getFullYear())
+  const [selectedQ, setSelectedQ] = useState(() => Math.ceil((nowInit.getMonth() + 1) / 3))
+  const activeQ = `${selectedYear}-Q${selectedQ}`
   const [groups, setGroups] = useState<ObjGroup[]>([])
   const [objectives, setObjectives] = useState<ObjObjective[]>([])
   const [subItems, setSubItems] = useState<ObjSubItem[]>([])
@@ -300,7 +294,7 @@ export default function ObjectivesPage() {
   const [addingObjFor, setAddingObjFor] = useState<string | null>(null)
   const [newObjTitle, setNewObjTitle] = useState('')
 
-  useEffect(() => { loadAll() }, [activeQ])
+  useEffect(() => { loadAll() }, [selectedYear, selectedQ])
 
   async function loadAll() {
     setLoading(true)
@@ -419,14 +413,27 @@ export default function ObjectivesPage() {
       {/* Header */}
       <div className="flex-shrink-0 flex items-center gap-2 mb-5 px-4 md:px-6 flex-wrap">
         <h1 className="text-lg font-bold text-gray-900 flex-shrink-0">목표관리</h1>
-        <div className="flex items-center gap-1 flex-wrap">
-          {quarters.map(q => (
-            <button key={q} onClick={() => setActiveQ(q)}
-              className={`text-xs px-3 py-1.5 rounded-full border font-semibold transition-all whitespace-nowrap ${
-                activeQ === q ? 'bg-[#1B3A6B] text-white border-[#1B3A6B] shadow-sm' : 'bg-white/70 border-gray-200 text-gray-500 hover:bg-white hover:text-gray-700'
-              }`}>{quarterLabel(q)}</button>
-          ))}
-        </div>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1 bg-white/60 border border-gray-200 rounded-full px-1 py-1">
+            <button onClick={() => setSelectedYear(y => y - 1)}
+              className="w-6 h-6 flex items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors">
+              <ChevronLeft size={13} />
+            </button>
+            <span className="text-xs font-semibold text-gray-700 px-1 min-w-[36px] text-center select-none">{selectedYear}</span>
+            <button onClick={() => setSelectedYear(y => y + 1)}
+              className="w-6 h-6 flex items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors">
+              <ChevronRight size={13} />
+            </button>
+          </div>
+          <div className="flex items-center gap-1">
+            {[1,2,3,4].map(q => (
+              <button key={q} onClick={() => setSelectedQ(q)}
+                className={`text-xs px-3 py-1.5 rounded-full border font-semibold transition-all ${
+                  selectedQ === q ? 'bg-[#1B3A6B] text-white border-[#1B3A6B] shadow-sm' : 'bg-white/70 border-gray-200 text-gray-500 hover:bg-white hover:text-gray-700'
+                }`}>Q{q}</button>
+            ))}
+          </div>
+        </div>        </div>
         <div className="ml-auto flex-shrink-0">
           {addingGroup ? (
             <div className="flex items-center gap-1.5">
@@ -524,6 +531,7 @@ export default function ObjectivesPage() {
     </div>
   )
 }
+
 
 
 
