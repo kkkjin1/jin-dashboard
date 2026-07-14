@@ -16,73 +16,6 @@ const STATUS_CLS: Record<Status, string> = {
 }
 const STATUS_DOT: Record<Status, string> = { active: '#3B82F6', hold: '#F59E0B', done: '#10B981' }
 
-function STTitleCell({
-  st, onSave, onToggle,
-}: {
-  st: { id: string; title: string; status: string }
-  onSave: (stId: string, title: string) => void
-  onToggle: () => void
-}) {
-  const [editing, setEditing] = useState(false)
-  const [val, setVal] = useState(st.title)
-  useEffect(() => { if (!editing) setVal(st.title) }, [st.title, editing])
-
-  const save = (v: string) => {
-    const t = v.trim()
-    if (t && t !== st.title) onSave(st.id, t)
-    else setVal(st.title)
-    setEditing(false)
-  }
-
-  if (editing) {
-    return (
-      <div className="flex-1 min-w-0" onClick={e => e.stopPropagation()}>
-        <input
-          autoFocus
-          value={val}
-          onChange={e => setVal(e.target.value)}
-          onKeyDown={e => {
-            e.stopPropagation()
-            if (e.key === 'Enter' && !e.nativeEvent.isComposing) save(val)
-            if (e.key === 'Escape') { setVal(st.title); setEditing(false) }
-          }}
-          onBlur={() => save(val)}
-          onClick={e => e.stopPropagation()}
-          className="text-sm font-semibold bg-transparent border-b-2 border-blue-400 focus:outline-none w-full"
-          style={{
-            color: st.status === 'done' ? '#9CA3AF' : '#1A2233',
-            textDecoration: st.status === 'done' ? 'line-through' : 'none',
-          }}
-        />
-      </div>
-    )
-  }
-
-  return (
-    <div className="flex-1 min-w-0 flex items-center gap-1 group/stname">
-      <button
-        type="button"
-        onClick={e => { e.stopPropagation(); onToggle() }}
-        className="text-sm font-semibold truncate text-left bg-transparent border-none p-0 cursor-pointer flex-1 min-w-0"
-        style={{
-          color: st.status === 'done' ? '#9CA3AF' : '#1A2233',
-          textDecoration: st.status === 'done' ? 'line-through' : 'none',
-          outline: 'none',
-        }}
-      >
-        {st.title}
-      </button>
-      <button
-        type="button"
-        onClick={e => { e.stopPropagation(); setEditing(true) }}
-        className="opacity-0 group-hover/stname:opacity-60 hover:!opacity-100 transition-opacity text-gray-400 hover:text-gray-700 text-[10px] px-0.5 flex-shrink-0"
-        title="이름 수정"
-      >
-        ✏
-      </button>
-    </div>
-  )
-}
 
 interface SubTaskNote {
   id: string
@@ -147,6 +80,10 @@ export default function AgendaItemDetailPage() {
 
   // 아코디언 열림 상태
   const [openST, setOpenST] = useState<Set<string>>(new Set())
+
+  // 하위태스크 제목 인라인 편집
+  const [editingSTId,  setEditingSTId]  = useState<string | null>(null)
+  const [editingSTVal, setEditingSTVal] = useState('')
   const accordionRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
   // 하위태스크 추가
@@ -300,6 +237,13 @@ export default function AgendaItemDetailPage() {
   // ── 아코디언 토글 ────────────────────────────────────────────────
   function toggleST(stId: string) {
     setOpenST(prev => { const s = new Set(prev); s.has(stId) ? s.delete(stId) : s.add(stId); return s })
+  }
+
+  function saveSTTitle() {
+    if (!editingSTId) return
+    const t = editingSTVal.trim()
+    if (t) updateSTTitle(editingSTId, t)
+    setEditingSTId(null)
   }
 
   // ── 날짜 포맷 ──────────────────────────────────────────────────
@@ -575,17 +519,52 @@ export default function AgendaItemDetailPage() {
                 ref={el => { accordionRefs.current[st.id] = el }}
                 className="rounded-xl border overflow-hidden transition-all"
                 style={{ borderColor: isFocus && isOpen ? stColor : '#E5E9F0', boxShadow: isFocus && isOpen ? `0 0 0 2px ${stColor}30` : 'none' }}>
-                {/* 아코디언 헤더 */}
+                {/* 아코디언 헤더 — 버블링 없이 각 버튼이 직접 onClick 처리 */}
                 <div
-                  className="flex items-center gap-2.5 px-4 py-4 cursor-pointer select-none group/acc hover:bg-gray-50/70 transition-colors"
-                  style={{ background: isOpen ? `${stColor}08` : 'white' }}
-                  onClick={() => toggleST(st.id)}>
-                  <span style={{ fontSize: 8, color: '#8FA0B5', display: 'inline-block', transition: 'transform .15s', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', flexShrink: 0, lineHeight: 1 }}>▶</span>
-                  <button onClick={e => { e.stopPropagation(); cycleSTStatus(st) }} title={STATUS_LABEL[st.status as Status]}
+                  className="flex items-center gap-2.5 px-4 py-4 select-none group/acc hover:bg-gray-50/70 transition-colors"
+                  style={{ background: isOpen ? `${stColor}08` : 'white' }}>
+                  {/* ▶ 토글 */}
+                  <button type="button" onClick={() => toggleST(st.id)}
+                    className="flex-shrink-0 bg-transparent border-none cursor-pointer p-1 -m-1"
+                    style={{ fontSize: 8, lineHeight: 1 }}>
+                    <span style={{ display: 'inline-block', transition: 'transform .15s', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', color: '#8FA0B5' }}>▶</span>
+                  </button>
+                  {/* 상태 점 */}
+                  <button type="button" onClick={() => cycleSTStatus(st)} title={STATUS_LABEL[st.status as Status]}
                     style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: stColor, border: 'none', cursor: 'pointer', padding: 0 }} />
-                  <STTitleCell st={st} onSave={updateSTTitle} onToggle={() => toggleST(st.id)} />
-                  {/* 날짜 뱃지 / 지정 버튼 */}
-                  <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                  {/* 타이틀: 편집 중이면 input, 아니면 토글 버튼 */}
+                  {editingSTId === st.id ? (
+                    <div className="flex-1 min-w-0">
+                      <input
+                        autoFocus
+                        value={editingSTVal}
+                        onChange={e => setEditingSTVal(e.target.value)}
+                        onKeyDown={e => {
+                          e.stopPropagation()
+                          if (e.key === 'Enter' && !e.nativeEvent.isComposing) saveSTTitle()
+                          if (e.key === 'Escape') setEditingSTId(null)
+                        }}
+                        onBlur={saveSTTitle}
+                        className="text-sm font-semibold bg-transparent border-b-2 border-blue-400 focus:outline-none w-full"
+                        style={{ color: st.status === 'done' ? '#9CA3AF' : '#1A2233', textDecoration: st.status === 'done' ? 'line-through' : 'none' }}
+                      />
+                    </div>
+                  ) : (
+                    <button type="button" onClick={() => toggleST(st.id)}
+                      className="flex-1 min-w-0 text-sm font-semibold truncate text-left bg-transparent border-none p-0 cursor-pointer"
+                      style={{ color: st.status === 'done' ? '#9CA3AF' : '#1A2233', textDecoration: st.status === 'done' ? 'line-through' : 'none', outline: 'none' }}>
+                      {st.title}
+                    </button>
+                  )}
+                  {/* ✏ 제목 수정 */}
+                  {editingSTId !== st.id && (
+                    <button type="button"
+                      onClick={() => { setEditingSTId(st.id); setEditingSTVal(st.title) }}
+                      className="opacity-0 group-hover/acc:opacity-60 hover:!opacity-100 transition-opacity text-gray-400 hover:text-gray-700 text-[10px] px-0.5 flex-shrink-0"
+                      title="이름 수정">✏</button>
+                  )}
+                  {/* 날짜 뱃지 */}
+                  <div className="flex items-center gap-1">
                     {st.target_date ? (
                       <button
                         onClick={() => updateSubTaskDate(st.id, null)}
@@ -607,7 +586,8 @@ export default function AgendaItemDetailPage() {
                       </div>
                     )}
                   </div>
-                  <div className="flex items-center gap-1.5 opacity-0 group-hover/acc:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
+                  {/* 삭제 */}
+                  <div className="flex items-center gap-1.5 opacity-0 group-hover/acc:opacity-100 transition-opacity">
                     {deletingST === st.id ? (
                       <>
                         <button onClick={() => deleteSubTask(st.id)} className="text-[10px] text-red-500 font-semibold px-1">삭제</button>

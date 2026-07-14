@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { Color, TextStyle } from '@tiptap/extension-text-style'
@@ -76,36 +76,46 @@ interface Props {
 export default function TiptapEditor({
   value, onChange, onSubmit, onEscape, onExpand, autoFocus, minHeight = 160, className,
 }: Props) {
+  // Refs로 콜백 최신값 유지 — useCallback deps를 [] 로 고정해 Tiptap이 매 렌더마다 options 변경을 감지하지 않도록 함
+  const onChangeRef = useRef(onChange)
+  const onSubmitRef = useRef(onSubmit)
+  const onEscapeRef = useRef(onEscape)
+  const editorRef   = useRef<ReturnType<typeof useEditor>>(null)
+  useEffect(() => { onChangeRef.current = onChange; onSubmitRef.current = onSubmit; onEscapeRef.current = onEscape })
+
+  const stableOnUpdate = useCallback(({ editor }: { editor: NonNullable<ReturnType<typeof useEditor>> }) => {
+    onChangeRef.current(editor.getHTML())
+  }, [])
+
+  const stableKeyDown = useCallback((_view: unknown, e: KeyboardEvent) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { onSubmitRef.current?.(); return true }
+    if (e.key === 'Escape') { onEscapeRef.current?.(); return true }
+    const ed = editorRef.current
+    if (!ed) return false
+    if ((e.ctrlKey || e.metaKey) && e.key === '1') {
+      ed.isActive('textStyle', { color: '#EF4444' })
+        ? ed.chain().focus().unsetColor().run()
+        : ed.chain().focus().setColor('#EF4444').run()
+      return true
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key === '2') {
+      ed.chain().focus().toggleHighlight({ color: '#FEF08A' }).run()
+      return true
+    }
+    return false
+  }, [])
+
   const editor = useEditor({
     extensions: EXTENSIONS,
     content: legacyToHtml(value),
-    onUpdate: ({ editor }) => onChange(editor.getHTML()),
+    onUpdate: stableOnUpdate,
     editorProps: {
-      attributes: {
-        class: 'tiptap-input outline-none',
-        style: `min-height:${minHeight}px; padding:8px 0;`,
-      },
-      handleKeyDown: (_view, e) => {
-        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { onSubmit?.(); return true }
-        if (e.key === 'Escape') { onEscape?.(); return true }
-        // Ctrl+1 → 빨강 텍스트 토글
-        if ((e.ctrlKey || e.metaKey) && e.key === '1') {
-          if (editor?.isActive('textStyle', { color: '#EF4444' })) {
-            editor.chain().focus().unsetColor().run()
-          } else {
-            editor?.chain().focus().setColor('#EF4444').run()
-          }
-          return true
-        }
-        // Ctrl+2 → 노랑 형광펜 토글
-        if ((e.ctrlKey || e.metaKey) && e.key === '2') {
-          editor?.chain().focus().toggleHighlight({ color: '#FEF08A' }).run()
-          return true
-        }
-        return false
-      },
+      attributes: { class: 'tiptap-input outline-none', style: `min-height:${minHeight}px; padding:8px 0;` },
+      handleKeyDown: stableKeyDown,
     },
   })
+
+  editorRef.current = editor
 
   useEffect(() => {
     if (autoFocus && editor) {
