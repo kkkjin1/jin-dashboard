@@ -654,12 +654,12 @@ export default function AgendaItemDetailPage() {
                           const isNoteOpen = openHistoryNotes[st.id]?.has(note.id) ?? false
                           return (
                             <div key={note.id} className="border-t border-gray-100/60">
-                              <div className="flex items-center gap-2 px-5 py-2 hover:bg-gray-50/80 transition-colors">
-                                <button
-                                  onClick={e => { e.stopPropagation(); toggleHistoryNote(st.id, note.id) }}
-                                  className="flex-shrink-0 p-0.5">
+                              <div
+                                onClick={() => toggleHistoryNote(st.id, note.id)}
+                                className="flex items-center gap-2 px-5 py-2 hover:bg-gray-50/80 transition-colors cursor-pointer">
+                                <span className="flex-shrink-0 p-0.5">
                                   <span style={{ fontSize: 8, color: '#94A3B8', display: 'inline-block', transition: 'transform .12s', transform: isNoteOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
-                                </button>
+                                </span>
                                 <NoteTitleInput
                                   note={note}
                                   placeholder={`${formatNoteDate(note.created_at)} 기록`}
