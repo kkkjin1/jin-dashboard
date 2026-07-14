@@ -236,8 +236,8 @@ function JournalFullscreenEditor({ selectedDate, current, yesterday, meetings, s
       supabaseClient.from('one_on_ones').select('id, member_id, members(name)').eq('session_date', selectedDate),
       supabaseClient.from('agenda_sub_tasks')
         .select('id, title, status, agenda_items(title)')
-        .gte('created_at', dayStart)
-        .lte('created_at', dayEnd),
+        .gte('updated_at', dayStart)
+        .lte('updated_at', dayEnd),
       supabaseClient.from('sub_task_notes')
         .select('id, content, title, agenda_sub_tasks(title, agenda_items(title))')
         .gte('created_at', dayStart)
@@ -477,7 +477,7 @@ function JournalFullscreenEditor({ selectedDate, current, yesterday, meetings, s
 
               {todayCtx.newTasks.length > 0 && (
                 <div>
-                  <p className="text-[10px] font-semibold text-gray-300 tracking-wider mb-1.5">📋 신규 업무</p>
+                  <p className="text-[10px] font-semibold text-gray-300 tracking-wider mb-1.5">📋 프로젝트 업무</p>
                   {todayCtx.newTasks.map(t => (
                     <div key={t.id} className="mb-1.5 flex items-start gap-1.5">
                       <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium flex-shrink-0 mt-0.5 ${TASK_STATUS_CLS[t.status] ?? 'bg-gray-100 text-gray-400'}`}>
