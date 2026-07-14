@@ -17,11 +17,10 @@ const STATUS_CLS: Record<Status, string> = {
 const STATUS_DOT: Record<Status, string> = { active: '#3B82F6', hold: '#F59E0B', done: '#10B981' }
 
 function STTitleCell({
-  st, onSave, onToggle,
+  st, onSave,
 }: {
   st: { id: string; title: string; status: string }
   onSave: (stId: string, title: string) => void
-  onToggle: () => void
 }) {
   const [editing, setEditing] = useState(false)
   const [val, setVal] = useState(st.title)
@@ -35,6 +34,7 @@ function STTitleCell({
   }
 
   if (editing) {
+    // 편집 중엔 클릭이 아코디언으로 bubble되지 않도록 차단
     return (
       <div className="flex-1 min-w-0" onClick={e => e.stopPropagation()}>
         <input
@@ -58,11 +58,9 @@ function STTitleCell({
     )
   }
 
+  // 일반 모드: 클릭을 막지 않음 → 바깥 아코디언 헤더의 onClick으로 bubble
   return (
-    <div
-      className="flex-1 min-w-0 flex items-center gap-1 group/stname"
-      onClick={e => { e.stopPropagation(); onToggle() }}
-    >
+    <div className="flex-1 min-w-0 flex items-center gap-1 group/stname">
       <span
         className="text-sm font-semibold truncate"
         style={{
@@ -582,7 +580,7 @@ export default function AgendaItemDetailPage() {
                   <span style={{ fontSize: 8, color: '#8FA0B5', display: 'inline-block', transition: 'transform .15s', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', flexShrink: 0, lineHeight: 1 }}>▶</span>
                   <button onClick={e => { e.stopPropagation(); cycleSTStatus(st) }} title={STATUS_LABEL[st.status as Status]}
                     style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: stColor, border: 'none', cursor: 'pointer', padding: 0 }} />
-                  <STTitleCell st={st} onSave={updateSTTitle} onToggle={() => toggleST(st.id)} />
+                  <STTitleCell st={st} onSave={updateSTTitle} />
                   {/* 날짜 뱃지 / 지정 버튼 */}
                   <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
                     {st.target_date ? (
