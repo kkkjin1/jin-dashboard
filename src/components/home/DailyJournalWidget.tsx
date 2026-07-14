@@ -199,8 +199,15 @@ interface TodayCtx {
   memos: { id: string; title: string; tag: string }[]
   meetings: { id: string; title: string }[]
   oneOnOnes: { id: string; memberId: string; memberName?: string }[]
-  completedTasks: { id: string; title: string; agendaItemTitle?: string }[]
+  updatedTasks: { id: string; title: string; status: string; agendaItemTitle?: string }[]
   taskNotes: { id: string; content: string; title?: string | null }[]
+}
+
+const TASK_STATUS_LABEL: Record<string, string> = { active: '진행중', hold: '보류', done: '완료' }
+const TASK_STATUS_CLS: Record<string, string> = {
+  active: 'bg-blue-50 text-blue-500',
+  hold: 'bg-gray-100 text-gray-400',
+  done: 'bg-green-50 text-green-500',
 }
 
 function JournalFullscreenEditor({ selectedDate, current, yesterday, meetings, supabaseClient, onSaved, onClose }: EditorProps) {
@@ -212,7 +219,7 @@ function JournalFullscreenEditor({ selectedDate, current, yesterday, meetings, s
   const [showMeetingPicker, setShowMeetingPicker] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
-  const [todayCtx, setTodayCtx] = useState<TodayCtx>({ memos: [], meetings: [], oneOnOnes: [], completedTasks: [], taskNotes: [] })
+  const [todayCtx, setTodayCtx] = useState<TodayCtx>({ memos: [], meetings: [], oneOnOnes: [], updatedTasks: [], taskNotes: [] })
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const meetingSearchRef = useRef<HTMLInputElement>(null)
 
@@ -228,8 +235,7 @@ function JournalFullscreenEditor({ selectedDate, current, yesterday, meetings, s
       supabaseClient.from('project_meetings').select('id, title').eq('meeting_date', selectedDate),
       supabaseClient.from('one_on_ones').select('id, member_id, members(name)').eq('session_date', selectedDate),
       supabaseClient.from('agenda_sub_tasks')
-        .select('id, title, agenda_items(title)')
-        .eq('status', 'done')
+        .select('id, title, status, agenda_items(title)')
         .gte('updated_at', dayStart)
         .lte('updated_at', dayEnd),
       supabaseClient.from('sub_task_notes')
@@ -246,8 +252,8 @@ function JournalFullscreenEditor({ selectedDate, current, yesterday, meetings, s
           id: o.id, memberId: o.member_id, memberName: o.members?.name,
         })),
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        completedTasks: (doneRes.data ?? []).map((t: any) => ({
-          id: t.id, title: t.title, agendaItemTitle: t.agenda_items?.title,
+        updatedTasks: (doneRes.data ?? []).map((t: any) => ({
+          id: t.id, title: t.title, status: t.status, agendaItemTitle: t.agenda_items?.title,
         })),
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         taskNotes: (notesRes.data ?? []).map((n: any) => ({
@@ -314,7 +320,7 @@ function JournalFullscreenEditor({ selectedDate, current, yesterday, meetings, s
   ).slice(0, 8)
 
   const dateLabel = formatDateLabel(selectedDate)
-  const totalActivity = todayCtx.memos.length + todayCtx.meetings.length + todayCtx.oneOnOnes.length + todayCtx.completedTasks.length + todayCtx.taskNotes.length
+  const totalActivity = todayCtx.memos.length + todayCtx.meetings.length + todayCtx.oneOnOnes.length + todayCtx.updatedTasks.length + todayCtx.taskNotes.length
 
   return (
     <>
@@ -467,15 +473,20 @@ function JournalFullscreenEditor({ selectedDate, current, yesterday, meetings, s
                 </div>
               )}
 
-              {todayCtx.completedTasks.length > 0 && (
+              {todayCtx.updatedTasks.length > 0 && (
                 <div>
-                  <p className="text-[10px] font-semibold text-gray-300 tracking-wider mb-1.5">✅ 완료 업무</p>
-                  {todayCtx.completedTasks.map(t => (
-                    <div key={t.id} className="mb-1">
-                      <p className="text-xs text-gray-500 truncate">· {t.title}</p>
-                      {t.agendaItemTitle && (
-                        <p className="text-[10px] text-gray-300 ml-2">[{t.agendaItemTitle}]</p>
-                      )}
+                  <p className="text-[10px] font-semibold text-gray-300 tracking-wider mb-1.5">📋 프로젝트 업무</p>
+                  {todayCtx.updatedTasks.map(t => (
+                    <div key={t.id} className="mb-1.5 flex items-start gap-1.5">
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium flex-shrink-0 mt-0.5 ${TASK_STATUS_CLS[t.status] ?? 'bg-gray-100 text-gray-400'}`}>
+                        {TASK_STATUS_LABEL[t.status] ?? t.status}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-xs text-gray-500 truncate">{t.title}</p>
+                        {t.agendaItemTitle && (
+                          <p className="text-[10px] text-gray-300">[{t.agendaItemTitle}]</p>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
