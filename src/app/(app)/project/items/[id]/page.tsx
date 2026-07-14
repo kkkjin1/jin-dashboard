@@ -236,11 +236,9 @@ export default function AgendaItemDetailPage() {
 
   // ── 아코디언 토글 ────────────────────────────────────────────────
   function toggleST(stId: string) {
-    console.log('🔵 toggleST called', stId)
     setOpenST(prev => {
       const s = new Set(prev)
       s.has(stId) ? s.delete(stId) : s.add(stId)
-      console.log('🔵 openST after:', [...s])
       return s
     })
   }
@@ -525,22 +523,23 @@ export default function AgendaItemDetailPage() {
                 ref={el => { accordionRefs.current[st.id] = el }}
                 className="rounded-xl border overflow-hidden transition-all"
                 style={{ borderColor: isFocus && isOpen ? stColor : '#E5E9F0', boxShadow: isFocus && isOpen ? `0 0 0 2px ${stColor}30` : 'none' }}>
-                {/* 아코디언 헤더 — 버블링 없이 각 버튼이 직접 onClick 처리 */}
+                {/* 아코디언 헤더 — 외부 div onClick으로 토글, 내부 인터랙티브 요소는 stopPropagation */}
                 <div
-                  className="flex items-center gap-2.5 px-4 py-4 select-none group/acc hover:bg-gray-50/70 transition-colors"
+                  onClick={() => toggleST(st.id)}
+                  className="flex items-center gap-2.5 px-4 py-4 select-none group/acc hover:bg-gray-50/70 transition-colors cursor-pointer"
                   style={{ background: isOpen ? `${stColor}08` : 'white' }}>
-                  {/* ▶ 토글 */}
-                  <button type="button" onClick={() => { console.log('🟡 ▶ clicked', st.id); toggleST(st.id) }}
-                    className="flex-shrink-0 bg-transparent border-none cursor-pointer p-1 -m-1"
-                    style={{ fontSize: 8, lineHeight: 1 }}>
+                  {/* ▶ 비주얼 (클릭은 외부 div가 처리) */}
+                  <span className="flex-shrink-0 p-1 -m-1" style={{ fontSize: 8, lineHeight: 1 }}>
                     <span style={{ display: 'inline-block', transition: 'transform .15s', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', color: '#8FA0B5' }}>▶</span>
-                  </button>
+                  </span>
                   {/* 상태 점 */}
-                  <button type="button" onClick={() => cycleSTStatus(st)} title={STATUS_LABEL[st.status as Status]}
+                  <button type="button"
+                    onClick={e => { e.stopPropagation(); cycleSTStatus(st) }}
+                    title={STATUS_LABEL[st.status as Status]}
                     style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: stColor, border: 'none', cursor: 'pointer', padding: 0 }} />
                   {/* 타이틀: 편집 중이면 input, 아니면 텍스트 */}
                   {editingSTId === st.id ? (
-                    <div className="flex-1 min-w-0">
+                    <div className="flex-1 min-w-0" onClick={e => e.stopPropagation()}>
                       <input
                         autoFocus
                         value={editingSTVal}
@@ -564,15 +563,15 @@ export default function AgendaItemDetailPage() {
                   {/* ✏ 제목 수정 */}
                   {editingSTId !== st.id && (
                     <button type="button"
-                      onClick={() => { setEditingSTId(st.id); setEditingSTVal(st.title) }}
+                      onClick={e => { e.stopPropagation(); setEditingSTId(st.id); setEditingSTVal(st.title) }}
                       className="opacity-0 group-hover/acc:opacity-60 hover:!opacity-100 transition-opacity text-gray-400 hover:text-gray-700 text-[10px] px-0.5 flex-shrink-0"
                       title="이름 수정">✏</button>
                   )}
                   {/* 날짜 뱃지 */}
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
                     {st.target_date ? (
                       <button
-                        onClick={() => updateSubTaskDate(st.id, null)}
+                        onClick={e => { e.stopPropagation(); updateSubTaskDate(st.id, null) }}
                         className="text-[10px] px-2 py-0.5 rounded-full font-semibold border-none cursor-pointer flex-shrink-0"
                         style={{
                           background: st.target_date === sched.today ? '#FEE2E2' : st.target_date === sched.tomorrow ? '#FEF3C7' : '#EFF6FF',
@@ -582,24 +581,24 @@ export default function AgendaItemDetailPage() {
                       </button>
                     ) : (
                       <div className="flex items-center gap-0.5 opacity-0 group-hover/acc:opacity-100 transition-opacity">
-                        <button onClick={() => updateSubTaskDate(st.id, sched.today)}    className="text-[9px] px-1.5 py-0.5 rounded bg-red-50   text-red-600   hover:bg-red-100   border border-red-100   font-medium">오늘</button>
-                        <button onClick={() => updateSubTaskDate(st.id, sched.tomorrow)} className="text-[9px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-100 font-medium">내일</button>
-                        <button onClick={() => updateSubTaskDate(st.id, sched.friday)}   className="text-[9px] px-1.5 py-0.5 rounded bg-blue-50  text-blue-600  hover:bg-blue-100  border border-blue-100  font-medium">금주</button>
+                        <button onClick={e => { e.stopPropagation(); updateSubTaskDate(st.id, sched.today) }}    className="text-[9px] px-1.5 py-0.5 rounded bg-red-50   text-red-600   hover:bg-red-100   border border-red-100   font-medium">오늘</button>
+                        <button onClick={e => { e.stopPropagation(); updateSubTaskDate(st.id, sched.tomorrow) }} className="text-[9px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-100 font-medium">내일</button>
+                        <button onClick={e => { e.stopPropagation(); updateSubTaskDate(st.id, sched.friday) }}   className="text-[9px] px-1.5 py-0.5 rounded bg-blue-50  text-blue-600  hover:bg-blue-100  border border-blue-100  font-medium">금주</button>
                         <label className="cursor-pointer text-gray-400 hover:text-gray-600 text-[10px] px-0.5" title="특정일 선택">
-                          📅<input type="date" className="sr-only" onChange={e => e.target.value && updateSubTaskDate(st.id, e.target.value)} />
+                          📅<input type="date" className="sr-only" onChange={e => { e.stopPropagation(); if (e.target.value) updateSubTaskDate(st.id, e.target.value) }} />
                         </label>
                       </div>
                     )}
                   </div>
                   {/* 삭제 */}
-                  <div className="flex items-center gap-1.5 opacity-0 group-hover/acc:opacity-100 transition-opacity">
+                  <div className="flex items-center gap-1.5 opacity-0 group-hover/acc:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
                     {deletingST === st.id ? (
                       <>
-                        <button onClick={() => deleteSubTask(st.id)} className="text-[10px] text-red-500 font-semibold px-1">삭제</button>
-                        <button onClick={() => setDeletingST(null)} className="text-[10px] text-gray-400 px-1">취소</button>
+                        <button onClick={e => { e.stopPropagation(); deleteSubTask(st.id) }} className="text-[10px] text-red-500 font-semibold px-1">삭제</button>
+                        <button onClick={e => { e.stopPropagation(); setDeletingST(null) }} className="text-[10px] text-gray-400 px-1">취소</button>
                       </>
                     ) : (
-                      <button onClick={() => setDeletingST(st.id)} className="text-[10px] text-gray-300 hover:text-red-400 transition-colors px-1">삭제</button>
+                      <button onClick={e => { e.stopPropagation(); setDeletingST(st.id) }} className="text-[10px] text-gray-300 hover:text-red-400 transition-colors px-1">삭제</button>
                     )}
                   </div>
                   <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold flex-shrink-0 ml-1 ${STATUS_CLS[st.status as Status]}`}>
