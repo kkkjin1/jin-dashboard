@@ -532,7 +532,7 @@ export default function AgendaItemDetailPage() {
                   {/* 상태 점 */}
                   <button type="button" onClick={() => cycleSTStatus(st)} title={STATUS_LABEL[st.status as Status]}
                     style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: stColor, border: 'none', cursor: 'pointer', padding: 0 }} />
-                  {/* 타이틀: 편집 중이면 input, 아니면 토글 버튼 */}
+                  {/* 타이틀: 편집 중이면 input, 아니면 텍스트 */}
                   {editingSTId === st.id ? (
                     <div className="flex-1 min-w-0">
                       <input
@@ -550,11 +550,10 @@ export default function AgendaItemDetailPage() {
                       />
                     </div>
                   ) : (
-                    <button type="button" onClick={() => toggleST(st.id)}
-                      className="flex-1 min-w-0 text-sm font-semibold truncate text-left bg-transparent border-none p-0 cursor-pointer"
-                      style={{ color: st.status === 'done' ? '#9CA3AF' : '#1A2233', textDecoration: st.status === 'done' ? 'line-through' : 'none', outline: 'none' }}>
+                    <span className="flex-1 min-w-0 text-sm font-semibold truncate"
+                      style={{ color: st.status === 'done' ? '#9CA3AF' : '#1A2233', textDecoration: st.status === 'done' ? 'line-through' : 'none' }}>
                       {st.title}
-                    </button>
+                    </span>
                   )}
                   {/* ✏ 제목 수정 */}
                   {editingSTId !== st.id && (
