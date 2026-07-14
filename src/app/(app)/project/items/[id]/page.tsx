@@ -55,6 +55,34 @@ interface SubTaskNote {
   content: string
   created_at: string
   edited_at?: string | null
+  title?: string | null
+}
+
+function NoteTitleInput({
+  note, placeholder, onSave,
+}: {
+  note: SubTaskNote
+  placeholder: string
+  onSave: (title: string) => void
+}) {
+  const [val, setVal] = useState(note.title ?? '')
+  useEffect(() => { setVal(note.title ?? '') }, [note.title])
+  return (
+    <input
+      value={val}
+      onChange={e => setVal(e.target.value)}
+      onKeyDown={e => {
+        e.stopPropagation()
+        if (e.key === 'Enter' && !e.nativeEvent.isComposing) e.currentTarget.blur()
+        if (e.key === 'Escape') { setVal(note.title ?? ''); e.currentTarget.blur() }
+      }}
+      onBlur={() => { const t = val.trim(); if (t !== (note.title ?? '')) onSave(t) }}
+      onClick={e => e.stopPropagation()}
+      onFocus={e => e.stopPropagation()}
+      placeholder={placeholder}
+      className="text-xs font-medium bg-transparent border-b border-transparent hover:border-gray-200 focus:border-blue-400 focus:outline-none transition-colors cursor-text flex-1 min-w-0 text-gray-600 placeholder:text-gray-400"
+    />
+  )
 }
 
 interface SubTaskWithNote extends AgendaSubTask {
@@ -293,6 +321,19 @@ export default function AgendaItemDetailPage() {
       }))
     }
     setAddingNoteFor(null)
+  }
+
+  // ── 기록 제목 저장 ──────────────────────────────────────────────
+  async function updateNoteTitle(noteId: string, stId: string, title: string) {
+    await supabase.from('sub_task_notes').update({ title: title || null }).eq('id', noteId)
+    setSubTasks(p => p.map(s => {
+      if (s.id !== stId) return s
+      return {
+        ...s,
+        currentNote: s.currentNote?.id === noteId ? { ...s.currentNote, title: title || null } : s.currentNote,
+        historyNotes: s.historyNotes.map(n => n.id === noteId ? { ...n, title: title || null } : n),
+      }
+    }))
   }
 
   // ── 과거 기록 토글 ──────────────────────────────────────────────
@@ -551,14 +592,20 @@ export default function AgendaItemDetailPage() {
                 {/* 아코디언 본문 */}
                 {isOpen && (
                   <div style={{ borderTop: '1px solid #E5E9F0', background: '#FAFBFD' }}>
-                    {/* ── 툴바: 날짜 정보 + 액션 버튼 ── */}
-                    <div className="flex items-center justify-between px-5 pt-2.5 pb-0.5">
-                      <span className="text-[10px] text-gray-400">
-                        {st.currentNote
-                          ? `${formatNoteDate(st.currentNote.created_at)} 기록${st.historyNotes.length > 0 ? ` · 총 ${st.historyNotes.length + 1}개` : ''}`
-                          : '기록 없음'}
-                      </span>
-                      <div className="flex items-center gap-2">
+                    {/* ── 툴바: 현재 기록 제목 편집 + 액션 버튼 ── */}
+                    <div className="flex items-center justify-between px-5 pt-2.5 pb-0.5 gap-2">
+                      <div className="flex-1 min-w-0">
+                        {st.currentNote ? (
+                          <NoteTitleInput
+                            note={st.currentNote}
+                            placeholder={`${formatNoteDate(st.currentNote.created_at)} 기록${st.historyNotes.length > 0 ? ` · 총 ${st.historyNotes.length + 1}개` : ''}`}
+                            onSave={title => updateNoteTitle(st.currentNote!.id, st.id, title)}
+                          />
+                        ) : (
+                          <span className="text-[10px] text-gray-300">기록 없음</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
                         <button
                           onClick={e => { e.stopPropagation(); addNoteEntry(st) }}
                           disabled={addingNoteFor === st.id || !hasNoteContent(st.currentNote?.content ?? '')}
@@ -590,12 +637,18 @@ export default function AgendaItemDetailPage() {
                           const isNoteOpen = openHistoryNotes[st.id]?.has(note.id) ?? false
                           return (
                             <div key={note.id} className="border-t border-gray-100/60">
-                              <button
-                                onClick={e => { e.stopPropagation(); toggleHistoryNote(st.id, note.id) }}
-                                className="w-full flex items-center gap-2 px-5 py-2 hover:bg-gray-50/80 transition-colors text-left">
-                                <span style={{ fontSize: 8, color: '#94A3B8', display: 'inline-block', transition: 'transform .12s', transform: isNoteOpen ? 'rotate(90deg)' : 'rotate(0deg)', flexShrink: 0 }}>▶</span>
-                                <span className="text-xs text-gray-600">{formatNoteDate(note.created_at)} 기록</span>
-                              </button>
+                              <div className="flex items-center gap-2 px-5 py-2 hover:bg-gray-50/80 transition-colors">
+                                <button
+                                  onClick={e => { e.stopPropagation(); toggleHistoryNote(st.id, note.id) }}
+                                  className="flex-shrink-0 p-0.5">
+                                  <span style={{ fontSize: 8, color: '#94A3B8', display: 'inline-block', transition: 'transform .12s', transform: isNoteOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
+                                </button>
+                                <NoteTitleInput
+                                  note={note}
+                                  placeholder={`${formatNoteDate(note.created_at)} 기록`}
+                                  onSave={title => updateNoteTitle(note.id, st.id, title)}
+                                />
+                              </div>
                               {isNoteOpen && (
                                 <div className="border-t border-gray-100/40 bg-white/60">
                                   <TiptapEditor
@@ -732,12 +785,18 @@ export default function AgendaItemDetailPage() {
                   const isNoteOpen = openHistoryNotes[expandST.id]?.has(note.id) ?? false
                   return (
                     <div key={note.id} className="border-t border-gray-100">
-                      <button
-                        onClick={() => toggleHistoryNote(expandST.id, note.id)}
-                        className="w-full flex items-center gap-2 py-2.5 hover:bg-gray-50 transition-colors text-left rounded">
-                        <span style={{ fontSize: 8, color: '#94A3B8', display: 'inline-block', transition: 'transform .12s', transform: isNoteOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
-                        <span className="text-sm text-gray-600 font-medium">{formatNoteDate(note.created_at)} 기록</span>
-                      </button>
+                      <div className="flex items-center gap-2 py-2 hover:bg-gray-50 transition-colors rounded">
+                        <button
+                          onClick={() => toggleHistoryNote(expandST.id, note.id)}
+                          className="flex-shrink-0 p-1">
+                          <span style={{ fontSize: 8, color: '#94A3B8', display: 'inline-block', transition: 'transform .12s', transform: isNoteOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
+                        </button>
+                        <NoteTitleInput
+                          note={note}
+                          placeholder={`${formatNoteDate(note.created_at)} 기록`}
+                          onSave={title => updateNoteTitle(note.id, expandST.id, title)}
+                        />
+                      </div>
                       {isNoteOpen && (
                         <div className="border-t border-gray-100 bg-gray-50/50 rounded-lg mb-2">
                           <TiptapEditor
