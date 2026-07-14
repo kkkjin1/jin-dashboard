@@ -3,7 +3,6 @@
 import { useEffect } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
-import Underline from '@tiptap/extension-underline'
 import { Color, TextStyle } from '@tiptap/extension-text-style'
 import Highlight from '@tiptap/extension-highlight'
 
@@ -55,6 +54,14 @@ const HIGHLIGHTS = [
   { hex: '#FBCFE8', label: '핑크' },
 ]
 
+// 모듈 레벨 상수 — 렌더마다 새 참조 생성 방지 (Tiptap v3에서 extensions 참조 변경 시 refreshEditorInstance 호출됨)
+const EXTENSIONS = [
+  StarterKit,  // StarterKit v3에 Underline 포함
+  TextStyle,
+  Color,
+  Highlight.configure({ multicolor: true }),
+]
+
 interface Props {
   value: string
   onChange: (html: string) => void
@@ -70,13 +77,7 @@ export default function TiptapEditor({
   value, onChange, onSubmit, onEscape, onExpand, autoFocus, minHeight = 160, className,
 }: Props) {
   const editor = useEditor({
-    extensions: [
-      StarterKit,
-      Underline,
-      TextStyle,
-      Color,
-      Highlight.configure({ multicolor: true }),
-    ],
+    extensions: EXTENSIONS,
     content: legacyToHtml(value),
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
     editorProps: {
