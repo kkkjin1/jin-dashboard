@@ -114,7 +114,7 @@ function ObjectiveBlock({
 
   // Dates = union of entry dates + locally added dates, newest first
   const entryDates = subEntries.map(e => e.entry_date)
-  const allDates = [...new Set([...entryDates, ...localDates])].sort().reverse()
+  const allDates = [...new Set([...entryDates, ...localDates])].sort()
 
   async function saveTitle() {
     const t = titleVal.trim()
@@ -524,3 +524,4 @@ export default function ObjectivesPage() {
     </div>
   )
 }
+
