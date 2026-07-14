@@ -16,40 +16,70 @@ const STATUS_CLS: Record<Status, string> = {
 }
 const STATUS_DOT: Record<Status, string> = { active: '#3B82F6', hold: '#F59E0B', done: '#10B981' }
 
-function STTitleInput({
-  st, stColor, onSave,
+function STTitleCell({
+  st, onSave, onToggle,
 }: {
   st: { id: string; title: string; status: string }
-  stColor: string
   onSave: (stId: string, title: string) => void
+  onToggle: () => void
 }) {
+  const [editing, setEditing] = useState(false)
   const [val, setVal] = useState(st.title)
-  useEffect(() => { setVal(st.title) }, [st.title])
+  useEffect(() => { if (!editing) setVal(st.title) }, [st.title, editing])
+
+  const save = (v: string) => {
+    const t = v.trim()
+    if (t && t !== st.title) onSave(st.id, t)
+    else setVal(st.title)
+    setEditing(false)
+  }
+
+  if (editing) {
+    return (
+      <div className="flex-1 min-w-0" onClick={e => e.stopPropagation()}>
+        <input
+          autoFocus
+          value={val}
+          onChange={e => setVal(e.target.value)}
+          onKeyDown={e => {
+            e.stopPropagation()
+            if (e.key === 'Enter' && !e.nativeEvent.isComposing) save(val)
+            if (e.key === 'Escape') { setVal(st.title); setEditing(false) }
+          }}
+          onBlur={() => save(val)}
+          onClick={e => e.stopPropagation()}
+          className="text-sm font-semibold bg-transparent border-b-2 border-blue-400 focus:outline-none w-full"
+          style={{
+            color: st.status === 'done' ? '#9CA3AF' : '#1A2233',
+            textDecoration: st.status === 'done' ? 'line-through' : 'none',
+          }}
+        />
+      </div>
+    )
+  }
+
   return (
-    <input
-      value={val}
-      onChange={e => setVal(e.target.value)}
-      onKeyDown={e => {
-        e.stopPropagation()
-        if (e.key === 'Enter' && !e.nativeEvent.isComposing) e.currentTarget.blur()
-        if (e.key === 'Escape') { setVal(st.title); e.currentTarget.blur() }
-      }}
-      onBlur={() => {
-        const t = val.trim()
-        if (t && t !== st.title) onSave(st.id, t)
-        else setVal(st.title)
-      }}
-      onClick={e => e.stopPropagation()}
-      onFocus={e => e.stopPropagation()}
-      className="text-sm font-semibold bg-transparent border-b border-transparent hover:border-gray-200 focus:border-blue-400 focus:outline-none transition-colors cursor-text"
-      style={{
-        color: st.status === 'done' ? '#9CA3AF' : '#1A2233',
-        textDecoration: st.status === 'done' ? 'line-through' : 'none',
-        minWidth: '40px',
-        maxWidth: '100%',
-        fieldSizing: 'content',
-      } as React.CSSProperties}
-    />
+    <div
+      className="flex-1 min-w-0 flex items-center gap-1 group/stname"
+      onClick={e => { e.stopPropagation(); onToggle() }}
+    >
+      <span
+        className="text-sm font-semibold truncate"
+        style={{
+          color: st.status === 'done' ? '#9CA3AF' : '#1A2233',
+          textDecoration: st.status === 'done' ? 'line-through' : 'none',
+        }}
+      >
+        {st.title}
+      </span>
+      <button
+        onClick={e => { e.stopPropagation(); setEditing(true) }}
+        className="opacity-0 group-hover/stname:opacity-60 hover:!opacity-100 transition-opacity text-gray-400 hover:text-gray-700 text-[10px] px-0.5 flex-shrink-0"
+        title="이름 수정"
+      >
+        ✏
+      </button>
+    </div>
   )
 }
 
@@ -552,9 +582,7 @@ export default function AgendaItemDetailPage() {
                   <span style={{ fontSize: 8, color: '#8FA0B5', display: 'inline-block', transition: 'transform .15s', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', flexShrink: 0, lineHeight: 1 }}>▶</span>
                   <button onClick={e => { e.stopPropagation(); cycleSTStatus(st) }} title={STATUS_LABEL[st.status as Status]}
                     style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: stColor, border: 'none', cursor: 'pointer', padding: 0 }} />
-                  <div className="flex-1 min-w-0" onClick={e => { e.stopPropagation(); toggleST(st.id) }}>
-                    <STTitleInput st={st} stColor={stColor} onSave={updateSTTitle} />
-                  </div>
+                  <STTitleCell st={st} onSave={updateSTTitle} onToggle={() => toggleST(st.id)} />
                   {/* 날짜 뱃지 / 지정 버튼 */}
                   <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
                     {st.target_date ? (

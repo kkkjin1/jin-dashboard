@@ -113,18 +113,35 @@ export default function TextSelectionCapture({ sourceName, sourceType }: Props) 
   async function linkToItem(item: AgendaItemResult) {
     if (!float) return
     setSaving(true)
-    const { data: existing } = await supabase
-      .from('agenda_items')
-      .select('description')
-      .eq('id', item.id)
-      .single()
     const today = new Date().toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' })
-    const safeText = float.text.replace(/\n/g, '</p><p>')
-    const appendHtml = `<p><strong>[${sourceType} 발췌 · ${sourceName.slice(0, 20)} · ${today}]</strong></p><p>${safeText}</p>`
-    const baseDesc = existing?.description ?? ''
-    const isEmpty = !baseDesc || baseDesc.replace(/<[^>]*>/g, '').trim() === ''
-    const newDesc = isEmpty ? appendHtml : baseDesc + '<hr>' + appendHtml
-    await supabase.from('agenda_items').update({ description: newDesc }).eq('id', item.id)
+    const stTitle = `[${sourceType}] ${sourceName.slice(0, 24)} · ${today}`
+
+    // 기존 서브태스크의 최대 sort_order 조회
+    const { data: existingSTs } = await supabase
+      .from('agenda_sub_tasks')
+      .select('sort_order')
+      .eq('agenda_item_id', item.id)
+      .order('sort_order', { ascending: false })
+      .limit(1)
+    const nextOrder = ((existingSTs?.[0] as any)?.sort_order ?? 0) + 1
+
+    // 새 서브태스크 생성
+    const { data: newST } = await supabase
+      .from('agenda_sub_tasks')
+      .insert({ agenda_item_id: item.id, title: stTitle, status: 'active', sort_order: nextOrder })
+      .select()
+      .single()
+
+    // 선택된 텍스트를 노트로 추가
+    if (newST) {
+      const safeHtml = `<p>${float.text.replace(/\n/g, '</p><p>')}</p>`
+      await supabase.from('sub_task_notes').insert({
+        sub_task_id: (newST as any).id,
+        title: `${sourceType} 발췌`,
+        content: safeHtml,
+      })
+    }
+
     setSaving(false)
     setMode('saved-link')
     window.getSelection()?.removeAllRanges()
