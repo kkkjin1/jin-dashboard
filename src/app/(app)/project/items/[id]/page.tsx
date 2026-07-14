@@ -580,12 +580,12 @@ export default function AgendaItemDetailPage() {
                         {stDateLabel(st.target_date)} ×
                       </button>
                     ) : (
-                      <div className="flex items-center gap-0.5 opacity-0 group-hover/acc:opacity-100 transition-opacity">
+                      <div className="flex items-center gap-0.5 opacity-0 pointer-events-none group-hover/acc:opacity-100 group-hover/acc:pointer-events-auto transition-opacity">
                         <button onClick={e => { e.stopPropagation(); updateSubTaskDate(st.id, sched.today) }}    className="text-[9px] px-1.5 py-0.5 rounded bg-red-50   text-red-600   hover:bg-red-100   border border-red-100   font-medium">오늘</button>
                         <button onClick={e => { e.stopPropagation(); updateSubTaskDate(st.id, sched.tomorrow) }} className="text-[9px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-100 font-medium">내일</button>
                         <button onClick={e => { e.stopPropagation(); updateSubTaskDate(st.id, sched.friday) }}   className="text-[9px] px-1.5 py-0.5 rounded bg-blue-50  text-blue-600  hover:bg-blue-100  border border-blue-100  font-medium">금주</button>
-                        <label className="cursor-pointer text-gray-400 hover:text-gray-600 text-[10px] px-0.5" title="특정일 선택">
-                          📅<input type="date" className="sr-only" onChange={e => { e.stopPropagation(); if (e.target.value) updateSubTaskDate(st.id, e.target.value) }} />
+                        <label className="relative cursor-pointer text-gray-400 hover:text-gray-600 text-[10px] px-0.5" title="특정일 선택">
+                          📅<input type="date" className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" onChange={e => { e.stopPropagation(); if (e.target.value) updateSubTaskDate(st.id, e.target.value) }} />
                         </label>
                       </div>
                     )}
