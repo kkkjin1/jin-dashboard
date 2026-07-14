@@ -538,20 +538,25 @@ export default function AgendaItemDetailPage() {
                 {/* 아코디언 본문 */}
                 {isOpen && (
                   <div style={{ borderTop: '1px solid #E5E9F0', background: '#FAFBFD' }}>
-                    {/* ── 현재 기록 헤더 ── */}
+                    {/* ── 툴바: 날짜 정보 + 액션 버튼 ── */}
                     <div className="flex items-center justify-between px-5 pt-2.5 pb-0.5">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[10px] font-semibold text-gray-500">
-                          {st.currentNote ? formatNoteDate(st.currentNote.created_at) : '새 기록'}
-                        </span>
-                        {(st.currentNote || st.historyNotes.length > 0) && (
-                          <span className="text-[9px] bg-blue-50 text-blue-400 border border-blue-100 px-1.5 py-0.5 rounded-full">최신</span>
-                        )}
+                      <span className="text-[10px] text-gray-400">
+                        {st.currentNote
+                          ? `${formatNoteDate(st.currentNote.created_at)} 기록${st.historyNotes.length > 0 ? ` · 총 ${st.historyNotes.length + 1}개` : ''}`
+                          : '기록 없음'}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={e => { e.stopPropagation(); addNoteEntry(st) }}
+                          disabled={addingNoteFor === st.id || !hasNoteContent(st.currentNote?.content ?? '')}
+                          className="text-[10px] text-[#5DBD97] hover:text-[#4aab84] disabled:text-gray-300 disabled:cursor-not-allowed transition-colors border border-[#5DBD97]/30 disabled:border-gray-200 rounded px-2 py-0.5">
+                          {addingNoteFor === st.id ? '추가 중…' : '+ 새 기록'}
+                        </button>
+                        <button onClick={e => { e.stopPropagation(); setExpandFor(st.id) }}
+                          className="text-[10px] text-gray-400 hover:text-gray-600 px-2 py-0.5 rounded hover:bg-gray-100 transition-colors">
+                          크게 편집
+                        </button>
                       </div>
-                      <button onClick={e => { e.stopPropagation(); setExpandFor(st.id) }}
-                        className="text-[10px] text-gray-400 hover:text-gray-600 px-2 py-0.5 rounded hover:bg-gray-100 transition-colors">
-                        크게 편집
-                      </button>
                     </div>
                     <TiptapEditor
                       value={st.currentNote?.content ?? ''}
@@ -561,21 +566,12 @@ export default function AgendaItemDetailPage() {
                       className="px-5 py-2"
                     />
 
-                    {/* ── 새 기록 추가 버튼 ── */}
-                    <div className="px-5 pb-3 flex justify-end">
-                      <button
-                        onClick={e => { e.stopPropagation(); addNoteEntry(st) }}
-                        disabled={addingNoteFor === st.id || !hasNoteContent(st.currentNote?.content ?? '')}
-                        className="text-[10px] text-[#5DBD97] hover:text-[#4aab84] disabled:text-gray-300 disabled:cursor-not-allowed transition-colors flex items-center gap-1">
-                        {addingNoteFor === st.id ? '추가 중…' : '+ 새 기록 추가'}
-                      </button>
-                    </div>
-
                     {/* ── 과거 기록 타임라인 ── */}
                     {st.historyNotes.length > 0 && (
                       <div className="border-t border-gray-100/80">
-                        <div className="px-5 py-1.5">
-                          <span className="text-[9px] font-semibold text-gray-400 uppercase tracking-wide">과거 기록 · {st.historyNotes.length}개</span>
+                        <div className="px-5 py-1.5 flex items-center gap-1">
+                          <span className="text-[9px] font-semibold text-gray-400 uppercase tracking-wide">이전 기록</span>
+                          <span className="text-[9px] text-gray-300">· {st.historyNotes.length}개</span>
                         </div>
                         {st.historyNotes.map(note => {
                           const isNoteOpen = openHistoryNotes[st.id]?.has(note.id) ?? false
@@ -585,10 +581,7 @@ export default function AgendaItemDetailPage() {
                                 onClick={e => { e.stopPropagation(); toggleHistoryNote(st.id, note.id) }}
                                 className="w-full flex items-center gap-2 px-5 py-2 hover:bg-gray-50/80 transition-colors text-left">
                                 <span style={{ fontSize: 8, color: '#94A3B8', display: 'inline-block', transition: 'transform .12s', transform: isNoteOpen ? 'rotate(90deg)' : 'rotate(0deg)', flexShrink: 0 }}>▶</span>
-                                <span className="text-xs text-gray-500 font-medium">{formatNoteDate(note.created_at)}</span>
-                                {note.edited_at && note.edited_at !== note.created_at && (
-                                  <span className="text-[9px] text-gray-300">수정됨</span>
-                                )}
+                                <span className="text-xs text-gray-600">{formatNoteDate(note.created_at)} 기록</span>
                               </button>
                               {isNoteOpen && (
                                 <div className="border-t border-gray-100/40 bg-white/60">
@@ -596,7 +589,7 @@ export default function AgendaItemDetailPage() {
                                     value={note.content}
                                     onChange={() => {}}
                                     minHeight={60}
-                                    className="px-5 py-2 opacity-80"
+                                    className="px-5 py-2"
                                   />
                                 </div>
                               )}
@@ -683,12 +676,31 @@ export default function AgendaItemDetailPage() {
                 {expandFor === 'description' ? (item?.title ?? '') : (expandST?.title ?? '세부task 노트')}
               </div>
             </div>
-            <button onClick={() => setExpandFor(null)}
-              className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-600 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200">
-              <span>ESC</span><span> 닫기</span>
-            </button>
+            <div className="flex items-center gap-2">
+              {expandST && (
+                <button
+                  onClick={() => addNoteEntry(expandST)}
+                  disabled={addingNoteFor === expandST.id || !hasNoteContent(expandST.currentNote?.content ?? '')}
+                  className="text-xs text-[#5DBD97] hover:text-[#4aab84] disabled:text-gray-300 disabled:cursor-not-allowed border border-[#5DBD97]/30 disabled:border-gray-200 rounded-lg px-3 py-1.5 transition-colors">
+                  {addingNoteFor === expandST.id ? '추가 중…' : '+ 새 기록'}
+                </button>
+              )}
+              <button onClick={() => setExpandFor(null)}
+                className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-600 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200">
+                <span>ESC</span><span> 닫기</span>
+              </button>
+            </div>
           </div>
-          <div className="flex-1 min-h-0 flex flex-col overflow-auto">
+          <div className="flex-1 min-h-0 overflow-auto">
+            {/* 현재 기록 날짜 */}
+            {expandST?.currentNote && (
+              <div className="px-8 pt-4 pb-0">
+                <span className="text-xs text-gray-400 font-medium">
+                  {formatNoteDate(expandST.currentNote.created_at)} 기록
+                  {expandST.historyNotes.length > 0 && <span className="ml-2 text-gray-300">· 총 {expandST.historyNotes.length + 1}개</span>}
+                </span>
+              </div>
+            )}
             <TiptapEditor
               value={expandFor === 'description' ? description : (expandST?.currentNote?.content ?? '')}
               onChange={v => {
@@ -696,9 +708,38 @@ export default function AgendaItemDetailPage() {
                 else if (expandST) handleCurrentNote(expandST, v)
               }}
               autoFocus
-              minHeight={400}
-              className="px-8 py-6"
+              minHeight={300}
+              className="px-8 py-4"
             />
+            {/* 이전 기록 타임라인 (세부task만) */}
+            {expandST && expandST.historyNotes.length > 0 && (
+              <div className="border-t border-gray-100 mx-8 mb-8">
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide py-3">이전 기록 · {expandST.historyNotes.length}개</p>
+                {expandST.historyNotes.map(note => {
+                  const isNoteOpen = openHistoryNotes[expandST.id]?.has(note.id) ?? false
+                  return (
+                    <div key={note.id} className="border-t border-gray-100">
+                      <button
+                        onClick={() => toggleHistoryNote(expandST.id, note.id)}
+                        className="w-full flex items-center gap-2 py-2.5 hover:bg-gray-50 transition-colors text-left rounded">
+                        <span style={{ fontSize: 8, color: '#94A3B8', display: 'inline-block', transition: 'transform .12s', transform: isNoteOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
+                        <span className="text-sm text-gray-600 font-medium">{formatNoteDate(note.created_at)} 기록</span>
+                      </button>
+                      {isNoteOpen && (
+                        <div className="border-t border-gray-100 bg-gray-50/50 rounded-lg mb-2">
+                          <TiptapEditor
+                            value={note.content}
+                            onChange={() => {}}
+                            minHeight={80}
+                            className="px-4 py-3"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
         </div>
       )}
