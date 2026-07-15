@@ -496,8 +496,10 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
   const [draggingSTId,    setDraggingSTId]    = useState<string | null>(null)
   const [dragOverSTId,    setDragOverSTId]    = useState<string | null>(null)
   const [periodPickerItemId, setPeriodPickerItemId] = useState<string | null>(null)
-  const [periodPickerPos,  setPeriodPickerPos]  = useState<{ x: number; y: number } | null>(null)
-  const [periodPickerYear, setPeriodPickerYear] = useState(() => new Date().getFullYear())
+  const [periodPickerPos,    setPeriodPickerPos]    = useState<{ x: number; y: number } | null>(null)
+  const [periodPickerYear,   setPeriodPickerYear]   = useState(() => new Date().getFullYear())
+  const [periodPickerStartM, setPeriodPickerStartM] = useState<number>(1)
+  const [periodPickerEndM,   setPeriodPickerEndM]   = useState<number>(12)
   const [rdDraggingId,    setRdDraggingId]    = useState<string | null>(null)
   const [rdDragOverId,    setRdDragOverId]    = useState<string | null>(null)
 
@@ -1247,24 +1249,31 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
     type RdPeriodKey = typeof RD_PERIODS[number]['key']
     const RD_MAP = Object.fromEntries(RD_PERIODS.map(p => [p.key, p])) as Record<RdPeriodKey, typeof RD_PERIODS[number]>
 
-    // "2026-Q1" 형식 파싱
-    const parsePd = (val: string | null | undefined): { year: number; key: string; info: typeof RD_PERIODS[number] } | null => {
+    // "2026-Q1" or "2026-3-11" 형식 파싱
+    type ParsedPd = { year: number; key: string; label: string; color: string; months: number[] }
+    const parsePd = (val: string | null | undefined): ParsedPd | null => {
       if (!val) return null
-      const dash = val.indexOf('-')
-      if (dash > 0) {
-        const yr = Number(val.slice(0, dash))
-        const k  = val.slice(dash + 1)
-        const info = RD_MAP[k as RdPeriodKey]
-        if (!isNaN(yr) && info) return { year: yr, key: k, info }
+      const di = val.indexOf('-')
+      if (di < 0) return null
+      const yr = Number(val.slice(0, di))
+      if (isNaN(yr)) return null
+      const rest = val.slice(di + 1)
+      // 커스텀 월 범위: "3-11"
+      const cm = rest.match(/^(\d{1,2})-(\d{1,2})$/)
+      if (cm) {
+        const sm = Number(cm[1]) - 1, em = Number(cm[2]) - 1
+        const months = Array.from({ length: em - sm + 1 }, (_, i) => sm + i)
+        return { year: yr, key: rest, label: `${cm[1]}-${cm[2]}월`, color: '#8B5CF6', months }
       }
-      const info = RD_MAP[val as RdPeriodKey]
-      if (info) return { year: yearNav, key: val, info }
+      // 표준 키: Q1, H1 등
+      const info = RD_MAP[rest as RdPeriodKey]
+      if (info) return { year: yr, key: rest, label: info.label, color: info.color, months: info.months as unknown as number[] }
       return null
     }
     const pdBadgeLabel = (val: string | null | undefined): string => {
       const p = parsePd(val)
       if (!p) return '+'
-      return p.year === yearNav ? p.info.label : `${String(p.year).slice(2)}·${p.info.label}`
+      return p.year === yearNav ? p.label : `${String(p.year).slice(2)}·${p.label}`
     }
     const openPeriodPicker = (e: React.MouseEvent, item: AgendaItem) => {
       e.stopPropagation()
@@ -1272,6 +1281,10 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
       const p = parsePd(item.roadmap_period)
       setPeriodPickerYear(p?.year ?? yearNav)
+      if (p) {
+        setPeriodPickerStartM((p.months[0] ?? 0) + 1)
+        setPeriodPickerEndM((p.months[p.months.length - 1] ?? 11) + 1)
+      }
       setPeriodPickerItemId(item.id)
       setPeriodPickerPos({ x: rect.left, y: rect.bottom + 4 })
     }
@@ -1305,6 +1318,61 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
       </thead>
     )
 
+    // ── 공통: Period picker (fixed, 테이블 stacking 밖) ──────────────
+    const MONTHS_KO = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월']
+    const rdPicker = (() => {
+      if (!periodPickerItemId || !periodPickerPos) return null
+      const item = items.find(i => i.id === periodPickerItemId)
+      if (!item) return null
+      const cur = parsePd(item.roadmap_period)
+      return (
+        <div onClick={e => e.stopPropagation()}
+          style={{ position: 'fixed', top: periodPickerPos.y, left: periodPickerPos.x, zIndex: 9999, background: 'white', border: '1px solid #E2E8F0', borderRadius: 10, padding: 10, boxShadow: '0 8px 28px rgba(0,0,0,0.15)', width: 196 }}>
+          {/* ── 연도 화살표 ── */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <button onClick={() => setPeriodPickerYear(p => p - 1)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, color: '#6B7280', padding: '0 4px', lineHeight: 1 }}>‹</button>
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#1B3A6B' }}>{periodPickerYear}년</span>
+            <button onClick={() => setPeriodPickerYear(p => p + 1)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, color: '#6B7280', padding: '0 4px', lineHeight: 1 }}>›</button>
+          </div>
+          {/* ── 분기/반기 단축키 ── */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3, marginBottom: 8 }}>
+            {RD_PERIODS.map(p => {
+              const isActive = cur?.year === periodPickerYear && cur?.key === p.key
+              return (
+                <button key={p.key} onClick={() => updateRoadmapPeriod(item.id, periodPickerYear, p.key)}
+                  style={{ fontSize: 10, fontWeight: 700, padding: '4px 0', borderRadius: 5, cursor: 'pointer',
+                    color: isActive ? 'white' : p.color,
+                    background: isActive ? p.color : hexToRgba(p.color, 0.08),
+                    border: `1px solid ${hexToRgba(p.color, 0.3)}` }}>
+                  {p.label}
+                </button>
+              )
+            })}
+          </div>
+          {/* ── 직접 월 입력 ── */}
+          <div style={{ borderTop: '1px solid #F1F5F9', paddingTop: 8 }}>
+            <div style={{ fontSize: 9, fontWeight: 600, color: '#94A3B8', letterSpacing: '.05em', marginBottom: 5 }}>직접 입력</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <select value={periodPickerStartM} onChange={e => setPeriodPickerStartM(Number(e.target.value))}
+                style={{ flex: 1, fontSize: 11, border: '1px solid #E2E8F0', borderRadius: 5, padding: '3px 2px', cursor: 'pointer', background: 'white', color: '#374151' }}>
+                {MONTHS_KO.map((m, i) => <option key={i+1} value={i+1}>{m}</option>)}
+              </select>
+              <span style={{ fontSize: 10, color: '#9CA3AF', flexShrink: 0 }}>~</span>
+              <select value={periodPickerEndM} onChange={e => setPeriodPickerEndM(Number(e.target.value))}
+                style={{ flex: 1, fontSize: 11, border: '1px solid #E2E8F0', borderRadius: 5, padding: '3px 2px', cursor: 'pointer', background: 'white', color: '#374151' }}>
+                {MONTHS_KO.map((m, i) => <option key={i+1} value={i+1}>{m}</option>)}
+              </select>
+              <button onClick={() => updateRoadmapPeriod(item.id, periodPickerYear, `${periodPickerStartM}-${periodPickerEndM}`)}
+                style={{ fontSize: 10, fontWeight: 700, color: 'white', background: '#1B3A6B', border: 'none', borderRadius: 5, padding: '3px 7px', cursor: 'pointer', flexShrink: 0 }}>적용</button>
+            </div>
+          </div>
+          {/* ── 없음 ── */}
+          <button onClick={() => updateRoadmapPeriod(item.id, null, null)}
+            style={{ width: '100%', fontSize: 10, color: '#9CA3AF', background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 5, padding: '3px 0', cursor: 'pointer', marginTop: 6 }}>없음</button>
+        </div>
+      )
+    })()
+
     // ── 공통: 안건 한 행 렌더 ──
     const rdItemRow = (item: AgendaItem, gColor: string) => {
       const itemSTs  = subTasks.filter(st => st.agenda_item_id === item.id && st.target_date?.startsWith(yearStr))
@@ -1316,7 +1384,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
       const isDone  = item.status === 'done'
       const period  = item.roadmap_period ?? null
       const pd      = parsePd(period)
-      const pInfo   = pd?.year === yearNav ? pd.info : null
+      const pInfo   = pd?.year === yearNav ? pd : null
       const isRdOver   = rdDragOverId === item.id
       const isRdDragging = rdDraggingId === item.id
 
@@ -1338,9 +1406,9 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
               {/* period 뱃지 (드롭다운은 fixed로 별도 렌더) */}
               <button onClick={e => openPeriodPicker(e, item)}
                 style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 4, cursor: 'pointer', lineHeight: 1.6, minWidth: 24, textAlign: 'center', flexShrink: 0, transition: 'all 0.1s',
-                  color: pd ? pd.info.color : '#9CA3AF',
-                  background: pd ? hexToRgba(pd.info.color, 0.1) : 'transparent',
-                  border: pd ? `1px solid ${hexToRgba(pd.info.color, 0.35)}` : '1px dashed #D1D5DB' }}>
+                  color: pd ? pd.color : '#9CA3AF',
+                  background: pd ? hexToRgba(pd.color, 0.1) : 'transparent',
+                  border: pd ? `1px solid ${hexToRgba(pd.color, 0.35)}` : '1px dashed #D1D5DB' }}>
                 {pdBadgeLabel(period)}
               </button>
               {/* 범주 도트 + 제목 */}
@@ -1427,7 +1495,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                         const isDone = item.status === 'done'
                         const period = item.roadmap_period ?? null
                         const pd     = parsePd(period)
-                        const pInfo  = pd?.year === yearNav ? pd.info : null
+                        const pInfo  = pd?.year === yearNav ? pd : null
                         const allItemSTs = subTasks.filter(st => st.agenda_item_id === item.id)
 
                         return (
@@ -1442,9 +1510,9 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                                   {/* period 뱃지 (드롭다운은 fixed로 별도 렌더) */}
                                   <button onClick={e => openPeriodPicker(e, item)}
                                     style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 4, cursor: 'pointer', lineHeight: 1.6, minWidth: 24, textAlign: 'center', flexShrink: 0, transition: 'all 0.1s',
-                                      color: pd ? pd.info.color : '#9CA3AF',
-                                      background: pd ? hexToRgba(pd.info.color, 0.1) : 'transparent',
-                                      border: pd ? `1px solid ${hexToRgba(pd.info.color, 0.35)}` : '1px dashed #D1D5DB' }}>
+                                      color: pd ? pd.color : '#9CA3AF',
+                                      background: pd ? hexToRgba(pd.color, 0.1) : 'transparent',
+                                      border: pd ? `1px solid ${hexToRgba(pd.color, 0.35)}` : '1px dashed #D1D5DB' }}>
                                     {pdBadgeLabel(period)}
                                   </button>
                                   {/* 상태 도트 + 제목 */}
@@ -1515,45 +1583,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
               </tbody>
             </table>
           </div>
-          {/* ── Period picker (fixed, 테이블 stacking 밖) ── */}
-          {periodPickerItemId && periodPickerPos && (() => {
-            const item = items.find(i => i.id === periodPickerItemId)
-            if (!item) return null
-            const cur = parsePd(item.roadmap_period)
-            return (
-              <div onClick={e => e.stopPropagation()} style={{ position: 'fixed', top: periodPickerPos.y, left: periodPickerPos.x, zIndex: 9999, background: 'white', border: '1px solid #E2E8F0', borderRadius: 10, padding: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.14)', minWidth: 168 }}>
-                {/* 연도 선택 */}
-                <div style={{ display: 'flex', gap: 3, marginBottom: 6, justifyContent: 'center' }}>
-                  {[yearNav - 1, yearNav, yearNav + 1].map(yr => (
-                    <button key={yr} onClick={() => setPeriodPickerYear(yr)}
-                      style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 5, cursor: 'pointer', border: '1px solid',
-                        color: periodPickerYear === yr ? 'white' : '#6B7280',
-                        background: periodPickerYear === yr ? '#1B3A6B' : '#F3F4F6',
-                        borderColor: periodPickerYear === yr ? '#1B3A6B' : '#E5E7EB' }}>
-                      {yr}
-                    </button>
-                  ))}
-                </div>
-                {/* 기간 선택 */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3, marginBottom: 3 }}>
-                  {RD_PERIODS.map(p => {
-                    const isActive = cur?.year === periodPickerYear && cur?.key === p.key
-                    return (
-                      <button key={p.key} onClick={() => updateRoadmapPeriod(item.id, periodPickerYear, p.key)}
-                        style={{ fontSize: 10, fontWeight: 700, padding: '4px 0', borderRadius: 5, cursor: 'pointer',
-                          color: isActive ? 'white' : p.color,
-                          background: isActive ? p.color : hexToRgba(p.color, 0.08),
-                          border: `1px solid ${hexToRgba(p.color, 0.3)}` }}>
-                        {p.label}
-                      </button>
-                    )
-                  })}
-                </div>
-                <button onClick={() => updateRoadmapPeriod(item.id, null, null)}
-                  style={{ width: '100%', fontSize: 10, color: '#9CA3AF', background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 5, padding: '3px 0', cursor: 'pointer' }}>없음</button>
-              </div>
-            )
-          })()}
+          {rdPicker}
         </>
       )
     }
@@ -1606,43 +1636,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
             </tbody>
           </table>
         </div>
-        {/* ── Period picker (fixed) ── */}
-        {periodPickerItemId && periodPickerPos && (() => {
-          const item = items.find(i => i.id === periodPickerItemId)
-          if (!item) return null
-          const cur = parsePd(item.roadmap_period)
-          return (
-            <div onClick={e => e.stopPropagation()} style={{ position: 'fixed', top: periodPickerPos.y, left: periodPickerPos.x, zIndex: 9999, background: 'white', border: '1px solid #E2E8F0', borderRadius: 10, padding: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.14)', minWidth: 168 }}>
-              <div style={{ display: 'flex', gap: 3, marginBottom: 6, justifyContent: 'center' }}>
-                {[yearNav - 1, yearNav, yearNav + 1].map(yr => (
-                  <button key={yr} onClick={() => setPeriodPickerYear(yr)}
-                    style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 5, cursor: 'pointer', border: '1px solid',
-                      color: periodPickerYear === yr ? 'white' : '#6B7280',
-                      background: periodPickerYear === yr ? '#1B3A6B' : '#F3F4F6',
-                      borderColor: periodPickerYear === yr ? '#1B3A6B' : '#E5E7EB' }}>
-                    {yr}
-                  </button>
-                ))}
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3, marginBottom: 3 }}>
-                {RD_PERIODS.map(p => {
-                  const isActive = cur?.year === periodPickerYear && cur?.key === p.key
-                  return (
-                    <button key={p.key} onClick={() => updateRoadmapPeriod(item.id, periodPickerYear, p.key)}
-                      style={{ fontSize: 10, fontWeight: 700, padding: '4px 0', borderRadius: 5, cursor: 'pointer',
-                        color: isActive ? 'white' : p.color,
-                        background: isActive ? p.color : hexToRgba(p.color, 0.08),
-                        border: `1px solid ${hexToRgba(p.color, 0.3)}` }}>
-                      {p.label}
-                    </button>
-                  )
-                })}
-              </div>
-              <button onClick={() => updateRoadmapPeriod(item.id, null, null)}
-                style={{ width: '100%', fontSize: 10, color: '#9CA3AF', background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 5, padding: '3px 0', cursor: 'pointer' }}>없음</button>
-            </div>
-          )
-        })()}
+        {rdPicker}
       </>
     )
   }
