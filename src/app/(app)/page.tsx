@@ -96,13 +96,31 @@ interface CompactColProps {
   alertIcon?: boolean
 }
 
-function DotGrid({ total, filled }: { total: number; filled: number }) {
-  const cols = 7; const rows = 4
+function CorgiIcon({ s = 1 }: { s?: number }) {
+  const w = Math.round(22 * s), h = Math.round(22 * s)
   return (
-    <div className="grid gap-[3px]" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
-      {Array.from({ length: cols * rows }, (_, i) => (
-        <div key={i} className={`w-[5px] h-[5px] rounded-full transition-colors ${i < filled ? 'bg-[#F0C048]' : 'bg-white/10'}`} />
-      ))}
+    <svg width={w} height={h} viewBox="0 0 24 24" fill="none">
+      <path d="M3 13 L6.5 2 L12 9 Z"       fill="white" opacity="0.85"/>
+      <path d="M21 13 L17.5 2 L12 9 Z"      fill="white" opacity="0.85"/>
+      <path d="M5.5 12 L8 4 L12 8.5 Z"      fill="#f5ddd0" opacity="0.55"/>
+      <path d="M18.5 12 L16 4 L12 8.5 Z"    fill="#f5ddd0" opacity="0.55"/>
+      <ellipse cx="12" cy="15" rx="9.5" ry="8.5" fill="white" opacity="0.96"/>
+      <ellipse cx="12" cy="17.5" rx="4.5" ry="2.5" fill="white" opacity="0.55"/>
+      <circle cx="8.5"  cy="13.5" r="2.1" fill="#1B3A6B" opacity="0.65"/>
+      <circle cx="15.5" cy="13.5" r="2.1" fill="#1B3A6B" opacity="0.65"/>
+      <circle cx="9.3"  cy="12.7" r="0.75" fill="white"/>
+      <circle cx="16.3" cy="12.7" r="0.75" fill="white"/>
+      <ellipse cx="12" cy="17" rx="1.5" ry="1" fill="#1B3A6B" opacity="0.38"/>
+    </svg>
+  )
+}
+function CorgiRow({ count }: { count: number }) {
+  const n = count >= 12 ? 5 : count >= 9 ? 4 : count >= 6 ? 3 : count >= 3 ? 2 : count >= 1 ? 1 : 0
+  if (n === 0) return null
+  const sc = [1, 0.85, 0.75, 0.68, 0.62][n - 1]
+  return (
+    <div className="flex items-end gap-0.5">
+      {Array.from({ length: n }, (_, i) => <CorgiIcon key={i} s={sc} />)}
     </div>
   )
 }
@@ -210,8 +228,8 @@ function CompactCol({
       )}
 
       {dark && (
-        <div className="absolute bottom-3 right-3 opacity-50 pointer-events-none">
-          <DotGrid total={28} filled={Math.min(completedCount, 28)} />
+        <div className="absolute bottom-3 right-3 pointer-events-none">
+          <CorgiRow count={completedCount} />
         </div>
       )}
     </div>
