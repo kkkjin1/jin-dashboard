@@ -1357,10 +1357,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
 
     // ── 전체 탭: period 섹션별 그룹핑 ──────────────────────────────
     if (isAll) {
-      const PERIOD_SECTIONS = [
-        ...RD_PERIODS,
-        { key: null as null, label: '미지정', color: '#94A3B8', months: [] as number[] },
-      ]
+      // 전체 로드맵: 범주 → 안건 → 세부task 3단계 계층, 목록탭 순서 동일
       return (
         <>
           {viewToggle}
@@ -1368,39 +1365,152 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
             <table style={{ borderCollapse: 'collapse', minWidth: W_LEFT + 12 * W_ROAD }}>
               {rdHeader}
               <tbody>
-                {PERIOD_SECTIONS.map(ps => {
-                  const psKey = ps.key
-                  const sectionItems = items
-                    .filter(i => (i.roadmap_period ?? null) === psKey && i.status !== 'done')
-                    .sort((a,b) => (a.roadmap_rank ?? 999) - (b.roadmap_rank ?? 999) || a.sort_order - b.sort_order)
-                  const doneItems = items.filter(i => (i.roadmap_period ?? null) === psKey && i.status === 'done')
-                  if (sectionItems.length === 0 && doneItems.length === 0 && psKey !== null) return null
-                  const sectionOpen = !openGroups.has(`rd_closed_${psKey}`)
+                {[...groups].sort((a,b) => a.sort_order - b.sort_order).map(group => {
+                  const groupItems = items.filter(i => i.group_id === group.id).sort((a,b) => a.sort_order - b.sort_order)
+                  const doneGroupItems = groupItems.filter(i => i.status === 'done')
+                  const visibleItems = showDoneGroups.has(group.id) ? groupItems : groupItems.filter(i => i.status !== 'done')
+                  const isGOpen = openGroups.has(group.id)
+                  const gColor = CAT_BORDER[group.category ?? ''] ?? group.color
+                  const gBg = CAT_BG[group.category ?? ''] ?? hexToRgba(group.color, 0.07)
+                  // 범주 집계 바: 해당 범주 전체 세부task 날짜 범위
+                  const groupSTMs = subTasks
+                    .filter(st => groupItems.some(i => i.id === st.agenda_item_id) && st.target_date?.startsWith(yearStr))
+                    .map(st => st.target_date!.slice(0,7)).sort()
+                  const gMinM = groupSTMs[0] ?? null
+                  const gMaxM = groupSTMs[groupSTMs.length-1] ?? null
+
                   return (
-                    <Fragment key={psKey ?? 'unset'}>
-                      {/* 섹션 헤더 */}
-                      <tr onClick={() => toggleGroup(`rd_closed_${psKey}`)} style={{ cursor: 'pointer', background: hexToRgba(ps.color, 0.05) }}>
-                        <td style={{ position: 'sticky', left: 0, zIndex: 2, background: hexToRgba(ps.color, 0.05), borderBottom: S.bd, borderRight: S.bdL, borderLeft: `3px solid ${ps.color}`, padding: '7px 14px' }}>
+                    <Fragment key={group.id}>
+                      {/* ── 범주 헤더 ── */}
+                      <tr style={{ background: gBg, cursor: 'pointer' }} onClick={() => toggleGroup(group.id)}>
+                        <td style={{ position: 'sticky', left: 0, zIndex: 2, background: gBg, borderBottom: S.bd, borderRight: S.bdL, borderLeft: `3px solid ${gColor}`, padding: '8px 14px' }}>
                           <div className="flex items-center gap-2">
-                            <span style={{ fontSize: 8, transform: sectionOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform .15s', color: ps.color }}>▶</span>
-                            <span style={{ fontSize: 12, fontWeight: 700, color: ps.color }}>{ps.label}</span>
-                            <span style={{ fontSize: 10, color: ps.color, background: hexToRgba(ps.color, 0.12), padding: '1px 6px', borderRadius: 99 }}>{sectionItems.length}</span>
+                            <span style={{ fontSize: 8, transform: isGOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform .15s', color: gColor }}>▶</span>
+                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: group.color, flexShrink: 0, display: 'inline-block' }} />
+                            <span style={{ fontSize: 12, fontWeight: 700, color: gColor }}>{group.name}</span>
+                            {group.category && <span style={{ fontSize: 9, color: gColor, opacity: 0.7, background: hexToRgba(gColor, 0.1), padding: '1px 5px', borderRadius: 4 }}>{group.category}</span>}
+                            <span style={{ fontSize: 10, color: S.t3, background: '#E5E9F0', padding: '1px 6px', borderRadius: 99 }}>{visibleItems.length}</span>
                           </div>
                         </td>
                         {yearMonths.map((ym, mi) => {
-                          const inPeriod = (ps.months as unknown as number[]).includes(mi)
-                          return <td key={ym} style={{ borderLeft: mi%3===0 ? S.bdL : S.bd, borderBottom: S.bd, background: inPeriod ? hexToRgba(ps.color, 0.1) : hexToRgba(ps.color, 0.03) }} />
+                          const inRange = gMinM && gMaxM && ym >= gMinM && ym <= gMaxM
+                          const isFirst = ym === gMinM, isLast = ym === gMaxM, isSingle = gMinM === gMaxM
+                          return (
+                            <td key={ym} style={{ borderLeft: mi%3===0 ? S.bdL : S.bd, borderBottom: S.bd, background: gBg, padding: '0 1px', verticalAlign: 'middle' }}>
+                              {inRange && <div style={{ height: 4, background: gColor, opacity: 0.25, borderRadius: isSingle ? 3 : isFirst ? '3px 0 0 3px' : isLast ? '0 3px 3px 0' : 0 }} />}
+                            </td>
+                          )
                         })}
                       </tr>
-                      {sectionOpen && sectionItems.map(item => rdItemRow(item, getItemGroupColor(item)))}
-                      {sectionOpen && doneItems.length > 0 && (
+
+                      {/* ── 안건 + 세부task ── */}
+                      {isGOpen && visibleItems.map(item => {
+                        const isItemOpen = expandedItems.has(item.id)
+                        const itemSTs = subTasks.filter(st => st.agenda_item_id === item.id && st.target_date?.startsWith(yearStr))
+                        const stMonths = itemSTs.map(st => st.target_date!.slice(0,7)).sort()
+                        const minM = stMonths[0] ?? null
+                        const maxM = stMonths[stMonths.length-1] ?? null
+                        const countByM: Record<string,number> = {}
+                        stMonths.forEach(m => { countByM[m] = (countByM[m]||0)+1 })
+                        const isDone = item.status === 'done'
+                        const period = item.roadmap_period ?? null
+                        const pInfo = period ? RD_MAP[period as RdPeriodKey] : null
+                        const allItemSTs = subTasks.filter(st => st.agenda_item_id === item.id)
+
+                        return (
+                          <Fragment key={item.id}>
+                            {/* 안건 행 */}
+                            <tr style={{ borderBottom: S.bd, opacity: isDone ? 0.4 : 1, background: 'white' }} className="group/rditem hover:bg-gray-50/30">
+                              <td style={{ position: 'sticky', left: 0, zIndex: 2, background: 'inherit', borderRight: S.bdL, padding: '8px 12px 8px 20px' }}>
+                                <div className="flex items-center gap-1.5" style={{ minWidth: 0 }}>
+                                  {/* 안건 토글 (세부task 펼치기) */}
+                                  <button onClick={e => { e.stopPropagation(); toggleExpandedItem(item.id) }}
+                                    style={{ fontSize: 7, color: gColor, transform: isItemOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform .15s', flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer', padding: 0, lineHeight: 1, opacity: allItemSTs.length > 0 ? 1 : 0.2 }}>▶</button>
+                                  {/* period 뱃지 */}
+                                  <div style={{ position: 'relative', flexShrink: 0 }}>
+                                    <button onClick={e => { e.stopPropagation(); setPeriodPickerItemId(periodPickerItemId === item.id ? null : item.id) }}
+                                      style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 4, cursor: 'pointer', lineHeight: 1.6, minWidth: 24, textAlign: 'center', transition: 'all 0.1s',
+                                        color: pInfo ? pInfo.color : '#9CA3AF',
+                                        background: pInfo ? hexToRgba(pInfo.color, 0.1) : 'transparent',
+                                        border: pInfo ? `1px solid ${hexToRgba(pInfo.color, 0.35)}` : '1px dashed #D1D5DB' }}>
+                                      {pInfo ? pInfo.label : '+'}
+                                    </button>
+                                    {periodPickerItemId === item.id && (
+                                      <div onClick={e => e.stopPropagation()} style={{ position: 'absolute', top: '100%', left: 0, zIndex: 50, background: 'white', border: '1px solid #E2E8F0', borderRadius: 8, padding: 6, boxShadow: '0 4px 16px rgba(0,0,0,0.12)', minWidth: 148, marginTop: 2 }}>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3, marginBottom: 3 }}>
+                                          {RD_PERIODS.map(p => (
+                                            <button key={p.key} onClick={() => updateRoadmapPeriod(item.id, p.key)}
+                                              style={{ fontSize: 10, fontWeight: 700, padding: '3px 0', borderRadius: 5, cursor: 'pointer',
+                                                color: period === p.key ? 'white' : p.color,
+                                                background: period === p.key ? p.color : hexToRgba(p.color, 0.08),
+                                                border: `1px solid ${hexToRgba(p.color, 0.3)}` }}>
+                                              {p.label}
+                                            </button>
+                                          ))}
+                                        </div>
+                                        <button onClick={() => updateRoadmapPeriod(item.id, null)}
+                                          style={{ width: '100%', fontSize: 10, color: '#9CA3AF', background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 5, padding: '3px 0', cursor: 'pointer' }}>없음</button>
+                                      </div>
+                                    )}
+                                  </div>
+                                  {/* 상태 도트 + 제목 */}
+                                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: isDone ? '#10B981' : item.status === 'hold' ? '#F59E0B' : gColor, flexShrink: 0, display: 'inline-block' }} />
+                                  <span onClick={() => router.push(`/project/items/${item.id}`)} style={{ fontSize: 13, fontWeight: 500, color: isDone ? S.t3 : S.t1, textDecoration: isDone ? 'line-through' : 'none', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>{item.title}</span>
+                                  {allItemSTs.length > 0 && <span style={{ fontSize: 10, color: S.t3, flexShrink: 0 }}>· {allItemSTs.length}</span>}
+                                </div>
+                              </td>
+                              {yearMonths.map((ym, mi) => {
+                                const inRange = minM && maxM && ym >= minM && ym <= maxM
+                                const isFirst = ym === minM, isLast = ym === maxM, isSingle = minM === maxM
+                                const cnt = countByM[ym] ?? 0
+                                const inPeriod = pInfo ? (pInfo.months as unknown as number[]).includes(mi) : false
+                                return (
+                                  <td key={ym} style={{ borderLeft: mi%3===0 ? S.bdL : S.bd, padding: '2px 1px', verticalAlign: 'middle', position: 'relative',
+                                    background: inPeriod ? hexToRgba(pInfo!.color, 0.07) : ym===curYM ? hexToRgba(catColor, 0.04) : 'transparent' }}>
+                                    {inRange && <div style={{ height: 6, background: gColor, opacity: 0.5, borderRadius: isSingle ? 4 : isFirst ? '4px 0 0 4px' : isLast ? '0 4px 4px 0' : 0, marginBottom: cnt > 0 ? 1 : 0 }} />}
+                                    {cnt > 0 && <div style={{ textAlign: 'center', fontSize: 9, fontWeight: 700, color: gColor, opacity: 0.85, lineHeight: 1 }}>{cnt}</div>}
+                                  </td>
+                                )
+                              })}
+                            </tr>
+
+                            {/* 세부task 행 */}
+                            {isItemOpen && subTasks.filter(st => st.agenda_item_id === item.id).sort((a,b) => a.sort_order - b.sort_order).map(st => {
+                              const stYM = st.target_date?.startsWith(yearStr) ? st.target_date.slice(0,7) : null
+                              return (
+                                <tr key={st.id} style={{ borderBottom: S.bd, background: '#FAFBFD' }} className="hover:bg-blue-50/10">
+                                  <td style={{ position: 'sticky', left: 0, zIndex: 2, background: '#FAFBFD', borderRight: S.bdL, padding: '5px 12px 5px 44px' }}>
+                                    <div className="flex items-center gap-2">
+                                      <button onClick={e => { e.stopPropagation(); cycleSubTaskStatus(st) }}
+                                        style={{ width: 12, height: 12, borderRadius: 3, flexShrink: 0, border: `1.5px solid ${st.status === 'done' ? '#10B981' : st.status === 'hold' ? '#F59E0B' : hexToRgba(gColor, 0.7)}`, background: st.status === 'done' ? '#10B981' : 'transparent', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        {st.status === 'done' && <span style={{ color: 'white', fontSize: 8, lineHeight: 1 }}>✓</span>}
+                                      </button>
+                                      <span onClick={() => router.push(`/project/items/${item.id}?focus=${st.id}`)} style={{ fontSize: 12, color: st.status === 'done' ? S.t3 : S.t2, textDecoration: st.status === 'done' ? 'line-through' : 'none', cursor: 'pointer' }}>{st.title}</span>
+                                      {st.target_date && <span style={{ fontSize: 9, color: S.t3 }}>{stDateLabel(st.target_date, sched.today, sched.tomorrow)}</span>}
+                                    </div>
+                                  </td>
+                                  {yearMonths.map((ym, mi) => (
+                                    <td key={ym} style={{ borderLeft: mi%3===0 ? S.bdL : S.bd, verticalAlign: 'middle', textAlign: 'center', padding: 0,
+                                      background: ym===curYM ? hexToRgba(catColor, 0.04) : 'transparent' }}>
+                                      {stYM === ym && <div style={{ width: 8, height: 8, borderRadius: '50%', background: st.status === 'done' ? '#10B981' : st.status === 'hold' ? '#F59E0B' : gColor, margin: '0 auto', opacity: 0.85 }} />}
+                                    </td>
+                                  ))}
+                                </tr>
+                              )
+                            })}
+                          </Fragment>
+                        )
+                      })}
+
+                      {/* 완료 안건 토글 */}
+                      {isGOpen && doneGroupItems.length > 0 && (
                         <tr style={{ borderBottom: S.bd }}>
                           <td colSpan={13} style={{ padding: 0 }}>
-                            <button onClick={e => { e.stopPropagation(); toggleShowDone(psKey ?? 'unset') }}
+                            <button onClick={e => { e.stopPropagation(); toggleShowDone(group.id) }}
                               style={{ position: 'sticky', left: 0, width: 'max-content' }}
                               className="flex items-center gap-1.5 px-5 py-2 text-xs text-gray-400 hover:text-gray-500 transition-colors">
-                              <span style={{ fontSize: 8, transform: showDoneGroups.has(psKey ?? 'unset') ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block', transition: 'transform .15s' }}>▶</span>
-                              완료 {doneItems.length}건
+                              <span style={{ fontSize: 8, transform: showDoneGroups.has(group.id) ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block', transition: 'transform .15s' }}>▶</span>
+                              완료 {doneGroupItems.length}건
                             </button>
                           </td>
                         </tr>
