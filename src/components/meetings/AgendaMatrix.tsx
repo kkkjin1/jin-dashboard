@@ -439,6 +439,7 @@ function MeetingPopup({ meeting, allMeetings, items, groups, subTasks, notes, st
 let _dragItemId: string | null = null
 let _dragSTId: string | null = null
 let _dragGroupId: string | null = null
+let _rdDragItemId: string | null = null
 
 // ── 메인 컴포넌트 ────────────────────────────────────────────────────
 export default function AgendaMatrix({ category, allCats }: { category: string; allCats: string[] }) {
@@ -486,14 +487,17 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
   function toggleShowDone(groupId: string) {
     setShowDoneGroups(prev => { const s = new Set(prev); s.has(groupId) ? s.delete(groupId) : s.add(groupId); return s })
   }
-  const [viewMode, setViewMode] = useState<'calendar' | 'monthly'>('calendar')
-  const [monthNav, setMonthNav] = useState(() => { const d = new Date(); return { year: d.getFullYear(), month: d.getMonth() } })
+  const [viewMode, setViewMode] = useState<'calendar' | 'roadmap'>('calendar')
+  const [yearNav, setYearNav] = useState(() => new Date().getFullYear())
   const [draggingGroupId, setDraggingGroupId] = useState<string | null>(null)
   const [draggingItemId,  setDraggingItemId]  = useState<string | null>(null)
   const [dragOverGroupId, setDragOverGroupId] = useState<string | null>(null)
   const [dragOverItemId,  setDragOverItemId]  = useState<string | null>(null)
   const [draggingSTId,    setDraggingSTId]    = useState<string | null>(null)
   const [dragOverSTId,    setDragOverSTId]    = useState<string | null>(null)
+  const [periodPickerItemId, setPeriodPickerItemId] = useState<string | null>(null)
+  const [rdDraggingId,    setRdDraggingId]    = useState<string | null>(null)
+  const [rdDragOverId,    setRdDragOverId]    = useState<string | null>(null)
 
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
   const isAll = category === '전체'
@@ -531,13 +535,10 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
     return map
   }, [cols])
 
-  const monthDays = useMemo((): string[] => {
-    if (isAll) return []
-    const { year, month } = monthNav
+  const yearMonths = useMemo((): string[] => {
     const pad = (n: number) => String(n).padStart(2, '0')
-    const days = new Date(year, month + 1, 0).getDate()
-    return Array.from({ length: days }, (_, i) => `${year}-${pad(month + 1)}-${pad(i + 1)}`)
-  }, [isAll, monthNav])
+    return Array.from({ length: 12 }, (_, i) => `${yearNav}-${pad(i + 1)}`)
+  }, [yearNav])
 
   // ── 오늘로 자동 스크롤 ───────────────────────────────────────────
   useEffect(() => {
@@ -734,6 +735,33 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
       if (error) { setDndErr(`순서 저장 실패: ${error.message}`); setTimeout(() => setDndErr(''), 4000); return }
     }
   }
+  async function updateRoadmapPeriod(itemId: string, period: string | null) {
+    await supabase.from('agenda_items').update({ roadmap_period: period }).eq('id', itemId)
+    setItems(prev => prev.map(i => i.id === itemId ? { ...i, roadmap_period: period } : i))
+    setPeriodPickerItemId(null)
+  }
+  async function reorderRoadmapItem(dragId: string, targetId: string) {
+    const draggedItem = items.find(i => i.id === dragId)
+    const targetItem  = items.find(i => i.id === targetId)
+    if (!draggedItem || !targetItem) return
+    const period = draggedItem.roadmap_period ?? null
+    const sectionItems = items
+      .filter(i => (i.roadmap_period ?? null) === period)
+      .sort((a, b) => (a.roadmap_rank ?? 999) - (b.roadmap_rank ?? 999) || a.sort_order - b.sort_order)
+    const dragIdx   = sectionItems.findIndex(i => i.id === dragId)
+    const targetIdx = sectionItems.findIndex(i => i.id === targetId)
+    if (dragIdx < 0 || targetIdx < 0 || dragIdx === targetIdx) return
+    const newOrder = [...sectionItems]
+    const [moved] = newOrder.splice(dragIdx, 1)
+    newOrder.splice(targetIdx, 0, moved)
+    setItems(p => p.map(item => {
+      const idx = newOrder.findIndex(i => i.id === item.id)
+      return idx >= 0 ? { ...item, roadmap_rank: idx } : item
+    }))
+    for (let i = 0; i < newOrder.length; i++) {
+      await supabase.from('agenda_items').update({ roadmap_rank: i }).eq('id', newOrder[i].id)
+    }
+  }
   async function reorderSubTask(dragId: string, targetId: string) {
     const draggedST = subTasks.find(s => s.id === dragId)
     if (!draggedST) { setDndErr(`task 못 찾음: ${dragId.slice(0, 8)}`); setTimeout(() => setDndErr(''), 4000); return }
@@ -800,10 +828,45 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
 
   if (loading) return <div className="flex items-center justify-center h-32 text-sm text-gray-400 animate-pulse">불러오는 중…</div>
 
+  // ── 공통 상수 (모든 뷰에서 사용) ─────────────────────────────────
+  const catColor  = CAT_BORDER[category] ?? '#1B3A6B'
+  const catDot    = CAT_DOT[category]    ?? '#1B3A6B'
+  const minTotalW = W_LEFT + dateRange.length * W_CAL + 56
+  const W_ROAD    = 68
+  const MONTH_KO  = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월']
+  const curYM     = todayStr.slice(0, 7)
+
+  // ── 뷰 토글 헤더 ─────────────────────────────────────────────────
+  const viewToggle = (
+    <div className="flex-shrink-0 flex items-center gap-3 px-4 md:px-6 pb-3">
+      <div className="flex items-center gap-0.5 bg-gray-100/80 rounded-lg p-0.5">
+        {!isAll && (
+          <button onClick={() => setViewMode('calendar')}
+            className={`text-xs px-3 py-1 rounded-md transition-all font-medium ${viewMode === 'calendar' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>달력</button>
+        )}
+        {isAll && (
+          <button onClick={() => setViewMode('calendar')}
+            className={`text-xs px-3 py-1 rounded-md transition-all font-medium ${viewMode === 'calendar' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>목록</button>
+        )}
+        <button onClick={() => setViewMode('roadmap')}
+          className={`text-xs px-3 py-1 rounded-md transition-all font-medium ${viewMode === 'roadmap' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>로드맵</button>
+      </div>
+      {viewMode === 'roadmap' && (
+        <div className="flex items-center gap-1.5">
+          <button onClick={() => setYearNav(p => p - 1)} className="text-gray-400 hover:text-gray-700 text-base px-1 leading-none">‹</button>
+          <span className="text-sm font-semibold text-gray-700 w-16 text-center">{yearNav}년</span>
+          <button onClick={() => setYearNav(p => p + 1)} className="text-gray-400 hover:text-gray-700 text-base px-1 leading-none">›</button>
+        </div>
+      )}
+    </div>
+  )
+
   // ── 전체 모드 ────────────────────────────────────────────────────
   if (isAll) {
     return (
-      <div className="flex-1 min-h-0 overflow-auto px-4 md:px-6">
+      <>
+        {viewToggle}
+        <div className="flex-1 min-h-0 overflow-auto px-4 md:px-6">
         <table style={{ borderCollapse: 'collapse', width: '100%' }}>
           <thead>
             <tr style={{ borderBottom: S.bd }}>
@@ -1158,154 +1221,236 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
             </tr>
           </tbody>
         </table>
-      </div>
+        </div>
+      </>
     )
   }
 
-  // ── 달력/월별 공통 상수 ───────────────────────────────────────────
-  const catColor  = CAT_BORDER[category] ?? '#1B3A6B'
-  const catDot    = CAT_DOT[category]    ?? '#1B3A6B'
-  const minTotalW = W_LEFT + dateRange.length * W_CAL + 56
-  const W_MONTH_COL = 28
-  const DAYS_KO = ['일','월','화','수','목','금','토']
+  // ── 연간 로드맵 모드 ────────────────────────────────────────────
+  if (viewMode === 'roadmap') {
+    const yearStr = String(yearNav)
 
-  // ── 뷰 토글 헤더 (달력/월별 공통) ────────────────────────────────
-  const viewToggle = (
-    <div className="flex-shrink-0 flex items-center gap-3 px-4 md:px-6 pb-3">
-      <div className="flex items-center gap-0.5 bg-gray-100/80 rounded-lg p-0.5">
-        <button onClick={() => setViewMode('calendar')}
-          className={`text-xs px-3 py-1 rounded-md transition-all font-medium ${viewMode === 'calendar' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>달력</button>
-        <button onClick={() => setViewMode('monthly')}
-          className={`text-xs px-3 py-1 rounded-md transition-all font-medium ${viewMode === 'monthly' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>월별 플랜</button>
-      </div>
-      {viewMode === 'monthly' && (
-        <div className="flex items-center gap-1.5">
-          <button onClick={() => setMonthNav(p => { const d = new Date(p.year, p.month - 1, 1); return { year: d.getFullYear(), month: d.getMonth() } })}
-            className="text-gray-400 hover:text-gray-700 text-base px-1 leading-none">‹</button>
-          <span className="text-sm font-semibold text-gray-700 w-20 text-center">{monthNav.year}년 {monthNav.month + 1}월</span>
-          <button onClick={() => setMonthNav(p => { const d = new Date(p.year, p.month + 1, 1); return { year: d.getFullYear(), month: d.getMonth() } })}
-            className="text-gray-400 hover:text-gray-700 text-base px-1 leading-none">›</button>
-        </div>
-      )}
-    </div>
-  )
+    // ── period 설정 ──
+    const RD_PERIODS = [
+      { key: 'H1', label: '상반기', color: '#6366F1', months: [0,1,2,3,4,5] },
+      { key: 'Q1', label: 'Q1',    color: '#3B82F6', months: [0,1,2]        },
+      { key: 'Q2', label: 'Q2',    color: '#F59E0B', months: [3,4,5]        },
+      { key: 'H2', label: '하반기', color: '#EC4899', months: [6,7,8,9,10,11]},
+      { key: 'Q3', label: 'Q3',    color: '#10B981', months: [6,7,8]        },
+      { key: 'Q4', label: 'Q4',    color: '#EF4444', months: [9,10,11]      },
+    ] as const
+    type RdPeriodKey = typeof RD_PERIODS[number]['key']
+    const RD_MAP = Object.fromEntries(RD_PERIODS.map(p => [p.key, p])) as Record<RdPeriodKey, typeof RD_PERIODS[number]>
 
-  // ── 월별 Gantt 모드 ────────────────────────────────────────────────
-  if (!isAll && viewMode === 'monthly') {
+    const getItemGroupColor = (item: AgendaItem) => {
+      const g = groups.find(gr => gr.id === item.group_id)
+      return CAT_BORDER[g?.category ?? ''] ?? g?.color ?? '#1B3A6B'
+    }
+
+    // ── 공통: 테이블 헤더 ──
+    const rdHeader = (
+      <thead>
+        <tr>
+          <th style={{ position: 'sticky', left: 0, top: 0, zIndex: 6, background: S.bg, borderBottom: S.bd, borderRight: S.bdL, width: W_LEFT, minWidth: W_LEFT }} />
+          {(['Q1','Q2','Q3','Q4'] as const).map((q, qi) => (
+            <th key={q} colSpan={3} style={{ position: 'sticky', top: 0, zIndex: 4, background: ['rgba(59,130,246,0.06)','rgba(245,158,11,0.06)','rgba(16,185,129,0.06)','rgba(239,68,68,0.06)'][qi], borderBottom: S.bd, borderLeft: S.bdL, textAlign: 'center', fontSize: 10, fontWeight: 700, color: ['#3B82F6','#F59E0B','#10B981','#EF4444'][qi], letterSpacing: '.06em', padding: '5px 0' }}>{q}</th>
+          ))}
+        </tr>
+        <tr>
+          <th style={{ position: 'sticky', left: 0, top: 26, zIndex: 5, background: S.bg, borderBottom: S.bdL, borderRight: S.bdL, width: W_LEFT, minWidth: W_LEFT, padding: '8px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: S.t3, letterSpacing: '.05em' }}>안건</th>
+          {yearMonths.map((ym, mi) => {
+            const isCur = ym === curYM
+            const qBg = ['rgba(59,130,246,0.03)','rgba(245,158,11,0.03)','rgba(16,185,129,0.03)','rgba(239,68,68,0.03)'][Math.floor(mi/3)]
+            return (
+              <th key={ym} style={{ position: 'sticky', top: 26, zIndex: 3, background: isCur ? '#EFF6FF' : qBg, borderBottom: isCur ? `2px solid ${catColor}` : S.bdL, borderLeft: mi%3===0 ? S.bdL : S.bd, width: W_ROAD, minWidth: W_ROAD, padding: '6px 4px', textAlign: 'center' }}>
+                <span style={{ fontSize: 11, fontWeight: isCur ? 700 : 500, color: isCur ? catColor : S.t2 }}>{MONTH_KO[mi]}</span>
+              </th>
+            )
+          })}
+        </tr>
+      </thead>
+    )
+
+    // ── 공통: 안건 한 행 렌더 ──
+    const rdItemRow = (item: AgendaItem, gColor: string) => {
+      const itemSTs  = subTasks.filter(st => st.agenda_item_id === item.id && st.target_date?.startsWith(yearStr))
+      const stMonths = itemSTs.map(st => st.target_date!.slice(0,7)).sort()
+      const minM = stMonths[0] ?? null
+      const maxM = stMonths[stMonths.length-1] ?? null
+      const countByM: Record<string,number> = {}
+      stMonths.forEach(m => { countByM[m] = (countByM[m]||0)+1 })
+      const isDone  = item.status === 'done'
+      const period  = item.roadmap_period ?? null
+      const pInfo   = period ? RD_MAP[period as RdPeriodKey] : null
+      const isRdOver   = rdDragOverId === item.id
+      const isRdDragging = rdDraggingId === item.id
+
+      return (
+        <tr key={item.id}
+          draggable
+          onDragStart={e => { e.stopPropagation(); _rdDragItemId = item.id; e.dataTransfer.effectAllowed='move'; setRdDraggingId(item.id) }}
+          onDragEnd={() => { _rdDragItemId = null; setRdDraggingId(null); setRdDragOverId(null) }}
+          onDragOver={e => { if (!_rdDragItemId || _rdDragItemId === item.id) return; e.preventDefault(); e.stopPropagation(); setRdDragOverId(item.id) }}
+          onDrop={e => { e.preventDefault(); e.stopPropagation(); if (_rdDragItemId && _rdDragItemId !== item.id) reorderRoadmapItem(_rdDragItemId, item.id); _rdDragItemId = null; setRdDraggingId(null); setRdDragOverId(null) }}
+          onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setRdDragOverId(null) }}
+          style={{ borderBottom: isRdOver ? `2px solid ${gColor}` : S.bd, opacity: isDone ? 0.4 : isRdDragging ? 0.5 : 1, background: isRdOver ? hexToRgba(gColor, 0.05) : 'white' }}
+          className="group/rditem hover:bg-gray-50/30"
+        >
+          <td style={{ position: 'sticky', left: 0, zIndex: 2, background: 'inherit', borderRight: S.bdL, padding: '8px 12px' }}>
+            <div className="flex items-center gap-1.5" style={{ minWidth: 0 }}>
+              {/* 드래그 핸들 */}
+              <span className="opacity-0 group-hover/rditem:opacity-100 transition-opacity flex-shrink-0 cursor-grab text-gray-300 text-xs select-none" style={{ fontSize: 13 }}>⠿</span>
+              {/* period 뱃지 */}
+              <div style={{ position: 'relative', flexShrink: 0 }}>
+                <button
+                  onClick={e => { e.stopPropagation(); setPeriodPickerItemId(periodPickerItemId === item.id ? null : item.id) }}
+                  style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 4, cursor: 'pointer', lineHeight: 1.6, minWidth: 24, textAlign: 'center', transition: 'all 0.1s',
+                    color: pInfo ? pInfo.color : '#9CA3AF',
+                    background: pInfo ? hexToRgba(pInfo.color, 0.1) : 'transparent',
+                    border: pInfo ? `1px solid ${hexToRgba(pInfo.color, 0.35)}` : '1px dashed #D1D5DB' }}>
+                  {pInfo ? pInfo.label : '+'}
+                </button>
+                {/* period 드롭다운 */}
+                {periodPickerItemId === item.id && (
+                  <div onClick={e => e.stopPropagation()} style={{ position: 'absolute', top: '100%', left: 0, zIndex: 50, background: 'white', border: '1px solid #E2E8F0', borderRadius: 8, padding: 6, boxShadow: '0 4px 16px rgba(0,0,0,0.12)', minWidth: 148, marginTop: 2 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3, marginBottom: 3 }}>
+                      {RD_PERIODS.map(p => (
+                        <button key={p.key} onClick={() => updateRoadmapPeriod(item.id, p.key)}
+                          style={{ fontSize: 10, fontWeight: 700, padding: '3px 0', borderRadius: 5, cursor: 'pointer', transition: 'all 0.1s',
+                            color: period === p.key ? 'white' : p.color,
+                            background: period === p.key ? p.color : hexToRgba(p.color, 0.08),
+                            border: `1px solid ${hexToRgba(p.color, 0.3)}` }}>
+                          {p.label}
+                        </button>
+                      ))}
+                    </div>
+                    <button onClick={() => updateRoadmapPeriod(item.id, null)}
+                      style={{ width: '100%', fontSize: 10, color: '#9CA3AF', background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 5, padding: '3px 0', cursor: 'pointer' }}>
+                      없음
+                    </button>
+                  </div>
+                )}
+              </div>
+              {/* 범주 도트 + 제목 */}
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: gColor, flexShrink: 0, display: 'inline-block' }} />
+              <span onClick={() => router.push(`/project/items/${item.id}`)} style={{ fontSize: 13, fontWeight: 500, color: isDone ? S.t3 : S.t1, textDecoration: isDone ? 'line-through' : 'none', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>{item.title}</span>
+              {itemSTs.length > 0 && <span style={{ fontSize: 10, color: S.t3, flexShrink: 0 }}>· {itemSTs.length}</span>}
+            </div>
+          </td>
+          {yearMonths.map((ym, mi) => {
+            const inRange = minM && maxM && ym >= minM && ym <= maxM
+            const isFirst = ym === minM, isLast = ym === maxM, isSingle = minM === maxM
+            const cnt = countByM[ym] ?? 0
+            const isCurM = ym === curYM
+            const inPeriod = pInfo ? (pInfo.months as unknown as number[]).includes(mi) : false
+            return (
+              <td key={ym} style={{ borderLeft: mi%3===0 ? S.bdL : S.bd, padding: '2px 1px', verticalAlign: 'middle', position: 'relative',
+                background: inPeriod ? hexToRgba(pInfo!.color, 0.07) : isCurM ? hexToRgba(catColor, 0.04) : 'transparent' }}>
+                {inRange && <div style={{ height: 6, background: gColor, opacity: 0.5, borderRadius: isSingle ? 4 : isFirst ? '4px 0 0 4px' : isLast ? '0 4px 4px 0' : 0, marginBottom: cnt > 0 ? 1 : 0 }} />}
+                {cnt > 0 && <div style={{ textAlign: 'center', fontSize: 9, fontWeight: 700, color: gColor, opacity: 0.85, lineHeight: 1 }}>{cnt}</div>}
+              </td>
+            )
+          })}
+        </tr>
+      )
+    }
+
+    // ── 전체 탭: period 섹션별 그룹핑 ──────────────────────────────
+    if (isAll) {
+      const PERIOD_SECTIONS = [
+        ...RD_PERIODS,
+        { key: null as null, label: '미지정', color: '#94A3B8', months: [] as number[] },
+      ]
+      return (
+        <>
+          {viewToggle}
+          <div className="flex-1 min-h-0 overflow-auto" onClick={() => setPeriodPickerItemId(null)}>
+            <table style={{ borderCollapse: 'collapse', minWidth: W_LEFT + 12 * W_ROAD }}>
+              {rdHeader}
+              <tbody>
+                {PERIOD_SECTIONS.map(ps => {
+                  const psKey = ps.key
+                  const sectionItems = items
+                    .filter(i => (i.roadmap_period ?? null) === psKey && i.status !== 'done')
+                    .sort((a,b) => (a.roadmap_rank ?? 999) - (b.roadmap_rank ?? 999) || a.sort_order - b.sort_order)
+                  const doneItems = items.filter(i => (i.roadmap_period ?? null) === psKey && i.status === 'done')
+                  if (sectionItems.length === 0 && doneItems.length === 0 && psKey !== null) return null
+                  const sectionOpen = !openGroups.has(`rd_closed_${psKey}`)
+                  return (
+                    <Fragment key={psKey ?? 'unset'}>
+                      {/* 섹션 헤더 */}
+                      <tr onClick={() => toggleGroup(`rd_closed_${psKey}`)} style={{ cursor: 'pointer', background: hexToRgba(ps.color, 0.05) }}>
+                        <td style={{ position: 'sticky', left: 0, zIndex: 2, background: hexToRgba(ps.color, 0.05), borderBottom: S.bd, borderRight: S.bdL, borderLeft: `3px solid ${ps.color}`, padding: '7px 14px' }}>
+                          <div className="flex items-center gap-2">
+                            <span style={{ fontSize: 8, transform: sectionOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform .15s', color: ps.color }}>▶</span>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: ps.color }}>{ps.label}</span>
+                            <span style={{ fontSize: 10, color: ps.color, background: hexToRgba(ps.color, 0.12), padding: '1px 6px', borderRadius: 99 }}>{sectionItems.length}</span>
+                          </div>
+                        </td>
+                        {yearMonths.map((ym, mi) => {
+                          const inPeriod = (ps.months as unknown as number[]).includes(mi)
+                          return <td key={ym} style={{ borderLeft: mi%3===0 ? S.bdL : S.bd, borderBottom: S.bd, background: inPeriod ? hexToRgba(ps.color, 0.1) : hexToRgba(ps.color, 0.03) }} />
+                        })}
+                      </tr>
+                      {sectionOpen && sectionItems.map(item => rdItemRow(item, getItemGroupColor(item)))}
+                      {sectionOpen && doneItems.length > 0 && (
+                        <tr style={{ borderBottom: S.bd }}>
+                          <td colSpan={13} style={{ padding: 0 }}>
+                            <button onClick={e => { e.stopPropagation(); toggleShowDone(psKey ?? 'unset') }}
+                              style={{ position: 'sticky', left: 0, width: 'max-content' }}
+                              className="flex items-center gap-1.5 px-5 py-2 text-xs text-gray-400 hover:text-gray-500 transition-colors">
+                              <span style={{ fontSize: 8, transform: showDoneGroups.has(psKey ?? 'unset') ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block', transition: 'transform .15s' }}>▶</span>
+                              완료 {doneItems.length}건
+                            </button>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )
+    }
+
+    // ── 카테고리 탭: 범주별 그룹핑 + period 뱃지 ──────────────────
     return (
       <>
         {viewToggle}
-        <div className="flex-1 min-h-0 overflow-auto">
-          <table style={{ borderCollapse: 'collapse', minWidth: W_LEFT + monthDays.length * W_MONTH_COL }}>
-            <thead>
-              <tr>
-                <th style={{ position: 'sticky', left: 0, top: 0, zIndex: 5, background: S.bg, borderBottom: S.bdL, borderRight: S.bdL, width: W_LEFT, minWidth: W_LEFT, padding: '10px 16px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: S.t3, letterSpacing: '.05em', textTransform: 'uppercase' }}>
-                  안건
-                </th>
-                {monthDays.map(day => {
-                  const dt = new Date(day + 'T00:00:00')
-                  const dow = dt.getDay()
-                  const isToday = day === todayStr
-                  const isSun = dow === 0, isSat = dow === 6
-                  return (
-                    <th key={day} style={{ position: 'sticky', top: 0, zIndex: 3, background: isToday ? '#EFF6FF' : 'white', borderBottom: isToday ? `2px solid ${catColor}` : S.bd, borderLeft: S.bd, width: W_MONTH_COL, minWidth: W_MONTH_COL, padding: 0 }}>
-                      <div style={{ padding: '6px 2px', textAlign: 'center' }}>
-                        <div style={{ fontSize: 10, fontWeight: isToday ? 700 : 400, color: isToday ? catColor : isSun ? '#EF4444' : isSat ? '#3B82F6' : S.t3, lineHeight: 1.2 }}>{dt.getDate()}</div>
-                        <div style={{ fontSize: 8, color: isToday ? catColor : isSun ? '#FCA5A5' : isSat ? '#93C5FD' : '#C8D4E3', marginTop: 1 }}>{DAYS_KO[dow]}</div>
-                      </div>
-                    </th>
-                  )
-                })}
-              </tr>
-            </thead>
+        <div className="flex-1 min-h-0 overflow-auto" onClick={() => setPeriodPickerItemId(null)}>
+          <table style={{ borderCollapse: 'collapse', minWidth: W_LEFT + 12 * W_ROAD }}>
+            {rdHeader}
             <tbody>
-              {[...groups].sort((a, b) => a.sort_order - b.sort_order).map(group => {
-                const groupItems = items.filter(i => i.group_id === group.id).sort((a, b) => a.sort_order - b.sort_order)
+              {[...groups].sort((a,b) => a.sort_order-b.sort_order).map(group => {
+                const groupItems = items.filter(i => i.group_id === group.id).sort((a,b) => a.sort_order-b.sort_order)
                 const doneGroupItems = groupItems.filter(i => i.status === 'done')
                 const visibleItems = showDoneGroups.has(group.id) ? groupItems : groupItems.filter(i => i.status !== 'done')
                 const isOpen = openGroups.has(group.id)
                 const gColor = CAT_BORDER[group.category ?? ''] ?? group.color
-                const gBg = CAT_BG[group.category ?? ''] ?? hexToRgba(group.color, 0.09)
+                const gBg = CAT_BG[group.category ?? ''] ?? hexToRgba(group.color, 0.07)
                 return (
                   <Fragment key={group.id}>
-                    {/* 범주 헤더 행 */}
                     <tr>
                       <td onClick={() => toggleGroup(group.id)} style={{ position: 'sticky', left: 0, zIndex: 2, background: gBg, borderBottom: S.bd, borderRight: S.bdL, padding: '7px 16px', cursor: 'pointer' }}>
                         <div className="flex items-center gap-2">
                           <span style={{ fontSize: 8, transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block', transition: 'transform .15s', color: gColor }}>▶</span>
                           <span style={{ width: 8, height: 8, borderRadius: '50%', background: group.color, flexShrink: 0, display: 'inline-block' }} />
-                          <span style={{ fontSize: 12, fontWeight: 700, color: gColor, letterSpacing: '.03em' }}>{group.name}</span>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: gColor }}>{group.name}</span>
                         </div>
                       </td>
-                      {monthDays.map(day => (
-                        <td key={day} style={{ borderLeft: S.bd, borderBottom: S.bd, background: day === todayStr ? hexToRgba(catColor, 0.05) : gBg }} />
+                      {yearMonths.map((ym, mi) => (
+                        <td key={ym} style={{ borderLeft: mi%3===0 ? S.bdL : S.bd, borderBottom: S.bd, background: ym===curYM ? hexToRgba(catColor,0.04) : gBg }} />
                       ))}
                     </tr>
-                    {/* 안건 + 세부task 행 */}
-                    {isOpen && visibleItems.map(item => {
-                      const itemSTs = subTasks.filter(st => st.agenda_item_id === item.id && st.status !== 'done' && st.target_date)
-                      const stDates = itemSTs.map(st => st.target_date!).sort()
-                      const minDate = stDates[0] ?? null
-                      const maxDate = stDates[stDates.length - 1] ?? null
-                      const isDone = item.status === 'done'
-                      return (
-                        <Fragment key={item.id}>
-                          {/* 안건 행 */}
-                          <tr style={{ borderBottom: S.bd, opacity: isDone ? 0.45 : 1 }} className="hover:bg-gray-50/40">
-                            <td style={{ position: 'sticky', left: 0, zIndex: 2, background: 'white', borderRight: S.bdL, padding: '9px 16px', cursor: 'pointer' }}
-                              onClick={() => router.push(`/project/items/${item.id}`)}>
-                              <div className="flex items-center gap-2">
-                                <span style={{ width: 6, height: 6, borderRadius: '50%', background: item.status === 'done' ? '#10B981' : item.status === 'hold' ? '#F59E0B' : gColor, flexShrink: 0, display: 'inline-block' }} />
-                                <span style={{ fontSize: 13, fontWeight: 500, color: isDone ? S.t3 : S.t1, textDecoration: isDone ? 'line-through' : 'none', lineHeight: 1.3 }}>{item.title}</span>
-                                {itemSTs.length > 0 && <span style={{ fontSize: 10, color: S.t3 }}>· {itemSTs.length}건</span>}
-                              </div>
-                            </td>
-                            {monthDays.map(day => {
-                              if (!minDate || !maxDate) return <td key={day} style={{ borderLeft: S.bd, background: day === todayStr ? hexToRgba(catColor, 0.04) : 'transparent' }} />
-                              const inRange = day >= minDate && day <= maxDate
-                              const isFirst = day === minDate, isLast = day === maxDate, isSingle = minDate === maxDate
-                              return (
-                                <td key={day} style={{ borderLeft: S.bd, padding: '0 1px', verticalAlign: 'middle', background: day === todayStr ? hexToRgba(catColor, 0.04) : 'transparent' }}>
-                                  {inRange && <div style={{ height: 5, background: gColor, opacity: 0.4, borderRadius: isSingle ? 3 : isFirst ? '3px 0 0 3px' : isLast ? '0 3px 3px 0' : 0 }} />}
-                                </td>
-                              )
-                            })}
-                          </tr>
-                          {/* 세부task 행 */}
-                          {subTasks.filter(st => st.agenda_item_id === item.id && st.status !== 'done').map(st => (
-                            <tr key={st.id} style={{ borderBottom: S.bd, background: '#FAFBFD' }} className="group/mst hover:bg-blue-50/20">
-                              <td style={{ position: 'sticky', left: 0, zIndex: 2, background: '#FAFBFD', borderRight: S.bdL, padding: '6px 16px 6px 32px', cursor: 'pointer' }}
-                                onClick={() => router.push(`/project/items/${item.id}?focus=${st.id}`)}>
-                                <div className="flex items-center gap-2">
-                                  <button onClick={e => { e.stopPropagation(); cycleSubTaskStatus(st) }}
-                                    title={`완료 처리 (현재: ${STATUS_LABEL[st.status]})`}
-                                    style={{ width: 12, height: 12, borderRadius: 3, flexShrink: 0, border: `1.5px solid ${st.status === 'hold' ? '#F59E0B' : gColor}`, background: 'transparent', cursor: 'pointer', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    {st.status === 'hold' && <span style={{ color: '#F59E0B', fontSize: 8, lineHeight: 1 }}>−</span>}
-                                  </button>
-                                  <span style={{ fontSize: 12, color: S.t2, lineHeight: 1.3 }}>{st.title}</span>
-                                  {st.target_date && <span style={{ fontSize: 9, color: S.t3, marginLeft: 2 }}>{stDateLabel(st.target_date, sched.today, sched.tomorrow)}</span>}
-                                </div>
-                              </td>
-                              {monthDays.map(day => {
-                                const isTarget = st.target_date === day
-                                return (
-                                  <td key={day} style={{ borderLeft: S.bd, verticalAlign: 'middle', textAlign: 'center', padding: 0, background: day === todayStr ? hexToRgba(catColor, 0.04) : 'transparent' }}>
-                                    {isTarget && <div style={{ width: 10, height: 10, borderRadius: 3, background: st.status === 'hold' ? '#F59E0B' : gColor, margin: '0 auto' }} />}
-                                  </td>
-                                )
-                              })}
-                            </tr>
-                          ))}
-                        </Fragment>
-                      )
-                    })}
-                    {/* 완료 안건 토글 */}
+                    {isOpen && visibleItems.map(item => rdItemRow(item, gColor))}
                     {isOpen && doneGroupItems.length > 0 && (
                       <tr style={{ borderBottom: S.bd }}>
-                        <td colSpan={monthDays.length + 1} style={{ padding: 0 }}>
+                        <td colSpan={13} style={{ padding: 0 }}>
                           <button onClick={() => toggleShowDone(group.id)}
                             style={{ position: 'sticky', left: 0, width: 'max-content' }}
-                            className="flex items-center gap-1.5 px-5 py-2 text-xs text-gray-400 hover:text-gray-500 hover:bg-gray-50 cursor-pointer transition-colors">
+                            className="flex items-center gap-1.5 px-5 py-2 text-xs text-gray-400 hover:text-gray-500 transition-colors">
                             <span style={{ fontSize: 8, transform: showDoneGroups.has(group.id) ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block', transition: 'transform .15s' }}>▶</span>
                             완료 {doneGroupItems.length}건
                           </button>
@@ -1318,12 +1463,11 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
             </tbody>
           </table>
         </div>
-        {dndErr && <div style={{ position: 'fixed', bottom: 60, left: '50%', transform: 'translateX(-50%)', background: '#DC2626', color: '#fff', padding: '10px 20px', borderRadius: 8, fontSize: 12, zIndex: 9999 }} onClick={() => setDndErr('')}>⠿ {dndErr}</div>}
       </>
     )
   }
 
-  // ── 달력 칸반 모드 ────────────────────────────────────────────────
+  // ── 달력 모드 (카테고리 탭 전용) ─────────────────────────────────
   return (
     <>
       {viewToggle}

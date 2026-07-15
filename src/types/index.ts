@@ -157,6 +157,8 @@ export interface AgendaItem {
   created_at: string
   updated_at: string
   agenda_groups?: AgendaGroup
+  roadmap_period?: string | null
+  roadmap_rank?: number | null
 }
 
 export interface AgendaUpdate {
