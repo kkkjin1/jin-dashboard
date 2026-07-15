@@ -861,8 +861,8 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
     </div>
   )
 
-  // ── 전체 모드 ────────────────────────────────────────────────────
-  if (isAll) {
+  // ── 전체 모드 (목록) ─────────────────────────────────────────────
+  if (isAll && viewMode !== 'roadmap') {
     return (
       <>
         {viewToggle}
