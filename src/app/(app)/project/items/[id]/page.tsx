@@ -188,8 +188,8 @@ export default function AgendaItemDetailPage() {
     }, 150)
   }, [focusSTId, subTasks.length])
 
-  // 기록 토글 상태 (stId → Set<noteId>)
-  const [openHistoryNotes, setOpenHistoryNotes] = useState<Record<string, Set<string>>>({})
+  // 날짜 패널 — 선택된 노트 id (stId → noteId)
+  const [selectedNoteIds, setSelectedNoteIds] = useState<Record<string, string>>({})
   const [addingNoteFor, setAddingNoteFor] = useState<string | null>(null)
 
   // 크게 편집 ESC 닫기
@@ -266,23 +266,19 @@ export default function AgendaItemDetailPage() {
     return html.replace(/<[^>]*>/g, '').trim().length > 0
   }
 
-  // ── 현재 노트 저장 ──────────────────────────────────────────────
-  function handleCurrentNote(st: SubTaskWithNote, value: string) {
-    setSubTasks(p => p.map(s => s.id === st.id
-      ? { ...s, currentNote: s.currentNote ? { ...s.currentNote, content: value } : { id: '_new', content: value, created_at: new Date().toISOString() } }
-      : s
-    ))
-    const timerKey = st.currentNote?.id ?? `new_${st.id}`
-    clearTimeout(noteTimers.current[timerKey])
-    noteTimers.current[timerKey] = setTimeout(async () => {
-      if (st.currentNote && st.currentNote.id !== '_new') {
-        await supabase.from('sub_task_notes').update({ content: value, edited_at: new Date().toISOString() }).eq('id', st.currentNote.id)
-      } else {
-        const { data } = await supabase.from('sub_task_notes').insert({ sub_task_id: st.id, title: null, content: value }).select('id, content, created_at, edited_at').single()
-        if (data) {
-          setSubTasks(p => p.map(s => s.id === st.id ? { ...s, currentNote: data as SubTaskNote } : s))
-        }
+  // ── 노트 내용 저장 (any note by id) ────────────────────────────
+  function handleNoteChange(st: SubTaskWithNote, noteId: string, value: string) {
+    setSubTasks(p => p.map(s => {
+      if (s.id !== st.id) return s
+      return {
+        ...s,
+        currentNote: s.currentNote?.id === noteId ? { ...s.currentNote, content: value } : s.currentNote,
+        historyNotes: s.historyNotes.map(n => n.id === noteId ? { ...n, content: value } : n),
       }
+    }))
+    clearTimeout(noteTimers.current[noteId])
+    noteTimers.current[noteId] = setTimeout(async () => {
+      await supabase.from('sub_task_notes').update({ content: value, edited_at: new Date().toISOString() }).eq('id', noteId)
     }, 600)
   }
 
@@ -294,6 +290,7 @@ export default function AgendaItemDetailPage() {
       .select('id, content, created_at, edited_at').single()
     if (data) {
       const newNote = data as SubTaskNote
+      setSelectedNoteIds(p => ({ ...p, [st.id]: newNote.id }))
       setSubTasks(p => p.map(s => {
         if (s.id !== st.id) return s
         return {
@@ -319,14 +316,6 @@ export default function AgendaItemDetailPage() {
     }))
   }
 
-  // ── 과거 기록 토글 ──────────────────────────────────────────────
-  function toggleHistoryNote(stId: string, noteId: string) {
-    setOpenHistoryNotes(p => {
-      const cur = new Set(p[stId] ?? [])
-      cur.has(noteId) ? cur.delete(noteId) : cur.add(noteId)
-      return { ...p, [stId]: cur }
-    })
-  }
 
   // ── 첨부파일 업로드 ─────────────────────────────────────────────
   // target: 'item' → 업무 전체, stId → 특정 서브태스크
@@ -606,114 +595,101 @@ export default function AgendaItemDetailPage() {
                   </span>
                 </div>
 
-                {/* 아코디언 본문 */}
-                {isOpen && (
-                  <div style={{ borderTop: '1px solid #E5E9F0', background: '#FAFBFD' }}>
-                    {/* ── 툴바: 현재 기록 제목 편집 + 액션 버튼 ── */}
-                    <div className="flex items-center justify-between px-5 pt-2.5 pb-0.5 gap-2">
-                      <div className="flex-1 min-w-0">
-                        {st.currentNote ? (
-                          <NoteTitleInput
-                            note={st.currentNote}
-                            placeholder={`${formatNoteDate(st.currentNote.created_at)} 기록${st.historyNotes.length > 0 ? ` · 총 ${st.historyNotes.length + 1}개` : ''}`}
-                            onSave={title => updateNoteTitle(st.currentNote!.id, st.id, title)}
-                          />
+                {/* 아코디언 본문 — 날짜 패널 */}
+                {isOpen && (() => {
+                  const allNotes = st.currentNote ? [st.currentNote, ...st.historyNotes] : st.historyNotes
+                  const selId = selectedNoteIds[st.id] ?? allNotes[0]?.id ?? null
+                  const selectedNote = allNotes.find(n => n.id === selId) ?? null
+                  return (
+                    <div style={{ borderTop: '1px solid #E5E9F0', background: '#FAFBFD' }}>
+                      {/* 날짜 목록 + 에디터 */}
+                      <div style={{ display: 'flex', minHeight: 160 }}>
+                        {/* 왼쪽: 날짜 목록 */}
+                        <div style={{ width: 80, borderRight: '1px solid #E5E9F0', flexShrink: 0, background: '#F5F7FA', display: 'flex', flexDirection: 'column' }}>
+                          <button
+                            onClick={e => { e.stopPropagation(); addNoteEntry(st) }}
+                            disabled={addingNoteFor === st.id}
+                            style={{ padding: '7px 8px', fontSize: 10, color: '#5DBD97', background: 'none', border: 'none', borderBottom: '1px solid #E5E9F0', cursor: 'pointer', textAlign: 'center', fontWeight: 600, flexShrink: 0, opacity: addingNoteFor === st.id ? 0.4 : 1 }}>
+                            {addingNoteFor === st.id ? '…' : '+ 추가'}
+                          </button>
+                          <div style={{ flex: 1, overflowY: 'auto' }}>
+                            {allNotes.map(note => {
+                              const isSelected = note.id === selId
+                              return (
+                                <button key={note.id}
+                                  onClick={e => { e.stopPropagation(); setSelectedNoteIds(p => ({ ...p, [st.id]: note.id })) }}
+                                  style={{ width: '100%', padding: '7px 8px', fontSize: 11, textAlign: 'center', background: isSelected ? `${stColor}15` : 'transparent', color: isSelected ? stColor : '#8FA0B5', fontWeight: isSelected ? 700 : 400, cursor: 'pointer', border: 'none', borderBottom: '1px solid #F0F4F8', display: 'block', lineHeight: 1.3 }}>
+                                  {formatNoteDate(note.created_at)}
+                                </button>
+                              )
+                            })}
+                            {allNotes.length === 0 && (
+                              <div style={{ padding: '16px 8px', fontSize: 10, color: '#CBD5E1', textAlign: 'center' }}>기록 없음</div>
+                            )}
+                          </div>
+                        </div>
+                        {/* 오른쪽: 선택된 노트 에디터 */}
+                        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                          {selectedNote ? (
+                            <>
+                              <div className="flex items-center justify-between px-4 pt-2 pb-0.5 gap-2 flex-shrink-0">
+                                <NoteTitleInput
+                                  note={selectedNote}
+                                  placeholder={`${formatNoteDate(selectedNote.created_at)} 기록`}
+                                  onSave={title => updateNoteTitle(selectedNote.id, st.id, title)}
+                                />
+                                <button onClick={e => { e.stopPropagation(); setExpandFor(st.id) }}
+                                  className="text-[10px] text-gray-400 hover:text-gray-600 px-2 py-0.5 rounded hover:bg-gray-100 transition-colors flex-shrink-0">
+                                  크게 편집
+                                </button>
+                              </div>
+                              <TiptapEditor
+                                key={selectedNote.id}
+                                value={selectedNote.content}
+                                onChange={v => handleNoteChange(st, selectedNote.id, v)}
+                                minHeight={100}
+                                autoFocus={isFocus && focusSTId === st.id && selectedNote.id === allNotes[0]?.id}
+                                className="px-4 py-1"
+                              />
+                            </>
+                          ) : (
+                            <div style={{ padding: '24px', color: '#8FA0B5', fontSize: 12, textAlign: 'center' }}>+ 추가를 눌러 첫 기록을 남기세요</div>
+                          )}
+                        </div>
+                      </div>
+                      {/* 서브태스크 첨부파일 */}
+                      <div className="border-t border-gray-100/80 px-5 py-3">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: stColor }}>
+                            📎 {st.title} · 첨부파일
+                          </span>
+                          <label className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md cursor-pointer transition-colors ${uploadingFor === st.id ? 'text-gray-300' : 'bg-white border border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700'}`}>
+                            {uploadingFor === st.id ? '업로드 중…' : '파일 추가'}
+                            <input type="file" multiple className="hidden" onChange={e => handleUpload(e, st.id)} disabled={uploadingFor === st.id} />
+                          </label>
+                        </div>
+                        {stAtts(st.id).length === 0 ? (
+                          <p className="text-[10px] text-gray-300">이 하위 태스크에만 연결된 파일을 첨부하세요</p>
                         ) : (
-                          <span className="text-[10px] text-gray-300">기록 없음</span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {stAtts(st.id).map(att => (
+                              <div key={att.id} className="flex items-center gap-1 text-[11px] bg-white border rounded-lg px-2.5 py-1 group/att"
+                                style={{ borderColor: `${stColor}40` }}>
+                                <a href={att.url} target="_blank" rel="noopener noreferrer"
+                                  className="hover:underline transition-colors truncate max-w-[180px]"
+                                  style={{ color: stColor }}>
+                                  📄 {att.name}
+                                </a>
+                                <button onClick={() => deleteAttachment(att)}
+                                  className="text-gray-300 hover:text-red-400 transition-colors opacity-0 group-hover/att:opacity-100 ml-0.5">×</button>
+                              </div>
+                            ))}
+                          </div>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <button
-                          onClick={e => { e.stopPropagation(); addNoteEntry(st) }}
-                          disabled={addingNoteFor === st.id || !hasNoteContent(st.currentNote?.content ?? '')}
-                          className="text-[10px] text-[#5DBD97] hover:text-[#4aab84] disabled:text-gray-300 disabled:cursor-not-allowed transition-colors border border-[#5DBD97]/30 disabled:border-gray-200 rounded px-2 py-0.5">
-                          {addingNoteFor === st.id ? '추가 중…' : '+ 새 기록'}
-                        </button>
-                        <button onClick={e => { e.stopPropagation(); setExpandFor(st.id) }}
-                          className="text-[10px] text-gray-400 hover:text-gray-600 px-2 py-0.5 rounded hover:bg-gray-100 transition-colors">
-                          크게 편집
-                        </button>
-                      </div>
                     </div>
-                    <TiptapEditor
-                      key={st.currentNote?.id ?? `empty_${st.id}`}
-                      value={st.currentNote?.content ?? ''}
-                      onChange={v => handleCurrentNote(st, v)}
-                      minHeight={100}
-                      autoFocus={isFocus && focusSTId === st.id}
-                      className="px-5 py-2"
-                    />
-
-                    {/* ── 과거 기록 타임라인 ── */}
-                    {st.historyNotes.length > 0 && (
-                      <div className="border-t border-gray-100/80">
-                        <div className="px-5 py-1.5 flex items-center gap-1">
-                          <span className="text-[9px] font-semibold text-gray-400 uppercase tracking-wide">이전 기록</span>
-                          <span className="text-[9px] text-gray-300">· {st.historyNotes.length}개</span>
-                        </div>
-                        {st.historyNotes.map(note => {
-                          const isNoteOpen = openHistoryNotes[st.id]?.has(note.id) ?? false
-                          return (
-                            <div key={note.id} className="border-t border-gray-100/60">
-                              <div
-                                onClick={() => toggleHistoryNote(st.id, note.id)}
-                                className="flex items-center gap-2 px-5 py-2 hover:bg-gray-50/80 transition-colors cursor-pointer">
-                                <span className="flex-shrink-0 p-0.5">
-                                  <span style={{ fontSize: 8, color: '#94A3B8', display: 'inline-block', transition: 'transform .12s', transform: isNoteOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
-                                </span>
-                                <NoteTitleInput
-                                  note={note}
-                                  placeholder={`${formatNoteDate(note.created_at)} 기록`}
-                                  onSave={title => updateNoteTitle(note.id, st.id, title)}
-                                />
-                              </div>
-                              {isNoteOpen && (
-                                <div className="border-t border-gray-100/40 bg-white/60">
-                                  <TiptapEditor
-                                    value={note.content}
-                                    onChange={() => {}}
-                                    minHeight={60}
-                                    className="px-5 py-2"
-                                  />
-                                </div>
-                              )}
-                            </div>
-                          )
-                        })}
-                      </div>
-                    )}
-                    {/* 서브태스크 첨부파일 */}
-                    <div className="border-t border-gray-100/80 px-5 py-3">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: stColor }}>
-                          📎 {st.title} · 첨부파일
-                        </span>
-                        <label className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md cursor-pointer transition-colors ${uploadingFor === st.id ? 'text-gray-300' : 'bg-white border border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700'}`}>
-                          {uploadingFor === st.id ? '업로드 중…' : '파일 추가'}
-                          <input type="file" multiple className="hidden" onChange={e => handleUpload(e, st.id)} disabled={uploadingFor === st.id} />
-                        </label>
-                      </div>
-                      {stAtts(st.id).length === 0 ? (
-                        <p className="text-[10px] text-gray-300">이 하위 태스크에만 연결된 파일을 첨부하세요</p>
-                      ) : (
-                        <div className="flex flex-wrap gap-1.5">
-                          {stAtts(st.id).map(att => (
-                            <div key={att.id} className="flex items-center gap-1 text-[11px] bg-white border rounded-lg px-2.5 py-1 group/att"
-                              style={{ borderColor: `${stColor}40` }}>
-                              <a href={att.url} target="_blank" rel="noopener noreferrer"
-                                className="hover:underline transition-colors truncate max-w-[180px]"
-                                style={{ color: stColor }}>
-                                📄 {att.name}
-                              </a>
-                              <button onClick={() => deleteAttachment(att)}
-                                className="text-gray-300 hover:text-red-400 transition-colors opacity-0 group-hover/att:opacity-100 ml-0.5">×</button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
+                  )
+                })()}
               </div>
             )
           })}
@@ -748,91 +724,89 @@ export default function AgendaItemDetailPage() {
       </div>
 
       {/* 크게 편집 오버레이 */}
-      {expandFor && (
-        <div className="fixed inset-0 z-[200] bg-white flex flex-col">
-          <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200 flex-shrink-0"
-            style={{ borderLeft: `4px solid ${groupColor}` }}>
-            <div>
-              <div className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider mb-0.5">
-                {expandFor === 'description' ? '업무 개요 · 메모' : '세부task · 노트'}
+      {expandFor && (() => {
+        if (expandFor === 'description') {
+          return (
+            <div className="fixed inset-0 z-[200] bg-white flex flex-col">
+              <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200 flex-shrink-0"
+                style={{ borderLeft: `4px solid ${groupColor}` }}>
+                <div>
+                  <div className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider mb-0.5">업무 개요 · 메모</div>
+                  <div className="text-sm font-semibold text-gray-800">{item?.title ?? ''}</div>
+                </div>
+                <button onClick={() => setExpandFor(null)}
+                  className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-600 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200">
+                  <span>ESC</span><span> 닫기</span>
+                </button>
               </div>
-              <div className="text-sm font-semibold text-gray-800">
-                {expandFor === 'description' ? (item?.title ?? '') : (expandST?.title ?? '세부task 노트')}
+              <div className="flex-1 min-h-0 overflow-auto">
+                <TiptapEditor value={description} onChange={handleDescription} autoFocus minHeight={300} className="px-8 py-4" />
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              {expandST && (
-                <button
-                  onClick={() => addNoteEntry(expandST)}
-                  disabled={addingNoteFor === expandST.id || !hasNoteContent(expandST.currentNote?.content ?? '')}
+          )
+        }
+        if (!expandST) return null
+        const allNotes = expandST.currentNote ? [expandST.currentNote, ...expandST.historyNotes] : expandST.historyNotes
+        const selId = selectedNoteIds[expandST.id] ?? allNotes[0]?.id ?? null
+        const selectedNote = allNotes.find(n => n.id === selId) ?? null
+        const expandStColor = expandST.status === 'done' ? '#9CA3AF' : (expandST.status === 'hold' ? '#F59E0B' : groupColor)
+        return (
+          <div className="fixed inset-0 z-[200] bg-white flex flex-col">
+            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200 flex-shrink-0"
+              style={{ borderLeft: `4px solid ${groupColor}` }}>
+              <div>
+                <div className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider mb-0.5">세부task · 노트</div>
+                <div className="text-sm font-semibold text-gray-800">{expandST.title}</div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={() => addNoteEntry(expandST)} disabled={addingNoteFor === expandST.id}
                   className="text-xs text-[#5DBD97] hover:text-[#4aab84] disabled:text-gray-300 disabled:cursor-not-allowed border border-[#5DBD97]/30 disabled:border-gray-200 rounded-lg px-3 py-1.5 transition-colors">
                   {addingNoteFor === expandST.id ? '추가 중…' : '+ 새 기록'}
                 </button>
-              )}
-              <button onClick={() => setExpandFor(null)}
-                className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-600 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200">
-                <span>ESC</span><span> 닫기</span>
-              </button>
-            </div>
-          </div>
-          <div className="flex-1 min-h-0 overflow-auto">
-            {/* 현재 기록 날짜 */}
-            {expandST?.currentNote && (
-              <div className="px-8 pt-4 pb-0">
-                <span className="text-xs text-gray-400 font-medium">
-                  {formatNoteDate(expandST.currentNote.created_at)} 기록
-                  {expandST.historyNotes.length > 0 && <span className="ml-2 text-gray-300">· 총 {expandST.historyNotes.length + 1}개</span>}
-                </span>
+                <button onClick={() => setExpandFor(null)}
+                  className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-600 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200">
+                  <span>ESC</span><span> 닫기</span>
+                </button>
               </div>
-            )}
-            <TiptapEditor
-              value={expandFor === 'description' ? description : (expandST?.currentNote?.content ?? '')}
-              onChange={v => {
-                if (expandFor === 'description') handleDescription(v)
-                else if (expandST) handleCurrentNote(expandST, v)
-              }}
-              autoFocus
-              minHeight={300}
-              className="px-8 py-4"
-            />
-            {/* 이전 기록 타임라인 (세부task만) */}
-            {expandST && expandST.historyNotes.length > 0 && (
-              <div className="border-t border-gray-100 mx-8 mb-8">
-                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide py-3">이전 기록 · {expandST.historyNotes.length}개</p>
-                {expandST.historyNotes.map(note => {
-                  const isNoteOpen = openHistoryNotes[expandST.id]?.has(note.id) ?? false
+            </div>
+            <div className="flex-1 min-h-0 flex">
+              {/* 왼쪽: 날짜 목록 */}
+              <div style={{ width: 100, borderRight: '1px solid #E5E9F0', flexShrink: 0, background: '#F5F7FA', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+                {allNotes.map(note => {
+                  const isSelected = note.id === selId
                   return (
-                    <div key={note.id} className="border-t border-gray-100">
-                      <div className="flex items-center gap-2 py-2 hover:bg-gray-50 transition-colors rounded">
-                        <button
-                          onClick={() => toggleHistoryNote(expandST.id, note.id)}
-                          className="flex-shrink-0 p-1">
-                          <span style={{ fontSize: 8, color: '#94A3B8', display: 'inline-block', transition: 'transform .12s', transform: isNoteOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
-                        </button>
-                        <NoteTitleInput
-                          note={note}
-                          placeholder={`${formatNoteDate(note.created_at)} 기록`}
-                          onSave={title => updateNoteTitle(note.id, expandST.id, title)}
-                        />
-                      </div>
-                      {isNoteOpen && (
-                        <div className="border-t border-gray-100 bg-gray-50/50 rounded-lg mb-2">
-                          <TiptapEditor
-                            value={note.content}
-                            onChange={() => {}}
-                            minHeight={80}
-                            className="px-4 py-3"
-                          />
-                        </div>
-                      )}
-                    </div>
+                    <button key={note.id}
+                      onClick={() => setSelectedNoteIds(p => ({ ...p, [expandST.id]: note.id }))}
+                      style={{ padding: '10px 12px', fontSize: 12, textAlign: 'center', background: isSelected ? `${expandStColor}15` : 'transparent', color: isSelected ? expandStColor : '#8FA0B5', fontWeight: isSelected ? 700 : 400, cursor: 'pointer', border: 'none', borderBottom: '1px solid #F0F4F8', display: 'block', width: '100%', lineHeight: 1.3 }}>
+                      {formatNoteDate(note.created_at)}
+                    </button>
                   )
                 })}
               </div>
-            )}
+              {/* 오른쪽: 에디터 */}
+              <div className="flex-1 min-w-0 overflow-auto">
+                {selectedNote ? (
+                  <>
+                    <div className="px-8 pt-4 pb-0 flex items-center gap-2">
+                      <NoteTitleInput note={selectedNote} placeholder={`${formatNoteDate(selectedNote.created_at)} 기록`} onSave={title => updateNoteTitle(selectedNote.id, expandST.id, title)} />
+                    </div>
+                    <TiptapEditor
+                      key={selectedNote.id}
+                      value={selectedNote.content}
+                      onChange={v => handleNoteChange(expandST, selectedNote.id, v)}
+                      autoFocus
+                      minHeight={300}
+                      className="px-8 py-4"
+                    />
+                  </>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-sm text-gray-400">+ 새 기록을 추가하세요</div>
+                )}
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
     </div>
   )
 }
