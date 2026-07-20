@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { createPortal } from 'react-dom'
 import { useEffect, useState, useMemo } from 'react'
@@ -13,21 +13,21 @@ import { generateMeetingsContextMd, downloadMd } from '@/lib/markdown'
 const DEFAULT_CATS = ['코어', '비즈', '개인', '기타']
 
 const CATEGORY_COLORS: Record<string, string> = {
-  '코어':    'bg-[#C7D8F0]/40 text-[#1A3562] border-[#C7D8F0]/55',
-  '비즈':    'bg-[#F3E482]/40 text-[#5A4A10] border-[#F3E482]/55',
-  '경영진':  'bg-[#90A7D8]/30 text-[#1E3A6B] border-[#90A7D8]/45',
-  '본부장':  'bg-[#BFE4B5]/40 text-[#2D5A35] border-[#BFE4B5]/55',
-  '타팀':    'bg-gray-100/80 text-gray-500 border-gray-200',
-  '기타':    'bg-gray-100/80 text-gray-400 border-gray-200',
+  '코어':    'bg-[#1A3562]/50 text-[#A8C8F0] border-[#C7D8F0]/30',
+  '비즈':    'bg-[#5A4A10]/50 text-[#F3E482] border-[#F3E482]/30',
+  '경영진':  'bg-[#1E3A6B]/50 text-[#90A7D8] border-[#90A7D8]/30',
+  '본부장':  'bg-[#2D5A35]/50 text-[#BFE4B5] border-[#BFE4B5]/30',
+  '타팀':    'bg-white/[0.08] text-[rgba(226,232,240,0.5)] border-white/[0.1]',
+  '기타':    'bg-white/[0.08] text-[rgba(226,232,240,0.4)] border-white/[0.1]',
 }
 
-const CAT_CARD_BG: Record<string, string> = {
-  '코어':    'border-t-[#A8C0E0]',
-  '비즈':    'border-t-[#F3E482]',
-  '경영진':  'border-t-[#90A7D8]',
-  '본부장':  'border-t-[#BFE4B5]',
-  '타팀':    'border-t-gray-200',
-  '기타':    'border-t-gray-200',
+const CAT_CARD_TOP_COLORS: Record<string, string> = {
+  '코어':    '#A8C0E0',
+  '비즈':    '#F3E482',
+  '경영진':  '#90A7D8',
+  '본부장':  '#BFE4B5',
+  '타팀':    'rgba(255,255,255,0.2)',
+  '기타':    'rgba(255,255,255,0.2)',
 }
 
 function formatYM(ym: string): string {
@@ -38,7 +38,7 @@ function formatYM(ym: string): string {
 
 const pill  = 'text-xs px-3.5 py-1.5 rounded-full border font-medium transition-all whitespace-nowrap'
 const pOn  = 'bg-[#1B3A6B] text-white border-[#1B3A6B] shadow-sm'
-const pOff = 'bg-white/40 backdrop-blur-xl border-white/60 text-gray-500 hover:bg-white/60 hover:text-gray-700'
+const pOff = 'bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border-[rgba(255,255,255,0.09)] text-[rgba(226,232,240,0.5)] hover:bg-[rgba(255,255,255,0.1)] hover:text-[#E2E8F0]'
 
 interface TaskLinkRow {
   meeting_id: string
@@ -253,11 +253,11 @@ export default function MeetingsPage() {
   const pillFilters = ['전체', ...catOrder]
 
   return (
-    <div className="h-full flex flex-col overflow-hidden font-sans">
+    <div className="h-full flex flex-col overflow-hidden font-sans" style={{ background: '#13151C', minHeight: '100%' }}>
 
       {/* 헤더 */}
       <div className="flex-shrink-0 pt-6 pb-4 flex items-center gap-3 flex-wrap">
-        <h1 className="text-xl font-bold text-gray-900">회의록</h1>
+        <h1 className="text-xl font-bold" style={{ color: '#E2E8F0' }}>회의록</h1>
 
         <div className="flex-1" />
 
@@ -265,13 +265,15 @@ export default function MeetingsPage() {
           <>
             <button onClick={downloadChecked} className={`${pill} ${pOff}`}>MD 다운로드 ({checkedIds.size})</button>
             <button onClick={deleteChecked}
-              className="text-xs bg-red-50 border border-red-200 text-red-500 px-3 py-1.5 rounded-full hover:bg-red-100 transition-all">
+              className="text-xs px-3 py-1.5 rounded-full transition-all"
+              style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171' }}>
               {checkedIds.size}개 삭제
             </button>
           </>
         )}
           <button onClick={() => setAdding(true)}
-            className="text-sm bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] px-4 py-2 rounded-full hover:bg-[#D5E6F7] transition-colors shadow-sm">
+            className="text-sm px-4 py-2 rounded-full transition-colors"
+            style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', color: '#E2E8F0' }}>
             + 새 회의록
           </button>
       </div>
@@ -279,14 +281,15 @@ export default function MeetingsPage() {
       {/* 목록 뷰 */}
       <>
 
-
       {adding && (
-        <div className="flex-shrink-0 bg-white/60 backdrop-blur-xl rounded-2xl border border-white/80 px-5 py-4 mb-3 shadow-sm">
+        <div className="flex-shrink-0 rounded-2xl px-5 py-4 mb-3"
+          style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.09)', boxShadow: '0 20px 40px rgba(0,0,0,0.18), 0 1px 0 rgba(255,255,255,0.07) inset' }}>
           <input autoFocus value={newTitle} onChange={e => setNewTitle(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') { setAdding(false); setNewTitle('') } }}
             onBlur={handleAdd}
             placeholder="회의 제목 입력 후 Enter"
-            className="w-full text-sm focus:outline-none text-gray-700 bg-transparent" />
+            className="w-full text-sm focus:outline-none bg-transparent placeholder:text-[rgba(226,232,240,0.3)]"
+            style={{ color: '#E2E8F0' }} />
         </div>
       )}
 
@@ -304,7 +307,7 @@ export default function MeetingsPage() {
           >
             <button
               onClick={() => setCatFilter(c)}
-              className={`${pill} transition-all ${catFilter === c ? pOn : pOff} ${dragOverCat === c && dragCat !== c ? 'ring-2 ring-blue-300 ring-offset-1' : ''}`}>
+              className={`${pill} transition-all ${catFilter === c ? pOn : pOff} ${dragOverCat === c && dragCat !== c ? 'ring-2 ring-blue-400' : ''}`}>
               {c !== '전체' && <span className="text-[8px] opacity-30 mr-1 cursor-grab">⠿</span>}
               {c}
             </button>
@@ -313,7 +316,8 @@ export default function MeetingsPage() {
               <button
                 onClick={e => { e.stopPropagation(); deleteCategory(c) }}
                 title="범주 삭제"
-                className="absolute -top-1 -right-1 w-4 h-4 bg-red-400 hover:bg-red-500 text-white rounded-full text-[9px] hidden group-hover/pill:flex items-center justify-center z-10 transition-colors shadow-sm">
+                className="absolute -top-1 -right-1 w-4 h-4 text-white rounded-full text-[9px] hidden group-hover/pill:flex items-center justify-center z-10 transition-colors shadow-sm"
+                style={{ background: 'rgba(239,68,68,0.85)' }}>
                 ×
               </button>
             )}
@@ -330,28 +334,33 @@ export default function MeetingsPage() {
             }}
             onBlur={() => { if (!newCatName.trim()) setAddingCat(false) }}
             placeholder="범주명 입력"
-            className="text-xs px-3 py-1.5 rounded-full border border-blue-300 focus:outline-none text-gray-700 w-28 bg-white flex-shrink-0"
+            className="text-xs px-3 py-1.5 rounded-full border focus:outline-none w-28 flex-shrink-0 placeholder:text-[rgba(226,232,240,0.3)]"
+            style={{ background: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.15)', color: '#E2E8F0' }}
           />
         ) : (
           <button
             onClick={() => setAddingCat(true)}
-            className="text-xs text-gray-400 hover:text-gray-600 border border-dashed border-gray-300 hover:border-gray-400 rounded-full px-2.5 py-1.5 transition-colors flex-shrink-0 whitespace-nowrap">
+            className="text-xs border border-dashed rounded-full px-2.5 py-1.5 transition-colors flex-shrink-0 whitespace-nowrap"
+            style={{ color: 'rgba(226,232,240,0.3)', borderColor: 'rgba(255,255,255,0.15)' }}>
             + 범주
           </button>
         )}
-        <span className="text-xs text-gray-400 ml-auto shrink-0">{totalFiltered}건</span>
+        <span className="text-xs ml-auto shrink-0" style={{ color: 'rgba(226,232,240,0.5)' }}>{totalFiltered}건</span>
       </div>
 
       {/* 콘텐츠 */}
       <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
         {loading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 xl:grid-cols-6 gap-3">
-            {[1,2,3,4,5,6,7,8].map(i => <div key={i} className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-2xl h-28 animate-pulse" />)}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8">
+            {[1,2,3,4,5,6,7,8].map(i => (
+              <div key={i} className="h-10 animate-pulse my-1 rounded-md"
+                style={{ background: 'rgba(255,255,255,0.06)' }} />
+            ))}
           </div>
         ) : categoryGroups.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-48 gap-2">
-            <p className="text-gray-300 text-sm">해당 카테고리의 회의록이 없습니다</p>
-            <button onClick={() => setCatFilter('전체')} className={`${pill} ${pOff} text-gray-400`}>전체 보기</button>
+            <p className="text-sm" style={{ color: 'rgba(226,232,240,0.28)' }}>해당 카테고리의 회의록이 없습니다</p>
+            <button onClick={() => setCatFilter('전체')} className={`${pill} ${pOff}`}>전체 보기</button>
           </div>
         ) : (
           <div className="space-y-8 pb-6">
@@ -369,22 +378,28 @@ export default function MeetingsPage() {
 
                   {catFilter === '전체' ? (
                     <button onClick={() => toggleCat(cat)}
-                      className="flex items-center gap-2.5 w-full text-left group py-2 mb-3 border-b border-white/40 pb-3">
-                      <span className="text-gray-300 text-xs cursor-grab select-none" title="드래그하여 순서 변경">⠿</span>
-                      <span className={`text-xs font-semibold px-3 py-1 rounded-full border ${CATEGORY_COLORS[cat] ?? 'bg-gray-100/80 text-gray-400 border-gray-200'}`}>
+                      className="flex items-center gap-2.5 w-full text-left group py-2 mb-3 pb-3"
+                      style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                      <span className="text-xs cursor-grab select-none" style={{ color: 'rgba(226,232,240,0.28)' }} title="드래그하여 순서 변경">⠿</span>
+                      <span className={`text-xs font-semibold px-3 py-1 rounded-full border ${CATEGORY_COLORS[cat] ?? 'bg-white/[0.08] text-[rgba(226,232,240,0.4)] border-white/[0.1]'}`}>
                         {cat}
                       </span>
-                      <span className="text-xs text-gray-400 bg-white/60 border border-white/70 px-2 py-0.5 rounded-full">{items.length}건</span>
-                      <span className="text-[10px] text-gray-300 group-hover:text-gray-500 transition-colors ml-auto">
+                      <span className="text-xs px-2 py-0.5 rounded-full"
+                        style={{ color: 'rgba(226,232,240,0.5)', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.09)' }}>
+                        {items.length}건
+                      </span>
+                      <span className="text-[10px] transition-colors ml-auto" style={{ color: 'rgba(226,232,240,0.28)' }}>
                         {isCatCollapsed ? '▶' : '▼'}
                       </span>
                     </button>
                   ) : (
-                    <div className="flex items-center gap-2.5 py-2 mb-3 border-b border-white/40 pb-3">
-                      <span className={`text-xs font-semibold px-3 py-1 rounded-full border ${CATEGORY_COLORS[cat] ?? 'bg-gray-100/80 text-gray-400 border-gray-200'}`}>
+                    <div className="flex items-center gap-2.5 py-2 mb-3 pb-3"
+                      style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                      <span className={`text-xs font-semibold px-3 py-1 rounded-full border ${CATEGORY_COLORS[cat] ?? 'bg-white/[0.08] text-[rgba(226,232,240,0.4)] border-white/[0.1]'}`}>
                         {cat}
                       </span>
-                      <span className="text-xs text-gray-400 bg-white/60 border border-white/70 px-2 py-0.5 rounded-full">
+                      <span className="text-xs px-2 py-0.5 rounded-full"
+                        style={{ color: 'rgba(226,232,240,0.5)', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.09)' }}>
                         {items.length}건
                       </span>
                     </div>
@@ -400,62 +415,67 @@ export default function MeetingsPage() {
                           <div key={ym}>
                             <button onClick={() => toggleMonth(monthKey)}
                               className="flex items-center gap-2 w-full text-left group mb-2">
-                              <span className="text-xs font-semibold text-gray-500 group-hover:text-gray-700 transition-colors">{formatYM(ym)}</span>
-                              <span className="text-[10px] text-gray-400 bg-white/50 border border-white/60 px-1.5 py-0.5 rounded-full">{monthItems.length}건</span>
-                              {isLatest && <span className="text-[9px] text-[#1B3A6B] bg-[#C7D8F0]/30 border border-[#C7D8F0]/40 px-1.5 py-0.5 rounded-full">최신</span>}
-                              <span className="text-[10px] text-gray-300 group-hover:text-gray-500 transition-colors ml-auto">{isMonthCollapsed ? '▶' : '▼'}</span>
+                              <span className="text-xs font-semibold transition-colors"
+                                style={{ color: 'rgba(226,232,240,0.5)' }}>{formatYM(ym)}</span>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full"
+                                style={{ color: 'rgba(226,232,240,0.4)', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                {monthItems.length}건
+                              </span>
+                              {isLatest && (
+                                <span className="text-[9px] px-1.5 py-0.5 rounded-full"
+                                  style={{ color: '#90B8E0', background: 'rgba(27,58,107,0.4)', border: '1px solid rgba(144,184,224,0.3)' }}>
+                                  최신
+                                </span>
+                              )}
+                              <span className="text-[10px] transition-colors ml-auto"
+                                style={{ color: 'rgba(226,232,240,0.28)' }}>
+                                {isMonthCollapsed ? '▶' : '▼'}
+                              </span>
                             </button>
 
                             {!isMonthCollapsed && (
-                              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 xl:grid-cols-6 gap-3">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8">
                                 {monthItems.map(meeting => {
                                   const meetingTasks = tasksMap[meeting.id] ?? []
-                                  const isTasksExpanded = expandedTaskCards.has(meeting.id)
-                                  const visibleTasks = isTasksExpanded ? meetingTasks : meetingTasks.slice(0, 2)
+                                  const accentColor = CAT_CARD_TOP_COLORS[meeting.category ?? cat] ?? CAT_CARD_TOP_COLORS['기타']
                                   return (
                                     <div key={meeting.id}
                                       onClick={() => router.push(`/meetings/${meeting.id}`)}
-                                      className={`group/card bg-white/40 backdrop-blur-xl border-t-2 border border-white/60 rounded-2xl p-3 hover:bg-white/60 hover:shadow-sm transition-all min-h-28 flex flex-col cursor-pointer ${CAT_CARD_BG[meeting.category ?? cat] ?? CAT_CARD_BG['기타']}`}>
-                                      <p className="text-xs font-bold text-gray-800 leading-snug line-clamp-2 flex-1">
-                                        {meeting.title || '제목 없음'}
-                                      </p>
-                                      {meetingTasks.length > 0 && (
-                                        <div className="mt-1.5 mb-1" onClick={e => e.stopPropagation()}>
-                                          {visibleTasks.map(t => (
-                                            <Link key={t.id} href={`/tasks/${t.id}`}
-                                              onClick={(e: React.MouseEvent) => e.stopPropagation()}
-                                              className="block text-[9px] text-gray-500 hover:text-gray-700 truncate leading-snug">
-                                              · {t.title || '제목 없음'}
-                                            </Link>
-                                          ))}
-                                          {meetingTasks.length > 2 && (
-                                            <button
-                                              onClick={e => { e.stopPropagation(); toggleTaskCard(meeting.id) }}
-                                              className="text-[9px] text-gray-400 hover:text-gray-600 mt-0.5 transition-colors">
-                                              {isTasksExpanded ? '접기 ▲' : `+${meetingTasks.length - 2}개 더 ▼`}
-                                            </button>
-                                          )}
-                                        </div>
-                                      )}
-                                      <div className="flex items-center gap-1 mt-1 flex-shrink-0">
+                                      className="group/row flex items-center gap-3 py-2.5 cursor-pointer rounded-md -mx-2 px-2 hover:bg-[rgba(255,255,255,0.04)] transition-colors"
+                                      style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                      <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: accentColor }} />
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-[12px] font-medium truncate" style={{ color: '#E2E8F0' }}>
+                                          {meeting.title || '제목 없음'}
+                                        </p>
+                                        {meetingTasks.length > 0 && (
+                                          <p className="text-[10px] truncate mt-0.5" style={{ color: 'rgba(226,232,240,0.4)' }}
+                                            onClick={e => e.stopPropagation()}>
+                                            {meetingTasks.slice(0, 2).map(t => t.title).join(' · ')}
+                                            {meetingTasks.length > 2 ? ` +${meetingTasks.length - 2}` : ''}
+                                          </p>
+                                        )}
+                                      </div>
+                                      <div className="flex items-center gap-2 flex-shrink-0">
                                         <input type="checkbox" checked={checkedIds.has(meeting.id)}
                                           onChange={() => toggleCheck(meeting.id)}
                                           onClick={e => e.stopPropagation()}
-                                          className="w-3 h-3 rounded accent-gray-700 flex-shrink-0 cursor-pointer" />
-                                        <span className="text-[9px] text-neutral-400 flex-1">
-                                          {meeting.meeting_date ? format(parseISO(meeting.meeting_date), 'M.d (E)', { locale: ko }) : '날짜 미지정'}
-                                        </span>
-                                        <button
-                                          data-cat-trigger="true"
-                                          onClick={e => openCatEdit(e, meeting.id)}
-                                          className={`text-[9px] px-1.5 py-0.5 rounded-full border font-medium transition-all opacity-0 group-hover/card:opacity-100 ${CATEGORY_COLORS[meeting.category ?? '기타'] ?? CATEGORY_COLORS['기타']}`}>
-                                          {meeting.category ?? '분류'}
-                                        </button>
+                                          className="w-3 h-3 rounded accent-gray-400 cursor-pointer opacity-0 group-hover/row:opacity-100 transition-opacity" />
                                         {meeting.notes.length > 0 && (
-                                          <span className="text-[9px] text-gray-400 bg-white/60 border border-white/70 px-1 py-0.5 rounded-full flex-shrink-0">
+                                          <span className="text-[9px] px-1.5 py-0.5 rounded-full"
+                                            style={{ color: 'rgba(226,232,240,0.4)', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}>
                                             {meeting.notes.length}노트
                                           </span>
                                         )}
+                                        <button
+                                          data-cat-trigger="true"
+                                          onClick={e => openCatEdit(e, meeting.id)}
+                                          className={`text-[9px] px-1.5 py-0.5 rounded-full border font-medium transition-all opacity-0 group-hover/row:opacity-100 ${CATEGORY_COLORS[meeting.category ?? '기타'] ?? CATEGORY_COLORS['기타']}`}>
+                                          {meeting.category ?? '분류'}
+                                        </button>
+                                        <span className="text-[10px]" style={{ color: 'rgba(226,232,240,0.28)' }}>
+                                          {meeting.meeting_date ? format(parseISO(meeting.meeting_date), 'M.d (E)', { locale: ko }) : '미지정'}
+                                        </span>
                                       </div>
                                     </div>
                                   )
@@ -472,7 +492,8 @@ export default function MeetingsPage() {
             })}
 
             <button onClick={() => setAdding(true)}
-              className="w-full bg-white/20 backdrop-blur-xl border border-dashed border-white/50 rounded-3xl py-5 hover:bg-white/30 transition-all text-gray-400 hover:text-gray-600 text-xs font-medium">
+              className="w-full rounded-3xl py-5 transition-all text-xs font-medium"
+              style={{ background: 'rgba(255,255,255,0.04)', border: '1px dashed rgba(255,255,255,0.12)', color: 'rgba(226,232,240,0.4)' }}>
               + 새 회의록
             </button>
           </div>
@@ -484,20 +505,31 @@ export default function MeetingsPage() {
       {editingCatId && typeof document !== 'undefined' && createPortal(
         <div
           data-cat-dd="true"
-          style={{ position: 'fixed', left: editCatPos.x, top: editCatPos.y, zIndex: 1000 }}
-          className="bg-white/95 backdrop-blur-xl border border-gray-200 rounded-xl shadow-2xl p-1.5 min-w-[90px]">
+          style={{
+            position: 'fixed',
+            left: editCatPos.x,
+            top: editCatPos.y,
+            zIndex: 1000,
+            background: 'rgba(19,21,28,0.96)',
+            border: '1px solid rgba(255,255,255,0.12)',
+            backdropFilter: 'blur(20px)',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.4)',
+          }}
+          className="rounded-xl p-1.5 min-w-[90px]">
           {catOrder.map(c => (
             <button key={c} onClick={() => updateMeetingCat(editingCatId, c)}
-              className={`w-full text-left text-[11px] px-2.5 py-1.5 rounded-lg transition-colors ${
+              className="w-full text-left text-[11px] px-2.5 py-1.5 rounded-lg transition-colors hover:bg-[rgba(255,255,255,0.06)]"
+              style={
                 meetings.find(m => m.id === editingCatId)?.category === c
-                  ? 'font-semibold text-gray-900 bg-gray-50'
-                  : 'text-gray-500 hover:bg-gray-50'
-              }`}>
+                  ? { fontWeight: 600, color: '#E2E8F0', background: 'rgba(255,255,255,0.1)' }
+                  : { color: 'rgba(226,232,240,0.5)' }
+              }>
               {c}
             </button>
           ))}
           <button onClick={() => updateMeetingCat(editingCatId, null)}
-            className="w-full text-left text-[11px] px-2.5 py-1.5 rounded-lg text-gray-300 hover:text-gray-500 hover:bg-gray-50 border-t border-gray-100 mt-0.5 transition-colors">
+            className="w-full text-left text-[11px] px-2.5 py-1.5 rounded-lg transition-colors mt-0.5 hover:bg-[rgba(255,255,255,0.06)]"
+            style={{ color: 'rgba(226,232,240,0.28)', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'block' }}>
             분류 없음
           </button>
         </div>,

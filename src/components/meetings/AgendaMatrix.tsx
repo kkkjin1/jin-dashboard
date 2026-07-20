@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState, useRef, useMemo, Fragment } from 'react'
 import { useRouter } from 'next/navigation'
@@ -8,13 +8,13 @@ import TiptapEditor from '@/components/TiptapEditor'
 
 // ── 상수 ────────────────────────────────────────────────────────────
 const STATUS_COLOR: Record<string, string> = { active: '#3B82F6', hold: '#9CA3AF', done: '#10B981' }
-const STATUS_LABEL: Record<string, string> = { active: '진행', hold: '보류', done: '완료' }
+const STATUS_LABEL: Record<string, string> = { active: '진행필요', hold: '진행중', done: '진행완료' }
 const GROUP_COLORS = ['#3B82F6','#F59E0B','#10B981','#EF4444','#8B5CF6','#EC4899','#9CA3AF']
 const MATRIX_CATS = ['코어', '비즈', '개인']
 const CAT_CLS: Record<string, string> = {
-  '코어':  'bg-blue-50 text-blue-700 border-blue-200',
-  '비즈':  'bg-amber-50 text-amber-700 border-amber-200',
-  '개인':  'bg-emerald-50 text-emerald-700 border-emerald-200',
+  '코어':  'bg-[rgba(59,130,246,0.15)] text-blue-300 border-[rgba(59,130,246,0.3)]',
+  '비즈':  'bg-[rgba(245,158,11,0.15)] text-amber-300 border-[rgba(245,158,11,0.3)]',
+  '개인':  'bg-[rgba(16,185,129,0.15)] text-emerald-300 border-[rgba(16,185,129,0.3)]',
 }
 const CAT_BG: Record<string, string>     = { '코어': 'rgba(59,130,246,0.09)',  '비즈': 'rgba(245,158,11,0.09)',  '개인': 'rgba(16,185,129,0.09)' }
 const CAT_BORDER: Record<string, string> = { '코어': '#3B82F6',                '비즈': '#F59E0B',                '개인': '#10B981' }
@@ -27,7 +27,7 @@ function hexToRgba(hex: string, alpha: number) {
   return `rgba(${r},${g},${b},${alpha})`
 }
 
-const S = { bd: '1px solid #E5E9F0', bdL: '1px solid #BDD0EA', bg: '#fff', bgRow: '#F7F9FC', t1: '#1A2233', t2: '#4A5A72', t3: '#8FA0B5' }
+const S = { bd: '1px solid rgba(255,255,255,0.08)', bdL: '1px solid rgba(255,255,255,0.14)', bg: '#13151C', bgRow: 'rgba(255,255,255,0.02)', t1: '#E2E8F0', t2: 'rgba(226,232,240,0.7)', t3: 'rgba(226,232,240,0.4)' }
 
 function stDateLabel(date: string, today: string, tomorrow: string): string {
   if (date === today) return '오늘'
@@ -91,11 +91,12 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
   const [dragOverItemId,  setDragOverItemId]  = useState<string | null>(null)
   const [draggingSTId,    setDraggingSTId]    = useState<string | null>(null)
   const [dragOverSTId,    setDragOverSTId]    = useState<string | null>(null)
-  const [periodPickerItemId, setPeriodPickerItemId] = useState<string | null>(null)
-  const [periodPickerPos,    setPeriodPickerPos]    = useState<{ x: number; y: number } | null>(null)
-  const [periodPickerYear,   setPeriodPickerYear]   = useState(() => new Date().getFullYear())
-  const [periodPickerStartM, setPeriodPickerStartM] = useState<number>(1)
-  const [periodPickerEndM,   setPeriodPickerEndM]   = useState<number>(12)
+  const [periodPickerItemId,  setPeriodPickerItemId]  = useState<string | null>(null)
+  const [periodPickerGroupId, setPeriodPickerGroupId] = useState<string | null>(null)
+  const [periodPickerPos,     setPeriodPickerPos]     = useState<{ x: number; y: number } | null>(null)
+  const [periodPickerYear,    setPeriodPickerYear]    = useState(() => new Date().getFullYear())
+  const [periodPickerStartM,  setPeriodPickerStartM]  = useState<number>(1)
+  const [periodPickerEndM,    setPeriodPickerEndM]    = useState<number>(12)
   const [rdDraggingId,    setRdDraggingId]    = useState<string | null>(null)
   const [rdDragOverId,    setRdDragOverId]    = useState<string | null>(null)
 
@@ -269,6 +270,14 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
     setPeriodPickerItemId(null)
     setPeriodPickerPos(null)
   }
+  async function updateGroupRoadmapPeriod(groupId: string, year: number | null, key: string | null) {
+    const value = (year && key) ? `${year}-${key}` : null
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await supabase.from('agenda_groups').update({ roadmap_period: value } as any).eq('id', groupId)
+    setGroups(prev => prev.map(g => g.id === groupId ? { ...g, roadmap_period: value } : g))
+    setPeriodPickerGroupId(null)
+    setPeriodPickerPos(null)
+  }
   async function reorderRoadmapItem(dragId: string, targetId: string) {
     const draggedItem = items.find(i => i.id === dragId)
     const targetItem  = items.find(i => i.id === targetId)
@@ -319,17 +328,17 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
   // ── 뷰 토글 헤더 ─────────────────────────────────────────────────
   const viewToggle = (
     <div className="flex-shrink-0 flex items-center gap-3 px-4 md:px-6 pb-3">
-      <div className="flex items-center gap-0.5 bg-gray-100/80 rounded-lg p-0.5">
+      <div className="flex items-center gap-0.5 bg-[rgba(255,255,255,0.08)] rounded-lg p-0.5">
         <button onClick={() => setViewMode('list')}
-          className={`text-xs px-3 py-1 rounded-md transition-all font-medium ${viewMode === 'list' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>목록</button>
+          className={`text-xs px-3 py-1 rounded-md transition-all font-medium ${viewMode === 'list' ? 'bg-[rgba(255,255,255,0.12)] text-[#E2E8F0] shadow-sm' : 'text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)]'}`}>목록</button>
         <button onClick={() => setViewMode('roadmap')}
-          className={`text-xs px-3 py-1 rounded-md transition-all font-medium ${viewMode === 'roadmap' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>로드맵</button>
+          className={`text-xs px-3 py-1 rounded-md transition-all font-medium ${viewMode === 'roadmap' ? 'bg-[rgba(255,255,255,0.12)] text-[#E2E8F0] shadow-sm' : 'text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)]'}`}>로드맵</button>
       </div>
       {viewMode === 'roadmap' && (
         <div className="flex items-center gap-1.5">
-          <button onClick={() => setYearNav(p => p - 1)} className="text-gray-400 hover:text-gray-700 text-base px-1 leading-none">‹</button>
-          <span className="text-sm font-semibold text-gray-700 w-16 text-center">{yearNav}년</span>
-          <button onClick={() => setYearNav(p => p + 1)} className="text-gray-400 hover:text-gray-700 text-base px-1 leading-none">›</button>
+          <button onClick={() => setYearNav(p => p - 1)} className="text-[rgba(226,232,240,0.4)] hover:text-[#E2E8F0] text-base px-1 leading-none">‹</button>
+          <span className="text-sm font-semibold text-[rgba(226,232,240,0.7)] w-16 text-center">{yearNav}년</span>
+          <button onClick={() => setYearNav(p => p + 1)} className="text-[rgba(226,232,240,0.4)] hover:text-[#E2E8F0] text-base px-1 leading-none">›</button>
         </div>
       )}
     </div>
@@ -341,100 +350,111 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
       <>
         {viewToggle}
         <div className="flex-1 min-h-0 overflow-auto px-4 md:px-6">
-        <table style={{ borderCollapse: 'collapse', width: '100%' }}>
-          <thead>
-            <tr style={{ borderBottom: S.bd }}>
-              <th style={{ position: 'sticky', left: 0, top: 0, zIndex: 5, background: S.bg, padding: '12px 16px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: S.t3, letterSpacing: '.05em', textTransform: 'uppercase', borderBottom: S.bd, width: '60%' }}>안건</th>
-              <th style={{ position: 'sticky', top: 0, zIndex: 3, background: S.bg, padding: '12px 12px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: S.t3, letterSpacing: '.05em', textTransform: 'uppercase', borderBottom: S.bd, borderLeft: S.bd, width: 90 }}>상태</th>
-              <th style={{ position: 'sticky', top: 0, zIndex: 3, background: S.bg, padding: '12px 12px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: S.t3, letterSpacing: '.05em', textTransform: 'uppercase', borderBottom: S.bd, borderLeft: S.bd, width: 120 }}>담당자</th>
-              <th style={{ position: 'sticky', top: 0, zIndex: 3, background: S.bg, padding: '12px 12px', borderBottom: S.bd, borderLeft: S.bd, width: 100 }} />
-            </tr>
-          </thead>
-          <tbody>
+          <div className="space-y-3 pb-4" style={{ minWidth: 520 }}>
+
             {[...groups].sort((a, b) => a.sort_order - b.sort_order).map(group => {
               const groupItems = items.filter(i => i.group_id === group.id).sort((a, b) => a.sort_order - b.sort_order)
               const doneGroupItems = groupItems.filter(i => i.status === 'done')
               const visibleGroupItems = showDoneGroups.has(group.id) ? groupItems : groupItems.filter(i => i.status !== 'done')
               const isOpen = openGroups.has(group.id)
-              return (
-                <Fragment key={group.id}>
-                  <tr
-                    style={{ background: draggingGroupId === group.id ? 'rgba(0,0,0,0.04)' : dragOverGroupId === group.id ? hexToRgba(group.color, 0.22) : (CAT_BG[group.category ?? ''] ?? hexToRgba(group.color, 0.09)), opacity: draggingGroupId === group.id ? 0.4 : 1, transition: 'background .15s' }}
-                    onDragOver={e => { if (!_dragItemId && !_dragGroupId) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverGroupId(group.id); setDragOverItemId(null) }}
-                    onDrop={e => {
-                      e.preventDefault()
-                      if (_dragGroupId) {
-                        const gId = _dragGroupId; _dragGroupId = null
-                        if (gId !== group.id) reorderGroup(gId, group.id)
-                        setDraggingGroupId(null); setDragOverGroupId(null)
-                      } else if (_dragItemId) {
-                        const dragId = _dragItemId; _dragItemId = null
-                        const di = items.find(i => i.id === dragId)
-                        if (di && di.group_id !== group.id) moveItemToGroup(dragId, group.id)
-                        setDraggingItemId(null); setDragOverGroupId(null); setDragOverItemId(null)
-                      }
-                    }}
-                    onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverGroupId(null) }}>
-                    <td colSpan={4} style={{ padding: 0, borderTop: dragOverGroupId === group.id ? `2px solid ${group.color}` : '3px solid #fff', borderBottom: S.bd, borderLeft: `3px solid ${CAT_BORDER[group.category ?? ''] ?? group.color}` }}>
-                      {editingGroupId === group.id ? (
-                        <div className="flex items-center gap-2 flex-wrap" style={{ padding: '24px 16px' }}>
-                          <input autoFocus value={editGName} onChange={e => setEditGName(e.target.value)}
-                            onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) updateGroup(group.id); if (e.key === 'Escape') setEditingGroupId(null) }}
-                            className="border border-gray-300 rounded-lg px-2.5 py-1 text-sm focus:outline-none focus:border-gray-400 font-semibold w-40" style={{ color: S.t1 }} />
-                          <div className="flex gap-1.5">
-                            {GROUP_COLORS.map(c => <div key={c} onClick={() => setEditGColor(c)} style={{ width: 13, height: 13, borderRadius: '50%', background: c, cursor: 'pointer', border: editGColor === c ? '2px solid #1A2233' : '2px solid transparent', flexShrink: 0 }} />)}
-                          </div>
-                          <button onClick={() => updateGroup(group.id)} className="text-xs bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] px-3 py-1 rounded-lg">저장</button>
-                          <button onClick={() => setEditingGroupId(null)} className="text-xs text-gray-400 px-2">취소</button>
-                        </div>
-                      ) : (
-                        <div onClick={() => toggleGroup(group.id)}
-                          className="flex items-center gap-2 group/grow cursor-pointer hover:brightness-95 transition-all"
-                          style={{ padding: '24px 16px' }}>
-                          <span
-                            draggable
-                            onDragStart={e => { e.stopPropagation(); _dragGroupId = group.id; _dragItemId = null; _dragSTId = null; e.dataTransfer.effectAllowed = 'move'; setDraggingGroupId(group.id) }}
-                            onDragEnd={e => { e.stopPropagation(); _dragGroupId = null; setDraggingGroupId(null); setDragOverGroupId(null) }}
-                            onClick={e => e.stopPropagation()}
-                            title="드래그하여 범주 이동"
-                            style={{ cursor: 'grab', color: '#A0AEC0', fontSize: 14, userSelect: 'none', flexShrink: 0, lineHeight: 1 }}
-                          >⠿</span>
-                          <span style={{ width: 3, height: 14, borderRadius: 2, background: CAT_BORDER[group.category ?? ''] ?? group.color, flexShrink: 0 }} />
-                          <span style={{ fontSize: 9, color: S.t3, display: 'inline-block', transition: 'transform .15s', transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}>▼</span>
-                          <span style={{ fontSize: 13, fontWeight: 700, color: S.t1 }}>{group.name}</span>
-                          <span style={{ fontSize: 11, color: S.t3, background: '#E5E9F0', padding: '1px 7px', borderRadius: 99 }}>{groupItems.length}</span>
-                          <div className="flex gap-1 ml-2" onClick={e => e.stopPropagation()}>
-                            {MATRIX_CATS.map(c => (
-                              <button key={c} onClick={() => updateGroupCat(group.id, c)}
-                                className={`text-[11px] px-2.5 py-0.5 rounded-full border font-semibold transition-all ${group.category === c ? CAT_CLS[c] : 'bg-white text-gray-400 border-gray-200 hover:border-gray-300'}`}>{c}</button>
-                            ))}
-                          </div>
-                          <div className="ml-auto flex items-center gap-1.5 opacity-0 group-hover/grow:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
-                            <button onClick={() => { setEditingGroupId(group.id); setEditGName(group.name); setEditGColor(group.color) }} className="text-[10px] text-gray-400 hover:text-gray-700 transition-colors px-1">수정</button>
-                            {deletingGroup === group.id ? (
-                              <>
-                                <span className="text-[10px] text-gray-500">삭제?</span>
-                                <button onClick={() => deleteGroup(group.id)} className="text-[10px] text-red-500 font-semibold px-1.5 py-0.5 rounded">삭제</button>
-                                <button onClick={() => setDeletingGroup(null)} className="text-[10px] text-gray-400 px-1.5 py-0.5 rounded">취소</button>
-                              </>
-                            ) : (
-                              <button onClick={() => setDeletingGroup(group.id)} className="text-[10px] text-gray-300 hover:text-red-400 transition-colors px-1">삭제</button>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
+              const groupBg = draggingGroupId === group.id ? 'rgba(0,0,0,0.08)' : dragOverGroupId === group.id ? hexToRgba(group.color, 0.22) : (CAT_BG[group.category ?? ''] ?? hexToRgba(group.color, 0.09))
 
+              return (
+                <div
+                  key={group.id}
+                  className="rounded-xl overflow-hidden"
+                  style={{
+                    background: 'rgba(255,255,255,0.06)',
+                    border: dragOverGroupId === group.id ? `1px solid ${group.color}` : '1px solid rgba(255,255,255,0.09)',
+                    opacity: draggingGroupId === group.id ? 0.4 : 1,
+                    transition: 'border-color .15s',
+                  }}
+                  onDragOver={e => { if (!_dragItemId && !_dragGroupId) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverGroupId(group.id); setDragOverItemId(null) }}
+                  onDrop={e => {
+                    e.preventDefault()
+                    if (_dragGroupId) {
+                      const gId = _dragGroupId; _dragGroupId = null
+                      if (gId !== group.id) reorderGroup(gId, group.id)
+                      setDraggingGroupId(null); setDragOverGroupId(null)
+                    } else if (_dragItemId) {
+                      const dragId = _dragItemId; _dragItemId = null
+                      const di = items.find(i => i.id === dragId)
+                      if (di && di.group_id !== group.id) moveItemToGroup(dragId, group.id)
+                      setDraggingItemId(null); setDragOverGroupId(null); setDragOverItemId(null)
+                    }
+                  }}
+                  onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverGroupId(null) }}
+                >
+                  {/* ── 그룹 헤더 ── */}
+                  <div style={{ background: groupBg, borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                    {editingGroupId === group.id ? (
+                      <div className="flex items-center gap-2 flex-wrap px-4 py-5">
+                        <input autoFocus value={editGName} onChange={e => setEditGName(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) updateGroup(group.id); if (e.key === 'Escape') setEditingGroupId(null) }}
+                          className="border border-[rgba(255,255,255,0.15)] rounded-lg px-2.5 py-1 text-sm focus:outline-none focus:border-[rgba(255,255,255,0.3)] font-semibold w-40 bg-transparent"
+                          style={{ color: S.t1 }} />
+                        <div className="flex gap-1.5">
+                          {GROUP_COLORS.map(c => <div key={c} onClick={() => setEditGColor(c)} style={{ width: 13, height: 13, borderRadius: '50%', background: c, cursor: 'pointer', border: editGColor === c ? '2px solid #E2E8F0' : '2px solid transparent', flexShrink: 0 }} />)}
+                        </div>
+                        <button onClick={() => updateGroup(group.id)} className="text-xs bg-[rgba(27,58,107,0.3)] text-[#93C5FD] border border-[rgba(27,58,107,0.5)] px-3 py-1 rounded-lg">저장</button>
+                        <button onClick={() => setEditingGroupId(null)} className="text-xs text-[rgba(226,232,240,0.4)] px-2">취소</button>
+                      </div>
+                    ) : (
+                      <div onClick={() => toggleGroup(group.id)}
+                        className="flex items-center gap-2 group/grow cursor-pointer transition-all px-4 py-4">
+                        <span
+                          draggable
+                          onDragStart={e => { e.stopPropagation(); _dragGroupId = group.id; _dragItemId = null; _dragSTId = null; e.dataTransfer.effectAllowed = 'move'; setDraggingGroupId(group.id) }}
+                          onDragEnd={e => { e.stopPropagation(); _dragGroupId = null; setDraggingGroupId(null); setDragOverGroupId(null) }}
+                          onClick={e => e.stopPropagation()}
+                          title="드래그하여 범주 이동"
+                          style={{ cursor: 'grab', color: S.t3, fontSize: 14, userSelect: 'none', flexShrink: 0, lineHeight: 1 }}
+                        >⠿</span>
+                        <span style={{ fontSize: 9, color: S.t3, display: 'inline-block', transition: 'transform .15s', transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}>▼</span>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: S.t1 }}>{group.name}</span>
+                        <span style={{ fontSize: 11, color: S.t3, background: 'rgba(255,255,255,0.1)', padding: '1px 7px', borderRadius: 99 }}>{groupItems.length}</span>
+                        <div className="hidden md:flex gap-1 ml-2" onClick={e => e.stopPropagation()}>
+                          {MATRIX_CATS.map(c => (
+                            <button key={c} onClick={() => updateGroupCat(group.id, c)}
+                              className={`text-[11px] px-2.5 py-0.5 rounded-full border font-semibold transition-all ${group.category === c ? CAT_CLS[c] : 'bg-[rgba(255,255,255,0.04)] text-[rgba(226,232,240,0.4)] border-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.2)]'}`}>{c}</button>
+                          ))}
+                        </div>
+                        <div className="ml-auto flex items-center gap-1.5 opacity-0 group-hover/grow:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
+                          <button onClick={() => { setEditingGroupId(group.id); setEditGName(group.name); setEditGColor(group.color) }} className="text-[10px] text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)] px-1">수정</button>
+                          {deletingGroup === group.id ? (
+                            <>
+                              <span className="text-[10px] text-[rgba(226,232,240,0.5)]">삭제?</span>
+                              <button onClick={() => deleteGroup(group.id)} className="text-[10px] text-red-400 font-semibold px-1.5 py-0.5 rounded">삭제</button>
+                              <button onClick={() => setDeletingGroup(null)} className="text-[10px] text-[rgba(226,232,240,0.4)] px-1.5 py-0.5 rounded">취소</button>
+                            </>
+                          ) : (
+                            <button onClick={() => setDeletingGroup(group.id)} className="text-[10px] text-[rgba(226,232,240,0.3)] hover:text-red-400 px-1">삭제</button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ── 컬럼 헤더 ── */}
+                  {isOpen && (
+                    <div className="flex" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                      <div style={{ flex: 1, minWidth: 180, padding: '8px 16px', fontSize: 11, fontWeight: 700, color: S.t3, letterSpacing: '.05em', textTransform: 'uppercase' as const }}>안건</div>
+                      <div style={{ width: 90, padding: '8px 12px', fontSize: 11, fontWeight: 700, color: S.t3, letterSpacing: '.05em', textTransform: 'uppercase' as const, borderLeft: '1px solid rgba(255,255,255,0.07)' }}>상태</div>
+                      <div style={{ width: 120, padding: '8px 12px', fontSize: 11, fontWeight: 700, color: S.t3, letterSpacing: '.05em', textTransform: 'uppercase' as const, borderLeft: '1px solid rgba(255,255,255,0.07)' }}>담당자</div>
+                      <div style={{ width: 80, padding: '8px 12px', borderLeft: '1px solid rgba(255,255,255,0.07)' }} />
+                    </div>
+                  )}
+
+                  {/* ── 안건 목록 ── */}
                   {isOpen && visibleGroupItems.map(item => {
-                    const itemSubTasks  = subTasks.filter(st => st.agenda_item_id === item.id).sort((a, b) => a.sort_order - b.sort_order)
+                    const itemSubTasks = subTasks.filter(st => st.agenda_item_id === item.id).sort((a, b) => a.sort_order - b.sort_order)
                     const isItemExpanded = expandedItems.has(item.id)
-                    const activeColor   = item.status === 'active' ? (CAT_BORDER[group.category ?? ''] ?? group.color) : STATUS_COLOR[item.status]
+                    const activeColor = item.status === 'active' ? (CAT_BORDER[group.category ?? ''] ?? group.color) : STATUS_COLOR[item.status]
                     return (
                       <Fragment key={item.id}>
-                        <tr
-                          style={{ borderBottom: isItemExpanded ? 'none' : S.bd, opacity: draggingItemId === item.id ? 0.35 : 1, borderTop: dragOverItemId === item.id ? `2px solid #3B82F6` : undefined }}
-                          className="group/irow"
+                        <div
+                          className="group/irow flex hover:bg-[rgba(255,255,255,0.03)] transition-colors"
+                          style={{ borderBottom: isItemExpanded ? 'none' : '1px solid rgba(255,255,255,0.05)', opacity: draggingItemId === item.id ? 0.35 : 1, borderTop: dragOverItemId === item.id ? '2px solid #3B82F6' : undefined, cursor: 'pointer' }}
                           onDragOver={e => {
                             if (!_dragItemId) return
                             e.preventDefault(); e.dataTransfer.dropEffect = 'move'
@@ -447,99 +467,90 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                             const dragId = _dragItemId; _dragItemId = null
                             if (dragId && dragId !== item.id) {
                               const di = items.find(i => i.id === dragId)
-                              if (di) {
-                                if (di.group_id !== group.id) moveItemToGroup(dragId, group.id)
-                                else reorderItem(dragId, item.id)
-                              }
+                              if (di) { if (di.group_id !== group.id) moveItemToGroup(dragId, group.id); else reorderItem(dragId, item.id) }
                             }
                             setDraggingItemId(null); setDragOverGroupId(null); setDragOverItemId(null)
                           }}
                           onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverItemId(null) }}
                           onClick={() => toggleExpandedItem(item.id)}
-                          onMouseEnter={() => router.prefetch(`/project/items/${item.id}`)}>
-                          <td style={{ padding: '18px 16px', verticalAlign: 'middle' }}>
-                            <div className="flex items-center gap-2">
-                              <span
-                                draggable
+                          onMouseEnter={() => router.prefetch(`/project/items/${item.id}`)}
+                        >
+                          <div style={{ flex: 1, minWidth: 180, padding: '16px 16px', display: 'flex', alignItems: 'center' }}>
+                            <div className="flex items-center gap-2 w-full">
+                              <span draggable
                                 onDragStart={e => { e.stopPropagation(); _dragItemId = item.id; _dragSTId = null; e.dataTransfer.effectAllowed = 'move'; setDraggingItemId(item.id) }}
                                 onDragEnd={e => { e.stopPropagation(); _dragItemId = null; setDraggingItemId(null); setDragOverGroupId(null); setDragOverItemId(null) }}
                                 onClick={e => e.stopPropagation()}
-                                title="드래그하여 이동"
-                                style={{ cursor: 'grab', color: '#CBD5E1', fontSize: 14, userSelect: 'none', flexShrink: 0, lineHeight: 1 }}
-                              >⠿</span>
+                                style={{ cursor: 'grab', color: S.t3, fontSize: 14, userSelect: 'none', flexShrink: 0, lineHeight: 1 }}>⠿</span>
                               <button onClick={e => { e.stopPropagation(); toggleExpandedItem(item.id) }}
                                 style={{ fontSize: 8, color: S.t3, background: 'none', border: 'none', cursor: 'pointer', padding: 0, lineHeight: 1, transition: 'transform .15s', transform: isItemExpanded ? 'rotate(90deg)' : 'rotate(0deg)', flexShrink: 0, width: 10 }}>▶</button>
-                              <button onClick={e => { e.stopPropagation(); cycleStatus(item) }} title={`상태: ${STATUS_LABEL[item.status]}`}
+                              <button onClick={e => { e.stopPropagation(); cycleStatus(item) }}
                                 style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: activeColor, border: 'none', cursor: 'pointer', padding: 0 }} />
                               {editingItemId === item.id ? (
                                 <input autoFocus value={editITitle} onChange={e => setEditITitle(e.target.value)}
                                   onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) updateItem(item.id); if (e.key === 'Escape') setEditingItemId(null) }}
-                                  className="border border-gray-300 rounded px-2 py-0.5 text-sm focus:outline-none focus:border-gray-400 font-medium flex-1 min-w-0"
+                                  className="border border-[rgba(255,255,255,0.15)] rounded px-2 py-0.5 text-sm focus:outline-none focus:border-[rgba(255,255,255,0.3)] font-medium flex-1 min-w-0 bg-transparent"
                                   style={{ color: S.t1 }} />
                               ) : (
-                                <span className="hover:text-blue-600 transition-colors cursor-pointer" style={{ fontSize: 14, fontWeight: 500, color: item.status === 'done' ? S.t3 : S.t1, textDecoration: item.status === 'done' ? 'line-through' : 'none', lineHeight: 1.35 }}
+                                <span className="hover:text-blue-400 transition-colors cursor-pointer"
+                                  style={{ fontSize: 14, fontWeight: 500, color: item.status === 'done' ? S.t3 : S.t1, textDecoration: item.status === 'done' ? 'line-through' : 'none', lineHeight: 1.35 }}
                                   onClick={e => { e.stopPropagation(); router.push(`/project/items/${item.id}`) }}>
                                   {item.title}
                                 </span>
                               )}
                               {itemSubTasks.length > 0 && (
-                                <span style={{ fontSize: 10, color: S.t3, background: '#E5E9F0', padding: '1px 6px', borderRadius: 99, flexShrink: 0 }}>
+                                <span style={{ fontSize: 10, color: S.t3, background: 'rgba(255,255,255,0.1)', padding: '1px 6px', borderRadius: 99, flexShrink: 0 }}>
                                   {itemSubTasks.filter(st => st.status !== 'done').length}/{itemSubTasks.length}
                                 </span>
                               )}
                             </div>
-                          </td>
-                          <td style={{ borderLeft: S.bd, padding: '18px 12px', fontSize: 12, color: S.t2, verticalAlign: 'middle' }}>
+                          </div>
+                          <div style={{ width: 90, padding: '16px 12px', fontSize: 12, color: S.t2, borderLeft: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center' }}>
                             {STATUS_LABEL[item.status]}
-                          </td>
-                          <td style={{ borderLeft: S.bd, padding: '10px 12px', fontSize: 12, verticalAlign: 'middle', width: 120 }} onClick={e => e.stopPropagation()}>
-                            <select
-                              value={item.assignee_id ?? ''}
-                              onChange={e => updateItemAssignee(item.id, e.target.value || null)}
+                          </div>
+                          <div style={{ width: 120, padding: '10px 12px', fontSize: 12, borderLeft: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center' }} onClick={e => e.stopPropagation()}>
+                            <select value={item.assignee_id ?? ''} onChange={e => updateItemAssignee(item.id, e.target.value || null)}
                               className="text-xs bg-transparent border-none outline-none cursor-pointer w-full"
-                              style={{ color: item.assignee_id ? S.t2 : S.t3 }}
-                            >
+                              style={{ color: item.assignee_id ? S.t2 : S.t3 }}>
                               <option value="">-</option>
                               {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                             </select>
-                          </td>
-                          <td style={{ borderLeft: S.bd, padding: '18px 12px', verticalAlign: 'middle', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
-                            <div className="flex items-center gap-1.5 justify-center opacity-0 group-hover/irow:opacity-100 transition-all">
+                          </div>
+                          <div style={{ width: 80, padding: '16px 12px', borderLeft: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={e => e.stopPropagation()}>
+                            <div className="flex items-center gap-1.5 opacity-0 group-hover/irow:opacity-100 transition-all">
                               {editingItemId !== item.id && (
-                                <button onClick={() => { setEditingItemId(item.id); setEditITitle(item.title) }} className="text-[10px] text-gray-400 hover:text-gray-700">수정</button>
+                                <button onClick={() => { setEditingItemId(item.id); setEditITitle(item.title) }} className="text-[10px] text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)]">수정</button>
                               )}
                               {deletingItem === item.id ? (
                                 <>
-                                  <button onClick={() => deleteItem(item.id)} className="text-[10px] text-red-500 hover:text-red-700 font-semibold">삭제</button>
-                                  <button onClick={() => setDeletingItem(null)} className="text-[10px] text-gray-400">취소</button>
+                                  <button onClick={() => deleteItem(item.id)} className="text-[10px] text-red-400 font-semibold">삭제</button>
+                                  <button onClick={() => setDeletingItem(null)} className="text-[10px] text-[rgba(226,232,240,0.4)]">취소</button>
                                 </>
                               ) : (
-                                <button onClick={() => setDeletingItem(item.id)} className="text-[10px] text-gray-300 hover:text-red-400">삭제</button>
+                                <button onClick={() => setDeletingItem(item.id)} className="text-[10px] text-[rgba(226,232,240,0.25)] hover:text-red-400">삭제</button>
                               )}
                             </div>
-                          </td>
-                        </tr>
+                          </div>
+                        </div>
 
                         {isItemExpanded && itemSubTasks.map(st => (
-                          <tr key={st.id}
-                            style={{ borderBottom: S.bd, background: '#FAFBFD', opacity: draggingSTId === st.id ? 0.35 : 1, borderTop: dragOverSTId === st.id ? `2px solid #3B82F6` : undefined }}
-                            className="group/strow hover:bg-blue-50/30"
+                          <div key={st.id}
+                            className="group/strow flex hover:bg-[rgba(59,130,246,0.04)] transition-colors"
+                            style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', background: 'rgba(255,255,255,0.025)', opacity: draggingSTId === st.id ? 0.35 : 1, borderTop: dragOverSTId === st.id ? '2px solid #3B82F6' : undefined, cursor: 'pointer' }}
                             onDragOver={e => { if (!_dragSTId) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverSTId(st.id) }}
                             onDrop={e => { e.preventDefault(); const dragId = _dragSTId; _dragSTId = null; if (dragId && dragId !== st.id) reorderSubTask(dragId, st.id); setDraggingSTId(null); setDragOverSTId(null) }}
                             onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverSTId(null) }}
                             onClick={() => router.push(`/project/items/${item.id}?focus=${st.id}`)}
-                            onMouseEnter={() => router.prefetch(`/project/items/${item.id}`)}>
-                            <td style={{ padding: '14px 16px 14px 36px', verticalAlign: 'middle' }}>
+                            onMouseEnter={() => router.prefetch(`/project/items/${item.id}`)}
+                          >
+                            <div style={{ flex: 1, minWidth: 180, padding: '12px 16px 12px 36px', display: 'flex', alignItems: 'center' }}>
                               <div className="flex items-center gap-2">
-                                <span
-                                  draggable
+                                <span draggable
                                   onDragStart={e => { e.stopPropagation(); _dragSTId = st.id; _dragItemId = null; e.dataTransfer.effectAllowed = 'move'; setDraggingSTId(st.id) }}
                                   onDragEnd={e => { e.stopPropagation(); _dragSTId = null; setDraggingSTId(null); setDragOverSTId(null) }}
                                   onClick={e => e.stopPropagation()}
-                                  title="드래그하여 이동"
-                                  style={{ cursor: 'grab', color: '#CBD5E1', fontSize: 12, userSelect: 'none', flexShrink: 0, lineHeight: 1 }}
-                                >⠿</span>
-                                <button onClick={e => { e.stopPropagation(); cycleSubTaskStatus(st) }} title={`클릭하여 완료 처리 (현재: ${STATUS_LABEL[st.status]})`}
+                                  style={{ cursor: 'grab', color: S.t3, fontSize: 12, userSelect: 'none', flexShrink: 0, lineHeight: 1 }}>⠿</span>
+                                <button onClick={e => { e.stopPropagation(); cycleSubTaskStatus(st) }}
                                   style={{ width: 14, height: 14, borderRadius: 3, flexShrink: 0, border: `1.5px solid ${st.status === 'done' ? '#10B981' : st.status === 'hold' ? '#F59E0B' : (CAT_BORDER[group.category ?? ''] ?? group.color)}`, background: st.status === 'done' ? '#10B981' : 'transparent', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
                                   {st.status === 'done' && <span style={{ color: 'white', fontSize: 9, fontWeight: 800, lineHeight: 1 }}>✓</span>}
                                   {st.status === 'hold' && <span style={{ color: '#F59E0B', fontSize: 9, lineHeight: 1 }}>−</span>}
@@ -547,7 +558,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                                 {editingSTId === st.id ? (
                                   <input autoFocus value={editSTTitle} onChange={e => setEditSTTitle(e.target.value)}
                                     onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) updateSubTask(st.id); if (e.key === 'Escape') setEditingSTId(null) }}
-                                    className="border border-gray-300 rounded px-2 py-0.5 text-xs focus:outline-none focus:border-gray-400 flex-1 min-w-0"
+                                    className="border border-[rgba(255,255,255,0.15)] rounded px-2 py-0.5 text-xs focus:outline-none flex-1 min-w-0 bg-transparent"
                                     style={{ color: S.t2 }} onClick={e => e.stopPropagation()} />
                                 ) : (
                                   <span style={{ fontSize: 13, color: st.status === 'done' ? S.t3 : S.t2, textDecoration: st.status === 'done' ? 'line-through' : 'none', lineHeight: 1.35 }}>
@@ -555,146 +566,133 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                                   </span>
                                 )}
                               </div>
-                            </td>
-                            <td style={{ borderLeft: S.bd }} />
-                            <td style={{ borderLeft: S.bd }} />
-                            <td style={{ borderLeft: S.bd, padding: '8px 12px', verticalAlign: 'middle' }} onClick={e => e.stopPropagation()}>
-                              <div className="flex items-center gap-1.5 justify-end">
-                                {/* 날짜 뱃지 (설정된 경우 항상 표시) */}
+                            </div>
+                            <div style={{ width: 90, borderLeft: '1px solid rgba(255,255,255,0.04)' }} />
+                            <div style={{ width: 120, borderLeft: '1px solid rgba(255,255,255,0.04)' }} />
+                            <div style={{ width: 80, padding: '8px 12px', borderLeft: '1px solid rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }} onClick={e => e.stopPropagation()}>
+                              <div className="flex items-center gap-1.5">
                                 {st.target_date && (
-                                  <button
-                                    onClick={() => updateSubTaskDate(st.id, null)}
-                                    style={{
-                                      fontSize: 9, padding: '2px 7px', borderRadius: 999, fontWeight: 600, flexShrink: 0, border: 'none', cursor: 'pointer',
-                                      background: st.target_date === sched.today ? '#FEE2E2' : st.target_date === sched.tomorrow ? '#FEF3C7' : '#EFF6FF',
-                                      color: st.target_date === sched.today ? '#DC2626' : st.target_date === sched.tomorrow ? '#92400E' : '#1D4ED8',
-                                    }}>
+                                  <button onClick={() => updateSubTaskDate(st.id, null)}
+                                    style={{ fontSize: 9, padding: '2px 7px', borderRadius: 999, fontWeight: 600, flexShrink: 0, border: 'none', cursor: 'pointer',
+                                      background: st.target_date === sched.today ? 'rgba(220,38,38,0.18)' : st.target_date === sched.tomorrow ? 'rgba(245,158,11,0.18)' : 'rgba(59,130,246,0.18)',
+                                      color: st.target_date === sched.today ? '#FC8181' : st.target_date === sched.tomorrow ? '#FCD34D' : '#93C5FD' }}>
                                     {stDateLabel(st.target_date, sched.today, sched.tomorrow)} ×
                                   </button>
                                 )}
-                                {/* 날짜 칩 (미설정일 때 hover 시 표시) */}
                                 {!st.target_date && (
                                   <div className="opacity-0 pointer-events-none group-hover/strow:opacity-100 group-hover/strow:pointer-events-auto transition-all flex items-center gap-0.5">
-                                    <button onClick={() => updateSubTaskDate(st.id, sched.today)} className="text-[9px] px-1.5 py-0.5 rounded bg-red-50 text-red-600 hover:bg-red-100 border border-red-100 font-medium">오늘</button>
-                                    <button onClick={() => updateSubTaskDate(st.id, sched.tomorrow)} className="text-[9px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-100 font-medium">내일</button>
-                                    <button onClick={() => updateSubTaskDate(st.id, sched.friday)} className="text-[9px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-100 font-medium">금주</button>
-                                    <label className="relative cursor-pointer text-gray-400 hover:text-gray-600 text-[10px] px-0.5" title="특정일 선택">
+                                    <button onClick={() => updateSubTaskDate(st.id, sched.today)} className="text-[9px] px-1.5 py-0.5 rounded bg-[rgba(220,38,38,0.12)] text-red-400 border border-[rgba(220,38,38,0.2)] font-medium">오늘</button>
+                                    <button onClick={() => updateSubTaskDate(st.id, sched.tomorrow)} className="text-[9px] px-1.5 py-0.5 rounded bg-[rgba(245,158,11,0.12)] text-amber-400 border border-[rgba(245,158,11,0.2)] font-medium">내일</button>
+                                    <button onClick={() => updateSubTaskDate(st.id, sched.friday)} className="text-[9px] px-1.5 py-0.5 rounded bg-[rgba(59,130,246,0.12)] text-blue-400 border border-[rgba(59,130,246,0.2)] font-medium">금주</button>
+                                    <label className="relative cursor-pointer text-[rgba(226,232,240,0.35)] hover:text-[rgba(226,232,240,0.6)] text-[10px] px-0.5" title="특정일 선택">
                                       📅<input type="date" className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" onChange={e => e.target.value && updateSubTaskDate(st.id, e.target.value)} />
                                     </label>
                                   </div>
                                 )}
-                                {/* 수정/삭제 (hover) */}
                                 <div className="opacity-0 group-hover/strow:opacity-100 transition-all flex items-center gap-1.5">
                                   {editingSTId !== st.id && (
-                                    <button onClick={() => { setEditingSTId(st.id); setEditSTTitle(st.title) }} className="text-[10px] text-gray-400 hover:text-gray-700">수정</button>
+                                    <button onClick={() => { setEditingSTId(st.id); setEditSTTitle(st.title) }} className="text-[10px] text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)]">수정</button>
                                   )}
                                   {deletingST === st.id ? (
                                     <>
-                                      <button onClick={() => deleteSubTask(st.id)} className="text-[10px] text-red-500 font-semibold">삭제</button>
-                                      <button onClick={() => setDeletingST(null)} className="text-[10px] text-gray-400">취소</button>
+                                      <button onClick={() => deleteSubTask(st.id)} className="text-[10px] text-red-400 font-semibold">삭제</button>
+                                      <button onClick={() => setDeletingST(null)} className="text-[10px] text-[rgba(226,232,240,0.4)]">취소</button>
                                     </>
                                   ) : (
-                                    <button onClick={() => setDeletingST(st.id)} className="text-[10px] text-gray-300 hover:text-red-400">삭제</button>
+                                    <button onClick={() => setDeletingST(st.id)} className="text-[10px] text-[rgba(226,232,240,0.25)] hover:text-red-400">삭제</button>
                                   )}
                                 </div>
                               </div>
-                            </td>
-                          </tr>
+                            </div>
+                          </div>
                         ))}
 
                         {isItemExpanded && (
-                          <tr key={`add-st-${item.id}`} style={{ borderBottom: S.bd, background: '#FAFBFD' }}>
-                            <td colSpan={4} style={{ padding: 0 }}>
-                              {addingSubTask === item.id ? (
-                                <div className="flex items-center gap-2 px-10 py-2">
-                                  <input autoFocus value={newSTTitle} onChange={e => setNewSTTitle(e.target.value)}
-                                    onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) addSubTask(item.id); if (e.key === 'Escape') { setAddingSubTask(null); setNewSTTitle('') } }}
-                                    placeholder="하위 태스크 입력 후 Enter"
-                                    className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-gray-400" />
-                                  <button onClick={() => addSubTask(item.id)} className="text-xs bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] px-3 py-1.5 rounded-lg">추가</button>
-                                  <button onClick={() => { setAddingSubTask(null); setNewSTTitle('') }} className="text-xs text-gray-400 px-2">취소</button>
-                                </div>
-                              ) : (
-                                <div onClick={() => setAddingSubTask(item.id)}
-                                  className="flex items-center gap-1 px-10 py-3 text-xs text-gray-400 hover:text-gray-600 hover:bg-gray-50 cursor-pointer transition-colors">
-                                  ＋ 하위 태스크
-                                </div>
-                              )}
-                            </td>
-                          </tr>
+                          <div style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', background: 'rgba(255,255,255,0.025)' }}>
+                            {addingSubTask === item.id ? (
+                              <div className="flex items-center gap-2 px-10 py-2">
+                                <input autoFocus value={newSTTitle} onChange={e => setNewSTTitle(e.target.value)}
+                                  onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) addSubTask(item.id); if (e.key === 'Escape') { setAddingSubTask(null); setNewSTTitle('') } }}
+                                  placeholder="하위 태스크 입력 후 Enter"
+                                  className="flex-1 border border-[rgba(255,255,255,0.15)] rounded-lg px-3 py-1.5 text-sm focus:outline-none bg-transparent text-[#E2E8F0]" />
+                                <button onClick={() => addSubTask(item.id)} className="text-xs bg-[rgba(27,58,107,0.3)] text-[#93C5FD] border border-[rgba(27,58,107,0.5)] px-3 py-1.5 rounded-lg">추가</button>
+                                <button onClick={() => { setAddingSubTask(null); setNewSTTitle('') }} className="text-xs text-[rgba(226,232,240,0.4)] px-2">취소</button>
+                              </div>
+                            ) : (
+                              <div onClick={() => setAddingSubTask(item.id)}
+                                className="flex items-center gap-1 px-10 py-3 text-xs text-[rgba(226,232,240,0.35)] hover:text-[rgba(226,232,240,0.6)] hover:bg-[rgba(255,255,255,0.04)] cursor-pointer transition-colors">
+                                ＋ 하위 태스크
+                              </div>
+                            )}
+                          </div>
                         )}
                       </Fragment>
                     )
                   })}
 
                   {isOpen && doneGroupItems.length > 0 && (
-                    <tr key={`done-toggle-${group.id}`} style={{ borderBottom: S.bd }}>
-                      <td colSpan={4} style={{ padding: 0 }}>
-                        <button onClick={() => toggleShowDone(group.id)}
-                          className="w-full flex items-center gap-1.5 px-5 py-2 text-xs text-gray-400 hover:text-gray-500 hover:bg-gray-50 cursor-pointer transition-colors">
-                          <span style={{ fontSize: 8, transform: showDoneGroups.has(group.id) ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block', transition: 'transform .15s' }}>▶</span>
-                          완료 {doneGroupItems.length}건
-                        </button>
-                      </td>
-                    </tr>
+                    <div style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                      <button onClick={() => toggleShowDone(group.id)}
+                        className="w-full flex items-center gap-1.5 px-5 py-2 text-xs text-[rgba(226,232,240,0.35)] hover:text-[rgba(226,232,240,0.55)] hover:bg-[rgba(255,255,255,0.04)] transition-colors">
+                        <span style={{ fontSize: 8, transform: showDoneGroups.has(group.id) ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block', transition: 'transform .15s' }}>▶</span>
+                        완료 {doneGroupItems.length}건
+                      </button>
+                    </div>
                   )}
 
                   {isOpen && (
-                    <tr key={`add-i-${group.id}`} style={{ borderBottom: S.bd }}>
-                      <td colSpan={4} style={{ padding: 0 }}>
-                        {addingItem === group.id ? (
-                          <div className="flex items-center gap-2 px-5 py-2.5">
-                            <input autoFocus value={newITitle} onChange={e => setNewITitle(e.target.value)}
-                              onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) addItem(group.id); if (e.key === 'Escape') { setAddingItem(null); setNewITitle('') } }}
-                              placeholder="안건명 입력 후 Enter"
-                              className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-gray-400" />
-                            <button onClick={() => addItem(group.id)} className="text-xs bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] px-3 py-1.5 rounded-lg">추가</button>
-                            <button onClick={() => { setAddingItem(null); setNewITitle('') }} className="text-xs text-gray-400 px-2 py-1">취소</button>
-                          </div>
-                        ) : (
-                          <div onClick={() => { setAddingItem(group.id); setNewITitle('') }}
-                            className="flex items-center gap-1 px-5 py-3 text-xs text-gray-400 hover:text-gray-600 hover:bg-gray-50 cursor-pointer transition-colors">
-                            ＋ {group.name}에 안건 추가
-                          </div>
-                        )}
-                      </td>
-                    </tr>
+                    <div>
+                      {addingItem === group.id ? (
+                        <div className="flex items-center gap-2 px-5 py-2.5">
+                          <input autoFocus value={newITitle} onChange={e => setNewITitle(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) addItem(group.id); if (e.key === 'Escape') { setAddingItem(null); setNewITitle('') } }}
+                            placeholder="안건명 입력 후 Enter"
+                            className="flex-1 border border-[rgba(255,255,255,0.15)] rounded-lg px-3 py-1.5 text-sm focus:outline-none bg-transparent text-[#E2E8F0]" />
+                          <button onClick={() => addItem(group.id)} className="text-xs bg-[rgba(27,58,107,0.3)] text-[#93C5FD] border border-[rgba(27,58,107,0.5)] px-3 py-1.5 rounded-lg">추가</button>
+                          <button onClick={() => { setAddingItem(null); setNewITitle('') }} className="text-xs text-[rgba(226,232,240,0.4)] px-2 py-1">취소</button>
+                        </div>
+                      ) : (
+                        <div onClick={() => { setAddingItem(group.id); setNewITitle('') }}
+                          className="flex items-center gap-1 px-5 py-3 text-xs text-[rgba(226,232,240,0.35)] hover:text-[rgba(226,232,240,0.6)] hover:bg-[rgba(255,255,255,0.04)] cursor-pointer transition-colors">
+                          ＋ {group.name}에 안건 추가
+                        </div>
+                      )}
+                    </div>
                   )}
-                </Fragment>
+                </div>
               )
             })}
-            <tr>
-              <td colSpan={4} style={{ background: S.bgRow, padding: 0 }}>
-                {addingGroup ? (
-                  <div className="flex items-center gap-2 px-5 py-3 flex-wrap">
-                    <input autoFocus value={newGName} onChange={e => setNewGName(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) addGroup(); if (e.key === 'Escape') { setAddingGroup(false); setNewGName('') } }}
-                      placeholder="범주명 입력 후 Enter"
-                      className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-gray-400 w-40" />
-                    {isAll && (
-                      <div className="flex gap-1">
-                        {MATRIX_CATS.map(c => (
-                          <button key={c} type="button" onClick={() => setNewGCat(c)}
-                            className={`text-xs px-2.5 py-1 rounded-full border font-semibold transition-all ${newGCat === c ? CAT_CLS[c] : 'bg-white text-gray-400 border-gray-200 hover:border-gray-300'}`}>{c}</button>
-                        ))}
-                      </div>
-                    )}
-                    <div className="flex gap-1.5">
-                      {GROUP_COLORS.map(c => <div key={c} onClick={() => setNewGColor(c)} style={{ width: 14, height: 14, borderRadius: '50%', background: c, cursor: 'pointer', border: newGColor === c ? '2px solid #1A2233' : '2px solid transparent', flexShrink: 0 }} />)}
+
+            <div className="rounded-xl border border-dashed border-[rgba(255,255,255,0.1)] overflow-hidden">
+              {addingGroup ? (
+                <div className="flex items-center gap-2 px-5 py-3 flex-wrap">
+                  <input autoFocus value={newGName} onChange={e => setNewGName(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) addGroup(); if (e.key === 'Escape') { setAddingGroup(false); setNewGName('') } }}
+                    placeholder="범주명 입력 후 Enter"
+                    className="border border-[rgba(255,255,255,0.15)] rounded-lg px-3 py-1.5 text-sm focus:outline-none w-40 bg-transparent text-[#E2E8F0]" />
+                  {isAll && (
+                    <div className="flex gap-1">
+                      {MATRIX_CATS.map(c => (
+                        <button key={c} type="button" onClick={() => setNewGCat(c)}
+                          className={`text-xs px-2.5 py-1 rounded-full border font-semibold transition-all ${newGCat === c ? CAT_CLS[c] : 'bg-[rgba(255,255,255,0.04)] text-[rgba(226,232,240,0.4)] border-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.2)]'}`}>{c}</button>
+                      ))}
                     </div>
-                    <button onClick={addGroup} className="text-xs bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] px-3 py-1.5 rounded-lg">추가</button>
-                    <button onClick={() => { setAddingGroup(false); setNewGName('') }} className="text-xs text-gray-400 px-2 py-1">취소</button>
+                  )}
+                  <div className="flex gap-1.5">
+                    {GROUP_COLORS.map(c => <div key={c} onClick={() => setNewGColor(c)} style={{ width: 14, height: 14, borderRadius: '50%', background: c, cursor: 'pointer', border: newGColor === c ? '2px solid #E2E8F0' : '2px solid transparent', flexShrink: 0 }} />)}
                   </div>
-                ) : (
-                  <div onClick={openAddGroup}
-                    className="flex items-center gap-1 px-5 py-3 text-xs text-gray-400 hover:text-gray-600 hover:bg-gray-100/60 cursor-pointer transition-colors">
-                    ＋ 범주 추가
-                  </div>
-                )}
-              </td>
-            </tr>
-          </tbody>
-        </table>
+                  <button onClick={addGroup} className="text-xs bg-[rgba(27,58,107,0.3)] text-[#93C5FD] border border-[rgba(27,58,107,0.5)] px-3 py-1.5 rounded-lg">추가</button>
+                  <button onClick={() => { setAddingGroup(false); setNewGName('') }} className="text-xs text-[rgba(226,232,240,0.4)] px-2 py-1">취소</button>
+                </div>
+              ) : (
+                <div onClick={openAddGroup}
+                  className="flex items-center gap-1 px-5 py-3 text-xs text-[rgba(226,232,240,0.3)] hover:text-[rgba(226,232,240,0.6)] hover:bg-[rgba(255,255,255,0.04)] cursor-pointer transition-colors">
+                  ＋ 범주 추가
+                </div>
+              )}
+            </div>
+
+          </div>
         </div>
       </>
     )
@@ -745,6 +743,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
     }
     const openPeriodPicker = (e: React.MouseEvent, item: AgendaItem) => {
       e.stopPropagation()
+      setPeriodPickerGroupId(null)
       if (periodPickerItemId === item.id) { setPeriodPickerItemId(null); setPeriodPickerPos(null); return }
       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
       const p = parsePd(item.roadmap_period)
@@ -754,6 +753,20 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
         setPeriodPickerEndM((p.months[p.months.length - 1] ?? 11) + 1)
       }
       setPeriodPickerItemId(item.id)
+      setPeriodPickerPos({ x: rect.left, y: rect.bottom + 4 })
+    }
+    const openGroupPeriodPicker = (e: React.MouseEvent, group: AgendaGroup) => {
+      e.stopPropagation()
+      setPeriodPickerItemId(null)
+      if (periodPickerGroupId === group.id) { setPeriodPickerGroupId(null); setPeriodPickerPos(null); return }
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+      const p = parsePd(group.roadmap_period)
+      setPeriodPickerYear(p?.year ?? yearNav)
+      if (p) {
+        setPeriodPickerStartM((p.months[0] ?? 0) + 1)
+        setPeriodPickerEndM((p.months[p.months.length - 1] ?? 11) + 1)
+      }
+      setPeriodPickerGroupId(group.id)
       setPeriodPickerPos({ x: rect.left, y: rect.bottom + 4 })
     }
 
@@ -777,7 +790,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
             const isCur = ym === curYM
             const qBg = ['rgba(59,130,246,0.03)','rgba(245,158,11,0.03)','rgba(16,185,129,0.03)','rgba(239,68,68,0.03)'][Math.floor(mi/3)]
             return (
-              <th key={ym} style={{ position: 'sticky', top: 26, zIndex: 3, background: isCur ? '#EFF6FF' : qBg, borderBottom: isCur ? `2px solid ${catColor}` : S.bdL, borderLeft: mi%3===0 ? S.bdL : S.bd, width: W_ROAD, minWidth: W_ROAD, padding: '6px 4px', textAlign: 'center' }}>
+              <th key={ym} style={{ position: 'sticky', top: 26, zIndex: 3, background: isCur ? 'rgba(59,130,246,0.12)' : qBg, borderBottom: isCur ? `2px solid ${catColor}` : S.bdL, borderLeft: mi%3===0 ? S.bdL : S.bd, width: W_ROAD, minWidth: W_ROAD, padding: '6px 4px', textAlign: 'center' }}>
                 <span style={{ fontSize: 11, fontWeight: isCur ? 700 : 500, color: isCur ? catColor : S.t2 }}>{MONTH_KO[mi]}</span>
               </th>
             )
@@ -841,6 +854,57 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
       )
     })()
 
+    // ── 범주 period picker ──────────────────────────────────────────
+    const rdGroupPicker = (() => {
+      if (!periodPickerGroupId || !periodPickerPos) return null
+      const group = groups.find(g => g.id === periodPickerGroupId)
+      if (!group) return null
+      const cur = parsePd(group.roadmap_period)
+      return (
+        <div onClick={e => e.stopPropagation()}
+          style={{ position: 'fixed', top: periodPickerPos.y, left: periodPickerPos.x, zIndex: 9999, background: 'white', border: '1px solid #E2E8F0', borderRadius: 10, padding: 10, boxShadow: '0 8px 28px rgba(0,0,0,0.15)', width: 196 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: '#9CA3AF', letterSpacing: '.05em', marginBottom: 8 }}>범주 기간</div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <button onClick={() => setPeriodPickerYear(p => p - 1)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, color: '#6B7280', padding: '0 4px', lineHeight: 1 }}>‹</button>
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#1B3A6B' }}>{periodPickerYear}년</span>
+            <button onClick={() => setPeriodPickerYear(p => p + 1)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, color: '#6B7280', padding: '0 4px', lineHeight: 1 }}>›</button>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3, marginBottom: 8 }}>
+            {RD_PERIODS.map(p => {
+              const isActive = cur?.year === periodPickerYear && cur?.key === p.key
+              return (
+                <button key={p.key} onClick={() => updateGroupRoadmapPeriod(group.id, periodPickerYear, p.key)}
+                  style={{ fontSize: 10, fontWeight: 700, padding: '4px 0', borderRadius: 5, cursor: 'pointer',
+                    color: isActive ? 'white' : p.color,
+                    background: isActive ? p.color : hexToRgba(p.color, 0.08),
+                    border: `1px solid ${hexToRgba(p.color, 0.3)}` }}>
+                  {p.label}
+                </button>
+              )
+            })}
+          </div>
+          <div style={{ borderTop: '1px solid #F1F5F9', paddingTop: 8 }}>
+            <div style={{ fontSize: 9, fontWeight: 600, color: '#94A3B8', letterSpacing: '.05em', marginBottom: 5 }}>직접 입력</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <select value={periodPickerStartM} onChange={e => setPeriodPickerStartM(Number(e.target.value))}
+                style={{ flex: 1, fontSize: 11, border: '1px solid #E2E8F0', borderRadius: 5, padding: '3px 2px', cursor: 'pointer', background: 'white', color: '#374151' }}>
+                {['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'].map((m, i) => <option key={i+1} value={i+1}>{m}</option>)}
+              </select>
+              <span style={{ fontSize: 10, color: '#9CA3AF', flexShrink: 0 }}>~</span>
+              <select value={periodPickerEndM} onChange={e => setPeriodPickerEndM(Number(e.target.value))}
+                style={{ flex: 1, fontSize: 11, border: '1px solid #E2E8F0', borderRadius: 5, padding: '3px 2px', cursor: 'pointer', background: 'white', color: '#374151' }}>
+                {['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'].map((m, i) => <option key={i+1} value={i+1}>{m}</option>)}
+              </select>
+              <button onClick={() => updateGroupRoadmapPeriod(group.id, periodPickerYear, `${periodPickerStartM}-${periodPickerEndM}`)}
+                style={{ fontSize: 10, fontWeight: 700, color: 'white', background: '#1B3A6B', border: 'none', borderRadius: 5, padding: '3px 7px', cursor: 'pointer', flexShrink: 0 }}>적용</button>
+            </div>
+          </div>
+          <button onClick={() => updateGroupRoadmapPeriod(group.id, null, null)}
+            style={{ width: '100%', fontSize: 10, color: '#9CA3AF', background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 5, padding: '3px 0', cursor: 'pointer', marginTop: 6 }}>없음</button>
+        </div>
+      )
+    })()
+
     // ── 공통: 안건 한 행 렌더 ──
     const rdItemRow = (item: AgendaItem, gColor: string) => {
       const itemSTs  = subTasks.filter(st => st.agenda_item_id === item.id && st.target_date?.startsWith(yearStr))
@@ -864,8 +928,8 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
           onDragOver={e => { if (!_rdDragItemId || _rdDragItemId === item.id) return; e.preventDefault(); e.stopPropagation(); setRdDragOverId(item.id) }}
           onDrop={e => { e.preventDefault(); e.stopPropagation(); if (_rdDragItemId && _rdDragItemId !== item.id) reorderRoadmapItem(_rdDragItemId, item.id); _rdDragItemId = null; setRdDraggingId(null); setRdDragOverId(null) }}
           onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setRdDragOverId(null) }}
-          style={{ borderBottom: isRdOver ? `2px solid ${gColor}` : S.bd, opacity: isDone ? 0.4 : isRdDragging ? 0.5 : 1, background: isRdOver ? hexToRgba(gColor, 0.05) : 'white' }}
-          className="group/rditem hover:bg-gray-50/30"
+          style={{ borderBottom: isRdOver ? `2px solid ${gColor}` : S.bd, opacity: isDone ? 0.4 : isRdDragging ? 0.5 : 1, background: isRdOver ? hexToRgba(gColor, 0.05) : S.bg }}
+          className="group/rditem hover:bg-[rgba(255,255,255,0.04)]"
         >
           <td style={{ position: 'sticky', left: 0, zIndex: 2, background: 'inherit', borderRight: S.bdL, padding: '8px 12px' }}>
             <div className="flex items-center gap-1.5" style={{ minWidth: 0 }}>
@@ -876,7 +940,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                 style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 4, cursor: 'pointer', lineHeight: 1.6, minWidth: 24, textAlign: 'center', flexShrink: 0, transition: 'all 0.1s',
                   color: pd ? pd.color : '#9CA3AF',
                   background: pd ? hexToRgba(pd.color, 0.1) : 'transparent',
-                  border: pd ? `1px solid ${hexToRgba(pd.color, 0.35)}` : '1px dashed #D1D5DB' }}>
+                  border: pd ? `1px solid ${hexToRgba(pd.color, 0.35)}` : '1px dashed rgba(255,255,255,0.2)' }}>
                 {pdBadgeLabel(period)}
               </button>
               {/* 범주 도트 + 제목 */}
@@ -919,25 +983,47 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                   const visibleItems = showDoneGroups.has(group.id) ? groupItems : groupItems.filter(i => i.status !== 'done')
                   const isGOpen = openGroups.has(group.id)
                   const gColor = CAT_BORDER[group.category ?? ''] ?? group.color
-                  const gBg = CAT_BG[group.category ?? ''] ?? hexToRgba(group.color, 0.07)
-                  // 범주 집계 바: 해당 범주 전체 세부task 날짜 범위
+                  // 같은 범주 내 순서에 따라 배경 밝기 교차
+                  const sameCatGroups = [...groups].filter(g => g.category === group.category).sort((a,b) => a.sort_order - b.sort_order)
+                  const groupIdxInCat = sameCatGroups.findIndex(g => g.id === group.id)
+                  const gBgAlpha = groupIdxInCat % 2 === 0 ? 0.10 : 0.04
+                  const gBg = CAT_BORDER[group.category ?? '']
+                    ? hexToRgba(CAT_BORDER[group.category ?? ''], gBgAlpha)
+                    : hexToRgba(group.color, gBgAlpha)
+                  // 범주 기간 바: 수동 설정된 기간 우선, 없으면 세부task 날짜 범위
+                  const groupPd = parsePd(group.roadmap_period)
+                  const groupPdInfo = groupPd?.year === yearNav ? groupPd : null
                   const groupSTMs = subTasks
                     .filter(st => groupItems.some(i => i.id === st.agenda_item_id) && st.target_date?.startsWith(yearStr))
                     .map(st => st.target_date!.slice(0,7)).sort()
-                  const gMinM = groupSTMs[0] ?? null
-                  const gMaxM = groupSTMs[groupSTMs.length-1] ?? null
+                  const gMinM = groupPdInfo
+                    ? `${yearNav}-${String(groupPdInfo.months[0]+1).padStart(2,'0')}`
+                    : (groupSTMs[0] ?? null)
+                  const gMaxM = groupPdInfo
+                    ? `${yearNav}-${String(groupPdInfo.months[groupPdInfo.months.length-1]+1).padStart(2,'0')}`
+                    : (groupSTMs[groupSTMs.length-1] ?? null)
+                  const gBarColor = groupPdInfo ? groupPdInfo.color : gColor
+                  const gPdLabel = group.roadmap_period ? pdBadgeLabel(group.roadmap_period) : '+'
 
                   return (
                     <Fragment key={group.id}>
                       {/* ── 범주 헤더 ── */}
-                      <tr style={{ background: gBg, cursor: 'pointer' }} onClick={() => toggleGroup(group.id)}>
+                      <tr style={{ background: gBg, cursor: 'pointer' }} onClick={() => { setPeriodPickerGroupId(null); setPeriodPickerItemId(null); setPeriodPickerPos(null); toggleGroup(group.id) }}>
                         <td style={{ position: 'sticky', left: 0, zIndex: 2, background: gBg, borderBottom: S.bd, borderRight: S.bdL, borderLeft: `3px solid ${gColor}`, padding: '8px 14px' }}>
                           <div className="flex items-center gap-2">
                             <span style={{ fontSize: 8, transform: isGOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform .15s', color: gColor }}>▶</span>
                             <span style={{ width: 8, height: 8, borderRadius: '50%', background: group.color, flexShrink: 0, display: 'inline-block' }} />
                             <span style={{ fontSize: 12, fontWeight: 700, color: gColor }}>{group.name}</span>
                             {group.category && <span style={{ fontSize: 9, color: gColor, opacity: 0.7, background: hexToRgba(gColor, 0.1), padding: '1px 5px', borderRadius: 4 }}>{group.category}</span>}
-                            <span style={{ fontSize: 10, color: S.t3, background: '#E5E9F0', padding: '1px 6px', borderRadius: 99 }}>{visibleItems.length}</span>
+                            <span style={{ fontSize: 10, color: S.t3, background: 'rgba(255,255,255,0.1)', padding: '1px 6px', borderRadius: 99 }}>{visibleItems.length}</span>
+                            {/* 범주 기간 뱃지 */}
+                            <button onClick={e => openGroupPeriodPicker(e, group)}
+                              style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 4, cursor: 'pointer', lineHeight: 1.6, flexShrink: 0, transition: 'all 0.1s', marginLeft: 'auto',
+                                color: groupPdInfo ? groupPdInfo.color : '#9CA3AF',
+                                background: groupPdInfo ? hexToRgba(groupPdInfo.color, 0.1) : 'transparent',
+                                border: groupPdInfo ? `1px solid ${hexToRgba(groupPdInfo.color, 0.35)}` : '1px dashed rgba(255,255,255,0.2)' }}>
+                              {gPdLabel}
+                            </button>
                           </div>
                         </td>
                         {yearMonths.map((ym, mi) => {
@@ -945,7 +1031,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                           const isFirst = ym === gMinM, isLast = ym === gMaxM, isSingle = gMinM === gMaxM
                           return (
                             <td key={ym} style={{ borderLeft: mi%3===0 ? S.bdL : S.bd, borderBottom: S.bd, background: gBg, padding: '0 1px', verticalAlign: 'middle' }}>
-                              {inRange && <div style={{ height: 4, background: gColor, opacity: 0.25, borderRadius: isSingle ? 3 : isFirst ? '3px 0 0 3px' : isLast ? '0 3px 3px 0' : 0 }} />}
+                              {inRange && <div style={{ height: 4, background: gBarColor, opacity: groupPdInfo ? 0.45 : 0.25, borderRadius: isSingle ? 3 : isFirst ? '3px 0 0 3px' : isLast ? '0 3px 3px 0' : 0 }} />}
                             </td>
                           )
                         })}
@@ -969,7 +1055,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                         return (
                           <Fragment key={item.id}>
                             {/* 안건 행 */}
-                            <tr style={{ borderBottom: S.bd, opacity: isDone ? 0.4 : 1, background: 'white' }} className="group/rditem hover:bg-gray-50/30">
+                            <tr style={{ borderBottom: S.bd, opacity: isDone ? 0.4 : 1, background: S.bg }} className="group/rditem hover:bg-[rgba(255,255,255,0.04)]">
                               <td style={{ position: 'sticky', left: 0, zIndex: 2, background: 'inherit', borderRight: S.bdL, padding: '8px 12px 8px 20px' }}>
                                 <div className="flex items-center gap-1.5" style={{ minWidth: 0 }}>
                                   {/* 안건 토글 (세부task 펼치기) */}
@@ -980,7 +1066,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                                     style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 4, cursor: 'pointer', lineHeight: 1.6, minWidth: 24, textAlign: 'center', flexShrink: 0, transition: 'all 0.1s',
                                       color: pd ? pd.color : '#9CA3AF',
                                       background: pd ? hexToRgba(pd.color, 0.1) : 'transparent',
-                                      border: pd ? `1px solid ${hexToRgba(pd.color, 0.35)}` : '1px dashed #D1D5DB' }}>
+                                      border: pd ? `1px solid ${hexToRgba(pd.color, 0.35)}` : '1px dashed rgba(255,255,255,0.2)' }}>
                                     {pdBadgeLabel(period)}
                                   </button>
                                   {/* 상태 도트 + 제목 */}
@@ -1008,8 +1094,8 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                             {isItemOpen && subTasks.filter(st => st.agenda_item_id === item.id).sort((a,b) => a.sort_order - b.sort_order).map(st => {
                               const stYM = st.target_date?.startsWith(yearStr) ? st.target_date.slice(0,7) : null
                               return (
-                                <tr key={st.id} style={{ borderBottom: S.bd, background: '#FAFBFD' }} className="hover:bg-blue-50/10">
-                                  <td style={{ position: 'sticky', left: 0, zIndex: 2, background: '#FAFBFD', borderRight: S.bdL, padding: '5px 12px 5px 44px' }}>
+                                <tr key={st.id} style={{ borderBottom: S.bd, background: 'rgba(255,255,255,0.025)' }} className="hover:bg-[rgba(59,130,246,0.04)]">
+                                  <td style={{ position: 'sticky', left: 0, zIndex: 2, background: 'rgba(255,255,255,0.025)', borderRight: S.bdL, padding: '5px 12px 5px 44px' }}>
                                     <div className="flex items-center gap-2">
                                       <button onClick={e => { e.stopPropagation(); cycleSubTaskStatus(st) }}
                                         style={{ width: 12, height: 12, borderRadius: 3, flexShrink: 0, border: `1.5px solid ${st.status === 'done' ? '#10B981' : st.status === 'hold' ? '#F59E0B' : hexToRgba(gColor, 0.7)}`, background: st.status === 'done' ? '#10B981' : 'transparent', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1038,7 +1124,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                           <td colSpan={13} style={{ padding: 0 }}>
                             <button onClick={e => { e.stopPropagation(); toggleShowDone(group.id) }}
                               style={{ position: 'sticky', left: 0, width: 'max-content' }}
-                              className="flex items-center gap-1.5 px-5 py-2 text-xs text-gray-400 hover:text-gray-500 transition-colors">
+                              className="flex items-center gap-1.5 px-5 py-2 text-xs text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.6)] transition-colors">
                               <span style={{ fontSize: 8, transform: showDoneGroups.has(group.id) ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block', transition: 'transform .15s' }}>▶</span>
                               완료 {doneGroupItems.length}건
                             </button>
@@ -1052,6 +1138,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
             </table>
           </div>
           {rdPicker}
+          {rdGroupPicker}
         </>
       )
     }
@@ -1091,7 +1178,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                         <td colSpan={13} style={{ padding: 0 }}>
                           <button onClick={() => toggleShowDone(group.id)}
                             style={{ position: 'sticky', left: 0, width: 'max-content' }}
-                            className="flex items-center gap-1.5 px-5 py-2 text-xs text-gray-400 hover:text-gray-500 transition-colors">
+                            className="flex items-center gap-1.5 px-5 py-2 text-xs text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.6)] transition-colors">
                             <span style={{ fontSize: 8, transform: showDoneGroups.has(group.id) ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block', transition: 'transform .15s' }}>▶</span>
                             완료 {doneGroupItems.length}건
                           </button>
@@ -1105,6 +1192,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
           </table>
         </div>
         {rdPicker}
+        {rdGroupPicker}
       </>
     )
   }

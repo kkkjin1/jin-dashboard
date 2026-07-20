@@ -9,12 +9,12 @@ import { fetchAllTasks } from '@/lib/tasks'
 import type { Task, AchievementCategory } from '@/types'
 
 const COLUMNS: { key: AchievementCategory | null; label: string; dot: string; accent: string }[] = [
-  { key: null,     label: '미분류', dot: 'bg-gray-300',     accent: 'border-gray-200/60' },
+  { key: null,     label: '미분류', dot: 'bg-gray-300',     accent: 'border-[rgba(255,255,255,0.09)]' },
   { key: '성과',   label: '성과',   dot: 'bg-[#BADEC8]',   accent: 'border-[#BADEC8]/40' },
   { key: '개선',   label: '개선',   dot: 'bg-[#F3E482]',   accent: 'border-[#F3E482]/40' },
   { key: '리소스', label: '리소스', dot: 'bg-[#90A7D8]',   accent: 'border-[#90A7D8]/40' },
   { key: '수명',   label: '수명',   dot: 'bg-[#BFE4B5]',   accent: 'border-[#BFE4B5]/40' },
-  { key: '기타',   label: '기타',   dot: 'bg-gray-300',     accent: 'border-gray-200/60' },
+  { key: '기타',   label: '기타',   dot: 'bg-gray-300',     accent: 'border-[rgba(255,255,255,0.09)]' },
 ]
 
 function getTaskMonth(task: Task): string | null {
@@ -98,10 +98,10 @@ function SummaryGrid({ data }: { data: PeriodSummary }) {
     {
       title: '기록한 업무',
       count: data.activeTasks.length,
-      bg: 'bg-white/40 border-white/60',
-      numColor: 'text-gray-800',
-      subColor: 'text-gray-400',
-      divider: 'border-gray-100/80',
+      bg: 'bg-[rgba(255,255,255,0.06)] border-[rgba(255,255,255,0.09)]',
+      numColor: 'text-[rgba(226,232,240,0.9)]',
+      subColor: 'text-[rgba(226,232,240,0.4)]',
+      divider: 'border-[rgba(255,255,255,0.06)]',
       items: data.activeTasks.map(t => ({
         key: t.id, href: `/tasks/${t.id}`,
         primary: t.title || '제목 없음', secondary: `노트 ${t.noteCount}`,
@@ -144,16 +144,16 @@ function SummaryGrid({ data }: { data: PeriodSummary }) {
           <p className={`text-xs font-semibold mb-4 ${card.subColor}`}>{card.title}</p>
           <div className={`border-t mb-3 ${card.divider}`} />
           {data.loading ? (
-            <p className="text-xs text-gray-300">불러오는 중...</p>
+            <p className="text-xs text-[rgba(226,232,240,0.3)]">불러오는 중...</p>
           ) : card.items.length === 0 ? (
-            <p className="text-xs text-gray-300">없음</p>
+            <p className="text-xs text-[rgba(226,232,240,0.3)]">없음</p>
           ) : (
             <div className="space-y-1.5 max-h-44 overflow-y-auto scrollbar-hide">
               {card.items.map(item => (
                 <Link key={item.key} href={item.href}
                   className="flex items-start justify-between text-xs py-1 hover:opacity-70 transition-opacity gap-2">
-                  <span className="text-gray-700 break-words leading-relaxed min-w-0">{item.primary}</span>
-                  {item.secondary && <span className="text-gray-400 flex-shrink-0">{item.secondary}</span>}
+                  <span className="text-[rgba(226,232,240,0.8)] break-words leading-relaxed min-w-0">{item.primary}</span>
+                  {item.secondary && <span className="text-[rgba(226,232,240,0.4)] flex-shrink-0">{item.secondary}</span>}
                 </Link>
               ))}
             </div>
@@ -297,7 +297,7 @@ export default function CompletedPage() {
       <>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           {[
-            { label: '총 완료', value: filtered.length, unit: '건', bg: 'bg-white/40 border-white/60', numCls: 'text-gray-800' },
+            { label: '총 완료', value: filtered.length, unit: '건', bg: 'bg-[rgba(255,255,255,0.06)] border-[rgba(255,255,255,0.09)]', numCls: 'text-[rgba(226,232,240,0.9)]' },
             { label: '성과', value: achieveCount, unit: '건', bg: 'bg-[#BADEC8]/25 border-[#BADEC8]/40', numCls: 'text-[#2D5A45]' },
             { label: '개선', value: improveCount, unit: '건', bg: 'bg-[#F3E482]/25 border-[#F3E482]/45', numCls: 'text-[#5A4A10]' },
             {
@@ -324,34 +324,34 @@ export default function CompletedPage() {
                 onDragOver={e => { e.preventDefault(); setDragOverCol(colKey) }}
                 onDragLeave={() => setDragOverCol(null)}
                 onDrop={() => handleDrop(col.key)}
-                className={`flex-shrink-0 w-52 bg-white/40 backdrop-blur-xl border rounded-3xl p-4 transition-all ${col.accent} ${dragOverCol === colKey ? 'scale-[1.02] bg-white/60' : ''}`}>
+                className={`flex-shrink-0 w-52 bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border rounded-3xl p-4 transition-all ${col.accent} ${dragOverCol === colKey ? 'scale-[1.02] bg-[rgba(255,255,255,0.06)]' : ''}`}>
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
                     <span className={`w-2 h-2 rounded-full ${col.dot}`} />
-                    <h3 className="text-sm font-bold text-gray-700">{col.label}</h3>
+                    <h3 className="text-sm font-bold text-[rgba(226,232,240,0.8)]">{col.label}</h3>
                   </div>
-                  <span className="text-xs text-gray-400 bg-white/60 px-1.5 py-0.5 rounded-full">{colTasks.length}</span>
+                  <span className="text-xs text-[rgba(226,232,240,0.4)] bg-[rgba(255,255,255,0.06)] px-1.5 py-0.5 rounded-full">{colTasks.length}</span>
                 </div>
                 <div className="space-y-2 max-h-80 overflow-y-auto scrollbar-hide">
                   {colTasks.map(task => (
                     <div key={task.id} draggable
                       onDragStart={() => setDraggedId(task.id)}
                       onDragEnd={() => { setDraggedId(null); setDragOverCol(null) }}
-                      className={`bg-white/60 rounded-2xl border border-white/80 p-3 cursor-grab active:cursor-grabbing hover:bg-white/80 transition-all ${draggedId === task.id ? 'opacity-40 scale-95' : ''}`}>
+                      className={`bg-[rgba(255,255,255,0.06)] rounded-2xl border border-[rgba(255,255,255,0.09)] p-3 cursor-grab active:cursor-grabbing hover:bg-[rgba(255,255,255,0.06)] transition-all ${draggedId === task.id ? 'opacity-40 scale-95' : ''}`}>
                       <Link href={`/tasks/${task.id}`} onClick={e => e.stopPropagation()}>
-                        <p className="text-xs font-semibold text-gray-800 leading-snug mb-2">
-                          {task.title || <span className="text-gray-300 italic">제목 없음</span>}
+                        <p className="text-xs font-semibold text-[rgba(226,232,240,0.9)] leading-snug mb-2">
+                          {task.title || <span className="text-[rgba(226,232,240,0.3)] italic">제목 없음</span>}
                         </p>
                       </Link>
                       <div className="flex items-center gap-1 flex-wrap">
-                        <span className="text-[10px] text-gray-400 bg-gray-100/80 px-1.5 py-0.5 rounded-full">{task.type}</span>
-                        <span className="text-[10px] text-gray-400 bg-gray-100/80 px-1.5 py-0.5 rounded-full">{task.part}</span>
-                        {getTaskMonth(task) && <span className="text-[10px] text-gray-300">{formatYM(getTaskMonth(task)!)}</span>}
+                        <span className="text-[10px] text-[rgba(226,232,240,0.4)] bg-[rgba(255,255,255,0.06)] px-1.5 py-0.5 rounded-full">{task.type}</span>
+                        <span className="text-[10px] text-[rgba(226,232,240,0.4)] bg-[rgba(255,255,255,0.06)] px-1.5 py-0.5 rounded-full">{task.part}</span>
+                        {getTaskMonth(task) && <span className="text-[10px] text-[rgba(226,232,240,0.3)]">{formatYM(getTaskMonth(task)!)}</span>}
                       </div>
                     </div>
                   ))}
                   {colTasks.length === 0 && (
-                    <p className="text-xs text-gray-300 text-center py-6 border border-dashed border-gray-200/60 rounded-2xl">드롭</p>
+                    <p className="text-xs text-[rgba(226,232,240,0.3)] text-center py-6 border border-dashed border-[rgba(255,255,255,0.09)] rounded-2xl">드롭</p>
                   )}
                 </div>
               </div>
@@ -362,19 +362,19 @@ export default function CompletedPage() {
         {filteredAgenda.length > 0 && (
           <div className="mb-8">
             <div className="flex items-center gap-2 mb-4">
-              <h2 className="text-sm font-bold text-gray-800">완료 안건</h2>
-              <span className="text-xs text-gray-400 bg-[#BADEC8]/30 px-2 py-0.5 rounded-full">{filteredAgenda.length}건</span>
+              <h2 className="text-sm font-bold text-[rgba(226,232,240,0.9)]">완료 안건</h2>
+              <span className="text-xs text-[rgba(226,232,240,0.4)] bg-[#BADEC8]/30 px-2 py-0.5 rounded-full">{filteredAgenda.length}건</span>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {filteredAgenda.map(a => (
                 <Link key={a.id} href={`/project/items/${a.id}`}
-                  className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl p-4 hover:bg-white/60 transition-all flex items-center gap-3">
+                  className="bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border border-[rgba(255,255,255,0.09)] rounded-3xl p-4 hover:bg-[rgba(255,255,255,0.06)] transition-all flex items-center gap-3">
                   <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: a.group_color }} />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-800 leading-snug truncate">{a.title}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">{a.group_name}</p>
+                    <p className="text-sm font-semibold text-[rgba(226,232,240,0.9)] leading-snug truncate">{a.title}</p>
+                    <p className="text-xs text-[rgba(226,232,240,0.4)] mt-0.5">{a.group_name}</p>
                   </div>
-                  <span className="text-[10px] text-gray-300 flex-shrink-0">{a.updated_at.slice(0, 7)}</span>
+                  <span className="text-[10px] text-[rgba(226,232,240,0.3)] flex-shrink-0">{a.updated_at.slice(0, 7)}</span>
                 </Link>
               ))}
             </div>
@@ -383,43 +383,43 @@ export default function CompletedPage() {
 
         <div>
           <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-sm font-bold text-gray-800">회고 기록</h2>
-            <span className="text-xs text-gray-400">잘한점 · 아쉬운점 · 개선점</span>
+            <h2 className="text-sm font-bold text-[rgba(226,232,240,0.9)]">회고 기록</h2>
+            <span className="text-xs text-[rgba(226,232,240,0.4)]">잘한점 · 아쉬운점 · 개선점</span>
           </div>
           {filtered.length === 0 ? (
-            <p className="text-sm text-gray-300 text-center py-8">해당 기간에 완료된 업무가 없습니다</p>
+            <p className="text-sm text-[rgba(226,232,240,0.3)] text-center py-8">해당 기간에 완료된 업무가 없습니다</p>
           ) : (
             <div className="grid grid-cols-1 gap-3">
               {filtered.map(task => (
                 <Link key={task.id} href={`/tasks/${task.id}`}
-                  className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl p-5 hover:bg-white/60 transition-all">
+                  className="bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border border-[rgba(255,255,255,0.09)] rounded-3xl p-5 hover:bg-[rgba(255,255,255,0.06)] transition-all">
                   <div className="flex items-start justify-between mb-4">
                     <div>
-                      <p className="text-sm font-semibold text-gray-800">{task.title || '제목 없음'}</p>
+                      <p className="text-sm font-semibold text-[rgba(226,232,240,0.9)]">{task.title || '제목 없음'}</p>
                       <div className="flex gap-1.5 mt-1">
-                        {task.part && <span className="text-xs text-gray-400 bg-gray-100/80 px-2 py-0.5 rounded-full">{task.part}</span>}
-                        {task.type && <span className="text-xs text-gray-400 bg-gray-100/80 px-2 py-0.5 rounded-full">{task.type}</span>}
+                        {task.part && <span className="text-xs text-[rgba(226,232,240,0.4)] bg-[rgba(255,255,255,0.06)] px-2 py-0.5 rounded-full">{task.part}</span>}
+                        {task.type && <span className="text-xs text-[rgba(226,232,240,0.4)] bg-[rgba(255,255,255,0.06)] px-2 py-0.5 rounded-full">{task.type}</span>}
                       </div>
                     </div>
-                    <span className="text-xs text-gray-300">{getTaskMonth(task) ?? ''}</span>
+                    <span className="text-xs text-[rgba(226,232,240,0.3)]">{getTaskMonth(task) ?? ''}</span>
                   </div>
                   {(task.retrospective?.good || task.retrospective?.bad || task.retrospective?.improvement) ? (
                     <div className="grid grid-cols-3 gap-3">
-                      <div className={`rounded-2xl p-3 ${task.retrospective?.good ? 'bg-[#BADEC8]/25' : 'bg-gray-50/60'}`}>
+                      <div className={`rounded-2xl p-3 ${task.retrospective?.good ? 'bg-[#BADEC8]/25' : 'bg-[rgba(255,255,255,0.03)]'}`}>
                         <p className="text-[10px] font-semibold text-[#2D5A45] mb-1">잘한점</p>
-                        <p className="text-xs text-gray-600 leading-relaxed break-words">{task.retrospective?.good || <span className="text-gray-300">없음</span>}</p>
+                        <p className="text-xs text-[rgba(226,232,240,0.7)] leading-relaxed break-words">{task.retrospective?.good || <span className="text-[rgba(226,232,240,0.3)]">없음</span>}</p>
                       </div>
-                      <div className={`rounded-2xl p-3 ${task.retrospective?.bad ? 'bg-[#EBA698]/18' : 'bg-gray-50/60'}`}>
+                      <div className={`rounded-2xl p-3 ${task.retrospective?.bad ? 'bg-[#EBA698]/18' : 'bg-[rgba(255,255,255,0.03)]'}`}>
                         <p className="text-[10px] font-semibold text-[#6B2D25] mb-1">아쉬운점</p>
-                        <p className="text-xs text-gray-600 leading-relaxed break-words">{task.retrospective?.bad || <span className="text-gray-300">없음</span>}</p>
+                        <p className="text-xs text-[rgba(226,232,240,0.7)] leading-relaxed break-words">{task.retrospective?.bad || <span className="text-[rgba(226,232,240,0.3)]">없음</span>}</p>
                       </div>
-                      <div className={`rounded-2xl p-3 ${task.retrospective?.improvement ? 'bg-[#F3E482]/25' : 'bg-gray-50/60'}`}>
+                      <div className={`rounded-2xl p-3 ${task.retrospective?.improvement ? 'bg-[#F3E482]/25' : 'bg-[rgba(255,255,255,0.03)]'}`}>
                         <p className="text-[10px] font-semibold text-[#5A4A10] mb-1">개선점</p>
-                        <p className="text-xs text-gray-600 leading-relaxed break-words">{task.retrospective?.improvement || <span className="text-gray-300">없음</span>}</p>
+                        <p className="text-xs text-[rgba(226,232,240,0.7)] leading-relaxed break-words">{task.retrospective?.improvement || <span className="text-[rgba(226,232,240,0.3)]">없음</span>}</p>
                       </div>
                     </div>
                   ) : (
-                    <p className="text-xs text-gray-300 italic">회고 미작성 → 업무 상세에서 작성 가능</p>
+                    <p className="text-xs text-[rgba(226,232,240,0.3)] italic">회고 미작성 → 업무 상세에서 작성 가능</p>
                   )}
                 </Link>
               ))}
@@ -433,9 +433,9 @@ export default function CompletedPage() {
   return (
     <div className="h-full flex flex-col overflow-hidden font-sans">
       <div className="flex-shrink-0 pt-6 pb-4 flex items-center justify-between">
-        <h1 className="text-xl font-bold text-gray-900">완료 성과</h1>
+        <h1 className="text-xl font-bold text-[#E2E8F0]">완료 성과</h1>
         {quickPeriod !== '주간' && quickPeriod !== '당월' && (
-          <span className="text-sm text-gray-400">총 {filtered.length}건</span>
+          <span className="text-sm text-[rgba(226,232,240,0.4)]">총 {filtered.length}건</span>
         )}
       </div>
 
@@ -445,7 +445,7 @@ export default function CompletedPage() {
             className={`text-sm px-4 py-2 rounded-full font-medium transition-all whitespace-nowrap border ${
               quickPeriod === p
                 ? 'bg-[#1B3A6B] text-white border-[#1B3A6B] shadow-sm'
-                : 'bg-white/40 backdrop-blur-xl border-white/60 text-gray-500 hover:bg-white/60 hover:text-gray-700'
+                : 'bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border-[rgba(255,255,255,0.09)] text-[rgba(226,232,240,0.5)] hover:bg-[rgba(255,255,255,0.06)] hover:text-[rgba(226,232,240,0.8)]'
             }`}>
             {p}
           </button>
@@ -458,10 +458,10 @@ export default function CompletedPage() {
           <div>
             <div className="flex items-center gap-3 mb-5">
               <button onClick={() => shiftWeek(-1)}
-                className="text-gray-400 hover:text-gray-700 px-3 py-1.5 rounded-full bg-white/40 backdrop-blur-xl border border-white/60 hover:bg-white/60 transition-all text-sm">←</button>
-              <span className="text-sm font-semibold text-gray-700">{formatWeekRange(weekStart)}</span>
+                className="text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.8)] px-3 py-1.5 rounded-full bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border border-[rgba(255,255,255,0.09)] hover:bg-[rgba(255,255,255,0.06)] transition-all text-sm">←</button>
+              <span className="text-sm font-semibold text-[rgba(226,232,240,0.8)]">{formatWeekRange(weekStart)}</span>
               <button onClick={() => shiftWeek(1)}
-                className="text-gray-400 hover:text-gray-700 px-3 py-1.5 rounded-full bg-white/40 backdrop-blur-xl border border-white/60 hover:bg-white/60 transition-all text-sm">→</button>
+                className="text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.8)] px-3 py-1.5 rounded-full bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border border-[rgba(255,255,255,0.09)] hover:bg-[rgba(255,255,255,0.06)] transition-all text-sm">→</button>
             </div>
             <SummaryGrid data={weekData} />
           </div>
@@ -471,10 +471,10 @@ export default function CompletedPage() {
           <div>
             <div className="flex items-center gap-3 mb-5">
               <button onClick={() => shiftMonth(-1)}
-                className="text-gray-400 hover:text-gray-700 px-3 py-1.5 rounded-full bg-white/40 backdrop-blur-xl border border-white/60 hover:bg-white/60 transition-all text-sm">←</button>
-              <span className="text-sm font-semibold text-gray-700">{formatYM(selectedMonth)}</span>
+                className="text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.8)] px-3 py-1.5 rounded-full bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border border-[rgba(255,255,255,0.09)] hover:bg-[rgba(255,255,255,0.06)] transition-all text-sm">←</button>
+              <span className="text-sm font-semibold text-[rgba(226,232,240,0.8)]">{formatYM(selectedMonth)}</span>
               <button onClick={() => shiftMonth(1)}
-                className="text-gray-400 hover:text-gray-700 px-3 py-1.5 rounded-full bg-white/40 backdrop-blur-xl border border-white/60 hover:bg-white/60 transition-all text-sm">→</button>
+                className="text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.8)] px-3 py-1.5 rounded-full bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border border-[rgba(255,255,255,0.09)] hover:bg-[rgba(255,255,255,0.06)] transition-all text-sm">→</button>
             </div>
             <SummaryGrid data={monthData} />
             {renderKanban()}
@@ -488,19 +488,19 @@ export default function CompletedPage() {
             {agendaItems.length > 0 && (
               <div>
                 <div className="flex items-center gap-2 mb-3">
-                  <h2 className="text-sm font-bold text-gray-800">완료 안건</h2>
-                  <span className="text-xs text-gray-400 bg-[#BADEC8]/30 px-2 py-0.5 rounded-full">{agendaItems.length}건</span>
+                  <h2 className="text-sm font-bold text-[rgba(226,232,240,0.9)]">완료 안건</h2>
+                  <span className="text-xs text-[rgba(226,232,240,0.4)] bg-[#BADEC8]/30 px-2 py-0.5 rounded-full">{agendaItems.length}건</span>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {agendaItems.map(a => (
                     <Link key={a.id} href={`/project/items/${a.id}`}
-                      className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl p-4 hover:bg-white/60 transition-all flex items-center gap-3">
+                      className="bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border border-[rgba(255,255,255,0.09)] rounded-3xl p-4 hover:bg-[rgba(255,255,255,0.06)] transition-all flex items-center gap-3">
                       <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: a.group_color }} />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-gray-800 leading-snug truncate">{a.title}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">{a.group_name}</p>
+                        <p className="text-sm font-semibold text-[rgba(226,232,240,0.9)] leading-snug truncate">{a.title}</p>
+                        <p className="text-xs text-[rgba(226,232,240,0.4)] mt-0.5">{a.group_name}</p>
                       </div>
-                      <span className="text-[10px] text-gray-300 flex-shrink-0">{a.updated_at.slice(0, 7)}</span>
+                      <span className="text-[10px] text-[rgba(226,232,240,0.3)] flex-shrink-0">{a.updated_at.slice(0, 7)}</span>
                     </Link>
                   ))}
                 </div>
@@ -509,23 +509,23 @@ export default function CompletedPage() {
             {tasks.length > 0 && (
               <div>
                 <div className="flex items-center gap-2 mb-3">
-                  <h2 className="text-sm font-bold text-gray-800">완료 업무</h2>
-                  <span className="text-xs text-gray-400">{tasks.length}건</span>
+                  <h2 className="text-sm font-bold text-[rgba(226,232,240,0.9)]">완료 업무</h2>
+                  <span className="text-xs text-[rgba(226,232,240,0.4)]">{tasks.length}건</span>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {tasks.map(t => (
                     <Link key={t.id} href={`/tasks/${t.id}`}
-                      className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl p-5 hover:bg-white/60 transition-all flex flex-col gap-2">
+                      className="bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border border-[rgba(255,255,255,0.09)] rounded-3xl p-5 hover:bg-[rgba(255,255,255,0.06)] transition-all flex flex-col gap-2">
                       <div className="flex items-start justify-between gap-2">
-                        <span className="text-sm font-semibold text-gray-800 leading-snug">{t.title}</span>
-                        <span className="text-[10px] text-gray-400 flex-shrink-0 bg-white/60 px-1.5 py-0.5 rounded-full">{t.part}</span>
+                        <span className="text-sm font-semibold text-[rgba(226,232,240,0.9)] leading-snug">{t.title}</span>
+                        <span className="text-[10px] text-[rgba(226,232,240,0.4)] flex-shrink-0 bg-[rgba(255,255,255,0.06)] px-1.5 py-0.5 rounded-full">{t.part}</span>
                       </div>
                       <div className="flex gap-1.5 flex-wrap">
                         <span className="text-[10px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full">{t.type}</span>
-                        {t.end_date && <span className="text-[10px] text-gray-400">{t.end_date.slice(0, 7)} 완료</span>}
+                        {t.end_date && <span className="text-[10px] text-[rgba(226,232,240,0.4)]">{t.end_date.slice(0, 7)} 완료</span>}
                       </div>
                       {t.retrospective && (t.retrospective.good || t.retrospective.bad) && (
-                        <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed border-t border-white/60 pt-2">
+                        <p className="text-xs text-[rgba(226,232,240,0.5)] line-clamp-2 leading-relaxed border-t border-[rgba(255,255,255,0.09)] pt-2">
                           {t.retrospective.good || t.retrospective.bad}
                         </p>
                       )}
@@ -535,11 +535,11 @@ export default function CompletedPage() {
               </div>
             )}
             {agendaItems.length === 0 && tasks.length === 0 && (
-              <p className="text-sm text-gray-300 text-center py-12">완료된 안건/업무가 없습니다</p>
+              <p className="text-sm text-[rgba(226,232,240,0.3)] text-center py-12">완료된 안건/업무가 없습니다</p>
             )}
             <div className="flex justify-end">
               <Link href="/journal?tab=selfeval"
-                className="text-sm text-gray-500 bg-white/40 backdrop-blur-xl border border-white/60 px-4 py-2 rounded-full hover:bg-white/60 transition-all">
+                className="text-sm text-[rgba(226,232,240,0.5)] bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border border-[rgba(255,255,255,0.09)] px-4 py-2 rounded-full hover:bg-[rgba(255,255,255,0.06)] transition-all">
                 → 자기평가 초안 만들기
               </Link>
             </div>

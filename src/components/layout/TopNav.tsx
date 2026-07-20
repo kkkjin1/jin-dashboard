@@ -186,8 +186,8 @@ export default function TopNav() {
         </div>
       )}
 
-      {/* ── 데스크톱 상단 네비바 ── */}
-      <header className="hidden md:block h-14 flex-shrink-0 relative z-50">
+      {/* ── 데스크톱 상단 네비바 (사이드바로 대체됨) ── */}
+      <header className="hidden h-14 flex-shrink-0 relative z-50">
         <div className="max-w-[1440px] mx-auto px-16 flex items-center h-full gap-4">
 
           {/* 로고 */}
@@ -200,7 +200,7 @@ export default function TopNav() {
 
           {/* 가운데 필 탭 */}
           <div className="flex-1 flex justify-center">
-            <div className="flex items-center gap-0.5 bg-white/50 backdrop-blur-md rounded-full px-1.5 py-1.5 border border-white/70 shadow-sm">
+            <div className="flex items-center gap-0.5 px-1.5 py-1.5 border bg-[rgba(255,255,255,0.75)] backdrop-blur-[20px] border-[rgba(255,255,255,0.45)] rounded-[20px] shadow-[0_2px_24px_rgba(0,0,0,0.06)]">
               {primaryNav.map(item => {
                 const isActive = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)
                 return (
@@ -230,7 +230,7 @@ export default function TopNav() {
                   <ChevronDown size={9} className={`transition-transform ${moreOpen ? 'rotate-180' : ''}`} />
                 </button>
                 {moreOpen && (
-                  <div className="absolute top-full mt-2 right-0 bg-white/90 backdrop-blur-xl border border-white/80 rounded-2xl shadow-xl overflow-hidden min-w-36 py-1.5 z-50">
+                  <div className="absolute top-full mt-2 right-0 bg-[rgba(255,255,255,0.88)] backdrop-blur-[20px] border border-[rgba(255,255,255,0.45)] rounded-[16px] shadow-[0_4px_24px_rgba(0,0,0,0.08)] overflow-hidden min-w-36 py-1.5 z-50">
                     {secondaryNav.map(item => {
                       const isActive = pathname.startsWith(item.href)
                       return (

@@ -50,7 +50,7 @@ function SubCell({ entry, subItemId, date, onSave, onDelete }: SubCellProps) {
           if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') save()
           if (e.key === 'Escape') { setVal(entry?.content ?? ''); setEditing(false) }
         }}
-        className="w-full min-w-[200px] text-[13px] text-gray-700 leading-relaxed bg-white border border-[#1B3A6B]/25 rounded-lg p-2 focus:outline-none resize-none"
+        className="w-full min-w-[200px] text-[14px] text-[rgba(226,232,240,0.8)] leading-relaxed bg-[rgba(255,255,255,0.06)] border border-[#1B3A6B]/25 rounded-lg p-2 focus:outline-none resize-none"
         rows={3}
       />
     )
@@ -60,7 +60,7 @@ function SubCell({ entry, subItemId, date, onSave, onDelete }: SubCellProps) {
     return (
       <div
         onClick={() => { setVal(entry.content); setEditing(true) }}
-        className="min-w-[200px] text-[13px] text-gray-700 leading-relaxed whitespace-pre-wrap cursor-text bg-gray-50/80 rounded-lg px-2.5 py-2 hover:bg-gray-100/60 transition-colors"
+        className="min-w-[200px] text-[14px] text-[rgba(226,232,240,0.8)] leading-relaxed whitespace-pre-wrap cursor-text bg-[rgba(255,255,255,0.03)] rounded-lg px-2.5 py-2.5 hover:bg-[rgba(255,255,255,0.06)] transition-colors"
       >
         {entry.content}
       </div>
@@ -70,9 +70,9 @@ function SubCell({ entry, subItemId, date, onSave, onDelete }: SubCellProps) {
   return (
     <div
       onClick={() => { setVal(''); setEditing(true) }}
-      className="min-w-[200px] h-11 rounded-lg border border-dashed border-transparent hover:border-gray-200 cursor-pointer transition-colors flex items-center justify-center"
+      className="min-w-[200px] h-[53px] rounded-lg border border-dashed border-transparent hover:border-[rgba(255,255,255,0.09)] cursor-pointer transition-colors flex items-center justify-center"
     >
-      <span className="text-xs text-gray-200 select-none">—</span>
+      <span className="text-xs text-[rgba(226,232,240,0.2)] select-none">—</span>
     </div>
   )
 }
@@ -131,9 +131,9 @@ function ObjectiveBlock({
   }
 
   return (
-    <div className="border-b border-gray-50 last:border-0">
+    <div className="border-b border-[rgba(255,255,255,0.04)] last:border-0">
       {/* Objective title row */}
-      <div className="flex items-center gap-2 px-4 py-2.5 group/obj">
+      <div className="flex items-center gap-2 px-4 py-3 group/obj">
         <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
         {editingTitle ? (
           <input
@@ -144,16 +144,16 @@ function ObjectiveBlock({
               if (e.key === 'Escape') { setTitleVal(obj.title); setEditingTitle(false) }
             }}
             onBlur={saveTitle}
-            className="text-[13px] font-medium text-gray-800 border-b border-gray-200 focus:outline-none bg-transparent flex-1 max-w-xs"
+            className="text-[14px] font-medium text-[rgba(226,232,240,0.9)] border-b border-[rgba(255,255,255,0.09)] focus:outline-none bg-transparent flex-1 max-w-xs"
           />
         ) : (
-          <span className="text-[13px] font-medium text-gray-700">{obj.title}</span>
+          <span className="text-[14px] font-medium text-[rgba(226,232,240,0.8)]">{obj.title}</span>
         )}
         <div className="flex items-center gap-0.5 opacity-0 group-hover/obj:opacity-100 transition-opacity ml-1">
           <button onClick={() => { setEditingTitle(true); setTitleVal(obj.title) }}
-            className="text-gray-300 hover:text-gray-500 p-0.5 transition-colors"><Pencil size={9} /></button>
+            className="text-[rgba(226,232,240,0.3)] hover:text-[rgba(226,232,240,0.5)] p-0.5 transition-colors"><Pencil size={9} /></button>
           <button onClick={() => onDeleteObj(obj.id)}
-            className="text-gray-300 hover:text-red-400 p-0.5 transition-colors"><Trash2 size={9} /></button>
+            className="text-[rgba(226,232,240,0.3)] hover:text-red-400 p-0.5 transition-colors"><Trash2 size={9} /></button>
         </div>
       </div>
 
@@ -163,12 +163,12 @@ function ObjectiveBlock({
           {/* Header */}
           <thead>
             <tr>
-              <th className="text-left text-xs text-gray-400 font-normal pb-2.5 pr-4 w-48 min-w-[192px]"
-                style={{ position: 'sticky', left: 0, background: 'white', zIndex: 2 }}>
+              <th className="text-left text-[13px] text-[rgba(226,232,240,0.4)] font-normal pb-3 pr-4 w-28 min-w-[112px]"
+                style={{ position: 'sticky', left: 0, background: '#21232A', zIndex: 2, borderRight: '1px solid rgba(255,255,255,0.06)' }}>
                 안건
               </th>
               {allDates.map(d => (
-                <th key={d} className="text-xs text-gray-400 font-normal pb-2.5 px-2 whitespace-nowrap min-w-[200px] text-center">
+                <th key={d} className="text-[13px] text-[rgba(226,232,240,0.4)] font-normal pb-3 px-2 whitespace-nowrap min-w-[200px] text-center">
                   {formatDate(d)}
                 </th>
               ))}
@@ -177,12 +177,12 @@ function ObjectiveBlock({
                   <div className="flex items-center gap-1">
                     <input type="date" value={newDate} onChange={e => setNewDate(e.target.value)}
                       onKeyDown={e => { if (e.key === 'Enter') confirmDate(); if (e.key === 'Escape') setAddingDate(false) }}
-                      className="text-xs text-gray-600 border border-gray-200 rounded px-1 py-0.5 focus:outline-none bg-white w-24" />
+                      className="text-xs text-[rgba(226,232,240,0.7)] border border-[rgba(255,255,255,0.09)] rounded px-1 py-0.5 focus:outline-none bg-[rgba(255,255,255,0.06)] w-24" />
                     <button onClick={confirmDate} className="text-[#1B3A6B] text-xs font-medium hover:opacity-70 transition-opacity">확인</button>
                   </div>
                 ) : (
                   <button onClick={() => setAddingDate(true)}
-                    className="flex items-center gap-0.5 text-xs text-gray-300 hover:text-gray-500 transition-colors whitespace-nowrap">
+                    className="flex items-center gap-0.5 text-xs text-[rgba(226,232,240,0.3)] hover:text-[rgba(226,232,240,0.5)] transition-colors whitespace-nowrap">
                     <Plus size={9} />날짜
                   </button>
                 )}
@@ -195,20 +195,20 @@ function ObjectiveBlock({
             {subItems.map(si => (
               <tr key={si.id} className="group/si">
                 {/* Sub-item title — sticky */}
-                <td className="pr-4 py-2.5 align-top w-48 min-w-[192px]"
-                  style={{ position: 'sticky', left: 0, background: 'white', zIndex: 1 }}>
+                <td className="pr-4 py-3 align-top w-28 min-w-[112px]"
+                  style={{ position: 'sticky', left: 0, background: '#21232A', zIndex: 1 }}>
                   <div className="flex items-start gap-1 group/sititle">
-                    <span className="text-[13px] text-gray-600 leading-relaxed flex-1">{si.title}</span>
+                    <span className="text-[14px] text-[rgba(226,232,240,0.7)] leading-relaxed flex-1">{si.title}</span>
                     <div className="flex items-center gap-0.5 opacity-0 group-hover/sititle:opacity-100 transition-opacity flex-shrink-0 mt-0.5">
                       <button onClick={() => onDeleteSubItem(si.id)}
-                        className="text-gray-200 hover:text-red-400 p-0.5 transition-colors"><Trash2 size={8} /></button>
+                        className="text-[rgba(226,232,240,0.2)] hover:text-red-400 p-0.5 transition-colors"><Trash2 size={8} /></button>
                     </div>
                   </div>
                 </td>
 
                 {/* Entry cells */}
                 {allDates.map(d => (
-                  <td key={d} className="px-2 py-2.5 align-top min-w-[200px]">
+                  <td key={d} className="px-2 py-3 align-top min-w-[200px]">
                     <SubCell
                       entry={subEntries.find(e => e.sub_item_id === si.id && e.entry_date === d)}
                       subItemId={si.id}
@@ -224,7 +224,7 @@ function ObjectiveBlock({
 
             {/* Add sub-item row */}
             <tr>
-              <td className="pt-3 pb-2" style={{ position: 'sticky', left: 0, background: 'white', zIndex: 1 }}>
+              <td className="pt-3 pb-2" style={{ position: 'sticky', left: 0, background: '#21232A', zIndex: 1 }}>
                 {addingItem ? (
                   <div className="flex items-center gap-1">
                     <input
@@ -235,16 +235,16 @@ function ObjectiveBlock({
                         if (e.key === 'Escape') { setAddingItem(false); setNewItemTitle('') }
                       }}
                       placeholder="안건 입력"
-                      className="text-[13px] text-gray-700 border-b border-gray-200 focus:outline-none bg-transparent w-28"
+                      className="text-[13px] text-[rgba(226,232,240,0.8)] border-b border-[rgba(255,255,255,0.09)] focus:outline-none bg-transparent w-28"
                     />
                     <button onClick={submitItem}
                       className="text-xs text-[#1B3A6B] font-medium hover:opacity-70 transition-opacity">확인</button>
                     <button onClick={() => { setAddingItem(false); setNewItemTitle('') }}
-                      className="text-xs text-gray-400 hover:text-gray-600 transition-colors">취소</button>
+                      className="text-xs text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)] transition-colors">취소</button>
                   </div>
                 ) : (
                   <button onClick={() => setAddingItem(true)}
-                    className="flex items-center gap-1 text-xs text-gray-300 hover:text-gray-500 transition-colors">
+                    className="flex items-center gap-1 text-xs text-[rgba(226,232,240,0.3)] hover:text-[rgba(226,232,240,0.6)] border border-dashed border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] hover:bg-[rgba(255,255,255,0.04)] px-2.5 py-1 rounded-lg transition-all">
                     <Plus size={9} />안건 추가
                   </button>
                 )}
@@ -267,10 +267,10 @@ function GroupNameEditor({ name, onSave }: { name: string; onSave: (v: string) =
       onClick={e => e.stopPropagation()}
       onKeyDown={e => { e.stopPropagation(); if (e.key === 'Enter' && !e.nativeEvent.isComposing) commit(); if (e.key === 'Escape') { setVal(name); setEditing(false) } }}
       onBlur={commit}
-      className="text-[13px] font-semibold text-gray-800 border-b border-gray-300 focus:outline-none bg-transparent w-32" />
+      className="text-[13px] font-semibold text-[rgba(226,232,240,0.9)] border-b border-gray-300 focus:outline-none bg-transparent w-32" />
   )
   return (
-    <span className="text-[13px] font-semibold text-gray-800 hover:text-[#1B3A6B] transition-colors"
+    <span className="text-[13px] font-semibold text-[rgba(226,232,240,0.9)] hover:text-[#1B3A6B] transition-colors"
       onDoubleClick={e => { e.stopPropagation(); setEditing(true) }}>{name}</span>
   )
 }
@@ -412,16 +412,16 @@ export default function ObjectivesPage() {
     <div className="flex flex-col h-full min-h-0 pt-4 md:pt-6">
       {/* Header */}
       <div className="flex-shrink-0 flex items-center gap-2 mb-5 px-4 md:px-6 flex-wrap">
-        <h1 className="text-lg font-bold text-gray-900 flex-shrink-0">목표관리</h1>
+        <h1 className="text-lg font-bold text-[#E2E8F0] flex-shrink-0">목표관리</h1>
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1 bg-white/60 border border-gray-200 rounded-full px-1 py-1">
+          <div className="flex items-center gap-1 bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] rounded-full px-1 py-1">
             <button onClick={() => setSelectedYear(y => y - 1)}
-              className="w-6 h-6 flex items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors">
+              className="w-6 h-6 flex items-center justify-center rounded-full text-[rgba(226,232,240,0.4)] hover:bg-[rgba(255,255,255,0.06)] hover:text-[rgba(226,232,240,0.8)] transition-colors">
               <ChevronLeft size={13} />
             </button>
-            <span className="text-xs font-semibold text-gray-700 px-1 min-w-[36px] text-center select-none">{selectedYear}</span>
+            <span className="text-xs font-semibold text-[rgba(226,232,240,0.8)] px-1 min-w-[36px] text-center select-none">{selectedYear}</span>
             <button onClick={() => setSelectedYear(y => y + 1)}
-              className="w-6 h-6 flex items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors">
+              className="w-6 h-6 flex items-center justify-center rounded-full text-[rgba(226,232,240,0.4)] hover:bg-[rgba(255,255,255,0.06)] hover:text-[rgba(226,232,240,0.8)] transition-colors">
               <ChevronRight size={13} />
             </button>
           </div>
@@ -429,7 +429,7 @@ export default function ObjectivesPage() {
             {[1,2,3,4].map(q => (
               <button key={q} onClick={() => setSelectedQ(q)}
                 className={`text-xs px-3 py-1.5 rounded-full border font-semibold transition-all ${
-                  selectedQ === q ? 'bg-[#1B3A6B] text-white border-[#1B3A6B] shadow-sm' : 'bg-white/70 border-gray-200 text-gray-500 hover:bg-white hover:text-gray-700'
+                  selectedQ === q ? 'bg-[#1B3A6B] text-white border-[#1B3A6B] shadow-sm' : 'bg-[rgba(255,255,255,0.06)] border-[rgba(255,255,255,0.09)] text-[rgba(226,232,240,0.5)] hover:bg-[rgba(255,255,255,0.06)] hover:text-[rgba(226,232,240,0.8)]'
                 }`}>Q{q}</button>
             ))}
           </div>
@@ -439,13 +439,13 @@ export default function ObjectivesPage() {
             <div className="flex items-center gap-1.5">
               <input autoFocus value={newGroupName} onChange={e => setNewGroupName(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) addGroup(); if (e.key === 'Escape') { setAddingGroup(false); setNewGroupName('') } }}
-                placeholder="팀 이름" className="text-xs px-2.5 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:border-[#1B3A6B]/40 w-28" />
+                placeholder="팀 이름" className="text-xs px-2.5 py-1.5 border border-[rgba(255,255,255,0.09)] rounded-lg focus:outline-none focus:border-[#1B3A6B]/40 w-28" />
               <button onClick={addGroup} className="text-xs px-2.5 py-1.5 bg-[#1B3A6B] text-white rounded-lg hover:bg-[#22497E] transition-colors">추가</button>
-              <button onClick={() => { setAddingGroup(false); setNewGroupName('') }} className="text-xs text-gray-400 hover:text-gray-600 transition-colors">취소</button>
+              <button onClick={() => { setAddingGroup(false); setNewGroupName('') }} className="text-xs text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)] transition-colors">취소</button>
             </div>
           ) : (
             <button onClick={() => setAddingGroup(true)}
-              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border border-dashed border-gray-300 text-gray-500 hover:border-gray-400 hover:text-gray-700 transition-all">
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border border-dashed border-gray-300 text-[rgba(226,232,240,0.5)] hover:border-gray-400 hover:text-[rgba(226,232,240,0.8)] transition-all">
               <Plus size={12} />팀 추가
             </button>
           )}
@@ -455,9 +455,9 @@ export default function ObjectivesPage() {
       {/* Content */}
       <div className="flex-1 min-h-0 overflow-y-auto px-4 md:px-6 pb-8">
         {loading ? (
-          <div className="flex items-center justify-center h-32 text-[13px] text-gray-400">불러오는 중…</div>
+          <div className="flex items-center justify-center h-32 text-[13px] text-[rgba(226,232,240,0.4)]">불러오는 중…</div>
         ) : groups.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-48 gap-3 text-[13px] text-gray-400">
+          <div className="flex flex-col items-center justify-center h-48 gap-3 text-[13px] text-[rgba(226,232,240,0.4)]">
             <p>팀을 추가하고 {quarterLabel(activeQ)} 목표를 관리하세요</p>
             <button onClick={() => setAddingGroup(true)}
               className="text-xs px-4 py-2 rounded-full bg-[#1B3A6B]/10 text-[#1B3A6B] hover:bg-[#1B3A6B]/15 transition-colors">+ 첫 번째 팀 추가</button>
@@ -475,21 +475,21 @@ export default function ObjectivesPage() {
                       className="flex items-center gap-2 hover:opacity-75 transition-opacity select-none">
                       <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: group.color }} />
                       <GroupNameEditor name={group.name} onSave={name => saveGroupName(group.id, name)} />
-                      <span className="text-xs text-gray-400 font-normal">{groupObjs.length}개</span>
+                      <span className="text-xs text-[rgba(226,232,240,0.4)] font-normal">{groupObjs.length}개</span>
                       <span style={{ fontSize: 9, color: '#94A3B8', display: 'inline-block', transition: 'transform .13s', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}>&#9654;</span>
                     </button>
-                    <button onClick={() => deleteGroup(group.id)} className="text-gray-200 hover:text-red-400 transition-colors p-0.5"><Trash2 size={11} /></button>
+                    <button onClick={() => deleteGroup(group.id)} className="text-[rgba(226,232,240,0.2)] hover:text-red-400 transition-colors p-0.5"><Trash2 size={11} /></button>
                     {isOpen && (addingObjFor === group.id ? (
                       <div className="flex items-center gap-1.5 ml-1">
                         <input autoFocus value={newObjTitle} onChange={e => setNewObjTitle(e.target.value)}
                           onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) addObjective(group.id); if (e.key === 'Escape') { setAddingObjFor(null); setNewObjTitle('') } }}
-                          placeholder="목표 입력" className="text-xs px-2 py-1 border border-gray-200 rounded-lg focus:outline-none focus:border-[#1B3A6B]/40 w-40" />
+                          placeholder="목표 입력" className="text-xs px-2 py-1 border border-[rgba(255,255,255,0.09)] rounded-lg focus:outline-none focus:border-[#1B3A6B]/40 w-40" />
                         <button onClick={() => addObjective(group.id)} className="text-xs px-2 py-1 bg-[#1B3A6B] text-white rounded-lg hover:bg-[#22497E] transition-colors">추가</button>
-                        <button onClick={() => { setAddingObjFor(null); setNewObjTitle('') }} className="text-xs text-gray-400 hover:text-gray-600 transition-colors">취소</button>
+                        <button onClick={() => { setAddingObjFor(null); setNewObjTitle('') }} className="text-xs text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)] transition-colors">취소</button>
                       </div>
                     ) : (
                       <button onClick={() => setAddingObjFor(group.id)}
-                        className="ml-1 flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 border border-dashed border-gray-200 hover:border-gray-300 px-2 py-0.5 rounded-lg transition-all">
+                        className="ml-1 flex items-center gap-1 text-xs text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)] border border-dashed border-[rgba(255,255,255,0.09)] hover:border-gray-300 px-2 py-0.5 rounded-lg transition-all">
                         <Plus size={9} /> 목표 추가
                       </button>
                     ))}
@@ -497,10 +497,10 @@ export default function ObjectivesPage() {
 
                   {/* Objective blocks */}
                   {isOpen && (
-                    <div className="bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm">
+                    <div className="bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.06)] rounded-xl overflow-hidden shadow-sm">
                       {groupObjs.length === 0 ? (
                         <button onClick={() => setAddingObjFor(group.id)}
-                          className="w-full py-6 text-xs text-gray-400 hover:text-gray-500 hover:bg-gray-50/50 transition-all flex items-center justify-center gap-1">
+                          className="w-full py-6 text-xs text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.5)] hover:bg-[rgba(255,255,255,0.03)] transition-all flex items-center justify-center gap-1">
                           <Plus size={11} /> 목표를 추가하세요
                         </button>
                       ) : (

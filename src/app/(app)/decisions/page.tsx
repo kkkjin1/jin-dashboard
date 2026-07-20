@@ -57,7 +57,7 @@ interface Log {
 
 const pill  = 'text-xs px-3.5 py-1.5 rounded-full border font-medium transition-all whitespace-nowrap'
 const pOn  = 'bg-[#1B3A6B] text-white border-[#1B3A6B] shadow-sm'
-const pOff = 'bg-white/40 backdrop-blur-xl border-white/60 text-gray-500 hover:bg-white/60 hover:text-gray-700'
+const pOff = 'bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border-[rgba(255,255,255,0.09)] text-[rgba(226,232,240,0.5)] hover:bg-[rgba(255,255,255,0.06)] hover:text-[rgba(226,232,240,0.8)]'
 
 export default function DecisionsPage() {
   const [activeTab, setActiveTab] = useState<Persona>('CEO')
@@ -251,19 +251,19 @@ export default function DecisionsPage() {
       {/* 헤더 */}
       <div className="flex-shrink-0 pt-6 pb-4 flex items-center gap-4 flex-wrap">
         <div className="mr-auto">
-          <h1 className="text-xl font-bold text-gray-900">의사결정</h1>
-          <p className="text-xs text-gray-400 mt-0.5">페르소나 기록 축적 → 프롬프트 생성 → Claude.ai 붙여넣기</p>
+          <h1 className="text-xl font-bold text-[#E2E8F0]">의사결정</h1>
+          <p className="text-xs text-[rgba(226,232,240,0.4)] mt-0.5">페르소나 기록 축적 → 프롬프트 생성 → Claude.ai 붙여넣기</p>
         </div>
-        <div className="flex items-center bg-white/40 backdrop-blur-xl border border-white/60 rounded-full p-1 overflow-x-auto scrollbar-hide flex-shrink-0">
+        <div className="flex items-center bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border border-[rgba(255,255,255,0.09)] rounded-full p-1 overflow-x-auto scrollbar-hide flex-shrink-0">
           {PERSONAS.map(p => (
             <button key={p} onClick={() => setActiveTab(p)}
               className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all flex items-center gap-1.5 whitespace-nowrap ${
-                activeTab === p ? 'bg-[#1B3A6B] text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                activeTab === p ? 'bg-[#1B3A6B] text-white shadow-sm' : 'text-[rgba(226,232,240,0.5)] hover:text-[rgba(226,232,240,0.8)]'
               }`}>
               {p}
               {countByPersona(p) > 0 && (
                 <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                  activeTab === p ? 'bg-white/20 text-white/70' : 'bg-gray-100/80 text-gray-400'
+                  activeTab === p ? 'bg-[rgba(255,255,255,0.06)] text-white/70' : 'bg-[rgba(255,255,255,0.06)] text-[rgba(226,232,240,0.4)]'
                 }`}>{countByPersona(p)}</span>
               )}
             </button>
@@ -279,37 +279,37 @@ export default function DecisionsPage() {
           <div className="space-y-4">
 
             {/* 페르소나 프로필 카드 */}
-            <div className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl overflow-hidden">
+            <div className="bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border border-[rgba(255,255,255,0.09)] rounded-3xl overflow-hidden">
               <button onClick={() => setProfileOpen(v => !v)}
-                className="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-white/20 transition-colors group">
+                className="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-[rgba(255,255,255,0.06)] transition-colors group">
                 <div className="flex items-center gap-2.5">
-                  <span className="text-[10px] text-gray-300 group-hover:text-gray-500 transition-colors">{profileOpen ? '▼' : '▶'}</span>
-                  <span className="text-sm font-semibold text-gray-700">페르소나 프로필</span>
+                  <span className="text-[10px] text-[rgba(226,232,240,0.3)] group-hover:text-[rgba(226,232,240,0.5)] transition-colors">{profileOpen ? '▼' : '▶'}</span>
+                  <span className="text-sm font-semibold text-[rgba(226,232,240,0.8)]">페르소나 프로필</span>
                   {profiles[activeTab].trim() && (
                     <span className="text-[10px] text-[#2D5A45] bg-[#BADEC8]/30 border border-[#BADEC8]/40 px-2 py-0.5 rounded-full">작성됨</span>
                   )}
                 </div>
-                <span className="text-xs text-gray-400">프롬프트 최상단에 포함</span>
+                <span className="text-xs text-[rgba(226,232,240,0.4)]">프롬프트 최상단에 포함</span>
               </button>
               {profileOpen && (
-                <div className="px-6 pb-6 border-t border-white/40">
+                <div className="px-6 pb-6 border-t border-[rgba(255,255,255,0.09)]">
                   <textarea
                     value={profiles[activeTab]}
                     onChange={e => saveProfile(activeTab, e.target.value)}
                     placeholder={PERSONA_META[activeTab].profilePlaceholder}
                     rows={5}
-                    className="w-full mt-4 text-sm bg-white/50 border border-white/70 rounded-2xl px-4 py-3 focus:outline-none resize-none text-gray-700 placeholder-gray-300" />
-                  <p className="text-xs text-gray-300 mt-2">입력 즉시 자동저장</p>
+                    className="w-full mt-4 text-sm bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] rounded-2xl px-4 py-3 focus:outline-none resize-none text-[rgba(226,232,240,0.8)] placeholder-[rgba(226,232,240,0.3)]" />
+                  <p className="text-xs text-[rgba(226,232,240,0.3)] mt-2">입력 즉시 자동저장</p>
                 </div>
               )}
             </div>
 
             {/* 기록 목록 카드 */}
-            <div className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl overflow-hidden">
-              <div className="flex items-center justify-between px-6 py-4 border-b border-white/30">
+            <div className="bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border border-[rgba(255,255,255,0.09)] rounded-3xl overflow-hidden">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-[rgba(255,255,255,0.09)]">
                 <div className="flex items-center gap-2.5">
                   <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${PERSONA_COLORS[activeTab]}`}>{activeTab}</span>
-                  <span className="text-xs text-gray-400">{PERSONA_META[activeTab].role} · {tabLogs.length}건</span>
+                  <span className="text-xs text-[rgba(226,232,240,0.4)]">{PERSONA_META[activeTab].role} · {tabLogs.length}건</span>
                 </div>
                 <button onClick={() => { setAddOpen(v => !v); setSaveError(''); setTimeout(() => titleRef.current?.focus(), 50) }}
                   className={addOpen ? `${pill} ${pOff}` : 'text-xs bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] px-4 py-1.5 rounded-full font-medium hover:bg-[#D5E6F7] transition-colors'}>
@@ -318,10 +318,10 @@ export default function DecisionsPage() {
               </div>
 
               {addOpen && (
-                <div className="px-6 py-5 border-b border-white/30 bg-white/20 space-y-3">
+                <div className="px-6 py-5 border-b border-[rgba(255,255,255,0.09)] bg-[rgba(255,255,255,0.06)] space-y-3">
                   <div className="flex gap-2">
                     <input type="date" value={newDate} onChange={e => setNewDate(e.target.value)}
-                      className="text-xs bg-white/50 border border-white/70 rounded-2xl px-3 py-2 focus:outline-none text-gray-600 flex-shrink-0" />
+                      className="text-xs bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] rounded-2xl px-3 py-2 focus:outline-none text-[rgba(226,232,240,0.7)] flex-shrink-0" />
                     <input
                       ref={titleRef}
                       value={newTitle}
@@ -331,7 +331,7 @@ export default function DecisionsPage() {
                         if (e.key === 'Tab' && !e.shiftKey) { e.preventDefault(); contentRef.current?.focus() }
                       }}
                       placeholder="제목 (예: 평가제도 개편안 피드백, Q1 전략 회의)"
-                      className="flex-1 text-sm bg-white/50 border border-white/70 rounded-2xl px-4 py-2 focus:outline-none text-gray-700 placeholder-gray-300" />
+                      className="flex-1 text-sm bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] rounded-2xl px-4 py-2 focus:outline-none text-[rgba(226,232,240,0.8)] placeholder-[rgba(226,232,240,0.3)]" />
                   </div>
                   <textarea
                     ref={contentRef}
@@ -343,12 +343,12 @@ export default function DecisionsPage() {
                     }}
                     placeholder={`${activeTab}의 발언, 피드백, 대화 내용을 그대로 기록하세요.\n많이 쌓을수록 페르소나 정확도가 높아집니다.`}
                     rows={6}
-                    className="w-full text-sm bg-white/50 border border-white/70 rounded-2xl px-4 py-3 focus:outline-none resize-none text-gray-700 placeholder-gray-300" />
+                    className="w-full text-sm bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] rounded-2xl px-4 py-3 focus:outline-none resize-none text-[rgba(226,232,240,0.8)] placeholder-[rgba(226,232,240,0.3)]" />
                   {saveError && (
                     <p className="text-xs text-red-500 bg-red-50/60 backdrop-blur-sm rounded-2xl px-4 py-2">{saveError}</p>
                   )}
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-300">Ctrl+Enter 저장 · Tab/Shift+Tab 이동</span>
+                    <span className="text-xs text-[rgba(226,232,240,0.3)]">Ctrl+Enter 저장 · Tab/Shift+Tab 이동</span>
                     <div className="flex gap-2">
                       <button onClick={() => { setAddOpen(false); setSaveError('') }} className={`${pill} ${pOff}`}>취소</button>
                       <button onClick={addLog} disabled={!newTitle.trim() || !newContent.trim() || saving}
@@ -361,29 +361,29 @@ export default function DecisionsPage() {
               )}
 
               {tabLogs.length === 0 ? (
-                <div className="text-center py-14 text-gray-300 px-6">
+                <div className="text-center py-14 text-[rgba(226,232,240,0.3)] px-6">
                   <p className="text-sm mb-1">아직 기록이 없습니다</p>
                   <p className="text-xs">{activeTab}의 발언·피드백·대화를 쌓기 시작하세요</p>
                 </div>
               ) : (
-                <div className="divide-y divide-white/30">
+                <div className="divide-y divide-[rgba(255,255,255,0.06)]">
                   {tabLogs.map(log => (
-                    <div key={log.id} className="group hover:bg-white/20 transition-colors">
+                    <div key={log.id} className="group hover:bg-[rgba(255,255,255,0.06)] transition-colors">
                       <button onClick={() => toggleOpen(log.id)}
                         className="w-full flex items-center justify-between px-6 py-4 text-left">
                         <div className="flex items-center gap-3 min-w-0">
-                          <span className="text-[10px] text-gray-300 flex-shrink-0">{openIds.has(log.id) ? '▼' : '▶'}</span>
-                          <span className="text-xs text-gray-400 flex-shrink-0 tabular-nums">{log.date}</span>
-                          <span className="text-sm font-semibold text-gray-700 truncate">{log.title}</span>
+                          <span className="text-[10px] text-[rgba(226,232,240,0.3)] flex-shrink-0">{openIds.has(log.id) ? '▼' : '▶'}</span>
+                          <span className="text-xs text-[rgba(226,232,240,0.4)] flex-shrink-0 tabular-nums">{log.date}</span>
+                          <span className="text-sm font-semibold text-[rgba(226,232,240,0.8)] truncate">{log.title}</span>
                         </div>
                         <button onClick={e => { e.stopPropagation(); deleteLog(log.id) }}
-                          className="text-xs text-gray-200 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0 ml-3 px-2 py-1 rounded-full hover:bg-red-50/50">
+                          className="text-xs text-[rgba(226,232,240,0.2)] hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0 ml-3 px-2 py-1 rounded-full hover:bg-red-50/50">
                           삭제
                         </button>
                       </button>
                       {openIds.has(log.id) && (
                         <div className="px-6 pb-5 pt-1">
-                          <p className="text-sm text-gray-600 whitespace-pre-wrap leading-relaxed bg-white/30 rounded-2xl px-4 py-3">{log.content}</p>
+                          <p className="text-sm text-[rgba(226,232,240,0.7)] whitespace-pre-wrap leading-relaxed bg-[rgba(255,255,255,0.06)] rounded-2xl px-4 py-3">{log.content}</p>
                         </div>
                       )}
                     </div>
@@ -395,18 +395,18 @@ export default function DecisionsPage() {
 
           {/* 오른쪽: 프롬프트 생성기 */}
           <div className="lg:sticky lg:top-0 space-y-4">
-            <div className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl p-6">
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-0.5">프롬프트 생성</h3>
-              <p className="text-xs text-gray-400 mb-5">
+            <div className="bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border border-[rgba(255,255,255,0.09)] rounded-3xl p-6">
+              <h3 className="text-xs font-semibold text-[rgba(226,232,240,0.5)] uppercase tracking-wide mb-0.5">프롬프트 생성</h3>
+              <p className="text-xs text-[rgba(226,232,240,0.4)] mb-5">
                 {activeTab === 'Jin' ? '나의 과거 패턴 + 질문 → 객관화 요청' : `${activeTab} 기록 + 질문 → 예상반응 시뮬레이션`}
               </p>
 
               {hasMeetingCategory && (
-                <div className="mb-5 pb-5 border-b border-white/40">
+                <div className="mb-5 pb-5 border-b border-[rgba(255,255,255,0.09)]">
                   <label className="flex items-center justify-between cursor-pointer">
                     <div>
-                      <p className="text-xs font-medium text-gray-600">회의록 포함</p>
-                      <p className="text-xs text-gray-400 mt-0.5">
+                      <p className="text-xs font-medium text-[rgba(226,232,240,0.7)]">회의록 포함</p>
+                      <p className="text-xs text-[rgba(226,232,240,0.4)] mt-0.5">
                         {PERSONA_META[activeTab].meetingCategory} 카테고리 회의록 자동 추가
                         {includeMeetings && !meetingsLoading && (
                           <span className="ml-1 text-[#2D5A45]">({meetings.length}건)</span>
@@ -417,9 +417,9 @@ export default function DecisionsPage() {
                     <div
                       onClick={() => setIncludeMeetings(v => !v)}
                       className={`w-9 h-5 rounded-full transition-colors flex items-center px-0.5 cursor-pointer ${
-                        includeMeetings ? 'bg-[#BADEC8]' : 'bg-gray-200'
+                        includeMeetings ? 'bg-[#BADEC8]' : 'bg-[rgba(255,255,255,0.08)]'
                       }`}>
-                      <div className={`w-4 h-4 rounded-full bg-white shadow transition-transform ${
+                      <div className={`w-4 h-4 rounded-full bg-[rgba(255,255,255,0.06)] shadow transition-transform ${
                         includeMeetings ? 'translate-x-4' : 'translate-x-0'
                       }`} />
                     </div>
@@ -427,7 +427,7 @@ export default function DecisionsPage() {
                 </div>
               )}
 
-              <label className="text-xs text-gray-500 font-medium block mb-2">상황 / 질문</label>
+              <label className="text-xs text-[rgba(226,232,240,0.5)] font-medium block mb-2">상황 / 질문</label>
               <textarea
                 value={question}
                 onChange={e => setQuestion(e.target.value)}
@@ -437,7 +437,7 @@ export default function DecisionsPage() {
                     : `${activeTab}에게 보고하거나 설득해야 할 상황을 입력하세요`
                 }
                 rows={6}
-                className="w-full text-sm bg-white/50 border border-white/70 rounded-2xl px-4 py-3 focus:outline-none resize-none mb-4 text-gray-700 placeholder-gray-300" />
+                className="w-full text-sm bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] rounded-2xl px-4 py-3 focus:outline-none resize-none mb-4 text-[rgba(226,232,240,0.8)] placeholder-[rgba(226,232,240,0.3)]" />
 
               <button
                 onClick={copyPrompt}
@@ -449,31 +449,31 @@ export default function DecisionsPage() {
               </button>
 
               {tabLogs.length === 0 && (
-                <p className="text-xs text-gray-300 text-center mt-3">기록을 먼저 추가해야 합니다</p>
+                <p className="text-xs text-[rgba(226,232,240,0.3)] text-center mt-3">기록을 먼저 추가해야 합니다</p>
               )}
               {tabLogs.length > 0 && !question.trim() && (
-                <p className="text-xs text-gray-300 text-center mt-3">질문을 입력하면 복사 버튼이 활성화됩니다</p>
+                <p className="text-xs text-[rgba(226,232,240,0.3)] text-center mt-3">질문을 입력하면 복사 버튼이 활성화됩니다</p>
               )}
 
               {(tabLogs.length > 0 || profiles[activeTab].trim()) && (
-                <div className="mt-5 pt-4 border-t border-white/40 space-y-1.5">
-                  <p className="text-xs text-gray-500 font-semibold mb-2">프롬프트 구성</p>
+                <div className="mt-5 pt-4 border-t border-[rgba(255,255,255,0.09)] space-y-1.5">
+                  <p className="text-xs text-[rgba(226,232,240,0.5)] font-semibold mb-2">프롬프트 구성</p>
                   {profiles[activeTab].trim() && (
-                    <p className="text-xs text-gray-400 flex items-center gap-2">
+                    <p className="text-xs text-[rgba(226,232,240,0.4)] flex items-center gap-2">
                       <span className="text-[#2D5A45] font-bold">✓</span>페르소나 프로필
                     </p>
                   )}
                   {tabLogs.length > 0 && (
-                    <p className="text-xs text-gray-400 flex items-center gap-2">
+                    <p className="text-xs text-[rgba(226,232,240,0.4)] flex items-center gap-2">
                       <span className="text-[#2D5A45] font-bold">✓</span>기록 {tabLogs.length}건
                     </p>
                   )}
                   {includeMeetings && meetings.length > 0 && (
-                    <p className="text-xs text-gray-400 flex items-center gap-2">
+                    <p className="text-xs text-[rgba(226,232,240,0.4)] flex items-center gap-2">
                       <span className="text-[#2D5A45] font-bold">✓</span>회의록 {meetings.length}건
                     </p>
                   )}
-                  <p className="text-xs text-gray-400 flex items-center gap-2">
+                  <p className="text-xs text-[rgba(226,232,240,0.4)] flex items-center gap-2">
                     <span className="text-[#2D5A45] font-bold">✓</span>질문 → MD 형식 복사
                   </p>
                 </div>

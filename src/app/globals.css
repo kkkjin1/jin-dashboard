@@ -56,6 +56,17 @@ html, body {
 :root {
   color-scheme: light;
 
+  /* ── DESIGN.md tokens ── */
+  --ds-bg: #F6F7F8;
+  --ds-surface: rgba(255, 255, 255, 0.75);
+  --ds-blur: 20px;
+  --ds-border: rgba(255, 255, 255, 0.45);
+  --ds-shadow-card: 0 4px 32px rgba(0, 0, 0, 0.05);
+  --ds-shadow-sm: 0 2px 16px rgba(0, 0, 0, 0.04);
+  --ds-r-surface: 22px;
+  --ds-r-element: 16px;
+  --ds-duration: 220ms;
+
   --background: oklch(1 0 0);
   --brand: #BADEC8;
   --brand-light: #EFF6FF;
@@ -165,7 +176,7 @@ html, body {
   }
 
   html, body {
-    background-color: #F1F5F9 !important;
+    background-color: #F6F7F8 !important;
     color: #1c1917 !important;
   }
 

@@ -52,15 +52,15 @@ function formatMonth(month: string): string {
 
 const pill  = 'text-xs px-3.5 py-1.5 rounded-full border font-medium transition-all whitespace-nowrap'
 const pOn  = 'bg-[#1B3A6B] text-white border-[#1B3A6B] shadow-sm'
-const pOff = 'bg-white/40 backdrop-blur-xl border-white/60 text-gray-500 hover:bg-white/60 hover:text-gray-700'
+const pOff = 'bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border-[rgba(255,255,255,0.09)] text-[rgba(226,232,240,0.5)] hover:bg-[rgba(255,255,255,0.06)] hover:text-[rgba(226,232,240,0.8)]'
 
 // ─── 분석 패널 ────────────────────────────────────────────────────────────────
 function AnalysisPanel({ feedbacks, onAssignType }: { feedbacks: MyFeedback[]; onAssignType: (id: string, type: FeedbackType | null) => void }) {
   if (feedbacks.length === 0) {
     return (
-      <div className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl px-5 py-6">
-        <p className="text-xs font-semibold text-gray-500 mb-4">피드백 분석</p>
-        <p className="text-sm text-gray-400">피드백이 없습니다</p>
+      <div className="bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border border-[rgba(255,255,255,0.09)] rounded-3xl px-5 py-6">
+        <p className="text-xs font-semibold text-[rgba(226,232,240,0.5)] mb-4">피드백 분석</p>
+        <p className="text-sm text-[rgba(226,232,240,0.4)]">피드백이 없습니다</p>
       </div>
     )
   }
@@ -73,8 +73,8 @@ function AnalysisPanel({ feedbacks, onAssignType }: { feedbacks: MyFeedback[]; o
   })).filter(g => g.items.length > 0)
 
   return (
-    <div className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl px-5 py-4">
-      <p className="text-xs font-semibold text-gray-500 mb-4">피드백 분석</p>
+    <div className="bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border border-[rgba(255,255,255,0.09)] rounded-3xl px-5 py-4">
+      <p className="text-xs font-semibold text-[rgba(226,232,240,0.5)] mb-4">피드백 분석</p>
       <div className="space-y-4">
         {grouped.map(({ type, items }) => (
           <div key={type}>
@@ -82,14 +82,14 @@ function AnalysisPanel({ feedbacks, onAssignType }: { feedbacks: MyFeedback[]; o
               <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${FEEDBACK_TYPE_STYLE[type]}`}>
                 {type}
               </span>
-              <span className="text-xs text-gray-400">{items.length}건</span>
+              <span className="text-xs text-[rgba(226,232,240,0.4)]">{items.length}건</span>
             </div>
             <ul className="space-y-1.5 pl-1">
               {items.map(item => (
-                <li key={item.id} className="group flex items-start gap-2 border-l-2 border-white/60 pl-2">
-                  <span className="flex-1 text-xs text-gray-600 leading-relaxed">{item.content}</span>
+                <li key={item.id} className="group flex items-start gap-2 border-l-2 border-[rgba(255,255,255,0.09)] pl-2">
+                  <span className="flex-1 text-xs text-[rgba(226,232,240,0.7)] leading-relaxed">{item.content}</span>
                   <button onClick={() => onAssignType(item.id, null)}
-                    className="flex-shrink-0 text-xs text-gray-200 hover:text-gray-400 opacity-0 group-hover:opacity-100 transition-all">해제</button>
+                    className="flex-shrink-0 text-xs text-[rgba(226,232,240,0.2)] hover:text-[rgba(226,232,240,0.4)] opacity-0 group-hover:opacity-100 transition-all">해제</button>
                 </li>
               ))}
             </ul>
@@ -97,11 +97,11 @@ function AnalysisPanel({ feedbacks, onAssignType }: { feedbacks: MyFeedback[]; o
         ))}
         {untagged.length > 0 && (
           <div>
-            <p className="text-xs text-gray-400 mb-2">미분류 ({untagged.length}건) — 분류하기:</p>
+            <p className="text-xs text-[rgba(226,232,240,0.4)] mb-2">미분류 ({untagged.length}건) — 분류하기:</p>
             <ul className="space-y-2 pl-1">
               {untagged.map(item => (
-                <li key={item.id} className="bg-white/50 rounded-2xl border border-white/70 p-2">
-                  <p className="text-xs text-gray-600 mb-1.5 leading-relaxed">{item.content}</p>
+                <li key={item.id} className="bg-[rgba(255,255,255,0.06)] rounded-2xl border border-[rgba(255,255,255,0.09)] p-2">
+                  <p className="text-xs text-[rgba(226,232,240,0.7)] mb-1.5 leading-relaxed">{item.content}</p>
                   <div className="flex gap-1">
                     {ANALYSIS_TYPES.map(t => (
                       <button key={t} onClick={() => onAssignType(item.id, t)}
@@ -139,17 +139,17 @@ function KeywordsPanel({ feedbacks }: { feedbacks: MyFeedback[] }) {
   }, [feedbacks])
 
   if (keywords.length === 0) return (
-    <div className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl px-5 py-4">
-      <p className="text-xs font-semibold text-gray-500 mb-2">공통 키워드</p>
-      <p className="text-xs text-gray-300">피드백이 쌓이면 키워드가 추출됩니다</p>
+    <div className="bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border border-[rgba(255,255,255,0.09)] rounded-3xl px-5 py-4">
+      <p className="text-xs font-semibold text-[rgba(226,232,240,0.5)] mb-2">공통 키워드</p>
+      <p className="text-xs text-[rgba(226,232,240,0.3)]">피드백이 쌓이면 키워드가 추출됩니다</p>
     </div>
   )
 
   return (
-    <div className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl px-5 py-4">
+    <div className="bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border border-[rgba(255,255,255,0.09)] rounded-3xl px-5 py-4">
       <div className="flex items-center gap-2 mb-1">
-        <p className="text-xs font-semibold text-gray-500">공통 키워드</p>
-        <span className="text-[10px] text-gray-300">2회 이상 등장</span>
+        <p className="text-xs font-semibold text-[rgba(226,232,240,0.5)]">공통 키워드</p>
+        <span className="text-[10px] text-[rgba(226,232,240,0.3)]">2회 이상 등장</span>
       </div>
       <div className="flex flex-wrap gap-1.5 mt-3">
         {keywords.map(([word, count]) => (
@@ -157,8 +157,8 @@ function KeywordsPanel({ feedbacks }: { feedbacks: MyFeedback[] }) {
             count >= 5
               ? 'bg-[#90A7D8]/25 border-[#90A7D8]/40 text-[#1E3A6B] font-semibold'
               : count >= 3
-              ? 'bg-white/60 border-white/80 text-gray-600'
-              : 'bg-white/40 border-white/60 text-gray-400'
+              ? 'bg-[rgba(255,255,255,0.06)] border-[rgba(255,255,255,0.09)] text-[rgba(226,232,240,0.7)]'
+              : 'bg-[rgba(255,255,255,0.06)] border-[rgba(255,255,255,0.09)] text-[rgba(226,232,240,0.4)]'
           }`}>
             {word} <span className="opacity-50 text-[10px]">{count}</span>
           </span>
@@ -198,27 +198,27 @@ function NextQuestionsPanel() {
   }
 
   return (
-    <div className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl overflow-hidden">
+    <div className="bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border border-[rgba(255,255,255,0.09)] rounded-3xl overflow-hidden">
       <button onClick={() => setIsOpen(p => !p)}
-        className="w-full flex items-center justify-between px-5 py-4 hover:bg-white/20 transition-colors">
-        <span className="text-xs font-semibold text-gray-600">다음 1on1 질문 준비</span>
+        className="w-full flex items-center justify-between px-5 py-4 hover:bg-[rgba(255,255,255,0.06)] transition-colors">
+        <span className="text-xs font-semibold text-[rgba(226,232,240,0.7)]">다음 1on1 질문 준비</span>
         <div className="flex items-center gap-2">
-          {questions.length > 0 && <span className="text-xs text-gray-400 bg-white/60 border border-white/70 px-2 py-0.5 rounded-full">{questions.length}개</span>}
-          <span className="text-[10px] text-gray-300">{isOpen ? '▼' : '▶'}</span>
+          {questions.length > 0 && <span className="text-xs text-[rgba(226,232,240,0.4)] bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] px-2 py-0.5 rounded-full">{questions.length}개</span>}
+          <span className="text-[10px] text-[rgba(226,232,240,0.3)]">{isOpen ? '▼' : '▶'}</span>
         </div>
       </button>
       {isOpen && (
-        <div className="px-5 pb-4 border-t border-white/40">
+        <div className="px-5 pb-4 border-t border-[rgba(255,255,255,0.09)]">
           {questions.length === 0 ? (
-            <p className="text-xs text-gray-300 pt-3 pb-1">아직 준비된 질문이 없습니다</p>
+            <p className="text-xs text-[rgba(226,232,240,0.3)] pt-3 pb-1">아직 준비된 질문이 없습니다</p>
           ) : (
             <ul className="space-y-1.5 pt-3 pb-1">
               {questions.map((q, i) => (
                 <li key={q.id} className="group flex items-start gap-1.5">
-                  <span className="text-xs text-gray-300 flex-shrink-0 mt-0.5 w-4">{i + 1}.</span>
-                  <span className="flex-1 text-xs text-gray-700 leading-relaxed">{q.text}</span>
+                  <span className="text-xs text-[rgba(226,232,240,0.3)] flex-shrink-0 mt-0.5 w-4">{i + 1}.</span>
+                  <span className="flex-1 text-xs text-[rgba(226,232,240,0.8)] leading-relaxed">{q.text}</span>
                   <button onClick={() => deleteQuestion(q.id)}
-                    className="flex-shrink-0 text-xs text-gray-200 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all">삭제</button>
+                    className="flex-shrink-0 text-xs text-[rgba(226,232,240,0.2)] hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all">삭제</button>
                 </li>
               ))}
             </ul>
@@ -229,7 +229,7 @@ function NextQuestionsPanel() {
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') addQuestion() }}
               placeholder="질문 입력 후 Enter"
-              className="flex-1 text-xs bg-white/50 border border-white/70 rounded-full px-3 py-1.5 focus:outline-none placeholder-gray-300"
+              className="flex-1 text-xs bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] rounded-full px-3 py-1.5 focus:outline-none placeholder-[rgba(226,232,240,0.3)]"
             />
           </div>
         </div>
@@ -339,7 +339,7 @@ function MyFeedbackView() {
     setFeedbacks(prev => prev.map(f => f.id === id ? { ...f, feedback_type: type } : f))
   }
 
-  if (loading) return <div className="p-8 text-sm text-gray-400">불러오는 중...</div>
+  if (loading) return <div className="p-8 text-sm text-[rgba(226,232,240,0.4)]">불러오는 중...</div>
 
   return (
     <div className="flex gap-6 w-full min-h-0">
@@ -350,13 +350,13 @@ function MyFeedbackView() {
           {PERIODS.map(p => (
             <button key={p} onClick={() => setPeriod(p)} className={`${pill} ${period === p ? pOn : pOff}`}>{p}</button>
           ))}
-          <span className="text-xs text-gray-400 ml-auto">{filteredFeedbacks.length}건</span>
+          <span className="text-xs text-[rgba(226,232,240,0.4)] ml-auto">{filteredFeedbacks.length}건</span>
         </div>
 
         {/* 추가 버튼 */}
         {addingMonth !== currentMonth() && (
           <button onClick={() => openAddForm(currentMonth())}
-            className="text-xs bg-white/40 backdrop-blur-xl border border-dashed border-white/60 text-gray-500 hover:bg-white/60 hover:border-white/80 hover:text-gray-700 rounded-2xl px-4 py-2.5 w-full transition-colors">
+            className="text-xs bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border border-dashed border-[rgba(255,255,255,0.09)] text-[rgba(226,232,240,0.5)] hover:bg-[rgba(255,255,255,0.06)] hover:border-[rgba(255,255,255,0.09)] hover:text-[rgba(226,232,240,0.8)] rounded-2xl px-4 py-2.5 w-full transition-colors">
             + 피드백 추가 ({formatMonth(currentMonth())})
           </button>
         )}
@@ -369,11 +369,11 @@ function MyFeedbackView() {
             const isAddingHere = addingMonth === month
             const isLatest = idx === 0
             return (
-              <div key={month} className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl overflow-hidden">
+              <div key={month} className="bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border border-[rgba(255,255,255,0.09)] rounded-3xl overflow-hidden">
                 <div className="flex items-center justify-between px-5 py-3.5">
                   <button onClick={() => toggleMonth(month)} className="flex items-center gap-2 flex-1 text-left">
-                    <span className="text-sm font-semibold text-gray-700">{isOpen ? '▼' : '▶'} {formatMonth(month)}</span>
-                    <span className="text-xs text-gray-400 bg-white/60 border border-white/70 px-2 py-0.5 rounded-full">{items.length}건</span>
+                    <span className="text-sm font-semibold text-[rgba(226,232,240,0.8)]">{isOpen ? '▼' : '▶'} {formatMonth(month)}</span>
+                    <span className="text-xs text-[rgba(226,232,240,0.4)] bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] px-2 py-0.5 rounded-full">{items.length}건</span>
                     {isLatest && <span className="text-[10px] text-[#2D5A45] bg-[#BADEC8]/30 border border-[#BADEC8]/40 px-2 py-0.5 rounded-full">최신</span>}
                   </button>
                   {!isAddingHere && (
@@ -386,18 +386,18 @@ function MyFeedbackView() {
 
                 {/* 인라인 추가 폼 */}
                 {isAddingHere && (
-                  <div className="px-5 pb-5 border-t border-white/40">
+                  <div className="px-5 pb-5 border-t border-[rgba(255,255,255,0.09)]">
                     <div className="pt-4 space-y-3">
                       <div className="flex gap-2">
                         <div className="flex-1">
-                          <label className="text-xs text-gray-400 mb-1 block">날짜</label>
+                          <label className="text-xs text-[rgba(226,232,240,0.4)] mb-1 block">날짜</label>
                           <input type="date" value={formDate} onChange={e => setFormDate(e.target.value)}
-                            className="text-sm bg-white/50 border border-white/70 rounded-2xl px-3 py-1.5 focus:outline-none w-full" />
+                            className="text-sm bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] rounded-2xl px-3 py-1.5 focus:outline-none w-full" />
                         </div>
                         <div className="flex-1">
-                          <label className="text-xs text-gray-400 mb-1 block">피드백 준 팀원</label>
+                          <label className="text-xs text-[rgba(226,232,240,0.4)] mb-1 block">피드백 준 팀원</label>
                           <select value={formMember} onChange={e => setFormMember(e.target.value)}
-                            className="text-sm bg-white/50 border border-white/70 rounded-2xl px-3 py-1.5 focus:outline-none w-full text-gray-600">
+                            className="text-sm bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] rounded-2xl px-3 py-1.5 focus:outline-none w-full text-[rgba(226,232,240,0.7)]">
                             <option value="">선택 (선택)</option>
                             {members.filter(m => m.part !== '팀장').map(m => (
                               <option key={m.id} value={m.name}>{m.name}</option>
@@ -408,8 +408,8 @@ function MyFeedbackView() {
                       <textarea autoFocus value={formContent} onChange={e => setFormContent(e.target.value)}
                         placeholder="피드백 내용을 자유롭게 입력하세요"
                         rows={3}
-                        className="w-full text-sm bg-white/50 border border-white/70 rounded-2xl px-3 py-2 resize-none focus:outline-none" />
-                      <p className="text-xs text-gray-400">분류(긍정/부정/요청)는 오른쪽 분석 패널에서 지정합니다</p>
+                        className="w-full text-sm bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] rounded-2xl px-3 py-2 resize-none focus:outline-none" />
+                      <p className="text-xs text-[rgba(226,232,240,0.4)]">분류(긍정/부정/요청)는 오른쪽 분석 패널에서 지정합니다</p>
                       <div className="flex gap-2 justify-end">
                         <button onClick={cancelAdd} className={`${pill} ${pOff}`}>취소</button>
                         <button onClick={saveAdd} disabled={saving || !formContent.trim()} className={`${pill} ${pOn} disabled:opacity-40`}>
@@ -422,7 +422,7 @@ function MyFeedbackView() {
 
                 {/* 피드백 목록 */}
                 {isOpen && items.length > 0 && (
-                  <div className="px-5 pb-4 space-y-2 border-t border-white/40 pt-3">
+                  <div className="px-5 pb-4 space-y-2 border-t border-[rgba(255,255,255,0.09)] pt-3">
                     {items
                       .sort((a, b) => {
                         const da = a.feedback_date ?? a.created_at
@@ -430,7 +430,7 @@ function MyFeedbackView() {
                         return db.localeCompare(da)
                       })
                       .map(item => (
-                        <div key={item.id} className="group flex items-start gap-2 bg-white/30 rounded-2xl px-3 py-2.5">
+                        <div key={item.id} className="group flex items-start gap-2 bg-[rgba(255,255,255,0.06)] rounded-2xl px-3 py-2.5">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5 mb-0.5">
                               {item.feedback_type && (
@@ -439,16 +439,16 @@ function MyFeedbackView() {
                                 </span>
                               )}
                               {item.from_member && (
-                                <span className="text-xs font-medium text-gray-500">{item.from_member}</span>
+                                <span className="text-xs font-medium text-[rgba(226,232,240,0.5)]">{item.from_member}</span>
                               )}
                               {item.feedback_date && (
-                                <span className="text-xs text-gray-400">{item.feedback_date.slice(5).replace('-', '/')}</span>
+                                <span className="text-xs text-[rgba(226,232,240,0.4)]">{item.feedback_date.slice(5).replace('-', '/')}</span>
                               )}
                             </div>
-                            <p className="text-sm text-gray-700 leading-relaxed">{item.content}</p>
+                            <p className="text-sm text-[rgba(226,232,240,0.8)] leading-relaxed">{item.content}</p>
                           </div>
                           <button onClick={() => deleteFeedback(item.id)}
-                            className="flex-shrink-0 text-xs text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all px-1 py-0.5">
+                            className="flex-shrink-0 text-xs text-[rgba(226,232,240,0.3)] hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all px-1 py-0.5">
                             삭제
                           </button>
                         </div>
@@ -457,8 +457,8 @@ function MyFeedbackView() {
                 )}
 
                 {isOpen && items.length === 0 && !isAddingHere && (
-                  <div className="px-5 pb-4 border-t border-white/40 pt-3">
-                    <p className="text-xs text-gray-400">이 달의 피드백이 없습니다</p>
+                  <div className="px-5 pb-4 border-t border-[rgba(255,255,255,0.09)] pt-3">
+                    <p className="text-xs text-[rgba(226,232,240,0.4)]">이 달의 피드백이 없습니다</p>
                   </div>
                 )}
               </div>
@@ -566,17 +566,17 @@ export default function OneOnOnePage() {
     <div className="h-full flex flex-col overflow-hidden font-sans">
       {/* 헤더 */}
       <div className="flex-shrink-0 pt-6 pb-4 flex items-center gap-4">
-        <h1 className="text-xl font-bold text-gray-900">1on1</h1>
-        <div className="flex items-center bg-white/40 backdrop-blur-xl border border-white/60 rounded-full p-1">
+        <h1 className="text-xl font-bold text-[#E2E8F0]">1on1</h1>
+        <div className="flex items-center bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border border-[rgba(255,255,255,0.09)] rounded-full p-1">
           <button onClick={() => setView('team')}
             className={`text-xs px-3.5 py-1.5 rounded-full transition-all font-medium ${
-              view === 'team' ? 'bg-[#1B3A6B] text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              view === 'team' ? 'bg-[#1B3A6B] text-white shadow-sm' : 'text-[rgba(226,232,240,0.5)] hover:text-[rgba(226,232,240,0.8)]'
             }`}>
             팀원 1on1
           </button>
           <button onClick={() => setView('my-feedback')}
             className={`text-xs px-3.5 py-1.5 rounded-full transition-all font-medium ${
-              view === 'my-feedback' ? 'bg-[#1B3A6B] text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              view === 'my-feedback' ? 'bg-[#1B3A6B] text-white shadow-sm' : 'text-[rgba(226,232,240,0.5)] hover:text-[rgba(226,232,240,0.8)]'
             }`}>
             내 피드백
           </button>
@@ -599,7 +599,7 @@ export default function OneOnOnePage() {
             <div className="min-w-0 md:flex-[60]">
               {grouped.map(({ label, list }) => (
                 <div key={label} className="mb-7">
-                  <h2 className="text-xs font-semibold text-gray-400 mb-3 uppercase tracking-wide">{label}</h2>
+                  <h2 className="text-xs font-semibold text-[rgba(226,232,240,0.4)] mb-3 uppercase tracking-wide">{label}</h2>
                   <div className="grid grid-cols-2 gap-2">
                     {list.map(member => {
                       const last = getLastSession(member.id)
@@ -607,18 +607,18 @@ export default function OneOnOnePage() {
                       const stat = memberStats.find(ms => ms.member.id === member.id)
                       const daysSince = stat?.daysSince ?? null
                       return (
-                        <div key={member.id} className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-2xl px-3 py-3 flex items-center gap-2.5">
+                        <div key={member.id} className="bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border border-[rgba(255,255,255,0.09)] rounded-2xl px-3 py-3 flex items-center gap-2.5">
                           <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0 ${memberAvatarColor(member.part)}`}>
                             {member.name[0]}
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-1.5 flex-wrap">
-                              <p className="text-xs font-bold text-gray-800 truncate">{member.name}</p>
+                              <p className="text-xs font-bold text-[rgba(226,232,240,0.9)] truncate">{member.name}</p>
                               <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded-full border flex-shrink-0 ${daysBadgeClass(daysSince)}`}>
                                 {daysLabel(daysSince)}
                               </span>
                             </div>
-                            <p className="text-[10px] text-gray-400 mt-0.5">
+                            <p className="text-[10px] text-[rgba(226,232,240,0.4)] mt-0.5">
                               {last?.session_date
                                 ? format(parseISO(last.session_date), 'M/d', { locale: ko })
                                 : '기록없음'}
@@ -628,7 +628,7 @@ export default function OneOnOnePage() {
                           <div className="flex flex-col gap-1 flex-shrink-0">
                             {memberSessions.length > 0 && (
                               <Link href={`/one-on-one/${member.id}`}
-                                className="text-[10px] bg-white/50 border border-white/70 text-gray-500 px-2 py-0.5 rounded-full hover:bg-white/70 transition-all text-center">
+                                className="text-[10px] bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] text-[rgba(226,232,240,0.5)] px-2 py-0.5 rounded-full hover:bg-[rgba(255,255,255,0.06)] transition-all text-center">
                                 목록
                               </Link>
                             )}
@@ -647,29 +647,29 @@ export default function OneOnOnePage() {
 
             {/* 퇴사자 아카이브 */}
             {archivedMembers.length > 0 && (
-              <div className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-2xl overflow-hidden">
+              <div className="bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border border-[rgba(255,255,255,0.09)] rounded-2xl overflow-hidden">
                 <button
                   onClick={() => setArchiveOpen(p => !p)}
-                  className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/20 transition-colors">
-                  <span className="text-xs font-semibold text-gray-400">퇴사자 아카이브</span>
+                  className="w-full flex items-center justify-between px-4 py-3 hover:bg-[rgba(255,255,255,0.06)] transition-colors">
+                  <span className="text-xs font-semibold text-[rgba(226,232,240,0.4)]">퇴사자 아카이브</span>
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-gray-300 bg-white/60 border border-white/70 px-2 py-0.5 rounded-full">{archivedMembers.length}명</span>
-                    <span className="text-[10px] text-gray-300">{archiveOpen ? '▼' : '▶'}</span>
+                    <span className="text-[10px] text-[rgba(226,232,240,0.3)] bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] px-2 py-0.5 rounded-full">{archivedMembers.length}명</span>
+                    <span className="text-[10px] text-[rgba(226,232,240,0.3)]">{archiveOpen ? '▼' : '▶'}</span>
                   </div>
                 </button>
                 {archiveOpen && (
-                  <div className="border-t border-white/40 divide-y divide-white/30">
+                  <div className="border-t border-[rgba(255,255,255,0.09)] divide-y divide-[rgba(255,255,255,0.06)]">
                     {archivedMembers.map(member => {
                       const memberSessions = sessions.filter(s => s.member_id === member.id)
                       const last = memberSessions[0]
                       return (
                         <div key={member.id} className="flex items-center gap-2.5 px-4 py-2.5">
-                          <div className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold bg-gray-100 text-gray-300 flex-shrink-0">
+                          <div className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold bg-[rgba(255,255,255,0.06)] text-[rgba(226,232,240,0.3)] flex-shrink-0">
                             {member.name[0]}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium text-gray-400">{member.name}</p>
-                            <p className="text-[10px] text-gray-300">
+                            <p className="text-xs font-medium text-[rgba(226,232,240,0.4)]">{member.name}</p>
+                            <p className="text-[10px] text-[rgba(226,232,240,0.3)]">
                               {last?.session_date
                                 ? `마지막 ${format(parseISO(last.session_date), 'M/d', { locale: ko })}`
                                 : '기록없음'}
@@ -678,7 +678,7 @@ export default function OneOnOnePage() {
                           </div>
                           {memberSessions.length > 0 && (
                             <Link href={`/one-on-one/${member.id}`}
-                              className="text-[10px] bg-white/50 border border-white/70 text-gray-400 px-2 py-0.5 rounded-full hover:bg-white/70 transition-all whitespace-nowrap">
+                              className="text-[10px] bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] text-[rgba(226,232,240,0.4)] px-2 py-0.5 rounded-full hover:bg-[rgba(255,255,255,0.06)] transition-all whitespace-nowrap">
                               기록 열람
                             </Link>
                           )}
@@ -692,11 +692,11 @@ export default function OneOnOnePage() {
 
             {/* RIGHT: 매트릭스 위젯 */}
             <div className="min-w-0 md:flex-[40] flex flex-col gap-4">
-              <div className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl p-4">
+              <div className="bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border border-[rgba(255,255,255,0.09)] rounded-3xl p-4">
                 <div className="flex items-center justify-between mb-3">
-                  <p className="text-xs font-semibold text-gray-500">전체 현황</p>
+                  <p className="text-xs font-semibold text-[rgba(226,232,240,0.5)]">전체 현황</p>
                   <button onClick={() => setMatrixSortAsc(p => !p)}
-                    className="text-[10px] text-gray-400 hover:text-gray-700 bg-white/50 border border-white/70 px-2 py-0.5 rounded-full transition-colors">
+                    className="text-[10px] text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.8)] bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] px-2 py-0.5 rounded-full transition-colors">
                     {matrixSortAsc ? '최신순 ↑' : '오래된순 ↓'}
                   </button>
                 </div>
@@ -710,12 +710,12 @@ export default function OneOnOnePage() {
                         : 'ring-2 ring-[#BADEC8]/70'
                     return (
                       <Link key={member.id} href={`/one-on-one/${member.id}`}
-                        className="group flex flex-col items-center gap-1 bg-white/30 hover:bg-white/60 rounded-2xl p-2.5 transition-all">
+                        className="group flex flex-col items-center gap-1 bg-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.06)] rounded-2xl p-2.5 transition-all">
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${memberAvatarColor(member.part)} ${ringColor}`}>
                           {member.name[0]}
                         </div>
-                        <p className="text-[10px] font-semibold text-gray-700 text-center leading-tight truncate w-full">{member.name}</p>
-                        <p className="text-[9px] text-gray-400 text-center">
+                        <p className="text-[10px] font-semibold text-[rgba(226,232,240,0.8)] text-center leading-tight truncate w-full">{member.name}</p>
+                        <p className="text-[9px] text-[rgba(226,232,240,0.4)] text-center">
                           {lastDate ? format(parseISO(lastDate), 'M/d', { locale: ko }) : '기록없음'}
                         </p>
                         <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded-full border text-center ${daysBadgeClass(daysSince)}`}>

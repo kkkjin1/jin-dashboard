@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 export const dynamic = 'force-dynamic'
 
@@ -87,6 +87,20 @@ const QUICK_RANGES = [
   { label: '최근 90일', from: nDaysAgo(90), to: todayStr() },
 ]
 
+const CARD_STYLE: React.CSSProperties = {
+  background: 'rgba(255,255,255,0.06)',
+  border: '1px solid rgba(255,255,255,0.09)',
+  boxShadow: '0 20px 40px rgba(0,0,0,0.18), 0 1px 0 rgba(255,255,255,0.07) inset',
+  borderRadius: 20,
+}
+
+const INPUT_STYLE: React.CSSProperties = {
+  background: 'rgba(255,255,255,0.06)',
+  border: '1px solid rgba(255,255,255,0.09)',
+  color: '#E2E8F0',
+  colorScheme: 'dark',
+}
+
 export default function JournalPage() {
   const TODAY = todayStr()
   const [journals, setJournals] = useState<DailyJournal[]>([])
@@ -154,25 +168,25 @@ export default function JournalPage() {
   }
 
   if (loading) return (
-    <div className="p-6 flex flex-col gap-4">
+    <div style={{ background: '#13151C', minHeight: '100%' }} className="p-6 flex flex-col gap-4">
       {[1, 2, 3].map(i => (
-        <div key={i} className="bg-white/30 backdrop-blur-xl border border-white/40 rounded-xl h-20 animate-pulse" />
+        <div key={i} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 16 }} className="h-20 animate-pulse" />
       ))}
     </div>
   )
 
   return (
-    <div className="h-full overflow-y-auto p-5 md:p-6 flex flex-col gap-5 font-sans">
+    <div style={{ background: '#13151C', minHeight: '100%' }} className="h-full overflow-y-auto p-5 md:p-6 flex flex-col gap-5 font-sans">
 
       {/* 헤더 */}
       <div className="flex-shrink-0">
-        <h1 className="text-xl font-bold text-gray-900">회고 내보내기</h1>
-        <p className="text-sm text-gray-400 mt-0.5">기간을 설정하고 원하는 날짜를 선택해 MD 파일로 내보내세요</p>
+        <h1 className="text-xl font-bold" style={{ color: '#E2E8F0' }}>회고 내보내기</h1>
+        <p className="text-sm mt-0.5" style={{ color: 'rgba(226,232,240,0.5)' }}>기간을 설정하고 원하는 날짜를 선택해 MD 파일로 내보내세요</p>
       </div>
 
       {/* Step 1: 기간 설정 */}
-      <div className="flex-shrink-0 bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl p-4 flex flex-col gap-3">
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest">Step 1 · 기간 설정</p>
+      <div className="flex-shrink-0 p-4 flex flex-col gap-3" style={CARD_STYLE}>
+        <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'rgba(226,232,240,0.5)' }}>Step 1 · 기간 설정</p>
 
         {/* 빠른 선택 */}
         <div className="flex gap-2">
@@ -180,11 +194,12 @@ export default function JournalPage() {
             <button
               key={r.label}
               onClick={() => selectRange(r.from, r.to)}
-              className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
+              className="text-xs px-3 py-1.5 rounded-full transition-all"
+              style={
                 fromDate === r.from && toDate === r.to
-                  ? 'bg-[#1B3A6B] text-white border-[#1B3A6B]'
-                  : 'bg-white/60 text-gray-600 border-white/70 hover:bg-white/90'
-              }`}
+                  ? { background: '#1B3A6B', color: '#fff', border: '1px solid #1B3A6B' }
+                  : { background: 'rgba(255,255,255,0.06)', color: 'rgba(226,232,240,0.7)', border: '1px solid rgba(255,255,255,0.09)' }
+              }
             >
               {r.label}
             </button>
@@ -198,34 +213,36 @@ export default function JournalPage() {
             max={toDate}
             value={fromDate}
             onChange={e => { setFromDate(e.target.value); setSelected(new Set()); setPreview(null) }}
-            className="text-xs border border-gray-200 bg-white/70 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-400"
+            className="text-xs rounded-lg px-3 py-2 focus:outline-none"
+            style={INPUT_STYLE}
           />
-          <span className="text-gray-400 text-sm">~</span>
+          <span className="text-sm" style={{ color: 'rgba(226,232,240,0.5)' }}>~</span>
           <input
             type="date"
             min={fromDate}
             max={TODAY}
             value={toDate}
             onChange={e => { setToDate(e.target.value); setSelected(new Set()); setPreview(null) }}
-            className="text-xs border border-gray-200 bg-white/70 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-400"
+            className="text-xs rounded-lg px-3 py-2 focus:outline-none"
+            style={INPUT_STYLE}
           />
-          <span className="text-xs text-gray-400 ml-1">{inRange.length}건</span>
+          <span className="text-xs ml-1" style={{ color: 'rgba(226,232,240,0.5)' }}>{inRange.length}건</span>
         </div>
       </div>
 
       {/* Step 2: 날짜 선택 */}
-      <div className="flex-shrink-0 bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl p-4 flex flex-col gap-3">
+      <div className="flex-shrink-0 p-4 flex flex-col gap-3" style={CARD_STYLE}>
         <div className="flex items-center justify-between">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest">Step 2 · 날짜 선택</p>
+          <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'rgba(226,232,240,0.5)' }}>Step 2 · 날짜 선택</p>
           <div className="flex gap-2">
-            <button onClick={selectAll} className="text-[11px] text-gray-500 hover:text-gray-800 transition-colors">전체 선택</button>
-            <span className="text-gray-300 text-xs">|</span>
-            <button onClick={clearAll} className="text-[11px] text-gray-500 hover:text-gray-800 transition-colors">초기화</button>
+            <button onClick={selectAll} className="text-[11px] transition-colors" style={{ color: 'rgba(226,232,240,0.5)' }}>전체 선택</button>
+            <span className="text-xs" style={{ color: 'rgba(226,232,240,0.28)' }}>|</span>
+            <button onClick={clearAll} className="text-[11px] transition-colors" style={{ color: 'rgba(226,232,240,0.5)' }}>초기화</button>
           </div>
         </div>
 
         {inRange.length === 0 ? (
-          <p className="text-sm text-gray-300 text-center py-6">
+          <p className="text-sm text-center py-6" style={{ color: 'rgba(226,232,240,0.28)' }}>
             선택한 기간에 회고가 없어요 —{' '}
             <Link href="/" className="text-blue-400 hover:underline">홈에서 작성</Link>
           </p>
@@ -238,21 +255,27 @@ export default function JournalPage() {
                 <button
                   key={j.date}
                   onClick={() => toggleDate(j.date)}
-                  className={`text-left p-2.5 rounded-xl border transition-all ${
+                  className="text-left p-2.5 rounded-xl transition-all"
+                  style={
                     isSelected
-                      ? 'bg-[#1B3A6B] border-[#1B3A6B] text-white'
-                      : 'bg-white/50 border-white/70 text-gray-700 hover:bg-white/80'
-                  }`}
+                      ? { background: '#1B3A6B', border: '1px solid #1B3A6B', color: '#fff' }
+                      : { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', color: '#E2E8F0' }
+                  }
                 >
                   <div className="flex items-center gap-1.5 mb-1">
-                    <span className={`w-3.5 h-3.5 rounded flex-shrink-0 border flex items-center justify-center text-[9px] ${
-                      isSelected ? 'bg-white/20 border-white/40 text-white' : 'bg-white border-gray-300 text-transparent'
-                    }`}>✓</span>
-                    <span className={`text-[11px] font-semibold ${isSelected ? 'text-white' : 'text-gray-800'}`}>
+                    <span
+                      className="w-3.5 h-3.5 rounded flex-shrink-0 border flex items-center justify-center text-[9px]"
+                      style={
+                        isSelected
+                          ? { background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.4)', color: '#fff' }
+                          : { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', color: 'transparent' }
+                      }
+                    >✓</span>
+                    <span className="text-[11px] font-semibold" style={{ color: isSelected ? '#fff' : '#E2E8F0' }}>
                       {formatDateShort(j.date)}
                     </span>
                   </div>
-                  <p className={`text-[10px] leading-relaxed line-clamp-2 ${isSelected ? 'text-white/70' : 'text-gray-400'}`}>
+                  <p className="text-[10px] leading-relaxed line-clamp-2" style={{ color: isSelected ? 'rgba(255,255,255,0.7)' : 'rgba(226,232,240,0.5)' }}>
                     {preview80}
                   </p>
                 </button>
@@ -263,53 +286,59 @@ export default function JournalPage() {
       </div>
 
       {/* Step 3: 내보내기 */}
-      <div className="flex-shrink-0 bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl p-4 flex flex-col gap-3">
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest">Step 3 · 내보내기</p>
+      <div className="flex-shrink-0 p-4 flex flex-col gap-3" style={CARD_STYLE}>
+        <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'rgba(226,232,240,0.5)' }}>Step 3 · 내보내기</p>
 
         <div className="flex items-center gap-3">
-          <span className="text-sm text-gray-600">
+          <span className="text-sm" style={{ color: 'rgba(226,232,240,0.5)' }}>
             {selected.size > 0 ? (
-              <><strong className="text-gray-900">{selected.size}개</strong> 선택됨</>
+              <><strong style={{ color: '#E2E8F0' }}>{selected.size}개</strong> 선택됨</>
             ) : (
-              <span className="text-gray-400">날짜를 선택하세요</span>
+              <span style={{ color: 'rgba(226,232,240,0.28)' }}>날짜를 선택하세요</span>
             )}
           </span>
           <div className="flex gap-2 ml-auto">
             <button
               onClick={handlePreview}
               disabled={selected.size === 0}
-              className="text-xs px-4 py-2 rounded-xl border border-gray-200 text-gray-600 bg-white/60 hover:bg-white/90 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+              className="text-xs px-4 py-2 rounded-xl transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+              style={{ border: '1px solid rgba(255,255,255,0.09)', color: 'rgba(226,232,240,0.7)', background: 'rgba(255,255,255,0.06)' }}
             >
               미리보기
             </button>
             <button
               onClick={handleDownload}
               disabled={selected.size === 0}
-              className="text-xs px-4 py-2 rounded-xl bg-[#1B3A6B] text-white hover:bg-[#22497E] disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+              className="text-xs px-4 py-2 rounded-xl transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+              style={{ background: '#1B3A6B', color: '#fff' }}
             >
               MD 다운로드
             </button>
           </div>
         </div>
 
-        <p className="text-[11px] text-gray-400">
+        <p className="text-[11px]" style={{ color: 'rgba(226,232,240,0.5)' }}>
           MD 파일을 ChatGPT · Claude 등에 붙여넣어 원하는 분석을 요청하세요
         </p>
       </div>
 
       {/* 미리보기 */}
       {preview && (
-        <div className="flex-shrink-0 bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl p-4 flex flex-col gap-2">
+        <div className="flex-shrink-0 p-4 flex flex-col gap-2" style={CARD_STYLE}>
           <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest">미리보기</p>
+            <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'rgba(226,232,240,0.5)' }}>미리보기</p>
             <button
               onClick={() => { navigator.clipboard.writeText(preview) }}
-              className="text-[11px] text-gray-400 hover:text-gray-700 border border-gray-200 px-2.5 py-1 rounded-lg transition-colors"
+              className="text-[11px] px-2.5 py-1 rounded-lg transition-colors"
+              style={{ color: 'rgba(226,232,240,0.5)', border: '1px solid rgba(255,255,255,0.09)' }}
             >
               복사
             </button>
           </div>
-          <pre className="text-xs text-gray-700 leading-relaxed whitespace-pre-wrap font-mono bg-white/50 rounded-xl p-3 max-h-80 overflow-y-auto">
+          <pre
+            className="text-xs leading-relaxed whitespace-pre-wrap font-mono rounded-xl p-3 max-h-80 overflow-y-auto"
+            style={{ color: '#E2E8F0', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}
+          >
             {preview}
           </pre>
         </div>

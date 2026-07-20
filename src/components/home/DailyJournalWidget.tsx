@@ -8,7 +8,7 @@ import type { Task } from '@/types'
 
 interface MeetingMin { id: string; title: string; meeting_date?: string | null }
 
-interface DailyJournal {
+export interface DailyJournal {
   id: string
   date: string
   content: string
@@ -210,7 +210,7 @@ const TASK_STATUS_CLS: Record<string, string> = {
   done: 'bg-green-50 text-green-500',
 }
 
-function JournalFullscreenEditor({ selectedDate, current, yesterday, meetings, supabaseClient, onSaved, onClose }: EditorProps) {
+export function JournalFullscreenEditor({ selectedDate, current, yesterday, meetings, supabaseClient, onSaved, onClose }: EditorProps) {
   const [draft, setDraft] = useState(current?.content ?? '')
   const [linkedMeetingIds, setLinkedMeetingIds] = useState<string[]>(current?.linked_meeting_ids ?? [])
   const [tags, setTags] = useState<string[]>(current?.tags ?? [])

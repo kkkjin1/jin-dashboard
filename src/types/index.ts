@@ -141,6 +141,7 @@ export interface AgendaGroup {
   sort_order: number
   is_open: boolean
   created_at: string
+  roadmap_period?: string | null
 }
 
 export interface AgendaItem {

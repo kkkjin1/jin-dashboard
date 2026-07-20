@@ -1,647 +1,399 @@
-﻿'use client'
+'use client'
 
-import { useEffect, useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import Link from 'next/link'
-import DailyJournalWidget from '@/components/home/DailyJournalWidget'
-import TodayTodoWidget from '@/components/home/TodayTodoWidget'
-import WeeklyGoalsWidget from '@/components/home/WeeklyGoalsWidget'
-import MeetingBriefWidget from '@/components/home/MeetingBriefWidget'
-import QuickAgendaInput from '@/components/home/QuickAgendaInput'
-import type { AddedSubTask } from '@/components/home/QuickAgendaInput'
-import { fetchAllTasks } from '@/lib/tasks'
 import { createClient } from '@/lib/supabase/client'
-import { useUserSetting } from '@/hooks/useUserSetting'
-import { HomePageSkeleton } from '@/components/ui/Skeleton'
-import type { Task, Meeting } from '@/types'
+import { Search, Plus, FileText, Clock, NotebookPen } from 'lucide-react'
+import type { Task, TaskTodo, Meeting, AgendaItem, QuickMemo } from '@/types'
+import { JournalFullscreenEditor, type DailyJournal } from '@/components/home/DailyJournalWidget'
+import { format, parseISO } from 'date-fns'
+import { ko } from 'date-fns/locale'
 
-function getShortcutIcon(url: string, title: string): string {
-  const u = url.toLowerCase()
-  const t = title.toLowerCase()
-  if (u.includes('calendar.google') || u.includes('calendar') || t.includes('캘린더') || t.includes('calendar')) return '📅'
-  if (u.includes('gmail') || u.includes('/mail') || t.includes('메일') || t.includes('gmail') || t.includes('mail')) return '📧'
-  if (u.includes('notion.') || t.includes('notion')) return '📋'
-  if (u.includes('slack.com') || t.includes('slack')) return '💬'
-  if (u.includes('github.com') || t.includes('github')) return '🐙'
-  if (u.includes('figma.com') || t.includes('figma')) return '🎨'
-  if (u.includes('drive.google') || t.includes('드라이브') || t.includes('drive')) return '📁'
-  if (u.includes('docs.google') || t.includes('구글 문서') || t.includes('docs')) return '📄'
-  if (u.includes('sheets.google') || t.includes('시트') || t.includes('sheet')) return '📊'
-  if (u.includes('zoom.us') || t.includes('zoom')) return '🎥'
-  if (u.includes('meet.google') || t.includes('meet')) return '🎥'
-  if (u.includes('jira') || t.includes('jira')) return '🎯'
-  if (u.includes('confluence') || t.includes('confluence')) return '🗂️'
-  return '🔗'
+// ── Types ──────────────────────────────────────────────────────────────────
+type TodayTodo = Omit<TaskTodo, 'tasks'> & {
+  tasks: { id: string; title: string; short_name: string | null; part: string } | null
+}
+type TaskWithMember = Task & {
+  members: { id: string; name: string; part: string } | null
 }
 
+// ── Design Tokens ──────────────────────────────────────────────────────────
+const BG      = '#13151C'
+const SURFACE = 'rgba(255,255,255,0.06)'
+const BORDER  = '1px solid rgba(255,255,255,0.09)'
+const SHADOW  = '0 20px 40px rgba(0,0,0,0.18), 0 1px 0 rgba(255,255,255,0.07) inset'
+const TEXT1   = '#E2E8F0'
+const TEXT2   = 'rgba(226,232,240,0.5)'
+const TEXT3   = 'rgba(226,232,240,0.28)'
+const DIVIDER = 'rgba(255,255,255,0.06)'
+
+const CARD_STYLE: React.CSSProperties = { background: SURFACE, border: BORDER, boxShadow: SHADOW, borderRadius: 20 }
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
+function tagCls(part: string) {
+  return part === '비즈'
+    ? 'text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[rgba(249,115,22,0.15)] text-[#FDBA74]'
+    : 'text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[rgba(59,130,246,0.15)] text-[#93C5FD]'
+}
+function taskDotColor(part: string, idx: number) {
+  if (part === '비즈') return '#FB923C'
+  return ['#818CF8', '#60A5FA', '#34D399', '#A78BFA'][idx % 4]
+}
+function statusPct(status: string) {
+  if (status === '진행필요') return 12
+  if (status === '진행중') return 55
+  return 100
+}
+function fmtDate(s: string | null | undefined) {
+  if (!s) return ''
+  try { return format(parseISO(s), 'M.d (E)', { locale: ko }) } catch { return s }
+}
 function localDateStr(d: Date) {
-  return [
-    d.getFullYear(),
-    String(d.getMonth() + 1).padStart(2, '0'),
-    String(d.getDate()).padStart(2, '0'),
-  ].join('-')
+  return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-')
 }
+function todayStr() { return localDateStr(new Date()) }
+function yesterdayStr() { const d = new Date(); d.setDate(d.getDate() - 1); return localDateStr(d) }
 
-function todayStr() {
-  return localDateStr(new Date())
-}
-
-function formatSharedDateLabel(ds: string) {
-  const d = new Date(ds + 'T00:00:00')
-  const today = new Date(); today.setHours(0, 0, 0, 0)
-  const target = new Date(d); target.setHours(0, 0, 0, 0)
-  const diff = Math.round((today.getTime() - target.getTime()) / 86400000)
-  if (diff === 0) return '오늘'
-  if (diff === 1) return '어제'
-  if (diff === 2) return '그제'
-  const m = d.getMonth() + 1
-  const day = d.getDate()
-  const days = ['일', '월', '화', '수', '목', '금', '토']
-  return `${m}/${day} (${days[d.getDay()]})`
-}
-
-interface TodoColItem {
-  id: string
-  title: string
-  taskId: string
-  taskTitle: string | null
-  taskShortName?: string | null
-  idxInTask?: number
-  itemType?: 'todo' | 'meeting' | 'milestone' | 'oneonone'
-  href?: string
-  itemBadge?: { label: string; cls: string }
-  isSubTask?: boolean
-}
-
-interface AgendaSTHome {
-  id: string
-  title: string
-  target_date: string | null
-  status: string
-  agenda_item_id: string
-  agenda_items: { id: string; title: string; agenda_groups: { id: string; name: string } | null } | null
-}
-
-interface CompactColProps {
-  title: string
-  items: TodoColItem[]
-  dark?: boolean
-  droppable?: boolean
-  onDrop?: (e: React.DragEvent) => void
-  onDragOver?: (e: React.DragEvent) => void
-  onDragLeave?: () => void
-  isDragOver?: boolean
-  onComplete?: (todoId: string) => void
-  completedCount?: number
-  colBadge?: { label: string; bg: string; text: string }
-  alertIcon?: boolean
-}
-
-function CorgiIcon({ s = 1 }: { s?: number }) {
-  const w = Math.round(22 * s), h = Math.round(22 * s)
-  return (
-    <svg width={w} height={h} viewBox="0 0 24 24" fill="none">
-      <path d="M3 13 L6.5 2 L12 9 Z"       fill="white" opacity="0.85"/>
-      <path d="M21 13 L17.5 2 L12 9 Z"      fill="white" opacity="0.85"/>
-      <path d="M5.5 12 L8 4 L12 8.5 Z"      fill="#f5ddd0" opacity="0.55"/>
-      <path d="M18.5 12 L16 4 L12 8.5 Z"    fill="#f5ddd0" opacity="0.55"/>
-      <ellipse cx="12" cy="15" rx="9.5" ry="8.5" fill="white" opacity="0.96"/>
-      <ellipse cx="12" cy="17.5" rx="4.5" ry="2.5" fill="white" opacity="0.55"/>
-      <circle cx="8.5"  cy="13.5" r="2.1" fill="#1B3A6B" opacity="0.65"/>
-      <circle cx="15.5" cy="13.5" r="2.1" fill="#1B3A6B" opacity="0.65"/>
-      <circle cx="9.3"  cy="12.7" r="0.75" fill="white"/>
-      <circle cx="16.3" cy="12.7" r="0.75" fill="white"/>
-      <ellipse cx="12" cy="17" rx="1.5" ry="1" fill="#1B3A6B" opacity="0.38"/>
-    </svg>
-  )
-}
-function CorgiRow({ count }: { count: number }) {
-  const n = count >= 12 ? 5 : count >= 9 ? 4 : count >= 6 ? 3 : count >= 3 ? 2 : count >= 1 ? 1 : 0
-  if (n === 0) return null
-  const sc = [1, 0.85, 0.75, 0.68, 0.62][n - 1]
-  return (
-    <div className="flex items-end gap-0.5">
-      {Array.from({ length: n }, (_, i) => <CorgiIcon key={i} s={sc} />)}
-    </div>
-  )
-}
-
-function CompactCol({
-  title, items, dark, droppable, onDrop, onDragOver, onDragLeave,
-  isDragOver, onComplete, completedCount = 0, colBadge, alertIcon,
-}: CompactColProps) {
-  const dragRing = isDragOver && droppable ? (dark ? 'ring-1 ring-white/20' : 'ring-1 ring-[#1B3A6B]/20') : ''
-
-  const cardBase = 'rounded-2xl p-4 min-w-0 flex flex-col relative overflow-hidden h-full transition-all font-sans'
-  const cardCls = dark
-    ? `bg-[#1B3A6B] border border-white/8 shadow-2xl ${cardBase} ${dragRing}`
-    : `bg-white/40 backdrop-blur-md border border-white/60 shadow-sm ${cardBase} ${dragRing}`
-
-  const emptyTxt  = dark ? 'text-white/25' : 'text-gray-300'
-  const itemTxt   = dark ? 'text-white/80' : 'text-gray-700'
-  const subTxt    = dark ? 'text-white/35' : 'text-gray-400'
-  const chipCls   = dark ? 'bg-white/10 text-white/35' : 'bg-gray-100/80 text-gray-400'
-  const hoverCls  = dark ? 'hover:bg-white/5' : 'hover:bg-white/50'
-  const divideCls = dark ? 'divide-white/5' : 'divide-gray-100/60'
-  const completeCls = dark
-    ? 'border-white/20 hover:border-white/50'
-    : 'border-gray-300/60 hover:border-[#1B3A6B]/40 hover:bg-[#EFF6FF]'
-  const checkCls  = dark ? 'text-white/50' : 'text-[#1B3A6B]'
-  const titleCls  = dark ? 'text-white/40' : 'text-gray-400'
-  const badgeBg   = dark ? 'bg-white/10 text-white/50' : 'bg-gray-100/80 text-gray-500'
-
-  return (
-    <div className={cardCls}
-      onDragOver={droppable ? onDragOver : undefined}
-      onDrop={droppable ? onDrop : undefined}
-      onDragLeave={droppable ? onDragLeave : undefined}
-    >
-      <div className="flex items-center justify-between mb-3 flex-shrink-0">
-        <div className="flex items-center gap-1.5">
-          <span className={`text-xs font-semibold ${titleCls}`}>{title}</span>
-        </div>
-        {items.length > 0 && (
-          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${badgeBg}`}>
-            {items.length > 9 ? '9+' : items.length}
-          </span>
-        )}
-      </div>
-
-      {items.length === 0 ? (
-        <p className={`text-sm flex-1 flex items-center justify-center ${emptyTxt}`}>
-          {isDragOver && droppable ? '여기에 놓기' : '없음'}
-        </p>
-      ) : (
-        <div className={`divide-y ${divideCls} overflow-y-auto flex-1 min-h-0 scrollbar-hide`}>
-          {items.map(item => {
-            const isTodo = !item.itemType || item.itemType === 'todo'
-            const dotCls = item.itemType === 'meeting'
-              ? 'bg-[#A8C0E0]'
-              : item.itemType === 'milestone'
-                ? 'bg-amber-400/70'
-                : item.itemType === 'oneonone'
-                  ? 'bg-purple-300/70'
-                  : dark ? 'bg-[#F0C048]/60' : 'bg-gray-300'
-            return (
-              <div key={item.id}
-                className={`group relative flex items-start gap-1.5 py-2 px-1 rounded transition-colors ${hoverCls}`}>
-                {onComplete && isTodo && (
-                  <button
-                    onClick={e => { e.stopPropagation(); onComplete(item.id) }}
-                    className={`absolute left-0 top-[7px] w-3.5 h-3.5 rounded-full border transition-colors opacity-0 group-hover:opacity-100 flex items-center justify-center z-10 ${completeCls}`}
-                    title="완료">
-                    <span className={`text-[8px] leading-none ${checkCls}`}>✓</span>
-                  </button>
-                )}
-                <span className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${dotCls}`} />
-                <Link href={item.href ?? `/tasks/${item.taskId}`} className="flex-1 min-w-0"
-                  draggable={isTodo && droppable}
-                  onDragStart={isTodo && droppable ? e => { e.stopPropagation(); e.dataTransfer.setData('todoId', item.id) } : undefined}>
-                  <div className="flex items-start gap-1.5 flex-wrap min-w-0">
-                    {item.taskShortName && (
-                      <span className={`text-[9px] font-mono flex-shrink-0 px-1 py-0.5 rounded mt-0.5 ${chipCls}`}>
-                        {item.taskShortName}{(item.idxInTask ?? 0) + 1}
-                      </span>
-                    )}
-                    <span className={`text-xs leading-relaxed break-words min-w-0 ${itemTxt}`}>
-                      {item.title || '제목 없음'}
-                    </span>
-                  </div>
-                  {item.taskTitle && (
-                    <span className={`text-xs leading-relaxed break-words block mt-0.5 ${subTxt}`}>
-                      {item.taskTitle}
-                    </span>
-                  )}
-                </Link>
-                {item.itemBadge ? (
-                  <span className={`flex-shrink-0 text-[8px] font-semibold px-1.5 py-0.5 rounded-full self-start mt-0.5 ${item.itemBadge.cls}`}>
-                    {item.itemBadge.label}
-                  </span>
-                ) : colBadge ? (
-                  <span className={`flex-shrink-0 text-[9px] font-medium px-1.5 py-0.5 rounded-full self-start mt-0.5 ${colBadge.bg} ${colBadge.text}`}>
-                    {colBadge.label}
-                  </span>
-                ) : null}
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      {dark && (
-        <div className="absolute bottom-3 right-3 pointer-events-none">
-          <CorgiRow count={completedCount} />
-        </div>
-      )}
-    </div>
-  )
-}
-
-function getThisWeekStart(): string {
-  const d = new Date()
-  const day = d.getDay()
-  const daysToMon = day === 0 ? 6 : day - 1
-  d.setDate(d.getDate() - daysToMon)
-  d.setHours(0, 0, 0, 0)
-  return d.toISOString()
-}
-
-function getDateStrings() {
-  const todayDate = new Date()
-  const today = todayDate.toISOString().slice(0, 10)
-  const tomorrowDate = new Date(todayDate); tomorrowDate.setDate(todayDate.getDate() + 1)
-  const tomorrow = tomorrowDate.toISOString().slice(0, 10)
-  const thisFriDate = new Date(todayDate)
-  const day = thisFriDate.getDay()
-  const daysToFri = (5 - day + 7) % 7
-  thisFriDate.setDate(thisFriDate.getDate() + (daysToFri === 0 ? 0 : daysToFri))
-  const thisFriday = thisFriDate.toISOString().slice(0, 10)
-  return { today, tomorrow, thisFriday }
-}
-
+// ── Main Component ────────────────────────────────────────────────────────────
 export default function HomePage() {
-  const [tasks, setTasks]                   = useState<Task[]>([])
-  const [loading, setLoading]               = useState(true)
-  const [dragOverBucket, setDragOverBucket] = useState<string | null>(null)
-  const [meetings, setMeetings]             = useState<Pick<Meeting, 'id' | 'title' | 'meeting_date'>[]>([])
-  const [oneOnOnes, setOneOnOnes]           = useState<{ id: string; session_date: string }[]>([])
-  const [agendaSubTasks, setAgendaSubTasks] = useState<AgendaSTHome[]>([])
-  const [completedSTCount, setCompletedSTCount] = useState(0)
-  const supabase = createClient()
-  const [sharedDate, setSharedDate] = useState(todayStr())
+  const [doneTasks,     setDoneTasks]     = useState<string[]>([])
+  const [showJournal,   setShowJournal]   = useState(false)
+  const kpiGridRef = useRef<HTMLDivElement>(null)
 
-  function navigateSharedDate(dir: -1 | 1) {
-    setSharedDate(prev => {
-      const [y, m, d] = prev.split('-').map(Number)
-      const dt = new Date(y, m - 1, d)
-      dt.setDate(dt.getDate() + dir)
-      const next = localDateStr(dt)
-      if (next > todayStr()) return prev
-      return next
-    })
-  }
-
-
-  type Shortcut = { id: string; title: string; url: string }
-  const { value: shortcuts, save: saveShortcutsRemote } = useUserSetting<Shortcut[]>('home_shortcuts', [])
-  const [showAddShortcut,   setShowAddShortcut]   = useState(false)
-  const [newShortcutTitle,  setNewShortcutTitle]  = useState('')
-  const [newShortcutUrl,    setNewShortcutUrl]    = useState('')
-  const [editingShortcutId, setEditingShortcutId] = useState<string | null>(null)
-  const [editShortcutTitle, setEditShortcutTitle] = useState('')
-  const [editShortcutUrl,   setEditShortcutUrl]   = useState('')
+  const [tasks,          setTasks]          = useState<TaskWithMember[]>([])
+  const [todayTodos,     setTodayTodos]     = useState<TodayTodo[]>([])
+  const [todoPctMap,     setTodoPctMap]     = useState<Record<string, number>>({})
+  const [meetings,       setMeetings]       = useState<Meeting[]>([])
+  const [agendaItems,    setAgendaItems]    = useState<AgendaItem[]>([])
+  const [memos,          setMemos]          = useState<QuickMemo[]>([])
+  const [todayJournal,   setTodayJournal]   = useState<DailyJournal | null>(null)
+  const [yesterJournal,  setYesterJournal]  = useState<DailyJournal | null>(null)
+  const [loading,        setLoading]        = useState(true)
+  const sb = useRef(createClient())
 
   useEffect(() => {
-    Promise.all([
-      fetchAllTasks(),
-      supabase.from('project_meetings').select('id, title, meeting_date').order('meeting_date', { ascending: true }),
-      supabase.from('one_on_ones')
-        .select('id, session_date')
-        .not('session_date', 'is', null),
-      supabase.from('agenda_sub_tasks')
-        .select('id, title, target_date, status, agenda_item_id, agenda_items(id, title, agenda_groups(id, name))')
-        .neq('status', 'done'),
-      supabase.from('agenda_sub_tasks')
-        .select('id', { count: 'exact', head: true })
-        .eq('status', 'done')
-        .gte('updated_at', getThisWeekStart()),
-    ]).then(([taskData, { data: meetingData }, { data: ooData }, { data: stData }, { count: doneCount }]) => {
-      setTasks(taskData)
-      setMeetings((meetingData ?? []) as Pick<Meeting, 'id' | 'title' | 'meeting_date'>[])
-      setOneOnOnes((ooData ?? []) as { id: string; session_date: string }[])
-      setAgendaSubTasks((stData ?? []) as unknown as AgendaSTHome[])
-      setCompletedSTCount(doneCount ?? 0)
+    async function load() {
+      const today     = todayStr()
+      const yesterday = yesterdayStr()
+      const [
+        { data: tData }, { data: tdData }, { data: allTd },
+        { data: mData }, { data: aData },  { data: mmData }, { data: jData },
+      ] = await Promise.all([
+        sb.current.from('tasks').select('*, members(id, name, part)').neq('status', '완료').order('updated_at', { ascending: false }).limit(10),
+        sb.current.from('task_todos').select('*, tasks(id, title, short_name, part)').eq('schedule_tag', 'today').eq('done', false).order('sort_order').limit(15),
+        sb.current.from('task_todos').select('task_id, done').limit(500),
+        sb.current.from('meetings').select('*').order('meeting_date', { ascending: false }).limit(20),
+        sb.current.from('agenda_items').select('*, agenda_groups(*)').eq('status', 'active').eq('hidden', false).order('sort_order').limit(30),
+        sb.current.from('quick_memos').select('*').order('created_at', { ascending: false }).limit(5),
+        sb.current.from('daily_journals').select('id, date, content, linked_task_ids, linked_meeting_ids, tags').in('date', [today, yesterday]),
+      ])
+      const pct: Record<string, { t: number; d: number }> = {}
+      for (const r of (allTd ?? [])) {
+        if (!pct[r.task_id]) pct[r.task_id] = { t: 0, d: 0 }
+        pct[r.task_id].t++
+        if (r.done) pct[r.task_id].d++
+      }
+      const computed: Record<string, number> = {}
+      for (const [id, { t, d }] of Object.entries(pct)) computed[id] = t ? Math.round((d / t) * 100) : 0
+
+      setTasks((tData ?? []) as TaskWithMember[])
+      setTodayTodos((tdData ?? []) as TodayTodo[])
+      setTodoPctMap(computed)
+      setMeetings((mData ?? []) as Meeting[])
+      setAgendaItems((aData ?? []) as AgendaItem[])
+      setMemos((mmData ?? []) as QuickMemo[])
+      const jList = (jData ?? []) as DailyJournal[]
+      setTodayJournal(jList.find(j => j.date === today) ?? null)
+      setYesterJournal(jList.find(j => j.date === yesterday) ?? null)
       setLoading(false)
-    })
+    }
+    load()
   }, [])
 
-  function saveShortcuts(list: Shortcut[]) { saveShortcutsRemote(list) }
-
-  function addShortcut() {
-    if (!newShortcutUrl.trim()) return
-    const url = newShortcutUrl.startsWith('http') ? newShortcutUrl : 'https://' + newShortcutUrl
-    const title = newShortcutTitle.trim() || url
-    saveShortcuts([...shortcuts, { id: Date.now().toString(), title, url }])
-    setNewShortcutTitle(''); setNewShortcutUrl(''); setShowAddShortcut(false)
+  function toggleTask(id: string) {
+    setDoneTasks(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])
+  }
+  function taskPct(id: string) {
+    return todoPctMap[id] ?? statusPct(tasks.find(t => t.id === id)?.status ?? '')
   }
 
-  function removeShortcut(id: string) { saveShortcuts(shortcuts.filter(s => s.id !== id)) }
+  const today          = todayStr()
+  const todayMeetings  = meetings.filter(m => m.meeting_date?.startsWith(today))
+  const recentMeetings = meetings.slice(0, 4)
+  const recentMemos    = memos.slice(0, 4)
+  const displayTasks   = tasks.slice(0, 6)
 
-  function startEditShortcut(s: { id: string; title: string; url: string }) {
-    setEditingShortcutId(s.id); setEditShortcutTitle(s.title); setEditShortcutUrl(s.url)
-    setShowAddShortcut(false)
-  }
+  const skel = (n: number) => Array.from({ length: n }, (_, i) => (
+    <div key={i} className="h-7 rounded-xl animate-pulse" style={{ background: 'rgba(255,255,255,0.06)' }} />
+  ))
 
-  function saveEditShortcut() {
-    if (!editShortcutUrl.trim() || !editingShortcutId) return
-    const url = editShortcutUrl.startsWith('http') ? editShortcutUrl : 'https://' + editShortcutUrl
-    const title = editShortcutTitle.trim() || url
-    saveShortcuts(shortcuts.map(s => s.id === editingShortcutId ? { ...s, title, url } : s))
-    setEditingShortcutId(null); setEditShortcutTitle(''); setEditShortcutUrl('')
-  }
-
-  const { today, tomorrow, thisFriday } = getDateStrings()
-
-  function stToColItem(st: AgendaSTHome): TodoColItem {
-    const groupName = st.agenda_items?.agenda_groups?.name
-    const itemTitle = st.agenda_items?.title ?? null
-    return {
-      id: st.id,
-      title: st.title,
-      taskId: st.agenda_item_id,
-      taskTitle: itemTitle ? (groupName ? `${groupName} · ${itemTitle}` : itemTitle) : null,
-      taskShortName: null,
-      itemType: 'todo',
-      href: `/project/items/${st.agenda_item_id}`,
-      itemBadge: { label: '안건', cls: 'bg-blue-50 text-blue-600 border border-blue-100' },
-      isSubTask: true,
-    }
-  }
-
-  function getMeetingItems(date: string): TodoColItem[]
-  function getMeetingItems(from: string, to: string): TodoColItem[]
-  function getMeetingItems(dateOrFrom: string, to?: string): TodoColItem[] {
-    const filtered = to
-      ? meetings.filter(m => m.meeting_date && m.meeting_date > dateOrFrom && m.meeting_date <= to)
-      : meetings.filter(m => m.meeting_date === dateOrFrom)
-    return filtered.map(m => ({
-      id: `mtg-${m.id}`, title: m.title || '회의', taskId: m.id, taskTitle: null,
-      itemType: 'meeting' as const, href: `/meetings/${m.id}`,
-      itemBadge: { label: '회의', cls: 'bg-[#C7D8F0] text-[#1A3562]' },
-    }))
-  }
-
-  function getMilestoneItems(date: string): TodoColItem[]
-  function getMilestoneItems(from: string, to: string): TodoColItem[]
-  function getMilestoneItems(dateOrFrom: string, to?: string): TodoColItem[] {
-    const result: TodoColItem[] = []
-    tasks.forEach(t => {
-      const inRange = (d: string | null) => d && (to ? d > dateOrFrom && d <= to : d === dateOrFrom)
-      if (inRange(t.mid_date)) result.push({
-        id: `mid-${t.id}`, title: t.title, taskId: t.id, taskTitle: '중간공유',
-        itemType: 'milestone' as const, href: `/tasks/${t.id}`,
-        itemBadge: { label: '중간', cls: 'bg-amber-100 text-amber-700' },
-      })
-      if (inRange(t.end_date)) result.push({
-        id: `end-${t.id}`, title: t.title, taskId: t.id, taskTitle: '최종보고',
-        itemType: 'milestone' as const, href: `/tasks/${t.id}`,
-        itemBadge: { label: '최종', cls: 'bg-red-100 text-red-600' },
-      })
-    })
-    return result
-  }
-
-  function getOneOnOneItems(date: string): TodoColItem[]
-  function getOneOnOneItems(from: string, to: string): TodoColItem[]
-  function getOneOnOneItems(dateOrFrom: string, to?: string): TodoColItem[] {
-    const filtered = to
-      ? oneOnOnes.filter(s => s.session_date > dateOrFrom && s.session_date <= to)
-      : oneOnOnes.filter(s => s.session_date === dateOrFrom)
-    return filtered.map(s => ({
-      id: `oo-${s.id}`, title: '1on1 세션', taskId: s.id, taskTitle: null,
-      itemType: 'oneonone' as const, href: '/one-on-one',
-      itemBadge: { label: '1on1', cls: 'bg-purple-100 text-purple-600' },
-    }))
-  }
-
-  const todayItems       = [...agendaSubTasks.filter(st => st.target_date === today).map(stToColItem), ...getMeetingItems(today), ...getOneOnOneItems(today)]
-  const tomorrowItems    = [...agendaSubTasks.filter(st => st.target_date === tomorrow).map(stToColItem), ...getMeetingItems(tomorrow), ...getOneOnOneItems(tomorrow)]
-  const weekItems        = [...agendaSubTasks.filter(st => st.target_date && st.target_date > tomorrow && st.target_date <= thisFriday).map(stToColItem), ...getMeetingItems(tomorrow, thisFriday), ...getOneOnOneItems(tomorrow, thisFriday)]
-  const unscheduledItems = agendaSubTasks.filter(st => !st.target_date).map(stToColItem)
-
-  function handleDragOver(e: React.DragEvent, bucket: string) {
-    e.preventDefault(); setDragOverBucket(bucket)
-  }
-
-  async function handleDrop(e: React.DragEvent, bucket: 'today' | 'tomorrow' | 'this_week') {
-    e.preventDefault(); setDragOverBucket(null)
-    const stId = e.dataTransfer.getData('todoId')
-    if (!stId) return
-    const { today: t, tomorrow: tm, thisFriday: tf } = getDateStrings()
-    const targetDate = bucket === 'today' ? t : bucket === 'tomorrow' ? tm : tf
-    await supabase.from('agenda_sub_tasks').update({ target_date: targetDate }).eq('id', stId)
-    setAgendaSubTasks(prev => prev.map(st => st.id === stId ? { ...st, target_date: targetDate } : st))
-  }
-
-  async function handleDropUnscheduled(e: React.DragEvent) {
-    e.preventDefault(); setDragOverBucket(null)
-    const stId = e.dataTransfer.getData('todoId')
-    if (!stId) return
-    await supabase.from('agenda_sub_tasks').update({ target_date: null }).eq('id', stId)
-    setAgendaSubTasks(prev => prev.map(st => st.id === stId ? { ...st, target_date: null } : st))
-  }
-
-  async function handleCompleteTodo(stId: string) {
-    await supabase.from('agenda_sub_tasks').update({ status: 'done' }).eq('id', stId)
-    setAgendaSubTasks(prev => prev.filter(st => st.id !== stId))
-    setCompletedSTCount(n => n + 1)
-  }
-
-  if (loading) return <HomePageSkeleton />
+  // 회고 풀스크린 에디터용 meetings 형식 변환
+  const meetingsForJournal = meetings.map(m => ({ id: m.id, title: m.title, meeting_date: m.meeting_date ?? undefined }))
 
   return (
-    <div className="h-full overflow-hidden flex flex-col gap-3 py-4 font-sans">
+    <div className="font-sans flex flex-col" style={{ height: '100%', background: BG }}>
 
-      {/* ── 바로가기 ── */}
-      <div className="flex-shrink-0 flex gap-1.5 flex-wrap items-center">
-        {shortcuts.map(s => {
-          if (editingShortcutId === s.id) return (
-            <div key={s.id} className="bg-white/70 backdrop-blur-md rounded-xl border border-white/80 p-2 w-36 shadow-sm">
-              <input value={editShortcutTitle} onChange={e => setEditShortcutTitle(e.target.value)}
-                placeholder="이름" autoFocus
-                className="text-xs font-medium text-gray-800 w-full focus:outline-none border-b border-gray-200/60 pb-0.5 mb-0.5 bg-transparent" />
-              <input value={editShortcutUrl} onChange={e => setEditShortcutUrl(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') saveEditShortcut(); if (e.key === 'Escape') setEditingShortcutId(null) }}
-                placeholder="URL" className="text-xs text-gray-400 w-full focus:outline-none bg-transparent" />
-              <div className="flex gap-1 mt-1 justify-end">
-                <button onClick={() => setEditingShortcutId(null)} className="text-xs text-gray-400 px-1.5 py-0.5">취소</button>
-                <button onClick={saveEditShortcut} className="text-xs bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] px-1.5 py-0.5 rounded">저장</button>
+      {/* ── 모바일 ── */}
+      <div className="md:hidden flex-1 overflow-y-auto px-4 pt-6 pb-36">
+        <h2 className="text-base font-bold mb-4" style={{ color: TEXT1 }}>오늘의 할 일</h2>
+        <div className="rounded-[20px] p-4" style={CARD_STYLE}>
+          {todayTodos.length === 0 && <p className="text-sm py-2" style={{ color: TEXT2 }}>오늘 할 일이 없어요</p>}
+          {todayTodos.map(t => (
+            <div key={t.id} className="flex items-start gap-3 py-3" style={{ borderBottom: `1px solid ${DIVIDER}` }}>
+              <div className="w-5 h-5 rounded-full border-2 flex-shrink-0 mt-0.5" style={{ borderColor: 'rgba(255,255,255,0.2)' }} />
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-medium leading-snug" style={{ color: TEXT1 }}>{t.title}</p>
+                {t.tasks && <p className="text-[11px] mt-0.5" style={{ color: TEXT2 }}>{t.tasks.short_name ?? t.tasks.title}</p>}
               </div>
+              {t.tasks && <span className={tagCls(t.tasks.part)}>{t.tasks.part}</span>}
             </div>
-          )
-          return (
-            <div key={s.id} className="group relative">
-              <a href={s.url} target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-1 bg-white/40 backdrop-blur-md border border-white/60 rounded-full px-2.5 py-1 hover:bg-white/60 transition-all shadow-sm">
-                <span className="text-xs text-gray-600 truncate max-w-24">{getShortcutIcon(s.url, s.title)} {s.title}</span>
-              </a>
-              <div className="absolute -top-1.5 -right-1.5 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button onClick={() => startEditShortcut(s)}
-                  className="w-3.5 h-3.5 bg-blue-500 text-white rounded-full text-[8px] flex items-center justify-center hover:bg-blue-600">✎</button>
-                <button onClick={() => removeShortcut(s.id)}
-                  className="w-3.5 h-3.5 bg-gray-400 text-white rounded-full text-[8px] flex items-center justify-center hover:bg-red-500">×</button>
-              </div>
-            </div>
-          )
-        })}
-        {showAddShortcut ? (
-          <div className="bg-white/70 backdrop-blur-md rounded-xl border border-white/80 p-2 w-36 shadow-sm">
-            <input value={newShortcutTitle} onChange={e => setNewShortcutTitle(e.target.value)}
-              placeholder="이름" autoFocus
-              className="text-xs font-medium text-gray-800 w-full focus:outline-none border-b border-gray-200/60 pb-0.5 mb-0.5 bg-transparent" />
-            <input value={newShortcutUrl} onChange={e => setNewShortcutUrl(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') addShortcut(); if (e.key === 'Escape') setShowAddShortcut(false) }}
-              placeholder="URL" className="text-xs text-gray-400 w-full focus:outline-none bg-transparent" />
-            <div className="flex gap-1 mt-1 justify-end">
-              <button onClick={() => setShowAddShortcut(false)} className="text-xs text-gray-400 px-1.5 py-0.5">취소</button>
-              <button onClick={addShortcut} className="text-xs bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] px-1.5 py-0.5 rounded">추가</button>
-            </div>
-          </div>
-        ) : (
-          <button onClick={() => { setShowAddShortcut(true); setEditingShortcutId(null) }}
-            className="flex items-center border border-dashed border-gray-300/60 hover:border-gray-400/60 rounded-full px-2.5 py-1 text-gray-300 hover:text-gray-400 transition-all text-xs">
-            + 바로가기
-          </button>
-        )}
-      </div>
-
-      {/* ── 빠른 안건 추가 ── */}
-      <div className="flex-shrink-0">
-        <QuickAgendaInput onAdded={st => setAgendaSubTasks(prev => [st as AgendaSTHome, ...prev])} />
-      </div>
-
-      {/* ── 모바일 레이아웃 ── */}
-      <div className="md:hidden flex-1 overflow-y-auto scrollbar-hide flex flex-col gap-3 pb-4">
-        <div className="h-72 flex-shrink-0">
-          <CompactCol
-            title="오늘" items={todayItems} dark
-            completedCount={completedSTCount}
-            colBadge={{ label: '진행중', bg: 'bg-violet-500/20', text: 'text-violet-300' }}
-            droppable
-            onDrop={e => handleDrop(e, 'today')}
-            onDragOver={e => handleDragOver(e, 'today')}
-            onDragLeave={() => setDragOverBucket(null)}
-            isDragOver={dragOverBucket === 'today'}
-            onComplete={handleCompleteTodo}
-          />
-        </div>
-        <div className="grid grid-cols-2 gap-3 flex-shrink-0" style={{ height: '11rem' }}>
-          <CompactCol
-            title="내일" items={tomorrowItems}
-            colBadge={{ label: '대기', bg: 'bg-gray-100/80', text: 'text-gray-400' }}
-            droppable
-            onDrop={e => handleDrop(e, 'tomorrow')}
-            onDragOver={e => handleDragOver(e, 'tomorrow')}
-            onDragLeave={() => setDragOverBucket(null)}
-            isDragOver={dragOverBucket === 'tomorrow'}
-            onComplete={handleCompleteTodo}
-          />
-          <CompactCol
-            title="금주" items={weekItems}
-            colBadge={{ label: '대기', bg: 'bg-gray-100/80', text: 'text-gray-400' }}
-            droppable
-            onDrop={e => handleDrop(e, 'this_week')}
-            onDragOver={e => handleDragOver(e, 'this_week')}
-            onDragLeave={() => setDragOverBucket(null)}
-            isDragOver={dragOverBucket === 'this_week'}
-            onComplete={handleCompleteTodo}
-          />
-        </div>
-        <div className="flex-shrink-0 h-64 overflow-hidden">
-          <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full overflow-hidden font-sans">
-            <DailyJournalWidget selectedDate={todayStr()} onNavigate={() => {}} tasks={tasks} meetings={meetings.map(m => ({ id: m.id, title: m.title ?? '', meeting_date: m.meeting_date ?? null }))} />
-          </div>
-        </div>
-        <div className="flex-shrink-0 h-64 overflow-hidden">
-          <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full overflow-hidden font-sans">
-            <TodayTodoWidget />
-          </div>
+          ))}
         </div>
       </div>
 
-      {/* ── 데스크톱: 2행 그리드 ──
-           Row 1 (flex-[2]): 오늘 | 내일 | 금주 | 오늘할일  (4등분 소형)
-           Row 2 (flex-[3]): 오늘일상(1/3) | 회고(2/3)      (자동초안 연동)
-      */}
-      <div className="hidden md:flex flex-col flex-1 min-h-0 gap-3">
+      {/* ── 데스크톱: 1페이지 내 완전 고정 ── */}
+      <div className="hidden md:flex flex-col flex-1 min-h-0">
 
-        {/* Row 1 — 오늘 | 내일 | 금주 | 미배정 */}
-        <div className="flex-[2] grid grid-cols-4 gap-3 min-h-0">
-          <div className="min-h-0">
-            <CompactCol
-              title="☀️ 오늘" items={todayItems} dark
-              completedCount={completedSTCount}
-              colBadge={{ label: '진행중', bg: 'bg-violet-500/20', text: 'text-violet-300' }}
-              droppable
-              onDrop={e => handleDrop(e, 'today')}
-              onDragOver={e => handleDragOver(e, 'today')}
-              onDragLeave={() => setDragOverBucket(null)}
-              isDragOver={dragOverBucket === 'today'}
-              onComplete={handleCompleteTodo}
-            />
-          </div>
-          <div className="min-h-0">
-            <CompactCol
-              title="🌙 내일" items={tomorrowItems}
-              colBadge={{ label: '대기', bg: 'bg-gray-100/80', text: 'text-gray-400' }}
-              droppable
-              onDrop={e => handleDrop(e, 'tomorrow')}
-              onDragOver={e => handleDragOver(e, 'tomorrow')}
-              onDragLeave={() => setDragOverBucket(null)}
-              isDragOver={dragOverBucket === 'tomorrow'}
-              onComplete={handleCompleteTodo}
-            />
-          </div>
-          <div className="min-h-0">
-            <CompactCol
-              title="📅 금주" items={weekItems}
-              colBadge={{ label: '대기', bg: 'bg-gray-100/80', text: 'text-gray-400' }}
-              droppable
-              onDrop={e => handleDrop(e, 'this_week')}
-              onDragOver={e => handleDragOver(e, 'this_week')}
-              onDragLeave={() => setDragOverBucket(null)}
-              isDragOver={dragOverBucket === 'this_week'}
-              onComplete={handleCompleteTodo}
-            />
-          </div>
-          <div className="min-h-0">
-            <CompactCol
-              title={unscheduledItems.length > 0 ? '❗ 미배정' : '미배정'}
-              items={unscheduledItems}
-              droppable
-              onDrop={handleDropUnscheduled}
-              onDragOver={e => handleDragOver(e, 'unscheduled')}
-              onDragLeave={() => setDragOverBucket(null)}
-              isDragOver={dragOverBucket === 'unscheduled'}
-              onComplete={handleCompleteTodo}
-              colBadge={{ label: '미배정', bg: 'bg-gray-100/80', text: 'text-gray-400' }}
-            />
+        {/* Topbar */}
+        <div className="flex-shrink-0 flex items-center justify-center h-12 -mx-8 px-8" style={{ background: BG, borderBottom: `1px solid ${DIVIDER}` }}>
+          <div
+            className="flex items-center gap-2.5 px-4 py-1.5 rounded-xl w-full max-w-sm cursor-pointer transition-colors"
+            style={{ background: 'rgba(255,255,255,0.06)' }}
+          >
+            <Search size={12} style={{ color: TEXT2 }} className="flex-shrink-0" />
+            <span className="text-[13px] flex-1" style={{ color: TEXT3 }}>검색 (프로젝트, 안건, 회의록 등)</span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded-md font-mono" style={{ background: 'rgba(255,255,255,0.08)', color: TEXT3 }}>⌘ K</span>
           </div>
         </div>
 
-        {/* Row 2 — 회고(1) | 금주목표(1) | 오늘회의+오늘할일(2) */}
-        <div className="flex-[3] grid grid-cols-4 gap-3 min-h-0">
-          {/* 회고 */}
-          <div className="min-h-0 overflow-hidden col-span-1">
-            <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full overflow-hidden font-sans">
-              <DailyJournalWidget
-                selectedDate={sharedDate}
-                onNavigate={navigateSharedDate}
-                onDateChange={date => setSharedDate(date)}
-                tasks={tasks}
-                meetings={meetings}
-              />
-            </div>
-          </div>
-          {/* 금주 목표 */}
-          <div className="min-h-0 overflow-hidden col-span-1">
-            <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full overflow-hidden font-sans">
-              <WeeklyGoalsWidget tasks={tasks} />
-            </div>
-          </div>
-          {/* 오늘 회의 + 오늘 할 일 (2칸 합산) */}
-          <div className="min-h-0 overflow-hidden col-span-2">
-            <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full overflow-hidden font-sans grid grid-cols-2 divide-x divide-white/40">
-              <div className="min-h-0 overflow-hidden">
-                <MeetingBriefWidget />
-              </div>
-              <div className="min-h-0 overflow-hidden">
-                <TodayTodoWidget />
-              </div>
-            </div>
-          </div>
-        </div>
+        {/* Content: flex col, fills remaining height */}
+        <div className="flex-1 flex flex-col min-h-0 max-w-[1400px] mx-auto w-full">
 
+          {/* Row 2: 오늘의 주요업무 + 진행 중 과업 — shrink-0 */}
+          <div ref={kpiGridRef} className="flex-shrink-0 grid gap-6 mt-6 mb-5" style={{ gridTemplateColumns: '1fr 1fr' }}>
+
+            {/* 오늘의 주요 업무 */}
+            <div>
+              <div className="flex items-center justify-between mb-2.5">
+                <h2 className="text-[13px] font-bold uppercase tracking-[0.07em]" style={{ color: TEXT3 }}>오늘의 주요 업무</h2>
+                <Link href="/tasks" className="flex items-center gap-1 text-[11px] font-medium" style={{ color: TEXT3 }}>
+                  <Plus size={11} /><span>추가</span>
+                </Link>
+              </div>
+              {loading ? (
+                <div className="space-y-2">{skel(3)}</div>
+              ) : todayTodos.length === 0 ? (
+                <p className="text-[13px] py-3 text-center" style={{ color: TEXT3 }}>오늘 할 일이 없어요</p>
+              ) : (
+                <div>
+                  {todayTodos.map((t, i) => {
+                    const done = doneTasks.includes(t.id)
+                    return (
+                      <div key={t.id} className="flex items-center gap-3 py-2" style={{ borderBottom: i < todayTodos.length - 1 ? `1px solid ${DIVIDER}` : 'none' }}>
+                        <button
+                          onClick={() => toggleTask(t.id)}
+                          className="flex-shrink-0 rounded-full border-2 flex items-center justify-center transition-all"
+                          style={{ width: 16, height: 16, borderColor: done ? '#34D399' : 'rgba(255,255,255,0.2)', background: done ? '#34D399' : 'transparent' }}
+                        >
+                          {done && <svg width="6" height="6" viewBox="0 0 8 8" fill="none"><path d="M1.5 4L3 5.5L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+                        </button>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[13px] font-medium transition-colors" style={{ color: done ? TEXT3 : TEXT1, textDecoration: done ? 'line-through' : 'none' }}>{t.title}</p>
+                          {t.tasks && <p className="text-[11px]" style={{ color: TEXT2 }}>{t.tasks.short_name ?? t.tasks.title}</p>}
+                        </div>
+                        {t.tasks && <span className={tagCls(t.tasks.part)}>{t.tasks.part}</span>}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* 진행 중 과업 */}
+            <div>
+              <div className="flex items-center justify-between mb-2.5">
+                <h2 className="text-[13px] font-bold uppercase tracking-[0.07em]" style={{ color: TEXT3 }}>진행 중 과업</h2>
+                <Link href="/tasks" className="text-[11px] font-medium" style={{ color: TEXT3 }}>전체 보기</Link>
+              </div>
+              {loading ? (
+                <div className="space-y-2">{skel(4)}</div>
+              ) : displayTasks.length === 0 ? (
+                <p className="text-[13px] py-3 text-center" style={{ color: TEXT3 }}>진행 중인 과업이 없어요</p>
+              ) : (
+                <div>
+                  {displayTasks.map((t, i) => {
+                    const pct = taskPct(t.id)
+                    return (
+                      <div key={t.id} className="flex items-center gap-3 py-2" style={{ borderBottom: i < displayTasks.length - 1 ? `1px solid ${DIVIDER}` : 'none' }}>
+                        <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: taskDotColor(t.part, i) }} />
+                        <span className="text-[13px] font-medium flex-1 min-w-0 truncate" style={{ color: TEXT1 }}>{t.short_name ?? t.title}</span>
+                        <span className={tagCls(t.part)}>{t.part}</span>
+                        {t.members && (
+                          <div className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold text-white flex-shrink-0" style={{ background: taskDotColor(t.part, i) }}>
+                            {t.members.name[0]}
+                          </div>
+                        )}
+                        <div className="flex items-center gap-1.5 flex-shrink-0 w-14">
+                          <div className="flex-1 h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.1)' }}>
+                            <div className="h-full rounded-full" style={{ width: `${pct}%`, background: '#34D399' }} />
+                          </div>
+                          <span className="text-[10px] font-mono w-5 text-right" style={{ color: TEXT3 }}>{pct}%</span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Row 3: 2×2 동일 크기 그리드, 나머지 높이 채움 */}
+          <div className="flex-1 min-h-0 pb-5">
+            <div className="grid grid-cols-2 gap-3 h-full" style={{ gridTemplateRows: '1fr 1fr' }}>
+
+              {/* 1. 오늘의 일정 */}
+              <div className="p-4 min-h-0 flex flex-col overflow-hidden" style={CARD_STYLE}>
+                <div className="flex items-center justify-between mb-3 flex-shrink-0">
+                  <h2 className="text-[13px] font-bold" style={{ color: TEXT1 }}>오늘의 일정</h2>
+                  <Link href="/schedule" className="text-[11px] font-medium" style={{ color: TEXT2 }}>전체</Link>
+                </div>
+                <div className="flex-1 overflow-hidden">
+                  {loading ? (
+                    <div className="space-y-2">{skel(2)}</div>
+                  ) : todayMeetings.length === 0 ? (
+                    <p className="text-[12px] pt-1" style={{ color: TEXT3 }}>오늘 일정 없음</p>
+                  ) : (
+                    <div>
+                      {todayMeetings.map((m, i) => (
+                        <div key={m.id} className="flex items-center gap-2.5 py-2" style={{ borderBottom: i < todayMeetings.length - 1 ? `1px solid ${DIVIDER}` : 'none' }}>
+                          <Clock size={10} style={{ color: TEXT3 }} className="flex-shrink-0" />
+                          <span className="text-[12px] flex-1 min-w-0 truncate" style={{ color: TEXT1 }}>{m.title}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 2. 최근 회의록 */}
+              <div className="p-4 min-h-0 flex flex-col overflow-hidden" style={CARD_STYLE}>
+                <div className="flex items-center justify-between mb-3 flex-shrink-0">
+                  <h2 className="text-[13px] font-bold" style={{ color: TEXT1 }}>최근 회의록</h2>
+                  <Link href="/meetings" className="text-[11px] font-medium" style={{ color: TEXT2 }}>전체</Link>
+                </div>
+                <div className="flex-1 overflow-hidden">
+                  {loading ? (
+                    <div className="space-y-2">{skel(3)}</div>
+                  ) : recentMeetings.length === 0 ? (
+                    <p className="text-[12px] pt-1" style={{ color: TEXT3 }}>회의록이 없어요</p>
+                  ) : (
+                    <div>
+                      {recentMeetings.map((m, i) => (
+                        <Link key={m.id} href={`/meetings/${m.id}`}>
+                          <div className="flex items-center gap-2.5 py-2 cursor-pointer" style={{ borderBottom: i < recentMeetings.length - 1 ? `1px solid ${DIVIDER}` : 'none' }}>
+                            <div className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(255,255,255,0.07)' }}>
+                              <FileText size={11} strokeWidth={1.75} style={{ color: TEXT2 }} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[12px] font-medium truncate" style={{ color: TEXT1 }}>{m.title}</p>
+                              <p className="text-[10px]" style={{ color: TEXT3 }}>{fmtDate(m.meeting_date)}</p>
+                            </div>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 3. 빠른 메모 */}
+              <div className="p-4 min-h-0 flex flex-col overflow-hidden" style={CARD_STYLE}>
+                <div className="flex items-center justify-between mb-3 flex-shrink-0">
+                  <h2 className="text-[13px] font-bold" style={{ color: TEXT1 }}>빠른 메모</h2>
+                  <div className="flex items-center gap-1.5">
+                    <Link href="/memos" className="text-[11px] font-medium" style={{ color: TEXT2 }}>전체</Link>
+                    <Link href="/memos">
+                      <button className="w-5 h-5 rounded-md flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.08)', color: TEXT2 }}>
+                        <Plus size={10} />
+                      </button>
+                    </Link>
+                  </div>
+                </div>
+                <div className="flex-1 overflow-hidden">
+                  {loading ? (
+                    <div className="space-y-2">{skel(3)}</div>
+                  ) : recentMemos.length === 0 ? (
+                    <p className="text-[12px] pt-1" style={{ color: TEXT3 }}>메모가 없어요</p>
+                  ) : (
+                    <div>
+                      {recentMemos.map((memo, i) => {
+                        const dots = ['#818CF8', '#60A5FA', '#34D399', '#FB923C']
+                        return (
+                          <div key={memo.id} className="flex items-center gap-2.5 py-2" style={{ borderBottom: i < recentMemos.length - 1 ? `1px solid ${DIVIDER}` : 'none' }}>
+                            <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: dots[i % 4] }} />
+                            <span className="text-[12px] flex-1 min-w-0 truncate" style={{ color: TEXT1 }}>{memo.title}</span>
+                            <span className="text-[10px] flex-shrink-0" style={{ color: TEXT3 }}>{fmtDate(memo.created_at)}</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 4. 회고 — 입력란만, 클릭 시 풀스크린 에디터 */}
+              <div className="p-4 min-h-0 flex flex-col overflow-hidden" style={CARD_STYLE}>
+                <div className="flex items-center justify-between mb-3 flex-shrink-0">
+                  <h2 className="text-[13px] font-bold" style={{ color: TEXT1 }}>회고</h2>
+                  {todayJournal && (
+                    <button onClick={() => setShowJournal(true)} className="text-[11px] font-medium transition-colors" style={{ color: TEXT2 }}>
+                      수정
+                    </button>
+                  )}
+                </div>
+                <div className="flex-1 flex flex-col min-h-0">
+                  {todayJournal ? (
+                    <button
+                      onClick={() => setShowJournal(true)}
+                      className="flex-1 text-left w-full overflow-hidden"
+                    >
+                      <p className="text-[12px] leading-relaxed line-clamp-6" style={{ color: TEXT2 }}>
+                        {todayJournal.content}
+                      </p>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setShowJournal(true)}
+                      className="flex-1 w-full flex flex-col items-center justify-center gap-2 rounded-xl transition-all"
+                      style={{ border: '1px dashed rgba(255,255,255,0.1)' }}
+                    >
+                      <NotebookPen size={18} strokeWidth={1.5} style={{ color: TEXT3 }} />
+                      <span className="text-[12px]" style={{ color: TEXT3 }}>오늘 회고 작성하기</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
       </div>
+
+      {/* 회고 풀스크린 에디터 — body portal */}
+      {showJournal && typeof document !== 'undefined' && createPortal(
+        <JournalFullscreenEditor
+          selectedDate={todayStr()}
+          current={todayJournal}
+          yesterday={yesterJournal}
+          meetings={meetingsForJournal}
+          supabaseClient={sb.current}
+          onSaved={(j) => { setTodayJournal(j); setShowJournal(false) }}
+          onClose={() => setShowJournal(false)}
+        />,
+        document.body
+      )}
     </div>
   )
 }

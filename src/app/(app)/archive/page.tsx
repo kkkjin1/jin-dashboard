@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -84,26 +84,49 @@ export default function ArchivePage() {
   const recentDates = buildRecentDates(30)
 
   return (
-    <div className="flex flex-col h-full min-h-0 py-4 gap-4 font-sans">
+    <div className="flex flex-col h-full min-h-0 py-4 gap-4 font-sans" style={{ background: '#13151C', minHeight: '100%' }}>
 
       {/* 헤더 */}
       <div className="flex-shrink-0 flex items-center justify-between">
         <div>
-          <h1 className="text-lg font-bold text-gray-900">회고</h1>
-          <p className="text-xs text-gray-400 mt-0.5">날짜를 선택해 그 날의 기록을 돌아보세요</p>
+          <h1 className="text-lg font-bold" style={{ color: '#E2E8F0' }}>회고</h1>
+          <p className="text-xs mt-0.5" style={{ color: 'rgba(226,232,240,0.5)' }}>날짜를 선택해 그 날의 기록을 돌아보세요</p>
         </div>
 
         {/* 날짜 네비게이션 */}
         <div className="flex items-center gap-2">
           <button
             onClick={() => navigate(-1)}
-            className="w-8 h-8 flex items-center justify-center rounded-full bg-white/60 border border-white/70 hover:bg-white/90 text-gray-500 hover:text-gray-800 text-sm transition-all shadow-sm">
+            className="w-8 h-8 flex items-center justify-center rounded-full text-sm transition-all"
+            style={{
+              background: 'rgba(255,255,255,0.06)',
+              border: '1px solid rgba(255,255,255,0.09)',
+              color: 'rgba(226,232,240,0.5)',
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.1)'
+              ;(e.currentTarget as HTMLButtonElement).style.color = '#E2E8F0'
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.06)'
+              ;(e.currentTarget as HTMLButtonElement).style.color = 'rgba(226,232,240,0.5)'
+            }}>
             ←
           </button>
           <button
             onClick={() => setShowCalendar(p => !p)}
-            className="relative flex items-center gap-2 bg-white/60 backdrop-blur-md border border-white/70 rounded-full px-4 py-2 shadow-sm hover:bg-white/80 transition-all">
-            <span className="text-sm font-semibold text-gray-800">{formatLabel(selectedDate)}</span>
+            className="relative flex items-center gap-2 rounded-full px-4 py-2 transition-all"
+            style={{
+              background: 'rgba(255,255,255,0.06)',
+              border: '1px solid rgba(255,255,255,0.09)',
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.1)'
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.06)'
+            }}>
+            <span className="text-sm font-semibold" style={{ color: '#E2E8F0' }}>{formatLabel(selectedDate)}</span>
             {journalDates.has(selectedDate) && (
               <span className="w-1.5 h-1.5 rounded-full bg-[#A8C0E0]" title="회고 있음" />
             )}
@@ -111,7 +134,20 @@ export default function ArchivePage() {
           <button
             onClick={() => navigate(1)}
             disabled={selectedDate >= TODAY}
-            className="w-8 h-8 flex items-center justify-center rounded-full bg-white/60 border border-white/70 hover:bg-white/90 text-gray-500 hover:text-gray-800 text-sm transition-all shadow-sm disabled:opacity-30 disabled:cursor-not-allowed">
+            className="w-8 h-8 flex items-center justify-center rounded-full text-sm transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+            style={{
+              background: 'rgba(255,255,255,0.06)',
+              border: '1px solid rgba(255,255,255,0.09)',
+              color: 'rgba(226,232,240,0.5)',
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.1)'
+              ;(e.currentTarget as HTMLButtonElement).style.color = '#E2E8F0'
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.06)'
+              ;(e.currentTarget as HTMLButtonElement).style.color = 'rgba(226,232,240,0.5)'
+            }}>
             →
           </button>
           <input
@@ -124,7 +160,12 @@ export default function ArchivePage() {
                 setJournalContent('')
               }
             }}
-            className="text-xs border border-white/60 bg-white/50 rounded-lg px-2 py-1.5 focus:outline-none focus:border-gray-300 text-gray-600"
+            className="text-xs rounded-lg px-2 py-1.5 focus:outline-none"
+            style={{
+              background: 'rgba(255,255,255,0.06)',
+              border: '1px solid rgba(255,255,255,0.09)',
+              color: '#E2E8F0',
+            }}
           />
         </div>
       </div>
@@ -136,17 +177,35 @@ export default function ArchivePage() {
           const dayNames = ['일', '월', '화', '수', '목', '금', '토']
           const isSelected = ds === selectedDate
           const hasJournal = journalDates.has(ds)
+
+          let btnStyle: React.CSSProperties
+          if (isSelected) {
+            btnStyle = {
+              background: '#1B3A6B',
+              border: '1px solid #1B3A6B',
+              color: '#E2E8F0',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+            }
+          } else if (hasJournal) {
+            btnStyle = {
+              background: 'rgba(255,255,255,0.08)',
+              border: '1px solid rgba(168,192,224,0.4)',
+              color: '#E2E8F0',
+            }
+          } else {
+            btnStyle = {
+              background: 'rgba(255,255,255,0.03)',
+              border: '1px solid rgba(255,255,255,0.06)',
+              color: 'rgba(226,232,240,0.28)',
+            }
+          }
+
           return (
             <button
               key={ds}
               onClick={() => { setSelectedDate(ds); setJournalContent('') }}
-              className={`flex-shrink-0 flex flex-col items-center gap-0.5 px-2.5 py-2 rounded-xl border transition-all text-center ${
-                isSelected
-                  ? 'bg-[#1B3A6B] border-[#1B3A6B] text-white shadow-md'
-                  : hasJournal
-                    ? 'bg-white/70 border-[#A8C0E0]/60 text-gray-700 hover:bg-white/90'
-                    : 'bg-white/40 border-white/50 text-gray-400 hover:bg-white/60'
-              }`}>
+              className="flex-shrink-0 flex flex-col items-center gap-0.5 px-2.5 py-2 rounded-xl transition-all text-center"
+              style={btnStyle}>
               <span className="text-[9px] font-medium">{dayNames[d.getDay()]}</span>
               <span className="text-xs font-bold">{d.getDate()}</span>
               {hasJournal && !isSelected && (
@@ -164,7 +223,14 @@ export default function ArchivePage() {
       <div className="flex-1 grid grid-cols-3 gap-3 min-h-0">
         {/* 오늘일상 */}
         <div className="min-h-0 overflow-hidden">
-          <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full overflow-hidden font-sans">
+          <div
+            className="h-full overflow-hidden font-sans rounded-2xl"
+            style={{
+              background: 'rgba(255,255,255,0.06)',
+              border: '1px solid rgba(255,255,255,0.09)',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.18), 0 1px 0 rgba(255,255,255,0.07) inset',
+              borderRadius: 20,
+            }}>
             <DailyLogWidget
               selectedDate={selectedDate}
               onDraftReady={() => {}}
@@ -173,7 +239,14 @@ export default function ArchivePage() {
         </div>
         {/* 회고 */}
         <div className="min-h-0 overflow-hidden">
-          <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full overflow-hidden font-sans">
+          <div
+            className="h-full overflow-hidden font-sans"
+            style={{
+              background: 'rgba(255,255,255,0.06)',
+              border: '1px solid rgba(255,255,255,0.09)',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.18), 0 1px 0 rgba(255,255,255,0.07) inset',
+              borderRadius: 20,
+            }}>
             <DailyJournalWidget
               selectedDate={selectedDate}
               onNavigate={navigate}
@@ -189,7 +262,14 @@ export default function ArchivePage() {
         </div>
         {/* 내일 계획 */}
         <div className="min-h-0 overflow-hidden">
-          <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-sm h-full overflow-hidden font-sans">
+          <div
+            className="h-full overflow-hidden font-sans"
+            style={{
+              background: 'rgba(255,255,255,0.06)',
+              border: '1px solid rgba(255,255,255,0.09)',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.18), 0 1px 0 rgba(255,255,255,0.07) inset',
+              borderRadius: 20,
+            }}>
             <TomorrowPlanWidget
               selectedDate={selectedDate}
               journalContent={journalContent}

@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { MemoPageSkeleton } from '@/components/ui/Skeleton'
@@ -20,11 +20,11 @@ function formatMonthLabel(ym: string): string {
 }
 
 const TAG_BADGE: Record<MemoTag, string> = {
-  '공지':    'bg-[#F0E8C8]/70 text-[#7A5E1A] border-[#DDD0A0]/60',
-  '업무관련': 'bg-[#C8D8C8]/60 text-[#3A5A3A] border-[#A8C4A8]/55',
-  '회의관련': 'bg-[#C8D0DC]/60 text-[#3A4A5A] border-[#A8B8CC]/55',
-  '아이디어': 'bg-[#DCC8C8]/60 text-[#6A3A3A] border-[#CCA8A8]/55',
-  '완료':    'bg-[#D8D8CC]/60 text-[#5A5A48] border-[#C4C4B0]/55',
+  '공지':    'bg-[#DDD0A0]/10 text-[#DDD0A0] border-[#DDD0A0]/25',
+  '업무관련': 'bg-[#A8C4A8]/10 text-[#A8C4A8] border-[#A8C4A8]/25',
+  '회의관련': 'bg-[#A8B8CC]/10 text-[#A8B8CC] border-[#A8B8CC]/25',
+  '아이디어': 'bg-[#CCA8A8]/10 text-[#CCA8A8] border-[#CCA8A8]/25',
+  '완료':    'bg-[#C4C4B0]/10 text-[#C4C4B0] border-[#C4C4B0]/25',
 }
 
 const TAG_ACCENT: Record<MemoTag, string> = {
@@ -37,7 +37,7 @@ const TAG_ACCENT: Record<MemoTag, string> = {
 
 const pill  = 'text-xs px-3.5 py-1.5 rounded-full border font-medium transition-all whitespace-nowrap'
 const pOn  = 'bg-[#1B3A6B] text-white border-[#1B3A6B] shadow-sm'
-const pOff = 'bg-white/40 backdrop-blur-xl border-white/60 text-gray-500 hover:bg-white/60 hover:text-gray-700'
+const pOff = 'bg-white/[0.06] backdrop-blur-xl border-white/[0.09] text-white/50 hover:bg-white/[0.1] hover:text-[#E2E8F0]'
 
 interface MemoCardProps {
   memo: QuickMemo
@@ -55,12 +55,13 @@ function MemoCard({ memo, onEdit, onDelete, draggable: drag, onDragStart, select
       draggable={drag}
       onDragStart={onDragStart}
       onClick={() => onEdit(memo)}
-      className={`group relative bg-white/40 backdrop-blur-xl border-t-2 border border-white/60 rounded-2xl p-3 cursor-pointer select-none transition-all overflow-hidden h-28 flex flex-col ${TAG_ACCENT[memo.tag]} ${selected ? 'bg-white/70 ring-1 ring-[#C7D8F0]/60' : 'hover:bg-white/60 hover:shadow-sm'}`}>
-      <p className="text-xs font-semibold text-gray-800 leading-snug line-clamp-2 flex-shrink-0">
+      className={`group relative border-t-2 border border-white/[0.09] rounded-2xl p-3 cursor-pointer select-none transition-all overflow-hidden h-full flex flex-col ${TAG_ACCENT[memo.tag]} ${selected ? 'bg-white/[0.12]' : 'bg-white/[0.06] hover:bg-white/[0.09]'}`}
+      style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.18)' }}>
+      <p className="text-xs font-semibold text-[#E2E8F0] leading-snug line-clamp-2 flex-shrink-0">
         {memo.title}
       </p>
       {memo.content && (
-        <p className="text-[10px] text-gray-500 leading-relaxed line-clamp-2 break-words whitespace-pre-wrap mt-1 flex-1 overflow-hidden">
+        <p className="text-[10px] leading-relaxed line-clamp-2 break-words whitespace-pre-wrap mt-1 flex-1 overflow-hidden text-white/50">
           {memo.content}
         </p>
       )}
@@ -69,15 +70,15 @@ function MemoCard({ memo, onEdit, onDelete, draggable: drag, onDragStart, select
         <input type="checkbox" checked={selected ?? false}
           onChange={e => { e.stopPropagation(); onToggleSelect?.(memo.id) }}
           onClick={e => e.stopPropagation()}
-          className="w-3 h-3 rounded accent-gray-700 flex-shrink-0 cursor-pointer" />
+          className="w-3 h-3 rounded accent-gray-400 flex-shrink-0 cursor-pointer" />
         <span className={`text-[9px] px-1.5 py-0.5 rounded-full border font-medium flex-shrink-0 ${TAG_BADGE[memo.tag]}`}>
           {memo.tag}
         </span>
-        <span className="text-[9px] text-gray-300 ml-auto">
+        <span className="text-[9px] text-white/[0.28] ml-auto">
           {format(parseISO(memo.created_at), 'M/d', { locale: ko })}
         </span>
         <button onClick={e => { e.stopPropagation(); onDelete(memo.id) }}
-          className="text-[9px] text-gray-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">
+          className="text-[9px] text-white/[0.28] hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">
           삭제
         </button>
       </div>
@@ -102,61 +103,75 @@ function EditModal({ memo, onSave, onClose }: EditModalProps) {
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 backdrop-blur-sm p-4" onClick={onClose}>
-      <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/80 p-6 w-full max-w-sm md:max-w-3xl flex flex-col" style={{ height: 'min(82vh, 860px)', maxHeight: '90vh' }} onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm p-4"
+      style={{ background: 'rgba(0,0,0,0.6)' }}
+      onClick={onClose}>
+      <div
+        className="backdrop-blur-xl rounded-3xl p-6 w-full max-w-sm md:max-w-3xl flex flex-col"
+        style={{
+          height: 'min(82vh, 860px)',
+          maxHeight: '90vh',
+          background: 'rgba(255,255,255,0.06)',
+          border: '1px solid rgba(255,255,255,0.09)',
+          boxShadow: '0 20px 40px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.07) inset',
+        }}
+        onClick={e => e.stopPropagation()}>
         {/* 태그 + 닫기 */}
         <div className="flex items-center justify-between mb-4 flex-shrink-0">
           <div className="flex gap-1.5 flex-wrap">
             {ALL_TAGS.map(t => (
               <button key={t} onClick={() => setTag(t)}
-                className={`text-xs px-3 py-1.5 rounded-full border transition-all font-medium ${tag === t ? pOn : `border-gray-200 text-gray-500 hover:bg-gray-50 ${TAG_BADGE[t]}`}`}>
+                className={`text-xs px-3 py-1.5 rounded-full border transition-all font-medium ${tag === t ? pOn : `border-white/[0.09] text-white/50 hover:bg-white/[0.06] ${TAG_BADGE[t]}`}`}>
                 {t}
               </button>
             ))}
           </div>
-          <button onClick={onClose} className="text-gray-300 hover:text-gray-500 text-lg leading-none ml-3 flex-shrink-0">×</button>
+          <button onClick={onClose} className="text-white/[0.28] hover:text-white/70 text-lg leading-none ml-3 flex-shrink-0 transition-colors">×</button>
         </div>
         {/* 제목 */}
         <input value={title} onChange={e => setTitle(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') onSave(memo.id, title, content, tag) }}
           autoFocus={!memo.content}
           placeholder="제목"
-          className="w-full text-base font-semibold text-gray-800 border-b border-gray-200 pb-2 mb-3 focus:outline-none bg-transparent flex-shrink-0" />
+          className="w-full text-base font-semibold text-[#E2E8F0] pb-2 mb-3 focus:outline-none bg-transparent flex-shrink-0 placeholder:text-white/30"
+          style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }} />
         {/* 편집/미리보기 탭 */}
         <div className="flex gap-1 mb-2 flex-shrink-0">
           <button onClick={() => setMode('edit')}
-            className={`text-xs px-3 py-1 rounded-full border transition-all font-medium ${mode === 'edit' ? 'bg-[#1B3A6B] text-white border-[#1B3A6B]' : 'bg-white/60 text-gray-400 border-gray-200 hover:text-gray-600'}`}>
+            className={`text-xs px-3 py-1 rounded-full border transition-all font-medium ${mode === 'edit' ? 'bg-[#1B3A6B] text-white border-[#1B3A6B]' : 'border-white/[0.09] text-white/50 hover:bg-white/[0.06] hover:text-white/70'}`}>
             편집
           </button>
           <button onClick={() => setMode('preview')}
-            className={`text-xs px-3 py-1 rounded-full border transition-all font-medium ${mode === 'preview' ? 'bg-[#1B3A6B] text-white border-[#1B3A6B]' : 'bg-white/60 text-gray-400 border-gray-200 hover:text-gray-600'}`}>
+            className={`text-xs px-3 py-1 rounded-full border transition-all font-medium ${mode === 'preview' ? 'bg-[#1B3A6B] text-white border-[#1B3A6B]' : 'border-white/[0.09] text-white/50 hover:bg-white/[0.06] hover:text-white/70'}`}>
             미리보기
           </button>
         </div>
         {/* 내용 영역 */}
         {mode === 'edit' ? (
-          <div className="flex-1 min-h-0 overflow-y-auto bg-white/60 border border-gray-100 rounded-2xl">
+          <div className="flex-1 min-h-0 overflow-y-auto rounded-2xl"
+            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
             <SmartTextarea
               value={content}
               onChange={setContent}
               onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) onSave(memo.id, title, content, tag) }}
               autoFocus={!!memo.content}
               placeholder="내용 (Ctrl+Enter 저장)"
-              className="w-full text-sm text-gray-600 focus:outline-none resize-none bg-transparent p-3"
+              className="w-full text-sm text-[#E2E8F0] focus:outline-none resize-none bg-transparent p-3 placeholder:text-white/30"
               style={{ minHeight: '100%' }}
             />
           </div>
         ) : (
-          <div className="flex-1 min-h-0 overflow-y-auto bg-white/60 border border-gray-100 rounded-2xl p-4 cursor-text"
+          <div className="flex-1 min-h-0 overflow-y-auto rounded-2xl p-4 cursor-text"
+            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}
             onClick={() => setMode('edit')}>
             {content
-              ? <MarkdownContent content={content} className="text-sm text-gray-700" />
-              : <p className="text-sm text-gray-300">내용 없음 — 클릭해서 편집</p>}
+              ? <MarkdownContent content={content} className="text-sm text-[#E2E8F0]" />
+              : <p className="text-sm text-white/[0.28]">내용 없음 — 클릭해서 편집</p>}
           </div>
         )}
         {/* 하단 버튼 */}
         <div className="flex justify-between items-center mt-4 flex-shrink-0">
-          <p className="text-[10px] text-gray-300">
+          <p className="text-[10px] text-white/[0.28]">
             {mode === 'edit' ? 'Ctrl+Enter 저장 · Esc 닫기' : '클릭하면 편집 모드로 전환'}
           </p>
           <div className="flex gap-2">
@@ -305,30 +320,32 @@ export default function MemosPage() {
   if (loading) return <MemoPageSkeleton />
 
   return (
-    <div className="h-full flex flex-col overflow-hidden font-sans">
+    <div className="h-full flex flex-col overflow-hidden font-sans" style={{ background: '#13151C', minHeight: '100%' }}>
       {editing && <EditModal memo={editing} onSave={saveEdit} onClose={() => setEditing(null)} />}
 
       {/* 헤더 */}
       <div className="flex-shrink-0 pt-6 pb-4 flex items-center gap-3">
-        <h1 className="text-xl font-bold text-gray-900 mr-auto">메모</h1>
+        <h1 className="text-xl font-bold text-[#E2E8F0] mr-auto">메모</h1>
         {selectedIds.size > 0 && (
           <button onClick={deleteSelected}
-            className="text-xs bg-red-50 border border-red-200 text-red-500 px-3 py-1.5 rounded-full hover:bg-red-100 transition-all">
+            className="text-xs border text-red-400 border-red-400/30 px-3 py-1.5 rounded-full transition-all hover:bg-red-400/10">
             {selectedIds.size}개 삭제
           </button>
         )}
-        <span className="text-xs text-gray-400 bg-white/40 backdrop-blur-xl border border-white/60 px-3 py-1.5 rounded-full">
+        <span className="text-xs text-white/50 border border-white/[0.09] px-3 py-1.5 rounded-full"
+          style={{ background: 'rgba(255,255,255,0.06)' }}>
           총 {memos.length}개
         </span>
         <button onClick={() => setShowAddForm(v => !v)}
-          className="text-sm bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] px-4 py-2 rounded-full hover:bg-[#D5E6F7] transition-colors shadow-sm">
+          className="text-sm bg-[#1B3A6B]/40 text-[#A8C4F0] border border-[#1B3A6B]/50 px-4 py-2 rounded-full hover:bg-[#1B3A6B]/60 transition-colors">
           + 메모 추가
         </button>
       </div>
 
       {/* 빠른 추가 폼 */}
       {showAddForm && (
-        <div className="flex-shrink-0 bg-white/60 backdrop-blur-xl border border-white/80 rounded-3xl p-5 mb-3 shadow-sm">
+        <div className="flex-shrink-0 backdrop-blur-xl rounded-3xl p-5 mb-3 flex-shrink-0"
+          style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.09)', boxShadow: '0 4px 16px rgba(0,0,0,0.2)' }}>
           <div className="flex gap-1.5 mb-3 flex-wrap">
             {ALL_TAGS.map(t => (
               <button key={t} onClick={() => setNewTag(t)}
@@ -340,11 +357,12 @@ export default function MemosPage() {
           <input autoFocus value={newTitle} onChange={e => setNewTitle(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); inlineContentRef.current?.focus() } if (e.key === 'Escape') setShowAddForm(false) }}
             placeholder="제목"
-            className="w-full text-sm font-semibold text-gray-800 focus:outline-none border-b border-gray-200 pb-2 mb-2 bg-transparent" />
+            className="w-full text-sm font-semibold text-[#E2E8F0] focus:outline-none pb-2 mb-2 bg-transparent placeholder:text-white/30"
+            style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }} />
           <textarea ref={inlineContentRef} value={newContent} onChange={e => setNewContent(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleAddSave() }}
             placeholder="내용 (선택, Ctrl+Enter 저장)" rows={2}
-            className="w-full text-xs focus:outline-none resize-none text-gray-500 bg-transparent" />
+            className="w-full text-xs focus:outline-none resize-none text-white/50 bg-transparent placeholder:text-white/30" />
           <div className="flex gap-2 justify-end mt-2">
             <button onClick={() => setShowAddForm(false)} className={`${pill} ${pOff}`}>취소</button>
             <button onClick={handleAddSave} className={`${pill} ${pOn}`}>저장</button>
@@ -380,18 +398,20 @@ export default function MemosPage() {
             {noticeMemos.length > 0 && (
               <div>
                 <button onClick={() => toggleTagCollapse('공지')}
-                  className="flex items-center gap-2 w-full text-left group mb-3 border-b border-[#DDD0A0]/40 pb-2">
+                  className="flex items-center gap-2 w-full text-left group mb-3 pb-2"
+                  style={{ borderBottom: '1px solid rgba(221,208,160,0.25)' }}>
                   <span className="text-[10px] mr-0.5">📌</span>
                   <span className={`text-xs font-semibold px-3 py-1 rounded-full border ${TAG_BADGE['공지']}`}>공지</span>
-                  <span className="text-xs text-gray-400 bg-white/60 border border-white/70 px-2 py-0.5 rounded-full">{noticeMemos.length}개</span>
-                  <span className="text-[10px] text-gray-300 ml-auto group-hover:text-gray-500 transition-colors">
+                  <span className="text-xs text-white/50 border border-white/[0.09] px-2 py-0.5 rounded-full"
+                    style={{ background: 'rgba(255,255,255,0.06)' }}>{noticeMemos.length}개</span>
+                  <span className="text-[10px] text-white/[0.28] ml-auto group-hover:text-white/50 transition-colors">
                     {collapsedTags.has('공지') ? '▶' : '▼'}
                   </span>
                 </button>
                 {!collapsedTags.has('공지') && (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
                     {noticeMemos.map(memo => (
-                      <div key={memo.id} onDragOver={e => e.preventDefault()} onDrop={() => handleDropOnTag(memo.tag)}>
+                      <div key={memo.id} className="aspect-square" onDragOver={e => e.preventDefault()} onDrop={() => handleDropOnTag(memo.tag)}>
                         <MemoCard memo={memo} onEdit={setEditing} onDelete={deleteMemo}
                           draggable onDragStart={() => setDraggingId(memo.id)}
                           selected={selectedIds.has(memo.id)} onToggleSelect={toggleSelect} />
@@ -408,17 +428,19 @@ export default function MemosPage() {
               return (
                 <div key={tag}>
                   <button onClick={() => toggleTagCollapse(tag)}
-                    className="flex items-center gap-2 w-full text-left group mb-3 border-b border-white/40 pb-2">
+                    className="flex items-center gap-2 w-full text-left group mb-3 pb-2"
+                    style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                     <span className={`text-xs font-semibold px-3 py-1 rounded-full border ${TAG_BADGE[tag]}`}>{tag}</span>
-                    <span className="text-xs text-gray-400 bg-white/60 border border-white/70 px-2 py-0.5 rounded-full">{items.length}개</span>
-                    <span className="text-[10px] text-gray-300 ml-auto group-hover:text-gray-500 transition-colors">
+                    <span className="text-xs text-white/50 border border-white/[0.09] px-2 py-0.5 rounded-full"
+                      style={{ background: 'rgba(255,255,255,0.06)' }}>{items.length}개</span>
+                    <span className="text-[10px] text-white/[0.28] ml-auto group-hover:text-white/50 transition-colors">
                       {isCollapsed ? '▶' : '▼'}
                     </span>
                   </button>
                   {!isCollapsed && (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
                       {items.map(memo => (
-                        <div key={memo.id} onDragOver={e => e.preventDefault()} onDrop={() => handleDropOnTag(memo.tag)}>
+                        <div key={memo.id} className="aspect-square" onDragOver={e => e.preventDefault()} onDrop={() => handleDropOnTag(memo.tag)}>
                           <MemoCard memo={memo} onEdit={setEditing} onDelete={deleteMemo}
                             draggable onDragStart={() => setDraggingId(memo.id)}
                             selected={selectedIds.has(memo.id)} onToggleSelect={toggleSelect} />
@@ -432,7 +454,7 @@ export default function MemosPage() {
 
             {noticeMemos.length === 0 && tagSections.length === 0 && (
               <div className="flex items-center justify-center h-40">
-                <p className="text-gray-300 text-sm">메모가 없습니다. 추가해 보세요!</p>
+                <p className="text-white/[0.28] text-sm">메모가 없습니다. 추가해 보세요!</p>
               </div>
             )}
 
@@ -449,24 +471,27 @@ export default function MemosPage() {
           <div className="space-y-6 pb-6">
             {displayed.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-40 gap-2">
-                <p className="text-gray-300 text-sm">해당 태그의 메모가 없습니다</p>
-                <button onClick={() => setFilterTag('전체')} className={`${pill} ${pOff} text-gray-400`}>전체 보기</button>
+                <p className="text-white/[0.28] text-sm">해당 태그의 메모가 없습니다</p>
+                <button onClick={() => setFilterTag('전체')} className={`${pill} ${pOff} text-white/50`}>전체 보기</button>
               </div>
             ) : monthGroups.map(([ym, items], idx) => {
               const isCollapsed = collapsedMonths.has(ym)
               return (
                 <div key={ym}>
                   <button onClick={() => toggleMonthCollapse(ym)}
-                    className="flex items-center gap-2 mb-4 w-full text-left group py-1 border-b border-white/50 pb-2">
-                    <span className="text-sm font-semibold text-gray-600 group-hover:text-gray-800 transition-colors">{formatMonthLabel(ym)}</span>
-                    <span className="text-xs text-gray-400 bg-white/60 border border-white/70 px-2 py-0.5 rounded-full">{items.length}개</span>
-                    {idx === 0 && <span className="text-[10px] text-[#1B3A6B] bg-[#C7D8F0]/30 border border-[#C7D8F0]/40 px-2 py-0.5 rounded-full">최신</span>}
-                    <span className="text-xs text-gray-300 ml-auto group-hover:text-gray-500 transition-colors">{isCollapsed ? '▶' : '▼'}</span>
+                    className="flex items-center gap-2 mb-4 w-full text-left group py-1 pb-2"
+                    style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                    <span className="text-sm font-semibold text-white/70 group-hover:text-[#E2E8F0] transition-colors">{formatMonthLabel(ym)}</span>
+                    <span className="text-xs text-white/50 border border-white/[0.09] px-2 py-0.5 rounded-full"
+                      style={{ background: 'rgba(255,255,255,0.06)' }}>{items.length}개</span>
+                    {idx === 0 && <span className="text-[10px] text-[#A8C4F0] border border-[#1B3A6B]/40 px-2 py-0.5 rounded-full"
+                      style={{ background: 'rgba(27,58,107,0.2)' }}>최신</span>}
+                    <span className="text-xs text-white/[0.28] ml-auto group-hover:text-white/50 transition-colors">{isCollapsed ? '▶' : '▼'}</span>
                   </button>
                   {!isCollapsed && (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
                       {items.map((memo: QuickMemo) => (
-                        <div key={memo.id} onDragOver={e => e.preventDefault()} onDrop={() => handleDropOnTag(memo.tag)}>
+                        <div key={memo.id} className="aspect-square" onDragOver={e => e.preventDefault()} onDrop={() => handleDropOnTag(memo.tag)}>
                           <MemoCard memo={memo} onEdit={setEditing} onDelete={deleteMemo}
                             draggable onDragStart={() => setDraggingId(memo.id)}
                             selected={selectedIds.has(memo.id)} onToggleSelect={toggleSelect} />
@@ -495,7 +520,8 @@ function InlineAddForm({ inlineTag, setInlineTag, inlineTitle, setInlineTitle, i
   ALL_TAGS: MemoTag[]
 }) {
   return inlineTag ? (
-    <div className="bg-white/60 backdrop-blur-xl border border-white/80 rounded-3xl p-4 shadow-sm">
+    <div className="backdrop-blur-xl rounded-3xl p-4"
+      style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.09)', boxShadow: '0 4px 12px rgba(0,0,0,0.18)' }}>
       <div className="flex gap-1.5 mb-3 flex-wrap">
         {ALL_TAGS.map(t => (
           <button key={t} onClick={() => setInlineTag(t)}
@@ -507,11 +533,12 @@ function InlineAddForm({ inlineTag, setInlineTag, inlineTitle, setInlineTitle, i
       <input autoFocus value={inlineTitle} onChange={e => setInlineTitle(e.target.value)}
         onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); inlineContentRef.current?.focus() } if (e.key === 'Escape') { setInlineTag(null); setInlineTitle(''); setInlineContent('') } }}
         placeholder="제목"
-        className="w-full text-sm font-semibold text-gray-800 focus:outline-none border-b border-gray-200 pb-1.5 mb-1.5 bg-transparent" />
+        className="w-full text-sm font-semibold text-[#E2E8F0] focus:outline-none pb-1.5 mb-1.5 bg-transparent placeholder:text-white/30"
+        style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }} />
       <textarea ref={inlineContentRef} value={inlineContent} onChange={e => setInlineContent(e.target.value)}
         onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleInlineSave(inlineTag!) }}
         placeholder="내용 (선택)" rows={2}
-        className="w-full text-xs focus:outline-none resize-none text-gray-500 bg-transparent" />
+        className="w-full text-xs focus:outline-none resize-none text-white/50 bg-transparent placeholder:text-white/30" />
       <div className="flex gap-1 justify-end mt-2">
         <button onClick={() => { setInlineTag(null); setInlineTitle(''); setInlineContent('') }} className={`${pill} ${pOff} !text-[10px] !px-2.5 !py-1`}>취소</button>
         <button onClick={() => handleInlineSave(inlineTag!)} className={`${pill} ${pOn} !text-[10px] !px-2.5 !py-1`}>저장</button>
@@ -519,7 +546,7 @@ function InlineAddForm({ inlineTag, setInlineTag, inlineTitle, setInlineTitle, i
     </div>
   ) : (
     <button onClick={() => setInlineTag('업무관련')}
-      className="w-full bg-white/20 backdrop-blur-xl border border-dashed border-white/50 rounded-3xl py-6 hover:bg-white/30 hover:border-white/70 transition-all text-gray-400 hover:text-gray-600 text-xs font-medium">
+      className="w-full backdrop-blur-xl border border-dashed border-white/[0.09] rounded-3xl py-6 hover:bg-white/[0.06] hover:border-white/[0.15] transition-all text-white/[0.28] hover:text-white/50 text-xs font-medium">
       + 메모 추가
     </button>
   )
