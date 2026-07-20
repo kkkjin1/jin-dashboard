@@ -111,7 +111,7 @@ export default function LearningPage() {
   function getLabel(key: string, fallback: string) { return colLabels[key] ?? fallback }
 
   // 컬럼 너비 (드래그 리사이즈, 전체 컬럼 통합)
-  const DEFAULT_CW = { title: 300, media: 56, source: 180, date: 60, status: 60, notes: 48 }
+  const DEFAULT_CW = { title: 300, media: 56, source: 180, date: 60, status: 60, notes: 200 }
   type CWKey = keyof typeof DEFAULT_CW
   const [colWidths, setColWidths] = useState<typeof DEFAULT_CW>(() => {
     try {
@@ -633,10 +633,20 @@ function handleDragLeave(e: React.DragEvent) {
                                       </div>
                                     )}
 
-                                    {/* 노트 셀 */}
+                                    {/* 노트 셀 — 핵심문구 있으면 표시, 없으면 숫자 */}
                                     {activeCols.has('notes') && (
-                                      <div className="flex-shrink-0 text-[11px] text-center" style={{ width: colWidths.notes, color: r.notes.length > 0 ? 'rgba(226,232,240,0.5)' : 'rgba(226,232,240,0.15)' }}>
-                                        {r.notes.length > 0 ? r.notes.length : '—'}
+                                      <div className="flex-shrink-0 overflow-hidden" style={{ width: colWidths.notes }}>
+                                        {r.notes[0]?.summary ? (
+                                          <span className="block truncate text-[11px]" style={{ color: 'rgba(226,232,240,0.5)' }}>
+                                            {r.notes[0].summary}
+                                          </span>
+                                        ) : r.notes.length > 0 ? (
+                                          <span className="block text-[11px] text-center" style={{ color: 'rgba(226,232,240,0.35)' }}>
+                                            {r.notes.length}
+                                          </span>
+                                        ) : (
+                                          <span className="block text-[11px] text-center" style={{ color: 'rgba(226,232,240,0.15)' }}>—</span>
+                                        )}
                                       </div>
                                     )}
 
