@@ -635,7 +635,7 @@ function handleDragLeave(e: React.DragEvent) {
 
                                     {/* 노트 셀 — 핵심문구 있으면 표시, 없으면 숫자 */}
                                     {activeCols.has('notes') && (
-                                      <div className="flex-shrink-0 overflow-hidden" style={{ width: colWidths.notes }}>
+                                      <div className="flex-shrink-0 overflow-hidden flex items-center justify-center" style={{ width: colWidths.notes }}>
                                         {r.notes[0]?.summary ? (
                                           <span className="block truncate text-[11px] text-center" style={{ color: 'rgba(226,232,240,0.5)' }}>
                                             {r.notes[0].summary}
