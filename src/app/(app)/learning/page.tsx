@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { format, parseISO } from 'date-fns'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -91,6 +91,58 @@ export default function LearningPage() {
     })
   }
   const visibleCols = COL_DEFS.filter(c => activeCols.has(c.key))
+
+  // 제목 컬럼 너비 (드래그 리사이즈)
+  const [titleColWidth, setTitleColWidth] = useState<number>(() => {
+    try { const s = localStorage.getItem('learning_title_w'); if (s) return Number(s) } catch {}
+    return 300
+  })
+  const titleResizeRef = useRef<{ startX: number; startW: number } | null>(null)
+  function handleTitleResizeStart(e: React.MouseEvent) {
+    e.preventDefault()
+    titleResizeRef.current = { startX: e.clientX, startW: titleColWidth }
+    function onMove(ev: MouseEvent) {
+      if (!titleResizeRef.current) return
+      const newW = Math.max(120, titleResizeRef.current.startW + ev.clientX - titleResizeRef.current.startX)
+      setTitleColWidth(newW)
+      localStorage.setItem('learning_title_w', String(newW))
+    }
+    function onUp() {
+      titleResizeRef.current = null
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+    }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }
+
+  // 행 인라인 편집
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editTitle, setEditTitle] = useState('')
+  const [editMedia, setEditMedia] = useState('')
+  const [editSource, setEditSource] = useState('')
+  function startEdit(r: LearningResource) {
+    setEditingId(r.id); setEditTitle(r.title || ''); setEditMedia(r.media_type || ''); setEditSource(r.source || '')
+  }
+  function cancelEdit() { setEditingId(null) }
+  async function saveEdit(id: string) {
+    const orig = resources.find(r => r.id === id)
+    if (!orig) return
+    const patch = { title: editTitle.trim() || orig.title, source: editSource.trim() || null, media_type: editMedia || null }
+    await supabase.from('learning_resources').update(patch).eq('id', id)
+    setResources(prev => prev.map(r => r.id === id ? ({ ...r, ...patch } as LearningResource) : r))
+    setEditingId(null)
+  }
+  async function deleteResource(id: string) {
+    if (!confirm('이 자료를 삭제하시겠습니까?')) return
+    await supabase.from('learning_resources').delete().eq('id', id)
+    setResources(prev => prev.filter(r => r.id !== id))
+  }
+  async function cycleStatus(r: LearningResource) {
+    const cur = getStatus(r.tags ?? [])
+    const next: Status = cur === 'todo' ? 'doing' : cur === 'doing' ? 'done' : 'todo'
+    setResourceStatus(r.id, next)
+  }
 
   // 드래그
   const [dragOverTarget, setDragOverTarget] = useState<string | null>(null)
@@ -369,7 +421,7 @@ function handleDragLeave(e: React.DragEvent) {
           {/* 범주별 표 섹션 */}
           {loading ? (
             <div className="space-y-1">
-              {[1,2,3,4,5,6].map(i => <div key={i} className="h-9 rounded-md animate-pulse bg-[rgba(255,255,255,0.06)]" />)}
+              {[1,2,3,4,5,6].map(i => <div key={i} className="h-10 rounded-md animate-pulse bg-[rgba(255,255,255,0.06)]" />)}
             </div>
           ) : (
             <div className="space-y-6">
@@ -381,10 +433,10 @@ function handleDragLeave(e: React.DragEvent) {
 
                 return (
                   <div key={tag}>
-                    {/* 범주 헤더 — 클릭으로 접기/펼치기 */}
+                    {/* 범주 헤더 */}
                     <button
                       onClick={() => toggleTagCollapse(tag)}
-                      className="flex items-center gap-2 w-full text-left mb-0 pb-2 hover:opacity-80 transition-opacity">
+                      className="flex items-center gap-2 w-full text-left pb-2 hover:opacity-80 transition-opacity">
                       <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border flex-shrink-0 ${badge}`}>{tag}</span>
                       <span className="text-[10px]" style={{ color: 'rgba(226,232,240,0.4)' }}>{total}개</span>
                       <span className="ml-auto text-[9px]" style={{ color: 'rgba(226,232,240,0.28)', transform: isCollapsed ? 'rotate(0deg)' : 'rotate(90deg)', display: 'inline-block', transition: 'transform .15s' }}>▶</span>
@@ -393,15 +445,25 @@ function handleDragLeave(e: React.DragEvent) {
                     {!isCollapsed && (
                       <div>
                         {/* 컬럼 헤더 행 */}
-                        <div className="flex items-center py-1.5 px-1 select-none"
-                          style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', borderTop: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)' }}>
-                          <div className="flex-1 min-w-0 text-[10px] font-semibold pl-1" style={{ color: 'rgba(226,232,240,0.35)', letterSpacing: '.04em' }}>제목</div>
+                        <div className="flex items-center py-2 px-1 select-none"
+                          style={{ borderBottom: '1px solid rgba(255,255,255,0.12)', borderTop: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.025)' }}>
+                          {/* 제목 헤더 + 리사이즈 핸들 */}
+                          <div className="relative flex-shrink-0 pl-1" style={{ flexBasis: titleColWidth, flexGrow: 1, flexShrink: 0 }}>
+                            <span className="text-[11px] font-semibold" style={{ color: 'rgba(226,232,240,0.38)', letterSpacing: '.05em' }}>제목</span>
+                            <div
+                              className="absolute right-0 top-0 bottom-0 w-3 cursor-col-resize flex items-center justify-center group/rsz"
+                              onMouseDown={handleTitleResizeStart}>
+                              <div className="w-px h-3.5 group-hover/rsz:h-full transition-all" style={{ background: 'rgba(255,255,255,0.18)' }} />
+                            </div>
+                          </div>
                           {visibleCols.map(col => (
-                            <div key={col.key} className="flex-shrink-0 text-[10px] font-semibold"
-                              style={{ width: col.w, textAlign: (col.align as 'center' | 'left' | 'right' | undefined) ?? 'left', color: 'rgba(226,232,240,0.35)', letterSpacing: '.04em' }}>
+                            <div key={col.key} className="flex-shrink-0 text-[11px] font-semibold"
+                              style={{ width: col.w, textAlign: (col.align as 'center' | 'left' | 'right' | undefined) ?? 'left', color: 'rgba(226,232,240,0.38)', letterSpacing: '.05em' }}>
                               {col.label}
                             </div>
                           ))}
+                          {/* 액션 컬럼 자리 */}
+                          <div className="flex-shrink-0" style={{ width: '52px' }} />
                         </div>
 
                         {/* 상태 그룹별 데이터 행 */}
@@ -414,64 +476,140 @@ function handleDragLeave(e: React.DragEvent) {
 
                           return (
                             <div key={status}
-                              className={`transition-colors ${isOver ? 'bg-[rgba(186,222,200,0.05)]' : ''}`}
-                              onDragOver={e => { e.preventDefault(); setDragOverTarget(groupKey) }}
-                              onDrop={e => { e.preventDefault(); const id = e.dataTransfer.getData('rid'); if (id) setResourceStatus(id, status) }}
-                              onDragLeave={handleDragLeave}>
-                              {items.length === 0 && isOver ? (
-                                <div className="flex items-center px-2 py-2 text-[10px]" style={{ color: 'rgba(226,232,240,0.3)', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                                  <span className="flex-1">여기에 놓기 → {STATUS_LABELS[status]}</span>
+                              className={`transition-colors rounded-sm ${isOver ? 'bg-[rgba(186,222,200,0.05)]' : ''}`}
+                              style={{ minHeight: isDragging && items.length === 0 ? '40px' : undefined }}
+                              onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDragOverTarget(groupKey) }}
+                              onDrop={e => { e.preventDefault(); e.stopPropagation(); const id = e.dataTransfer.getData('rid'); if (id) setResourceStatus(id, status) }}
+                              onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverTarget(null) }}>
+                              {/* 빈 드롭존 표시 */}
+                              {items.length === 0 && (
+                                <div className="flex items-center px-2 py-2.5 text-[11px]"
+                                  style={{ color: isOver ? 'rgba(186,222,200,0.6)' : 'rgba(226,232,240,0.2)', borderBottom: '1px solid rgba(255,255,255,0.04)', minHeight: '40px' }}>
+                                  {isOver ? `여기에 놓기 → ${STATUS_LABELS[status]}` : `── ${STATUS_LABELS[status]} ──`}
                                 </div>
-                              ) : items.map(r => {
+                              )}
+                              {items.map(r => {
                                 const rStatus = getStatus(r.tags ?? [])
+                                const isEditing = editingId === r.id
                                 return (
                                   <div key={r.id}
-                                    className={`cursor-grab active:cursor-grabbing ${isDone ? 'opacity-40 hover:opacity-60' : ''}`}
-                                    draggable
-                                    onDragStart={e => { e.dataTransfer.setData('rid', r.id); setIsDragging(true) }}
+                                    className={`group/row flex items-center py-3 px-1 transition-colors ${isDone && !isEditing ? 'opacity-50 hover:opacity-75' : ''} ${isEditing ? 'bg-[rgba(255,255,255,0.05)]' : 'hover:bg-[rgba(255,255,255,0.04)]'} ${!isEditing ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                                    style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}
+                                    draggable={!isEditing}
+                                    onDragStart={!isEditing ? e => { e.dataTransfer.setData('rid', r.id); setIsDragging(true) } : undefined}
                                     onDragEnd={() => setIsDragging(false)}>
-                                    <Link href={`/learning/${r.id}`}
-                                      className="flex items-center py-2 px-1 hover:bg-[rgba(255,255,255,0.04)] transition-colors group/row"
-                                      style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                                      {/* 제목 (flex-1) */}
-                                      <div className="flex-1 min-w-0 pl-1">
-                                        <p className={`text-[12px] font-medium truncate ${isDone ? 'text-[rgba(226,232,240,0.3)] line-through decoration-gray-500' : 'text-[rgba(226,232,240,0.88)]'}`}>
+
+                                    {/* 제목 셀 */}
+                                    <div className="flex-shrink-0 min-w-0 pl-1 pr-2" style={{ flexBasis: titleColWidth, flexGrow: 1, flexShrink: 0 }}>
+                                      {isEditing ? (
+                                        <input
+                                          autoFocus
+                                          value={editTitle}
+                                          onChange={e => setEditTitle(e.target.value)}
+                                          onKeyDown={e => { if (e.key === 'Enter') saveEdit(r.id); if (e.key === 'Escape') cancelEdit() }}
+                                          className="w-full text-[13px] font-medium bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.12)] rounded px-2 py-0.5 focus:outline-none focus:border-[rgba(255,255,255,0.25)]"
+                                          style={{ color: 'rgba(226,232,240,0.9)' }}
+                                        />
+                                      ) : (
+                                        <Link
+                                          href={`/learning/${r.id}`}
+                                          onClick={e => e.stopPropagation()}
+                                          className={`block text-[13px] font-medium truncate ${isDone ? 'line-through decoration-gray-500 text-[rgba(226,232,240,0.3)]' : 'text-[rgba(226,232,240,0.88)] hover:text-white'}`}>
                                           {r.title || r.source || '제목 없음'}
-                                        </p>
+                                        </Link>
+                                      )}
+                                    </div>
+
+                                    {/* 미디어 셀 */}
+                                    {activeCols.has('media') && (
+                                      <div className="flex-shrink-0 text-center" style={{ width: '52px' }}>
+                                        {isEditing ? (
+                                          <select value={editMedia} onChange={e => setEditMedia(e.target.value)}
+                                            className="w-full text-[11px] bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.12)] rounded px-1 focus:outline-none"
+                                            style={{ color: 'rgba(226,232,240,0.7)' }}>
+                                            <option value="">—</option>
+                                            {Object.keys(MEDIA_ICONS).map(k => <option key={k} value={k}>{MEDIA_ICONS[k]} {k}</option>)}
+                                          </select>
+                                        ) : (
+                                          <span className="text-[15px]">{r.media_type ? MEDIA_ICONS[r.media_type] : <span style={{ color: 'rgba(226,232,240,0.15)', fontSize: 11 }}>—</span>}</span>
+                                        )}
                                       </div>
-                                      {/* 미디어 컬럼 */}
-                                      {activeCols.has('media') && (
-                                        <div className="flex-shrink-0 text-sm text-center" style={{ width: '52px' }}>
-                                          {r.media_type ? MEDIA_ICONS[r.media_type] : <span style={{ color: 'rgba(226,232,240,0.15)' }}>—</span>}
-                                        </div>
-                                      )}
-                                      {/* 출처 컬럼 */}
-                                      {activeCols.has('source') && (
-                                        <div className="flex-shrink-0 text-[10px] truncate pr-2" style={{ width: '180px', color: 'rgba(226,232,240,0.35)' }}>
-                                          {r.source || <span style={{ color: 'rgba(226,232,240,0.15)' }}>—</span>}
-                                        </div>
-                                      )}
-                                      {/* 등록일 컬럼 */}
-                                      {activeCols.has('date') && (
-                                        <div className="flex-shrink-0 text-[10px] text-center" style={{ width: '56px', color: 'rgba(226,232,240,0.3)' }}>
-                                          {format(parseISO(r.created_at), 'M.d')}
-                                        </div>
-                                      )}
-                                      {/* 상태 컬럼 */}
-                                      {activeCols.has('status') && (
-                                        <div className="flex-shrink-0 text-[10px] text-center" style={{ width: '56px' }}>
-                                          <span style={{ color: rStatus === 'done' ? 'rgba(226,232,240,0.25)' : rStatus === 'doing' ? 'rgba(52,211,153,0.7)' : 'rgba(226,232,240,0.35)' }}>
-                                            {STATUS_SHORT[rStatus]}
+                                    )}
+
+                                    {/* 출처 셀 */}
+                                    {activeCols.has('source') && (
+                                      <div className="flex-shrink-0 pr-2" style={{ width: '180px' }}>
+                                        {isEditing ? (
+                                          <input value={editSource} onChange={e => setEditSource(e.target.value)}
+                                            onKeyDown={e => { if (e.key === 'Enter') saveEdit(r.id); if (e.key === 'Escape') cancelEdit() }}
+                                            placeholder="출처 URL"
+                                            className="w-full text-[11px] bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.12)] rounded px-2 py-0.5 focus:outline-none focus:border-[rgba(255,255,255,0.25)]"
+                                            style={{ color: 'rgba(226,232,240,0.7)' }}
+                                          />
+                                        ) : (
+                                          <span className="block truncate text-[11px]" style={{ color: 'rgba(226,232,240,0.35)' }}>
+                                            {r.source || <span style={{ color: 'rgba(226,232,240,0.15)' }}>—</span>}
                                           </span>
+                                        )}
+                                      </div>
+                                    )}
+
+                                    {/* 등록일 셀 */}
+                                    {activeCols.has('date') && (
+                                      <div className="flex-shrink-0 text-[11px] text-center" style={{ width: '56px', color: 'rgba(226,232,240,0.3)' }}>
+                                        {format(parseISO(r.created_at), 'M.d')}
+                                      </div>
+                                    )}
+
+                                    {/* 상태 셀 — 클릭으로 순환 */}
+                                    {activeCols.has('status') && (
+                                      <div className="flex-shrink-0 text-center" style={{ width: '56px' }}>
+                                        <button
+                                          onClick={e => { e.stopPropagation(); cycleStatus(r) }}
+                                          className="text-[11px] rounded px-1 py-0.5 hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+                                          style={{ color: rStatus === 'done' ? 'rgba(226,232,240,0.28)' : rStatus === 'doing' ? 'rgba(52,211,153,0.75)' : 'rgba(226,232,240,0.38)' }}>
+                                          {STATUS_SHORT[rStatus]}
+                                        </button>
+                                      </div>
+                                    )}
+
+                                    {/* 노트 셀 */}
+                                    {activeCols.has('notes') && (
+                                      <div className="flex-shrink-0 text-[11px] text-center" style={{ width: '44px', color: r.notes.length > 0 ? 'rgba(226,232,240,0.5)' : 'rgba(226,232,240,0.15)' }}>
+                                        {r.notes.length > 0 ? r.notes.length : '—'}
+                                      </div>
+                                    )}
+
+                                    {/* 액션 버튼 */}
+                                    <div className="flex-shrink-0 flex items-center justify-end gap-1.5" style={{ width: '52px' }}>
+                                      {isEditing ? (
+                                        <>
+                                          <button onClick={e => { e.stopPropagation(); saveEdit(r.id) }}
+                                            className="text-[10px] px-2 py-0.5 rounded-full font-medium"
+                                            style={{ background: '#1B3A6B', color: '#E8F0FB', border: '1px solid #2A5A9B' }}>
+                                            저장
+                                          </button>
+                                          <button onClick={e => { e.stopPropagation(); cancelEdit() }}
+                                            className="text-[10px] px-1.5 py-0.5 rounded-full"
+                                            style={{ color: 'rgba(226,232,240,0.4)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                            취소
+                                          </button>
+                                        </>
+                                      ) : (
+                                        <div className="flex gap-1.5 opacity-0 group-hover/row:opacity-100 transition-opacity">
+                                          <button onClick={e => { e.stopPropagation(); startEdit(r) }}
+                                            className="w-5 h-5 rounded flex items-center justify-center text-[11px] hover:bg-[rgba(255,255,255,0.1)] transition-colors"
+                                            style={{ color: 'rgba(226,232,240,0.45)' }}>
+                                            ✎
+                                          </button>
+                                          <button onClick={e => { e.stopPropagation(); deleteResource(r.id) }}
+                                            className="w-5 h-5 rounded flex items-center justify-center text-[11px] hover:bg-[rgba(255,80,80,0.15)] hover:text-red-400 transition-colors"
+                                            style={{ color: 'rgba(226,232,240,0.3)' }}>
+                                            ×
+                                          </button>
                                         </div>
                                       )}
-                                      {/* 노트 컬럼 */}
-                                      {activeCols.has('notes') && (
-                                        <div className="flex-shrink-0 text-[10px] text-center" style={{ width: '44px', color: r.notes.length > 0 ? 'rgba(226,232,240,0.5)' : 'rgba(226,232,240,0.15)' }}>
-                                          {r.notes.length > 0 ? r.notes.length : '—'}
-                                        </div>
-                                      )}
-                                    </Link>
+                                    </div>
                                   </div>
                                 )
                               })}
