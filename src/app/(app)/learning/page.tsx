@@ -497,29 +497,33 @@ function handleDragLeave(e: React.DragEvent) {
                             </div>
                           </div>
                           {/* 옵션 컬럼 헤더들 */}
-                          {visibleCols.map(col => (
-                            <div key={col.key} className="relative flex-shrink-0 overflow-hidden group/hdr"
-                              style={{ width: colWidths[col.key as CWKey] }}>
-                              {editingColLabel === col.key ? (
-                                <input autoFocus value={editLabelVal}
-                                  onChange={e => setEditLabelVal(e.target.value)}
-                                  onBlur={() => saveColLabel(col.key)}
-                                  onKeyDown={e => { if (e.key === 'Enter') saveColLabel(col.key); if (e.key === 'Escape') setEditingColLabel(null) }}
-                                  className="text-[13px] font-semibold bg-transparent border-b border-[rgba(255,255,255,0.25)] focus:outline-none w-full pr-3"
-                                  style={{ color: 'rgba(226,232,240,0.7)', textAlign: (col.align as 'center' | 'left' | 'right' | undefined) ?? 'left' }} />
-                              ) : (
-                                <span className="text-[13px] font-semibold block cursor-text"
-                                  style={{ textAlign: (col.align as 'center' | 'left' | 'right' | undefined) ?? 'left', color: 'rgba(226,232,240,0.38)', letterSpacing: '.05em', paddingRight: col.align === 'center' ? 0 : '12px' }}
-                                  onDoubleClick={() => { setEditingColLabel(col.key); setEditLabelVal(getLabel(col.key, col.label)) }}>
-                                  {getLabel(col.key, col.label)}
-                                </span>
-                              )}
-                              <div className="absolute right-0 top-0 bottom-0 w-3 cursor-col-resize flex items-center justify-center group/rsz"
-                                onMouseDown={e => startColResize(col.key as CWKey, e)}>
-                                <div className="w-px h-3.5 group-hover/rsz:h-full transition-all" style={{ background: 'rgba(255,255,255,0.25)' }} />
+                          {visibleCols.map(col => {
+                            const isCenter = col.align === 'center'
+                            return (
+                              <div key={col.key}
+                                className="relative flex-shrink-0 flex items-center group/hdr"
+                                style={{ width: colWidths[col.key as CWKey], justifyContent: isCenter ? 'center' : 'flex-start' }}>
+                                {editingColLabel === col.key ? (
+                                  <input autoFocus value={editLabelVal}
+                                    onChange={e => setEditLabelVal(e.target.value)}
+                                    onBlur={() => saveColLabel(col.key)}
+                                    onKeyDown={e => { if (e.key === 'Enter') saveColLabel(col.key); if (e.key === 'Escape') setEditingColLabel(null) }}
+                                    className="text-[13px] font-semibold bg-transparent border-b border-[rgba(255,255,255,0.25)] focus:outline-none w-full"
+                                    style={{ color: 'rgba(226,232,240,0.7)', textAlign: isCenter ? 'center' : 'left' }} />
+                                ) : (
+                                  <span className="text-[13px] font-semibold cursor-text"
+                                    style={{ color: 'rgba(226,232,240,0.38)', letterSpacing: '.05em' }}
+                                    onDoubleClick={() => { setEditingColLabel(col.key); setEditLabelVal(getLabel(col.key, col.label)) }}>
+                                    {getLabel(col.key, col.label)}
+                                  </span>
+                                )}
+                                <div className="absolute right-0 top-0 bottom-0 w-3 cursor-col-resize flex items-center justify-center group/rsz"
+                                  onMouseDown={e => startColResize(col.key as CWKey, e)}>
+                                  <div className="w-px h-3.5 group-hover/rsz:h-full transition-all" style={{ background: 'rgba(255,255,255,0.25)' }} />
+                                </div>
                               </div>
-                            </div>
-                          ))}
+                            )
+                          })}
                           {/* 빈 공간 채우기 */}
                           <div className="flex-1 min-w-0" />
                           {/* 액션 컬럼 자리 */}
@@ -582,7 +586,7 @@ function handleDragLeave(e: React.DragEvent) {
 
                                     {/* 미디어 셀 */}
                                     {activeCols.has('media') && (
-                                      <div className="flex-shrink-0 text-center" style={{ width: colWidths.media }}>
+                                      <div className="flex-shrink-0 flex items-center justify-center" style={{ width: colWidths.media }}>
                                         {isEditing ? (
                                           <select value={editMedia} onChange={e => setEditMedia(e.target.value)}
                                             className="w-full text-[11px] bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.12)] rounded px-1 focus:outline-none"
@@ -616,14 +620,14 @@ function handleDragLeave(e: React.DragEvent) {
 
                                     {/* 등록일 셀 */}
                                     {activeCols.has('date') && (
-                                      <div className="flex-shrink-0 text-[11px] text-center" style={{ width: colWidths.date, color: 'rgba(226,232,240,0.3)' }}>
+                                      <div className="flex-shrink-0 flex items-center justify-center text-[11px]" style={{ width: colWidths.date, color: 'rgba(226,232,240,0.3)' }}>
                                         {format(parseISO(r.created_at), 'M.d')}
                                       </div>
                                     )}
 
                                     {/* 상태 셀 — 클릭으로 순환 */}
                                     {activeCols.has('status') && (
-                                      <div className="flex-shrink-0 text-center" style={{ width: colWidths.status }}>
+                                      <div className="flex-shrink-0 flex items-center justify-center" style={{ width: colWidths.status }}>
                                         <button
                                           onClick={e => { e.stopPropagation(); cycleStatus(r) }}
                                           className="text-[11px] rounded px-1 py-0.5 hover:bg-[rgba(255,255,255,0.08)] transition-colors"
