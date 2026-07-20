@@ -59,9 +59,6 @@ export default function LearningPage() {
   // 범주 필터 (null = 전체)
   const [filterTag, setFilterTag] = useState<string | null>(null)
 
-  // 그룹 토글: key = `${tag}:${status}` → collapsed
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set(['미분류:todo', '미분류:doing', '미분류:done']))
-
   // 드래그
   const [dragOverTarget, setDragOverTarget] = useState<string | null>(null)
   const [isDragging, setIsDragging] = useState(false)
@@ -119,12 +116,7 @@ export default function LearningPage() {
     setDragOverTarget(null)
   }
 
-  // ── 그룹 토글 ──────────────────────────────────────────
-  function toggleGroup(key: string) {
-    setCollapsedGroups(prev => { const s = new Set(prev); s.has(key) ? s.delete(key) : s.add(key); return s })
-  }
-
-  function handleDragLeave(e: React.DragEvent) {
+function handleDragLeave(e: React.DragEvent) {
     if (!e.relatedTarget || !e.currentTarget.contains(e.relatedTarget as Node)) setDragOverTarget(null)
   }
 
@@ -307,90 +299,65 @@ export default function LearningPage() {
 
           {/* 범주별 섹션 */}
           {loading ? (
-            <div className="grid grid-cols-2 gap-5">
-              {[1,2,3,4].map(i => <div key={i} className="space-y-2">{[1,2,3].map(j => <div key={j} className="h-9 rounded-lg animate-pulse bg-[rgba(255,255,255,0.06)]" />)}</div>)}
+            <div className="space-y-1">
+              {[1,2,3,4,5,6].map(i => <div key={i} className="h-9 rounded-md animate-pulse bg-[rgba(255,255,255,0.06)]" />)}
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="space-y-5">
               {displayCols.map(tag => {
                 const groups = tagGroups[tag] ?? { todo: [], doing: [], done: [] }
                 const total = groups.todo.length + groups.doing.length + groups.done.length
                 const badge = TAG_BADGE[tag] ?? 'bg-[#D8D4CC]/60 text-[#4C4440] border-[#C0BCAC]/70'
 
                 return (
-                  <div key={tag} className="pb-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-                    {/* 범주 헤더: badge + 개수 + 상태 토글 3개 한 줄 */}
-                    <div className="flex items-center gap-1.5 mb-3">
+                  <div key={tag}>
+                    {/* 범주 헤더 */}
+                    <div className="flex items-center gap-2 mb-1 pb-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                       <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border flex-shrink-0 ${badge}`}>{tag}</span>
-                      <span className="text-[10px] text-[rgba(226,232,240,0.4)] flex-shrink-0">{total}개</span>
-                      <div className="flex items-center gap-1 ml-auto">
-                        {STATUS_KEYS.map(status => {
-                          const count = groups[status].length
-                          const groupKey = `${tag}:${status}`
-                          const isCollapsed = collapsedGroups.has(groupKey)
-                          return (
-                            <button key={status} onClick={() => toggleGroup(groupKey)}
-                              className={`flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-full border transition-all whitespace-nowrap ${
-                                count === 0
-                                  ? isCollapsed
-                                    ? 'bg-[rgba(255,255,255,0.06)] text-[rgba(226,232,240,0.3)] border-[rgba(255,255,255,0.09)] hover:bg-[rgba(255,255,255,0.06)] hover:text-[rgba(226,232,240,0.4)]'
-                                    : 'bg-[rgba(255,255,255,0.06)] text-[rgba(226,232,240,0.4)] border-[rgba(255,255,255,0.09)] hover:bg-[rgba(255,255,255,0.06)]'
-                                  : isCollapsed
-                                    ? 'bg-[rgba(255,255,255,0.06)] text-[rgba(226,232,240,0.4)] border-[rgba(255,255,255,0.09)] hover:bg-[rgba(255,255,255,0.06)] hover:text-[rgba(226,232,240,0.7)]'
-                                    : 'bg-[rgba(255,255,255,0.06)] text-[rgba(226,232,240,0.8)] border-[rgba(255,255,255,0.09)] font-medium shadow-sm'
-                              }`}>
-                              <span className="text-[7px] leading-none">{isCollapsed ? '▶' : '▼'}</span>
-                              {STATUS_SHORT[status]} {count}
-                            </button>
-                          )
-                        })}
-                      </div>
+                      <span className="text-[10px] text-[rgba(226,232,240,0.4)]">{total}개</span>
                     </div>
 
-                    {/* 상태 그룹 */}
-                    <div className="space-y-2">
-                      {STATUS_KEYS.map(status => {
-                          const items = groups[status]
-                          const groupKey = `${tag}:${status}`
-                          const isCollapsed = collapsedGroups.has(groupKey)
-                          const isOver = dragOverTarget === groupKey
-                          const isDone = status === 'done'
+                    {/* 자료 flat 리스트 (상태별 드롭존 유지) */}
+                    {STATUS_KEYS.map(status => {
+                      const items = groups[status]
+                      if (items.length === 0 && !isDragging) return null
+                      const isDone = status === 'done'
+                      const groupKey = `${tag}:${status}`
+                      const isOver = dragOverTarget === groupKey
 
-                          if (items.length === 0 && !isOver && !isDragging && isCollapsed) return null
-
-                          return (
-                            <div key={status}>
-                              {!isCollapsed && (
-                                <div
-                                  className={`rounded-lg min-h-[2rem] transition-colors ${isOver ? 'bg-[#BADEC8]/10 ring-1 ring-[#BADEC8]/40 rounded-lg' : ''}`}
-                                  onDragOver={e => { e.preventDefault(); setDragOverTarget(groupKey) }}
-                                  onDrop={e => { e.preventDefault(); const id = e.dataTransfer.getData('rid'); if (id) setResourceStatus(id, status) }}
-                                  onDragLeave={handleDragLeave}>
-                                  {items.length === 0 ? (
-                                    <div className="text-center text-[10px] text-[rgba(226,232,240,0.3)] py-2 border border-dashed border-[rgba(255,255,255,0.08)] rounded-lg">
-                                      여기에 놓기 → {STATUS_LABELS[status]}
-                                    </div>
-                                  ) : items.map(r => (
-                                    <div key={r.id}
-                                      className={`cursor-grab active:cursor-grabbing transition-opacity ${isDone ? 'opacity-50 hover:opacity-75' : ''}`}
-                                      draggable
-                                      onDragStart={e => { e.dataTransfer.setData('rid', r.id); setIsDragging(true) }}
-                                      onDragEnd={() => setIsDragging(false)}>
-                                      <Link href={`/learning/${r.id}`}
-                                        className="flex items-center gap-2 py-2 -mx-1 px-1 hover:bg-[rgba(255,255,255,0.04)] rounded-md transition-colors"
-                                        style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                                        {r.media_type && <span className="text-xs flex-shrink-0">{MEDIA_ICONS[r.media_type]}</span>}
-                                        <p className={`text-[12px] flex-1 min-w-0 truncate ${isDone ? 'text-[rgba(226,232,240,0.35)] line-through decoration-gray-300' : 'text-[rgba(226,232,240,0.9)]'}`}>{r.title}</p>
-                                        {r.notes.length > 0 && <span className="text-[9px] text-[rgba(226,232,240,0.4)] bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] px-1 py-0.5 rounded-full flex-shrink-0 ml-auto">{r.notes.length}노트</span>}
-                                      </Link>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
+                      return (
+                        <div key={status}
+                          className={`transition-colors rounded-md ${isOver ? 'bg-[#BADEC8]/08' : ''}`}
+                          onDragOver={e => { e.preventDefault(); setDragOverTarget(groupKey) }}
+                          onDrop={e => { e.preventDefault(); const id = e.dataTransfer.getData('rid'); if (id) setResourceStatus(id, status) }}
+                          onDragLeave={handleDragLeave}>
+                          {items.length === 0 && isOver ? (
+                            <div className="text-center text-[10px] text-[rgba(226,232,240,0.3)] py-2">
+                              여기에 놓기 → {STATUS_LABELS[status]}
                             </div>
-                          )
-                      })}
-                    </div>
+                          ) : items.map(r => (
+                            <div key={r.id}
+                              className={`cursor-grab active:cursor-grabbing ${isDone ? 'opacity-40 hover:opacity-60' : ''}`}
+                              draggable
+                              onDragStart={e => { e.dataTransfer.setData('rid', r.id); setIsDragging(true) }}
+                              onDragEnd={() => setIsDragging(false)}>
+                              <Link href={`/learning/${r.id}`}
+                                className="flex items-center gap-2.5 py-2 -mx-1 px-1 hover:bg-[rgba(255,255,255,0.04)] rounded-md transition-colors"
+                                style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                                {r.media_type && <span className="text-xs flex-shrink-0 opacity-60">{MEDIA_ICONS[r.media_type]}</span>}
+                                <p className={`text-[12px] flex-1 min-w-0 truncate ${isDone ? 'text-[rgba(226,232,240,0.35)] line-through decoration-gray-300' : 'text-[rgba(226,232,240,0.9)]'}`}>{r.title}</p>
+                                {status !== 'todo' && (
+                                  <span className="text-[9px] flex-shrink-0" style={{ color: status === 'done' ? 'rgba(226,232,240,0.25)' : 'rgba(52,211,153,0.7)' }}>
+                                    {STATUS_SHORT[status]}
+                                  </span>
+                                )}
+                                {r.notes.length > 0 && <span className="text-[9px] text-[rgba(226,232,240,0.4)] bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] px-1 py-0.5 rounded-full flex-shrink-0">{r.notes.length}노트</span>}
+                              </Link>
+                            </div>
+                          ))}
+                        </div>
+                      )
+                    })}
                   </div>
                 )
               })}
