@@ -637,7 +637,7 @@ function handleDragLeave(e: React.DragEvent) {
                                     {activeCols.has('notes') && (
                                       <div className="flex-shrink-0 overflow-hidden" style={{ width: colWidths.notes }}>
                                         {r.notes[0]?.summary ? (
-                                          <span className="block truncate text-[11px]" style={{ color: 'rgba(226,232,240,0.5)' }}>
+                                          <span className="block truncate text-[11px] text-center" style={{ color: 'rgba(226,232,240,0.5)' }}>
                                             {r.notes[0].summary}
                                           </span>
                                         ) : r.notes.length > 0 ? (
