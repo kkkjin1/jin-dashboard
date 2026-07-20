@@ -92,23 +92,33 @@ export default function LearningPage() {
   }
   const visibleCols = COL_DEFS.filter(c => activeCols.has(c.key))
 
-  // 제목 컬럼 너비 (드래그 리사이즈)
-  const [titleColWidth, setTitleColWidth] = useState<number>(() => {
-    try { const s = localStorage.getItem('learning_title_w'); if (s) return Number(s) } catch {}
-    return 300
+  // 컬럼 너비 (드래그 리사이즈, 전체 컬럼 통합)
+  const DEFAULT_CW = { title: 300, media: 56, source: 180, date: 60, status: 60, notes: 48 }
+  type CWKey = keyof typeof DEFAULT_CW
+  const [colWidths, setColWidths] = useState<typeof DEFAULT_CW>(() => {
+    try {
+      const s = localStorage.getItem('learning_col_widths')
+      if (s) return { ...DEFAULT_CW, ...JSON.parse(s) }
+    } catch {}
+    return DEFAULT_CW
   })
-  const titleResizeRef = useRef<{ startX: number; startW: number } | null>(null)
-  function handleTitleResizeStart(e: React.MouseEvent) {
+  const colResizeRef = useRef<{ key: CWKey; startX: number; startW: number } | null>(null)
+  function startColResize(key: CWKey, e: React.MouseEvent) {
     e.preventDefault()
-    titleResizeRef.current = { startX: e.clientX, startW: titleColWidth }
+    colResizeRef.current = { key, startX: e.clientX, startW: colWidths[key] }
     function onMove(ev: MouseEvent) {
-      if (!titleResizeRef.current) return
-      const newW = Math.max(120, titleResizeRef.current.startW + ev.clientX - titleResizeRef.current.startX)
-      setTitleColWidth(newW)
-      localStorage.setItem('learning_title_w', String(newW))
+      if (!colResizeRef.current) return
+      const { key: k, startX, startW } = colResizeRef.current
+      const minW = k === 'title' ? 120 : 36
+      const newW = Math.max(minW, startW + ev.clientX - startX)
+      setColWidths(prev => {
+        const next = { ...prev, [k]: newW }
+        localStorage.setItem('learning_col_widths', JSON.stringify(next))
+        return next
+      })
     }
     function onUp() {
-      titleResizeRef.current = null
+      colResizeRef.current = null
       document.removeEventListener('mousemove', onMove)
       document.removeEventListener('mouseup', onUp)
     }
@@ -447,21 +457,30 @@ function handleDragLeave(e: React.DragEvent) {
                         {/* 컬럼 헤더 행 */}
                         <div className="flex items-center py-2 px-1 select-none"
                           style={{ borderBottom: '1px solid rgba(255,255,255,0.12)', borderTop: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.025)' }}>
-                          {/* 제목 헤더 + 리사이즈 핸들 */}
-                          <div className="relative flex-shrink-0 pl-1" style={{ flexBasis: titleColWidth, flexGrow: 1, flexShrink: 0 }}>
-                            <span className="text-[11px] font-semibold" style={{ color: 'rgba(226,232,240,0.38)', letterSpacing: '.05em' }}>제목</span>
-                            <div
-                              className="absolute right-0 top-0 bottom-0 w-3 cursor-col-resize flex items-center justify-center group/rsz"
-                              onMouseDown={handleTitleResizeStart}>
-                              <div className="w-px h-3.5 group-hover/rsz:h-full transition-all" style={{ background: 'rgba(255,255,255,0.18)' }} />
+                          {/* 제목 헤더 */}
+                          <div className="relative flex-shrink-0 pl-1 overflow-hidden" style={{ width: colWidths.title }}>
+                            <span className="text-[11px] font-semibold truncate block pr-3" style={{ color: 'rgba(226,232,240,0.38)', letterSpacing: '.05em' }}>제목</span>
+                            <div className="absolute right-0 top-0 bottom-0 w-3 cursor-col-resize flex items-center justify-center group/rsz"
+                              onMouseDown={e => startColResize('title', e)}>
+                              <div className="w-px h-3.5 group-hover/rsz:h-full transition-all" style={{ background: 'rgba(255,255,255,0.25)' }} />
                             </div>
                           </div>
+                          {/* 옵션 컬럼 헤더들 */}
                           {visibleCols.map(col => (
-                            <div key={col.key} className="flex-shrink-0 text-[11px] font-semibold"
-                              style={{ width: col.w, textAlign: (col.align as 'center' | 'left' | 'right' | undefined) ?? 'left', color: 'rgba(226,232,240,0.38)', letterSpacing: '.05em' }}>
-                              {col.label}
+                            <div key={col.key} className="relative flex-shrink-0 overflow-hidden"
+                              style={{ width: colWidths[col.key as CWKey] }}>
+                              <span className="text-[11px] font-semibold block pr-3"
+                                style={{ textAlign: (col.align as 'center' | 'left' | 'right' | undefined) ?? 'left', color: 'rgba(226,232,240,0.38)', letterSpacing: '.05em' }}>
+                                {col.label}
+                              </span>
+                              <div className="absolute right-0 top-0 bottom-0 w-3 cursor-col-resize flex items-center justify-center group/rsz"
+                                onMouseDown={e => startColResize(col.key as CWKey, e)}>
+                                <div className="w-px h-3.5 group-hover/rsz:h-full transition-all" style={{ background: 'rgba(255,255,255,0.25)' }} />
+                              </div>
                             </div>
                           ))}
+                          {/* 빈 공간 채우기 */}
+                          <div className="flex-1 min-w-0" />
                           {/* 액션 컬럼 자리 */}
                           <div className="flex-shrink-0" style={{ width: '52px' }} />
                         </div>
@@ -500,7 +519,7 @@ function handleDragLeave(e: React.DragEvent) {
                                     onDragEnd={() => setIsDragging(false)}>
 
                                     {/* 제목 셀 */}
-                                    <div className="flex-shrink-0 min-w-0 pl-1 pr-2" style={{ flexBasis: titleColWidth, flexGrow: 1, flexShrink: 0 }}>
+                                    <div className="flex-shrink-0 min-w-0 pl-1 pr-2" style={{ width: colWidths.title }}>
                                       {isEditing ? (
                                         <input
                                           autoFocus
@@ -522,7 +541,7 @@ function handleDragLeave(e: React.DragEvent) {
 
                                     {/* 미디어 셀 */}
                                     {activeCols.has('media') && (
-                                      <div className="flex-shrink-0 text-center" style={{ width: '52px' }}>
+                                      <div className="flex-shrink-0 text-center" style={{ width: colWidths.media }}>
                                         {isEditing ? (
                                           <select value={editMedia} onChange={e => setEditMedia(e.target.value)}
                                             className="w-full text-[11px] bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.12)] rounded px-1 focus:outline-none"
@@ -538,7 +557,7 @@ function handleDragLeave(e: React.DragEvent) {
 
                                     {/* 출처 셀 */}
                                     {activeCols.has('source') && (
-                                      <div className="flex-shrink-0 pr-2" style={{ width: '180px' }}>
+                                      <div className="flex-shrink-0 overflow-hidden pr-2" style={{ width: colWidths.source }}>
                                         {isEditing ? (
                                           <input value={editSource} onChange={e => setEditSource(e.target.value)}
                                             onKeyDown={e => { if (e.key === 'Enter') saveEdit(r.id); if (e.key === 'Escape') cancelEdit() }}
@@ -556,14 +575,14 @@ function handleDragLeave(e: React.DragEvent) {
 
                                     {/* 등록일 셀 */}
                                     {activeCols.has('date') && (
-                                      <div className="flex-shrink-0 text-[11px] text-center" style={{ width: '56px', color: 'rgba(226,232,240,0.3)' }}>
+                                      <div className="flex-shrink-0 text-[11px] text-center" style={{ width: colWidths.date, color: 'rgba(226,232,240,0.3)' }}>
                                         {format(parseISO(r.created_at), 'M.d')}
                                       </div>
                                     )}
 
                                     {/* 상태 셀 — 클릭으로 순환 */}
                                     {activeCols.has('status') && (
-                                      <div className="flex-shrink-0 text-center" style={{ width: '56px' }}>
+                                      <div className="flex-shrink-0 text-center" style={{ width: colWidths.status }}>
                                         <button
                                           onClick={e => { e.stopPropagation(); cycleStatus(r) }}
                                           className="text-[11px] rounded px-1 py-0.5 hover:bg-[rgba(255,255,255,0.08)] transition-colors"
@@ -575,10 +594,13 @@ function handleDragLeave(e: React.DragEvent) {
 
                                     {/* 노트 셀 */}
                                     {activeCols.has('notes') && (
-                                      <div className="flex-shrink-0 text-[11px] text-center" style={{ width: '44px', color: r.notes.length > 0 ? 'rgba(226,232,240,0.5)' : 'rgba(226,232,240,0.15)' }}>
+                                      <div className="flex-shrink-0 text-[11px] text-center" style={{ width: colWidths.notes, color: r.notes.length > 0 ? 'rgba(226,232,240,0.5)' : 'rgba(226,232,240,0.15)' }}>
                                         {r.notes.length > 0 ? r.notes.length : '—'}
                                       </div>
                                     )}
+
+                                    {/* 빈 공간 채우기 */}
+                                    <div className="flex-1 min-w-0" />
 
                                     {/* 액션 버튼 */}
                                     <div className="flex-shrink-0 flex items-center justify-end gap-1.5" style={{ width: '52px' }}>
