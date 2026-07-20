@@ -459,7 +459,7 @@ function handleDragLeave(e: React.DragEvent) {
                           style={{ borderBottom: '1px solid rgba(255,255,255,0.12)', borderTop: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.025)' }}>
                           {/* 제목 헤더 */}
                           <div className="relative flex-shrink-0 pl-1 overflow-hidden" style={{ width: colWidths.title }}>
-                            <span className="text-[11px] font-semibold truncate block pr-3" style={{ color: 'rgba(226,232,240,0.38)', letterSpacing: '.05em' }}>제목</span>
+                            <span className="text-[13px] font-semibold truncate block pr-3" style={{ color: 'rgba(226,232,240,0.38)', letterSpacing: '.05em' }}>제목</span>
                             <div className="absolute right-0 top-0 bottom-0 w-3 cursor-col-resize flex items-center justify-center group/rsz"
                               onMouseDown={e => startColResize('title', e)}>
                               <div className="w-px h-3.5 group-hover/rsz:h-full transition-all" style={{ background: 'rgba(255,255,255,0.25)' }} />
@@ -469,7 +469,7 @@ function handleDragLeave(e: React.DragEvent) {
                           {visibleCols.map(col => (
                             <div key={col.key} className="relative flex-shrink-0 overflow-hidden"
                               style={{ width: colWidths[col.key as CWKey] }}>
-                              <span className="text-[11px] font-semibold block pr-3"
+                              <span className="text-[13px] font-semibold block pr-3"
                                 style={{ textAlign: (col.align as 'center' | 'left' | 'right' | undefined) ?? 'left', color: 'rgba(226,232,240,0.38)', letterSpacing: '.05em' }}>
                                 {col.label}
                               </span>
