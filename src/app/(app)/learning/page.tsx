@@ -66,30 +66,31 @@ export default function LearningPage() {
     setCollapsedTags(prev => { const s = new Set(prev); s.has(tag) ? s.delete(tag) : s.add(tag); return s })
   }
 
-  // 행 필드 설정 (localStorage)
-  type RowField = 'source' | 'date' | 'status' | 'notes'
-  const ALL_ROW_FIELDS: { key: RowField; label: string }[] = [
-    { key: 'source', label: '출처' },
-    { key: 'date',   label: '등록일' },
-    { key: 'status', label: '상태' },
-    { key: 'notes',  label: '노트수' },
+  // 컬럼 설정 (localStorage)
+  type ColKey = 'media' | 'source' | 'date' | 'status' | 'notes'
+  const COL_DEFS: { key: ColKey; label: string; w: string; align?: string }[] = [
+    { key: 'media',  label: '미디어', w: '52px',  align: 'center' },
+    { key: 'source', label: '출처',   w: '180px' },
+    { key: 'date',   label: '등록일', w: '56px',  align: 'center' },
+    { key: 'status', label: '상태',   w: '56px',  align: 'center' },
+    { key: 'notes',  label: '노트',   w: '44px',  align: 'center' },
   ]
-  const [rowFields, setRowFields] = useState<Set<RowField>>(() => {
+  const [activeCols, setActiveCols] = useState<Set<ColKey>>(() => {
     try {
-      const saved = localStorage.getItem('learning_row_fields')
-      if (saved) return new Set(JSON.parse(saved) as RowField[])
+      const saved = localStorage.getItem('learning_cols')
+      if (saved) return new Set(JSON.parse(saved) as ColKey[])
     } catch {}
-    return new Set<RowField>(['source', 'date', 'status', 'notes'])
+    return new Set<ColKey>(['media', 'source', 'date', 'status', 'notes'])
   })
-  const [showFieldPicker, setShowFieldPicker] = useState(false)
-  function toggleField(f: RowField) {
-    setRowFields(prev => {
-      const s = new Set(prev)
-      s.has(f) ? s.delete(f) : s.add(f)
-      localStorage.setItem('learning_row_fields', JSON.stringify([...s]))
+  const [showColPicker, setShowColPicker] = useState(false)
+  function toggleCol(k: ColKey) {
+    setActiveCols(prev => {
+      const s = new Set(prev); s.has(k) ? s.delete(k) : s.add(k)
+      localStorage.setItem('learning_cols', JSON.stringify([...s]))
       return s
     })
   }
+  const visibleCols = COL_DEFS.filter(c => activeCols.has(c.key))
 
   // 드래그
   const [dragOverTarget, setDragOverTarget] = useState<string | null>(null)
@@ -105,16 +106,16 @@ export default function LearningPage() {
 
   const supabase = createClient()
 
-  // 필드 피커 외부 클릭 닫기
+  // 컬럼 피커 외부 클릭 닫기
   useEffect(() => {
-    if (!showFieldPicker) return
+    if (!showColPicker) return
     function onDown(e: MouseEvent) {
       const t = e.target as HTMLElement
-      if (!t.closest('[data-field-picker]')) setShowFieldPicker(false)
+      if (!t.closest('[data-col-picker]')) setShowColPicker(false)
     }
     document.addEventListener('mousedown', onDown)
     return () => document.removeEventListener('mousedown', onDown)
-  }, [showFieldPicker])
+  }, [showColPicker])
 
   useEffect(() => {
     supabase.from('learning_resources').select('*').order('created_at', { ascending: false })
@@ -203,26 +204,26 @@ function handleDragLeave(e: React.DragEvent) {
       <div className="flex-shrink-0 pt-6 pb-2 flex items-center gap-3">
         <h1 className="text-xl font-bold text-[#E2E8F0] mr-auto">학습자료</h1>
         <span className="text-xs text-[rgba(226,232,240,0.4)]">{resources.length}개</span>
-        {/* 필드 설정 */}
-        <div className="relative" data-field-picker="true">
+        {/* 컬럼 설정 */}
+        <div className="relative" data-col-picker="true">
           <button
-            onClick={() => setShowFieldPicker(v => !v)}
+            onClick={() => setShowColPicker(v => !v)}
             className="text-xs px-3 py-1.5 rounded-full border transition-all"
-            style={{ background: showFieldPicker ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.09)', color: 'rgba(226,232,240,0.6)' }}>
+            style={{ background: showColPicker ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.09)', color: 'rgba(226,232,240,0.6)' }}>
             필드 설정
           </button>
-          {showFieldPicker && (
+          {showColPicker && (
             <div className="absolute right-0 top-full mt-1.5 z-50 rounded-xl p-3 min-w-[140px]"
               style={{ background: 'rgba(19,21,28,0.97)', border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 16px 40px rgba(0,0,0,0.4)' }}>
-              <p className="text-[10px] font-semibold mb-2" style={{ color: 'rgba(226,232,240,0.4)', letterSpacing: '.06em' }}>행에 표시할 항목</p>
-              {ALL_ROW_FIELDS.map(({ key, label }) => (
-                <button key={key} onClick={() => toggleField(key)}
+              <p className="text-[10px] font-semibold mb-2" style={{ color: 'rgba(226,232,240,0.4)', letterSpacing: '.06em' }}>컬럼 표시</p>
+              {COL_DEFS.map(({ key, label }) => (
+                <button key={key} onClick={() => toggleCol(key)}
                   className="flex items-center gap-2 w-full text-left py-1.5 px-1 rounded-md hover:bg-[rgba(255,255,255,0.06)] transition-colors">
                   <span className="w-3.5 h-3.5 rounded flex items-center justify-center flex-shrink-0"
-                    style={{ background: rowFields.has(key) ? '#1B3A6B' : 'rgba(255,255,255,0.08)', border: `1px solid ${rowFields.has(key) ? '#2A5A9B' : 'rgba(255,255,255,0.12)'}` }}>
-                    {rowFields.has(key) && <span style={{ fontSize: 8, color: '#fff' }}>✓</span>}
+                    style={{ background: activeCols.has(key) ? '#1B3A6B' : 'rgba(255,255,255,0.08)', border: `1px solid ${activeCols.has(key) ? '#2A5A9B' : 'rgba(255,255,255,0.12)'}` }}>
+                    {activeCols.has(key) && <span style={{ fontSize: 8, color: '#fff' }}>✓</span>}
                   </span>
-                  <span className="text-[12px]" style={{ color: rowFields.has(key) ? 'rgba(226,232,240,0.9)' : 'rgba(226,232,240,0.4)' }}>{label}</span>
+                  <span className="text-[12px]" style={{ color: activeCols.has(key) ? 'rgba(226,232,240,0.9)' : 'rgba(226,232,240,0.4)' }}>{label}</span>
                 </button>
               ))}
             </div>
@@ -365,94 +366,120 @@ function handleDragLeave(e: React.DragEvent) {
             </div>
           </div>
 
-          {/* 범주별 섹션 */}
+          {/* 범주별 표 섹션 */}
           {loading ? (
             <div className="space-y-1">
               {[1,2,3,4,5,6].map(i => <div key={i} className="h-9 rounded-md animate-pulse bg-[rgba(255,255,255,0.06)]" />)}
             </div>
           ) : (
-            <div className="space-y-5">
+            <div className="space-y-6">
               {displayCols.map(tag => {
                 const groups = tagGroups[tag] ?? { todo: [], doing: [], done: [] }
                 const total = groups.todo.length + groups.doing.length + groups.done.length
                 const badge = TAG_BADGE[tag] ?? 'bg-[#D8D4CC]/60 text-[#4C4440] border-[#C0BCAC]/70'
-
                 const isCollapsed = collapsedTags.has(tag)
+
                 return (
                   <div key={tag}>
                     {/* 범주 헤더 — 클릭으로 접기/펼치기 */}
                     <button
                       onClick={() => toggleTagCollapse(tag)}
-                      className="flex items-center gap-2 w-full text-left mb-1 pb-2 hover:opacity-80 transition-opacity"
-                      style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                      className="flex items-center gap-2 w-full text-left mb-0 pb-2 hover:opacity-80 transition-opacity">
                       <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border flex-shrink-0 ${badge}`}>{tag}</span>
                       <span className="text-[10px]" style={{ color: 'rgba(226,232,240,0.4)' }}>{total}개</span>
                       <span className="ml-auto text-[9px]" style={{ color: 'rgba(226,232,240,0.28)', transform: isCollapsed ? 'rotate(0deg)' : 'rotate(90deg)', display: 'inline-block', transition: 'transform .15s' }}>▶</span>
                     </button>
 
-                    {/* 자료 flat 리스트 */}
-                    {!isCollapsed && STATUS_KEYS.map(status => {
-                      const items = groups[status]
-                      if (items.length === 0 && !isDragging) return null
-                      const isDone = status === 'done'
-                      const groupKey = `${tag}:${status}`
-                      const isOver = dragOverTarget === groupKey
-
-                      return (
-                        <div key={status}
-                          className={`transition-colors rounded-md ${isOver ? 'bg-[#BADEC8]/08' : ''}`}
-                          onDragOver={e => { e.preventDefault(); setDragOverTarget(groupKey) }}
-                          onDrop={e => { e.preventDefault(); const id = e.dataTransfer.getData('rid'); if (id) setResourceStatus(id, status) }}
-                          onDragLeave={handleDragLeave}>
-                          {items.length === 0 && isOver ? (
-                            <div className="text-center text-[10px] py-2" style={{ color: 'rgba(226,232,240,0.3)' }}>
-                              여기에 놓기 → {STATUS_LABELS[status]}
-                            </div>
-                          ) : items.map(r => (
-                            <div key={r.id}
-                              className={`cursor-grab active:cursor-grabbing ${isDone ? 'opacity-40 hover:opacity-60' : ''}`}
-                              draggable
-                              onDragStart={e => { e.dataTransfer.setData('rid', r.id); setIsDragging(true) }}
-                              onDragEnd={() => setIsDragging(false)}>
-                              <Link href={`/learning/${r.id}`}
-                                className="flex items-center gap-3 py-2 -mx-1 px-1 hover:bg-[rgba(255,255,255,0.04)] rounded-md transition-colors"
-                                style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                                {/* 미디어 아이콘 */}
-                                {r.media_type
-                                  ? <span className="text-sm flex-shrink-0 w-5 text-center">{MEDIA_ICONS[r.media_type]}</span>
-                                  : <span className="w-5 flex justify-center flex-shrink-0"><span className="w-1.5 h-1.5 rounded-full bg-[rgba(226,232,240,0.2)]" /></span>
-                                }
-                                {/* 제목 + 출처 */}
-                                <div className="flex-1 min-w-0">
-                                  <p className={`text-[12px] font-medium truncate ${isDone ? 'text-[rgba(226,232,240,0.35)] line-through decoration-gray-300' : 'text-[rgba(226,232,240,0.9)]'}`}>
-                                    {r.title || r.source || '제목 없음'}
-                                  </p>
-                                  {rowFields.has('source') && r.source && r.source !== r.title && (
-                                    <p className="text-[10px] truncate mt-0.5" style={{ color: 'rgba(226,232,240,0.35)' }}>{r.source}</p>
-                                  )}
-                                </div>
-                                {/* 우측 메타 */}
-                                <div className="flex items-center gap-2 flex-shrink-0">
-                                  {rowFields.has('notes') && r.notes.length > 0 && (
-                                    <span className="text-[9px] px-1.5 py-0.5 rounded-full" style={{ color: 'rgba(226,232,240,0.4)', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.09)' }}>{r.notes.length}노트</span>
-                                  )}
-                                  {rowFields.has('status') && status !== 'todo' && (
-                                    <span className="text-[9px]" style={{ color: status === 'done' ? 'rgba(226,232,240,0.25)' : 'rgba(52,211,153,0.7)' }}>
-                                      {STATUS_SHORT[status]}
-                                    </span>
-                                  )}
-                                  {rowFields.has('date') && (
-                                    <span className="text-[10px]" style={{ color: 'rgba(226,232,240,0.28)' }}>
-                                      {format(parseISO(r.created_at), 'M.d')}
-                                    </span>
-                                  )}
-                                </div>
-                              </Link>
+                    {!isCollapsed && (
+                      <div>
+                        {/* 컬럼 헤더 행 */}
+                        <div className="flex items-center py-1.5 px-1 select-none"
+                          style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', borderTop: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)' }}>
+                          <div className="flex-1 min-w-0 text-[10px] font-semibold pl-1" style={{ color: 'rgba(226,232,240,0.35)', letterSpacing: '.04em' }}>제목</div>
+                          {visibleCols.map(col => (
+                            <div key={col.key} className="flex-shrink-0 text-[10px] font-semibold"
+                              style={{ width: col.w, textAlign: (col.align as 'center' | 'left' | 'right' | undefined) ?? 'left', color: 'rgba(226,232,240,0.35)', letterSpacing: '.04em' }}>
+                              {col.label}
                             </div>
                           ))}
                         </div>
-                      )
-                    })}
+
+                        {/* 상태 그룹별 데이터 행 */}
+                        {STATUS_KEYS.map(status => {
+                          const items = groups[status]
+                          if (items.length === 0 && !isDragging) return null
+                          const isDone = status === 'done'
+                          const groupKey = `${tag}:${status}`
+                          const isOver = dragOverTarget === groupKey
+
+                          return (
+                            <div key={status}
+                              className={`transition-colors ${isOver ? 'bg-[rgba(186,222,200,0.05)]' : ''}`}
+                              onDragOver={e => { e.preventDefault(); setDragOverTarget(groupKey) }}
+                              onDrop={e => { e.preventDefault(); const id = e.dataTransfer.getData('rid'); if (id) setResourceStatus(id, status) }}
+                              onDragLeave={handleDragLeave}>
+                              {items.length === 0 && isOver ? (
+                                <div className="flex items-center px-2 py-2 text-[10px]" style={{ color: 'rgba(226,232,240,0.3)', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                                  <span className="flex-1">여기에 놓기 → {STATUS_LABELS[status]}</span>
+                                </div>
+                              ) : items.map(r => {
+                                const rStatus = getStatus(r.tags ?? [])
+                                return (
+                                  <div key={r.id}
+                                    className={`cursor-grab active:cursor-grabbing ${isDone ? 'opacity-40 hover:opacity-60' : ''}`}
+                                    draggable
+                                    onDragStart={e => { e.dataTransfer.setData('rid', r.id); setIsDragging(true) }}
+                                    onDragEnd={() => setIsDragging(false)}>
+                                    <Link href={`/learning/${r.id}`}
+                                      className="flex items-center py-2 px-1 hover:bg-[rgba(255,255,255,0.04)] transition-colors group/row"
+                                      style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                                      {/* 제목 (flex-1) */}
+                                      <div className="flex-1 min-w-0 pl-1">
+                                        <p className={`text-[12px] font-medium truncate ${isDone ? 'text-[rgba(226,232,240,0.3)] line-through decoration-gray-500' : 'text-[rgba(226,232,240,0.88)]'}`}>
+                                          {r.title || r.source || '제목 없음'}
+                                        </p>
+                                      </div>
+                                      {/* 미디어 컬럼 */}
+                                      {activeCols.has('media') && (
+                                        <div className="flex-shrink-0 text-sm text-center" style={{ width: '52px' }}>
+                                          {r.media_type ? MEDIA_ICONS[r.media_type] : <span style={{ color: 'rgba(226,232,240,0.15)' }}>—</span>}
+                                        </div>
+                                      )}
+                                      {/* 출처 컬럼 */}
+                                      {activeCols.has('source') && (
+                                        <div className="flex-shrink-0 text-[10px] truncate pr-2" style={{ width: '180px', color: 'rgba(226,232,240,0.35)' }}>
+                                          {r.source || <span style={{ color: 'rgba(226,232,240,0.15)' }}>—</span>}
+                                        </div>
+                                      )}
+                                      {/* 등록일 컬럼 */}
+                                      {activeCols.has('date') && (
+                                        <div className="flex-shrink-0 text-[10px] text-center" style={{ width: '56px', color: 'rgba(226,232,240,0.3)' }}>
+                                          {format(parseISO(r.created_at), 'M.d')}
+                                        </div>
+                                      )}
+                                      {/* 상태 컬럼 */}
+                                      {activeCols.has('status') && (
+                                        <div className="flex-shrink-0 text-[10px] text-center" style={{ width: '56px' }}>
+                                          <span style={{ color: rStatus === 'done' ? 'rgba(226,232,240,0.25)' : rStatus === 'doing' ? 'rgba(52,211,153,0.7)' : 'rgba(226,232,240,0.35)' }}>
+                                            {STATUS_SHORT[rStatus]}
+                                          </span>
+                                        </div>
+                                      )}
+                                      {/* 노트 컬럼 */}
+                                      {activeCols.has('notes') && (
+                                        <div className="flex-shrink-0 text-[10px] text-center" style={{ width: '44px', color: r.notes.length > 0 ? 'rgba(226,232,240,0.5)' : 'rgba(226,232,240,0.15)' }}>
+                                          {r.notes.length > 0 ? r.notes.length : '—'}
+                                        </div>
+                                      )}
+                                    </Link>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
                   </div>
                 )
               })}
