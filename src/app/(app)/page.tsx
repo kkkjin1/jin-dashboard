@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Search, Plus, FileText, Clock, NotebookPen } from 'lucide-react'
-import type { Task, TaskTodo, Meeting, AgendaItem, QuickMemo } from '@/types'
+import type { TaskTodo, Meeting, QuickMemo, AgendaSubTask } from '@/types'
 import { JournalFullscreenEditor, type DailyJournal } from '@/components/home/DailyJournalWidget'
 import { format, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
@@ -15,8 +15,8 @@ import { ko } from 'date-fns/locale'
 type TodayTodo = Omit<TaskTodo, 'tasks'> & {
   tasks: { id: string; title: string; short_name: string | null; part: string } | null
 }
-type TaskWithMember = Task & {
-  members: { id: string; name: string; part: string } | null
+type SubTaskWithContext = AgendaSubTask & {
+  agenda_items: { id: string; title: string; agenda_groups: { name: string; color: string } | null } | null
 }
 
 // ── Design Tokens ──────────────────────────────────────────────────────────
@@ -36,15 +36,6 @@ function tagCls(part: string) {
   return part === '비즈'
     ? 'text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[rgba(249,115,22,0.15)] text-[#FDBA74]'
     : 'text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[rgba(59,130,246,0.15)] text-[#93C5FD]'
-}
-function taskDotColor(part: string, idx: number) {
-  if (part === '비즈') return '#FB923C'
-  return ['#818CF8', '#60A5FA', '#34D399', '#A78BFA'][idx % 4]
-}
-function statusPct(status: string) {
-  if (status === '진행필요') return 12
-  if (status === '진행중') return 55
-  return 100
 }
 function fmtDate(s: string | null | undefined) {
   if (!s) return ''
@@ -66,11 +57,9 @@ export default function HomePage() {
   const searchInputRef = useRef<HTMLInputElement>(null)
   const kpiGridRef = useRef<HTMLDivElement>(null)
 
-  const [tasks,          setTasks]          = useState<TaskWithMember[]>([])
+  const [subTasks,       setSubTasks]       = useState<SubTaskWithContext[]>([])
   const [todayTodos,     setTodayTodos]     = useState<TodayTodo[]>([])
-  const [todoPctMap,     setTodoPctMap]     = useState<Record<string, number>>({})
   const [meetings,       setMeetings]       = useState<Meeting[]>([])
-  const [agendaItems,    setAgendaItems]    = useState<AgendaItem[]>([])
   const [memos,          setMemos]          = useState<QuickMemo[]>([])
   const [todayJournal,   setTodayJournal]   = useState<DailyJournal | null>(null)
   const [yesterJournal,  setYesterJournal]  = useState<DailyJournal | null>(null)
@@ -82,31 +71,19 @@ export default function HomePage() {
       const today     = todayStr()
       const yesterday = yesterdayStr()
       const [
-        { data: tData }, { data: tdData }, { data: allTd },
-        { data: mData }, { data: aData },  { data: mmData }, { data: jData },
+        { data: stData }, { data: tdData },
+        { data: mData },  { data: mmData }, { data: jData },
       ] = await Promise.all([
-        sb.current.from('tasks').select('*, members(id, name, part)').neq('status', '완료').order('updated_at', { ascending: false }).limit(10),
+        sb.current.from('agenda_sub_tasks').select('*, agenda_items(id, title, agenda_groups(name, color))').eq('status', 'active').order('sort_order').limit(20),
         sb.current.from('task_todos').select('*, tasks(id, title, short_name, part)').eq('schedule_tag', 'today').eq('done', false).order('sort_order').limit(15),
-        sb.current.from('task_todos').select('task_id, done').limit(500),
         sb.current.from('meetings').select('*').order('meeting_date', { ascending: false }).limit(20),
-        sb.current.from('agenda_items').select('*, agenda_groups(*)').eq('status', 'active').eq('hidden', false).order('sort_order').limit(30),
         sb.current.from('quick_memos').select('*').order('created_at', { ascending: false }).limit(100),
         sb.current.from('daily_journals').select('id, date, content, linked_task_ids, linked_meeting_ids, tags').in('date', [today, yesterday]),
       ])
-      const pct: Record<string, { t: number; d: number }> = {}
-      for (const r of (allTd ?? [])) {
-        if (!pct[r.task_id]) pct[r.task_id] = { t: 0, d: 0 }
-        pct[r.task_id].t++
-        if (r.done) pct[r.task_id].d++
-      }
-      const computed: Record<string, number> = {}
-      for (const [id, { t, d }] of Object.entries(pct)) computed[id] = t ? Math.round((d / t) * 100) : 0
 
-      setTasks((tData ?? []) as TaskWithMember[])
+      setSubTasks((stData ?? []) as SubTaskWithContext[])
       setTodayTodos((tdData ?? []) as TodayTodo[])
-      setTodoPctMap(computed)
       setMeetings((mData ?? []) as Meeting[])
-      setAgendaItems((aData ?? []) as AgendaItem[])
       setMemos((mmData ?? []) as QuickMemo[])
       const jList = (jData ?? []) as DailyJournal[]
       setTodayJournal(jList.find(j => j.date === today) ?? null)
@@ -134,9 +111,9 @@ export default function HomePage() {
     const q = searchQuery.trim().toLowerCase()
     if (!q) return []
     const res: { type: string; title: string; href: string }[] = []
-    tasks.forEach(t => {
-      if ((t.short_name ?? t.title).toLowerCase().includes(q) || t.title.toLowerCase().includes(q))
-        res.push({ type: '과업', title: t.short_name ?? t.title, href: `/tasks/${t.id}` })
+    subTasks.forEach(st => {
+      if (st.title.toLowerCase().includes(q))
+        res.push({ type: '세부task', title: st.title, href: `/subtasks/${st.id}` })
     })
     meetings.forEach(m => {
       if (m.title.toLowerCase().includes(q))
@@ -147,19 +124,16 @@ export default function HomePage() {
         res.push({ type: '메모', title: m.title ?? '제목 없음', href: `/memos/${m.id}` })
     })
     return res.slice(0, 8)
-  }, [searchQuery, tasks, meetings, memos])
+  }, [searchQuery, subTasks, meetings, memos])
 
   function toggleTask(id: string) {
     setDoneTasks(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])
   }
-  function taskPct(id: string) {
-    return todoPctMap[id] ?? statusPct(tasks.find(t => t.id === id)?.status ?? '')
-  }
 
-  const today          = todayStr()
-  const todayMeetings  = meetings.filter(m => m.meeting_date?.startsWith(today))
-  const recentMeetings = meetings.slice(0, 4)
-  const displayTasks   = tasks.slice(0, 6)
+  const today           = todayStr()
+  const todayMeetings   = meetings.filter(m => m.meeting_date?.startsWith(today))
+  const recentMeetings  = meetings.slice(0, 4)
+  const displaySubTasks = subTasks.slice(0, 6)
 
   const skel = (n: number) => Array.from({ length: n }, (_, i) => (
     <div key={i} className="h-7 rounded-xl animate-pulse" style={{ background: 'rgba(255,255,255,0.06)' }} />
@@ -248,37 +222,31 @@ export default function HomePage() {
               )}
             </div>
 
-            {/* 진행 중 과업 */}
+            {/* 진행 중 과업 (프로젝트 세부task) */}
             <div>
               <div className="flex items-center justify-between mb-2.5">
                 <h2 className="text-[13px] font-bold uppercase tracking-[0.07em]" style={{ color: TEXT3 }}>진행 중 과업</h2>
-                <Link href="/tasks" className="text-[11px] font-medium" style={{ color: TEXT3 }}>전체 보기</Link>
+                <Link href="/project" className="text-[11px] font-medium" style={{ color: TEXT3 }}>전체 보기</Link>
               </div>
               {loading ? (
                 <div className="space-y-2">{skel(4)}</div>
-              ) : displayTasks.length === 0 ? (
+              ) : displaySubTasks.length === 0 ? (
                 <p className="text-[13px] py-3 text-center" style={{ color: TEXT3 }}>진행 중인 과업이 없어요</p>
               ) : (
                 <div>
-                  {displayTasks.map((t, i) => {
-                    const pct = taskPct(t.id)
+                  {displaySubTasks.map((st, i) => {
+                    const groupColor = st.agenda_items?.agenda_groups?.color ?? '#818CF8'
                     return (
-                      <Link key={t.id} href={`/tasks/${t.id}`}>
-                        <div className="flex items-center gap-3 py-2 cursor-pointer" style={{ borderBottom: i < displayTasks.length - 1 ? `1px solid ${DIVIDER}` : 'none' }}>
-                          <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: taskDotColor(t.part, i) }} />
-                          <span className="text-[13px] font-medium flex-1 min-w-0 truncate" style={{ color: TEXT1 }}>{t.short_name ?? t.title}</span>
-                          <span className={tagCls(t.part)}>{t.part}</span>
-                          {t.members && (
-                            <div className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold text-white flex-shrink-0" style={{ background: taskDotColor(t.part, i) }}>
-                              {t.members.name[0]}
-                            </div>
+                      <Link key={st.id} href={`/subtasks/${st.id}`}>
+                        <div className="flex items-center gap-3 py-2 cursor-pointer" style={{ borderBottom: i < displaySubTasks.length - 1 ? `1px solid ${DIVIDER}` : 'none' }}>
+                          <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: groupColor }} />
+                          <span className="text-[13px] font-medium flex-1 min-w-0 truncate" style={{ color: TEXT1 }}>{st.title}</span>
+                          {st.agenda_items && (
+                            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full flex-shrink-0 truncate max-w-[120px]"
+                              style={{ background: `${groupColor}33`, color: groupColor }}>
+                              {st.agenda_items.title}
+                            </span>
                           )}
-                          <div className="flex items-center gap-1.5 flex-shrink-0 w-14">
-                            <div className="flex-1 h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.1)' }}>
-                              <div className="h-full rounded-full" style={{ width: `${pct}%`, background: '#34D399' }} />
-                            </div>
-                            <span className="text-[10px] font-mono w-5 text-right" style={{ color: TEXT3 }}>{pct}%</span>
-                          </div>
                         </div>
                       </Link>
                     )
@@ -360,7 +328,7 @@ export default function HomePage() {
                     </Link>
                   </div>
                 </div>
-                <div className="flex-1 overflow-y-auto">
+                <div className="flex-1 overflow-y-auto scrollbar-hide">
                   {loading ? (
                     <div className="space-y-2">{skel(3)}</div>
                   ) : memos.length === 0 ? (
