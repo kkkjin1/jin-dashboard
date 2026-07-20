@@ -1,6 +1,7 @@
 ﻿'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { format, parseISO } from 'date-fns'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useUserSetting } from '@/hooks/useUserSetting'
@@ -342,16 +343,29 @@ function handleDragLeave(e: React.DragEvent) {
                               onDragStart={e => { e.dataTransfer.setData('rid', r.id); setIsDragging(true) }}
                               onDragEnd={() => setIsDragging(false)}>
                               <Link href={`/learning/${r.id}`}
-                                className="flex items-center gap-2.5 py-2 -mx-1 px-1 hover:bg-[rgba(255,255,255,0.04)] rounded-md transition-colors"
+                                className="flex items-center gap-3 py-2.5 -mx-1 px-1 hover:bg-[rgba(255,255,255,0.04)] rounded-md transition-colors"
                                 style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                                {r.media_type && <span className="text-xs flex-shrink-0 opacity-60">{MEDIA_ICONS[r.media_type]}</span>}
-                                <p className={`text-[12px] flex-1 min-w-0 truncate ${isDone ? 'text-[rgba(226,232,240,0.35)] line-through decoration-gray-300' : 'text-[rgba(226,232,240,0.9)]'}`}>{r.title}</p>
-                                {status !== 'todo' && (
-                                  <span className="text-[9px] flex-shrink-0" style={{ color: status === 'done' ? 'rgba(226,232,240,0.25)' : 'rgba(52,211,153,0.7)' }}>
-                                    {STATUS_SHORT[status]}
+                                {r.media_type
+                                  ? <span className="text-sm flex-shrink-0">{MEDIA_ICONS[r.media_type]}</span>
+                                  : <span className="w-1.5 h-1.5 rounded-full flex-shrink-0 bg-[rgba(226,232,240,0.2)]" />
+                                }
+                                <div className="flex-1 min-w-0">
+                                  <p className={`text-[12px] font-medium truncate ${isDone ? 'text-[rgba(226,232,240,0.35)] line-through decoration-gray-300' : 'text-[rgba(226,232,240,0.9)]'}`}>{r.title}</p>
+                                  {r.source && (
+                                    <p className="text-[10px] truncate mt-0.5" style={{ color: 'rgba(226,232,240,0.35)' }}>{r.source}</p>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2 flex-shrink-0">
+                                  {r.notes.length > 0 && <span className="text-[9px] text-[rgba(226,232,240,0.4)] bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] px-1.5 py-0.5 rounded-full">{r.notes.length}노트</span>}
+                                  {status !== 'todo' && (
+                                    <span className="text-[9px]" style={{ color: status === 'done' ? 'rgba(226,232,240,0.25)' : 'rgba(52,211,153,0.7)' }}>
+                                      {STATUS_SHORT[status]}
+                                    </span>
+                                  )}
+                                  <span className="text-[10px]" style={{ color: 'rgba(226,232,240,0.28)' }}>
+                                    {format(parseISO(r.created_at), 'M.d')}
                                   </span>
-                                )}
-                                {r.notes.length > 0 && <span className="text-[9px] text-[rgba(226,232,240,0.4)] bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] px-1 py-0.5 rounded-full flex-shrink-0">{r.notes.length}노트</span>}
+                                </div>
                               </Link>
                             </div>
                           ))}
