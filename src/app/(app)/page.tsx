@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Search, Plus, FileText, Clock, NotebookPen } from 'lucide-react'
 import type { Task, TaskTodo, Meeting, AgendaItem, QuickMemo } from '@/types'
@@ -57,8 +58,12 @@ function yesterdayStr() { const d = new Date(); d.setDate(d.getDate() - 1); retu
 
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function HomePage() {
+  const router = useRouter()
   const [doneTasks,     setDoneTasks]     = useState<string[]>([])
   const [showJournal,   setShowJournal]   = useState(false)
+  const [searchOpen,    setSearchOpen]    = useState(false)
+  const [searchQuery,   setSearchQuery]   = useState('')
+  const searchInputRef = useRef<HTMLInputElement>(null)
   const kpiGridRef = useRef<HTMLDivElement>(null)
 
   const [tasks,          setTasks]          = useState<TaskWithMember[]>([])
@@ -85,7 +90,7 @@ export default function HomePage() {
         sb.current.from('task_todos').select('task_id, done').limit(500),
         sb.current.from('meetings').select('*').order('meeting_date', { ascending: false }).limit(20),
         sb.current.from('agenda_items').select('*, agenda_groups(*)').eq('status', 'active').eq('hidden', false).order('sort_order').limit(30),
-        sb.current.from('quick_memos').select('*').order('created_at', { ascending: false }).limit(5),
+        sb.current.from('quick_memos').select('*').order('created_at', { ascending: false }).limit(100),
         sb.current.from('daily_journals').select('id, date, content, linked_task_ids, linked_meeting_ids, tags').in('date', [today, yesterday]),
       ])
       const pct: Record<string, { t: number; d: number }> = {}
@@ -111,6 +116,39 @@ export default function HomePage() {
     load()
   }, [])
 
+  // Ctrl+K 검색
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); setSearchOpen(true) }
+      if (e.key === 'Escape') setSearchOpen(false)
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [])
+  useEffect(() => {
+    if (searchOpen) setTimeout(() => searchInputRef.current?.focus(), 50)
+    else setSearchQuery('')
+  }, [searchOpen])
+
+  const searchResults = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+    if (!q) return []
+    const res: { type: string; title: string; href: string }[] = []
+    tasks.forEach(t => {
+      if ((t.short_name ?? t.title).toLowerCase().includes(q) || t.title.toLowerCase().includes(q))
+        res.push({ type: '과업', title: t.short_name ?? t.title, href: `/tasks/${t.id}` })
+    })
+    meetings.forEach(m => {
+      if (m.title.toLowerCase().includes(q))
+        res.push({ type: '회의록', title: m.title, href: `/meetings/${m.id}` })
+    })
+    memos.forEach(m => {
+      if ((m.title ?? '').toLowerCase().includes(q))
+        res.push({ type: '메모', title: m.title ?? '제목 없음', href: `/memos/${m.id}` })
+    })
+    return res.slice(0, 8)
+  }, [searchQuery, tasks, meetings, memos])
+
   function toggleTask(id: string) {
     setDoneTasks(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])
   }
@@ -121,7 +159,6 @@ export default function HomePage() {
   const today          = todayStr()
   const todayMeetings  = meetings.filter(m => m.meeting_date?.startsWith(today))
   const recentMeetings = meetings.slice(0, 4)
-  const recentMemos    = memos.slice(0, 4)
   const displayTasks   = tasks.slice(0, 6)
 
   const skel = (n: number) => Array.from({ length: n }, (_, i) => (
@@ -158,6 +195,7 @@ export default function HomePage() {
         {/* Topbar */}
         <div className="flex-shrink-0 flex items-center justify-center h-12 -mx-8 px-8" style={{ background: BG, borderBottom: `1px solid ${DIVIDER}` }}>
           <div
+            onClick={() => setSearchOpen(true)}
             className="flex items-center gap-2.5 px-4 py-1.5 rounded-xl w-full max-w-sm cursor-pointer transition-colors"
             style={{ background: 'rgba(255,255,255,0.06)' }}
           >
@@ -225,22 +263,24 @@ export default function HomePage() {
                   {displayTasks.map((t, i) => {
                     const pct = taskPct(t.id)
                     return (
-                      <div key={t.id} className="flex items-center gap-3 py-2" style={{ borderBottom: i < displayTasks.length - 1 ? `1px solid ${DIVIDER}` : 'none' }}>
-                        <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: taskDotColor(t.part, i) }} />
-                        <span className="text-[13px] font-medium flex-1 min-w-0 truncate" style={{ color: TEXT1 }}>{t.short_name ?? t.title}</span>
-                        <span className={tagCls(t.part)}>{t.part}</span>
-                        {t.members && (
-                          <div className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold text-white flex-shrink-0" style={{ background: taskDotColor(t.part, i) }}>
-                            {t.members.name[0]}
+                      <Link key={t.id} href={`/tasks/${t.id}`}>
+                        <div className="flex items-center gap-3 py-2 cursor-pointer" style={{ borderBottom: i < displayTasks.length - 1 ? `1px solid ${DIVIDER}` : 'none' }}>
+                          <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: taskDotColor(t.part, i) }} />
+                          <span className="text-[13px] font-medium flex-1 min-w-0 truncate" style={{ color: TEXT1 }}>{t.short_name ?? t.title}</span>
+                          <span className={tagCls(t.part)}>{t.part}</span>
+                          {t.members && (
+                            <div className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold text-white flex-shrink-0" style={{ background: taskDotColor(t.part, i) }}>
+                              {t.members.name[0]}
+                            </div>
+                          )}
+                          <div className="flex items-center gap-1.5 flex-shrink-0 w-14">
+                            <div className="flex-1 h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.1)' }}>
+                              <div className="h-full rounded-full" style={{ width: `${pct}%`, background: '#34D399' }} />
+                            </div>
+                            <span className="text-[10px] font-mono w-5 text-right" style={{ color: TEXT3 }}>{pct}%</span>
                           </div>
-                        )}
-                        <div className="flex items-center gap-1.5 flex-shrink-0 w-14">
-                          <div className="flex-1 h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.1)' }}>
-                            <div className="h-full rounded-full" style={{ width: `${pct}%`, background: '#34D399' }} />
-                          </div>
-                          <span className="text-[10px] font-mono w-5 text-right" style={{ color: TEXT3 }}>{pct}%</span>
                         </div>
-                      </div>
+                      </Link>
                     )
                   })}
                 </div>
@@ -307,10 +347,10 @@ export default function HomePage() {
                 </div>
               </div>
 
-              {/* 3. 빠른 메모 */}
+              {/* 3. 퀵메모 */}
               <div className="p-4 min-h-0 flex flex-col overflow-hidden" style={CARD_STYLE}>
                 <div className="flex items-center justify-between mb-3 flex-shrink-0">
-                  <h2 className="text-[13px] font-bold" style={{ color: TEXT1 }}>빠른 메모</h2>
+                  <h2 className="text-[13px] font-bold" style={{ color: TEXT1 }}>퀵메모</h2>
                   <div className="flex items-center gap-1.5">
                     <Link href="/memos" className="text-[11px] font-medium" style={{ color: TEXT2 }}>전체</Link>
                     <Link href="/memos">
@@ -320,21 +360,23 @@ export default function HomePage() {
                     </Link>
                   </div>
                 </div>
-                <div className="flex-1 overflow-hidden">
+                <div className="flex-1 overflow-y-auto">
                   {loading ? (
                     <div className="space-y-2">{skel(3)}</div>
-                  ) : recentMemos.length === 0 ? (
+                  ) : memos.length === 0 ? (
                     <p className="text-[12px] pt-1" style={{ color: TEXT3 }}>메모가 없어요</p>
                   ) : (
                     <div>
-                      {recentMemos.map((memo, i) => {
+                      {memos.map((memo, i) => {
                         const dots = ['#818CF8', '#60A5FA', '#34D399', '#FB923C']
                         return (
-                          <div key={memo.id} className="flex items-center gap-2.5 py-2" style={{ borderBottom: i < recentMemos.length - 1 ? `1px solid ${DIVIDER}` : 'none' }}>
-                            <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: dots[i % 4] }} />
-                            <span className="text-[12px] flex-1 min-w-0 truncate" style={{ color: TEXT1 }}>{memo.title}</span>
-                            <span className="text-[10px] flex-shrink-0" style={{ color: TEXT3 }}>{fmtDate(memo.created_at)}</span>
-                          </div>
+                          <Link key={memo.id} href={`/memos/${memo.id}`}>
+                            <div className="flex items-center gap-2.5 py-2 cursor-pointer" style={{ borderBottom: i < memos.length - 1 ? `1px solid ${DIVIDER}` : 'none' }}>
+                              <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: dots[i % 4] }} />
+                              <span className="text-[12px] flex-1 min-w-0 truncate" style={{ color: TEXT1 }}>{memo.title}</span>
+                              <span className="text-[10px] flex-shrink-0" style={{ color: TEXT3 }}>{fmtDate(memo.created_at)}</span>
+                            </div>
+                          </Link>
                         )
                       })}
                     </div>
@@ -380,6 +422,66 @@ export default function HomePage() {
 
         </div>
       </div>
+
+      {/* 검색 모달 — body portal */}
+      {searchOpen && typeof document !== 'undefined' && createPortal(
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center pt-[10vh]"
+          style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}
+          onClick={() => setSearchOpen(false)}
+        >
+          <div
+            className="w-full max-w-lg mx-4 rounded-2xl overflow-hidden"
+            style={{ background: '#1A1D27', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 32px 64px rgba(0,0,0,0.5)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* 검색 입력 */}
+            <div className="flex items-center gap-3 px-4 py-3.5" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+              <Search size={14} style={{ color: TEXT2 }} className="flex-shrink-0" />
+              <input
+                ref={searchInputRef}
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="과업, 회의록, 메모 검색..."
+                className="flex-1 bg-transparent focus:outline-none text-[14px]"
+                style={{ color: TEXT1 }}
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery('')} className="text-[11px]" style={{ color: TEXT3 }}>지우기</button>
+              )}
+            </div>
+            {/* 결과 */}
+            <div className="max-h-[360px] overflow-y-auto">
+              {searchQuery.trim() === '' ? (
+                <p className="px-4 py-6 text-[13px] text-center" style={{ color: TEXT3 }}>검색어를 입력하세요</p>
+              ) : searchResults.length === 0 ? (
+                <p className="px-4 py-6 text-[13px] text-center" style={{ color: TEXT3 }}>검색 결과가 없어요</p>
+              ) : (
+                <div className="py-1">
+                  {searchResults.map((r, i) => (
+                    <button
+                      key={i}
+                      onClick={() => { router.push(r.href); setSearchOpen(false) }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
+                      style={{ color: TEXT1 }}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0"
+                        style={{ background: r.type === '과업' ? 'rgba(99,102,241,0.2)' : r.type === '회의록' ? 'rgba(52,211,153,0.15)' : 'rgba(251,146,60,0.15)',
+                          color: r.type === '과업' ? '#A5B4FC' : r.type === '회의록' ? '#6EE7B7' : '#FED7AA' }}>
+                        {r.type}
+                      </span>
+                      <span className="text-[13px] truncate">{r.title}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
       {/* 회고 풀스크린 에디터 — body portal */}
       {showJournal && typeof document !== 'undefined' && createPortal(
