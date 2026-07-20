@@ -508,8 +508,8 @@ function handleDragLeave(e: React.DragEvent) {
                                   className="text-[13px] font-semibold bg-transparent border-b border-[rgba(255,255,255,0.25)] focus:outline-none w-full pr-3"
                                   style={{ color: 'rgba(226,232,240,0.7)', textAlign: (col.align as 'center' | 'left' | 'right' | undefined) ?? 'left' }} />
                               ) : (
-                                <span className="text-[13px] font-semibold block pr-3 cursor-text"
-                                  style={{ textAlign: (col.align as 'center' | 'left' | 'right' | undefined) ?? 'left', color: 'rgba(226,232,240,0.38)', letterSpacing: '.05em' }}
+                                <span className="text-[13px] font-semibold block cursor-text"
+                                  style={{ textAlign: (col.align as 'center' | 'left' | 'right' | undefined) ?? 'left', color: 'rgba(226,232,240,0.38)', letterSpacing: '.05em', paddingRight: col.align === 'center' ? 0 : '12px' }}
                                   onDoubleClick={() => { setEditingColLabel(col.key); setEditLabelVal(getLabel(col.key, col.label)) }}>
                                   {getLabel(col.key, col.label)}
                                 </span>
