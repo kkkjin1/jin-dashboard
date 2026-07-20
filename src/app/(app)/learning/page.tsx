@@ -92,6 +92,24 @@ export default function LearningPage() {
   }
   const visibleCols = COL_DEFS.filter(c => activeCols.has(c.key))
 
+  // 컬럼 헤더 이름 편집 (localStorage)
+  const [colLabels, setColLabels] = useState<Record<string, string>>(() => {
+    try { const s = localStorage.getItem('learning_col_labels'); if (s) return JSON.parse(s) } catch {}
+    return {}
+  })
+  const [editingColLabel, setEditingColLabel] = useState<string | null>(null)
+  const [editLabelVal, setEditLabelVal] = useState('')
+  function saveColLabel(key: string) {
+    const v = editLabelVal.trim()
+    if (v) {
+      const next = { ...colLabels, [key]: v }
+      setColLabels(next)
+      localStorage.setItem('learning_col_labels', JSON.stringify(next))
+    }
+    setEditingColLabel(null)
+  }
+  function getLabel(key: string, fallback: string) { return colLabels[key] ?? fallback }
+
   // 컬럼 너비 (드래그 리사이즈, 전체 컬럼 통합)
   const DEFAULT_CW = { title: 300, media: 56, source: 180, date: 60, status: 60, notes: 48 }
   type CWKey = keyof typeof DEFAULT_CW
@@ -458,8 +476,21 @@ function handleDragLeave(e: React.DragEvent) {
                         <div className="flex items-center py-2 px-1 select-none"
                           style={{ borderBottom: '1px solid rgba(255,255,255,0.12)', borderTop: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.025)' }}>
                           {/* 제목 헤더 */}
-                          <div className="relative flex-shrink-0 pl-1 overflow-hidden" style={{ width: colWidths.title }}>
-                            <span className="text-[13px] font-semibold truncate block pr-3" style={{ color: 'rgba(226,232,240,0.38)', letterSpacing: '.05em' }}>제목</span>
+                          <div className="relative flex-shrink-0 pl-1 overflow-hidden group/hdr" style={{ width: colWidths.title }}>
+                            {editingColLabel === 'title' ? (
+                              <input autoFocus value={editLabelVal}
+                                onChange={e => setEditLabelVal(e.target.value)}
+                                onBlur={() => saveColLabel('title')}
+                                onKeyDown={e => { if (e.key === 'Enter') saveColLabel('title'); if (e.key === 'Escape') setEditingColLabel(null) }}
+                                className="text-[13px] font-semibold bg-transparent border-b border-[rgba(255,255,255,0.25)] focus:outline-none w-full pr-3"
+                                style={{ color: 'rgba(226,232,240,0.7)' }} />
+                            ) : (
+                              <span className="text-[13px] font-semibold truncate block pr-3 cursor-text"
+                                style={{ color: 'rgba(226,232,240,0.38)', letterSpacing: '.05em' }}
+                                onDoubleClick={() => { setEditingColLabel('title'); setEditLabelVal(getLabel('title', '제목')) }}>
+                                {getLabel('title', '제목')}
+                              </span>
+                            )}
                             <div className="absolute right-0 top-0 bottom-0 w-3 cursor-col-resize flex items-center justify-center group/rsz"
                               onMouseDown={e => startColResize('title', e)}>
                               <div className="w-px h-3.5 group-hover/rsz:h-full transition-all" style={{ background: 'rgba(255,255,255,0.25)' }} />
@@ -467,12 +498,22 @@ function handleDragLeave(e: React.DragEvent) {
                           </div>
                           {/* 옵션 컬럼 헤더들 */}
                           {visibleCols.map(col => (
-                            <div key={col.key} className="relative flex-shrink-0 overflow-hidden"
+                            <div key={col.key} className="relative flex-shrink-0 overflow-hidden group/hdr"
                               style={{ width: colWidths[col.key as CWKey] }}>
-                              <span className="text-[13px] font-semibold block pr-3"
-                                style={{ textAlign: (col.align as 'center' | 'left' | 'right' | undefined) ?? 'left', color: 'rgba(226,232,240,0.38)', letterSpacing: '.05em' }}>
-                                {col.label}
-                              </span>
+                              {editingColLabel === col.key ? (
+                                <input autoFocus value={editLabelVal}
+                                  onChange={e => setEditLabelVal(e.target.value)}
+                                  onBlur={() => saveColLabel(col.key)}
+                                  onKeyDown={e => { if (e.key === 'Enter') saveColLabel(col.key); if (e.key === 'Escape') setEditingColLabel(null) }}
+                                  className="text-[13px] font-semibold bg-transparent border-b border-[rgba(255,255,255,0.25)] focus:outline-none w-full pr-3"
+                                  style={{ color: 'rgba(226,232,240,0.7)', textAlign: (col.align as 'center' | 'left' | 'right' | undefined) ?? 'left' }} />
+                              ) : (
+                                <span className="text-[13px] font-semibold block pr-3 cursor-text"
+                                  style={{ textAlign: (col.align as 'center' | 'left' | 'right' | undefined) ?? 'left', color: 'rgba(226,232,240,0.38)', letterSpacing: '.05em' }}
+                                  onDoubleClick={() => { setEditingColLabel(col.key); setEditLabelVal(getLabel(col.key, col.label)) }}>
+                                  {getLabel(col.key, col.label)}
+                                </span>
+                              )}
                               <div className="absolute right-0 top-0 bottom-0 w-3 cursor-col-resize flex items-center justify-center group/rsz"
                                 onMouseDown={e => startColResize(col.key as CWKey, e)}>
                                 <div className="w-px h-3.5 group-hover/rsz:h-full transition-all" style={{ background: 'rgba(255,255,255,0.25)' }} />

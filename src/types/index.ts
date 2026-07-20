@@ -79,6 +79,7 @@ export interface QuickMemo {
 
 export interface NoteEntry {
   title: string
+  summary?: string   // 핵심문구 1문장 요약
   content: string
   created_at: string
   edited_at?: string
