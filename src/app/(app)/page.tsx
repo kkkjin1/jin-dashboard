@@ -133,7 +133,7 @@ export default function HomePage() {
   const today           = todayStr()
   const todayMeetings   = meetings.filter(m => m.meeting_date?.startsWith(today))
   const recentMeetings  = meetings.slice(0, 4)
-  const displaySubTasks = subTasks.slice(0, 6)
+  const displaySubTasks = subTasks
 
   const skel = (n: number) => Array.from({ length: n }, (_, i) => (
     <div key={i} className="h-7 rounded-xl animate-pulse" style={{ background: 'rgba(255,255,255,0.06)' }} />
@@ -233,7 +233,7 @@ export default function HomePage() {
               ) : displaySubTasks.length === 0 ? (
                 <p className="text-[13px] py-3 text-center" style={{ color: TEXT3 }}>진행 중인 과업이 없어요</p>
               ) : (
-                <div>
+                <div className="overflow-y-auto scrollbar-hide max-h-[200px]">
                   {displaySubTasks.map((st, i) => {
                     const groupColor = st.agenda_items?.agenda_groups?.color ?? '#818CF8'
                     return (
