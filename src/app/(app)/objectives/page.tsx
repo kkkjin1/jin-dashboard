@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { format, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, X, Maximize2 } from 'lucide-react'
+import MarkdownContent from '@/components/MarkdownContent'
 
 interface ObjGroup    { id: string; name: string; color: string; sort_order: number }
 interface ObjObjective { id: string; group_id: string; title: string; quarter: string; sort_order: number }
@@ -64,9 +65,9 @@ function SubCell({ entry, subItemId, date, onSave, onDelete, large }: SubCellPro
       <div
         onClick={() => { setVal(entry.content); setEditing(true) }}
         style={{ minHeight: cellH }}
-        className="min-w-[200px] text-[14px] text-[rgba(226,232,240,0.8)] leading-relaxed whitespace-pre-wrap cursor-text bg-[rgba(255,255,255,0.03)] rounded-lg px-2.5 py-2.5 hover:bg-[rgba(255,255,255,0.06)] transition-colors"
+        className="min-w-[200px] cursor-text bg-[rgba(255,255,255,0.03)] rounded-lg px-2.5 py-2.5 hover:bg-[rgba(255,255,255,0.06)] transition-colors"
       >
-        {entry.content}
+        <MarkdownContent content={entry.content} dark />
       </div>
     )
   }
