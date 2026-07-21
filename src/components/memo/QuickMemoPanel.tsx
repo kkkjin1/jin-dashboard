@@ -9,11 +9,11 @@ import SmartTextarea from '@/components/SmartTextarea'
 const TAGS: MemoTag[] = ['업무관련', '회의관련', '아이디어', '공지']
 
 const TAG_COLORS: Record<MemoTag, string> = {
-  '업무관련': 'bg-blue-50 text-blue-600 border-blue-200',
-  '회의관련': 'bg-purple-50 text-purple-600 border-purple-200',
-  '아이디어': 'bg-amber-50 text-amber-600 border-amber-200',
-  '공지': 'bg-red-50 text-red-600 border-red-200',
-  '완료': 'bg-gray-50 text-gray-400 border-gray-200',
+  '업무관련': 'bg-[rgba(79,141,255,0.15)] text-[#4F8DFF] border-[rgba(79,141,255,0.3)]',
+  '회의관련': 'bg-[rgba(139,92,246,0.15)] text-[#A78BFA] border-[rgba(139,92,246,0.3)]',
+  '아이디어': 'bg-[rgba(249,158,11,0.15)] text-[#F99E0B] border-[rgba(249,158,11,0.3)]',
+  '공지': 'bg-[rgba(239,68,68,0.15)] text-[#FC8181] border-[rgba(239,68,68,0.3)]',
+  '완료': 'bg-[rgba(91,98,112,0.15)] text-[#7B8290] border-[rgba(91,98,112,0.3)]',
 }
 
 function parseMeetingDate(text: string): string | null {
@@ -135,26 +135,30 @@ function SingleMemoPanel({
 
   return (
     <div
-      style={{ width: panelWidth, height: panelHeight, right }}
-      className="fixed bottom-0 z-[63] bg-white rounded-t-2xl shadow-2xl border border-gray-200 overflow-hidden">
+      style={{
+        width: panelWidth, height: panelHeight, right,
+        background: '#26282E',
+        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06), 0 0 0 1px rgba(255,255,255,0.06), 0 -18px 60px rgba(0,0,0,0.35)',
+      }}
+      className="fixed bottom-0 z-[63] rounded-t-2xl overflow-hidden">
 
       {/* 리사이즈 핸들 */}
-      <div onMouseDown={startResizeH} className="absolute top-0 left-0 right-0 h-1.5 cursor-ns-resize hover:bg-gray-200 transition-colors rounded-t-2xl z-10" />
-      <div onMouseDown={startResizeW} className="absolute top-0 left-0 bottom-0 w-1.5 cursor-ew-resize hover:bg-gray-200 transition-colors z-10" />
-      <div onMouseDown={startResizeBoth} className="absolute top-0 left-0 w-5 h-5 cursor-nwse-resize z-20 flex items-center justify-center hover:bg-gray-200 transition-colors rounded-tl-2xl" title="대각선 크기 조절">
-        <span className="text-gray-300 text-[8px] leading-none select-none">◤</span>
+      <div onMouseDown={startResizeH} className="absolute top-0 left-0 right-0 h-1.5 cursor-ns-resize hover:bg-[rgba(255,255,255,0.08)] transition-colors rounded-t-2xl z-10" />
+      <div onMouseDown={startResizeW} className="absolute top-0 left-0 bottom-0 w-1.5 cursor-ew-resize hover:bg-[rgba(255,255,255,0.08)] transition-colors z-10" />
+      <div onMouseDown={startResizeBoth} className="absolute top-0 left-0 w-5 h-5 cursor-nwse-resize z-20 flex items-center justify-center hover:bg-[rgba(255,255,255,0.08)] transition-colors rounded-tl-2xl" title="대각선 크기 조절">
+        <span className="text-[#5B6270] text-[8px] leading-none select-none">◤</span>
       </div>
 
       <div className="p-5 pb-20 md:pb-5 h-full flex flex-col">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-gray-800 text-sm">빠른 메모</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg leading-none">×</button>
+          <h3 className="font-semibold text-[#E5E7EB] text-sm">빠른 메모</h3>
+          <button onClick={onClose} className="text-[#5B6270] hover:text-[#E5E7EB] text-lg leading-none transition-colors">×</button>
         </div>
 
         <div className="flex gap-1.5 mb-3">
           {TAGS.map(t => (
             <button key={t} onClick={() => setTag(t)}
-              className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${tag === t ? TAG_COLORS[t] : 'bg-gray-50 text-gray-400 border-gray-200 hover:bg-gray-100'}`}>
+              className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${tag === t ? TAG_COLORS[t] : 'bg-[rgba(255,255,255,0.05)] text-[#5B6270] border-[rgba(255,255,255,0.08)] hover:bg-[rgba(255,255,255,0.08)] hover:text-[#A1A7B3]'}`}>
               {t}
             </button>
           ))}
@@ -166,10 +170,10 @@ function SingleMemoPanel({
             if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); handleSave() }
           }}
           placeholder={tag === '회의관련' ? '6월15일 미팅(홍길동/업무내용)' : '제목 (엔터로 저장)'}
-          className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-400 mb-1.5" />
+          className="w-full text-sm bg-[#1A1C1F] text-[#E5E7EB] placeholder:text-[#5B6270] border border-[rgba(255,255,255,0.08)] rounded-lg px-3 py-2 focus:outline-none focus:border-[rgba(255,255,255,0.2)] mb-1.5" />
 
         {tag === '회의관련' && (
-          <p className={`text-xs mb-2 px-0.5 ${meetingDate ? 'text-purple-500' : 'text-gray-300'}`}>
+          <p className={`text-xs mb-2 px-0.5 ${meetingDate ? 'text-[#A78BFA]' : 'text-[#5B6270]'}`}>
             {meetingDate ? `📅 ${meetingDate} 일정으로 등록됩니다` : '날짜 포함 시 일정탭에 자동 등록 (예: 6월15일 미팅)'}
           </p>
         )}
@@ -180,14 +184,15 @@ function SingleMemoPanel({
               if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); handleSave() }
             }}
             placeholder="내용 (선택, Ctrl+Enter 저장)"
-            className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-400 resize-none"
+            className="w-full text-sm bg-[#1A1C1F] text-[#E5E7EB] placeholder:text-[#5B6270] border border-[rgba(255,255,255,0.08)] rounded-lg px-3 py-2 focus:outline-none focus:border-[rgba(255,255,255,0.2)] resize-none"
             style={{ minHeight: '80px', resize: 'none' }} />
         </div>
 
         <div className="flex justify-between items-center mt-3">
-          <span className="text-xs text-gray-300">ESC 닫기 · Ctrl+Enter 저장</span>
+          <span className="text-xs text-[#5B6270]">ESC 닫기 · Ctrl+Enter 저장</span>
           <button onClick={handleSave} disabled={!title.trim() || saving}
-            className="text-xs bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] px-4 py-2 rounded-lg hover:bg-[#D5E6F7] disabled:opacity-30 transition-colors">
+            className="text-xs bg-[#1c2a3c] text-[rgba(230,231,234,0.85)] border border-[rgba(255,255,255,0.08)] px-4 py-2 rounded-lg hover:bg-[#1f3045] disabled:opacity-30 transition-colors"
+            style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.07)' }}>
             {savedMsg || (saving ? '저장 중...' : (meetingDate ? '일정 등록' : '저장'))}
           </button>
         </div>
