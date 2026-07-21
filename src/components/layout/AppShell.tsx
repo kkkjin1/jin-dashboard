@@ -13,9 +13,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="w-full h-screen overflow-hidden flex relative" style={{ background: '#191A1D' }}>
-      {/* Ambient Light — 화면 좌상단 블루 빛 */}
+      {/* Ambient Light — neutral, large, imperceptible to conscious eye */}
       <div className="pointer-events-none absolute inset-0 z-0"
-        style={{ background: 'radial-gradient(600px 600px at 6% 0%, rgba(76,139,255,0.05), transparent 60%)' }} />
+        style={{ background: 'radial-gradient(ellipse 100vw 55vh at -5% -15%, rgba(255,255,255,0.018), transparent 65%)' }} />
 
       {/* ── 데스크톱 사이드바 ── */}
       <div className="hidden md:block flex-shrink-0 relative z-10">

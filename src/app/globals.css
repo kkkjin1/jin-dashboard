@@ -161,6 +161,26 @@ html, body {
   display: none;
 }
 
+/*
+  ── Floating Surface ──────────────────────────────────────────
+  A card that feels lifted off the background.
+  Layer 1: inner top highlight — the surface catches overhead light
+  Layer 2: contact shadow     — crisp 1-2px under the card edge
+  Layer 3: near float         — soft falloff within card radius
+  Layer 4: far ambient        — the card's "presence" in the room
+  Not stronger elevation. Softer depth.
+  ─────────────────────────────────────────────────────────────
+*/
+.surface-card {
+  background: #1e2026;
+  border: 1px solid rgba(255, 255, 255, 0.055);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 1px 2px rgba(0, 0, 0, 0.12),
+    0 4px 16px rgba(0, 0, 0, 0.09),
+    0 20px 48px rgba(0, 0, 0, 0.06);
+}
+
 /* ═══════════════════════════════════════════════════════════
    모바일 솔리드 라이트 테마 (max-width: 767px)
    Apple Notes · Toss 스타일 크림/화이트 솔리드 테마

@@ -21,9 +21,15 @@ type SubTaskWithContext = AgendaSubTask & {
 
 // ── Design Tokens ──────────────────────────────────────────────────────────
 const BG      = '#191A1D'
-const SURFACE = '#202126'
-const BORDER  = '1px solid rgba(255,255,255,0.035)'
-const SHADOW  = '0 1px 0 rgba(255,255,255,0.04) inset, 0 0 0 1px rgba(255,255,255,0.03), 0 10px 40px rgba(0,0,0,0.22)'
+const SURFACE = '#1e2026'
+const BORDER  = '1px solid rgba(255,255,255,0.055)'
+// Four shadow layers: top-edge highlight + contact + near-float + far-ambient
+// No single layer is heavy — depth comes from the stack, not the weight.
+const SHADOW  =
+  'inset 0 1px 0 rgba(255,255,255,0.08), ' +
+  '0 1px 2px rgba(0,0,0,0.12), ' +
+  '0 4px 16px rgba(0,0,0,0.09), ' +
+  '0 20px 48px rgba(0,0,0,0.06)'
 const TEXT1   = '#E6E7EA'
 const TEXT2   = 'rgba(230,231,234,0.5)'
 const TEXT3   = '#717680'
