@@ -86,8 +86,8 @@ function renderLine(line: string, keyVal: string | number, dark?: boolean): Reac
   if (line.startsWith('## ')) return <p key={k} className={c.h2}>{parseInline(line.slice(3), `${k}`)}</p>
   if (line.startsWith('### ')) return <p key={k} className={c.h3}>{parseInline(line.slice(4), `${k}`)}</p>
 
-  // (?:\s(.*))? → content after marker is optional: handles mid-typing state like "3." or "3)"
-  const numMatch = line.match(/^( *)(\d+)\.(?:\s(.*))?$/)
+  // \s* → 마커 뒤 공백 0개 이상 허용 ("1.항목", "1. 항목" 모두 인식)
+  const numMatch = line.match(/^( *)(\d+)\.\s*(.*)$/)
   if (numMatch) {
     const lvl = Math.floor(numMatch[1].length / INDENT_SIZE)
     return (
@@ -98,7 +98,7 @@ function renderLine(line: string, keyVal: string | number, dark?: boolean): Reac
     )
   }
 
-  const korMatch = line.match(/^( *)([가나다라마바사아자차카타파하])\.(?:\s(.*))?$/)
+  const korMatch = line.match(/^( *)([가나다라마바사아자차카타파하])\.\s*(.*)$/)
   if (korMatch) {
     const lvl = Math.floor(korMatch[1].length / INDENT_SIZE)
     return (
@@ -109,7 +109,7 @@ function renderLine(line: string, keyVal: string | number, dark?: boolean): Reac
     )
   }
 
-  const parenMatch = line.match(/^( *)(\d+)\)(?:\s(.*))?$/)
+  const parenMatch = line.match(/^( *)(\d+)\)\s*(.*)$/)
   if (parenMatch) {
     const lvl = Math.floor(parenMatch[1].length / INDENT_SIZE)
     return (
