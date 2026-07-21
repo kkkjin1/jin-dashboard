@@ -20,17 +20,17 @@ type SubTaskWithContext = AgendaSubTask & {
 }
 
 // ── Design Tokens ──────────────────────────────────────────────────────────
-const BG      = '#191A1D'
-const SURFACE = '#1b1d23'
+const BG      = '#1F2023'
+const SURFACE = '#26282E'
 // Three-layer shadow — inner highlight + hairline + large ambient.
 // No layer is heavy. Depth from the system, not the weight.
 const SHADOW  =
-  'inset 0 1px 0 rgba(255,255,255,0.05), ' +
-  '0 0 0 1px rgba(255,255,255,0.025), ' +
-  '0 18px 60px rgba(0,0,0,0.18)'
-const TEXT1   = '#E6E7EA'
-const TEXT2   = 'rgba(230,231,234,0.5)'
-const TEXT3   = '#717680'
+  'inset 0 1px 0 rgba(255,255,255,0.06), ' +
+  '0 0 0 1px rgba(255,255,255,0.06), ' +
+  '0 18px 60px rgba(0,0,0,0.15)'
+const TEXT1   = '#E5E7EB'
+const TEXT2   = '#A1A7B3'
+const TEXT3   = '#7B8290'
 const DIVIDER = 'rgba(255,255,255,0.05)'
 
 const CARD_STYLE: React.CSSProperties = { background: SURFACE, boxShadow: SHADOW, borderRadius: 24 }
@@ -175,7 +175,7 @@ export default function HomePage() {
           <div
             onClick={() => setSearchOpen(true)}
             className="flex items-center gap-2.5 px-4 py-1.5 rounded-2xl w-full max-w-sm cursor-pointer transition-all duration-200"
-            style={{ background: '#161820', boxShadow: 'inset 0 1px 0 rgba(0,0,0,0.2), 0 0 0 1px rgba(255,255,255,0.04)' }}
+            style={{ background: '#1A1C1F', boxShadow: 'inset 0 1px 0 rgba(0,0,0,0.25), 0 0 0 1px rgba(255,255,255,0.04)' }}
           >
             <Search size={12} style={{ color: TEXT2 }} className="flex-shrink-0" />
             <span className="text-[13px] flex-1" style={{ color: TEXT3 }}>검색 (프로젝트, 안건, 회의록 등)</span>
@@ -404,7 +404,7 @@ export default function HomePage() {
         >
           <div
             className="w-full max-w-lg mx-4 rounded-2xl overflow-hidden"
-            style={{ background: '#1b1d23', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05), 0 0 0 1px rgba(255,255,255,0.025), 0 32px 80px rgba(0,0,0,0.45)' }}
+            style={{ background: '#26282E', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06), 0 0 0 1px rgba(255,255,255,0.06), 0 32px 80px rgba(0,0,0,0.45)' }}
             onClick={e => e.stopPropagation()}
           >
             {/* 검색 입력 */}

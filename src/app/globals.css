@@ -167,11 +167,14 @@ html, body {
   ══════════════════════════════════════════════════════════════
 
   Design token reference:
-    --ws-bg:        #191A1D   workspace background
-    --ws-surface:   #1b1d23   cards / panels — barely lighter than bg
-    --ws-border:    rgba(255,255,255,.025)   hairline, nearly invisible
-    --ws-highlight: rgba(255,255,255,.05)    inner top-edge light catch
-    --ws-ambient:   rgba(0,0,0,.18)          single large soft ambient
+    --ws-bg:        #1F2023   workspace background
+    --ws-sidebar:   #1A1B1E   sidebar
+    --ws-surface:   #26282E   cards / panels — 4-6% lighter than bg
+    --ws-hover:     #2B2E34   card hover state
+    --ws-border:    rgba(255,255,255,.06)    hairline
+    --ws-highlight: rgba(255,255,255,.06)    inner top-edge light catch
+    --ws-ambient:   rgba(0,0,0,.15)          single large soft ambient
+    --ws-input:     #1A1C1F   recessed input fields
 
   Shadow anatomy — three layers, no single layer is heavy:
     1. inset 0 1px 0  (highlight)  — overhead light hits the top edge
@@ -187,12 +190,12 @@ html, body {
 
 /* ── Primary floating surface — cards, panels, modals ── */
 .surface-card {
-  background: #1b1d23;
+  background: #26282E;
   border: none;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 0 0 1px rgba(255, 255, 255, 0.025),
-    0 18px 60px rgba(0, 0, 0, 0.18);
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 18px 60px rgba(0, 0, 0, 0.15);
 }
 
 /* ── Active / selected navigation item ── */
@@ -207,9 +210,9 @@ html, body {
 
 /* ── Input / search fields ── */
 .surface-input {
-  background: #161820;
+  background: #1A1C1F;
   box-shadow:
-    inset 0 1px 0 rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(0, 0, 0, 0.25),
     0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 

@@ -88,7 +88,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   return (
     <aside
       className={`h-screen flex flex-col overflow-hidden transition-[width] duration-200 ease-out flex-shrink-0 ${sidebarW}`}
-      style={{ background: '#141519', borderRight: '1px solid rgba(255,255,255,0.05)' }}
+      style={{ background: '#1A1B1E', borderRight: '1px solid rgba(255,255,255,0.06)' }}
     >
       {/* ── 헤더 ── */}
       {collapsed ? (
@@ -97,7 +97,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
             인
           </div>
           <button onClick={onToggle}
-            className="p-1.5 text-[rgba(226,232,240,0.35)] hover:text-[#E2E8F0] hover:bg-[rgba(255,255,255,0.06)] rounded-md transition-colors">
+            className="p-1.5 text-[#5B6270] hover:text-[#E5E7EB] hover:bg-[rgba(255,255,255,0.06)] rounded-md transition-colors">
             <ChevronRight size={14} />
           </button>
         </div>
@@ -108,12 +108,12 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
               인
             </div>
             <div className="min-w-0">
-              <p className="text-[13px] font-semibold text-[#E2E8F0] truncate tracking-tight">인사기획 워크</p>
-              <p className="text-[11px] text-[rgba(226,232,240,0.4)] truncate">이그니스 피플본부</p>
+              <p className="text-[13px] font-semibold text-[#E5E7EB] truncate tracking-tight">인사기획 워크</p>
+              <p className="text-[11px] text-[#7B8290] truncate">이그니스 피플본부</p>
             </div>
           </div>
           <button onClick={onToggle}
-            className="flex-shrink-0 p-1.5 text-[rgba(226,232,240,0.35)] hover:text-[#E2E8F0] hover:bg-[rgba(255,255,255,0.06)] rounded-md transition-colors">
+            className="flex-shrink-0 p-1.5 text-[#5B6270] hover:text-[#E5E7EB] hover:bg-[rgba(255,255,255,0.06)] rounded-md transition-colors">
             <ChevronLeft size={14} />
           </button>
         </div>
@@ -125,7 +125,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
           <div key={section.label} className={si > 0 ? 'mt-4' : ''}>
             {/* 섹션 라벨 */}
             {!collapsed && (
-              <p className="px-4 mb-1 text-[10px] font-semibold text-[rgba(226,232,240,0.35)] uppercase tracking-wider">
+              <p className="px-4 mb-1 text-[10px] font-semibold text-[#5B6270] uppercase tracking-wider">
                 {section.label}
               </p>
             )}
@@ -144,8 +144,8 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                         collapsed ? 'justify-center py-2.5' : 'gap-2.5 px-3 py-2'
                       } ${
                         isActive
-                          ? 'surface-nav-active text-[#E6E7EA] font-medium'
-                          : 'text-[rgba(230,231,234,0.4)] hover:text-[#E6E7EA]'
+                          ? 'surface-nav-active text-[#E5E7EB] font-medium'
+                          : 'text-[#7B8290] hover:text-[#E5E7EB]'
                       }`}
                       onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)' }}
                       onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
@@ -182,7 +182,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
         {collapsed ? (
           <div className="p-2 flex justify-center">
             <button onClick={handleLogout} title="로그아웃"
-              className="p-2.5 rounded-lg text-[rgba(226,232,240,0.35)] hover:bg-[rgba(255,255,255,0.06)] hover:text-[#E2E8F0] transition-colors">
+              className="p-2.5 rounded-lg text-[#5B6270] hover:bg-[rgba(255,255,255,0.06)] hover:text-[#E5E7EB] transition-colors">
               <LogOut size={15} strokeWidth={1.75} />
             </button>
           </div>
@@ -196,12 +196,12 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 <span className="text-[11px] font-bold text-white">진</span>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[12px] font-semibold text-[#E2E8F0] truncate">김진일</p>
-                <p className="text-[10px] text-[rgba(226,232,240,0.4)] truncate">인사기획팀 팀장</p>
+                <p className="text-[12px] font-semibold text-[#E5E7EB] truncate">김진일</p>
+                <p className="text-[10px] text-[#7B8290] truncate">인사기획팀 팀장</p>
               </div>
               <ChevronDown
                 size={13}
-                className={`text-[rgba(226,232,240,0.4)] flex-shrink-0 transition-transform duration-150 ${userMenuOpen ? 'rotate-180' : ''}`}
+                className={`text-[#7B8290] flex-shrink-0 transition-transform duration-150 ${userMenuOpen ? 'rotate-180' : ''}`}
               />
             </button>
 
@@ -210,15 +210,15 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
                 <div className="absolute bottom-full left-3 right-3 mb-2 rounded-2xl overflow-hidden z-50"
-                  style={{ background: '#1b1d23', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05), 0 0 0 1px rgba(255,255,255,0.025), 0 18px 60px rgba(0,0,0,0.35)' }}>
+                  style={{ background: '#26282E', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06), 0 0 0 1px rgba(255,255,255,0.06), 0 18px 60px rgba(0,0,0,0.35)' }}>
                   <div className="px-4 py-3 border-b border-[rgba(255,255,255,0.06)]">
-                    <p className="text-[12px] font-semibold text-[#E2E8F0]">김진일</p>
-                    <p className="text-[11px] text-[rgba(226,232,240,0.4)]">ji.kim@egnis.kr</p>
+                    <p className="text-[12px] font-semibold text-[#E5E7EB]">김진일</p>
+                    <p className="text-[11px] text-[#7B8290]">ji.kim@egnis.kr</p>
                   </div>
                   <div className="py-1">
                     <Link href="/settings" onClick={() => setUserMenuOpen(false)}
                       className="flex items-center gap-2.5 px-4 py-2.5 text-[13px] text-[rgba(226,232,240,0.7)] hover:bg-[rgba(255,255,255,0.06)] transition-colors">
-                      <Settings size={14} strokeWidth={1.75} className="text-[rgba(226,232,240,0.4)]" />
+                      <Settings size={14} strokeWidth={1.75} className="text-[#7B8290]" />
                       설정
                     </Link>
                     <button onClick={() => { setUserMenuOpen(false); handleLogout() }}
