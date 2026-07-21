@@ -150,21 +150,154 @@ export default function HomePage() {
     <div className="font-sans flex flex-col" style={{ height: '100%', background: BG }}>
 
       {/* ── 모바일 ── */}
-      <div className="md:hidden flex-1 overflow-y-auto px-4 pt-6 pb-36">
-        <h2 className="text-base font-bold mb-4" style={{ color: TEXT1 }}>오늘의 할 일</h2>
+      <div className="md:hidden flex-1 overflow-y-auto px-4 pt-5 pb-36 space-y-4">
+
+        {/* 오늘의 할 일 */}
         <div className="rounded-[20px] p-4" style={CARD_STYLE}>
-          {todayTodos.length === 0 && <p className="text-sm py-2" style={{ color: TEXT2 }}>오늘 할 일이 없어요</p>}
-          {todayTodos.map(t => (
-            <div key={t.id} className="flex items-start gap-3 py-3" style={{ borderBottom: `1px solid ${DIVIDER}` }}>
-              <div className="w-5 h-5 rounded-full border-2 flex-shrink-0 mt-0.5" style={{ borderColor: 'rgba(255,255,255,0.2)' }} />
-              <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-medium leading-snug" style={{ color: TEXT1 }}>{t.title}</p>
-                {t.tasks && <p className="text-[11px] mt-0.5" style={{ color: TEXT2 }}>{t.tasks.short_name ?? t.tasks.title}</p>}
-              </div>
-              {t.tasks && <span className={tagCls(t.tasks.part)}>{t.tasks.part}</span>}
-            </div>
-          ))}
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-[13px] font-bold" style={{ color: TEXT1 }}>오늘의 할 일</h2>
+            <Link href="/tasks" className="text-[11px]" style={{ color: TEXT3 }}>+ 추가</Link>
+          </div>
+          {loading ? <div className="space-y-2">{skel(3)}</div>
+            : todayTodos.length === 0
+              ? <p className="text-[13px] py-1" style={{ color: TEXT3 }}>오늘 할 일이 없어요</p>
+              : todayTodos.map((t, i) => {
+                  const done = doneTasks.includes(t.id)
+                  return (
+                    <div key={t.id} className="flex items-center gap-3 py-2.5" style={{ borderBottom: i < todayTodos.length - 1 ? `1px solid ${DIVIDER}` : 'none' }}>
+                      <button onClick={() => toggleTask(t.id)} className="flex-shrink-0 rounded-full border-2 flex items-center justify-center transition-all"
+                        style={{ width: 18, height: 18, borderColor: done ? '#34D399' : 'rgba(255,255,255,0.2)', background: done ? '#34D399' : 'transparent' }}>
+                        {done && <svg width="7" height="7" viewBox="0 0 8 8" fill="none"><path d="M1.5 4L3 5.5L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+                      </button>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13px] font-medium" style={{ color: done ? TEXT3 : TEXT1, textDecoration: done ? 'line-through' : 'none' }}>{t.title}</p>
+                        {t.tasks && <p className="text-[11px]" style={{ color: TEXT2 }}>{t.tasks.short_name ?? t.tasks.title}</p>}
+                      </div>
+                      {t.tasks && <span className={tagCls(t.tasks.part)}>{t.tasks.part}</span>}
+                    </div>
+                  )
+                })
+          }
         </div>
+
+        {/* 진행 중 과업 */}
+        <div className="rounded-[20px] p-4" style={CARD_STYLE}>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-[13px] font-bold" style={{ color: TEXT1 }}>진행 중 과업</h2>
+            <Link href="/project" className="text-[11px]" style={{ color: TEXT3 }}>전체 보기</Link>
+          </div>
+          {loading ? <div className="space-y-2">{skel(3)}</div>
+            : displaySubTasks.length === 0
+              ? <p className="text-[13px] py-1" style={{ color: TEXT3 }}>진행 중인 과업이 없어요</p>
+              : displaySubTasks.map((st, i) => {
+                  const groupColor = st.agenda_items?.agenda_groups?.color ?? '#818CF8'
+                  return (
+                    <Link key={st.id} href={`/subtasks/${st.id}`}>
+                      <div className="flex items-center gap-3 py-2.5" style={{ borderBottom: i < displaySubTasks.length - 1 ? `1px solid ${DIVIDER}` : 'none' }}>
+                        <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: groupColor }} />
+                        <span className="text-[13px] font-medium flex-1 min-w-0 truncate" style={{ color: TEXT1 }}>{st.title}</span>
+                        {st.agenda_items && (
+                          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full flex-shrink-0 truncate max-w-[100px]"
+                            style={{ background: `${groupColor}33`, color: groupColor }}>
+                            {st.agenda_items.title}
+                          </span>
+                        )}
+                      </div>
+                    </Link>
+                  )
+                })
+          }
+        </div>
+
+        {/* 오늘의 일정 */}
+        <div className="rounded-[20px] p-4" style={CARD_STYLE}>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-[13px] font-bold" style={{ color: TEXT1 }}>오늘의 일정</h2>
+            <Link href="/schedule" className="text-[11px]" style={{ color: TEXT3 }}>전체</Link>
+          </div>
+          {loading ? <div className="space-y-2">{skel(2)}</div>
+            : todayMeetings.length === 0
+              ? <p className="text-[13px] py-1" style={{ color: TEXT3 }}>오늘 일정 없음</p>
+              : todayMeetings.map((m, i) => (
+                  <div key={m.id} className="flex items-center gap-2.5 py-2.5" style={{ borderBottom: i < todayMeetings.length - 1 ? `1px solid ${DIVIDER}` : 'none' }}>
+                    <Clock size={11} style={{ color: TEXT3 }} className="flex-shrink-0" />
+                    <span className="text-[13px] flex-1 min-w-0 truncate" style={{ color: TEXT1 }}>{m.title}</span>
+                  </div>
+                ))
+          }
+        </div>
+
+        {/* 최근 회의록 */}
+        <div className="rounded-[20px] p-4" style={CARD_STYLE}>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-[13px] font-bold" style={{ color: TEXT1 }}>최근 회의록</h2>
+            <Link href="/meetings" className="text-[11px]" style={{ color: TEXT3 }}>전체</Link>
+          </div>
+          {loading ? <div className="space-y-2">{skel(3)}</div>
+            : recentMeetings.length === 0
+              ? <p className="text-[13px] py-1" style={{ color: TEXT3 }}>회의록이 없어요</p>
+              : recentMeetings.map((m, i) => (
+                  <Link key={m.id} href={`/meetings/${m.id}`}>
+                    <div className="flex items-center gap-2.5 py-2.5" style={{ borderBottom: i < recentMeetings.length - 1 ? `1px solid ${DIVIDER}` : 'none' }}>
+                      <div className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(255,255,255,0.07)' }}>
+                        <FileText size={11} strokeWidth={1.75} style={{ color: TEXT2 }} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13px] font-medium truncate" style={{ color: TEXT1 }}>{m.title}</p>
+                        <p className="text-[11px]" style={{ color: TEXT3 }}>{fmtDate(m.meeting_date)}</p>
+                      </div>
+                    </div>
+                  </Link>
+                ))
+          }
+        </div>
+
+        {/* 퀵메모 */}
+        <div className="rounded-[20px] p-4" style={CARD_STYLE}>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-[13px] font-bold" style={{ color: TEXT1 }}>퀵메모</h2>
+            <Link href="/memos" className="text-[11px]" style={{ color: TEXT3 }}>전체</Link>
+          </div>
+          {loading ? <div className="space-y-2">{skel(3)}</div>
+            : memos.length === 0
+              ? <p className="text-[13px] py-1" style={{ color: TEXT3 }}>메모가 없어요</p>
+              : memos.slice(0, 6).map((memo, i) => {
+                  const dots = ['#818CF8', '#60A5FA', '#34D399', '#FB923C']
+                  return (
+                    <Link key={memo.id} href={`/memos/${memo.id}`}>
+                      <div className="flex items-center gap-2.5 py-2.5" style={{ borderBottom: i < Math.min(memos.length, 6) - 1 ? `1px solid ${DIVIDER}` : 'none' }}>
+                        <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: dots[i % 4] }} />
+                        <span className="text-[13px] flex-1 min-w-0 truncate" style={{ color: TEXT1 }}>{memo.title}</span>
+                        <span className="text-[10px] flex-shrink-0" style={{ color: TEXT3 }}>{fmtDate(memo.created_at)}</span>
+                      </div>
+                    </Link>
+                  )
+                })
+          }
+        </div>
+
+        {/* 회고 */}
+        <div className="rounded-[20px] p-4" style={CARD_STYLE}>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-[13px] font-bold" style={{ color: TEXT1 }}>회고</h2>
+            {todayJournal && (
+              <button onClick={() => setShowJournal(true)} className="text-[11px]" style={{ color: TEXT3 }}>수정</button>
+            )}
+          </div>
+          {todayJournal ? (
+            <button onClick={() => setShowJournal(true)} className="w-full text-left">
+              <p className="text-[13px] leading-relaxed line-clamp-4" style={{ color: TEXT2 }}>{todayJournal.content}</p>
+            </button>
+          ) : (
+            <button onClick={() => setShowJournal(true)}
+              className="w-full py-5 flex flex-col items-center justify-center gap-2 rounded-xl"
+              style={{ border: '1px dashed rgba(255,255,255,0.1)' }}>
+              <NotebookPen size={18} strokeWidth={1.5} style={{ color: TEXT3 }} />
+              <span className="text-[12px]" style={{ color: TEXT3 }}>오늘 회고 작성하기</span>
+            </button>
+          )}
+        </div>
+
       </div>
 
       {/* ── 데스크톱: 1페이지 내 완전 고정 ── */}
