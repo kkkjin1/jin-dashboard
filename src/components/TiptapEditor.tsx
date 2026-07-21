@@ -15,11 +15,20 @@ function inlineToHtml(text: string): string {
   let s = text
   s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
   s = s.replace(/__(.+?)__/g, '<u>$1</u>')
+  s = s.replace(/!!(.+?)!!/g, '<span style="color:#EF4444">$1</span>')
+  s = s.replace(/==(.+?)==/g, '<mark style="background:rgba(250,204,21,0.35);border-radius:2px;padding:0 2px">$1</mark>')
+  s = s.replace(/~~(.+?)~~/g, '<s>$1</s>')
   for (const [name, hex] of Object.entries(COLOR_MAP)) {
     s = s.replace(new RegExp(`\\{${name}\\}(.+?)\\{\\/${name}\\}`, 'g'), `<span style="color:${hex}">$1</span>`)
   }
   return s
 }
+
+const NUM_RE  = /^(\d+)\.\s*(.*)$/
+const KOR_RE  = /^([가나다라마바사아자차카타파하])\.\s*(.*)$/
+const PAR_RE  = /^(\d+)\)\s*(.*)$/
+const BULL_RE = /^[▪●■]\s*(.*)$/
+const SUBB_RE = /^[▫○□]\s*(.*)$/
 
 // Convert old custom markdown → HTML for Tiptap loading
 function legacyToHtml(text: string): string {
@@ -27,14 +36,39 @@ function legacyToHtml(text: string): string {
   if (text.trimStart().startsWith('<')) return text
   const lines = text.split('\n')
   let html = ''
+  let inOL = false
+  let inUL = false
+
+  const closeOL = () => { if (inOL) { html += '</ol>'; inOL = false } }
+  const closeUL = () => { if (inUL) { html += '</ul>'; inUL = false } }
+
   for (const line of lines) {
-    if (line.startsWith('# ')) html += `<h1>${inlineToHtml(line.slice(2))}</h1>`
-    else if (line.startsWith('## ')) html += `<h2>${inlineToHtml(line.slice(3))}</h2>`
-    else if (line.startsWith('### ')) html += `<h3>${inlineToHtml(line.slice(4))}</h3>`
-    else if (line.startsWith('> ')) html += `<p><strong>${inlineToHtml(line.slice(2))}</strong></p>`
-    else if (line === '') html += '<p></p>'
-    else html += `<p>${inlineToHtml(line)}</p>`
+    const num  = line.match(NUM_RE)
+    const kor  = line.match(KOR_RE)
+    const par  = line.match(PAR_RE)
+    const bull = line.match(BULL_RE)
+    const subb = line.match(SUBB_RE)
+
+    if (num || kor || par) {
+      closeUL()
+      if (!inOL) { html += '<ol>'; inOL = true }
+      const body = (num?.[2] ?? kor?.[2] ?? par?.[2]) ?? ''
+      html += `<li>${inlineToHtml(body)}</li>`
+    } else if (bull || subb) {
+      closeOL()
+      if (!inUL) { html += '<ul>'; inUL = true }
+      html += `<li>${inlineToHtml((bull?.[1] ?? subb?.[1]) ?? '')}</li>`
+    } else {
+      closeOL(); closeUL()
+      if (line.startsWith('# '))   html += `<h1>${inlineToHtml(line.slice(2))}</h1>`
+      else if (line.startsWith('## '))  html += `<h2>${inlineToHtml(line.slice(3))}</h2>`
+      else if (line.startsWith('### ')) html += `<h3>${inlineToHtml(line.slice(4))}</h3>`
+      else if (line.startsWith('> '))   html += `<p><strong>${inlineToHtml(line.slice(2))}</strong></p>`
+      else if (line === '')              html += '<p></p>'
+      else                               html += `<p>${inlineToHtml(line)}</p>`
+    }
   }
+  closeOL(); closeUL()
   return html || '<p></p>'
 }
 
