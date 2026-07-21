@@ -27,10 +27,13 @@ interface SubCellProps {
   date: string
   onSave: (subItemId: string, date: string, content: string) => Promise<void>
   onDelete: (id: string) => Promise<void>
+  large?: boolean
 }
-function SubCell({ entry, subItemId, date, onSave, onDelete }: SubCellProps) {
+function SubCell({ entry, subItemId, date, onSave, onDelete, large }: SubCellProps) {
   const [editing, setEditing] = useState(false)
   const [val, setVal] = useState(entry?.content ?? '')
+  const cellH = large ? 320 : 140
+  const taRows = large ? 16 : 8
 
   async function save() {
     const trimmed = val.trim()
@@ -51,7 +54,7 @@ function SubCell({ entry, subItemId, date, onSave, onDelete }: SubCellProps) {
           if (e.key === 'Escape') { setVal(entry?.content ?? ''); setEditing(false) }
         }}
         className="w-full min-w-[200px] text-[14px] text-[rgba(226,232,240,0.8)] leading-relaxed bg-[rgba(255,255,255,0.06)] border border-[#1B3A6B]/25 rounded-lg p-2 focus:outline-none resize-y"
-        rows={8}
+        rows={taRows}
       />
     )
   }
@@ -60,7 +63,8 @@ function SubCell({ entry, subItemId, date, onSave, onDelete }: SubCellProps) {
     return (
       <div
         onClick={() => { setVal(entry.content); setEditing(true) }}
-        className="min-w-[200px] min-h-[140px] text-[14px] text-[rgba(226,232,240,0.8)] leading-relaxed whitespace-pre-wrap cursor-text bg-[rgba(255,255,255,0.03)] rounded-lg px-2.5 py-2.5 hover:bg-[rgba(255,255,255,0.06)] transition-colors"
+        style={{ minHeight: cellH }}
+        className="min-w-[200px] text-[14px] text-[rgba(226,232,240,0.8)] leading-relaxed whitespace-pre-wrap cursor-text bg-[rgba(255,255,255,0.03)] rounded-lg px-2.5 py-2.5 hover:bg-[rgba(255,255,255,0.06)] transition-colors"
       >
         {entry.content}
       </div>
@@ -70,7 +74,8 @@ function SubCell({ entry, subItemId, date, onSave, onDelete }: SubCellProps) {
   return (
     <div
       onClick={() => { setVal(''); setEditing(true) }}
-      className="min-w-[200px] h-[140px] rounded-lg border border-dashed border-transparent hover:border-[rgba(255,255,255,0.09)] cursor-pointer transition-colors flex items-center justify-center"
+      style={{ height: cellH }}
+      className="min-w-[200px] rounded-lg border border-dashed border-transparent hover:border-[rgba(255,255,255,0.09)] cursor-pointer transition-colors flex items-center justify-center"
     >
       <span className="text-xs text-[rgba(226,232,240,0.2)] select-none">클릭해서 입력</span>
     </div>
@@ -132,6 +137,7 @@ interface ObjectiveBlockProps {
   onDeleteSubEntry: (id: string) => Promise<void>
   onRenameDate: (oldDate: string, newDate: string) => Promise<void>
   onDeleteDate: (date: string) => Promise<void>
+  largeCells?: boolean
 }
 function ObjectiveBlock({
   obj, color, subItems, subEntries,
@@ -139,6 +145,7 @@ function ObjectiveBlock({
   onAddSubItem, onSaveSubItemTitle, onDeleteSubItem,
   onSaveSubEntry, onDeleteSubEntry,
   onRenameDate, onDeleteDate,
+  largeCells,
 }: ObjectiveBlockProps) {
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleVal, setTitleVal] = useState(obj.title)
@@ -305,6 +312,7 @@ function ObjectiveBlock({
                       date={d}
                       onSave={onSaveSubEntry}
                       onDelete={onDeleteSubEntry}
+                      large={largeCells}
                     />
                   </td>
                 ))}
@@ -472,6 +480,7 @@ function GroupEditOverlay({
                   onDeleteSubEntry={onDeleteSubEntry}
                   onRenameDate={onRenameDate}
                   onDeleteDate={onDeleteDate}
+                  largeCells
                 />
               </div>
             ))}
