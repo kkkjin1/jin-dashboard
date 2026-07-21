@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { format, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
-import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, X, Maximize2 } from 'lucide-react'
 
 interface ObjGroup    { id: string; name: string; color: string; sort_order: number }
 interface ObjObjective { id: string; group_id: string; title: string; quarter: string; sort_order: number }
@@ -77,6 +77,46 @@ function SubCell({ entry, subItemId, date, onSave, onDelete }: SubCellProps) {
   )
 }
 
+// ── SubItemTitle ───────────────────────────────────────────
+function SubItemTitle({ si, onSave, onDelete }: {
+  si: ObjSubItem
+  onSave: (id: string, title: string) => Promise<void>
+  onDelete: (id: string) => Promise<void>
+}) {
+  const [editing, setEditing] = useState(false)
+  const [val, setVal] = useState(si.title)
+  async function save() {
+    const t = val.trim()
+    if (!t) { setVal(si.title); setEditing(false); return }
+    await onSave(si.id, t)
+    setEditing(false)
+  }
+  if (editing) return (
+    <input autoFocus value={val}
+      onChange={e => setVal(e.target.value)}
+      onKeyDown={e => {
+        if (e.key === 'Enter' && !e.nativeEvent.isComposing) save()
+        if (e.key === 'Escape') { setVal(si.title); setEditing(false) }
+      }}
+      onBlur={save}
+      className="text-[14px] text-[#E5E7EB] border-b border-[rgba(255,255,255,0.2)] focus:outline-none bg-transparent w-full" />
+  )
+  return (
+    <div className="flex items-start gap-1 group/sititle">
+      <span className="text-[14px] text-[rgba(226,232,240,0.7)] leading-relaxed flex-1 cursor-text"
+        onClick={() => { setVal(si.title); setEditing(true) }}>
+        {si.title}
+      </span>
+      <div className="flex items-center gap-0.5 opacity-0 group-hover/sititle:opacity-100 transition-opacity flex-shrink-0 mt-0.5">
+        <button onClick={() => { setVal(si.title); setEditing(true) }}
+          className="text-[rgba(226,232,240,0.2)] hover:text-[rgba(226,232,240,0.5)] p-0.5 transition-colors"><Pencil size={8} /></button>
+        <button onClick={() => onDelete(si.id)}
+          className="text-[rgba(226,232,240,0.2)] hover:text-red-400 p-0.5 transition-colors"><Trash2 size={8} /></button>
+      </div>
+    </div>
+  )
+}
+
 // ── ObjectiveBlock ─────────────────────────────────────────
 interface ObjectiveBlockProps {
   obj: ObjObjective
@@ -86,6 +126,7 @@ interface ObjectiveBlockProps {
   onDeleteObj: (id: string) => Promise<void>
   onSaveObjTitle: (id: string, title: string) => Promise<void>
   onAddSubItem: (objId: string, title: string) => Promise<void>
+  onSaveSubItemTitle: (id: string, title: string) => Promise<void>
   onDeleteSubItem: (id: string) => Promise<void>
   onSaveSubEntry: (subItemId: string, date: string, content: string) => Promise<void>
   onDeleteSubEntry: (id: string) => Promise<void>
@@ -95,7 +136,7 @@ interface ObjectiveBlockProps {
 function ObjectiveBlock({
   obj, color, subItems, subEntries,
   onDeleteObj, onSaveObjTitle,
-  onAddSubItem, onDeleteSubItem,
+  onAddSubItem, onSaveSubItemTitle, onDeleteSubItem,
   onSaveSubEntry, onDeleteSubEntry,
   onRenameDate, onDeleteDate,
 }: ObjectiveBlockProps) {
@@ -109,9 +150,10 @@ function ObjectiveBlock({
   const [editingDate, setEditingDate] = useState<string | null>(null)
   const [editDateVal, setEditDateVal] = useState('')
 
-  // Dates = union of entry dates + locally added dates, newest first
+  // Dates = union of entry dates + locally added dates; default to today if empty
   const entryDates = subEntries.map(e => e.entry_date)
-  const allDates = [...new Set([...entryDates, ...localDates])].sort()
+  const rawDates = [...new Set([...entryDates, ...localDates])]
+  const allDates = (rawDates.length > 0 ? rawDates : [todayStr()]).sort()
 
   async function saveTitle() {
     const t = titleVal.trim()
@@ -251,13 +293,7 @@ function ObjectiveBlock({
                 {/* Sub-item title — sticky */}
                 <td className="pr-4 py-3 align-top w-28 min-w-[112px]"
                   style={{ position: 'sticky', left: 0, background: '#26282E', zIndex: 1 }}>
-                  <div className="flex items-start gap-1 group/sititle">
-                    <span className="text-[14px] text-[rgba(226,232,240,0.7)] leading-relaxed flex-1">{si.title}</span>
-                    <div className="flex items-center gap-0.5 opacity-0 group-hover/sititle:opacity-100 transition-opacity flex-shrink-0 mt-0.5">
-                      <button onClick={() => onDeleteSubItem(si.id)}
-                        className="text-[rgba(226,232,240,0.2)] hover:text-red-400 p-0.5 transition-colors"><Trash2 size={8} /></button>
-                    </div>
-                  </div>
+                  <SubItemTitle si={si} onSave={onSaveSubItemTitle} onDelete={onDeleteSubItem} />
                 </td>
 
                 {/* Entry cells */}
@@ -329,6 +365,123 @@ function GroupNameEditor({ name, onSave }: { name: string; onSave: (v: string) =
   )
 }
 
+// ── GroupEditOverlay ───────────────────────────────────────
+interface GroupEditOverlayProps {
+  group: ObjGroup
+  groupObjs: ObjObjective[]
+  subItems: ObjSubItem[]
+  subEntries: ObjSubEntry[]
+  onClose: () => void
+  onSaveGroupName: (name: string) => void
+  onAddObjective: (title: string) => Promise<void>
+  onDeleteObj: (id: string) => Promise<void>
+  onSaveObjTitle: (id: string, title: string) => Promise<void>
+  onAddSubItem: (objId: string, title: string) => Promise<void>
+  onSaveSubItemTitle: (id: string, title: string) => Promise<void>
+  onDeleteSubItem: (id: string) => Promise<void>
+  onSaveSubEntry: (subItemId: string, date: string, content: string) => Promise<void>
+  onDeleteSubEntry: (id: string) => Promise<void>
+  onRenameDate: (oldDate: string, newDate: string) => Promise<void>
+  onDeleteDate: (date: string) => Promise<void>
+}
+function GroupEditOverlay({
+  group, groupObjs, subItems, subEntries,
+  onClose, onSaveGroupName, onAddObjective,
+  onDeleteObj, onSaveObjTitle, onAddSubItem, onSaveSubItemTitle, onDeleteSubItem,
+  onSaveSubEntry, onDeleteSubEntry, onRenameDate, onDeleteDate,
+}: GroupEditOverlayProps) {
+  const [addingObj, setAddingObj] = useState(false)
+  const [newObjTitle, setNewObjTitle] = useState('')
+
+  async function handleAddObj() {
+    const t = newObjTitle.trim()
+    if (!t) return
+    await onAddObjective(t)
+    setNewObjTitle(''); setAddingObj(false)
+  }
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  return (
+    <div className="fixed inset-0 z-[70] flex flex-col" style={{ background: '#1F2023' }}>
+      {/* 헤더 */}
+      <div className="flex-shrink-0 flex items-center gap-3 px-6 py-4"
+        style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        <button onClick={onClose}
+          className="flex items-center gap-1.5 text-sm text-[rgba(226,232,240,0.45)] hover:text-[#E5E7EB] transition-colors">
+          <ChevronLeft size={15} />목표관리
+        </button>
+        <div className="w-px h-4 bg-[rgba(255,255,255,0.1)]" />
+        <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: group.color }} />
+        <GroupNameEditor name={group.name} onSave={onSaveGroupName} />
+        <div className="ml-auto flex items-center gap-2">
+          {addingObj ? (
+            <div className="flex items-center gap-1.5">
+              <input autoFocus value={newObjTitle}
+                onChange={e => setNewObjTitle(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleAddObj()
+                  if (e.key === 'Escape') { setAddingObj(false); setNewObjTitle('') }
+                }}
+                placeholder="목표 입력"
+                className="text-xs px-2.5 py-1.5 border border-[rgba(255,255,255,0.09)] rounded-lg focus:outline-none focus:border-[rgba(255,255,255,0.2)] bg-[#1A1C1F] text-[#E5E7EB] placeholder:text-[#5B6270] w-44" />
+              <button onClick={handleAddObj}
+                className="text-xs px-2.5 py-1.5 bg-[#1B3A6B] text-white rounded-lg hover:bg-[#22497E] transition-colors">추가</button>
+              <button onClick={() => { setAddingObj(false); setNewObjTitle('') }}
+                className="text-xs text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)] transition-colors">취소</button>
+            </div>
+          ) : (
+            <button onClick={() => setAddingObj(true)}
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border border-dashed border-[rgba(255,255,255,0.15)] text-[rgba(226,232,240,0.5)] hover:border-[rgba(255,255,255,0.3)] hover:text-[rgba(226,232,240,0.8)] transition-all">
+              <Plus size={11} />목표 추가
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* 본문 */}
+      <div className="flex-1 min-h-0 overflow-y-auto px-6 py-6">
+        {groupObjs.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-48 gap-3 text-[13px] text-[rgba(226,232,240,0.4)]">
+            <p>목표를 추가하세요</p>
+            <button onClick={() => setAddingObj(true)}
+              className="text-xs px-4 py-2 rounded-full bg-[#1B3A6B]/10 text-[rgba(161,167,179,0.9)] hover:bg-[#1B3A6B]/20 transition-colors">
+              + 목표 추가
+            </button>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-6">
+            {groupObjs.map(obj => (
+              <div key={obj.id} className="surface-card rounded-2xl overflow-hidden">
+                <ObjectiveBlock
+                  obj={obj}
+                  color={group.color}
+                  subItems={subItems.filter(si => si.objective_id === obj.id)}
+                  subEntries={subEntries.filter(se =>
+                    subItems.filter(si => si.objective_id === obj.id).some(si => si.id === se.sub_item_id))}
+                  onDeleteObj={onDeleteObj}
+                  onSaveObjTitle={onSaveObjTitle}
+                  onAddSubItem={onAddSubItem}
+                  onSaveSubItemTitle={onSaveSubItemTitle}
+                  onDeleteSubItem={onDeleteSubItem}
+                  onSaveSubEntry={onSaveSubEntry}
+                  onDeleteSubEntry={onDeleteSubEntry}
+                  onRenameDate={onRenameDate}
+                  onDeleteDate={onDeleteDate}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ── Main Page ──────────────────────────────────────────────
 export default function ObjectivesPage() {
   const supabase = createClient()
@@ -347,6 +500,7 @@ export default function ObjectivesPage() {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
   const [addingObjFor, setAddingObjFor] = useState<string | null>(null)
   const [newObjTitle, setNewObjTitle] = useState('')
+  const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null)
 
   useEffect(() => { loadAll() }, [selectedYear, selectedQ])
 
@@ -409,6 +563,13 @@ export default function ObjectivesPage() {
   }
 
   // ── Objective CRUD ─────────────────────────────────────
+  async function addObjectiveForGroup(groupId: string, title: string) {
+    const groupObjs = objectives.filter(o => o.group_id === groupId)
+    const sort_order = (groupObjs[groupObjs.length - 1]?.sort_order ?? 0) + 1
+    const { data } = await supabase.from('obj_objectives')
+      .insert({ group_id: groupId, title, quarter: activeQ, sort_order }).select().single()
+    if (data) setObjectives(p => [...p, data as ObjObjective])
+  }
   async function addObjective(groupId: string) {
     const title = newObjTitle.trim(); if (!title) return
     const groupObjs = objectives.filter(o => o.group_id === groupId)
@@ -431,6 +592,10 @@ export default function ObjectivesPage() {
   }
 
   // ── SubItem CRUD ───────────────────────────────────────
+  async function saveSubItemTitle(id: string, title: string) {
+    await supabase.from('obj_sub_items').update({ title }).eq('id', id)
+    setSubItems(p => p.map(si => si.id === id ? { ...si, title } : si))
+  }
   async function addSubItem(objId: string, title: string) {
     const objSIs = subItems.filter(si => si.objective_id === objId)
     const sort_order = (objSIs[objSIs.length - 1]?.sort_order ?? 0) + 1
@@ -485,8 +650,30 @@ export default function ObjectivesPage() {
   }
 
   // ── Render ─────────────────────────────────────────────
+  const expandedGroup = expandedGroupId ? groups.find(g => g.id === expandedGroupId) : null
+
   return (
     <div className="flex flex-col h-full min-h-0 pt-4 md:pt-6">
+      {expandedGroup && (
+        <GroupEditOverlay
+          group={expandedGroup}
+          groupObjs={objectives.filter(o => o.group_id === expandedGroupId)}
+          subItems={subItems}
+          subEntries={subEntries}
+          onClose={() => setExpandedGroupId(null)}
+          onSaveGroupName={(name) => saveGroupName(expandedGroupId!, name)}
+          onAddObjective={(title) => addObjectiveForGroup(expandedGroupId!, title)}
+          onDeleteObj={deleteObjective}
+          onSaveObjTitle={saveObjTitle}
+          onAddSubItem={addSubItem}
+          onSaveSubItemTitle={saveSubItemTitle}
+          onDeleteSubItem={deleteSubItem}
+          onSaveSubEntry={saveSubEntry}
+          onDeleteSubEntry={deleteSubEntry}
+          onRenameDate={renameDate}
+          onDeleteDate={deleteDate}
+        />
+      )}
       {/* Header */}
       <div className="flex-shrink-0 flex items-center gap-2 mb-5 px-4 md:px-6 flex-wrap">
         <h1 className="text-lg font-bold text-[#E2E8F0] flex-shrink-0">목표관리</h1>
@@ -556,6 +743,8 @@ export default function ObjectivesPage() {
                       <span style={{ fontSize: 9, color: '#94A3B8', display: 'inline-block', transition: 'transform .13s', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}>&#9654;</span>
                     </button>
                     <button onClick={() => deleteGroup(group.id)} className="text-[rgba(226,232,240,0.2)] hover:text-red-400 transition-colors p-0.5"><Trash2 size={11} /></button>
+                    <button onClick={() => setExpandedGroupId(group.id)} title="크게 편집"
+                      className="text-[rgba(226,232,240,0.2)] hover:text-[#A1A7B3] transition-colors p-0.5"><Maximize2 size={11} /></button>
                     {isOpen && (addingObjFor === group.id ? (
                       <div className="flex items-center gap-1.5 ml-1">
                         <input autoFocus value={newObjTitle} onChange={e => setNewObjTitle(e.target.value)}
@@ -591,6 +780,7 @@ export default function ObjectivesPage() {
                             onDeleteObj={deleteObjective}
                             onSaveObjTitle={saveObjTitle}
                             onAddSubItem={addSubItem}
+                            onSaveSubItemTitle={saveSubItemTitle}
                             onDeleteSubItem={deleteSubItem}
                             onSaveSubEntry={saveSubEntry}
                             onDeleteSubEntry={deleteSubEntry}

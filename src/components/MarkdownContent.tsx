@@ -9,7 +9,7 @@ const COLOR_CLASSES: Record<string, string> = {
 
 function parseInline(text: string, keyPrefix: string = ''): React.ReactNode {
   if (!text) return null
-  const parts = text.split(/(\*\*[^*]+\*\*|__[^_]+__|{(?:red|blue|green|orange|purple|gray)}[^{]+{\/(?:red|blue|green|orange|purple|gray)})/)
+  const parts = text.split(/(\*\*[^*]+\*\*|__[^_]+__|!!.+?!!|==.+?==|~~.+?~~|{(?:red|blue|green|orange|purple|gray)}[^{]+{\/(?:red|blue|green|orange|purple|gray)})/)
   if (parts.length === 1) return text
   return (
     <>
@@ -18,6 +18,12 @@ function parseInline(text: string, keyPrefix: string = ''): React.ReactNode {
           return <strong key={`${keyPrefix}b${i}`}>{part.slice(2, -2)}</strong>
         if (part.startsWith('__') && part.endsWith('__') && part.length > 4)
           return <u key={`${keyPrefix}u${i}`}>{part.slice(2, -2)}</u>
+        if (part.startsWith('!!') && part.endsWith('!!') && part.length > 4)
+          return <span key={`${keyPrefix}r${i}`} style={{ color: '#F87171' }}>{part.slice(2, -2)}</span>
+        if (part.startsWith('==') && part.endsWith('==') && part.length > 4)
+          return <mark key={`${keyPrefix}h${i}`} style={{ background: 'rgba(250,204,21,0.35)', color: 'inherit', borderRadius: '2px', padding: '0 2px' }}>{part.slice(2, -2)}</mark>
+        if (part.startsWith('~~') && part.endsWith('~~') && part.length > 4)
+          return <del key={`${keyPrefix}s${i}`}>{part.slice(2, -2)}</del>
         const colorMatch = part.match(/^\{(red|blue|green|orange|purple|gray)\}(.+)\{\/\1\}$/)
         if (colorMatch)
           return <span key={`${keyPrefix}c${i}`} className={COLOR_CLASSES[colorMatch[1]]}>{colorMatch[2]}</span>

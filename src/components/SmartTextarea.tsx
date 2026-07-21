@@ -289,51 +289,20 @@ const SmartTextarea = forwardRef<HTMLTextAreaElement, Props>(function SmartTexta
       }
     }
 
-    // ── Ctrl+B / Ctrl+U / Ctrl+1 / Ctrl+2 ──────────────────────────────────
+    // ── Ctrl+B / Ctrl+U / Ctrl+1 / Ctrl+2 / Ctrl+I ─────────────────────────
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey) {
       const sel = value.slice(start, end)
-      if (e.key === 'b') {
+      const wrap = (marker: string, stop = false) => {
         e.preventDefault()
-        const newVal = value.slice(0, start) + '**' + sel + '**' + value.slice(end)
-        onChange(newVal)
-        commitHistory(newVal, start + 2, true)
-        setTimeout(() => { el.selectionStart = start + 2; el.selectionEnd = end + 2 }, 0)
-        return
+        if (stop) e.stopPropagation()
+        replaceRange(el, start, end, marker + sel + marker)
+        if (start === end) pendingCursor.current = start + marker.length
       }
-      if (e.key === 'u') {
-        e.preventDefault()
-        const newVal = value.slice(0, start) + '__' + sel + '__' + value.slice(end)
-        onChange(newVal)
-        commitHistory(newVal, start + 2, true)
-        setTimeout(() => { el.selectionStart = start + 2; el.selectionEnd = end + 2 }, 0)
-        return
-      }
-      if (e.key === '1') {
-        e.preventDefault()
-        e.stopPropagation()
-        const newVal = value.slice(0, start) + '!!' + sel + '!!' + value.slice(end)
-        onChange(newVal)
-        commitHistory(newVal, start + 2, true)
-        setTimeout(() => { el.selectionStart = start + 2; el.selectionEnd = end + 2 }, 0)
-        return
-      }
-      if (e.key === '2') {
-        e.preventDefault()
-        e.stopPropagation()
-        const newVal = value.slice(0, start) + '==' + sel + '==' + value.slice(end)
-        onChange(newVal)
-        commitHistory(newVal, start + 2, true)
-        setTimeout(() => { el.selectionStart = start + 2; el.selectionEnd = end + 2 }, 0)
-        return
-      }
-      if (e.key === 'i') {
-        e.preventDefault()
-        const newVal = value.slice(0, start) + '~~' + sel + '~~' + value.slice(end)
-        onChange(newVal)
-        commitHistory(newVal, start + 2, true)
-        setTimeout(() => { el.selectionStart = start + 2; el.selectionEnd = end + 2 }, 0)
-        return
-      }
+      if (e.key === 'b') { wrap('**'); return }
+      if (e.key === 'u') { wrap('__'); return }
+      if (e.key === '1') { wrap('!!', true); return }
+      if (e.key === '2') { wrap('==', true); return }
+      if (e.key === 'i') { wrap('~~'); return }
     }
 
     // ── Tab: demote / promote ────────────────────────────────────────────────

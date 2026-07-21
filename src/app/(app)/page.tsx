@@ -125,7 +125,7 @@ export default function HomePage() {
     })
     memos.forEach(m => {
       if ((m.title ?? '').toLowerCase().includes(q))
-        res.push({ type: '메모', title: m.title ?? '제목 없음', href: `/memos/${m.id}` })
+        res.push({ type: '메모', title: m.title ?? '제목 없음', href: `memo:${m.id}` })
     })
     return res.slice(0, 8)
   }, [searchQuery, subTasks, meetings, memos])
@@ -264,13 +264,12 @@ export default function HomePage() {
               : memos.slice(0, 6).map((memo, i) => {
                   const dots = ['#818CF8', '#60A5FA', '#34D399', '#FB923C']
                   return (
-                    <Link key={memo.id} href={`/memos/${memo.id}`}>
-                      <div className="flex items-center gap-2.5 py-2.5" style={{ borderBottom: i < Math.min(memos.length, 6) - 1 ? `1px solid ${DIVIDER}` : 'none' }}>
-                        <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: dots[i % 4] }} />
-                        <span className="text-[13px] flex-1 min-w-0 truncate" style={{ color: TEXT1 }}>{memo.title}</span>
-                        <span className="text-[10px] flex-shrink-0" style={{ color: TEXT3 }}>{fmtDate(memo.created_at)}</span>
-                      </div>
-                    </Link>
+                    <div key={memo.id} onClick={() => { localStorage.setItem('memos_open_id', memo.id); router.push('/memos') }}
+                      className="flex items-center gap-2.5 py-2.5 cursor-pointer" style={{ borderBottom: i < Math.min(memos.length, 6) - 1 ? `1px solid ${DIVIDER}` : 'none' }}>
+                      <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: dots[i % 4] }} />
+                      <span className="text-[13px] flex-1 min-w-0 truncate" style={{ color: TEXT1 }}>{memo.title}</span>
+                      <span className="text-[10px] flex-shrink-0" style={{ color: TEXT3 }}>{fmtDate(memo.created_at)}</span>
+                    </div>
                   )
                 })
           }
@@ -475,13 +474,12 @@ export default function HomePage() {
                       {memos.map((memo, i) => {
                         const dots = ['#818CF8', '#60A5FA', '#34D399', '#FB923C']
                         return (
-                          <Link key={memo.id} href={`/memos/${memo.id}`}>
-                            <div className="flex items-center gap-2.5 py-2 cursor-pointer" style={{ borderBottom: i < memos.length - 1 ? `1px solid ${DIVIDER}` : 'none' }}>
-                              <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: dots[i % 4] }} />
-                              <span className="text-[12px] flex-1 min-w-0 truncate" style={{ color: TEXT1 }}>{memo.title}</span>
-                              <span className="text-[10px] flex-shrink-0" style={{ color: TEXT3 }}>{fmtDate(memo.created_at)}</span>
-                            </div>
-                          </Link>
+                          <div key={memo.id} onClick={() => { localStorage.setItem('memos_open_id', memo.id); router.push('/memos') }}
+                            className="flex items-center gap-2.5 py-2 cursor-pointer" style={{ borderBottom: i < memos.length - 1 ? `1px solid ${DIVIDER}` : 'none' }}>
+                            <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: dots[i % 4] }} />
+                            <span className="text-[12px] flex-1 min-w-0 truncate" style={{ color: TEXT1 }}>{memo.title}</span>
+                            <span className="text-[10px] flex-shrink-0" style={{ color: TEXT3 }}>{fmtDate(memo.created_at)}</span>
+                          </div>
                         )
                       })}
                     </div>
@@ -566,7 +564,15 @@ export default function HomePage() {
                   {searchResults.map((r, i) => (
                     <button
                       key={i}
-                      onClick={() => { router.push(r.href); setSearchOpen(false) }}
+                      onClick={() => {
+                        if (r.href.startsWith('memo:')) {
+                          localStorage.setItem('memos_open_id', r.href.slice(5))
+                          router.push('/memos')
+                        } else {
+                          router.push(r.href)
+                        }
+                        setSearchOpen(false)
+                      }}
                       className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
                       style={{ color: TEXT1 }}
                       onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}

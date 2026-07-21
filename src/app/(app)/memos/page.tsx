@@ -107,10 +107,10 @@ function EditModal({ memo, onSave, onClose }: EditModalProps) {
       style={{ background: 'rgba(0,0,0,0.6)' }}
       onClick={onClose}>
       <div
-        className="backdrop-blur-xl rounded-3xl p-6 w-full max-w-sm md:max-w-3xl flex flex-col"
+        className="backdrop-blur-xl rounded-3xl p-6 w-full max-w-sm md:max-w-4xl flex flex-col"
         style={{
-          height: 'min(82vh, 860px)',
-          maxHeight: '90vh',
+          height: 'min(96vh, 1100px)',
+          maxHeight: '96vh',
           background: 'rgba(255,255,255,0.06)',
           border: '1px solid rgba(255,255,255,0.09)',
           boxShadow: '0 20px 40px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.07) inset',
@@ -157,7 +157,7 @@ function EditModal({ memo, onSave, onClose }: EditModalProps) {
               autoFocus={!!memo.content}
               placeholder="내용 (Ctrl+Enter 저장)"
               className="w-full text-sm text-[#E2E8F0] focus:outline-none resize-none bg-transparent p-3 placeholder:text-white/30"
-              style={{ minHeight: '100%' }}
+              style={{ minHeight: '400px' }}
             />
           </div>
         ) : (
