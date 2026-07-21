@@ -165,7 +165,7 @@ function EditModal({ memo, onSave, onClose }: EditModalProps) {
             style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}
             onClick={() => setMode('edit')}>
             {content
-              ? <MarkdownContent content={content} className="text-sm text-[#E2E8F0]" />
+              ? <MarkdownContent content={content} dark />
               : <p className="text-sm text-white/[0.28]">내용 없음 — 클릭해서 편집</p>}
           </div>
         )}
@@ -320,7 +320,7 @@ export default function MemosPage() {
   if (loading) return <MemoPageSkeleton />
 
   return (
-    <div className="h-full flex flex-col overflow-hidden font-sans" style={{ background: '#13151C', minHeight: '100%' }}>
+    <div className="h-full flex flex-col overflow-hidden font-sans">
       {editing && <EditModal memo={editing} onSave={saveEdit} onClose={() => setEditing(null)} />}
 
       {/* 헤더 */}
