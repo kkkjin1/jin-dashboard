@@ -50,8 +50,8 @@ function SubCell({ entry, subItemId, date, onSave, onDelete }: SubCellProps) {
           if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') save()
           if (e.key === 'Escape') { setVal(entry?.content ?? ''); setEditing(false) }
         }}
-        className="w-full min-w-[200px] text-[14px] text-[rgba(226,232,240,0.8)] leading-relaxed bg-[rgba(255,255,255,0.06)] border border-[#1B3A6B]/25 rounded-lg p-2 focus:outline-none resize-none"
-        rows={3}
+        className="w-full min-w-[200px] text-[14px] text-[rgba(226,232,240,0.8)] leading-relaxed bg-[rgba(255,255,255,0.06)] border border-[#1B3A6B]/25 rounded-lg p-2 focus:outline-none resize-y"
+        rows={8}
       />
     )
   }
@@ -60,7 +60,7 @@ function SubCell({ entry, subItemId, date, onSave, onDelete }: SubCellProps) {
     return (
       <div
         onClick={() => { setVal(entry.content); setEditing(true) }}
-        className="min-w-[200px] text-[14px] text-[rgba(226,232,240,0.8)] leading-relaxed whitespace-pre-wrap cursor-text bg-[rgba(255,255,255,0.03)] rounded-lg px-2.5 py-2.5 hover:bg-[rgba(255,255,255,0.06)] transition-colors"
+        className="min-w-[200px] min-h-[140px] text-[14px] text-[rgba(226,232,240,0.8)] leading-relaxed whitespace-pre-wrap cursor-text bg-[rgba(255,255,255,0.03)] rounded-lg px-2.5 py-2.5 hover:bg-[rgba(255,255,255,0.06)] transition-colors"
       >
         {entry.content}
       </div>
@@ -70,9 +70,9 @@ function SubCell({ entry, subItemId, date, onSave, onDelete }: SubCellProps) {
   return (
     <div
       onClick={() => { setVal(''); setEditing(true) }}
-      className="min-w-[200px] h-[53px] rounded-lg border border-dashed border-transparent hover:border-[rgba(255,255,255,0.09)] cursor-pointer transition-colors flex items-center justify-center"
+      className="min-w-[200px] h-[140px] rounded-lg border border-dashed border-transparent hover:border-[rgba(255,255,255,0.09)] cursor-pointer transition-colors flex items-center justify-center"
     >
-      <span className="text-xs text-[rgba(226,232,240,0.2)] select-none">—</span>
+      <span className="text-xs text-[rgba(226,232,240,0.2)] select-none">클릭해서 입력</span>
     </div>
   )
 }
