@@ -311,31 +311,27 @@ const SmartTextarea = forwardRef<HTMLTextAreaElement, Props>(function SmartTexta
       if (e.key === '1') {
         e.preventDefault()
         e.stopPropagation()
-        const lineText = value.slice(lineStart, lineEnd)
-        let newLine: string
-        if (lineText.startsWith('# ')) newLine = lineText.slice(2)
-        else if (lineText.startsWith('## ')) newLine = '# ' + lineText.slice(3)
-        else newLine = '# ' + lineText
-        const delta = newLine.length - lineText.length
-        const newVal = value.slice(0, lineStart) + newLine + value.slice(lineEnd)
+        const newVal = value.slice(0, start) + '!!' + sel + '!!' + value.slice(end)
         onChange(newVal)
-        commitHistory(newVal, start + delta, true)
-        pendingCursor.current = Math.max(lineStart, start + delta)
+        commitHistory(newVal, start + 2, true)
+        setTimeout(() => { el.selectionStart = start + 2; el.selectionEnd = end + 2 }, 0)
         return
       }
       if (e.key === '2') {
         e.preventDefault()
         e.stopPropagation()
-        const lineText = value.slice(lineStart, lineEnd)
-        let newLine: string
-        if (lineText.startsWith('## ')) newLine = lineText.slice(3)
-        else if (lineText.startsWith('# ')) newLine = '## ' + lineText.slice(2)
-        else newLine = '## ' + lineText
-        const delta = newLine.length - lineText.length
-        const newVal = value.slice(0, lineStart) + newLine + value.slice(lineEnd)
+        const newVal = value.slice(0, start) + '==' + sel + '==' + value.slice(end)
         onChange(newVal)
-        commitHistory(newVal, start + delta, true)
-        pendingCursor.current = Math.max(lineStart, start + delta)
+        commitHistory(newVal, start + 2, true)
+        setTimeout(() => { el.selectionStart = start + 2; el.selectionEnd = end + 2 }, 0)
+        return
+      }
+      if (e.key === 'i') {
+        e.preventDefault()
+        const newVal = value.slice(0, start) + '~~' + sel + '~~' + value.slice(end)
+        onChange(newVal)
+        commitHistory(newVal, start + 2, true)
+        setTimeout(() => { el.selectionStart = start + 2; el.selectionEnd = end + 2 }, 0)
         return
       }
     }
