@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { format, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
-import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, X } from 'lucide-react'
 
 interface ObjGroup    { id: string; name: string; color: string; sort_order: number }
 interface ObjObjective { id: string; group_id: string; title: string; quarter: string; sort_order: number }
@@ -89,12 +89,15 @@ interface ObjectiveBlockProps {
   onDeleteSubItem: (id: string) => Promise<void>
   onSaveSubEntry: (subItemId: string, date: string, content: string) => Promise<void>
   onDeleteSubEntry: (id: string) => Promise<void>
+  onRenameDate: (oldDate: string, newDate: string) => Promise<void>
+  onDeleteDate: (date: string) => Promise<void>
 }
 function ObjectiveBlock({
   obj, color, subItems, subEntries,
   onDeleteObj, onSaveObjTitle,
   onAddSubItem, onDeleteSubItem,
   onSaveSubEntry, onDeleteSubEntry,
+  onRenameDate, onDeleteDate,
 }: ObjectiveBlockProps) {
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleVal, setTitleVal] = useState(obj.title)
@@ -103,6 +106,8 @@ function ObjectiveBlock({
   const [addingDate, setAddingDate] = useState(false)
   const [newDate, setNewDate] = useState(todayStr)
   const [localDates, setLocalDates] = useState<string[]>([])
+  const [editingDate, setEditingDate] = useState<string | null>(null)
+  const [editDateVal, setEditDateVal] = useState('')
 
   // Dates = union of entry dates + locally added dates, newest first
   const entryDates = subEntries.map(e => e.entry_date)
@@ -128,6 +133,25 @@ function ObjectiveBlock({
     setLocalDates(prev => [...new Set([...prev, newDate])])
     setAddingDate(false)
     setNewDate(todayStr())
+  }
+
+  async function saveEditDate(oldDate: string) {
+    const nd = editDateVal.trim()
+    setEditingDate(null)
+    if (!nd || nd === oldDate) return
+    if (localDates.includes(oldDate)) {
+      setLocalDates(prev => prev.map(d => d === oldDate ? nd : d))
+    }
+    await onRenameDate(oldDate, nd)
+  }
+
+  async function handleDeleteDate(date: string) {
+    if (localDates.includes(date) && !entryDates.includes(date)) {
+      setLocalDates(prev => prev.filter(d => d !== date))
+      return
+    }
+    await onDeleteDate(date)
+    setLocalDates(prev => prev.filter(d => d !== date))
   }
 
   return (
@@ -168,8 +192,38 @@ function ObjectiveBlock({
                 안건
               </th>
               {allDates.map(d => (
-                <th key={d} className="text-[13px] text-[rgba(226,232,240,0.4)] font-normal pb-3 px-2 whitespace-nowrap min-w-[200px] text-center">
-                  {formatDate(d)}
+                <th key={d} className="text-[13px] text-[rgba(226,232,240,0.4)] font-normal pb-3 px-2 whitespace-nowrap min-w-[200px] text-center group/datecol">
+                  {editingDate === d ? (
+                    <div className="flex items-center gap-1 justify-center">
+                      <input
+                        type="date"
+                        autoFocus
+                        value={editDateVal}
+                        onChange={e => setEditDateVal(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') saveEditDate(d)
+                          if (e.key === 'Escape') setEditingDate(null)
+                        }}
+                        onBlur={() => saveEditDate(d)}
+                        className="text-xs text-[rgba(226,232,240,0.7)] border border-[rgba(255,255,255,0.09)] rounded px-1 py-0.5 focus:outline-none bg-[rgba(255,255,255,0.06)] w-24"
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1 justify-center">
+                      <button
+                        onClick={() => { setEditingDate(d); setEditDateVal(d) }}
+                        className="hover:text-[rgba(226,232,240,0.7)] transition-colors"
+                      >
+                        {formatDate(d)}
+                      </button>
+                      <button
+                        onClick={() => handleDeleteDate(d)}
+                        className="opacity-0 group-hover/datecol:opacity-100 text-[rgba(226,232,240,0.2)] hover:text-red-400 transition-all p-0.5"
+                      >
+                        <X size={8} />
+                      </button>
+                    </div>
+                  )}
                 </th>
               ))}
               <th className="pb-2.5 pl-2 min-w-[80px]">
@@ -390,6 +444,29 @@ export default function ObjectivesPage() {
     setSubEntries(p => p.filter(e => e.sub_item_id !== id))
   }
 
+  // ── Date CRUD ──────────────────────────────────────────
+  async function renameDate(oldDate: string, newDate: string) {
+    if (oldDate === newDate) return
+    const toRename = subEntries.filter(e => e.entry_date === oldDate)
+    for (const e of toRename) {
+      await supabase.from('obj_sub_entries')
+        .upsert({ sub_item_id: e.sub_item_id, entry_date: newDate, content: e.content }, { onConflict: 'sub_item_id,entry_date' })
+    }
+    if (toRename.length > 0) {
+      await supabase.from('obj_sub_entries').delete().eq('entry_date', oldDate)
+        .in('sub_item_id', toRename.map(e => e.sub_item_id))
+    }
+    setSubEntries(p => p.map(e => e.entry_date === oldDate ? { ...e, entry_date: newDate } : e))
+  }
+  async function deleteDate(date: string) {
+    const toDelete = subEntries.filter(e => e.entry_date === date)
+    if (toDelete.length > 0) {
+      await supabase.from('obj_sub_entries').delete().eq('entry_date', date)
+        .in('sub_item_id', toDelete.map(e => e.sub_item_id))
+      setSubEntries(p => p.filter(e => e.entry_date !== date))
+    }
+  }
+
   // ── SubEntry CRUD ──────────────────────────────────────
   async function saveSubEntry(subItemId: string, date: string, content: string) {
     const { data } = await supabase.from('obj_sub_entries')
@@ -517,6 +594,8 @@ export default function ObjectivesPage() {
                             onDeleteSubItem={deleteSubItem}
                             onSaveSubEntry={saveSubEntry}
                             onDeleteSubEntry={deleteSubEntry}
+                            onRenameDate={renameDate}
+                            onDeleteDate={deleteDate}
                           />
                         ))
                       )}
