@@ -13,9 +13,9 @@ const TiptapEditor = dynamic(() => import('@/components/TiptapEditor'), { ssr: f
 const STATUS_CYCLE: AgendaItemStatus[] = ['active', 'hold', 'done']
 const STATUS_LABEL: Record<AgendaItemStatus, string> = { active: '진행중', hold: '보류', done: '완료' }
 const STATUS_COLOR: Record<AgendaItemStatus, string> = {
-  active: 'bg-blue-50 text-blue-600 border-blue-200',
-  hold:   'bg-amber-50 text-amber-600 border-amber-200',
-  done:   'bg-gray-100 text-gray-400 border-gray-200',
+  active: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+  hold:   'bg-amber-500/10 text-amber-400 border-amber-500/20',
+  done:   'bg-white/[0.04] text-[rgba(226,232,240,0.4)] border-white/[0.08]',
 }
 
 function defaultNoteTitle() {
@@ -68,28 +68,28 @@ function NoteAccordion({ note, isOpen, onToggle, onDelete, onEdit, onEditTitle }
   }
 
   return (
-    <div className="border border-gray-100 rounded-xl overflow-hidden">
-      <div className="flex items-center gap-2 px-4 py-3 cursor-pointer hover:bg-gray-50/60 transition-colors" onClick={onToggle}>
-        <span className="text-gray-300 text-xs transition-transform duration-150" style={{ transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
+    <div className="border border-[rgba(255,255,255,0.08)] rounded-xl overflow-hidden group">
+      <div className="flex items-center gap-2 px-4 py-3 cursor-pointer hover:bg-[rgba(255,255,255,0.05)] transition-colors" onClick={onToggle}>
+        <span className="text-[rgba(226,232,240,0.3)] text-xs transition-transform duration-150" style={{ transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
         {editingTitle ? (
           <input autoFocus value={editTitle}
             onChange={e => setEditTitle(e.target.value)}
             onBlur={() => { onEditTitle(note.id, editTitle); setEditingTitle(false) }}
             onKeyDown={e => { if (e.key === 'Enter') { onEditTitle(note.id, editTitle); setEditingTitle(false) }; if (e.key === 'Escape') setEditingTitle(false) }}
             onClick={e => e.stopPropagation()}
-            className="flex-1 text-sm font-medium border-b border-gray-300 focus:outline-none bg-transparent" />
+            className="flex-1 text-sm font-medium border-b border-[rgba(255,255,255,0.2)] focus:outline-none bg-transparent text-[rgba(226,232,240,0.85)]" />
         ) : (
-          <span className="flex-1 text-sm font-medium text-gray-700"
+          <span className="flex-1 text-sm font-medium text-[rgba(226,232,240,0.75)]"
             onDoubleClick={e => { e.stopPropagation(); setEditingTitle(true); setEditTitle(note.title ?? '') }}>
             {displayTitle}
           </span>
         )}
         <button onClick={e => { e.stopPropagation(); onDelete(note.id) }}
-          className="text-[10px] text-gray-300 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100">삭제</button>
-        <span className="text-[10px] text-gray-300">{dateLabel}</span>
+          className="text-[10px] text-[rgba(226,232,240,0.3)] hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100">삭제</button>
+        <span className="text-[10px] text-[rgba(226,232,240,0.3)]">{dateLabel}</span>
       </div>
       {isOpen && (
-        <div className="px-4 pb-3 border-t border-gray-50 group">
+        <div className="px-4 pb-3 border-t border-[rgba(255,255,255,0.06)] group">
           {editing ? (
             <>
               <TiptapEditor value={editContent} onChange={handleContentChange}
@@ -97,15 +97,15 @@ function NoteAccordion({ note, isOpen, onToggle, onDelete, onEdit, onEditTitle }
                 onEscape={() => setEditing(false)}
                 autoFocus minHeight={120} />
               <div className="flex items-center justify-between mt-2">
-                <span className={`text-xs transition-opacity ${autoSaved ? 'text-emerald-500 opacity-100' : 'opacity-0'}`}>자동저장됨</span>
-                <button onClick={() => setEditing(false)} className="text-xs text-gray-400 hover:text-gray-600 px-3 py-1 rounded-lg">닫기</button>
+                <span className={`text-xs transition-opacity ${autoSaved ? 'text-emerald-400 opacity-100' : 'opacity-0'}`}>자동저장됨</span>
+                <button onClick={() => setEditing(false)} className="text-xs text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)] px-3 py-1 rounded-lg">닫기</button>
               </div>
             </>
           ) : (
             <>
-              <MarkdownContent content={note.content} className="pt-3" />
+              <MarkdownContent content={note.content} className="pt-3" dark />
               <button onClick={() => { setEditing(true); setEditContent(note.content) }}
-                className="mt-2 text-xs text-gray-400 hover:text-blue-500 transition-colors">✏ 편집</button>
+                className="mt-2 text-xs text-[rgba(226,232,240,0.4)] hover:text-blue-400 transition-colors">✏ 편집</button>
             </>
           )}
         </div>
@@ -291,7 +291,7 @@ export default function SubTaskDetailPage() {
     setAttachments(prev => prev.filter(a => a.id !== att.id))
   }
 
-  if (!subTask) return <div className="p-8 text-gray-400 text-sm animate-pulse">불러오는 중...</div>
+  if (!subTask) return <div className="p-8 text-[rgba(226,232,240,0.4)] text-sm animate-pulse">불러오는 중...</div>
 
   const assignee = members.find(m => m.id === subTask.assignee_id)
   const agendaTitle = (subTask as any).agenda_items?.title ?? ''
@@ -310,8 +310,8 @@ export default function SubTaskDetailPage() {
 
       <div className="max-w-2xl mx-auto">
         {/* 브레드크럼 */}
-        <div className="flex items-center gap-1.5 text-xs text-gray-400 mb-5">
-          <button onClick={() => router.back()} className="hover:text-gray-600 transition-colors">← 돌아가기</button>
+        <div className="flex items-center gap-1.5 text-xs text-[rgba(226,232,240,0.4)] mb-5">
+          <button onClick={() => router.back()} className="hover:text-[rgba(226,232,240,0.7)] transition-colors">← 돌아가기</button>
           {groupName && <><span>·</span><span>{groupName}</span></>}
           {agendaTitle && <><span>/</span><span>{agendaTitle}</span></>}
         </div>
@@ -322,12 +322,12 @@ export default function SubTaskDetailPage() {
             <div className="flex items-center gap-2">
               <input autoFocus value={titleInput} onChange={e => setTitleInput(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') saveTitle(); if (e.key === 'Escape') setEditingTitle(false) }}
-                className="flex-1 text-2xl font-bold text-gray-900 border-b-2 border-blue-300 focus:outline-none bg-transparent pb-1" />
-              <button onClick={saveTitle} className="text-sm text-blue-600 hover:text-blue-800 font-medium px-2">저장</button>
-              <button onClick={() => setEditingTitle(false)} className="text-sm text-gray-400">취소</button>
+                className="flex-1 text-2xl font-bold text-[#E2E8F0] border-b-2 border-blue-400 focus:outline-none bg-transparent pb-1" />
+              <button onClick={saveTitle} className="text-sm text-blue-400 hover:text-blue-300 font-medium px-2">저장</button>
+              <button onClick={() => setEditingTitle(false)} className="text-sm text-[rgba(226,232,240,0.4)]">취소</button>
             </div>
           ) : (
-            <h1 className="text-2xl font-bold text-gray-900 cursor-text hover:text-gray-700"
+            <h1 className="text-2xl font-bold text-[#E2E8F0] cursor-text hover:text-[rgba(226,232,240,0.75)] transition-colors"
               onClick={() => setEditingTitle(true)}>
               {subTask.title}
             </h1>
@@ -335,7 +335,7 @@ export default function SubTaskDetailPage() {
         </div>
 
         {/* 메타 정보 */}
-        <div className="flex flex-wrap items-center gap-3 mb-8 pb-6 border-b border-gray-100">
+        <div className="flex flex-wrap items-center gap-3 mb-8 pb-6 border-b border-[rgba(255,255,255,0.08)]">
           {/* 상태 */}
           <button onClick={cycleStatus}
             className={`text-xs px-3 py-1.5 rounded-full border font-semibold transition-colors ${STATUS_COLOR[subTask.status]}`}>
@@ -344,9 +344,9 @@ export default function SubTaskDetailPage() {
 
           {/* 담당자 */}
           <div className="flex items-center gap-1.5">
-            <span className="text-xs text-gray-400">담당</span>
+            <span className="text-xs text-[rgba(226,232,240,0.4)]">담당</span>
             <select value={subTask.assignee_id ?? ''} onChange={e => updateAssignee(e.target.value)}
-              className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none bg-white text-gray-700">
+              className="text-xs border border-[rgba(255,255,255,0.1)] rounded-lg px-2 py-1 focus:outline-none bg-[rgba(255,255,255,0.06)] text-[rgba(226,232,240,0.75)] [&>option]:bg-[#26282E]">
               <option value="">미지정</option>
               {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
             </select>
@@ -354,22 +354,22 @@ export default function SubTaskDetailPage() {
 
           {/* 마감일 */}
           <div className="flex items-center gap-1.5">
-            <span className="text-xs text-gray-400">마감</span>
+            <span className="text-xs text-[rgba(226,232,240,0.4)]">마감</span>
             <input type="date" value={subTask.due_date ?? ''}
               onChange={e => updateDueDate(e.target.value)}
-              className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none bg-white text-gray-700" />
+              className="text-xs border border-[rgba(255,255,255,0.1)] rounded-lg px-2 py-1 focus:outline-none bg-[rgba(255,255,255,0.06)] text-[rgba(226,232,240,0.75)]" />
           </div>
         </div>
 
         {/* 업데이트 로그 (노트 입력) */}
         <section className="mb-8">
-          <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">업데이트 로그</h2>
+          <h2 className="text-xs font-semibold text-[rgba(226,232,240,0.4)] uppercase tracking-wide mb-3">업데이트 로그</h2>
 
           {/* 새 노트 입력 */}
-          <div className="border border-gray-200 rounded-xl p-4 mb-4 bg-white">
+          <div className="border border-[rgba(255,255,255,0.08)] rounded-xl p-4 mb-4 bg-[rgba(255,255,255,0.03)]">
             <div className="flex items-center gap-2 mb-2">
               <input value={noteTitle} onChange={e => setNoteTitle(e.target.value)}
-                className="flex-1 text-sm font-medium text-gray-700 border-none focus:outline-none bg-transparent"
+                className="flex-1 text-sm font-medium text-[rgba(226,232,240,0.8)] border-none focus:outline-none bg-transparent placeholder:text-[rgba(226,232,240,0.25)]"
                 placeholder="제목 (선택)" />
             </div>
             <TiptapEditor key={newNoteKey} value={noteInput} onChange={setNoteInput}
@@ -391,24 +391,24 @@ export default function SubTaskDetailPage() {
                 onDelete={deleteNote} onEdit={editNote} onEditTitle={editNoteTitle} />
             ))}
             {notes.length === 0 && (
-              <p className="text-xs text-gray-300 text-center py-4">아직 업데이트 내용이 없습니다</p>
+              <p className="text-xs text-[rgba(226,232,240,0.3)] text-center py-4">아직 업데이트 내용이 없습니다</p>
             )}
           </div>
         </section>
 
         {/* 첨부파일 */}
         <section className="mb-8">
-          <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">첨부파일</h2>
+          <h2 className="text-xs font-semibold text-[rgba(226,232,240,0.4)] uppercase tracking-wide mb-3">첨부파일</h2>
 
           {/* 링크 추가 */}
           <div className="flex gap-2 mb-3">
             <input value={linkName} onChange={e => setLinkName(e.target.value)}
               placeholder="링크 이름 (선택)"
-              className="w-32 text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none" />
+              className="w-32 text-xs border border-[rgba(255,255,255,0.1)] rounded-lg px-3 py-2 focus:outline-none bg-[rgba(255,255,255,0.06)] text-[rgba(226,232,240,0.75)] placeholder:text-[rgba(226,232,240,0.25)]" />
             <input value={linkUrl} onChange={e => setLinkUrl(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') addLink() }}
               placeholder="https://..."
-              className="flex-1 text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none" />
+              className="flex-1 text-xs border border-[rgba(255,255,255,0.1)] rounded-lg px-3 py-2 focus:outline-none bg-[rgba(255,255,255,0.06)] text-[rgba(226,232,240,0.75)] placeholder:text-[rgba(226,232,240,0.25)]" />
             <button onClick={addLink}
               className="text-xs bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] px-3 py-2 rounded-lg hover:bg-[#D5E6F7] transition-colors whitespace-nowrap">
               링크 추가
@@ -416,11 +416,11 @@ export default function SubTaskDetailPage() {
           </div>
 
           {/* 파일 업로드 */}
-          <label className="flex items-center gap-2 cursor-pointer text-xs text-gray-500 hover:text-gray-700 mb-4 w-fit">
-            <span className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 hover:bg-gray-100 transition-colors">
+          <label className="flex items-center gap-2 cursor-pointer text-xs text-[rgba(226,232,240,0.5)] hover:text-[rgba(226,232,240,0.75)] mb-4 w-fit">
+            <span className="bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-lg px-3 py-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors">
               {uploading ? '업로드 중...' : '파일 선택'}
             </span>
-            <span className="text-gray-300">또는 이미지를 붙여넣으세요 (Ctrl+V)</span>
+            <span className="text-[rgba(226,232,240,0.3)]">또는 이미지를 붙여넣으세요 (Ctrl+V)</span>
             <input type="file" multiple className="hidden" onChange={handleFileUpload} disabled={uploading} />
           </label>
 
@@ -428,7 +428,7 @@ export default function SubTaskDetailPage() {
           {attachments.length > 0 && (
             <div className="space-y-2">
               {attachments.map(att => (
-                <div key={att.id} className="flex items-center gap-2 p-2.5 bg-gray-50 rounded-lg group">
+                <div key={att.id} className="flex items-center gap-2 p-2.5 bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.07)] rounded-lg group">
                   {att.type === '파일' && att.url.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
                     <img src={att.url} className="w-10 h-10 object-cover rounded cursor-pointer flex-shrink-0"
                       onClick={() => setPreviewImg(att.url)} />
@@ -436,15 +436,15 @@ export default function SubTaskDetailPage() {
                     <span className="text-base flex-shrink-0">{att.type === '링크' ? '🔗' : '📄'}</span>
                   )}
                   <a href={att.url} target="_blank" rel="noopener noreferrer"
-                    className="flex-1 text-xs text-gray-700 hover:text-blue-600 truncate">{att.name}</a>
+                    className="flex-1 text-xs text-[rgba(226,232,240,0.65)] hover:text-blue-400 truncate">{att.name}</a>
                   <button onClick={() => deleteAttachment(att)}
-                    className="text-[10px] text-gray-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">삭제</button>
+                    className="text-[10px] text-[rgba(226,232,240,0.3)] hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">삭제</button>
                 </div>
               ))}
             </div>
           )}
           {attachments.length === 0 && (
-            <p className="text-xs text-gray-300 text-center py-3">첨부된 파일이 없습니다</p>
+            <p className="text-xs text-[rgba(226,232,240,0.3)] text-center py-3">첨부된 파일이 없습니다</p>
           )}
         </section>
       </div>
