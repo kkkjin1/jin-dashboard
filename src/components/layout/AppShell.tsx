@@ -13,9 +13,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="w-full h-screen overflow-hidden flex relative" style={{ background: '#191A1D' }}>
-      {/* Ambient Light — neutral, large, imperceptible to conscious eye */}
+      {/* Ambient Light — neutral white, 2.5%, top-left, 120vw ellipse.
+          Users should not consciously notice this. They should only feel depth. */}
       <div className="pointer-events-none absolute inset-0 z-0"
-        style={{ background: 'radial-gradient(ellipse 100vw 55vh at -5% -15%, rgba(255,255,255,0.018), transparent 65%)' }} />
+        style={{ background: 'radial-gradient(ellipse 120vw 65vh at -8% -18%, rgba(255,255,255,0.025), transparent 70%)' }} />
 
       {/* ── 데스크톱 사이드바 ── */}
       <div className="hidden md:block flex-shrink-0 relative z-10">

@@ -293,12 +293,20 @@ export default function QuickMemoPanel() {
         <button
           type="button"
           ref={btnRef}
-          style={{ right: btnPos.right, bottom: btnPos.bottom }}
+          style={{
+            right: btnPos.right,
+            bottom: btnPos.bottom,
+            background: '#1c2a3c',
+            color: 'rgba(230,231,234,0.85)',
+            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.07), 0 0 0 1px rgba(255,255,255,0.05), 0 8px 32px rgba(0,0,0,0.32)',
+          }}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onClick={handleBtnClick}
-          className="fixed z-[64] w-12 h-12 bg-[#1B3A6B] text-white rounded-full shadow-lg hover:bg-[#1F4070] transition-colors flex items-center justify-center text-xl font-light touch-none select-none cursor-grab active:cursor-grabbing"
+          className="fixed z-[64] w-12 h-12 rounded-full flex items-center justify-center text-xl font-light touch-none select-none cursor-grab active:cursor-grabbing transition-all duration-200 ease-out"
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#1f3045' }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '#1c2a3c' }}
           title="빠른 메모 (Ctrl+2) — 길게 드래그해 위치 이동"
         >
           +

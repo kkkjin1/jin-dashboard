@@ -144,13 +144,10 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                         collapsed ? 'justify-center py-2.5' : 'gap-2.5 px-3 py-2'
                       } ${
                         isActive
-                          ? 'text-white font-medium'
-                          : 'text-[rgba(230,231,234,0.45)] hover:text-[#E6E7EA]'
+                          ? 'surface-nav-active text-[#E6E7EA] font-medium'
+                          : 'text-[rgba(230,231,234,0.4)] hover:text-[#E6E7EA]'
                       }`}
-                      style={isActive
-                        ? { background: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(8px)' }
-                        : undefined}
-                      onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)' }}
+                      onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)' }}
                       onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
                     >
                       <item.icon size={15} strokeWidth={isActive ? 2 : 1.75} className="flex-shrink-0" />
@@ -212,7 +209,8 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
             {userMenuOpen && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
-                <div className="absolute bottom-full left-3 right-3 mb-2 bg-[#1A1D28] border border-[rgba(255,255,255,0.08)] rounded-xl shadow-[0_4px_32px_rgba(0,0,0,0.4)] overflow-hidden z-50">
+                <div className="absolute bottom-full left-3 right-3 mb-2 rounded-2xl overflow-hidden z-50"
+                  style={{ background: '#1b1d23', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05), 0 0 0 1px rgba(255,255,255,0.025), 0 18px 60px rgba(0,0,0,0.35)' }}>
                   <div className="px-4 py-3 border-b border-[rgba(255,255,255,0.06)]">
                     <p className="text-[12px] font-semibold text-[#E2E8F0]">김진일</p>
                     <p className="text-[11px] text-[rgba(226,232,240,0.4)]">ji.kim@egnis.kr</p>

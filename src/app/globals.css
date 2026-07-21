@@ -162,23 +162,55 @@ html, body {
 }
 
 /*
-  ── Floating Surface ──────────────────────────────────────────
-  A card that feels lifted off the background.
-  Layer 1: inner top highlight — the surface catches overhead light
-  Layer 2: contact shadow     — crisp 1-2px under the card edge
-  Layer 3: near float         — soft falloff within card radius
-  Layer 4: far ambient        — the card's "presence" in the room
-  Not stronger elevation. Softer depth.
-  ─────────────────────────────────────────────────────────────
+  ══════════════════════════════════════════════════════════════
+  MATERIAL SYSTEM — permanent design language for the workspace
+  ══════════════════════════════════════════════════════════════
+
+  Design token reference:
+    --ws-bg:        #191A1D   workspace background
+    --ws-surface:   #1b1d23   cards / panels — barely lighter than bg
+    --ws-border:    rgba(255,255,255,.025)   hairline, nearly invisible
+    --ws-highlight: rgba(255,255,255,.05)    inner top-edge light catch
+    --ws-ambient:   rgba(0,0,0,.18)          single large soft ambient
+
+  Shadow anatomy — three layers, no single layer is heavy:
+    1. inset 0 1px 0  (highlight)  — overhead light hits the top edge
+    2. 0 0 0 1px      (hairline)   — edge definition without a border
+    3. 0 18px 60px    (ambient)    — the card's depth in the room
+
+  Philosophy:
+    Cards should feel like floating paper, not gray rectangles.
+    The material disappears; the work becomes the focus.
+    Reference: Linear, Attio, Arc Browser, Apple native apps.
+  ══════════════════════════════════════════════════════════════
 */
+
+/* ── Primary floating surface — cards, panels, modals ── */
 .surface-card {
-  background: #1e2026;
-  border: 1px solid rgba(255, 255, 255, 0.055);
+  background: #1b1d23;
+  border: none;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 1px 2px rgba(0, 0, 0, 0.12),
-    0 4px 16px rgba(0, 0, 0, 0.09),
-    0 20px 48px rgba(0, 0, 0, 0.06);
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 0 0 1px rgba(255, 255, 255, 0.025),
+    0 18px 60px rgba(0, 0, 0, 0.18);
+}
+
+/* ── Active / selected navigation item ── */
+.surface-nav-active {
+  background: rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+/* ── Input / search fields ── */
+.surface-input {
+  background: #161820;
+  box-shadow:
+    inset 0 1px 0 rgba(0, 0, 0, 0.2),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 
 /* ═══════════════════════════════════════════════════════════

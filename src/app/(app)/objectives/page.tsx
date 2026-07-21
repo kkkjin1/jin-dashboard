@@ -188,7 +188,7 @@ function ObjectiveBlock({
           <thead>
             <tr>
               <th className="text-left text-[13px] text-[rgba(226,232,240,0.4)] font-normal pb-3 pr-4 w-28 min-w-[112px]"
-                style={{ position: 'sticky', left: 0, background: '#1e2026', zIndex: 2, borderRight: '1px solid rgba(255,255,255,0.06)' }}>
+                style={{ position: 'sticky', left: 0, background: '#1b1d23', zIndex: 2, borderRight: '1px solid rgba(255,255,255,0.06)' }}>
                 안건
               </th>
               {allDates.map(d => (
@@ -250,7 +250,7 @@ function ObjectiveBlock({
               <tr key={si.id} className="group/si">
                 {/* Sub-item title — sticky */}
                 <td className="pr-4 py-3 align-top w-28 min-w-[112px]"
-                  style={{ position: 'sticky', left: 0, background: '#1e2026', zIndex: 1 }}>
+                  style={{ position: 'sticky', left: 0, background: '#1b1d23', zIndex: 1 }}>
                   <div className="flex items-start gap-1 group/sititle">
                     <span className="text-[14px] text-[rgba(226,232,240,0.7)] leading-relaxed flex-1">{si.title}</span>
                     <div className="flex items-center gap-0.5 opacity-0 group-hover/sititle:opacity-100 transition-opacity flex-shrink-0 mt-0.5">
@@ -278,7 +278,7 @@ function ObjectiveBlock({
 
             {/* Add sub-item row */}
             <tr>
-              <td className="pt-3 pb-2" style={{ position: 'sticky', left: 0, background: '#1e2026', zIndex: 1 }}>
+              <td className="pt-3 pb-2" style={{ position: 'sticky', left: 0, background: '#1b1d23', zIndex: 1 }}>
                 {addingItem ? (
                   <div className="flex items-center gap-1">
                     <input
