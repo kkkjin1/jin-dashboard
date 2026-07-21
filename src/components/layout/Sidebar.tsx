@@ -88,7 +88,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   return (
     <aside
       className={`h-screen flex flex-col overflow-hidden transition-[width] duration-200 ease-out flex-shrink-0 ${sidebarW}`}
-      style={{ background: '#0C0E14', borderRight: '1px solid rgba(255,255,255,0.06)' }}
+      style={{ background: '#141519', borderRight: '1px solid rgba(255,255,255,0.05)' }}
     >
       {/* ── 헤더 ── */}
       {collapsed ? (
@@ -140,13 +140,18 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                   <li key={item.href} className="relative group/nav">
                     <Link
                       href={item.href}
-                      className={`flex items-center rounded-lg text-[13px] transition-colors duration-[150ms] ${
+                      className={`flex items-center rounded-xl text-[13px] transition-all duration-200 ease-out ${
                         collapsed ? 'justify-center py-2.5' : 'gap-2.5 px-3 py-2'
                       } ${
                         isActive
-                          ? 'bg-[rgba(255,255,255,0.1)] text-white font-medium'
-                          : 'text-[rgba(226,232,240,0.45)] hover:bg-[rgba(255,255,255,0.06)] hover:text-[#E2E8F0]'
+                          ? 'text-white font-medium'
+                          : 'text-[rgba(230,231,234,0.45)] hover:text-[#E6E7EA]'
                       }`}
+                      style={isActive
+                        ? { background: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(8px)' }
+                        : undefined}
+                      onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)' }}
+                      onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
                     >
                       <item.icon size={15} strokeWidth={isActive ? 2 : 1.75} className="flex-shrink-0" />
                       {!collapsed && (

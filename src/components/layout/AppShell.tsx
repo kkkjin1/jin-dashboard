@@ -12,15 +12,18 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false)
 
   return (
-    <div className="w-full h-screen overflow-hidden flex" style={{ background: '#13151C' }}>
+    <div className="w-full h-screen overflow-hidden flex relative" style={{ background: '#191A1D' }}>
+      {/* Ambient Light — 화면 좌상단 블루 빛 */}
+      <div className="pointer-events-none absolute inset-0 z-0"
+        style={{ background: 'radial-gradient(600px 600px at 6% 0%, rgba(76,139,255,0.05), transparent 60%)' }} />
 
       {/* ── 데스크톱 사이드바 ── */}
-      <div className="hidden md:block flex-shrink-0">
+      <div className="hidden md:block flex-shrink-0 relative z-10">
         <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(p => !p)} />
       </div>
 
       {/* ── 메인 콘텐츠 ── */}
-      <div className="flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden">
+      <div className="flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden relative z-10">
         {/* 모바일 전용 TopNav */}
         <div className="md:hidden flex-shrink-0">
           <TopNav />

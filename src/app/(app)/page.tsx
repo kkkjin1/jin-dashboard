@@ -20,16 +20,16 @@ type SubTaskWithContext = AgendaSubTask & {
 }
 
 // ── Design Tokens ──────────────────────────────────────────────────────────
-const BG      = '#13151C'
-const SURFACE = 'rgba(255,255,255,0.06)'
-const BORDER  = '1px solid rgba(255,255,255,0.09)'
-const SHADOW  = '0 20px 40px rgba(0,0,0,0.18), 0 1px 0 rgba(255,255,255,0.07) inset'
-const TEXT1   = '#E2E8F0'
-const TEXT2   = 'rgba(226,232,240,0.5)'
-const TEXT3   = 'rgba(226,232,240,0.28)'
-const DIVIDER = 'rgba(255,255,255,0.06)'
+const BG      = '#191A1D'
+const SURFACE = '#202126'
+const BORDER  = '1px solid rgba(255,255,255,0.035)'
+const SHADOW  = '0 1px 0 rgba(255,255,255,0.04) inset, 0 0 0 1px rgba(255,255,255,0.03), 0 10px 40px rgba(0,0,0,0.22)'
+const TEXT1   = '#E6E7EA'
+const TEXT2   = 'rgba(230,231,234,0.5)'
+const TEXT3   = '#717680'
+const DIVIDER = 'rgba(255,255,255,0.05)'
 
-const CARD_STYLE: React.CSSProperties = { background: SURFACE, border: BORDER, boxShadow: SHADOW, borderRadius: 20 }
+const CARD_STYLE: React.CSSProperties = { background: SURFACE, border: BORDER, boxShadow: SHADOW, borderRadius: 24 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 function tagCls(part: string) {
@@ -170,8 +170,8 @@ export default function HomePage() {
         <div className="flex-shrink-0 flex items-center justify-center h-12 -mx-8 px-8" style={{ background: BG, borderBottom: `1px solid ${DIVIDER}` }}>
           <div
             onClick={() => setSearchOpen(true)}
-            className="flex items-center gap-2.5 px-4 py-1.5 rounded-xl w-full max-w-sm cursor-pointer transition-colors"
-            style={{ background: 'rgba(255,255,255,0.06)' }}
+            className="flex items-center gap-2.5 px-4 py-1.5 rounded-2xl w-full max-w-sm cursor-pointer transition-all duration-200"
+            style={{ background: '#1A1B1E', border: '1px solid rgba(255,255,255,0.035)' }}
           >
             <Search size={12} style={{ color: TEXT2 }} className="flex-shrink-0" />
             <span className="text-[13px] flex-1" style={{ color: TEXT3 }}>검색 (프로젝트, 안건, 회의록 등)</span>
@@ -400,7 +400,7 @@ export default function HomePage() {
         >
           <div
             className="w-full max-w-lg mx-4 rounded-2xl overflow-hidden"
-            style={{ background: '#1A1D27', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 32px 64px rgba(0,0,0,0.5)' }}
+            style={{ background: '#202126', border: '1px solid rgba(255,255,255,0.05)', boxShadow: '0 1px 0 rgba(255,255,255,0.04) inset, 0 32px 64px rgba(0,0,0,0.5)' }}
             onClick={e => e.stopPropagation()}
           >
             {/* 검색 입력 */}
