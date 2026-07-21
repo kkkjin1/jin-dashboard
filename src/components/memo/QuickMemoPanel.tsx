@@ -239,6 +239,9 @@ export default function QuickMemoPanel() {
         setPanels(prev => prev.slice(0, -1))
         return
       }
+      // textarea/input 안에서 Ctrl 단축키는 SmartTextarea가 처리
+      const target = e.target as HTMLElement | null
+      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) return
       if ((e.ctrlKey || e.metaKey) && e.key === '3') {
         e.preventDefault()
         addPanel()
