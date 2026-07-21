@@ -433,8 +433,8 @@ export default function AgendaItemDetailPage() {
             ) : (
               <h1
                 onClick={() => { setEditingTitle(true); setEditTitle(item.title) }}
-                className="text-2xl font-bold cursor-text hover:text-gray-700 transition-colors leading-tight"
-                style={{ color: item.status === 'done' ? '#9CA3AF' : '#1A2233', textDecoration: item.status === 'done' ? 'line-through' : 'none' }}>
+                className="text-2xl font-bold cursor-text hover:text-[rgba(226,232,240,0.7)] transition-colors leading-tight"
+                style={{ color: item.status === 'done' ? '#9CA3AF' : '#E2E8F0', textDecoration: item.status === 'done' ? 'line-through' : 'none' }}>
                 {item.title}
               </h1>
             )}
@@ -444,7 +444,7 @@ export default function AgendaItemDetailPage() {
                 {STATUS_LABEL[item.status as Status]}
               </button>
               {subTasks.length > 0 && (
-                <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+                <span className="text-xs text-[rgba(226,232,240,0.5)] bg-white/[0.06] border border-white/[0.09] px-2.5 py-1 rounded-full">
                   하위태스크 {doneCount}/{subTasks.length}
                 </span>
               )}
@@ -478,7 +478,7 @@ export default function AgendaItemDetailPage() {
               {uploadError && <span className="text-[10px] text-red-500 ml-1">{uploadError}</span>}
             </div>
             {itemAtts.length === 0 ? (
-              <p className="text-[10px] text-gray-300">이 업무 전체에 해당하는 파일을 첨부하세요</p>
+              <p className="text-[10px] text-gray-400">이 업무 전체에 해당하는 파일을 첨부하세요</p>
             ) : (
               <div className="flex flex-wrap gap-1.5">
                 {itemAtts.map(att => (
@@ -511,12 +511,12 @@ export default function AgendaItemDetailPage() {
               <div key={st.id}
                 ref={el => { accordionRefs.current[st.id] = el }}
                 className="rounded-xl border overflow-hidden transition-all"
-                style={{ borderColor: isFocus && isOpen ? stColor : '#E5E9F0', boxShadow: isFocus && isOpen ? `0 0 0 2px ${stColor}30` : 'none' }}>
+                style={{ borderColor: isFocus && isOpen ? stColor : 'rgba(255,255,255,0.08)', boxShadow: isFocus && isOpen ? `0 0 0 2px ${stColor}30` : 'none' }}>
                 {/* 아코디언 헤더 — 외부 div onClick으로 토글, 내부 인터랙티브 요소는 stopPropagation */}
                 <div
                   onClick={() => toggleST(st.id)}
-                  className="flex items-center gap-2.5 px-4 py-4 select-none group/acc hover:bg-gray-50/70 transition-colors cursor-pointer"
-                  style={{ background: isOpen ? `${stColor}08` : 'white' }}>
+                  className="flex items-center gap-2.5 px-4 py-4 select-none group/acc hover:bg-[rgba(255,255,255,0.06)] transition-colors cursor-pointer"
+                  style={{ background: isOpen ? `${stColor}18` : 'rgba(255,255,255,0.03)' }}>
                   {/* ▶ 비주얼 (클릭은 외부 div가 처리) */}
                   <span className="flex-shrink-0 p-1 -m-1" style={{ fontSize: 8, lineHeight: 1 }}>
                     <span style={{ display: 'inline-block', transition: 'transform .15s', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', color: '#8FA0B5' }}>▶</span>
@@ -540,12 +540,12 @@ export default function AgendaItemDetailPage() {
                         }}
                         onBlur={saveSTTitle}
                         className="text-sm font-semibold bg-transparent border-b-2 border-blue-400 focus:outline-none w-full"
-                        style={{ color: st.status === 'done' ? '#9CA3AF' : '#1A2233', textDecoration: st.status === 'done' ? 'line-through' : 'none' }}
+                        style={{ color: st.status === 'done' ? '#9CA3AF' : '#E2E8F0', textDecoration: st.status === 'done' ? 'line-through' : 'none' }}
                       />
                     </div>
                   ) : (
                     <span className="flex-1 min-w-0 text-sm font-semibold truncate"
-                      style={{ color: st.status === 'done' ? '#9CA3AF' : '#1A2233', textDecoration: st.status === 'done' ? 'line-through' : 'none' }}>
+                      style={{ color: st.status === 'done' ? '#9CA3AF' : '#E2E8F0', textDecoration: st.status === 'done' ? 'line-through' : 'none' }}>
                       {st.title}
                     </span>
                   )}
@@ -553,7 +553,7 @@ export default function AgendaItemDetailPage() {
                   {editingSTId !== st.id && (
                     <button type="button"
                       onClick={e => { e.stopPropagation(); setEditingSTId(st.id); setEditingSTVal(st.title) }}
-                      className="opacity-0 group-hover/acc:opacity-60 hover:!opacity-100 transition-opacity text-gray-400 hover:text-gray-700 text-[10px] px-0.5 flex-shrink-0"
+                      className="opacity-0 group-hover/acc:opacity-60 hover:!opacity-100 transition-opacity text-[rgba(226,232,240,0.5)] hover:text-[rgba(226,232,240,0.9)] text-[10px] px-0.5 flex-shrink-0"
                       title="이름 수정">✏</button>
                   )}
                   {/* 날짜 뱃지 */}
@@ -584,10 +584,10 @@ export default function AgendaItemDetailPage() {
                     {deletingST === st.id ? (
                       <>
                         <button onClick={e => { e.stopPropagation(); deleteSubTask(st.id) }} className="text-[10px] text-red-500 font-semibold px-1">삭제</button>
-                        <button onClick={e => { e.stopPropagation(); setDeletingST(null) }} className="text-[10px] text-gray-400 px-1">취소</button>
+                        <button onClick={e => { e.stopPropagation(); setDeletingST(null) }} className="text-[10px] text-[rgba(226,232,240,0.4)] px-1">취소</button>
                       </>
                     ) : (
-                      <button onClick={e => { e.stopPropagation(); setDeletingST(st.id) }} className="text-[10px] text-gray-300 hover:text-red-400 transition-colors px-1">삭제</button>
+                      <button onClick={e => { e.stopPropagation(); setDeletingST(st.id) }} className="text-[10px] text-[rgba(226,232,240,0.3)] hover:text-red-400 transition-colors px-1">삭제</button>
                     )}
                   </div>
                   <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold flex-shrink-0 ml-1 ${STATUS_CLS[st.status as Status]}`}>
@@ -601,15 +601,15 @@ export default function AgendaItemDetailPage() {
                   const selId = selectedNoteIds[st.id] ?? allNotes[0]?.id ?? null
                   const selectedNote = allNotes.find(n => n.id === selId) ?? null
                   return (
-                    <div style={{ borderTop: '1px solid #E5E9F0', background: '#FAFBFD' }}>
+                    <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' }}>
                       {/* 날짜 목록 + 에디터 */}
                       <div style={{ display: 'flex', minHeight: 160 }}>
                         {/* 왼쪽: 날짜 목록 */}
-                        <div style={{ width: 80, borderRight: '1px solid #E5E9F0', flexShrink: 0, background: '#F5F7FA', display: 'flex', flexDirection: 'column' }}>
+                        <div style={{ width: 80, borderRight: '1px solid rgba(255,255,255,0.07)', flexShrink: 0, background: 'rgba(255,255,255,0.03)', display: 'flex', flexDirection: 'column' }}>
                           <button
                             onClick={e => { e.stopPropagation(); addNoteEntry(st) }}
                             disabled={addingNoteFor === st.id}
-                            style={{ padding: '7px 8px', fontSize: 10, color: '#5DBD97', background: 'none', border: 'none', borderBottom: '1px solid #E5E9F0', cursor: 'pointer', textAlign: 'center', fontWeight: 600, flexShrink: 0, opacity: addingNoteFor === st.id ? 0.4 : 1 }}>
+                            style={{ padding: '7px 8px', fontSize: 10, color: '#5DBD97', background: 'none', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.07)', cursor: 'pointer', textAlign: 'center', fontWeight: 600, flexShrink: 0, opacity: addingNoteFor === st.id ? 0.4 : 1 }}>
                             {addingNoteFor === st.id ? '…' : '+ 추가'}
                           </button>
                           <div style={{ flex: 1, overflowY: 'auto' }}>
@@ -618,7 +618,7 @@ export default function AgendaItemDetailPage() {
                               return (
                                 <button key={note.id}
                                   onClick={e => { e.stopPropagation(); setSelectedNoteIds(p => ({ ...p, [st.id]: note.id })) }}
-                                  style={{ width: '100%', padding: '7px 8px', fontSize: 11, textAlign: 'center', background: isSelected ? `${stColor}15` : 'transparent', color: isSelected ? stColor : '#8FA0B5', fontWeight: isSelected ? 700 : 400, cursor: 'pointer', border: 'none', borderBottom: '1px solid #F0F4F8', display: 'block', lineHeight: 1.3 }}>
+                                  style={{ width: '100%', padding: '7px 8px', fontSize: 11, textAlign: 'center', background: isSelected ? `${stColor}22` : 'transparent', color: isSelected ? stColor : 'rgba(226,232,240,0.45)', fontWeight: isSelected ? 700 : 400, cursor: 'pointer', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'block', lineHeight: 1.3 }}>
                                   {formatNoteDate(note.created_at)}
                                 </button>
                               )
@@ -639,7 +639,7 @@ export default function AgendaItemDetailPage() {
                                   onSave={title => updateNoteTitle(selectedNote.id, st.id, title)}
                                 />
                                 <button onClick={e => { e.stopPropagation(); setExpandFor(st.id) }}
-                                  className="text-[10px] text-gray-400 hover:text-gray-600 px-2 py-0.5 rounded hover:bg-gray-100 transition-colors flex-shrink-0">
+                                  className="text-[10px] text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)] px-2 py-0.5 rounded hover:bg-[rgba(255,255,255,0.07)] transition-colors flex-shrink-0">
                                   크게 편집
                                 </button>
                               </div>
@@ -658,22 +658,22 @@ export default function AgendaItemDetailPage() {
                         </div>
                       </div>
                       {/* 서브태스크 첨부파일 */}
-                      <div className="border-t border-gray-100/80 px-5 py-3">
+                      <div className="border-t border-[rgba(255,255,255,0.07)] px-5 py-3">
                         <div className="flex items-center gap-2 mb-2">
                           <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: stColor }}>
                             📎 {st.title} · 첨부파일
                           </span>
-                          <label className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md cursor-pointer transition-colors ${uploadingFor === st.id ? 'text-gray-300' : 'bg-white border border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700'}`}>
+                          <label className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md cursor-pointer transition-colors ${uploadingFor === st.id ? 'text-[rgba(226,232,240,0.3)]' : 'bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.12)] text-[rgba(226,232,240,0.5)] hover:border-[rgba(255,255,255,0.22)] hover:text-[rgba(226,232,240,0.8)]'}`}>
                             {uploadingFor === st.id ? '업로드 중…' : '파일 추가'}
                             <input type="file" multiple className="hidden" onChange={e => handleUpload(e, st.id)} disabled={uploadingFor === st.id} />
                           </label>
                         </div>
                         {stAtts(st.id).length === 0 ? (
-                          <p className="text-[10px] text-gray-300">이 하위 태스크에만 연결된 파일을 첨부하세요</p>
+                          <p className="text-[10px] text-[rgba(226,232,240,0.35)]">이 하위 태스크에만 연결된 파일을 첨부하세요</p>
                         ) : (
                           <div className="flex flex-wrap gap-1.5">
                             {stAtts(st.id).map(att => (
-                              <div key={att.id} className="flex items-center gap-1 text-[11px] bg-white border rounded-lg px-2.5 py-1 group/att"
+                              <div key={att.id} className="flex items-center gap-1 text-[11px] bg-[rgba(255,255,255,0.05)] border rounded-lg px-2.5 py-1 group/att"
                                 style={{ borderColor: `${stColor}40` }}>
                                 <a href={att.url} target="_blank" rel="noopener noreferrer"
                                   className="hover:underline transition-colors truncate max-w-[180px]"
@@ -681,7 +681,7 @@ export default function AgendaItemDetailPage() {
                                   📄 {att.name}
                                 </a>
                                 <button onClick={() => deleteAttachment(att)}
-                                  className="text-gray-300 hover:text-red-400 transition-colors opacity-0 group-hover/att:opacity-100 ml-0.5">×</button>
+                                  className="text-[rgba(226,232,240,0.3)] hover:text-red-400 transition-colors opacity-0 group-hover/att:opacity-100 ml-0.5">×</button>
                               </div>
                             ))}
                           </div>
@@ -695,7 +695,7 @@ export default function AgendaItemDetailPage() {
           })}
 
           {/* 하위태스크 추가 */}
-          <div className="rounded-xl border border-dashed border-gray-200 overflow-hidden">
+          <div className="rounded-xl border border-dashed border-[rgba(255,255,255,0.12)] overflow-hidden">
             {addingSubTask ? (
               <div className="flex items-center gap-2 px-4 py-3">
                 <input autoFocus value={newSTTitle}
@@ -708,7 +708,7 @@ export default function AgendaItemDetailPage() {
               </div>
             ) : (
               <button onClick={() => setAddingSubTask(true)}
-                className="w-full flex items-center gap-1.5 px-4 py-3 text-xs text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors">
+                className="w-full flex items-center gap-1.5 px-4 py-3 text-xs text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)] hover:bg-[rgba(255,255,255,0.04)] transition-colors">
                 <span style={{ fontSize: 13 }}>＋</span>
                 <span>하위 태스크 추가 (프로젝트탭과 쌍방 연동)</span>
               </button>
