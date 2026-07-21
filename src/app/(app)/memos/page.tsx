@@ -89,14 +89,32 @@ function MemoCard({ memo, onEdit, onDelete, draggable: drag, onDragStart, select
 interface EditModalProps {
   memo: QuickMemo
   onSave: (id: string, title: string, content: string, tag: MemoTag) => void
+  onAutoSave: (id: string, title: string, content: string, tag: MemoTag) => Promise<void>
   onClose: () => void
 }
 
-function EditModal({ memo, onSave, onClose }: EditModalProps) {
+function EditModal({ memo, onSave, onAutoSave, onClose }: EditModalProps) {
   const [title, setTitle] = useState(memo.title)
   const [content, setContent] = useState(memo.content)
   const [tag, setTag] = useState<MemoTag>(memo.tag)
   const [mode, setMode] = useState<'edit' | 'preview'>(memo.content ? 'preview' : 'edit')
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'saving' | 'saved' | null>(null)
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const isFirstRender = useRef(true)
+
+  useEffect(() => {
+    if (isFirstRender.current) { isFirstRender.current = false; return }
+    if (!title.trim()) return
+    setAutoSaveStatus('saving')
+    clearTimeout(autoSaveTimer.current)
+    autoSaveTimer.current = setTimeout(async () => {
+      await onAutoSave(memo.id, title, content, tag)
+      setAutoSaveStatus('saved')
+      setTimeout(() => setAutoSaveStatus(null), 2000)
+    }, 1500)
+    return () => clearTimeout(autoSaveTimer.current)
+  }, [title, content, tag])
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
@@ -172,7 +190,9 @@ function EditModal({ memo, onSave, onClose }: EditModalProps) {
         {/* 하단 버튼 */}
         <div className="flex justify-between items-center mt-4 flex-shrink-0">
           <p className="text-[10px] text-white/[0.28]">
-            {mode === 'edit' ? 'Ctrl+Enter 저장 · Esc 닫기' : '클릭하면 편집 모드로 전환'}
+            {autoSaveStatus === 'saving' ? '저장 중…' :
+             autoSaveStatus === 'saved'  ? '✓ 자동저장됨' :
+             mode === 'edit' ? 'Ctrl+Enter 저장 · Esc 닫기' : '클릭하면 편집 모드로 전환'}
           </p>
           <div className="flex gap-2">
             <button onClick={onClose} className={`${pill} ${pOff}`}>취소</button>
@@ -216,6 +236,12 @@ export default function MemosPage() {
         }
       })
   }, [])
+
+  async function autoSave(id: string, title: string, content: string, tag: MemoTag) {
+    if (!title.trim()) return
+    await supabase.from('quick_memos').update({ title: title.trim(), content: content.trim(), tag }).eq('id', id)
+    setMemos(prev => prev.map(m => m.id === id ? { ...m, title: title.trim(), content: content.trim(), tag } : m))
+  }
 
   async function saveEdit(id: string, title: string, content: string, tag: MemoTag) {
     if (!title.trim()) return
@@ -321,7 +347,7 @@ export default function MemosPage() {
 
   return (
     <div className="h-full flex flex-col overflow-hidden font-sans">
-      {editing && <EditModal memo={editing} onSave={saveEdit} onClose={() => setEditing(null)} />}
+      {editing && <EditModal memo={editing} onSave={saveEdit} onAutoSave={autoSave} onClose={() => setEditing(null)} />}
 
       {/* 헤더 */}
       <div className="flex-shrink-0 pt-6 pb-4 flex items-center gap-3">
