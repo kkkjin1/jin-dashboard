@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { createClient } from '@/lib/supabase/client'
 import { format, parseISO } from 'date-fns'
@@ -15,6 +15,22 @@ interface ObjSubItem  { id: string; objective_id: string; title: string; sort_or
 interface ObjSubEntry { id: string; sub_item_id: string; entry_date: string; content: string }
 
 const GROUP_COLORS = ['#4A7FC0','#5DBD97','#E8914A','#A855F7','#EF4444','#F59E0B','#EC4899','#06B6D4','#84CC16','#8B5CF6']
+
+// Alt+Tab 등 윈도우 포커스 이탈 시 편집창 닫힘 방지
+function useWindowFocused() {
+  const ref = useRef(true)
+  useEffect(() => {
+    const onBlur = () => { ref.current = false }
+    const onFocus = () => { ref.current = true }
+    window.addEventListener('blur', onBlur)
+    window.addEventListener('focus', onFocus)
+    return () => {
+      window.removeEventListener('blur', onBlur)
+      window.removeEventListener('focus', onFocus)
+    }
+  }, [])
+  return ref
+}
 
 function currentQuarter(d = new Date()): string {
   return `${d.getFullYear()}-Q${Math.ceil((d.getMonth() + 1) / 3)}`
@@ -37,6 +53,7 @@ function SubCell({ entry, subItemId, date, onSave, onDelete, large }: SubCellPro
   const [val, setVal] = useState(entry?.content ?? '')
   const cellH = large ? 320 : 140
   const taRows = large ? 16 : 8
+  const winFocused = useWindowFocused()
 
   async function save() {
     const textOnly = val.replace(/<[^>]*>/g, '').trim()
@@ -50,7 +67,7 @@ function SubCell({ entry, subItemId, date, onSave, onDelete, large }: SubCellPro
       <div
         style={{ minHeight: cellH }}
         className="min-w-[200px] bg-[rgba(255,255,255,0.05)] border border-[#1B3A6B]/30 rounded-lg overflow-hidden"
-        onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) save() }}
+        onBlur={e => { if (!winFocused.current) return; if (!e.currentTarget.contains(e.relatedTarget as Node)) save() }}
       >
         <TiptapEditor
           dark
@@ -96,6 +113,7 @@ function SubItemTitle({ si, onSave, onDelete }: {
 }) {
   const [editing, setEditing] = useState(false)
   const [val, setVal] = useState(si.title)
+  const winFocused = useWindowFocused()
   async function save() {
     const t = val.trim()
     if (!t) { setVal(si.title); setEditing(false); return }
@@ -109,7 +127,7 @@ function SubItemTitle({ si, onSave, onDelete }: {
         if (e.key === 'Enter' && !e.nativeEvent.isComposing) save()
         if (e.key === 'Escape') { setVal(si.title); setEditing(false) }
       }}
-      onBlur={save}
+      onBlur={() => { if (!winFocused.current) return; save() }}
       className="text-[14px] text-[#E5E7EB] border-b border-[rgba(255,255,255,0.2)] focus:outline-none bg-transparent w-full" />
   )
   return (
@@ -156,6 +174,7 @@ function ObjectiveBlock({
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleVal, setTitleVal] = useState(obj.title)
   const [addingItem, setAddingItem] = useState(false)
+  const winFocused = useWindowFocused()
   const [newItemTitle, setNewItemTitle] = useState('')
   const [addingDate, setAddingDate] = useState(false)
   const [newDate, setNewDate] = useState(todayStr)
@@ -222,7 +241,7 @@ function ObjectiveBlock({
               if (e.key === 'Enter' && !e.nativeEvent.isComposing) saveTitle()
               if (e.key === 'Escape') { setTitleVal(obj.title); setEditingTitle(false) }
             }}
-            onBlur={saveTitle}
+            onBlur={() => { if (!winFocused.current) return; saveTitle() }}
             className="text-[14px] font-medium text-[#E5E7EB] border-b border-[rgba(255,255,255,0.2)] focus:outline-none bg-transparent flex-1 max-w-xs"
           />
         ) : (
