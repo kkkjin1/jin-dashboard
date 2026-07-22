@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import dynamic from 'next/dynamic'
 import { MemoPageSkeleton } from '@/components/ui/Skeleton'
 import { createClient } from '@/lib/supabase/client'
 import { format, parseISO } from 'date-fns'
@@ -8,6 +9,11 @@ import { ko } from 'date-fns/locale'
 import type { QuickMemo, MemoTag } from '@/types'
 import MarkdownContent from '@/components/MarkdownContent'
 import SmartTextarea from '@/components/SmartTextarea'
+const TiptapEditor = dynamic(() => import('@/components/TiptapEditor'), { ssr: false })
+
+function stripHtml(html: string): string {
+  return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+}
 
 const ALL_TAGS: MemoTag[] = ['공지', '업무관련', '회의관련', '아이디어', '완료']
 const FILTER_TAGS = ['전체', ...ALL_TAGS] as const
@@ -62,7 +68,7 @@ function MemoCard({ memo, onEdit, onDelete, draggable: drag, onDragStart, select
       </p>
       {memo.content && (
         <p className="text-[10px] leading-relaxed line-clamp-2 break-words whitespace-pre-wrap mt-1 flex-1 overflow-hidden text-white/50">
-          {memo.content}
+          {stripHtml(memo.content)}
         </p>
       )}
       {!memo.content && <div className="flex-1" />}
@@ -97,7 +103,6 @@ function EditModal({ memo, onSave, onAutoSave, onClose }: EditModalProps) {
   const [title, setTitle] = useState(memo.title)
   const [content, setContent] = useState(memo.content)
   const [tag, setTag] = useState<MemoTag>(memo.tag)
-  const [mode, setMode] = useState<'edit' | 'preview'>(memo.content ? 'preview' : 'edit')
   const [autoSaveStatus, setAutoSaveStatus] = useState<'saving' | 'saved' | null>(null)
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const isFirstRender = useRef(true)
@@ -153,46 +158,24 @@ function EditModal({ memo, onSave, onAutoSave, onClose }: EditModalProps) {
           placeholder="제목"
           className="w-full text-base font-semibold text-[#E2E8F0] pb-2 mb-3 focus:outline-none bg-transparent flex-shrink-0 placeholder:text-white/30"
           style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }} />
-        {/* 편집/미리보기 탭 */}
-        <div className="flex gap-1 mb-2 flex-shrink-0">
-          <button onClick={() => setMode('edit')}
-            className={`text-xs px-3 py-1 rounded-full border transition-all font-medium ${mode === 'edit' ? 'bg-[#1B3A6B] text-white border-[#1B3A6B]' : 'border-white/[0.09] text-white/50 hover:bg-white/[0.06] hover:text-white/70'}`}>
-            편집
-          </button>
-          <button onClick={() => setMode('preview')}
-            className={`text-xs px-3 py-1 rounded-full border transition-all font-medium ${mode === 'preview' ? 'bg-[#1B3A6B] text-white border-[#1B3A6B]' : 'border-white/[0.09] text-white/50 hover:bg-white/[0.06] hover:text-white/70'}`}>
-            미리보기
-          </button>
+        {/* 내용 영역 — WYSIWYG */}
+        <div className="flex-1 min-h-0 overflow-y-auto rounded-2xl"
+          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
+          <TiptapEditor
+            value={content}
+            onChange={setContent}
+            onSubmit={() => onSave(memo.id, title, content, tag)}
+            autoFocus={!!memo.content || !memo.content}
+            minHeight={400}
+            className="p-3"
+          />
         </div>
-        {/* 내용 영역 */}
-        {mode === 'edit' ? (
-          <div className="flex-1 min-h-0 overflow-y-auto rounded-2xl"
-            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
-            <SmartTextarea
-              value={content}
-              onChange={setContent}
-              onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) onSave(memo.id, title, content, tag) }}
-              autoFocus={!!memo.content}
-              placeholder="내용 (Ctrl+Enter 저장)"
-              className="w-full text-sm text-[#E2E8F0] focus:outline-none resize-none bg-transparent p-3 placeholder:text-white/30"
-              style={{ minHeight: '400px' }}
-            />
-          </div>
-        ) : (
-          <div className="flex-1 min-h-0 overflow-y-auto rounded-2xl p-4 cursor-text"
-            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}
-            onClick={() => setMode('edit')}>
-            {content
-              ? <MarkdownContent content={content} dark />
-              : <p className="text-sm text-white/[0.28]">내용 없음 — 클릭해서 편집</p>}
-          </div>
-        )}
         {/* 하단 버튼 */}
         <div className="flex justify-between items-center mt-4 flex-shrink-0">
           <p className="text-[10px] text-white/[0.28]">
             {autoSaveStatus === 'saving' ? '저장 중…' :
              autoSaveStatus === 'saved'  ? '✓ 자동저장됨' :
-             mode === 'edit' ? 'Ctrl+Enter 저장 · Esc 닫기' : '클릭하면 편집 모드로 전환'}
+             'Ctrl+Enter 저장 · Esc 닫기'}
           </p>
           <div className="flex gap-2">
             <button onClick={onClose} className={`${pill} ${pOff}`}>취소</button>

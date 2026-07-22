@@ -1,11 +1,13 @@
 ﻿'use client'
 
 import { useState, useEffect } from 'react'
+import dynamic from 'next/dynamic'
 import { createClient } from '@/lib/supabase/client'
 import { format, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, X, Maximize2 } from 'lucide-react'
 import MarkdownContent from '@/components/MarkdownContent'
+const TiptapEditor = dynamic(() => import('@/components/TiptapEditor'), { ssr: false })
 
 interface ObjGroup    { id: string; name: string; color: string; sort_order: number }
 interface ObjObjective { id: string; group_id: string; title: string; quarter: string; sort_order: number }
@@ -37,26 +39,28 @@ function SubCell({ entry, subItemId, date, onSave, onDelete, large }: SubCellPro
   const taRows = large ? 16 : 8
 
   async function save() {
-    const trimmed = val.trim()
-    if (!trimmed && entry) { await onDelete(entry.id); setEditing(false); return }
-    if (trimmed) await onSave(subItemId, date, trimmed)
+    const textOnly = val.replace(/<[^>]*>/g, '').trim()
+    if (!textOnly && entry) { await onDelete(entry.id); setEditing(false); return }
+    if (textOnly) await onSave(subItemId, date, val)
     setEditing(false)
   }
 
   if (editing) {
     return (
-      <textarea
-        autoFocus
-        value={val}
-        onChange={e => setVal(e.target.value)}
-        onBlur={save}
-        onKeyDown={e => {
-          if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') save()
-          if (e.key === 'Escape') { setVal(entry?.content ?? ''); setEditing(false) }
-        }}
-        className="w-full min-w-[200px] text-[14px] text-[rgba(226,232,240,0.8)] leading-relaxed bg-[rgba(255,255,255,0.06)] border border-[#1B3A6B]/25 rounded-lg p-2 focus:outline-none resize-y"
-        rows={taRows}
-      />
+      <div
+        style={{ minHeight: cellH }}
+        className="min-w-[200px] bg-[rgba(255,255,255,0.05)] border border-[#1B3A6B]/30 rounded-lg overflow-hidden"
+        onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) save() }}
+      >
+        <TiptapEditor
+          value={val}
+          onChange={setVal}
+          onSubmit={save}
+          onEscape={() => { setVal(entry?.content ?? ''); setEditing(false) }}
+          autoFocus
+          minHeight={cellH - 60}
+        />
+      </div>
     )
   }
 

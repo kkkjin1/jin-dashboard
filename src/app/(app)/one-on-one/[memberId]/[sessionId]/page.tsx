@@ -7,8 +7,9 @@ import { format, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { createClient } from '@/lib/supabase/client'
 import type { OneOnOne, Member, NoteEntry } from '@/types'
-import SmartTextarea from '@/components/SmartTextarea'
+import dynamic from 'next/dynamic'
 import MarkdownContent from '@/components/MarkdownContent'
+const TiptapEditor = dynamic(() => import('@/components/TiptapEditor'), { ssr: false })
 
 export default function OneOnOneSessionPage() {
   const { memberId, sessionId } = useParams<{ memberId: string; sessionId: string }>()
@@ -24,10 +25,9 @@ export default function OneOnOneSessionPage() {
   const [nextAppointment, setNextAppointment] = useState('')
   const [nextAppointmentDate, setNextAppointmentDate] = useState('')
   const [deleting, setDeleting] = useState(false)
-  const [editingContent, setEditingContent] = useState(false)
 
   const titleRef = useRef<HTMLInputElement>(null)
-  const contentRef = useRef<HTMLTextAreaElement>(null)
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const autoFocused = useRef(false)
 
   useEffect(() => {
@@ -66,7 +66,6 @@ export default function OneOnOneSessionPage() {
     if (session && !autoFocused.current) {
       autoFocused.current = true
       if (!session.title) titleRef.current?.focus()
-      else setEditingContent(true)
     }
   }, [session])
 
@@ -75,12 +74,19 @@ export default function OneOnOneSessionPage() {
     setSession(prev => prev ? { ...prev, ...updates } : prev)
   }
 
-  async function saveContent() {
+  function handleContentChange(html: string) {
+    setContentInput(html)
+    clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(() => saveContent(html), 1500)
+  }
+
+  async function saveContent(content?: string) {
     if (!session) return
+    const c = content ?? contentInput
     const existingNote = session.notes[0]
     const newNote: NoteEntry = {
       title: existingNote?.title ?? '기록',
-      content: contentInput,
+      content: c,
       created_at: existingNote?.created_at ?? new Date().toISOString(),
     }
     const rest = session.notes.slice(1)
@@ -151,7 +157,7 @@ export default function OneOnOneSessionPage() {
                 value={titleInput}
                 onChange={e => setTitleInput(e.target.value)}
                 onKeyDown={e => {
-                  if (e.key === 'Enter') { updateSession({ title: titleInput || null }); contentRef.current?.focus() }
+                  if (e.key === 'Enter') { updateSession({ title: titleInput || null }) }
                   if (e.key === 'Escape') setTitleInput(session.title ?? '')
                 }}
                 onBlur={() => updateSession({ title: titleInput.trim() || null })}
@@ -167,30 +173,13 @@ export default function OneOnOneSessionPage() {
           {/* 기록 */}
           <div className="mb-6">
             <h2 className="text-sm font-semibold text-gray-700 mb-3">기록</h2>
-            <div className="bg-white rounded-xl border border-gray-100 p-4">
-              {editingContent ? (
-                <SmartTextarea
-                  ref={contentRef}
-                  value={contentInput}
-                  onChange={setContentInput}
-                  onBlur={() => { setEditingContent(false); saveContent() }}
-                  autoFocus
-                  placeholder="1on1 내용을 자유롭게 입력하세요 (포커스 이탈 시 자동 저장)"
-                  className="w-full text-sm focus:outline-none resize-none text-gray-700 placeholder:text-gray-300"
-                  style={{ minHeight: '280px' }}
-                />
-              ) : (
-                <div
-                  className="w-full min-h-[280px] cursor-text"
-                  onClick={() => setEditingContent(true)}
-                >
-                  {contentInput ? (
-                    <MarkdownContent content={contentInput} className="text-sm text-gray-700" />
-                  ) : (
-                    <p className="text-sm text-gray-300">1on1 내용을 자유롭게 입력하세요</p>
-                  )}
-                </div>
-              )}
+            <div className="rounded-xl border border-gray-100 p-4">
+              <TiptapEditor
+                value={contentInput}
+                onChange={handleContentChange}
+                autoFocus={false}
+                minHeight={280}
+              />
             </div>
           </div>
 
