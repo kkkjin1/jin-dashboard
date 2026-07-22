@@ -9,10 +9,13 @@ let _popupCount = 0
 
 function openQuickMemo() {
   _popupCount++
+  const cascade = ((_popupCount - 1) % 10) * 30
+  const left = window.screenX + window.outerWidth - 480 - cascade
+  const top = window.screenY + 80 + cascade
   window.open(
     '/memo/quick',
     `quick-memo-popup-${_popupCount}`,
-    'width=440,height=520,menubar=no,toolbar=no,location=no,status=no,resizable=yes',
+    `width=440,height=520,left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no,resizable=yes`,
   )
 }
 
