@@ -8,6 +8,13 @@ import { fetchArchivedMembers, fetchMembers } from '@/lib/tasks'
 import type { Member, OneOnOne, MyFeedback, FeedbackType } from '@/types'
 import { format, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
+import dynamic from 'next/dynamic'
+import MarkdownContent from '@/components/MarkdownContent'
+const TiptapEditor = dynamic(() => import('@/components/TiptapEditor'), { ssr: false })
+
+function stripHtml(html: string): string {
+  return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+}
 
 const FEEDBACK_TYPE_STYLE: Record<FeedbackType, string> = {
   긍정: 'bg-[#BADEC8]/40 text-[#2D5A45] border-[#BADEC8]/55',
@@ -87,7 +94,7 @@ function AnalysisPanel({ feedbacks, onAssignType }: { feedbacks: MyFeedback[]; o
             <ul className="space-y-1.5 pl-1">
               {items.map(item => (
                 <li key={item.id} className="group flex items-start gap-2 border-l-2 border-[rgba(255,255,255,0.09)] pl-2">
-                  <span className="flex-1 text-xs text-[rgba(226,232,240,0.7)] leading-relaxed">{item.content}</span>
+                  <div className="flex-1 text-xs leading-relaxed"><MarkdownContent content={item.content} dark className="text-xs" /></div>
                   <button onClick={() => onAssignType(item.id, null)}
                     className="flex-shrink-0 text-xs text-[rgba(226,232,240,0.2)] hover:text-[rgba(226,232,240,0.4)] opacity-0 group-hover:opacity-100 transition-all">해제</button>
                 </li>
@@ -101,7 +108,7 @@ function AnalysisPanel({ feedbacks, onAssignType }: { feedbacks: MyFeedback[]; o
             <ul className="space-y-2 pl-1">
               {untagged.map(item => (
                 <li key={item.id} className="bg-[rgba(255,255,255,0.06)] rounded-2xl border border-[rgba(255,255,255,0.09)] p-2">
-                  <p className="text-xs text-[rgba(226,232,240,0.7)] mb-1.5 leading-relaxed">{item.content}</p>
+                  <div className="mb-1.5 leading-relaxed"><MarkdownContent content={item.content} dark className="text-xs" /></div>
                   <div className="flex gap-1">
                     {ANALYSIS_TYPES.map(t => (
                       <button key={t} onClick={() => onAssignType(item.id, t)}
@@ -125,7 +132,7 @@ const KO_STOPWORDS = new Set(['것', '이', '가', '을', '를', '은', '는', '
 
 function KeywordsPanel({ feedbacks }: { feedbacks: MyFeedback[] }) {
   const keywords = useMemo(() => {
-    const allText = feedbacks.map(f => f.content).join(' ')
+    const allText = feedbacks.map(f => stripHtml(f.content)).join(' ')
     const words = allText
       .split(/[\s,.\!\?:;()\[\]"'\n]+/)
       .map(w => w.replace(/[^가-힣a-zA-Z0-9]/g, ''))
@@ -308,7 +315,7 @@ function MyFeedbackView() {
   }
 
   async function saveAdd() {
-    if (!addingMonth || !formContent.trim()) return
+    if (!addingMonth || !stripHtml(formContent)) return
     setSaving(true)
     const month = formDate.slice(0, 7)
     const { data, error } = await supabase
@@ -317,7 +324,7 @@ function MyFeedbackView() {
         month,
         feedback_date: formDate,
         from_member: formMember.trim() || null,
-        content: formContent.trim(),
+        content: formContent,
         feedback_type: null,
       })
       .select('id, month, content, feedback_type, feedback_date, from_member, created_at')
@@ -405,14 +412,19 @@ function MyFeedbackView() {
                           </select>
                         </div>
                       </div>
-                      <textarea autoFocus value={formContent} onChange={e => setFormContent(e.target.value)}
-                        placeholder="피드백 내용을 자유롭게 입력하세요"
-                        rows={3}
-                        className="w-full text-sm bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] rounded-2xl px-3 py-2 resize-none focus:outline-none" />
+                      <div className="bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] rounded-2xl overflow-hidden">
+                        <TiptapEditor
+                          value={formContent}
+                          onChange={setFormContent}
+                          onSubmit={saveAdd}
+                          autoFocus
+                          minHeight={80}
+                        />
+                      </div>
                       <p className="text-xs text-[rgba(226,232,240,0.4)]">분류(긍정/부정/요청)는 오른쪽 분석 패널에서 지정합니다</p>
                       <div className="flex gap-2 justify-end">
                         <button onClick={cancelAdd} className={`${pill} ${pOff}`}>취소</button>
-                        <button onClick={saveAdd} disabled={saving || !formContent.trim()} className={`${pill} ${pOn} disabled:opacity-40`}>
+                        <button onClick={saveAdd} disabled={saving || !stripHtml(formContent)} className={`${pill} ${pOn} disabled:opacity-40`}>
                           {saving ? '저장 중...' : '저장'}
                         </button>
                       </div>
@@ -445,7 +457,7 @@ function MyFeedbackView() {
                                 <span className="text-xs text-[rgba(226,232,240,0.4)]">{item.feedback_date.slice(5).replace('-', '/')}</span>
                               )}
                             </div>
-                            <p className="text-sm text-[rgba(226,232,240,0.8)] leading-relaxed">{item.content}</p>
+                            <MarkdownContent content={item.content} dark className="text-sm leading-relaxed" />
                           </div>
                           <button onClick={() => deleteFeedback(item.id)}
                             className="flex-shrink-0 text-xs text-[rgba(226,232,240,0.3)] hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all px-1 py-0.5">

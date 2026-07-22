@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import dynamic from 'next/dynamic'
+const TiptapEditor = dynamic(() => import('@/components/TiptapEditor'), { ssr: false })
 
 export default function OneOnOneTemplatePage() {
   const [content, setContent] = useState('')
@@ -49,19 +51,12 @@ export default function OneOnOneTemplatePage() {
 
       <p className="text-xs text-gray-400 mb-4">새 1on1 세션 시작 시 '템플릿 적용'을 선택하면 이 내용이 첫 노트로 들어갑니다.</p>
 
-      <div className="bg-white rounded-xl border border-gray-100 p-4">
-        <textarea
+      <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+        <TiptapEditor
           value={content}
-          onChange={e => setContent(e.target.value)}
-          placeholder={`## 최근 업무 현황\n\n\n## 어려운 점 / 개선 요청\n\n\n## 성장 / 역량 개발\n\n\n## 기타 이야기`}
-          className="w-full text-sm focus:outline-none resize-none text-gray-700 placeholder:text-gray-300 font-mono"
-          style={{ minHeight: '400px' }}
+          onChange={setContent}
+          minHeight={400}
         />
-      </div>
-
-      <div className="mt-4 p-4 bg-gray-50 rounded-xl border border-gray-100">
-        <p className="text-xs font-medium text-gray-500 mb-2">미리보기</p>
-        <pre className="text-xs text-gray-600 whitespace-pre-wrap">{content || '(내용 없음)'}</pre>
       </div>
     </div>
   )

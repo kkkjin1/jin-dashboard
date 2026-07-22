@@ -15,6 +15,10 @@ import TextSelectionCapture from '@/components/TextSelectionCapture'
 const FullscreenNoteEditor = dynamic(() => import('@/components/FullscreenNoteEditor'), { ssr: false })
 const TiptapEditor = dynamic(() => import('@/components/TiptapEditor'), { ssr: false })
 
+function stripHtml(html: string): string {
+  return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
 const STATUSES: TaskStatus[] = ['진행필요', '진행중', '완료']
 const STATUS_COLORS: Record<TaskStatus, string> = {
   '진행필요': 'bg-gray-100 text-gray-600',
@@ -627,21 +631,21 @@ export default function TaskDetailPage() {
             <div className="space-y-3">
               <div>
                 <label className="text-xs font-semibold text-green-600 mb-1 block">좋았던 점</label>
-                <textarea value={retroGood} onChange={e => setRetroGood(e.target.value)}
-                  placeholder="잘 됐던 부분, 긍정적인 결과물..."
-                  rows={2} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none resize-none" />
+                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                  <TiptapEditor value={retroGood} onChange={setRetroGood} minHeight={56} />
+                </div>
               </div>
               <div>
                 <label className="text-xs font-semibold text-amber-600 mb-1 block">아쉬웠던 점</label>
-                <textarea value={retroBad} onChange={e => setRetroBad(e.target.value)}
-                  placeholder="더 잘할 수 있었던 부분, 아쉬운 결과..."
-                  rows={2} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none resize-none" />
+                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                  <TiptapEditor value={retroBad} onChange={setRetroBad} minHeight={56} />
+                </div>
               </div>
               <div>
                 <label className="text-xs font-semibold text-red-600 mb-1 block">개선 필요한 점</label>
-                <textarea value={retroImprovement} onChange={e => setRetroImprovement(e.target.value)}
-                  placeholder="다음엔 어떻게 바꿀지, 구체적인 개선 액션..."
-                  rows={2} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none resize-none" />
+                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                  <TiptapEditor value={retroImprovement} onChange={setRetroImprovement} minHeight={56} />
+                </div>
               </div>
             </div>
             <div className="flex justify-between items-center mt-4">
@@ -840,7 +844,7 @@ export default function TaskDetailPage() {
           </div>
 
           {/* 완료 회고 섹션 */}
-          {task.retrospective && (task.retrospective.good || task.retrospective.bad || task.retrospective.improvement) && (
+          {task.retrospective && (stripHtml(task.retrospective.good ?? '') || stripHtml(task.retrospective.bad ?? '') || stripHtml(task.retrospective.improvement ?? '')) && (
             <div className="mb-6">
               <button onClick={() => setShowRetro(prev => !prev)}
                 className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-3 hover:text-gray-900 transition-colors">
@@ -850,22 +854,22 @@ export default function TaskDetailPage() {
               </button>
               {showRetro && (
                 <div className="bg-white rounded-lg border border-gray-100 p-4 space-y-3">
-                  {task.retrospective.good && (
+                  {stripHtml(task.retrospective.good ?? '') && (
                     <div>
                       <p className="text-xs font-semibold text-green-600 mb-1">좋았던 점</p>
-                      <p className="text-sm text-gray-700 whitespace-pre-wrap">{task.retrospective.good}</p>
+                      <MarkdownContent content={task.retrospective.good ?? ''} className="text-sm text-gray-700" />
                     </div>
                   )}
-                  {task.retrospective.bad && (
+                  {stripHtml(task.retrospective.bad ?? '') && (
                     <div>
                       <p className="text-xs font-semibold text-amber-600 mb-1">아쉬웠던 점</p>
-                      <p className="text-sm text-gray-700 whitespace-pre-wrap">{task.retrospective.bad}</p>
+                      <MarkdownContent content={task.retrospective.bad ?? ''} className="text-sm text-gray-700" />
                     </div>
                   )}
-                  {task.retrospective.improvement && (
+                  {stripHtml(task.retrospective.improvement ?? '') && (
                     <div>
                       <p className="text-xs font-semibold text-red-600 mb-1">개선 필요한 점</p>
-                      <p className="text-sm text-gray-700 whitespace-pre-wrap">{task.retrospective.improvement}</p>
+                      <MarkdownContent content={task.retrospective.improvement ?? ''} className="text-sm text-gray-700" />
                     </div>
                   )}
                 </div>

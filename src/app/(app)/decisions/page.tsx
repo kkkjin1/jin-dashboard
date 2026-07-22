@@ -3,6 +3,13 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Meeting } from '@/types'
+import dynamic from 'next/dynamic'
+import MarkdownContent from '@/components/MarkdownContent'
+const TiptapEditor = dynamic(() => import('@/components/TiptapEditor'), { ssr: false })
+
+function stripHtml(html: string): string {
+  return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+}
 
 type Persona = 'CEO' | 'CSO' | '피플본부장' | 'Jin'
 const PERSONAS: Persona[] = ['CEO', 'CSO', '피플본부장', 'Jin']
@@ -73,7 +80,6 @@ export default function DecisionsPage() {
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
   const titleRef = useRef<HTMLInputElement>(null)
-  const contentRef = useRef<HTMLTextAreaElement>(null)
 
   const [profiles, setProfiles] = useState<Record<Persona, string>>({ CEO: '', CSO: '', '피플본부장': '', Jin: '' })
   const [profileOpen, setProfileOpen] = useState(false)
@@ -146,7 +152,7 @@ export default function DecisionsPage() {
   }
 
   async function addLog() {
-    if (!newTitle.trim() || !newContent.trim()) return
+    if (!newTitle.trim() || !stripHtml(newContent)) return
     setSaving(true)
     setSaveError('')
     try {
@@ -154,7 +160,7 @@ export default function DecisionsPage() {
         persona: activeTab,
         date: newDate,
         title: newTitle.trim(),
-        content: newContent.trim(),
+        content: newContent,
       }).select().single()
       if (error) { setSaveError(error.message); return }
       if (data) {
@@ -178,7 +184,7 @@ export default function DecisionsPage() {
 
   function generatePrompt(): string {
     const meta = PERSONA_META[activeTab]
-    const profile = profiles[activeTab].trim()
+    const profile = stripHtml(profiles[activeTab])
     const lines: string[] = []
     lines.push(`# ${activeTab} 페르소나 시뮬레이션`)
     lines.push('')
@@ -202,7 +208,7 @@ export default function DecisionsPage() {
       for (const log of tabLogs) {
         lines.push(`### ${log.date} — ${log.title}`)
         lines.push('')
-        lines.push(log.content)
+        lines.push(stripHtml(log.content))
         lines.push('')
       }
     }
@@ -225,7 +231,7 @@ export default function DecisionsPage() {
     lines.push('')
     lines.push('## 현재 상황 / 질문')
     lines.push('')
-    lines.push(question.trim() || '(질문을 입력해주세요)')
+    lines.push(stripHtml(question) || '(질문을 입력해주세요)')
     lines.push('')
     lines.push('---')
     lines.push('')
@@ -285,7 +291,7 @@ export default function DecisionsPage() {
                 <div className="flex items-center gap-2.5">
                   <span className="text-[10px] text-[rgba(226,232,240,0.3)] group-hover:text-[rgba(226,232,240,0.5)] transition-colors">{profileOpen ? '▼' : '▶'}</span>
                   <span className="text-sm font-semibold text-[rgba(226,232,240,0.8)]">페르소나 프로필</span>
-                  {profiles[activeTab].trim() && (
+                  {stripHtml(profiles[activeTab]) && (
                     <span className="text-[10px] text-[#2D5A45] bg-[#BADEC8]/30 border border-[#BADEC8]/40 px-2 py-0.5 rounded-full">작성됨</span>
                   )}
                 </div>
@@ -293,12 +299,13 @@ export default function DecisionsPage() {
               </button>
               {profileOpen && (
                 <div className="px-6 pb-6 border-t border-[rgba(255,255,255,0.09)]">
-                  <textarea
-                    value={profiles[activeTab]}
-                    onChange={e => saveProfile(activeTab, e.target.value)}
-                    placeholder={PERSONA_META[activeTab].profilePlaceholder}
-                    rows={5}
-                    className="w-full mt-4 text-sm bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] rounded-2xl px-4 py-3 focus:outline-none resize-none text-[rgba(226,232,240,0.8)] placeholder-[rgba(226,232,240,0.3)]" />
+                  <div className="mt-4 bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] rounded-2xl overflow-hidden">
+                    <TiptapEditor
+                      value={profiles[activeTab]}
+                      onChange={val => saveProfile(activeTab, val)}
+                      minHeight={120}
+                    />
+                  </div>
                   <p className="text-xs text-[rgba(226,232,240,0.3)] mt-2">입력 즉시 자동저장</p>
                 </div>
               )}
@@ -328,22 +335,18 @@ export default function DecisionsPage() {
                       onChange={e => setNewTitle(e.target.value)}
                       onKeyDown={e => {
                         if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); addLog() }
-                        if (e.key === 'Tab' && !e.shiftKey) { e.preventDefault(); contentRef.current?.focus() }
                       }}
                       placeholder="제목 (예: 평가제도 개편안 피드백, Q1 전략 회의)"
                       className="flex-1 text-sm bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] rounded-2xl px-4 py-2 focus:outline-none text-[rgba(226,232,240,0.8)] placeholder-[rgba(226,232,240,0.3)]" />
                   </div>
-                  <textarea
-                    ref={contentRef}
-                    value={newContent}
-                    onChange={e => setNewContent(e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); addLog() }
-                      if (e.key === 'Tab' && e.shiftKey) { e.preventDefault(); titleRef.current?.focus() }
-                    }}
-                    placeholder={`${activeTab}의 발언, 피드백, 대화 내용을 그대로 기록하세요.\n많이 쌓을수록 페르소나 정확도가 높아집니다.`}
-                    rows={6}
-                    className="w-full text-sm bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] rounded-2xl px-4 py-3 focus:outline-none resize-none text-[rgba(226,232,240,0.8)] placeholder-[rgba(226,232,240,0.3)]" />
+                  <div className="bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] rounded-2xl overflow-hidden">
+                    <TiptapEditor
+                      value={newContent}
+                      onChange={setNewContent}
+                      onSubmit={addLog}
+                      minHeight={140}
+                    />
+                  </div>
                   {saveError && (
                     <p className="text-xs text-red-500 bg-red-50/60 backdrop-blur-sm rounded-2xl px-4 py-2">{saveError}</p>
                   )}
@@ -351,7 +354,7 @@ export default function DecisionsPage() {
                     <span className="text-xs text-[rgba(226,232,240,0.3)]">Ctrl+Enter 저장 · Tab/Shift+Tab 이동</span>
                     <div className="flex gap-2">
                       <button onClick={() => { setAddOpen(false); setSaveError('') }} className={`${pill} ${pOff}`}>취소</button>
-                      <button onClick={addLog} disabled={!newTitle.trim() || !newContent.trim() || saving}
+                      <button onClick={addLog} disabled={!newTitle.trim() || !stripHtml(newContent) || saving}
                         className="text-xs bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] px-5 py-1.5 rounded-full disabled:opacity-30 hover:bg-[#D5E6F7] transition-colors font-medium">
                         {saving ? '저장 중...' : '저장'}
                       </button>
@@ -383,7 +386,9 @@ export default function DecisionsPage() {
                       </button>
                       {openIds.has(log.id) && (
                         <div className="px-6 pb-5 pt-1">
-                          <p className="text-sm text-[rgba(226,232,240,0.7)] whitespace-pre-wrap leading-relaxed bg-[rgba(255,255,255,0.06)] rounded-2xl px-4 py-3">{log.content}</p>
+                          <div className="bg-[rgba(255,255,255,0.06)] rounded-2xl px-4 py-3">
+                          <MarkdownContent content={log.content} dark className="text-sm leading-relaxed" />
+                        </div>
                         </div>
                       )}
                     </div>
@@ -428,20 +433,17 @@ export default function DecisionsPage() {
               )}
 
               <label className="text-xs text-[rgba(226,232,240,0.5)] font-medium block mb-2">상황 / 질문</label>
-              <textarea
-                value={question}
-                onChange={e => setQuestion(e.target.value)}
-                placeholder={
-                  activeTab === 'Jin'
-                    ? '객관적으로 판단이 필요한 상황이나 고민을 입력하세요'
-                    : `${activeTab}에게 보고하거나 설득해야 할 상황을 입력하세요`
-                }
-                rows={6}
-                className="w-full text-sm bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] rounded-2xl px-4 py-3 focus:outline-none resize-none mb-4 text-[rgba(226,232,240,0.8)] placeholder-[rgba(226,232,240,0.3)]" />
+              <div className="bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] rounded-2xl overflow-hidden mb-4">
+                <TiptapEditor
+                  value={question}
+                  onChange={setQuestion}
+                  minHeight={140}
+                />
+              </div>
 
               <button
                 onClick={copyPrompt}
-                disabled={tabLogs.length === 0 || !question.trim()}
+                disabled={tabLogs.length === 0 || !stripHtml(question)}
                 className={`w-full py-3 rounded-2xl text-sm font-semibold transition-all ${
                   copied ? 'bg-[#BADEC8] text-[#2D5A45]' : 'bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] hover:bg-[#D5E6F7]'
                 } disabled:opacity-30 disabled:cursor-not-allowed`}>
@@ -451,14 +453,14 @@ export default function DecisionsPage() {
               {tabLogs.length === 0 && (
                 <p className="text-xs text-[rgba(226,232,240,0.3)] text-center mt-3">기록을 먼저 추가해야 합니다</p>
               )}
-              {tabLogs.length > 0 && !question.trim() && (
+              {tabLogs.length > 0 && !stripHtml(question) && (
                 <p className="text-xs text-[rgba(226,232,240,0.3)] text-center mt-3">질문을 입력하면 복사 버튼이 활성화됩니다</p>
               )}
 
-              {(tabLogs.length > 0 || profiles[activeTab].trim()) && (
+              {(tabLogs.length > 0 || stripHtml(profiles[activeTab])) && (
                 <div className="mt-5 pt-4 border-t border-[rgba(255,255,255,0.09)] space-y-1.5">
                   <p className="text-xs text-[rgba(226,232,240,0.5)] font-semibold mb-2">프롬프트 구성</p>
-                  {profiles[activeTab].trim() && (
+                  {stripHtml(profiles[activeTab]) && (
                     <p className="text-xs text-[rgba(226,232,240,0.4)] flex items-center gap-2">
                       <span className="text-[#2D5A45] font-bold">✓</span>페르소나 프로필
                     </p>
