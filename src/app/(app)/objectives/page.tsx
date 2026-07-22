@@ -53,6 +53,7 @@ function SubCell({ entry, subItemId, date, onSave, onDelete, large }: SubCellPro
         onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) save() }}
       >
         <TiptapEditor
+          dark
           value={val}
           onChange={setVal}
           onSubmit={save}

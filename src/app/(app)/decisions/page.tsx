@@ -301,6 +301,7 @@ export default function DecisionsPage() {
                 <div className="px-6 pb-6 border-t border-[rgba(255,255,255,0.09)]">
                   <div className="mt-4 bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] rounded-2xl overflow-hidden">
                     <TiptapEditor
+                      dark
                       value={profiles[activeTab]}
                       onChange={val => saveProfile(activeTab, val)}
                       minHeight={120}
@@ -341,6 +342,7 @@ export default function DecisionsPage() {
                   </div>
                   <div className="bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] rounded-2xl overflow-hidden">
                     <TiptapEditor
+                      dark
                       value={newContent}
                       onChange={setNewContent}
                       onSubmit={addLog}
@@ -435,6 +437,7 @@ export default function DecisionsPage() {
               <label className="text-xs text-[rgba(226,232,240,0.5)] font-medium block mb-2">상황 / 질문</label>
               <div className="bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] rounded-2xl overflow-hidden mb-4">
                 <TiptapEditor
+                  dark
                   value={question}
                   onChange={setQuestion}
                   minHeight={140}

@@ -92,7 +92,7 @@ function NoteAccordion({ note, isOpen, onToggle, onDelete, onEdit, onEditTitle }
         <div className="px-4 pb-3 border-t border-[rgba(255,255,255,0.06)] group">
           {editing ? (
             <>
-              <TiptapEditor value={editContent} onChange={handleContentChange}
+              <TiptapEditor dark value={editContent} onChange={handleContentChange}
                 onSubmit={() => { setEditing(false) }}
                 onEscape={() => setEditing(false)}
                 autoFocus minHeight={120} />
@@ -372,7 +372,7 @@ export default function SubTaskDetailPage() {
                 className="flex-1 text-sm font-medium text-[rgba(226,232,240,0.8)] border-none focus:outline-none bg-transparent placeholder:text-[rgba(226,232,240,0.25)]"
                 placeholder="제목 (선택)" />
             </div>
-            <TiptapEditor key={newNoteKey} value={noteInput} onChange={setNoteInput}
+            <TiptapEditor dark key={newNoteKey} value={noteInput} onChange={setNoteInput}
               onSubmit={saveNote} onEscape={() => {}} minHeight={80} />
             <div className="flex justify-end mt-2">
               <button onClick={saveNote}

@@ -462,6 +462,7 @@ export default function AgendaItemDetailPage() {
             </button>
           </div>
           <TiptapEditor
+            dark
             value={description}
             onChange={handleDescription}
             minHeight={140}
@@ -644,6 +645,7 @@ export default function AgendaItemDetailPage() {
                                 </button>
                               </div>
                               <TiptapEditor
+                                dark
                                 key={selectedNote.id}
                                 value={selectedNote.content}
                                 onChange={v => handleNoteChange(st, selectedNote.id, v)}
@@ -740,7 +742,7 @@ export default function AgendaItemDetailPage() {
                 </button>
               </div>
               <div className="flex-1 min-h-0 overflow-auto">
-                <TiptapEditor value={description} onChange={handleDescription} autoFocus minHeight={300} className="px-8 py-4" />
+                <TiptapEditor dark value={description} onChange={handleDescription} autoFocus minHeight={300} className="px-8 py-4" />
               </div>
             </div>
           )
@@ -791,6 +793,7 @@ export default function AgendaItemDetailPage() {
                       <NoteTitleInput note={selectedNote} placeholder={`${formatNoteDate(selectedNote.created_at)} 기록`} onSave={title => updateNoteTitle(selectedNote.id, expandST.id, title)} />
                     </div>
                     <TiptapEditor
+                      dark
                       key={selectedNote.id}
                       value={selectedNote.content}
                       onChange={v => handleNoteChange(expandST, selectedNote.id, v)}

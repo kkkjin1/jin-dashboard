@@ -105,10 +105,11 @@ interface Props {
   autoFocus?: boolean
   minHeight?: number
   className?: string
+  dark?: boolean
 }
 
 export default function TiptapEditor({
-  value, onChange, onSubmit, onEscape, onExpand, autoFocus, minHeight = 160, className,
+  value, onChange, onSubmit, onEscape, onExpand, autoFocus, minHeight = 160, className, dark,
 }: Props) {
   // Refs로 콜백 최신값 유지 — useCallback deps를 [] 로 고정해 Tiptap이 매 렌더마다 options 변경을 감지하지 않도록 함
   const onChangeRef = useRef(onChange)
@@ -144,7 +145,7 @@ export default function TiptapEditor({
     content: legacyToHtml(value),
     onUpdate: stableOnUpdate,
     editorProps: {
-      attributes: { class: 'tiptap-input outline-none', style: `min-height:${minHeight}px; padding:8px 0;` },
+      attributes: { class: `${dark ? 'tiptap-input-dark' : 'tiptap-input'} outline-none`, style: `min-height:${minHeight}px; padding:8px 0;` },
       handleKeyDown: stableKeyDown,
     },
   })
@@ -160,25 +161,33 @@ export default function TiptapEditor({
 
   if (!editor) return null
 
+  const d = dark
+  const btnCls = (active: boolean, extra = '') =>
+    `text-xs px-2 py-1 rounded min-w-[26px] ${extra} ${active
+      ? (d ? 'bg-[rgba(255,255,255,0.12)] text-[#E2E8F0]' : 'bg-gray-200 text-gray-900')
+      : (d ? 'hover:bg-[rgba(255,255,255,0.08)] text-[rgba(226,232,240,0.5)]' : 'hover:bg-gray-100 text-gray-600')}`
+  const divCls = d ? 'w-px h-4 bg-[rgba(255,255,255,0.15)] mx-0.5' : 'w-px h-4 bg-gray-200 mx-0.5'
+  const resetCls = d ? 'text-[10px] text-[rgba(226,232,240,0.3)] hover:text-[rgba(226,232,240,0.6)] px-0.5' : 'text-[10px] text-gray-400 hover:text-gray-700 px-0.5'
+
   return (
     <div className={className}>
       {/* Toolbar */}
-      <div className="flex items-center gap-0.5 border-b border-gray-100 pb-2 mb-2 flex-wrap">
+      <div className={`flex items-center gap-0.5 border-b pb-2 mb-2 flex-wrap ${d ? 'border-[rgba(255,255,255,0.09)]' : 'border-gray-100'}`}>
         <button type="button"
           onMouseDown={e => { e.preventDefault(); editor.chain().focus().toggleBold().run() }}
-          className={`text-xs font-bold px-2 py-1 rounded min-w-[26px] ${editor.isActive('bold') ? 'bg-gray-200 text-gray-900' : 'hover:bg-gray-100 text-gray-600'}`}>B</button>
+          className={btnCls(editor.isActive('bold'), 'font-bold')}>B</button>
         <button type="button"
           onMouseDown={e => { e.preventDefault(); editor.chain().focus().toggleUnderline().run() }}
-          className={`text-xs underline px-2 py-1 rounded min-w-[26px] ${editor.isActive('underline') ? 'bg-gray-200 text-gray-900' : 'hover:bg-gray-100 text-gray-600'}`}>U</button>
+          className={btnCls(editor.isActive('underline'), 'underline')}>U</button>
 
-        <div className="w-px h-4 bg-gray-200 mx-0.5" />
+        <div className={divCls} />
         {([1, 2, 3] as const).map(level => (
           <button key={level} type="button"
             onMouseDown={e => { e.preventDefault(); editor.chain().focus().toggleHeading({ level }).run() }}
-            className={`text-[11px] px-1.5 py-1 rounded font-semibold ${editor.isActive('heading', { level }) ? 'bg-gray-200 text-gray-900' : 'hover:bg-gray-100 text-gray-600'}`}>H{level}</button>
+            className={btnCls(editor.isActive('heading', { level }), 'text-[11px] font-semibold')}>H{level}</button>
         ))}
 
-        <div className="w-px h-4 bg-gray-200 mx-0.5" />
+        <div className={divCls} />
         {/* Text colors */}
         {TEXT_COLORS.map(({ hex, label }) => (
           <button key={label} type="button"
@@ -188,26 +197,26 @@ export default function TiptapEditor({
         ))}
         <button type="button"
           onMouseDown={e => { e.preventDefault(); editor.chain().focus().unsetColor().run() }}
-          className="text-[10px] text-gray-400 hover:text-gray-700 px-0.5" title="글자색 제거">⊘</button>
+          className={resetCls} title="글자색 제거">⊘</button>
 
-        <div className="w-px h-4 bg-gray-200 mx-0.5" />
+        <div className={divCls} />
         {/* Highlights */}
         {HIGHLIGHTS.map(({ hex, label }) => (
           <button key={label} type="button"
             onMouseDown={e => { e.preventDefault(); editor.chain().focus().toggleHighlight({ color: hex }).run() }}
-            className="w-[14px] h-[14px] rounded hover:scale-125 flex-shrink-0 transition-transform border border-gray-200"
+            className={`w-[14px] h-[14px] rounded hover:scale-125 flex-shrink-0 transition-transform border ${d ? 'border-[rgba(255,255,255,0.2)]' : 'border-gray-200'}`}
             style={{ backgroundColor: hex }} title={`형광 ${label}${hex === '#FEF08A' ? ' (Ctrl+2)' : ''}`} />
         ))}
         <button type="button"
           onMouseDown={e => { e.preventDefault(); editor.chain().focus().unsetHighlight().run() }}
-          className="text-[10px] text-gray-400 hover:text-gray-700 px-0.5" title="형광 제거">⊘</button>
+          className={resetCls} title="형광 제거">⊘</button>
 
         {onExpand && (
           <>
-            <div className="w-px h-4 bg-gray-200 mx-0.5" />
+            <div className={divCls} />
             <button type="button"
               onMouseDown={e => { e.preventDefault(); onExpand() }}
-              className="ml-auto text-xs px-1.5 py-1 rounded hover:bg-gray-100 text-gray-400" title="크게 쓰기">⛶</button>
+              className={`ml-auto text-xs px-1.5 py-1 rounded ${d ? 'hover:bg-[rgba(255,255,255,0.08)] text-[rgba(226,232,240,0.3)]' : 'hover:bg-gray-100 text-gray-400'}`} title="크게 쓰기">⛶</button>
           </>
         )}
       </div>

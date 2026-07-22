@@ -162,6 +162,7 @@ function EditModal({ memo, onSave, onAutoSave, onClose }: EditModalProps) {
         <div className="flex-1 min-h-0 overflow-y-auto rounded-2xl"
           style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
           <TiptapEditor
+            dark
             value={content}
             onChange={setContent}
             onSubmit={() => onSave(memo.id, title, content, tag)}

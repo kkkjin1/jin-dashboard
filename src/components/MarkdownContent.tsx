@@ -177,7 +177,7 @@ export default function MarkdownContent({ content, className, dark }: { content:
   // Tiptap HTML: bullet 문자로 시작하는 <p>에 hanging indent 전처리 후 렌더링
   if (content.trimStart().startsWith('<')) {
     const processed = preprocessBulletHtml(content)
-    return <div className={`note-html ${className ?? ''}`} dangerouslySetInnerHTML={{ __html: processed }} />
+    return <div className={`${dark ? 'note-html-dark' : 'note-html'} ${className ?? ''}`} dangerouslySetInnerHTML={{ __html: processed }} />
   }
   const lines = content.split('\n')
   const nodes: React.ReactNode[] = []

@@ -314,7 +314,7 @@ html, body {
 .tiptap-input u { text-decoration: underline; }
 .tiptap-input mark { border-radius: 2px; padding: 0 2px; }
 
-/* ── HTML 노트 렌더링 (MarkdownContent) ── */
+/* ── HTML 노트 렌더링 (MarkdownContent) — 라이트 ── */
 .note-html { color: #374151; line-height: 1.7; font-size: 15px; }
 .note-html p { margin: 0; }
 .note-html p + p { margin-top: 2px; }
@@ -339,6 +339,53 @@ html, body {
 .note-html p.note-bullet-p { display: flex; gap: 4px; align-items: flex-start; margin: 0; }
 .note-html .note-bullet-sym { flex-shrink: 0; line-height: inherit; }
 .note-html .note-bullet-body { flex: 1; min-width: 0; }
+
+/* ── Tiptap 에디터 — 다크 ── */
+.tiptap-input-dark { color: rgba(226,232,240,0.85); line-height: 1.7; font-size: 15px; }
+.tiptap-input-dark p { margin: 0; min-height: 1.5em; }
+.tiptap-input-dark p + p { margin-top: 2px; }
+.tiptap-input-dark h1 { font-size: 1.2rem; font-weight: 700; color: #E2E8F0; margin: 0.5rem 0 0.25rem; }
+.tiptap-input-dark h2 { font-size: 1.05rem; font-weight: 600; color: rgba(226,232,240,0.9); margin: 0.4rem 0 0.2rem; }
+.tiptap-input-dark h3 { font-size: 0.95rem; font-weight: 600; color: rgba(226,232,240,0.8); margin: 0.3rem 0 0.1rem; }
+.tiptap-input-dark ul { padding-left: 1.4rem; list-style-type: disc; }
+.tiptap-input-dark ol { list-style: none; counter-reset: tipold; padding-left: 1.8rem; }
+.tiptap-input-dark ol > li { counter-increment: tipold; position: relative; }
+.tiptap-input-dark ol > li::before { content: counter(tipold) "."; position: absolute; left: -1.8rem; width: 1.6rem; text-align: right; }
+.tiptap-input-dark ol ol { list-style: none; counter-reset: tipold2; padding-left: 1.6rem; }
+.tiptap-input-dark ol ol > li { counter-increment: tipold2; }
+.tiptap-input-dark ol ol > li::before { content: counter(tipold2, hangul) "."; width: 1.4rem; left: -1.6rem; }
+.tiptap-input-dark ol ol ol { list-style: none; counter-reset: tipold3; padding-left: 1.6rem; }
+.tiptap-input-dark ol ol ol > li { counter-increment: tipold3; }
+.tiptap-input-dark ol ol ol > li::before { content: counter(tipold3) ")"; width: 1.4rem; left: -1.6rem; }
+.tiptap-input-dark li > p { margin: 0; min-height: auto; }
+.tiptap-input-dark strong { font-weight: 700; }
+.tiptap-input-dark u { text-decoration: underline; }
+.tiptap-input-dark mark { border-radius: 2px; padding: 0 2px; }
+
+/* ── HTML 노트 렌더링 (MarkdownContent) — 다크 ── */
+.note-html-dark { color: rgba(226,232,240,0.8); line-height: 1.7; font-size: 15px; }
+.note-html-dark p { margin: 0; }
+.note-html-dark p + p { margin-top: 2px; }
+.note-html-dark h1 { font-size: 1.2rem; font-weight: 700; color: #E2E8F0; margin: 0.5rem 0 0.25rem; }
+.note-html-dark h2 { font-size: 1.05rem; font-weight: 600; color: rgba(226,232,240,0.9); margin: 0.4rem 0 0.2rem; }
+.note-html-dark h3 { font-size: 0.95rem; font-weight: 600; color: rgba(226,232,240,0.8); margin: 0.3rem 0 0.1rem; }
+.note-html-dark ul { padding-left: 1.4rem; list-style-type: disc; }
+.note-html-dark ol { list-style: none; counter-reset: noteold; padding-left: 1.8rem; }
+.note-html-dark ol > li { counter-increment: noteold; position: relative; }
+.note-html-dark ol > li::before { content: counter(noteold) "."; position: absolute; left: -1.8rem; width: 1.6rem; text-align: right; }
+.note-html-dark ol ol { list-style: none; counter-reset: noteold2; padding-left: 1.6rem; }
+.note-html-dark ol ol > li { counter-increment: noteold2; }
+.note-html-dark ol ol > li::before { content: counter(noteold2, hangul) "."; width: 1.4rem; left: -1.6rem; }
+.note-html-dark ol ol ol { list-style: none; counter-reset: noteold3; padding-left: 1.6rem; }
+.note-html-dark ol ol ol > li { counter-increment: noteold3; }
+.note-html-dark ol ol ol > li::before { content: counter(noteold3) ")"; width: 1.4rem; left: -1.6rem; }
+.note-html-dark li > p { margin: 0; }
+.note-html-dark strong { font-weight: 700; }
+.note-html-dark u { text-decoration: underline; }
+.note-html-dark mark { border-radius: 2px; padding: 0 2px; }
+.note-html-dark p.note-bullet-p { display: flex; gap: 4px; align-items: flex-start; margin: 0; }
+.note-html-dark .note-bullet-sym { flex-shrink: 0; line-height: inherit; }
+.note-html-dark .note-bullet-body { flex: 1; min-width: 0; }
 
 /* ── Markdown 미리보기 (.md-preview) ── */
 .md-preview p { margin: 0; line-height: 1.7; }

@@ -216,6 +216,7 @@ function NoteAccordion({ note, index, isOpen, onToggle, onDelete, onEdit, onFull
           {editing ? (
             <>
               <TiptapEditor
+                dark
                 key={tiptapKey}
                 value={editContent}
                 onChange={handleChange}
@@ -626,6 +627,7 @@ export default function MeetingDetailPage() {
                 className="w-full text-xs font-medium text-[rgba(226,232,240,0.5)] focus:outline-none mb-2 border-b border-[rgba(255,255,255,0.06)] pb-1 bg-transparent"
                 placeholder="노트 제목" />
               <TiptapEditor
+                dark
                 key={newNoteKey}
                 value={noteInput}
                 onChange={handleNoteInputChange}

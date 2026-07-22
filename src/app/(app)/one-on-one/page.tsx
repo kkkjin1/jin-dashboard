@@ -414,6 +414,7 @@ function MyFeedbackView() {
                       </div>
                       <div className="bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] rounded-2xl overflow-hidden">
                         <TiptapEditor
+                          dark
                           value={formContent}
                           onChange={setFormContent}
                           onSubmit={saveAdd}
