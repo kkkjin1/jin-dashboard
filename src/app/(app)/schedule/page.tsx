@@ -462,7 +462,7 @@ export default function SchedulePage() {
         </button>
 
         <select ref={assigneeRef} value={assigneeFilter} onChange={e => setAssigneeFilter(e.target.value)}
-          className={`${pillBase} bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border-[rgba(255,255,255,0.09)] text-[rgba(226,232,240,0.5)] focus:outline-none cursor-pointer`}>
+          className={`${pillBase} bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border-[rgba(255,255,255,0.09)] text-[rgba(226,232,240,0.5)] focus:outline-none cursor-pointer [&>option]:bg-[#26282E] [&>option]:text-[rgba(226,232,240,0.8)]`}>
           <option value="전체">전체 담당자</option>
           {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
         </select>
@@ -797,7 +797,7 @@ export default function SchedulePage() {
               <div className="flex items-center gap-2">
                 <span className="text-xs text-[rgba(226,232,240,0.5)] whitespace-nowrap">이번달부터</span>
                 <select value={repeatMonthCount} onChange={e => setRepeatMonthCount(e.target.value)}
-                  className="flex-1 text-sm border border-[rgba(255,255,255,0.09)] rounded-2xl px-3 py-2 focus:outline-none bg-[rgba(255,255,255,0.06)]">
+                  className="flex-1 text-sm border border-[rgba(255,255,255,0.09)] rounded-2xl px-3 py-2 focus:outline-none bg-[rgba(255,255,255,0.06)] [&>option]:bg-[#26282E] [&>option]:text-[rgba(226,232,240,0.8)]">
                   {[1,2,3,4,5,6].map(n => <option key={n} value={n}>{n}개월</option>)}
                 </select>
               </div>

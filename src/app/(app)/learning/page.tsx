@@ -371,7 +371,7 @@ function handleDragLeave(e: React.DragEvent) {
                   </button>
                 ))}
                 <select value={addTag} onChange={e => setAddTag(e.target.value)}
-                  className="ml-auto text-xs bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] rounded-full px-3 py-1.5 focus:outline-none text-[rgba(226,232,240,0.7)]">
+                  className="ml-auto text-xs bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] rounded-full px-3 py-1.5 focus:outline-none text-[rgba(226,232,240,0.7)] [&>option]:bg-[#26282E] [&>option]:text-[rgba(226,232,240,0.8)]">
                   <option value="">범주 선택</option>
                   {customTags.map(t => <option key={t} value={t}>{t}</option>)}
                   <option value="미분류">미분류</option>
@@ -589,7 +589,7 @@ function handleDragLeave(e: React.DragEvent) {
                                       <div className="flex-shrink-0 flex items-center justify-center" style={{ width: colWidths.media }}>
                                         {isEditing ? (
                                           <select value={editMedia} onChange={e => setEditMedia(e.target.value)}
-                                            className="w-full text-[11px] bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.12)] rounded px-1 focus:outline-none"
+                                            className="w-full text-[11px] bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.12)] rounded px-1 focus:outline-none [&>option]:bg-[#26282E] [&>option]:text-[rgba(226,232,240,0.8)]"
                                             style={{ color: 'rgba(226,232,240,0.7)' }}>
                                             <option value="">—</option>
                                             {Object.keys(MEDIA_ICONS).map(k => <option key={k} value={k}>{MEDIA_ICONS[k]} {k}</option>)}

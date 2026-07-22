@@ -404,7 +404,7 @@ function MyFeedbackView() {
                         <div className="flex-1">
                           <label className="text-xs text-[rgba(226,232,240,0.4)] mb-1 block">피드백 준 팀원</label>
                           <select value={formMember} onChange={e => setFormMember(e.target.value)}
-                            className="text-sm bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] rounded-2xl px-3 py-1.5 focus:outline-none w-full text-[rgba(226,232,240,0.7)]">
+                            className="text-sm bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] rounded-2xl px-3 py-1.5 focus:outline-none w-full text-[rgba(226,232,240,0.7)] [&>option]:bg-[#26282E] [&>option]:text-[rgba(226,232,240,0.8)]">
                             <option value="">선택 (선택)</option>
                             {members.filter(m => m.part !== '팀장').map(m => (
                               <option key={m.id} value={m.name}>{m.name}</option>

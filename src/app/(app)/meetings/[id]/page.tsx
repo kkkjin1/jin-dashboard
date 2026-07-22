@@ -595,7 +595,7 @@ export default function MeetingDetailPage() {
                 )}
                 <select value={meeting.category ?? ''}
                   onChange={e => updateMeeting({ category: e.target.value || null })}
-                  className="text-sm border border-[rgba(255,255,255,0.09)] rounded-lg px-3 py-1.5 focus:outline-none bg-[rgba(255,255,255,0.06)] text-[rgba(226,232,240,0.7)]">
+                  className="text-sm border border-[rgba(255,255,255,0.09)] rounded-lg px-3 py-1.5 focus:outline-none bg-[rgba(255,255,255,0.06)] text-[rgba(226,232,240,0.7)] [&>option]:bg-[#26282E] [&>option]:text-[rgba(226,232,240,0.8)]">
                   <option value="">구분 없음</option>
                   {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>

@@ -1,214 +1,27 @@
-﻿'use client'
+'use client'
 
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
-import type { MemoTag } from '@/types'
-import SmartTextarea from '@/components/SmartTextarea'
-
-const TAGS: MemoTag[] = ['업무관련', '회의관련', '아이디어', '공지']
-
-const TAG_COLORS: Record<MemoTag, string> = {
-  '업무관련': 'bg-[rgba(79,141,255,0.15)] text-[#4F8DFF] border-[rgba(79,141,255,0.3)]',
-  '회의관련': 'bg-[rgba(139,92,246,0.15)] text-[#A78BFA] border-[rgba(139,92,246,0.3)]',
-  '아이디어': 'bg-[rgba(249,158,11,0.15)] text-[#F99E0B] border-[rgba(249,158,11,0.3)]',
-  '공지': 'bg-[rgba(239,68,68,0.15)] text-[#FC8181] border-[rgba(239,68,68,0.3)]',
-  '완료': 'bg-[rgba(91,98,112,0.15)] text-[#7B8290] border-[rgba(91,98,112,0.3)]',
-}
-
-function parseMeetingDate(text: string): string | null {
-  const year = new Date().getFullYear()
-  const kr = text.match(/(\d{1,2})월\s*(\d{1,2})일/)
-  if (kr) return `${year}-${kr[1].padStart(2, '0')}-${kr[2].padStart(2, '0')}`
-  const slash = text.match(/(\d{1,2})[\/\-](\d{1,2})/)
-  if (slash) return `${year}-${slash[1].padStart(2, '0')}-${slash[2].padStart(2, '0')}`
-  return null
-}
-
-const DEFAULT_WIDTH = 384
-const DEFAULT_HEIGHT = 400
-const PANEL_GAP = 8
-
-// 개별 메모 패널 — 자체 state 완전 독립
-function SingleMemoPanel({
-  index,
-  isFirst,
-  onClose,
-}: {
-  index: number
-  isFirst: boolean
-  onClose: () => void
-}) {
-  const [title, setTitle] = useState('')
-  const [content, setContent] = useState('')
-  const [tag, setTag] = useState<MemoTag>('업무관련')
-  const [saving, setSaving] = useState(false)
-  const [savedMsg, setSavedMsg] = useState('')
-  const [panelWidth, setPanelWidth] = useState(DEFAULT_WIDTH)
-  const [panelHeight, setPanelHeight] = useState(DEFAULT_HEIGHT)
-  const isResizingW = useRef(false)
-  const isResizingH = useRef(false)
-  const titleRef = useRef<HTMLInputElement>(null)
-  const contentRef = useRef<HTMLTextAreaElement | null>(null)
-  const supabase = createClient()
-
-  // 첫 번째 패널에만 draft 복원
-  useEffect(() => {
-    if (isFirst) {
-      try {
-        const saved = localStorage.getItem('quick_memo_draft')
-        if (saved) {
-          const { title: t, content: c, tag: tg } = JSON.parse(saved)
-          if (t) setTitle(t)
-          if (c) setContent(c)
-          if (tg) setTag(tg)
-        }
-      } catch {}
-    }
-    setTimeout(() => titleRef.current?.focus(), 100)
-  }, [])
-
-  // draft 저장 (첫 번째 패널만)
-  useEffect(() => {
-    if (!isFirst) return
-    if (title || content) {
-      localStorage.setItem('quick_memo_draft', JSON.stringify({ title, content, tag }))
-    } else {
-      localStorage.removeItem('quick_memo_draft')
-    }
-  }, [title, content, tag, isFirst])
-
-  const meetingDate = tag === '회의관련' ? parseMeetingDate(title) : null
-
-  async function handleSave() {
-    if (!title.trim()) return
-    setSaving(true)
-    if (tag === '회의관련' && meetingDate) {
-      const { data: newMeeting } = await supabase.from('project_meetings').insert({
-        title: title.trim(), meeting_date: meetingDate,
-      }).select('id, title, meeting_date').single()
-      if (newMeeting) window.dispatchEvent(new CustomEvent('quick-meeting-created', { detail: newMeeting }))
-      setSavedMsg('📅 일정에 추가됨!')
-    } else {
-      await supabase.from('quick_memos').insert({ title: title.trim(), content: content.trim(), tag })
-      window.dispatchEvent(new CustomEvent('quick-memo-saved'))
-      setSavedMsg('저장됨!')
-    }
-    if (isFirst) localStorage.removeItem('quick_memo_draft')
-    setSaving(false)
-    setTimeout(() => { setSavedMsg(''); onClose() }, 1200)
-  }
-
-  function startResizeW(e: React.MouseEvent) {
-    e.preventDefault()
-    isResizingW.current = true
-    const startX = e.clientX; const startW = panelWidth
-    const onMove = (ev: MouseEvent) => { if (isResizingW.current) setPanelWidth(Math.max(280, Math.min(800, startW - (ev.clientX - startX)))) }
-    const onUp = () => { isResizingW.current = false; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
-    document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp)
-  }
-
-  function startResizeH(e: React.MouseEvent) {
-    e.preventDefault()
-    isResizingH.current = true
-    const startY = e.clientY; const startH = panelHeight
-    const onMove = (ev: MouseEvent) => { if (isResizingH.current) setPanelHeight(Math.max(200, Math.min(800, startH - (ev.clientY - startY)))) }
-    const onUp = () => { isResizingH.current = false; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
-    document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp)
-  }
-
-  function startResizeBoth(e: React.MouseEvent) {
-    e.preventDefault()
-    isResizingW.current = true; isResizingH.current = true
-    const startX = e.clientX; const startY = e.clientY; const startW = panelWidth; const startH = panelHeight
-    const onMove = (ev: MouseEvent) => {
-      if (!isResizingW.current) return
-      setPanelWidth(Math.max(280, Math.min(800, startW - (ev.clientX - startX))))
-      setPanelHeight(Math.max(200, Math.min(800, startH - (ev.clientY - startY))))
-    }
-    const onUp = () => { isResizingW.current = false; isResizingH.current = false; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
-    document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp)
-  }
-
-  // 오른쪽 끝에서 index 순서대로 왼쪽으로 배치
-  const right = 16 + index * (DEFAULT_WIDTH + PANEL_GAP)
-
-  return (
-    <div
-      style={{
-        width: panelWidth, height: panelHeight, right,
-        background: '#26282E',
-        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06), 0 0 0 1px rgba(255,255,255,0.06), 0 -18px 60px rgba(0,0,0,0.35)',
-      }}
-      className="fixed bottom-0 z-[63] rounded-t-2xl overflow-hidden">
-
-      {/* 리사이즈 핸들 */}
-      <div onMouseDown={startResizeH} className="absolute top-0 left-0 right-0 h-1.5 cursor-ns-resize hover:bg-[rgba(255,255,255,0.08)] transition-colors rounded-t-2xl z-10" />
-      <div onMouseDown={startResizeW} className="absolute top-0 left-0 bottom-0 w-1.5 cursor-ew-resize hover:bg-[rgba(255,255,255,0.08)] transition-colors z-10" />
-      <div onMouseDown={startResizeBoth} className="absolute top-0 left-0 w-5 h-5 cursor-nwse-resize z-20 flex items-center justify-center hover:bg-[rgba(255,255,255,0.08)] transition-colors rounded-tl-2xl" title="대각선 크기 조절">
-        <span className="text-[#5B6270] text-[8px] leading-none select-none">◤</span>
-      </div>
-
-      <div className="p-5 pb-20 md:pb-5 h-full flex flex-col">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-[#E5E7EB] text-sm">빠른 메모</h3>
-          <button onClick={onClose} className="text-[#5B6270] hover:text-[#E5E7EB] text-lg leading-none transition-colors">×</button>
-        </div>
-
-        <div className="flex gap-1.5 mb-3">
-          {TAGS.map(t => (
-            <button key={t} onClick={() => setTag(t)}
-              className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${tag === t ? TAG_COLORS[t] : 'bg-[rgba(255,255,255,0.05)] text-[#5B6270] border-[rgba(255,255,255,0.08)] hover:bg-[rgba(255,255,255,0.08)] hover:text-[#A1A7B3]'}`}>
-              {t}
-            </button>
-          ))}
-        </div>
-
-        <input ref={titleRef} value={title} onChange={e => setTitle(e.target.value)}
-          onKeyDown={e => {
-            if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey) { e.preventDefault(); contentRef.current?.focus() }
-            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); handleSave() }
-          }}
-          placeholder={tag === '회의관련' ? '6월15일 미팅(홍길동/업무내용)' : '제목 (엔터로 저장)'}
-          className="w-full text-sm bg-[#1A1C1F] text-[#E5E7EB] placeholder:text-[#5B6270] border border-[rgba(255,255,255,0.08)] rounded-lg px-3 py-2 focus:outline-none focus:border-[rgba(255,255,255,0.2)] mb-1.5" />
-
-        {tag === '회의관련' && (
-          <p className={`text-xs mb-2 px-0.5 ${meetingDate ? 'text-[#A78BFA]' : 'text-[#5B6270]'}`}>
-            {meetingDate ? `📅 ${meetingDate} 일정으로 등록됩니다` : '날짜 포함 시 일정탭에 자동 등록 (예: 6월15일 미팅)'}
-          </p>
-        )}
-
-        <div className="flex-1 min-h-0 overflow-y-auto">
-          <SmartTextarea ref={contentRef} value={content} onChange={setContent}
-            onKeyDown={e => {
-              if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); handleSave() }
-            }}
-            placeholder="내용 (선택, Ctrl+Enter 저장)"
-            className="w-full text-sm bg-[#1A1C1F] text-[#E5E7EB] placeholder:text-[#5B6270] border border-[rgba(255,255,255,0.08)] rounded-lg px-3 py-2 focus:outline-none focus:border-[rgba(255,255,255,0.2)] resize-none"
-            style={{ minHeight: '80px', resize: 'none' }} />
-        </div>
-
-        <div className="flex justify-between items-center mt-3">
-          <span className="text-xs text-[#5B6270]">ESC 닫기 · Ctrl+Enter 저장</span>
-          <button onClick={handleSave} disabled={!title.trim() || saving}
-            className="text-xs bg-[#1c2a3c] text-[rgba(230,231,234,0.85)] border border-[rgba(255,255,255,0.08)] px-4 py-2 rounded-lg hover:bg-[#1f3045] disabled:opacity-30 transition-colors"
-            style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.07)' }}>
-            {savedMsg || (saving ? '저장 중...' : (meetingDate ? '일정 등록' : '저장'))}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 type BtnPos = { right: number; bottom: number }
 
+function openQuickMemo() {
+  window.open(
+    '/memo/quick',
+    'quick-memo-popup',
+    'width=440,height=520,menubar=no,toolbar=no,location=no,status=no,resizable=yes',
+  )
+}
+
 export default function QuickMemoPanel() {
-  const [panels, setPanels] = useState<string[]>([])
   const [btnPos, setBtnPos] = useState<BtnPos | null>(null)
   const btnRef = useRef<HTMLButtonElement>(null)
-  const dragRef = useRef<{ startX: number; startY: number; startRight: number; startBottom: number; moved: boolean } | null>(null)
-  const latestPos = useRef<BtnPos>({ right: 16, bottom: 80 })
+  const dragRef = useRef<{
+    startX: number; startY: number
+    startRight: number; startBottom: number
+    moved: boolean
+  } | null>(null)
+  const latestPos = useRef<BtnPos>({ right: 16, bottom: 24 })
   const wasMovedRef = useRef(false)
   const router = useRouter()
 
@@ -220,31 +33,17 @@ export default function QuickMemoPanel() {
         setBtnPos(p); latestPos.current = p; return
       }
     } catch {}
-    const isMobile = window.innerWidth < 768
-    const defaultPos: BtnPos = { right: 16, bottom: isMobile ? 80 : 24 }
-    setBtnPos(defaultPos); latestPos.current = defaultPos
+    setBtnPos({ right: 16, bottom: 24 })
   }, [])
 
-  function addPanel() {
-    setPanels(prev => [...prev, `${Date.now()}-${prev.length}`])
-  }
-
-  function removePanel(id: string) {
-    setPanels(prev => prev.filter(p => p !== id))
-  }
-
   useEffect(() => {
-    async function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape' && panels.length > 0) {
-        setPanels(prev => prev.slice(0, -1))
-        return
-      }
-      // textarea/input 안에서 Ctrl 단축키는 SmartTextarea가 처리
+    function onKey(e: KeyboardEvent) {
       const target = e.target as HTMLElement | null
       if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) return
       if ((e.ctrlKey || e.metaKey) && e.key === '3') {
+        if (e.repeat) return
         e.preventDefault()
-        addPanel()
+        openQuickMemo()
         return
       }
       if ((e.ctrlKey || e.metaKey) && e.key === '1') {
@@ -254,12 +53,16 @@ export default function QuickMemoPanel() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [panels.length, router])
+  }, [router])
 
   function handlePointerDown(e: React.PointerEvent<HTMLButtonElement>) {
     btnRef.current?.setPointerCapture(e.pointerId)
     wasMovedRef.current = false
-    dragRef.current = { startX: e.clientX, startY: e.clientY, startRight: latestPos.current.right, startBottom: latestPos.current.bottom, moved: false }
+    dragRef.current = {
+      startX: e.clientX, startY: e.clientY,
+      startRight: latestPos.current.right, startBottom: latestPos.current.bottom,
+      moved: false,
+    }
   }
 
   function handlePointerMove(e: React.PointerEvent<HTMLButtonElement>) {
@@ -283,43 +86,32 @@ export default function QuickMemoPanel() {
 
   function handleBtnClick() {
     if (wasMovedRef.current) return
-    addPanel()
+    openQuickMemo()
   }
 
-  return (
-    <>
-      {panels.map((id, idx) => (
-        <SingleMemoPanel
-          key={id}
-          index={idx}
-          isFirst={idx === 0}
-          onClose={() => removePanel(id)}
-        />
-      ))}
+  if (!btnPos) return null
 
-      {btnPos && (
-        <button
-          type="button"
-          ref={btnRef}
-          style={{
-            right: btnPos.right,
-            bottom: btnPos.bottom,
-            background: '#1c2a3c',
-            color: 'rgba(230,231,234,0.85)',
-            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.07), 0 0 0 1px rgba(255,255,255,0.05), 0 8px 32px rgba(0,0,0,0.32)',
-          }}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onClick={handleBtnClick}
-          className="fixed z-[64] w-12 h-12 rounded-full flex items-center justify-center text-xl font-light touch-none select-none cursor-grab active:cursor-grabbing transition-all duration-200 ease-out"
-          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#1f3045' }}
-          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '#1c2a3c' }}
-          title="빠른 메모 (Ctrl+2) — 길게 드래그해 위치 이동"
-        >
-          +
-        </button>
-      )}
-    </>
+  return (
+    <button
+      type="button"
+      ref={btnRef}
+      style={{
+        right: btnPos.right,
+        bottom: btnPos.bottom,
+        background: '#1c2a3c',
+        color: 'rgba(230,231,234,0.85)',
+        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.07), 0 0 0 1px rgba(255,255,255,0.05), 0 8px 32px rgba(0,0,0,0.32)',
+      }}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onClick={handleBtnClick}
+      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#1f3045' }}
+      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '#1c2a3c' }}
+      className="fixed z-[64] w-12 h-12 rounded-full flex items-center justify-center text-xl font-light touch-none select-none cursor-grab active:cursor-grabbing transition-all duration-200 ease-out"
+      title="빠른 메모 (Ctrl+3) — 드래그로 위치 이동"
+    >
+      +
+    </button>
   )
 }
