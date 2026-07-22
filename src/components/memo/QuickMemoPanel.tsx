@@ -5,10 +5,13 @@ import { useRouter } from 'next/navigation'
 
 type BtnPos = { right: number; bottom: number }
 
+let _popupCount = 0
+
 function openQuickMemo() {
+  _popupCount++
   window.open(
     '/memo/quick',
-    'quick-memo-popup',
+    `quick-memo-popup-${_popupCount}`,
     'width=440,height=520,menubar=no,toolbar=no,location=no,status=no,resizable=yes',
   )
 }
