@@ -35,6 +35,21 @@ const DIVIDER = 'rgba(255,255,255,0.05)'
 
 const CARD_STYLE: React.CSSProperties = { background: SURFACE, boxShadow: SHADOW, borderRadius: 24 }
 
+// ── Timeline constants ──────────────────────────────────────────────────────
+const TL_START = 8 * 60   // 08:00
+const TL_END   = 21 * 60  // 21:00
+const TL_HOURS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21]
+
+function parseTimeMinutes(dateStr: string | null): number | null {
+  if (!dateStr) return null
+  try {
+    const d = parseISO(dateStr)
+    const h = d.getHours(), m = d.getMinutes()
+    if (h === 0 && m === 0) return null
+    return h * 60 + m
+  } catch { return null }
+}
+
 // ── Helpers ─────────────────────────────────────────────────────────────────
 function tagCls(part: string) {
   return part === '비즈'
@@ -319,8 +334,75 @@ export default function HomePage() {
         {/* Content: flex col, fills remaining height */}
         <div className="flex-1 flex flex-col min-h-0 max-w-[1400px] mx-auto w-full">
 
+          {/* 오늘의 타임라인 */}
+          {(() => {
+            const now = new Date()
+            const nowMin = now.getHours() * 60 + now.getMinutes()
+            const nowPct = Math.max(0, Math.min(100, (nowMin - TL_START) / (TL_END - TL_START) * 100))
+            const events = todayMeetings
+              .map(m => ({ ...m, mins: parseTimeMinutes(m.meeting_date) }))
+              .filter(m => m.mins !== null)
+              .map(m => ({ ...m, pct: (m.mins! - TL_START) / (TL_END - TL_START) * 100 }))
+              .filter(m => m.pct >= 0 && m.pct <= 96)
+            return (
+              <div className="flex-shrink-0 mt-4 mb-2">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[11px] font-bold uppercase tracking-[0.08em]" style={{ color: TEXT3 }}>오늘의 타임라인</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px]" style={{ color: TEXT3 }}>{format(now, 'M월 d일 (E)', { locale: ko })}</span>
+                    <Link href="/schedule" className="text-[11px] px-2 py-0.5 rounded-md font-medium" style={{ background: 'rgba(255,255,255,0.06)', color: TEXT2 }}>+ 추가</Link>
+                  </div>
+                </div>
+                <div className="relative rounded-xl overflow-hidden" style={{ background: SURFACE, boxShadow: SHADOW, height: 48 }}>
+                  {/* Hour grid lines */}
+                  {TL_HOURS.map(h => {
+                    const pct = (h * 60 - TL_START) / (TL_END - TL_START) * 100
+                    return (
+                      <div key={h} className="absolute top-0 bottom-0 flex flex-col" style={{ left: `${pct}%` }}>
+                        <span className="text-[9px] pt-1 pl-0.5" style={{ color: TEXT3, lineHeight: 1 }}>{h}</span>
+                        <div className="flex-1" style={{ width: 1, background: DIVIDER, marginTop: 2 }} />
+                      </div>
+                    )
+                  })}
+                  {/* Meeting events */}
+                  {events.map(m => (
+                    <Link key={m.id} href={`/meetings/${m.id}`}>
+                      <div className="absolute top-5 bottom-2 rounded flex items-center px-1.5 cursor-pointer"
+                        style={{ left: `${m.pct}%`, minWidth: 48, maxWidth: 140, background: 'rgba(99,102,241,0.22)', border: '1px solid rgba(99,102,241,0.38)' }}>
+                        <span className="text-[10px] font-medium truncate" style={{ color: '#A5B4FC' }}>{m.title}</span>
+                      </div>
+                    </Link>
+                  ))}
+                  {/* No time-based events fallback */}
+                  {events.length === 0 && todayMeetings.length > 0 && (
+                    <div className="absolute top-5 left-3 flex items-center gap-2 bottom-2">
+                      {todayMeetings.slice(0, 4).map(m => (
+                        <Link key={m.id} href={`/meetings/${m.id}`}>
+                          <div className="h-full rounded flex items-center px-2" style={{ background: 'rgba(99,102,241,0.22)', border: '1px solid rgba(99,102,241,0.38)', minWidth: 64 }}>
+                            <span className="text-[10px] font-medium truncate" style={{ color: '#A5B4FC' }}>{m.title}</span>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                  {events.length === 0 && todayMeetings.length === 0 && (
+                    <div className="absolute inset-0 flex items-end pb-2 pl-3">
+                      <span className="text-[11px]" style={{ color: TEXT3 }}>오늘 일정이 없어요</span>
+                    </div>
+                  )}
+                  {/* Current time indicator */}
+                  {nowMin >= TL_START && nowMin <= TL_END && (
+                    <div className="absolute top-3 bottom-1" style={{ left: `${nowPct}%`, width: 1.5, background: 'rgba(129,140,248,0.85)', zIndex: 10 }}>
+                      <div className="absolute -top-0.5 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full" style={{ background: '#818CF8' }} />
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          })()}
+
           {/* Row 2: 오늘의 주요업무 + 진행 중 과업 — shrink-0 */}
-          <div ref={kpiGridRef} className="flex-shrink-0 grid gap-6 mt-4 mb-3" style={{ gridTemplateColumns: '1fr 1fr' }}>
+          <div ref={kpiGridRef} className="flex-shrink-0 grid gap-6 mt-2 mb-3" style={{ gridTemplateColumns: '1fr 1fr' }}>
 
             {/* 오늘의 주요 업무 */}
             <div>
