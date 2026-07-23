@@ -320,7 +320,7 @@ export default function HomePage() {
         <div className="flex-1 flex flex-col min-h-0 max-w-[1400px] mx-auto w-full">
 
           {/* Row 2: 오늘의 주요업무 + 진행 중 과업 — shrink-0 */}
-          <div ref={kpiGridRef} className="flex-shrink-0 grid gap-6 mt-6 mb-5" style={{ gridTemplateColumns: '1fr 1fr' }}>
+          <div ref={kpiGridRef} className="flex-shrink-0 grid gap-6 mt-4 mb-3" style={{ gridTemplateColumns: '1fr 1fr' }}>
 
             {/* 오늘의 주요 업무 */}
             <div>
@@ -335,7 +335,7 @@ export default function HomePage() {
               ) : todayTodos.length === 0 ? (
                 <p className="text-[13px] py-3 text-center" style={{ color: TEXT3 }}>오늘 할 일이 없어요</p>
               ) : (
-                <div>
+                <div className="overflow-y-auto scrollbar-hide max-h-[160px]">
                   {todayTodos.map((t, i) => {
                     const done = doneTasks.includes(t.id)
                     return (
