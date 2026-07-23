@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Search, Plus, FileText, Clock, NotebookPen } from 'lucide-react'
+import { Search, Plus, FileText, Clock, NotebookPen, Layers, CheckSquare, CalendarDays, StickyNote } from 'lucide-react'
 import type { TaskTodo, Meeting, QuickMemo, AgendaSubTask } from '@/types'
 import { JournalFullscreenEditor, type DailyJournal } from '@/components/home/DailyJournalWidget'
 import { format, parseISO } from 'date-fns'
@@ -20,13 +20,27 @@ type SubTaskWithContext = AgendaSubTask & {
 }
 
 // ── Design Tokens ──────────────────────────────────────────────────────────
-const BG       = '#17181B'
-const CARD     = '#202126'
-const BORDER   = 'rgba(255,255,255,0.06)'
-const DIVIDER  = 'rgba(255,255,255,0.05)'
-const TEXT1    = 'rgba(226,232,240,0.92)'
-const TEXT2    = 'rgba(226,232,240,0.55)'
-const TEXT3    = 'rgba(226,232,240,0.28)'
+const BG      = '#18191D'
+const CARD    = '#202126'
+const CHOVER  = '#24252B'
+const DIVIDER = 'rgba(255,255,255,0.04)'
+const TEXT1   = 'rgba(255,255,255,0.92)'
+const TEXT2   = 'rgba(255,255,255,0.58)'
+const TEXT3   = 'rgba(255,255,255,0.36)'
+
+// Card base style — applied programmatically, not as a static const
+const cardBase = (accent = false): React.CSSProperties => ({
+  background: CARD,
+  border: `1px solid ${accent ? 'rgba(255,255,255,0.09)' : 'rgba(255,255,255,0.05)'}`,
+  borderRadius: 22,
+  boxShadow: '0 10px 30px rgba(0,0,0,0.22)',
+  transition: 'background 200ms ease-out, transform 200ms ease-out, box-shadow 200ms ease-out',
+})
+const cardHover = (): React.CSSProperties => ({
+  background: CHOVER,
+  transform: 'translateY(-2px)',
+  boxShadow: '0 16px 40px rgba(0,0,0,0.30)',
+})
 
 // Mobile keeps previous visual
 const SURFACE  = '#26282E'
@@ -36,8 +50,6 @@ const MSHADOW  =
   '0 18px 60px rgba(0,0,0,0.15)'
 const MCARD: React.CSSProperties = { background: SURFACE, boxShadow: MSHADOW, borderRadius: 24 }
 
-const CS: React.CSSProperties = { background: CARD, border: `1px solid ${BORDER}`, borderRadius: 20 }
-
 // ── Helpers ────────────────────────────────────────────────────────────────
 function fmtDate(s: string | null | undefined) {
   if (!s) return ''
@@ -45,14 +57,95 @@ function fmtDate(s: string | null | undefined) {
 }
 function tagCls(part: string) {
   return part === '비즈'
-    ? 'text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[rgba(249,115,22,0.15)] text-[#FDBA74]'
-    : 'text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[rgba(59,130,246,0.15)] text-[#93C5FD]'
+    ? 'text-[11px] font-medium px-2 py-0.5 rounded-full bg-[rgba(249,115,22,0.12)] text-[rgba(253,186,116,0.85)]'
+    : 'text-[11px] font-medium px-2 py-0.5 rounded-full bg-[rgba(59,130,246,0.12)] text-[rgba(147,197,253,0.85)]'
 }
 function localDateStr(d: Date) {
   return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-')
 }
 function todayStr()     { return localDateStr(new Date()) }
 function yesterdayStr() { const d = new Date(); d.setDate(d.getDate() - 1); return localDateStr(d) }
+
+// ── Empty State ────────────────────────────────────────────────────────────
+function EmptyState({ icon, label, sub }: { icon: React.ReactNode; label: string; sub?: string }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '24px 0', opacity: 0.6 }}>
+      <div style={{ color: TEXT3, opacity: 0.7 }}>{icon}</div>
+      <div style={{ textAlign: 'center' }}>
+        <p style={{ fontSize: 13, color: TEXT2, fontWeight: 400 }}>{label}</p>
+        {sub && <p style={{ fontSize: 12, color: TEXT3, marginTop: 3 }}>{sub}</p>}
+      </div>
+    </div>
+  )
+}
+
+// ── List Row wrapper (row-level hover) ──────────────────────────────────────
+function ListRow({ children, style, onClick }: { children: React.ReactNode; style?: React.CSSProperties; onClick?: () => void }) {
+  const [h, setH] = useState(false)
+  return (
+    <div
+      onMouseEnter={() => setH(true)}
+      onMouseLeave={() => setH(false)}
+      onClick={onClick}
+      style={{
+        borderRadius: 8,
+        marginLeft: -8, marginRight: -8,
+        paddingLeft: 8, paddingRight: 8,
+        background: h ? 'rgba(255,255,255,0.03)' : 'transparent',
+        transition: 'background 180ms ease-out',
+        cursor: onClick ? 'pointer' : 'default',
+        ...style,
+      }}
+    >
+      {children}
+    </div>
+  )
+}
+
+// ── Card Section ───────────────────────────────────────────────────────────
+function CardSection({
+  title, link, linkLabel, children, extra, accent,
+}: {
+  title: string
+  link?: string
+  linkLabel?: string
+  children: React.ReactNode
+  extra?: React.ReactNode
+  accent?: boolean
+}) {
+  const [hovered, setHovered] = useState(false)
+  return (
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        ...cardBase(accent),
+        ...(hovered ? cardHover() : {}),
+        padding: 24,
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: 200,
+        maxHeight: 284,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexShrink: 0 }}>
+        <h2 style={{ fontSize: 16, fontWeight: 600, color: TEXT1, letterSpacing: '-0.015em' }}>{title}</h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {extra}
+          {link && (
+            <Link href={link} style={{ fontSize: 12, color: TEXT3, textDecoration: 'none', transition: 'color 180ms' }}
+              onMouseEnter={e => ((e.target as HTMLElement).style.color = TEXT2)}
+              onMouseLeave={e => ((e.target as HTMLElement).style.color = TEXT3)}
+            >{linkLabel ?? '전체 →'}</Link>
+          )}
+        </div>
+      </div>
+      <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }} className="scrollbar-hide">
+        {children}
+      </div>
+    </div>
+  )
+}
 
 // ── Timeline Component ─────────────────────────────────────────────────────
 const H_START = 9, H_END = 21, H_W = 96
@@ -68,88 +161,74 @@ function TimelineRow({ meetings, now }: { meetings: Meeting[]; now: Date }) {
     if (scrollRef.current && inRange) scrollRef.current.scrollLeft = Math.max(0, curX - 280)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Glass-tinted event color sets (subtle, not loud)
   const EC = [
-    { bg: 'rgba(79,130,230,0.12)',  bd: 'rgba(79,130,230,0.25)',  tx: 'rgba(147,197,253,0.9)' },
-    { bg: 'rgba(52,211,153,0.10)',  bd: 'rgba(52,211,153,0.22)',  tx: 'rgba(110,231,183,0.9)' },
-    { bg: 'rgba(251,146,60,0.10)',  bd: 'rgba(251,146,60,0.22)',  tx: 'rgba(253,186,116,0.9)' },
-    { bg: 'rgba(167,139,250,0.10)', bd: 'rgba(167,139,250,0.22)', tx: 'rgba(196,181,253,0.9)' },
+    { bg: 'rgba(79,130,230,0.10)',  bd: 'rgba(79,130,230,0.18)',  tx: 'rgba(147,197,253,0.88)' },
+    { bg: 'rgba(52,211,153,0.08)',  bd: 'rgba(52,211,153,0.16)',  tx: 'rgba(110,231,183,0.88)' },
+    { bg: 'rgba(251,146,60,0.08)',  bd: 'rgba(251,146,60,0.16)',  tx: 'rgba(253,186,116,0.88)' },
+    { bg: 'rgba(167,139,250,0.08)', bd: 'rgba(167,139,250,0.16)', tx: 'rgba(196,181,253,0.88)' },
   ]
 
   return (
-    <div style={{ ...CS, height: 184, overflow: 'hidden' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 20px 0' }}>
-        <span style={{ fontSize: 13, fontWeight: 600, color: TEXT1 }}>오늘의 타임라인</span>
+    <div style={{ ...cardBase(), height: 184, overflow: 'hidden', transition: 'none' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 22px 0' }}>
+        <span style={{ fontSize: 15, fontWeight: 600, color: TEXT1, letterSpacing: '-0.015em' }}>오늘의 타임라인</span>
         <span style={{ fontSize: 12, color: TEXT3 }}>{format(now, 'M월 d일 (eee)', { locale: ko })}</span>
       </div>
-      <div ref={scrollRef} style={{ overflowX: 'auto', overflowY: 'hidden', height: 142, marginTop: 8, scrollbarWidth: 'none' }}>
-        <div style={{ position: 'relative', width: (H_END - H_START) * H_W + 40, height: '100%', minHeight: 130 }}>
+      <div ref={scrollRef} style={{ overflowX: 'auto', overflowY: 'hidden', height: 140, marginTop: 10, scrollbarWidth: 'none' }}>
+        <div style={{ position: 'relative', width: (H_END - H_START) * H_W + 40, height: '100%', minHeight: 124 }}>
 
           {/* Hour labels */}
           {hours.map(h => (
-            <span key={h} style={{ position: 'absolute', left: (h - H_START) * H_W + 4, top: 2, fontSize: 11, color: TEXT3, userSelect: 'none' }}>
+            <span key={h} style={{ position: 'absolute', left: (h - H_START) * H_W + 4, top: 2, fontSize: 10.5, color: TEXT3, opacity: 0.7, userSelect: 'none', letterSpacing: '0.01em' }}>
               {h}:00
             </span>
           ))}
 
-          {/* Grid lines */}
+          {/* Grid lines — very faint */}
           {hours.map(h => (
-            <div key={h} style={{ position: 'absolute', left: (h - H_START) * H_W, top: 0, bottom: 0, width: 1, background: DIVIDER }} />
+            <div key={h} style={{ position: 'absolute', left: (h - H_START) * H_W, top: 0, bottom: 0, width: 1, background: 'rgba(255,255,255,0.028)' }} />
           ))}
 
           {/* Past overlay */}
           {inRange && (
-            <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: curX, background: 'rgba(0,0,0,0.18)', pointerEvents: 'none' }} />
+            <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: curX, background: 'rgba(0,0,0,0.16)', pointerEvents: 'none' }} />
           )}
 
-          {/* Meeting events (spread evenly — no time data available) */}
+          {/* Meeting events — glass surface */}
           {meetings.map((m, i) => {
             const c = EC[i % 4]
             return (
               <Link key={m.id} href={`/meetings/${m.id}`}
-                style={{ position: 'absolute', left: 8 + i * 130, top: 26, width: 118, height: 76, background: c.bg, border: `1px solid ${c.bd}`, borderRadius: 10, padding: '7px 10px', display: 'flex', flexDirection: 'column', gap: 2, textDecoration: 'none', transition: 'background 180ms' }}>
-                <span className="line-clamp-2" style={{ fontSize: 11, fontWeight: 600, color: c.tx, lineHeight: 1.4 }}>{m.title}</span>
-                {m.category && <span style={{ fontSize: 10, color: TEXT3, marginTop: 'auto' }}>{m.category}</span>}
+                style={{
+                  position: 'absolute', left: 8 + i * 130, top: 24,
+                  width: 118, height: 76,
+                  background: c.bg,
+                  border: `1px solid ${c.bd}`,
+                  backdropFilter: 'blur(8px)',
+                  borderRadius: 11,
+                  padding: '7px 11px',
+                  display: 'flex', flexDirection: 'column', gap: 2,
+                  textDecoration: 'none',
+                  transition: 'opacity 180ms ease-out',
+                }}>
+                <span className="line-clamp-2" style={{ fontSize: 11.5, fontWeight: 500, color: c.tx, lineHeight: 1.4 }}>{m.title}</span>
+                {m.category && <span style={{ fontSize: 10, color: TEXT3, marginTop: 'auto', opacity: 0.8 }}>{m.category}</span>}
               </Link>
             )
           })}
 
           {meetings.length === 0 && (
-            <p style={{ position: 'absolute', top: 62, left: 0, right: 40, textAlign: 'center', fontSize: 13, color: TEXT3 }}>오늘 일정 없음</p>
+            <p style={{ position: 'absolute', top: 56, left: 0, right: 40, textAlign: 'center', fontSize: 13, color: TEXT3 }}>오늘 일정 없음</p>
           )}
 
           {/* Current time indicator */}
           {inRange && <>
-            <div style={{ position: 'absolute', left: curX, top: 0, bottom: 0, width: 1.5, background: '#4F8DFF', zIndex: 10 }} />
-            <div style={{ position: 'absolute', left: curX - 3.5, top: 18, width: 8, height: 8, borderRadius: '50%', background: '#4F8DFF', zIndex: 10 }} />
+            <div style={{ position: 'absolute', left: curX, top: 0, bottom: 0, width: 1.5, background: '#4F8DFF', opacity: 0.9, zIndex: 10 }} />
+            <div style={{ position: 'absolute', left: curX - 3.5, top: 17, width: 8, height: 8, borderRadius: '50%', background: '#4F8DFF', zIndex: 10 }} />
           </>}
 
         </div>
-      </div>
-    </div>
-  )
-}
-
-// ── Card Section ───────────────────────────────────────────────────────────
-function CardSection({ title, link, linkLabel, children, extra }: {
-  title: string
-  link?: string
-  linkLabel?: string
-  children: React.ReactNode
-  extra?: React.ReactNode
-}) {
-  return (
-    <div style={{ ...CS, padding: 22, display: 'flex', flexDirection: 'column', minHeight: 200, maxHeight: 284 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexShrink: 0 }}>
-        <h2 style={{ fontSize: 15, fontWeight: 600, color: TEXT1 }}>{title}</h2>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {extra}
-          {link && (
-            <Link href={link} style={{ fontSize: 12, color: TEXT3, textDecoration: 'none' }}>{linkLabel ?? '전체 →'}</Link>
-          )}
-        </div>
-      </div>
-      <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }} className="scrollbar-hide">
-        {children}
       </div>
     </div>
   )
@@ -164,6 +243,7 @@ export default function HomePage() {
   const [searchQuery,   setSearchQuery]   = useState('')
   const [weekFilter,    setWeekFilter]    = useState<'all' | 'tomorrow' | 'this_week'>('all')
   const [now,           setNow]           = useState(new Date())
+  const [journalHover,  setJournalHover]  = useState(false)
   const searchInputRef  = useRef<HTMLInputElement>(null)
 
   const [subTasks,      setSubTasks]      = useState<SubTaskWithContext[]>([])
@@ -176,7 +256,6 @@ export default function HomePage() {
   const [loading,       setLoading]       = useState(true)
   const sb = useRef(createClient())
 
-  // Clock tick every minute for timeline
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 60_000)
     return () => clearInterval(id)
@@ -252,13 +331,13 @@ export default function HomePage() {
   const meetingsForJournal = meetings.map(m => ({ id: m.id, title: m.title, meeting_date: m.meeting_date ?? undefined }))
 
   const skel = (n: number) => Array.from({ length: n }, (_, i) => (
-    <div key={i} className="h-7 rounded-xl animate-pulse" style={{ background: 'rgba(255,255,255,0.06)' }} />
+    <div key={i} className="h-8 rounded-xl animate-pulse" style={{ background: 'rgba(255,255,255,0.04)', marginBottom: 6 }} />
   ))
   const dots = ['#818CF8', '#60A5FA', '#34D399', '#FB923C']
 
-  // ── Shared row item divider helper
-  function rowDivider(i: number, len: number) {
-    return i < len - 1 ? `1px solid ${DIVIDER}` : 'none'
+  // Row divider
+  function rd(i: number, len: number): React.CSSProperties {
+    return i < len - 1 ? { borderBottom: `1px solid ${DIVIDER}` } : {}
   }
 
   return (
@@ -278,8 +357,8 @@ export default function HomePage() {
               : todayTodos.map((t, i) => {
                   const done = doneTasks.includes(t.id)
                   return (
-                    <div key={t.id} className="flex items-center gap-3 py-2.5" style={{ borderBottom: rowDivider(i, todayTodos.length) }}>
-                      <button onClick={() => toggleTask(t.id)} className="flex-shrink-0 rounded-full border-2 flex items-center justify-center transition-all"
+                    <div key={t.id} className="flex items-center gap-3 py-2.5" style={rd(i, todayTodos.length)}>
+                      <button onClick={() => toggleTask(t.id)} className="flex-shrink-0 rounded-full border-2 flex items-center justify-center"
                         style={{ width: 18, height: 18, borderColor: done ? '#34D399' : 'rgba(255,255,255,0.2)', background: done ? '#34D399' : 'transparent' }}>
                         {done && <svg width="7" height="7" viewBox="0 0 8 8" fill="none"><path d="M1.5 4L3 5.5L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
                       </button>
@@ -303,17 +382,15 @@ export default function HomePage() {
             : subTasks.length === 0
               ? <p className="text-[13px] py-1" style={{ color: TEXT3 }}>진행 중인 과업이 없어요</p>
               : subTasks.map((st, i) => {
-                  const groupColor = st.agenda_items?.agenda_groups?.color ?? '#818CF8'
+                  const gc = st.agenda_items?.agenda_groups?.color ?? '#818CF8'
                   return (
                     <Link key={st.id} href={`/subtasks/${st.id}`}>
-                      <div className="flex items-center gap-3 py-2.5" style={{ borderBottom: rowDivider(i, subTasks.length) }}>
-                        <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: groupColor }} />
+                      <div className="flex items-center gap-3 py-2.5" style={rd(i, subTasks.length)}>
+                        <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: gc }} />
                         <span className="text-[13px] font-medium flex-1 min-w-0 truncate" style={{ color: TEXT1 }}>{st.title}</span>
                         {st.agenda_items && (
                           <span className="text-[10px] font-medium px-2 py-0.5 rounded-full flex-shrink-0 truncate max-w-[100px]"
-                            style={{ background: `${groupColor}33`, color: groupColor }}>
-                            {st.agenda_items.title}
-                          </span>
+                            style={{ background: `${gc}33`, color: gc }}>{st.agenda_items.title}</span>
                         )}
                       </div>
                     </Link>
@@ -331,7 +408,7 @@ export default function HomePage() {
             : todayMeetings.length === 0
               ? <p className="text-[13px] py-1" style={{ color: TEXT3 }}>오늘 일정 없음</p>
               : todayMeetings.map((m, i) => (
-                  <div key={m.id} className="flex items-center gap-2.5 py-2.5" style={{ borderBottom: rowDivider(i, todayMeetings.length) }}>
+                  <div key={m.id} className="flex items-center gap-2.5 py-2.5" style={rd(i, todayMeetings.length)}>
                     <Clock size={11} style={{ color: TEXT3 }} className="flex-shrink-0" />
                     <span className="text-[13px] flex-1 min-w-0 truncate" style={{ color: TEXT1 }}>{m.title}</span>
                   </div>
@@ -349,7 +426,7 @@ export default function HomePage() {
               ? <p className="text-[13px] py-1" style={{ color: TEXT3 }}>회의록이 없어요</p>
               : recentMeetings.map((m, i) => (
                   <Link key={m.id} href={`/meetings/${m.id}`}>
-                    <div className="flex items-center gap-2.5 py-2.5" style={{ borderBottom: rowDivider(i, recentMeetings.length) }}>
+                    <div className="flex items-center gap-2.5 py-2.5" style={rd(i, recentMeetings.length)}>
                       <div className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(255,255,255,0.07)' }}>
                         <FileText size={11} strokeWidth={1.75} style={{ color: TEXT2 }} />
                       </div>
@@ -373,7 +450,7 @@ export default function HomePage() {
               ? <p className="text-[13px] py-1" style={{ color: TEXT3 }}>메모가 없어요</p>
               : memos.slice(0, 6).map((memo, i) => (
                   <div key={memo.id} onClick={() => { localStorage.setItem('memos_open_id', memo.id); router.push('/memos') }}
-                    className="flex items-center gap-2.5 py-2.5 cursor-pointer" style={{ borderBottom: rowDivider(i, Math.min(memos.length, 6)) }}>
+                    className="flex items-center gap-2.5 py-2.5 cursor-pointer" style={rd(i, Math.min(memos.length, 6))}>
                     <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: dots[i % 4] }} />
                     <span className="text-[13px] flex-1 min-w-0 truncate" style={{ color: TEXT1 }}>{memo.title}</span>
                     <span className="text-[10px] flex-shrink-0" style={{ color: TEXT3 }}>{fmtDate(memo.created_at)}</span>
@@ -385,9 +462,7 @@ export default function HomePage() {
         <div className="rounded-[20px] p-4" style={MCARD}>
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-[13px] font-bold" style={{ color: TEXT1 }}>회고</h2>
-            {todayJournal && (
-              <button onClick={() => setShowJournal(true)} className="text-[11px]" style={{ color: TEXT3 }}>수정</button>
-            )}
+            {todayJournal && <button onClick={() => setShowJournal(true)} className="text-[11px]" style={{ color: TEXT3 }}>수정</button>}
           </div>
           {todayJournal ? (
             <button onClick={() => setShowJournal(true)} className="w-full text-left">
@@ -408,49 +483,57 @@ export default function HomePage() {
       <div className="hidden md:flex flex-col flex-1 min-h-0">
 
         {/* Topbar: search only */}
-        <div className="flex-shrink-0 flex items-center justify-center h-12 px-8" style={{ borderBottom: `1px solid ${DIVIDER}` }}>
+        <div className="flex-shrink-0 flex items-center justify-center h-12 px-8"
+          style={{ borderBottom: `1px solid rgba(255,255,255,0.04)` }}>
           <div
             onClick={() => setSearchOpen(true)}
-            className="flex items-center gap-2.5 px-4 py-1.5 rounded-2xl w-full max-w-sm cursor-pointer"
-            style={{ background: '#1A1C1F', border: `1px solid ${BORDER}`, transition: 'background 180ms' }}
-            onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = '#1e2024')}
-            onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = '#1A1C1F')}
+            className="flex items-center gap-2.5 px-4 py-2 rounded-xl w-full max-w-[360px] cursor-pointer"
+            style={{ background: '#1c1d21', border: '1px solid rgba(255,255,255,0.05)', transition: 'background 200ms ease-out' }}
+            onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = '#1f2025')}
+            onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = '#1c1d21')}
           >
-            <Search size={12} style={{ color: TEXT2 }} className="flex-shrink-0" />
+            <Search size={13} style={{ color: TEXT3, opacity: 0.75, flexShrink: 0 }} />
             <span className="text-[13px] flex-1" style={{ color: TEXT3 }}>검색 (과업, 안건, 회의록 등)</span>
-            <span className="text-[10px] px-1.5 py-0.5 rounded-md font-mono" style={{ background: 'rgba(255,255,255,0.07)', color: TEXT3 }}>⌘K</span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded font-mono"
+              style={{ background: 'rgba(255,255,255,0.06)', color: TEXT3 }}>⌘K</span>
           </div>
         </div>
 
         {/* Scrollable content */}
-        <div className="flex-1 overflow-y-auto" style={{ padding: '24px 32px 40px' }}>
+        <div className="flex-1 overflow-y-auto" style={{ padding: '24px 32px 44px' }}>
 
-          {/* Row 1: Timeline */}
+          {/* Row 1: Timeline — first impression, full width */}
           <TimelineRow meetings={todayMeetings} now={now} />
 
-          {/* Row 2: 진행중 과업 · 오늘 업무 · 금주 업무 */}
+          {/* Row 2 — 진행중 과업(accent) · 오늘업무 · 금주업무 */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 24, marginTop: 24 }}>
 
-            {/* 진행중 과업 */}
-            <CardSection title="진행중 과업" link="/project" linkLabel="전체 →">
-              {loading ? <div className="space-y-2">{skel(4)}</div>
+            {/* 진행중 과업 — visual accent for hierarchy */}
+            <CardSection title="진행중 과업" link="/project" linkLabel="전체 →" accent>
+              {loading ? <div>{skel(4)}</div>
                 : subTasks.length === 0
-                  ? <p style={{ fontSize: 13, color: TEXT3 }}>진행 중인 과업이 없어요</p>
+                  ? <EmptyState
+                      icon={<Layers size={20} strokeWidth={1.5} />}
+                      label="진행 중인 과업이 없습니다."
+                      sub="새로운 과업을 시작해보세요."
+                    />
                   : subTasks.map((st, i) => {
                       const gc = st.agenda_items?.agenda_groups?.color ?? '#818CF8'
                       return (
                         <Link key={st.id} href={`/subtasks/${st.id}`} style={{ textDecoration: 'none', display: 'block' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderBottom: rowDivider(i, subTasks.length) }}>
-                            <div style={{ width: 6, height: 6, borderRadius: '50%', background: gc, flexShrink: 0 }} />
-                            <span style={{ fontSize: 13, fontWeight: 500, color: TEXT1, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {st.title}
-                            </span>
-                            {st.agenda_items && (
-                              <span style={{ fontSize: 10, fontWeight: 500, padding: '2px 8px', borderRadius: 100, background: `${gc}33`, color: gc, flexShrink: 0, maxWidth: 110, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {st.agenda_items.title}
+                          <ListRow style={{ ...rd(i, subTasks.length) }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0' }}>
+                              <div style={{ width: 5, height: 5, borderRadius: '50%', background: gc, flexShrink: 0, opacity: 0.9 }} />
+                              <span style={{ fontSize: 14, fontWeight: 500, color: TEXT1, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {st.title}
                               </span>
-                            )}
-                          </div>
+                              {st.agenda_items && (
+                                <span style={{ fontSize: 10.5, fontWeight: 500, padding: '2px 7px', borderRadius: 100, background: `${gc}22`, color: gc, opacity: 0.85, flexShrink: 0, maxWidth: 110, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {st.agenda_items.title}
+                                </span>
+                              )}
+                            </div>
+                          </ListRow>
                         </Link>
                       )
                     })
@@ -459,25 +542,31 @@ export default function HomePage() {
 
             {/* 오늘 업무 */}
             <CardSection title="오늘 업무" link="/tasks" linkLabel="+ 추가">
-              {loading ? <div className="space-y-2">{skel(4)}</div>
+              {loading ? <div>{skel(4)}</div>
                 : todayTodos.length === 0
-                  ? <p style={{ fontSize: 13, color: TEXT3 }}>오늘 할 일이 없어요</p>
+                  ? <EmptyState
+                      icon={<CheckSquare size={20} strokeWidth={1.5} />}
+                      label="오늘 업무가 없습니다."
+                      sub="새로운 업무를 추가해보세요."
+                    />
                   : todayTodos.map((t, i) => {
                       const done = doneTasks.includes(t.id)
                       return (
-                        <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderBottom: rowDivider(i, todayTodos.length) }}>
-                          <button
-                            onClick={() => toggleTask(t.id)}
-                            style={{ width: 16, height: 16, borderRadius: '50%', border: `2px solid ${done ? '#34D399' : 'rgba(255,255,255,0.2)'}`, background: done ? '#34D399' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer', transition: 'all 180ms' }}
-                          >
-                            {done && <svg width="6" height="6" viewBox="0 0 8 8" fill="none"><path d="M1.5 4L3 5.5L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
-                          </button>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <p style={{ fontSize: 13, fontWeight: 500, color: done ? TEXT3 : TEXT1, textDecoration: done ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</p>
-                            {t.tasks && <p style={{ fontSize: 11, color: TEXT2 }}>{t.tasks.short_name ?? t.tasks.title}</p>}
+                        <ListRow key={t.id} style={{ ...rd(i, todayTodos.length) }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0' }}>
+                            <button
+                              onClick={() => toggleTask(t.id)}
+                              style={{ width: 16, height: 16, borderRadius: '50%', border: `1.5px solid ${done ? '#34D399' : 'rgba(255,255,255,0.18)'}`, background: done ? '#34D399' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer', transition: 'all 200ms ease-out' }}
+                            >
+                              {done && <svg width="6" height="6" viewBox="0 0 8 8" fill="none"><path d="M1.5 4L3 5.5L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+                            </button>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <p style={{ fontSize: 14, fontWeight: done ? 400 : 500, color: done ? TEXT3 : TEXT1, textDecoration: done ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', transition: 'color 200ms' }}>{t.title}</p>
+                              {t.tasks && <p style={{ fontSize: 12, color: TEXT3, marginTop: 1 }}>{t.tasks.short_name ?? t.tasks.title}</p>}
+                            </div>
+                            {t.tasks && <span className={tagCls(t.tasks.part)}>{t.tasks.part}</span>}
                           </div>
-                          {t.tasks && <span className={tagCls(t.tasks.part)}>{t.tasks.part}</span>}
-                        </div>
+                        </ListRow>
                       )
                     })
               }
@@ -487,128 +576,164 @@ export default function HomePage() {
             <CardSection
               title="금주 업무"
               extra={
-                <div style={{ display: 'flex', gap: 3 }}>
+                <div style={{ display: 'flex', gap: 2 }}>
                   {(['all', 'tomorrow', 'this_week'] as const).map(f => (
-                    <button
-                      key={f}
-                      onClick={() => setWeekFilter(f)}
-                      style={{ fontSize: 11, padding: '3px 8px', borderRadius: 8, border: `1px solid ${weekFilter === f ? 'rgba(255,255,255,0.14)' : 'transparent'}`, background: weekFilter === f ? 'rgba(255,255,255,0.07)' : 'transparent', color: weekFilter === f ? TEXT2 : TEXT3, cursor: 'pointer', transition: 'all 180ms' }}
-                    >
+                    <button key={f} onClick={() => setWeekFilter(f)}
+                      style={{ fontSize: 11, padding: '3px 8px', borderRadius: 7, border: `1px solid ${weekFilter === f ? 'rgba(255,255,255,0.12)' : 'transparent'}`, background: weekFilter === f ? 'rgba(255,255,255,0.06)' : 'transparent', color: weekFilter === f ? TEXT2 : TEXT3, cursor: 'pointer', transition: 'all 180ms ease-out' }}>
                       {f === 'all' ? '전체' : f === 'tomorrow' ? '내일' : '금주'}
                     </button>
                   ))}
                 </div>
               }
             >
-              {loading ? <div className="space-y-2">{skel(4)}</div>
+              {loading ? <div>{skel(4)}</div>
                 : filteredWeek.length === 0
-                  ? <p style={{ fontSize: 13, color: TEXT3 }}>해당 업무 없음</p>
+                  ? <EmptyState
+                      icon={<CalendarDays size={20} strokeWidth={1.5} />}
+                      label="해당 업무가 없습니다."
+                    />
                   : filteredWeek.map((t, i) => (
-                      <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderBottom: rowDivider(i, filteredWeek.length) }}>
-                        <div style={{ width: 6, height: 6, borderRadius: 2, background: t.schedule_tag === 'tomorrow' ? '#60A5FA' : '#818CF8', flexShrink: 0 }} />
-                        <span style={{ fontSize: 13, fontWeight: 500, color: TEXT1, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</span>
-                        <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 6, background: t.schedule_tag === 'tomorrow' ? 'rgba(96,165,250,0.12)' : 'rgba(129,140,248,0.12)', color: t.schedule_tag === 'tomorrow' ? '#93C5FD' : '#A5B4FC', flexShrink: 0 }}>
-                          {t.schedule_tag === 'tomorrow' ? '내일' : '금주'}
-                        </span>
-                      </div>
+                      <ListRow key={t.id} style={{ ...rd(i, filteredWeek.length) }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0' }}>
+                          <div style={{ width: 5, height: 5, borderRadius: 1.5, background: t.schedule_tag === 'tomorrow' ? '#60A5FA' : '#818CF8', flexShrink: 0, opacity: 0.85 }} />
+                          <span style={{ fontSize: 14, fontWeight: 500, color: TEXT1, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</span>
+                          <span style={{ fontSize: 10.5, padding: '2px 7px', borderRadius: 7, background: t.schedule_tag === 'tomorrow' ? 'rgba(96,165,250,0.1)' : 'rgba(129,140,248,0.1)', color: t.schedule_tag === 'tomorrow' ? 'rgba(147,197,253,0.8)' : 'rgba(165,180,252,0.8)', flexShrink: 0 }}>
+                            {t.schedule_tag === 'tomorrow' ? '내일' : '금주'}
+                          </span>
+                        </div>
+                      </ListRow>
                     ))
               }
             </CardSection>
 
           </div>
 
-          {/* Row 3: 퀵메모 · 최근 회의록 · 회고 */}
+          {/* Row 3 — 퀵메모 · 최근회의록 · 회고 */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 24, marginTop: 24 }}>
 
             {/* 퀵메모 */}
             <CardSection title="퀵메모" link="/memos" linkLabel="전체 →">
-              {loading ? <div className="space-y-2">{skel(4)}</div>
+              {loading ? <div>{skel(4)}</div>
                 : memos.length === 0
-                  ? <p style={{ fontSize: 13, color: TEXT3 }}>메모가 없어요</p>
+                  ? <EmptyState
+                      icon={<StickyNote size={20} strokeWidth={1.5} />}
+                      label="저장된 메모가 없습니다."
+                      sub="Ctrl+3으로 빠르게 추가하세요."
+                    />
                   : memos.slice(0, 8).map((memo, i) => (
-                      <div key={memo.id} onClick={() => { localStorage.setItem('memos_open_id', memo.id); router.push('/memos') }}
-                        style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderBottom: rowDivider(i, Math.min(memos.length, 8)), cursor: 'pointer' }}>
-                        <div style={{ width: 6, height: 6, borderRadius: '50%', background: dots[i % 4], flexShrink: 0 }} />
-                        <span style={{ fontSize: 13, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: TEXT1 }}>{memo.title}</span>
-                        <span style={{ fontSize: 10, color: TEXT3, flexShrink: 0 }}>{fmtDate(memo.created_at)}</span>
-                      </div>
+                      <ListRow key={memo.id} onClick={() => { localStorage.setItem('memos_open_id', memo.id); router.push('/memos') }}
+                        style={{ ...rd(i, Math.min(memos.length, 8)) }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0' }}>
+                          <div style={{ width: 5, height: 5, borderRadius: '50%', background: dots[i % 4], flexShrink: 0, opacity: 0.85 }} />
+                          <span style={{ fontSize: 14, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: TEXT1, fontWeight: 400 }}>{memo.title}</span>
+                          <span style={{ fontSize: 11, color: TEXT3, flexShrink: 0 }}>{fmtDate(memo.created_at)}</span>
+                        </div>
+                      </ListRow>
                     ))
               }
             </CardSection>
 
             {/* 최근 회의록 */}
             <CardSection title="최근 회의록" link="/meetings" linkLabel="전체 →">
-              {loading ? <div className="space-y-2">{skel(3)}</div>
+              {loading ? <div>{skel(3)}</div>
                 : recentMeetings.length === 0
-                  ? <p style={{ fontSize: 13, color: TEXT3 }}>회의록이 없어요</p>
+                  ? <EmptyState
+                      icon={<FileText size={20} strokeWidth={1.5} />}
+                      label="회의록이 없습니다."
+                      sub="첫 번째 회의록을 작성해보세요."
+                    />
                   : recentMeetings.map((m, i) => (
                       <Link key={m.id} href={`/meetings/${m.id}`} style={{ textDecoration: 'none', display: 'block' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderBottom: rowDivider(i, recentMeetings.length) }}>
-                          <div style={{ width: 26, height: 26, borderRadius: 8, background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            <FileText size={11} strokeWidth={1.75} style={{ color: TEXT2 }} />
+                        <ListRow style={{ ...rd(i, recentMeetings.length) }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 0' }}>
+                            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(255,255,255,0.055)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                              <FileText size={13} strokeWidth={1.5} style={{ color: TEXT2, opacity: 0.75 }} />
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <p style={{ fontSize: 14, fontWeight: 500, color: TEXT1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.title}</p>
+                              <p style={{ fontSize: 12, color: TEXT3, marginTop: 1 }}>{fmtDate(m.meeting_date)}</p>
+                            </div>
                           </div>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <p style={{ fontSize: 13, fontWeight: 500, color: TEXT1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.title}</p>
-                            <p style={{ fontSize: 11, color: TEXT3 }}>{fmtDate(m.meeting_date)}</p>
-                          </div>
-                        </div>
+                        </ListRow>
                       </Link>
                     ))
               }
             </CardSection>
 
             {/* 회고 */}
-            <div style={{ ...CS, padding: 22, display: 'flex', flexDirection: 'column', minHeight: 200, maxHeight: 284 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexShrink: 0 }}>
-                <h2 style={{ fontSize: 15, fontWeight: 600, color: TEXT1 }}>회고</h2>
+            <div
+              onMouseEnter={() => setJournalHover(true)}
+              onMouseLeave={() => setJournalHover(false)}
+              style={{
+                ...cardBase(),
+                ...(journalHover ? cardHover() : {}),
+                padding: 24,
+                display: 'flex', flexDirection: 'column',
+                minHeight: 200, maxHeight: 284,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexShrink: 0 }}>
+                <h2 style={{ fontSize: 16, fontWeight: 600, color: TEXT1, letterSpacing: '-0.015em' }}>회고</h2>
                 {todayJournal && (
-                  <button onClick={() => setShowJournal(true)} style={{ fontSize: 12, color: TEXT3, background: 'none', border: 'none', cursor: 'pointer' }}>수정</button>
+                  <button onClick={() => setShowJournal(true)}
+                    style={{ fontSize: 12, color: TEXT3, background: 'none', border: 'none', cursor: 'pointer', transition: 'color 180ms' }}
+                    onMouseEnter={e => ((e.target as HTMLElement).style.color = TEXT2)}
+                    onMouseLeave={e => ((e.target as HTMLElement).style.color = TEXT3)}>
+                    수정
+                  </button>
                 )}
               </div>
               <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
                 {todayJournal ? (
-                  <button onClick={() => setShowJournal(true)} style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0 }}>
-                    <p className="line-clamp-[9]" style={{ fontSize: 13, lineHeight: 1.7, color: TEXT2 }}>
+                  <button onClick={() => setShowJournal(true)}
+                    style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0 }}>
+                    <p className="line-clamp-[9]" style={{ fontSize: 14, lineHeight: 1.75, color: TEXT2, fontWeight: 400 }}>
                       {todayJournal.content}
                     </p>
                   </button>
                 ) : (
                   <button onClick={() => setShowJournal(true)}
-                    style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, background: 'none', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: 12, cursor: 'pointer' }}>
-                    <NotebookPen size={18} strokeWidth={1.5} style={{ color: TEXT3 }} />
-                    <span style={{ fontSize: 12, color: TEXT3 }}>오늘 회고 작성하기</span>
+                    style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, background: 'none', border: '1px dashed rgba(255,255,255,0.08)', borderRadius: 14, cursor: 'pointer', transition: 'border-color 200ms' }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.14)' }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.08)' }}
+>
+                    <NotebookPen size={20} strokeWidth={1.5} style={{ color: TEXT3, opacity: 0.7 }} />
+                    <div style={{ textAlign: 'center' }}>
+                      <p style={{ fontSize: 13, color: TEXT2, fontWeight: 400 }}>오늘 회고 작성하기</p>
+                      <p style={{ fontSize: 12, color: TEXT3, marginTop: 3 }}>하루를 돌아보며 기록하세요.</p>
+                    </div>
                   </button>
                 )}
               </div>
             </div>
 
           </div>
-
         </div>
       </div>
 
       {/* 검색 모달 */}
       {searchOpen && typeof document !== 'undefined' && createPortal(
         <div className="fixed inset-0 z-50 flex items-start justify-center pt-[10vh]"
-          style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}
+          style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)' }}
           onClick={() => setSearchOpen(false)}>
-          <div className="w-full max-w-lg mx-4 rounded-2xl overflow-hidden"
-            style={{ background: '#26282E', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06), 0 0 0 1px rgba(255,255,255,0.06), 0 32px 80px rgba(0,0,0,0.45)' }}
+          <div className="w-full max-w-lg mx-4 overflow-hidden"
+            style={{ background: '#22232A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 18, boxShadow: '0 32px 80px rgba(0,0,0,0.5)' }}
             onClick={e => e.stopPropagation()}>
-            <div className="flex items-center gap-3 px-4 py-3.5" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-              <Search size={14} style={{ color: TEXT2 }} className="flex-shrink-0" />
+            <div className="flex items-center gap-3 px-4 py-3.5" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              <Search size={14} style={{ color: TEXT2, opacity: 0.75 }} className="flex-shrink-0" />
               <input ref={searchInputRef} value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
                 placeholder="과업, 회의록, 메모 검색..."
-                className="flex-1 bg-transparent focus:outline-none text-[14px]" style={{ color: TEXT1 }} />
+                className="flex-1 bg-transparent focus:outline-none"
+                style={{ fontSize: 14, color: TEXT1 }} />
               {searchQuery && (
-                <button onClick={() => setSearchQuery('')} className="text-[11px]" style={{ color: TEXT3 }}>지우기</button>
+                <button onClick={() => setSearchQuery('')} style={{ fontSize: 11, color: TEXT3 }}>지우기</button>
               )}
             </div>
             <div className="max-h-[360px] overflow-y-auto">
               {searchQuery.trim() === '' ? (
-                <p className="px-4 py-6 text-[13px] text-center" style={{ color: TEXT3 }}>검색어를 입력하세요</p>
+                <p className="px-4 py-6 text-center" style={{ fontSize: 13, color: TEXT3 }}>검색어를 입력하세요</p>
               ) : searchResults.length === 0 ? (
-                <p className="px-4 py-6 text-[13px] text-center" style={{ color: TEXT3 }}>검색 결과가 없어요</p>
+                <p className="px-4 py-6 text-center" style={{ fontSize: 13, color: TEXT3 }}>검색 결과가 없어요</p>
               ) : (
                 <div className="py-1">
                   {searchResults.map((r, i) => (
@@ -622,14 +747,15 @@ export default function HomePage() {
                         }
                         setSearchOpen(false)
                       }}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors" style={{ color: TEXT1 }}
-                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-left"
+                      style={{ transition: 'background 180ms', borderBottom: i < searchResults.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
                       onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0"
-                        style={{ background: r.type === '세부task' ? 'rgba(99,102,241,0.2)' : r.type === '회의록' ? 'rgba(52,211,153,0.15)' : 'rgba(251,146,60,0.15)', color: r.type === '세부task' ? '#A5B4FC' : r.type === '회의록' ? '#6EE7B7' : '#FED7AA' }}>
+                      <span className="text-[10.5px] font-medium px-2 py-0.5 rounded-full flex-shrink-0"
+                        style={{ background: r.type === '세부task' ? 'rgba(99,102,241,0.18)' : r.type === '회의록' ? 'rgba(52,211,153,0.14)' : 'rgba(251,146,60,0.14)', color: r.type === '세부task' ? '#A5B4FC' : r.type === '회의록' ? '#6EE7B7' : '#FED7AA' }}>
                         {r.type}
                       </span>
-                      <span className="text-[13px] truncate">{r.title}</span>
+                      <span style={{ fontSize: 13, color: TEXT1, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title}</span>
                     </button>
                   ))}
                 </div>
