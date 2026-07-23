@@ -96,7 +96,7 @@ export default function QuickMemoPage() {
   }
 
   return (
-    <div className="h-screen flex flex-col p-5" style={{ background: '#1F2023', boxSizing: 'border-box' }}>
+    <div className="h-screen flex flex-col p-5" style={{ background: '#1F2023', colorScheme: 'dark', boxSizing: 'border-box' }}>
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-semibold text-[#E5E7EB] text-sm tracking-wide">빠른 메모</h3>
         <button
@@ -132,7 +132,8 @@ export default function QuickMemoPage() {
           if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); handleSave() }
         }}
         placeholder={tag === '회의관련' ? '6월15일 미팅(홍길동/업무내용)' : '제목 (Ctrl+Enter 저장)'}
-        className="w-full text-sm bg-[#1A1C1F] text-[#E5E7EB] placeholder:text-[#5B6270] border border-[rgba(255,255,255,0.08)] rounded-lg px-3 py-2 focus:outline-none focus:border-[rgba(255,255,255,0.2)] mb-1.5"
+        className="w-full text-sm placeholder:text-[#5B6270] border border-[rgba(255,255,255,0.08)] rounded-lg px-3 py-2 focus:outline-none focus:border-[rgba(255,255,255,0.2)] mb-1.5"
+        style={{ background: '#1A1C1F', color: '#E5E7EB' }}
       />
 
       {tag === '회의관련' && (
@@ -152,8 +153,8 @@ export default function QuickMemoPage() {
             if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); handleSave() }
           }}
           placeholder="내용 (선택)"
-          className="w-full h-full text-sm bg-[#1A1C1F] text-[#E5E7EB] placeholder:text-[#5B6270] border border-[rgba(255,255,255,0.08)] rounded-lg px-3 py-2 focus:outline-none focus:border-[rgba(255,255,255,0.2)]"
-          style={{ minHeight: '80px', resize: 'none' }}
+          className="w-full text-sm placeholder:text-[#5B6270] border border-[rgba(255,255,255,0.08)] rounded-lg px-3 py-2 focus:outline-none focus:border-[rgba(255,255,255,0.2)]"
+          style={{ minHeight: '120px', resize: 'none', background: '#1A1C1F', color: '#E5E7EB' }}
         />
       </div>
 

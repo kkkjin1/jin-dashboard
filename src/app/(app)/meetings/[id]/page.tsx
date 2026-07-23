@@ -237,10 +237,10 @@ function NoteAccordion({ note, index, isOpen, onToggle, onDelete, onEdit, onFull
             </>
           ) : (
             <>
-              <MarkdownContent content={note.content} className="pt-3" />
+              <MarkdownContent content={note.content} dark className="pt-3" />
               <div className="flex items-center gap-3 mt-2">
                 <button onClick={() => { setEditContent(note.content); setEditing(true) }}
-                  className="text-xs text-[rgba(226,232,240,0.3)] hover:text-blue-500 transition-colors">수정</button>
+                  className="text-xs text-[rgba(226,232,240,0.5)] hover:text-blue-400 transition-colors">수정</button>
                 <button onClick={() => { setEditContent(note.content); setFullscreen(true) }}
                   className="text-xs text-[rgba(226,232,240,0.3)] hover:text-blue-500 transition-colors">⛶ 크게 편집</button>
               </div>
