@@ -96,7 +96,7 @@ export default function QuickMemoPage() {
   }
 
   return (
-    <div className="h-screen flex flex-col p-5" style={{ background: '#1F2023', colorScheme: 'dark', boxSizing: 'border-box' }}>
+    <div className="h-screen flex flex-col p-5" style={{ background: '#161B24', colorScheme: 'dark', boxSizing: 'border-box' }}>
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-semibold text-[#E5E7EB] text-sm tracking-wide">빠른 메모</h3>
         <button

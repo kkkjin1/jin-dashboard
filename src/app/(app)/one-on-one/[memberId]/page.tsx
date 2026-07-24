@@ -128,7 +128,7 @@ export default function MemberOneOnOnePage() {
   }
 
   if (!member) return (
-    <div style={{ background: '#13151C', minHeight: '100%' }} className="p-8 text-sm animate-pulse">
+    <div style={{ background: '#0F1319', minHeight: '100%' }} className="p-8 text-sm animate-pulse">
       <span style={{ color: 'rgba(226,232,240,0.5)' }}>불러오는 중...</span>
     </div>
   )

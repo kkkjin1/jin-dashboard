@@ -253,7 +253,7 @@ export default function MeetingsPage() {
   const pillFilters = ['전체', ...catOrder]
 
   return (
-    <div className="h-full flex flex-col overflow-hidden font-sans" style={{ background: '#13151C', minHeight: '100%' }}>
+    <div className="h-full flex flex-col overflow-hidden font-sans" style={{ background: '#0F1319', minHeight: '100%' }}>
 
       {/* 헤더 */}
       <div className="flex-shrink-0 pt-6 pb-4 flex items-center gap-3 flex-wrap">

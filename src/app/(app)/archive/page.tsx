@@ -84,7 +84,7 @@ export default function ArchivePage() {
   const recentDates = buildRecentDates(30)
 
   return (
-    <div className="flex flex-col h-full min-h-0 py-4 gap-4 font-sans" style={{ background: '#13151C', minHeight: '100%' }}>
+    <div className="flex flex-col h-full min-h-0 py-4 gap-4 font-sans" style={{ background: '#0F1319', minHeight: '100%' }}>
 
       {/* 헤더 */}
       <div className="flex-shrink-0 flex items-center justify-between">

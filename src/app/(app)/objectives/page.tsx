@@ -262,7 +262,7 @@ function ObjectiveBlock({
           <thead>
             <tr>
               <th className="text-left text-[13px] text-[rgba(226,232,240,0.4)] font-normal pb-3 pr-4 w-28 min-w-[112px]"
-                style={{ position: 'sticky', left: 0, background: '#26282E', zIndex: 2, borderRight: '1px solid rgba(255,255,255,0.06)' }}>
+                style={{ position: 'sticky', left: 0, background: '#161B24', zIndex: 2, borderRight: '1px solid rgba(255,255,255,0.06)' }}>
                 안건
               </th>
               {allDates.map(d => (
@@ -440,7 +440,7 @@ function GroupEditOverlay({
   }, [onClose])
 
   return (
-    <div className="fixed inset-0 z-[70] flex flex-col" style={{ background: '#1F2023' }}>
+    <div className="fixed inset-0 z-[70] flex flex-col" style={{ background: '#0F1319' }}>
       {/* 헤더 */}
       <div className="flex-shrink-0 flex items-center gap-3 px-6 py-4"
         style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>

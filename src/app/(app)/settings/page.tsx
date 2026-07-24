@@ -99,7 +99,7 @@ export default function SettingsPage() {
   ]
 
   return (
-    <div className="h-full overflow-y-auto scrollbar-hide" style={{ background: '#13151C', minHeight: '100%' }}>
+    <div className="h-full overflow-y-auto scrollbar-hide" style={{ background: '#0F1319', minHeight: '100%' }}>
     <div className="p-8 max-w-lg">
       <h1 className="text-xl font-bold mb-6" style={{ color: '#E2E8F0' }}>설정</h1>
 

@@ -29,7 +29,7 @@ export default function ProjectPage() {
   const catValue = CAT_VALUE[cat]
 
   return (
-    <div className="flex flex-col h-full min-h-0 pt-4 md:pt-6 px-0" style={{ background: '#13151C', minHeight: '100%' }}>
+    <div className="flex flex-col h-full min-h-0 pt-4 md:pt-6 px-0" style={{ background: '#0F1319', minHeight: '100%' }}>
       {/* 헤더 */}
       <div className="flex-shrink-0 flex items-center gap-3 mb-5 px-4 md:px-6 overflow-x-auto scrollbar-hide">
         <h1 className="text-lg font-bold whitespace-nowrap flex-shrink-0" style={{ color: '#E2E8F0' }}>프로젝트</h1>

@@ -168,7 +168,7 @@ export default function JournalPage() {
   }
 
   if (loading) return (
-    <div style={{ background: '#13151C', minHeight: '100%' }} className="p-6 flex flex-col gap-4">
+    <div style={{ background: '#0F1319', minHeight: '100%' }} className="p-6 flex flex-col gap-4">
       {[1, 2, 3].map(i => (
         <div key={i} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 16 }} className="h-20 animate-pulse" />
       ))}
@@ -176,7 +176,7 @@ export default function JournalPage() {
   )
 
   return (
-    <div style={{ background: '#13151C', minHeight: '100%' }} className="h-full overflow-y-auto p-5 md:p-6 flex flex-col gap-5 font-sans">
+    <div style={{ background: '#0F1319', minHeight: '100%' }} className="h-full overflow-y-auto p-5 md:p-6 flex flex-col gap-5 font-sans">
 
       {/* 헤더 */}
       <div className="flex-shrink-0">
