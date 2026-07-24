@@ -24,13 +24,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* ── 메인 콘텐츠 ── */}
-      <div className="flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden relative z-10">
+      <div className="flex-1 flex flex-col min-h-0 min-w-0 relative z-10">
         {/* 모바일 전용 TopNav */}
         <div className="md:hidden flex-shrink-0">
           <TopNav />
         </div>
 
-        <main className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
+        <main className="flex-1 min-h-0 overflow-y-auto scrollbar-hide px-6 pt-5 pb-3">
           {children}
         </main>
       </div>

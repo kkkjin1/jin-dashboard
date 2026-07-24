@@ -801,7 +801,7 @@ export default function HomePage() {
       {/* ── 데스크톱 ── */}
       <div className="hidden md:flex flex-col h-full overflow-hidden" style={{ background: BG }}>
 
-        <div className="flex-1 min-h-0 flex flex-col overflow-hidden" style={{ padding: '20px 24px 10px' }}>
+        <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
 
           {/* Hero — chips left, search right (aligned to same height) */}
           <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 20, marginBottom: 14, flexShrink: 0 }}>
