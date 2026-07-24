@@ -161,6 +161,16 @@ html, body {
   display: none;
 }
 
+/* ── Dashboard card: CSS-driven hover (no JS state — avoids stuck onMouseLeave) ── */
+.dash-card {
+  transition: background 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+.dash-card:hover {
+  background: #1C1E23 !important;
+  border-color: rgba(255,255,255,0.14) !important;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.38) !important;
+}
+
 /*
   ══════════════════════════════════════════════════════════════
   MATERIAL SYSTEM — permanent design language for the workspace
