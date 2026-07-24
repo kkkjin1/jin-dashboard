@@ -166,7 +166,7 @@ html, body {
   transition: background 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
 }
 .dash-card:hover {
-  background: #1C1E23 !important;
+  background: #1A1F29 !important;
   border-color: rgba(255,255,255,0.14) !important;
   box-shadow: 0 4px 14px rgba(0,0,0,0.38) !important;
 }
@@ -177,8 +177,8 @@ html, body {
   ══════════════════════════════════════════════════════════════
 
   Design token reference:
-    --ws-bg:        #1F2023   workspace background
-    --ws-sidebar:   #1A1B1E   sidebar
+    --ws-bg:        #0F1319   workspace background
+    --ws-sidebar:   #161B24   sidebar
     --ws-surface:   #26282E   cards / panels — 4-6% lighter than bg
     --ws-hover:     #2B2E34   card hover state
     --ws-border:    rgba(255,255,255,.06)    hairline
@@ -200,17 +200,18 @@ html, body {
 
 /* ── Primary floating surface — cards, panels, modals ── */
 .surface-card {
-  background: #26282E;
+  background-color: #161B24;
+  background-image: radial-gradient(ellipse 120% 100% at 50% 0%, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.025) 100%);
   border: none;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 0 0 1px rgba(255, 255, 255, 0.075),
     0 18px 60px rgba(0, 0, 0, 0.15);
 }
 
 /* ── Active / selected navigation item ── */
 .surface-nav-active {
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(76, 127, 224, 0.16);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   box-shadow:
@@ -220,7 +221,7 @@ html, body {
 
 /* ── Input / search fields ── */
 .surface-input {
-  background: #1A1C1F;
+  background: #171B22;
   box-shadow:
     inset 0 1px 0 rgba(0, 0, 0, 0.25),
     0 0 0 1px rgba(255, 255, 255, 0.04);
