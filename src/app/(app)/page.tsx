@@ -22,20 +22,20 @@ type SubTaskWithContext = AgendaSubTask & {
 
 // ── Category Colors (고정) ─────────────────────────────────────────────────
 const CATEGORY_COLOR: Record<string, string> = {
-  '개인': '#38BE98',
-  '코어': '#7BB3F0',
-  '비즈': '#E8A070',
+  '개인': '#83D5B6',
+  '코어': '#9DBEF5',
+  '비즈': '#B0A8E8',
 }
 
 // ── Design Tokens ──────────────────────────────────────────────────────────
-const BG      = '#0F1013'   // neutral near-black, barely any hue
-const CARD    = '#161819'   // neutral dark gray, minimal blue tint
+const BG      = '#0F1319'   // neutral near-black, barely any hue
+const CARD    = '#161B24'   // neutral dark gray, minimal blue tint
 const CHOVER  = '#1C1E23'   // neutral hover
-const DIVIDER = 'rgba(255,255,255,0.07)'
-const TEXT1   = 'rgba(255,255,255,0.93)'
-const TEXT2   = 'rgba(255,255,255,0.56)'
-const TEXT3   = 'rgba(255,255,255,0.30)'
-const ACCENT  = '#5B7EC4'
+const DIVIDER = 'rgba(255,255,255,0.06)'
+const TEXT1   = '#E7EAF0'
+const TEXT2   = '#98A1B2'
+const TEXT3   = '#7B8397'
+const ACCENT  = '#4C7FE0'
 
 // Card base style
 const cardBase = (accent = false): React.CSSProperties => ({
@@ -48,7 +48,7 @@ const cardBase = (accent = false): React.CSSProperties => ({
 // hover is handled by CSS .dash-card:hover in globals.css (avoids stuck onMouseLeave)
 
 // Mobile keeps previous visual
-const SURFACE  = '#26282E'
+const SURFACE  = '#171B22'
 const MSHADOW  =
   'inset 0 1px 0 rgba(255,255,255,0.06), ' +
   '0 0 0 1px rgba(255,255,255,0.06), ' +
