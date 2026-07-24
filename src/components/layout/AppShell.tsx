@@ -12,7 +12,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false)
 
   return (
-    <div className="w-full h-screen overflow-hidden flex relative" style={{ background: '#0B0C0F' }}>
+    <div className="w-full h-screen overflow-hidden flex relative" style={{ background: '#0F1319' }}>
       {/* Ambient Light — neutral white, 2.5%, top-left, 120vw ellipse.
           Users should not consciously notice this. They should only feel depth. */}
       <div className="pointer-events-none absolute inset-0 z-0"
