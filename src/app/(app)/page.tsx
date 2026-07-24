@@ -464,6 +464,8 @@ export default function HomePage() {
   const [now,           setNow]           = useState(new Date())
   const [stCols,        setStCols]        = useState<[number, number, number, number]>([72, 160, 80, 72])
   const [stSort,        setStSort]        = useState<{ col: string; dir: 'asc' | 'desc' } | null>(null)
+  const [stRowH,        setStRowH]        = useState(40)
+  const stScrollRef = useRef<HTMLDivElement>(null)
   const stColsRef = useRef(stCols)
   stColsRef.current = stCols   // always fresh — reads latest value at drag start
   const searchInputRef  = useRef<HTMLInputElement>(null)
@@ -535,6 +537,16 @@ export default function HomePage() {
       }
     } catch {}
   }, [])
+
+  useEffect(() => {
+    const el = stScrollRef.current
+    if (!el) return
+    const update = () => setStRowH(Math.floor(el.clientHeight / 8))
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [subTasks, loading])
 
   function startStColResize(ci: number, startX: number) {
     const startWidths = stColsRef.current.slice() as [number, number, number, number]
@@ -892,16 +904,16 @@ export default function HomePage() {
                   </div>
                 </div>
               )}
-              <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, maskImage: 'linear-gradient(to bottom, black calc(100% - 18px), transparent 100%)', WebkitMaskImage: 'linear-gradient(to bottom, black calc(100% - 18px), transparent 100%)' }} className="scrollbar-hide">
+              <div ref={stScrollRef} style={{ flex: 1, overflowY: 'auto', minHeight: 0 }} className="scrollbar-hide">
                 {loading ? <div>{skel(6)}</div>
                   : subTasks.length === 0
                     ? <EmptyState icon={<Layers size={20} strokeWidth={1.5} />} label="진행 중인 과업이 없습니다." sub="새로운 과업을 시작해보세요." />
                     : sortedSubTasks.map((st, i) => {
                         const gc = st.agenda_items?.agenda_groups?.color ?? '#818CF8'
                         return (
-                          <Link key={st.id} href={`/subtasks/${st.id}`} style={{ textDecoration: 'none', display: 'block' }}>
-                            <ListRow style={rd(i, sortedSubTasks.length)}>
-                              <div style={{ display: 'grid', gridTemplateColumns: `${stCols[0]}px ${stCols[1]}px 1fr ${stCols[2]}px ${stCols[3]}px`, alignItems: 'center', padding: '8px 0' }}>
+                          <Link key={st.id} href={`/subtasks/${st.id}`} style={{ textDecoration: 'none', display: 'block', height: stRowH }}>
+                            <ListRow style={{ ...rd(i, sortedSubTasks.length), height: '100%', display: 'flex', alignItems: 'center' }}>
+                              <div style={{ display: 'grid', gridTemplateColumns: `${stCols[0]}px ${stCols[1]}px 1fr ${stCols[2]}px ${stCols[3]}px`, alignItems: 'center', width: '100%' }}>
                                 {/* 범주: 고정 색상 */}
                                 <div style={{ textAlign: 'center' }}>
                                   {st.agenda_items?.agenda_groups ? (() => {
