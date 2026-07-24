@@ -12,7 +12,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false)
 
   return (
-    <div className="w-full h-screen overflow-hidden flex relative" style={{ background: '#1F2023' }}>
+    <div className="w-full h-screen overflow-hidden flex relative" style={{ background: '#18191D' }}>
       {/* Ambient Light — neutral white, 2.5%, top-left, 120vw ellipse.
           Users should not consciously notice this. They should only feel depth. */}
       <div className="pointer-events-none absolute inset-0 z-0"
@@ -30,7 +30,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <TopNav />
         </div>
 
-        <main className="flex-1 min-h-0 overflow-y-auto scrollbar-hide md:px-8">
+        <main className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
           {children}
         </main>
       </div>

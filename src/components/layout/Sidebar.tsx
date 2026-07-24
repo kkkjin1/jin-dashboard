@@ -83,12 +83,12 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
     router.refresh()
   }
 
-  const sidebarW = collapsed ? 'w-[60px]' : 'w-[220px]'
+  const sidebarW = collapsed ? 'w-[60px]' : 'w-[276px]'
 
   return (
     <aside
       className={`h-screen flex flex-col overflow-hidden transition-[width] duration-200 ease-out flex-shrink-0 ${sidebarW}`}
-      style={{ background: '#1A1B1E', borderRight: '1px solid rgba(255,255,255,0.06)' }}
+      style={{ background: '#191B26', borderRight: '1px solid rgba(255,255,255,0.07)' }}
     >
       {/* ── 헤더 ── */}
       {collapsed ? (
@@ -125,7 +125,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
           <div key={section.label} className={si > 0 ? 'mt-4' : ''}>
             {/* 섹션 라벨 */}
             {!collapsed && (
-              <p className="px-4 mb-1 text-[10px] font-semibold text-[#5B6270] uppercase tracking-wider">
+              <p className="px-4 mb-1 text-[11px] font-semibold text-[#5B6270] uppercase tracking-wider">
                 {section.label}
               </p>
             )}
@@ -140,8 +140,8 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                   <li key={item.href} className="relative group/nav">
                     <Link
                       href={item.href}
-                      className={`flex items-center rounded-xl text-[13px] transition-all duration-200 ease-out ${
-                        collapsed ? 'justify-center py-2.5' : 'gap-2.5 px-3 py-2'
+                      className={`flex items-center rounded-xl text-[15px] transition-all duration-200 ease-out ${
+                        collapsed ? 'justify-center py-2.5' : 'gap-3 px-3 py-2.5'
                       } ${
                         isActive
                           ? 'surface-nav-active text-[#E5E7EB] font-medium'
@@ -150,7 +150,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                       onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)' }}
                       onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
                     >
-                      <item.icon size={15} strokeWidth={isActive ? 2 : 1.75} className="flex-shrink-0" />
+                      <item.icon size={17} strokeWidth={isActive ? 2 : 1.75} className="flex-shrink-0" />
                       {!collapsed && (
                         <>
                           <span className="truncate flex-1">{item.label}</span>

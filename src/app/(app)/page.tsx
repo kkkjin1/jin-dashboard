@@ -125,11 +125,11 @@ function CardSection({
         display: 'flex',
         flexDirection: 'column',
         minHeight: 200,
-        maxHeight: 284,
+        maxHeight: 340,
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexShrink: 0 }}>
-        <h2 style={{ fontSize: 16, fontWeight: 600, color: TEXT1, letterSpacing: '-0.015em' }}>{title}</h2>
+        <h2 style={{ fontSize: 15, fontWeight: 600, color: TEXT1, letterSpacing: '-0.015em' }}>{title}</h2>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {extra}
           {link && (
@@ -147,88 +147,247 @@ function CardSection({
   )
 }
 
-// ── Timeline Component ─────────────────────────────────────────────────────
-const H_START = 9, H_END = 21, H_W = 96
+// ── Timeline constants ─────────────────────────────────────────────────────
+const H_START = 9, H_END = 21
+const TL_CARD_G  = 6
+const TL_MC_BG = ['rgba(79,130,230,0.12)','rgba(139,92,246,0.10)','rgba(52,211,153,0.09)','rgba(251,146,60,0.09)']
+const TL_MC_BD = ['rgba(79,130,230,0.22)','rgba(139,92,246,0.20)','rgba(52,211,153,0.18)','rgba(251,146,60,0.18)']
+const TL_MC_TX = ['rgba(147,197,253,0.92)','rgba(196,181,253,0.92)','rgba(110,231,183,0.92)','rgba(253,186,116,0.92)']
+const TL_TC_BG = ['rgba(52,211,153,0.09)','rgba(251,146,60,0.09)','rgba(79,130,230,0.10)','rgba(139,92,246,0.10)']
+const TL_TC_BD = ['rgba(52,211,153,0.18)','rgba(251,146,60,0.18)','rgba(79,130,230,0.18)','rgba(139,92,246,0.18)']
+const TL_TC_TX = ['rgba(110,231,183,0.92)','rgba(253,186,116,0.92)','rgba(147,197,253,0.92)','rgba(196,181,253,0.92)']
+const TL_TIME_H  = 14
+const TL_LABEL_H = 14
+const TL_LANE_H  = 52
+const TL_SEP     = 10
+const TL_L1_TOP  = TL_TIME_H + TL_LABEL_H
+const TL_L1_BOT  = TL_L1_TOP + TL_LANE_H
+const TL_L2_TOP  = TL_L1_BOT + TL_SEP + TL_LABEL_H
+const TL_L2_BOT  = TL_L2_TOP + TL_LANE_H
+const TL_CARD_H  = TL_TIME_H + TL_L2_BOT + 18
 
-function TimelineRow({ meetings, now }: { meetings: Meeting[]; now: Date }) {
-  const scrollRef = useRef<HTMLDivElement>(null)
-  const hours = Array.from({ length: H_END - H_START + 1 }, (_, i) => H_START + i)
-  const curH  = now.getHours() + now.getMinutes() / 60
-  const inRange = curH >= H_START && curH <= H_END
-  const curX  = Math.max(0, Math.min((H_END - H_START) * H_W, (curH - H_START) * H_W))
+// ── Badge ──────────────────────────────────────────────────────────────────
+function Badge({ emoji, label }: { emoji: string; label: string }) {
+  const [h, setH] = useState(false)
+  return (
+    <div onMouseEnter={() => setH(true)} onMouseLeave={() => setH(false)}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 7,
+        padding: '0 14px', height: 38, borderRadius: 999,
+        background: h ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.04)',
+        border: '1px solid rgba(255,255,255,0.08)',
+        backdropFilter: 'blur(8px)',
+        transition: 'background 180ms ease-out',
+        flexShrink: 0,
+      }}>
+      <span style={{ fontSize: 13, lineHeight: 1 }}>{emoji}</span>
+      <span style={{ fontSize: 12.5, color: TEXT2, fontWeight: 500, whiteSpace: 'nowrap' }}>{label}</span>
+    </div>
+  )
+}
+
+// ── DualLaneTimeline ───────────────────────────────────────────────────────
+function DualLaneTimeline({ meetings, todos, now, onAdd }: {
+  meetings: Meeting[]
+  todos: TodayTodo[]
+  now: Date
+  onAdd: (title: string, startHour: number) => Promise<string | null>
+}) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [cw, setCw] = useState(0)
 
   useEffect(() => {
-    if (scrollRef.current && inRange) scrollRef.current.scrollLeft = Math.max(0, curX - 280)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    if (!containerRef.current) return
+    const ro = new ResizeObserver(([e]) => setCw(e.contentRect.width))
+    ro.observe(containerRef.current)
+    return () => ro.disconnect()
+  }, [])
 
-  // Glass-tinted event color sets (subtle, not loud)
-  const EC = [
-    { bg: 'rgba(79,130,230,0.10)',  bd: 'rgba(79,130,230,0.18)',  tx: 'rgba(147,197,253,0.88)' },
-    { bg: 'rgba(52,211,153,0.08)',  bd: 'rgba(52,211,153,0.16)',  tx: 'rgba(110,231,183,0.88)' },
-    { bg: 'rgba(251,146,60,0.08)',  bd: 'rgba(251,146,60,0.16)',  tx: 'rgba(253,186,116,0.88)' },
-    { bg: 'rgba(167,139,250,0.08)', bd: 'rgba(167,139,250,0.16)', tx: 'rgba(196,181,253,0.88)' },
-  ]
+  const [mPos, setMPos] = useState<Record<string, number>>({})
+  const [mDur, setMDur] = useState<Record<string, number>>({})
+  const [tPos, setTPos] = useState<Record<string, number>>({})
+  const [tDur, setTDur] = useState<Record<string, number>>({})
+
+  const mDragRef   = useRef<{ id: string; startX: number; startHour: number } | null>(null)
+  const mResizeRef = useRef<{ id: string; startX: number; startDur: number } | null>(null)
+  const tDragRef   = useRef<{ id: string; startX: number; startHour: number } | null>(null)
+  const tResizeRef = useRef<{ id: string; startX: number; startDur: number } | null>(null)
+
+  useEffect(() => {
+    try {
+      const mp = localStorage.getItem('home_tl_pos')
+      const md = localStorage.getItem('home_tl_dur')
+      const tp = localStorage.getItem('home_tl_task_pos')
+      const td = localStorage.getItem('home_tl_task_dur')
+      if (mp) setMPos(JSON.parse(mp))
+      if (md) setMDur(JSON.parse(md))
+      if (tp) setTPos(JSON.parse(tp))
+      if (td) setTDur(JSON.parse(td))
+    } catch {}
+  }, [])
+
+  useEffect(() => { try { localStorage.setItem('home_tl_pos', JSON.stringify(mPos)) } catch {} }, [mPos])
+  useEffect(() => { try { localStorage.setItem('home_tl_dur', JSON.stringify(mDur)) } catch {} }, [mDur])
+  useEffect(() => { try { localStorage.setItem('home_tl_task_pos', JSON.stringify(tPos)) } catch {} }, [tPos])
+  useEffect(() => { try { localStorage.setItem('home_tl_task_dur', JSON.stringify(tDur)) } catch {} }, [tDur])
+
+  const hW = cw > 0 ? cw / (H_END - H_START) : 0
+
+  function cardGeom(hour: number, dur: number) {
+    const rawX = Math.max(0, (hour - H_START) * hW)
+    const rawW = Math.min(cw - rawX, Math.max(hW * 0.5, dur * hW))
+    return { x: rawX + TL_CARD_G / 2, w: Math.max(16, rawW - TL_CARD_G) }
+  }
+
+  function onMDragStart(id: string, startX: number) {
+    const startHour = mPos[id] ?? H_START
+    mDragRef.current = { id, startX, startHour }
+    function onMove(e: MouseEvent) {
+      if (!mDragRef.current || hW === 0) return
+      const dur = mDur[id] ?? 1
+      const newH = Math.max(H_START, Math.min(H_END - dur, mDragRef.current.startHour + (e.clientX - mDragRef.current.startX) / hW))
+      setMPos(p => ({ ...p, [id]: newH }))
+    }
+    function onUp() { mDragRef.current = null; window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
+    window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp)
+  }
+
+  function onMResizeStart(id: string, startX: number) {
+    mResizeRef.current = { id, startX, startDur: mDur[id] ?? 1 }
+    function onMove(e: MouseEvent) {
+      if (!mResizeRef.current || hW === 0) return
+      const newD = Math.max(0.25, Math.min(H_END - (mPos[id] ?? H_START), mResizeRef.current.startDur + (e.clientX - mResizeRef.current.startX) / hW))
+      setMDur(p => ({ ...p, [id]: newD }))
+    }
+    function onUp() { mResizeRef.current = null; window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
+    window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp)
+  }
+
+  function onTDragStart(id: string, startX: number) {
+    const startHour = tPos[id] ?? H_START
+    tDragRef.current = { id, startX, startHour }
+    function onMove(e: MouseEvent) {
+      if (!tDragRef.current || hW === 0) return
+      const dur = tDur[id] ?? 1
+      const newH = Math.max(H_START, Math.min(H_END - dur, tDragRef.current.startHour + (e.clientX - tDragRef.current.startX) / hW))
+      setTPos(p => ({ ...p, [id]: newH }))
+    }
+    function onUp() { tDragRef.current = null; window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
+    window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp)
+  }
+
+  function onTResizeStart(id: string, startX: number) {
+    tResizeRef.current = { id, startX, startDur: tDur[id] ?? 1 }
+    function onMove(e: MouseEvent) {
+      if (!tResizeRef.current || hW === 0) return
+      const newD = Math.max(0.25, Math.min(H_END - (tPos[id] ?? H_START), tResizeRef.current.startDur + (e.clientX - tResizeRef.current.startX) / hW))
+      setTDur(p => ({ ...p, [id]: newD }))
+    }
+    function onUp() { tResizeRef.current = null; window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
+    window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp)
+  }
+
+  const curH    = now.getHours() + now.getMinutes() / 60
+  const inRange = curH >= H_START && curH <= H_END
+  const curX    = hW > 0 ? Math.max(0, Math.min(cw, (curH - H_START) * hW)) : 0
+  const hours   = Array.from({ length: H_END - H_START }, (_, i) => H_START + i)
 
   return (
-    <div style={{ ...cardBase(), height: 184, overflow: 'hidden', transition: 'none' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 22px 0' }}>
+    <div style={{ ...cardBase(), marginBottom: 24, overflow: 'hidden', transition: 'none' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 22px 0' }}>
         <span style={{ fontSize: 15, fontWeight: 600, color: TEXT1, letterSpacing: '-0.015em' }}>오늘의 타임라인</span>
         <span style={{ fontSize: 12, color: TEXT3 }}>{format(now, 'M월 d일 (eee)', { locale: ko })}</span>
       </div>
-      <div ref={scrollRef} style={{ overflowX: 'auto', overflowY: 'hidden', height: 140, marginTop: 10, scrollbarWidth: 'none' }}>
-        <div style={{ position: 'relative', width: (H_END - H_START) * H_W + 40, height: '100%', minHeight: 124 }}>
 
-          {/* Hour labels */}
-          {hours.map(h => (
-            <span key={h} style={{ position: 'absolute', left: (h - H_START) * H_W + 4, top: 2, fontSize: 10.5, color: TEXT3, opacity: 0.7, userSelect: 'none', letterSpacing: '0.01em' }}>
-              {h}:00
-            </span>
-          ))}
+      {/* Body — measured for responsive hW */}
+      <div ref={containerRef} style={{ position: 'relative', margin: '10px 22px 18px', height: TL_CARD_H }}>
 
-          {/* Grid lines — very faint */}
-          {hours.map(h => (
-            <div key={h} style={{ position: 'absolute', left: (h - H_START) * H_W, top: 0, bottom: 0, width: 1, background: 'rgba(255,255,255,0.028)' }} />
-          ))}
+        {/* Hour labels */}
+        {hours.map((h, i) => (
+          <span key={h} style={{ position: 'absolute', left: i * hW, top: 0, fontSize: 10, color: TEXT3, opacity: 0.6, userSelect: 'none' }}>
+            {h}:00
+          </span>
+        ))}
 
-          {/* Past overlay */}
-          {inRange && (
-            <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: curX, background: 'rgba(0,0,0,0.16)', pointerEvents: 'none' }} />
-          )}
+        {/* Vertical grid lines */}
+        {cw > 0 && hours.map((_, i) => (
+          <div key={i} style={{ position: 'absolute', left: i * hW, top: TL_TIME_H, bottom: 0, width: 1, background: 'rgba(255,255,255,0.04)', pointerEvents: 'none' }} />
+        ))}
 
-          {/* Meeting events — glass surface */}
-          {meetings.map((m, i) => {
-            const c = EC[i % 4]
-            return (
-              <Link key={m.id} href={`/meetings/${m.id}`}
-                style={{
-                  position: 'absolute', left: 8 + i * 130, top: 24,
-                  width: 118, height: 76,
-                  background: c.bg,
-                  border: `1px solid ${c.bd}`,
-                  backdropFilter: 'blur(8px)',
-                  borderRadius: 11,
-                  padding: '7px 11px',
-                  display: 'flex', flexDirection: 'column', gap: 2,
-                  textDecoration: 'none',
-                  transition: 'opacity 180ms ease-out',
-                }}>
-                <span className="line-clamp-2" style={{ fontSize: 11.5, fontWeight: 500, color: c.tx, lineHeight: 1.4 }}>{m.title}</span>
-                {m.category && <span style={{ fontSize: 10, color: TEXT3, marginTop: 'auto', opacity: 0.8 }}>{m.category}</span>}
-              </Link>
-            )
-          })}
+        {/* Past overlay */}
+        {inRange && cw > 0 && (
+          <div style={{ position: 'absolute', left: 0, top: TL_TIME_H, bottom: 0, width: curX, background: 'rgba(0,0,0,0.12)', pointerEvents: 'none' }} />
+        )}
 
-          {meetings.length === 0 && (
-            <p style={{ position: 'absolute', top: 56, left: 0, right: 40, textAlign: 'center', fontSize: 13, color: TEXT3 }}>오늘 일정 없음</p>
-          )}
+        {/* Current time line */}
+        {inRange && cw > 0 && (
+          <div style={{ position: 'absolute', left: curX, top: TL_TIME_H, bottom: 0, width: 1.5, background: 'rgba(243,178,92,0.55)', pointerEvents: 'none', zIndex: 10 }} />
+        )}
 
-          {/* Current time indicator */}
-          {inRange && <>
-            <div style={{ position: 'absolute', left: curX, top: 0, bottom: 0, width: 1.5, background: '#4F8DFF', opacity: 0.9, zIndex: 10 }} />
-            <div style={{ position: 'absolute', left: curX - 3.5, top: 17, width: 8, height: 8, borderRadius: '50%', background: '#4F8DFF', zIndex: 10 }} />
-          </>}
+        {/* ── Lane 1: 회의 ── */}
+        <span style={{ position: 'absolute', top: TL_L1_TOP - TL_LABEL_H + 2, left: 0, fontSize: 10, fontWeight: 600, color: TEXT3, letterSpacing: '0.06em', textTransform: 'uppercase', opacity: 0.7 }}>
+          회의
+        </span>
+        {meetings.map((m, i) => {
+          const hour = mPos[m.id] ?? (H_START + i * 1.5)
+          const dur  = mDur[m.id] ?? 1
+          const { x, w } = cardGeom(hour, dur)
+          return (
+            <div key={m.id}
+              onMouseDown={e => { e.preventDefault(); onMDragStart(m.id, e.clientX) }}
+              style={{
+                position: 'absolute', left: x, width: w,
+                top: TL_L1_TOP, height: TL_LANE_H,
+                borderRadius: 9, cursor: 'grab',
+                background: TL_MC_BG[i % 4],
+                border: `1px solid ${TL_MC_BD[i % 4]}`,
+                padding: '6px 10px',
+                display: 'flex', alignItems: 'center',
+                overflow: 'hidden', userSelect: 'none',
+              }}>
+              <span style={{ fontSize: 11.5, fontWeight: 500, color: TL_MC_TX[i % 4], overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{m.title}</span>
+              <div onMouseDown={e => { e.stopPropagation(); e.preventDefault(); onMResizeStart(m.id, e.clientX) }}
+                style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 8, cursor: 'ew-resize' }} />
+            </div>
+          )
+        })}
+        {meetings.length === 0 && cw > 0 && (
+          <p style={{ position: 'absolute', top: TL_L1_TOP + TL_LANE_H / 2 - 8, left: 0, right: 0, textAlign: 'center', fontSize: 11.5, color: TEXT3, opacity: 0.5 }}>오늘 회의 없음</p>
+        )}
 
-        </div>
+        {/* Lane separator */}
+        <div style={{ position: 'absolute', top: TL_L1_BOT + TL_SEP / 2, left: 0, right: 0, height: 1, background: 'rgba(255,255,255,0.04)' }} />
+
+        {/* ── Lane 2: 업무 ── */}
+        <span style={{ position: 'absolute', top: TL_L2_TOP - TL_LABEL_H + 2, left: 0, fontSize: 10, fontWeight: 600, color: TEXT3, letterSpacing: '0.06em', textTransform: 'uppercase', opacity: 0.7 }}>
+          업무
+        </span>
+        {todos.map((t, i) => {
+          const hour = tPos[t.id] ?? (H_START + i * 1.5)
+          const dur  = tDur[t.id] ?? 1
+          const { x, w } = cardGeom(hour, dur)
+          return (
+            <div key={t.id}
+              onMouseDown={e => { e.preventDefault(); onTDragStart(t.id, e.clientX) }}
+              style={{
+                position: 'absolute', left: x, width: w,
+                top: TL_L2_TOP, height: TL_LANE_H,
+                borderRadius: 9, cursor: 'grab',
+                background: TL_TC_BG[i % 4],
+                border: `1px solid ${TL_TC_BD[i % 4]}`,
+                padding: '6px 10px',
+                display: 'flex', alignItems: 'center',
+                overflow: 'hidden', userSelect: 'none',
+              }}>
+              <span style={{ fontSize: 11.5, fontWeight: 500, color: TL_TC_TX[i % 4], overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{t.title}</span>
+              <div onMouseDown={e => { e.stopPropagation(); e.preventDefault(); onTResizeStart(t.id, e.clientX) }}
+                style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 8, cursor: 'ew-resize' }} />
+            </div>
+          )
+        })}
+        {todos.length === 0 && cw > 0 && (
+          <p style={{ position: 'absolute', top: TL_L2_TOP + TL_LANE_H / 2 - 8, left: 0, right: 0, textAlign: 'center', fontSize: 11.5, color: TEXT3, opacity: 0.5 }}>오늘 업무 없음</p>
+        )}
       </div>
     </div>
   )
@@ -322,6 +481,16 @@ export default function HomePage() {
 
   function toggleTask(id: string) {
     setDoneTasks(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])
+  }
+
+  async function handleAddMeeting(title: string, startHour: number): Promise<string | null> {
+    const today = todayStr()
+    const { data } = await sb.current.from('meetings').insert({ title, meeting_date: today }).select('id').single()
+    if (data) {
+      setMeetings(p => [...p, { id: data.id, title, meeting_date: today } as Meeting])
+      return data.id
+    }
+    return null
   }
 
   const today          = todayStr()
@@ -482,28 +651,43 @@ export default function HomePage() {
       {/* ── 데스크톱 ── */}
       <div className="hidden md:flex flex-col flex-1 min-h-0">
 
-        {/* Topbar: search only */}
-        <div className="flex-shrink-0 flex items-center justify-center h-12 px-8"
-          style={{ borderBottom: `1px solid rgba(255,255,255,0.04)` }}>
-          <div
-            onClick={() => setSearchOpen(true)}
-            className="flex items-center gap-2.5 px-4 py-2 rounded-xl w-full max-w-[360px] cursor-pointer"
-            style={{ background: '#1c1d21', border: '1px solid rgba(255,255,255,0.05)', transition: 'background 200ms ease-out' }}
-            onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = '#1f2025')}
-            onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = '#1c1d21')}
-          >
-            <Search size={13} style={{ color: TEXT3, opacity: 0.75, flexShrink: 0 }} />
-            <span className="text-[13px] flex-1" style={{ color: TEXT3 }}>검색 (과업, 안건, 회의록 등)</span>
-            <span className="text-[10px] px-1.5 py-0.5 rounded font-mono"
-              style={{ background: 'rgba(255,255,255,0.06)', color: TEXT3 }}>⌘K</span>
-          </div>
-        </div>
-
         {/* Scrollable content */}
-        <div className="flex-1 overflow-y-auto" style={{ padding: '24px 32px 44px' }}>
+        <div className="flex-1 overflow-y-auto" style={{ padding: '28px 32px 44px' }}>
 
-          {/* Row 1: Timeline — first impression, full width */}
-          <TimelineRow meetings={todayMeetings} now={now} />
+          {/* Hero — greeting left, search right */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 32, marginBottom: 28 }}>
+            <div style={{ minWidth: 0 }}>
+              <h1 style={{ fontSize: 22, fontWeight: 700, color: TEXT1, letterSpacing: '-0.02em' }}>안녕하세요, 진일님 👋</h1>
+              <p style={{ fontSize: 14, color: TEXT2, marginTop: 5 }}>오늘도 집중해서 멋진 하루 보내세요.</p>
+              {!loading && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 16 }}>
+                  <Badge emoji="📅" label={`오늘 일정 ${todayMeetings.length}건`} />
+                  <Badge emoji="✅" label={`오늘 업무 ${todayTodos.length}건`} />
+                  <Badge emoji="📂" label={`진행중 과업 ${subTasks.length}건`} />
+                  <Badge emoji="✍" label={todayJournal ? '회고 작성완료' : '회고 미작성'} />
+                </div>
+              )}
+            </div>
+            <div onClick={() => setSearchOpen(true)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '0 16px', height: 42, borderRadius: 14,
+                width: 272, flexShrink: 0, cursor: 'pointer',
+                background: '#1D1F25', border: '1px solid rgba(255,255,255,0.05)',
+                boxShadow: '0 6px 20px rgba(0,0,0,0.18)',
+                transition: 'background 200ms ease-out',
+              }}
+              onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = '#21232A')}
+              onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = '#1D1F25')}
+            >
+              <Search size={13} style={{ color: TEXT3, opacity: 0.75, flexShrink: 0 }} />
+              <span style={{ fontSize: 13, color: TEXT3, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>검색 (과업, 안건, 회의록 등)</span>
+              <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 5, background: 'rgba(255,255,255,0.06)', color: TEXT3, fontFamily: 'monospace', flexShrink: 0 }}>⌘K</span>
+            </div>
+          </div>
+
+          {/* Row 1: Dual-lane timeline — full width */}
+          <DualLaneTimeline meetings={todayMeetings} todos={todayTodos} now={now} onAdd={handleAddMeeting} />
 
           {/* Row 2 — 진행중 과업(accent) · 오늘업무 · 금주업무 */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 24, marginTop: 24 }}>
@@ -592,17 +776,48 @@ export default function HomePage() {
                       icon={<CalendarDays size={20} strokeWidth={1.5} />}
                       label="해당 업무가 없습니다."
                     />
-                  : filteredWeek.map((t, i) => (
-                      <ListRow key={t.id} style={{ ...rd(i, filteredWeek.length) }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0' }}>
-                          <div style={{ width: 5, height: 5, borderRadius: 1.5, background: t.schedule_tag === 'tomorrow' ? '#60A5FA' : '#818CF8', flexShrink: 0, opacity: 0.85 }} />
-                          <span style={{ fontSize: 14, fontWeight: 500, color: TEXT1, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</span>
-                          <span style={{ fontSize: 10.5, padding: '2px 7px', borderRadius: 7, background: t.schedule_tag === 'tomorrow' ? 'rgba(96,165,250,0.1)' : 'rgba(129,140,248,0.1)', color: t.schedule_tag === 'tomorrow' ? 'rgba(147,197,253,0.8)' : 'rgba(165,180,252,0.8)', flexShrink: 0 }}>
-                            {t.schedule_tag === 'tomorrow' ? '내일' : '금주'}
-                          </span>
-                        </div>
-                      </ListRow>
-                    ))
+                  : weekFilter !== 'all'
+                    ? filteredWeek.map((t, i) => (
+                        <ListRow key={t.id} style={{ ...rd(i, filteredWeek.length) }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0' }}>
+                            <div style={{ width: 5, height: 5, borderRadius: 1.5, background: t.schedule_tag === 'tomorrow' ? '#60A5FA' : '#818CF8', flexShrink: 0, opacity: 0.85 }} />
+                            <span style={{ fontSize: 13.5, fontWeight: 500, color: TEXT1, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</span>
+                          </div>
+                        </ListRow>
+                      ))
+                    : (() => {
+                        const tomorrows = filteredWeek.filter(t => t.schedule_tag === 'tomorrow')
+                        const thisWeek  = filteredWeek.filter(t => t.schedule_tag === 'this_week')
+                        function WeekRow({ t, i, len }: { t: TodayTodo; i: number; len: number }) {
+                          return (
+                            <ListRow style={{ ...rd(i, len) }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 10, minHeight: 44 }}>
+                                <div style={{ width: 5, height: 5, borderRadius: 1.5, background: t.schedule_tag === 'tomorrow' ? '#60A5FA' : '#818CF8', flexShrink: 0, opacity: 0.85 }} />
+                                <span style={{ fontSize: 13.5, fontWeight: 500, color: TEXT1, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</span>
+                              </div>
+                            </ListRow>
+                          )
+                        }
+                        return (
+                          <>
+                            {tomorrows.length > 0 && (
+                              <>
+                                <p style={{ fontSize: 10.5, fontWeight: 600, color: TEXT3, letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: 4 }}>내일</p>
+                                {tomorrows.map((t, i) => <WeekRow key={t.id} t={t} i={i} len={tomorrows.length} />)}
+                              </>
+                            )}
+                            {tomorrows.length > 0 && thisWeek.length > 0 && (
+                              <div style={{ borderTop: `1px solid ${DIVIDER}`, margin: '8px 0' }} />
+                            )}
+                            {thisWeek.length > 0 && (
+                              <>
+                                <p style={{ fontSize: 10.5, fontWeight: 600, color: TEXT3, letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: 4 }}>금주</p>
+                                {thisWeek.map((t, i) => <WeekRow key={t.id} t={t} i={i} len={thisWeek.length} />)}
+                              </>
+                            )}
+                          </>
+                        )
+                      })()
               }
             </CardSection>
 
@@ -669,7 +884,7 @@ export default function HomePage() {
                 ...(journalHover ? cardHover() : {}),
                 padding: 24,
                 display: 'flex', flexDirection: 'column',
-                minHeight: 200, maxHeight: 284,
+                minHeight: 200, maxHeight: 340,
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexShrink: 0 }}>
@@ -692,17 +907,18 @@ export default function HomePage() {
                     </p>
                   </button>
                 ) : (
-                  <button onClick={() => setShowJournal(true)}
-                    style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, background: 'none', border: '1px dashed rgba(255,255,255,0.08)', borderRadius: 14, cursor: 'pointer', transition: 'border-color 200ms' }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.14)' }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.08)' }}
->
-                    <NotebookPen size={20} strokeWidth={1.5} style={{ color: TEXT3, opacity: 0.7 }} />
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, height: '100%', padding: '8px 0' }}>
+                    <NotebookPen size={22} strokeWidth={1.5} style={{ color: TEXT3, opacity: 0.6 }} />
                     <div style={{ textAlign: 'center' }}>
-                      <p style={{ fontSize: 13, color: TEXT2, fontWeight: 400 }}>오늘 회고 작성하기</p>
-                      <p style={{ fontSize: 12, color: TEXT3, marginTop: 3 }}>하루를 돌아보며 기록하세요.</p>
+                      <p style={{ fontSize: 13.5, color: TEXT2, fontWeight: 500 }}>아직 오늘 회고가 없어요</p>
+                      <p style={{ fontSize: 12, color: TEXT3, marginTop: 4 }}>하루를 돌아보며 기록해보세요.</p>
                     </div>
-                  </button>
+                    <button onClick={() => setShowJournal(true)}
+                      style={{ marginTop: 4, padding: '8px 20px', borderRadius: 10, background: 'rgba(79,130,230,0.18)', border: '1px solid rgba(79,130,230,0.32)', color: '#93C5FD', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(79,130,230,0.26)' }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(79,130,230,0.18)' }}
+                    >회고 작성하기</button>
+                  </div>
                 )}
               </div>
             </div>
