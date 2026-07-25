@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, parseISO, getDay, addMonths, subMonths, getDaysInMonth } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { useRouter } from 'next/navigation'
@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import { fetchAllTasks, fetchMembers } from '@/lib/tasks'
 import { useUserSetting } from '@/hooks/useUserSetting'
 import type { Task, Member, TaskStatus, Part, Meeting } from '@/types'
+import { CATEGORY_PALETTE, MEETING_CATEGORY, type CategoryColorKey, colorKeyFromName } from '@/lib/categoryColors'
 
 interface MeetingSchedule {
   id: string
@@ -343,15 +344,9 @@ export default function SchedulePage() {
   const nextMonthNav = addMonths(current, 1)
   const analysis = computeAnalysis(analysisPeriod)
 
-  function getMeetingColor(category: string | null | undefined): string {
-    switch (category) {
-      case '코어':   return 'bg-[#BADEC8]/50 text-[rgba(226,232,240,0.9)]'
-      case '비즈':   return 'bg-[#F3E482]/55 text-[rgba(226,232,240,0.9)]'
-      case '경영진': return 'bg-[#90A7D8]/40 text-[rgba(226,232,240,0.9)]'
-      case '본부장': return 'bg-[#EBA698]/40 text-[rgba(226,232,240,0.9)]'
-      case '타팀':   return 'bg-[#BFE4B5]/50 text-[rgba(226,232,240,0.9)]'
-      default:       return 'bg-[#BADEC8]/50 text-[rgba(226,232,240,0.9)]'
-    }
+  function getMeetingStyle(category: string | null | undefined): CSSProperties {
+    const key: CategoryColorKey = MEETING_CATEGORY[category ?? ''] ?? colorKeyFromName(category ?? '기타')
+    return { background: CATEGORY_PALETTE[key].bg, color: 'rgba(226,232,240,0.9)' }
   }
 
   function renderDay(day: Date, isOtherMonth: boolean) {
@@ -396,7 +391,8 @@ export default function SchedulePage() {
               return (
                 <button key={`meeting-${m.id}-${idx}`}
                   onClick={e => { e.stopPropagation(); router.push(`/meetings/${m.id}`) }}
-                  className={`w-full text-left rounded-lg px-1.5 py-0.5 truncate text-[11px] leading-tight hover:opacity-80 font-medium ${getMeetingColor(m.category)}`}
+                  className="w-full text-left rounded-lg px-1.5 py-0.5 truncate text-[11px] leading-tight hover:opacity-80 font-medium"
+                  style={getMeetingStyle(m.category)}
                   title={`회의 | ${m.title}`}>
                   {m.title}
                 </button>

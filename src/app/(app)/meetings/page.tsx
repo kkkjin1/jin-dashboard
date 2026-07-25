@@ -9,25 +9,20 @@ import { format, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import type { Meeting } from '@/types'
 import { generateMeetingsContextMd, downloadMd } from '@/lib/markdown'
+import { CATEGORY_PALETTE, MEETING_CATEGORY, type CategoryColorKey, colorKeyFromName } from '@/lib/categoryColors'
 
 const DEFAULT_CATS = ['코어', '비즈', '개인', '기타']
 
-const CATEGORY_COLORS: Record<string, string> = {
-  '코어':    'bg-[#1A3562]/50 text-[#A8C8F0] border-[#C7D8F0]/30',
-  '비즈':    'bg-[#5A4A10]/50 text-[#F3E482] border-[#F3E482]/30',
-  '경영진':  'bg-[#1E3A6B]/50 text-[#90A7D8] border-[#90A7D8]/30',
-  '본부장':  'bg-[#2D5A35]/50 text-[#BFE4B5] border-[#BFE4B5]/30',
-  '타팀':    'bg-white/[0.08] text-[rgba(226,232,240,0.5)] border-white/[0.1]',
-  '기타':    'bg-white/[0.08] text-[rgba(226,232,240,0.4)] border-white/[0.1]',
+function catKey(cat: string | null | undefined): CategoryColorKey {
+  const name = cat ?? '기타'
+  return MEETING_CATEGORY[name] ?? colorKeyFromName(name)
 }
-
-const CAT_CARD_TOP_COLORS: Record<string, string> = {
-  '코어':    '#A8C0E0',
-  '비즈':    '#F3E482',
-  '경영진':  '#90A7D8',
-  '본부장':  '#BFE4B5',
-  '타팀':    'rgba(255,255,255,0.2)',
-  '기타':    'rgba(255,255,255,0.2)',
+function catStyle(cat: string | null | undefined) {
+  const p = CATEGORY_PALETTE[catKey(cat)]
+  return { background: p.bg, color: p.text, borderColor: p.border }
+}
+function catAccent(cat: string | null | undefined): string {
+  return CATEGORY_PALETTE[catKey(cat)].solid
 }
 
 function formatYM(ym: string): string {
@@ -381,7 +376,7 @@ export default function MeetingsPage() {
                       className="flex items-center gap-2.5 w-full text-left group py-2 mb-3 pb-3"
                       style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                       <span className="text-xs cursor-grab select-none" style={{ color: 'rgba(226,232,240,0.28)' }} title="드래그하여 순서 변경">⠿</span>
-                      <span className={`text-xs font-semibold px-3 py-1 rounded-full border ${CATEGORY_COLORS[cat] ?? 'bg-white/[0.08] text-[rgba(226,232,240,0.4)] border-white/[0.1]'}`}>
+                      <span className="text-xs font-semibold px-3 py-1 rounded-full border" style={catStyle(cat)}>
                         {cat}
                       </span>
                       <span className="text-xs px-2 py-0.5 rounded-full"
@@ -395,7 +390,7 @@ export default function MeetingsPage() {
                   ) : (
                     <div className="flex items-center gap-2.5 py-2 mb-3 pb-3"
                       style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                      <span className={`text-xs font-semibold px-3 py-1 rounded-full border ${CATEGORY_COLORS[cat] ?? 'bg-white/[0.08] text-[rgba(226,232,240,0.4)] border-white/[0.1]'}`}>
+                      <span className="text-xs font-semibold px-3 py-1 rounded-full border" style={catStyle(cat)}>
                         {cat}
                       </span>
                       <span className="text-xs px-2 py-0.5 rounded-full"
@@ -437,7 +432,7 @@ export default function MeetingsPage() {
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8">
                                 {monthItems.map(meeting => {
                                   const meetingTasks = tasksMap[meeting.id] ?? []
-                                  const accentColor = CAT_CARD_TOP_COLORS[meeting.category ?? cat] ?? CAT_CARD_TOP_COLORS['기타']
+                                  const accentColor = catAccent(meeting.category ?? cat)
                                   return (
                                     <div key={meeting.id}
                                       onClick={() => router.push(`/meetings/${meeting.id}`)}
@@ -470,7 +465,8 @@ export default function MeetingsPage() {
                                         <button
                                           data-cat-trigger="true"
                                           onClick={e => openCatEdit(e, meeting.id)}
-                                          className={`text-[9px] px-1.5 py-0.5 rounded-full border font-medium transition-all opacity-0 group-hover/row:opacity-100 ${CATEGORY_COLORS[meeting.category ?? '기타'] ?? CATEGORY_COLORS['기타']}`}>
+                                          className="text-[9px] px-1.5 py-0.5 rounded-full border font-medium transition-all opacity-0 group-hover/row:opacity-100"
+                                          style={catStyle(meeting.category ?? '기타')}>
                                           {meeting.category ?? '분류'}
                                         </button>
                                         <span className="text-[10px]" style={{ color: 'rgba(226,232,240,0.28)' }}>
