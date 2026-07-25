@@ -31,6 +31,14 @@ export const PART_COLOR: Record<string, CategoryColorKey> = {
   '코어': 'teal', '비즈': 'blue', '팀장': 'neutral', '기본': 'neutral',
 };
 
+export const TEAM_COLOR: Record<string, CategoryColorKey> = {
+  '총무': 'blue',
+  '인프라': 'green',
+  '품질관리': 'amber',
+  'CX': 'lilac',
+  '촬영': 'pink',
+};
+
 // 이름 매핑에 없는 값(신규 팀 등)은 문자열 해시로 안정 배정
 export function colorKeyFromName(name: string): CategoryColorKey {
   const keys = Object.keys(CATEGORY_PALETTE) as CategoryColorKey[];
