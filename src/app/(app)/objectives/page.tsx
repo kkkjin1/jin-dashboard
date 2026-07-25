@@ -160,6 +160,79 @@ function SubItemTitle({ si, onSave, onDelete }: {
   )
 }
 
+// ── SubItemRow ─────────────────────────────────────────────
+interface SubItemRowProps {
+  si: ObjSubItem
+  subEntries: ObjSubEntry[]
+  onSaveTitle: (id: string, title: string) => Promise<void>
+  onDeleteItem: (id: string) => Promise<void>
+  onSaveEntry: (subItemId: string, date: string, content: string) => Promise<void>
+  onDeleteEntry: (id: string) => Promise<void>
+}
+function SubItemRow({ si, subEntries, onSaveTitle, onDeleteItem, onSaveEntry, onDeleteEntry }: SubItemRowProps) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [localDates, setLocalDates] = useState<string[]>([])
+  const [addingDate, setAddingDate] = useState(false)
+  const [newDate, setNewDate] = useState(todayStr)
+
+  const siEntries = subEntries.filter(e => e.sub_item_id === si.id)
+  const siDates = [...new Set([...siEntries.map(e => e.entry_date), ...localDates])].sort()
+
+  function confirmDate() {
+    if (!newDate) return
+    setLocalDates(prev => [...new Set([...prev, newDate])])
+    setAddingDate(false)
+    setNewDate(todayStr())
+  }
+
+  return (
+    <div className="border-b border-[rgba(255,255,255,0.04)] last:border-0">
+      {/* 안건 한 줄 */}
+      <div onClick={() => setIsOpen(v => !v)}
+        className="flex items-center gap-2 px-4 py-2 cursor-pointer hover:bg-[rgba(255,255,255,0.02)] transition-colors group/sirow">
+        <span style={{ fontSize: 8, color: '#94A3B8', display: 'inline-block', transition: 'transform .13s', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', flexShrink: 0 }}>&#9654;</span>
+        <span onClick={e => e.stopPropagation()} className="flex-1 min-w-0">
+          <SubItemTitle si={si} onSave={onSaveTitle} onDelete={onDeleteItem} />
+        </span>
+      </div>
+      {/* 펼침: 주차 가로 */}
+      {isOpen && (
+        <div className="flex items-start gap-2 overflow-x-auto px-4 py-2 pb-3" style={{ scrollbarWidth: 'thin' }}>
+          {siDates.map(d => (
+            <div key={d} style={{ minWidth: 200, flexShrink: 0 }}>
+              <div className="text-[11px] text-[rgba(226,232,240,0.4)] pb-1.5 text-center">
+                {formatDate(d)}
+              </div>
+              <SubCell
+                entry={siEntries.find(e => e.entry_date === d)}
+                subItemId={si.id}
+                date={d}
+                onSave={onSaveEntry}
+                onDelete={onDeleteEntry}
+              />
+            </div>
+          ))}
+          <div style={{ flexShrink: 0, paddingTop: 20 }}>
+            {addingDate ? (
+              <div className="flex items-center gap-1">
+                <input type="date" value={newDate} onChange={e => setNewDate(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') confirmDate(); if (e.key === 'Escape') setAddingDate(false) }}
+                  className="text-xs text-[#E5E7EB] border border-[rgba(255,255,255,0.15)] rounded px-1 py-0.5 focus:outline-none bg-[#1A1C1F] w-24" />
+                <button onClick={confirmDate} className="text-[#4C7FE0] text-xs font-medium hover:opacity-70 transition-opacity">확인</button>
+              </div>
+            ) : (
+              <button onClick={() => setAddingDate(true)}
+                className="flex items-center gap-0.5 text-xs text-[rgba(226,232,240,0.3)] hover:text-[rgba(226,232,240,0.5)] transition-colors whitespace-nowrap">
+                <Plus size={9} />날짜
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── ObjectiveBlock ─────────────────────────────────────────
 interface ObjectiveBlockProps {
   obj: ObjObjective
@@ -273,127 +346,168 @@ function ObjectiveBlock({
         </div>
       </div>
 
-      {/* Sub-item table */}
-      {isExpanded && <div className="overflow-x-auto pb-3 px-4" style={{ scrollbarWidth: 'thin' }}>
-        <table className="border-collapse text-[13px]" style={{ minWidth: '100%' }}>
-          {/* Header */}
-          <thead>
-            <tr>
-              <th className="text-left text-[13px] text-[rgba(226,232,240,0.4)] font-normal pb-3 pr-4 w-28 min-w-[112px]"
-                style={{ position: 'sticky', left: 0, background: '#161B24', zIndex: 2, borderRight: '1px solid rgba(255,255,255,0.06)' }}>
-                안건
-              </th>
-              {allDates.map(d => (
-                <th key={d} className="text-[13px] text-[rgba(226,232,240,0.4)] font-normal pb-3 px-2 whitespace-nowrap min-w-[200px] text-center group/datecol">
-                  {editingDate === d ? (
-                    <div className="flex items-center gap-1 justify-center">
-                      <input
-                        type="date"
-                        autoFocus
-                        value={editDateVal}
-                        onChange={e => setEditDateVal(e.target.value)}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter') saveEditDate(d)
-                          if (e.key === 'Escape') setEditingDate(null)
-                        }}
-                        onBlur={() => saveEditDate(d)}
-                        className="text-xs text-[#E5E7EB] border border-[rgba(255,255,255,0.15)] rounded px-1 py-0.5 focus:outline-none bg-[#1A1C1F] w-24"
-                      />
+      {/* Sub-item table (largeCells) / stacked SubItemRows */}
+      {isExpanded && (largeCells ? (
+        <div className="overflow-x-auto pb-3 px-4" style={{ scrollbarWidth: 'thin' }}>
+          <table className="border-collapse text-[13px]" style={{ minWidth: '100%' }}>
+            {/* Header */}
+            <thead>
+              <tr>
+                <th className="text-left text-[13px] text-[rgba(226,232,240,0.4)] font-normal pb-3 pr-4 w-28 min-w-[112px]"
+                  style={{ position: 'sticky', left: 0, background: '#161B24', zIndex: 2, borderRight: '1px solid rgba(255,255,255,0.06)' }}>
+                  안건
+                </th>
+                {allDates.map(d => (
+                  <th key={d} className="text-[13px] text-[rgba(226,232,240,0.4)] font-normal pb-3 px-2 whitespace-nowrap min-w-[200px] text-center group/datecol">
+                    {editingDate === d ? (
+                      <div className="flex items-center gap-1 justify-center">
+                        <input
+                          type="date"
+                          autoFocus
+                          value={editDateVal}
+                          onChange={e => setEditDateVal(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') saveEditDate(d)
+                            if (e.key === 'Escape') setEditingDate(null)
+                          }}
+                          onBlur={() => saveEditDate(d)}
+                          className="text-xs text-[#E5E7EB] border border-[rgba(255,255,255,0.15)] rounded px-1 py-0.5 focus:outline-none bg-[#1A1C1F] w-24"
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1 justify-center">
+                        <button
+                          onClick={() => { setEditingDate(d); setEditDateVal(d) }}
+                          className="hover:text-[rgba(226,232,240,0.7)] transition-colors"
+                        >
+                          {formatDate(d)}
+                        </button>
+                        <button
+                          onClick={() => handleDeleteDate(d)}
+                          className="opacity-0 group-hover/datecol:opacity-100 text-[rgba(226,232,240,0.2)] hover:text-red-400 transition-all p-0.5"
+                        >
+                          <X size={8} />
+                        </button>
+                      </div>
+                    )}
+                  </th>
+                ))}
+                <th className="pb-2.5 pl-2 min-w-[80px]">
+                  {addingDate ? (
+                    <div className="flex items-center gap-1">
+                      <input type="date" value={newDate} onChange={e => setNewDate(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') confirmDate(); if (e.key === 'Escape') setAddingDate(false) }}
+                        className="text-xs text-[#E5E7EB] border border-[rgba(255,255,255,0.15)] rounded px-1 py-0.5 focus:outline-none bg-[#1A1C1F] w-24" />
+                      <button onClick={confirmDate} className="text-[#4C7FE0] text-xs font-medium hover:opacity-70 transition-opacity">확인</button>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-1 justify-center">
-                      <button
-                        onClick={() => { setEditingDate(d); setEditDateVal(d) }}
-                        className="hover:text-[rgba(226,232,240,0.7)] transition-colors"
-                      >
-                        {formatDate(d)}
-                      </button>
-                      <button
-                        onClick={() => handleDeleteDate(d)}
-                        className="opacity-0 group-hover/datecol:opacity-100 text-[rgba(226,232,240,0.2)] hover:text-red-400 transition-all p-0.5"
-                      >
-                        <X size={8} />
-                      </button>
-                    </div>
+                    <button onClick={() => setAddingDate(true)}
+                      className="flex items-center gap-0.5 text-xs text-[rgba(226,232,240,0.3)] hover:text-[rgba(226,232,240,0.5)] transition-colors whitespace-nowrap">
+                      <Plus size={9} />날짜
+                    </button>
                   )}
                 </th>
-              ))}
-              <th className="pb-2.5 pl-2 min-w-[80px]">
-                {addingDate ? (
-                  <div className="flex items-center gap-1">
-                    <input type="date" value={newDate} onChange={e => setNewDate(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter') confirmDate(); if (e.key === 'Escape') setAddingDate(false) }}
-                      className="text-xs text-[#E5E7EB] border border-[rgba(255,255,255,0.15)] rounded px-1 py-0.5 focus:outline-none bg-[#1A1C1F] w-24" />
-                    <button onClick={confirmDate} className="text-[#4C7FE0] text-xs font-medium hover:opacity-70 transition-opacity">확인</button>
-                  </div>
-                ) : (
-                  <button onClick={() => setAddingDate(true)}
-                    className="flex items-center gap-0.5 text-xs text-[rgba(226,232,240,0.3)] hover:text-[rgba(226,232,240,0.5)] transition-colors whitespace-nowrap">
-                    <Plus size={9} />날짜
-                  </button>
-                )}
-              </th>
-            </tr>
-          </thead>
-
-          {/* Rows */}
-          <tbody>
-            {subItems.map(si => (
-              <tr key={si.id} className="group/si">
-                {/* Sub-item title — sticky */}
-                <td className="pr-4 py-1.5 align-top w-28 min-w-[112px]"
-                  style={{ position: 'sticky', left: 0, background: '#161B24', zIndex: 1 }}>
-                  <SubItemTitle si={si} onSave={onSaveSubItemTitle} onDelete={onDeleteSubItem} />
-                </td>
-
-                {/* Entry cells */}
-                {allDates.map(d => (
-                  <td key={d} className="px-2 py-1.5 align-top min-w-[200px]">
-                    <SubCell
-                      entry={subEntries.find(e => e.sub_item_id === si.id && e.entry_date === d)}
-                      subItemId={si.id}
-                      date={d}
-                      onSave={onSaveSubEntry}
-                      onDelete={onDeleteSubEntry}
-                      large={largeCells}
-                    />
-                  </td>
-                ))}
-                <td />
               </tr>
-            ))}
+            </thead>
 
-            {/* Add sub-item row */}
-            <tr>
-              <td className="pt-1.5 pb-1.5" style={{ position: 'sticky', left: 0, background: '#161B24', zIndex: 1 }}>
-                {addingItem ? (
-                  <div className="flex items-center gap-1">
-                    <input
-                      autoFocus value={newItemTitle}
-                      onChange={e => setNewItemTitle(e.target.value)}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter' && !e.nativeEvent.isComposing) submitItem()
-                        if (e.key === 'Escape') { setAddingItem(false); setNewItemTitle('') }
-                      }}
-                      placeholder="안건 입력"
-                      className="text-[13px] text-[#E5E7EB] placeholder:text-[#5B6270] border-b border-[rgba(255,255,255,0.2)] focus:outline-none bg-transparent w-28"
-                    />
-                    <button onClick={submitItem}
-                      className="text-xs text-[#4C7FE0] font-medium hover:opacity-70 transition-opacity">확인</button>
-                    <button onClick={() => { setAddingItem(false); setNewItemTitle('') }}
-                      className="text-xs text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)] transition-colors">취소</button>
-                  </div>
-                ) : (
-                  <button onClick={() => setAddingItem(true)}
-                    className="flex items-center gap-1 text-xs text-[rgba(226,232,240,0.3)] hover:text-[rgba(226,232,240,0.6)] border border-dashed border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] hover:bg-[rgba(255,255,255,0.04)] px-2.5 py-1 rounded-lg transition-all">
-                    <Plus size={9} />안건 추가
-                  </button>
-                )}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>}
+            {/* Rows */}
+            <tbody>
+              {subItems.map(si => (
+                <tr key={si.id} className="group/si">
+                  {/* Sub-item title — sticky */}
+                  <td className="pr-4 py-1.5 align-top w-28 min-w-[112px]"
+                    style={{ position: 'sticky', left: 0, background: '#161B24', zIndex: 1 }}>
+                    <SubItemTitle si={si} onSave={onSaveSubItemTitle} onDelete={onDeleteSubItem} />
+                  </td>
+
+                  {/* Entry cells */}
+                  {allDates.map(d => (
+                    <td key={d} className="px-2 py-1.5 align-top min-w-[200px]">
+                      <SubCell
+                        entry={subEntries.find(e => e.sub_item_id === si.id && e.entry_date === d)}
+                        subItemId={si.id}
+                        date={d}
+                        onSave={onSaveSubEntry}
+                        onDelete={onDeleteSubEntry}
+                        large={largeCells}
+                      />
+                    </td>
+                  ))}
+                  <td />
+                </tr>
+              ))}
+
+              {/* Add sub-item row */}
+              <tr>
+                <td className="pt-1.5 pb-1.5" style={{ position: 'sticky', left: 0, background: '#161B24', zIndex: 1 }}>
+                  {addingItem ? (
+                    <div className="flex items-center gap-1">
+                      <input
+                        autoFocus value={newItemTitle}
+                        onChange={e => setNewItemTitle(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' && !e.nativeEvent.isComposing) submitItem()
+                          if (e.key === 'Escape') { setAddingItem(false); setNewItemTitle('') }
+                        }}
+                        placeholder="안건 입력"
+                        className="text-[13px] text-[#E5E7EB] placeholder:text-[#5B6270] border-b border-[rgba(255,255,255,0.2)] focus:outline-none bg-transparent w-28"
+                      />
+                      <button onClick={submitItem}
+                        className="text-xs text-[#4C7FE0] font-medium hover:opacity-70 transition-opacity">확인</button>
+                      <button onClick={() => { setAddingItem(false); setNewItemTitle('') }}
+                        className="text-xs text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)] transition-colors">취소</button>
+                    </div>
+                  ) : (
+                    <button onClick={() => setAddingItem(true)}
+                      className="flex items-center gap-1 text-xs text-[rgba(226,232,240,0.3)] hover:text-[rgba(226,232,240,0.6)] border border-dashed border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] hover:bg-[rgba(255,255,255,0.04)] px-2.5 py-1 rounded-lg transition-all">
+                      <Plus size={9} />안건 추가
+                    </button>
+                  )}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="pb-2">
+          {subItems.map(si => (
+            <SubItemRow
+              key={si.id}
+              si={si}
+              subEntries={subEntries}
+              onSaveTitle={onSaveSubItemTitle}
+              onDeleteItem={onDeleteSubItem}
+              onSaveEntry={onSaveSubEntry}
+              onDeleteEntry={onDeleteSubEntry}
+            />
+          ))}
+          <div className="px-4 py-2">
+            {addingItem ? (
+              <div className="flex items-center gap-1">
+                <input
+                  autoFocus value={newItemTitle}
+                  onChange={e => setNewItemTitle(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && !e.nativeEvent.isComposing) submitItem()
+                    if (e.key === 'Escape') { setAddingItem(false); setNewItemTitle('') }
+                  }}
+                  placeholder="안건 입력"
+                  className="text-[13px] text-[#E5E7EB] placeholder:text-[#5B6270] border-b border-[rgba(255,255,255,0.2)] focus:outline-none bg-transparent w-28"
+                />
+                <button onClick={submitItem}
+                  className="text-xs text-[#4C7FE0] font-medium hover:opacity-70 transition-opacity">확인</button>
+                <button onClick={() => { setAddingItem(false); setNewItemTitle('') }}
+                  className="text-xs text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)] transition-colors">취소</button>
+              </div>
+            ) : (
+              <button onClick={() => setAddingItem(true)}
+                className="flex items-center gap-1 text-xs text-[rgba(226,232,240,0.3)] hover:text-[rgba(226,232,240,0.6)] border border-dashed border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] hover:bg-[rgba(255,255,255,0.04)] px-2.5 py-1 rounded-lg transition-all">
+                <Plus size={9} />안건 추가
+              </button>
+            )}
+          </div>
+        </div>
+      ))}
     </div>
   )
 }
