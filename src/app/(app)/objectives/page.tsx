@@ -185,6 +185,7 @@ function ObjectiveBlock({
   onRenameDate, onDeleteDate,
   largeCells,
 }: ObjectiveBlockProps) {
+  const [isExpanded, setIsExpanded] = useState(false)
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleVal, setTitleVal] = useState(obj.title)
   const [addingItem, setAddingItem] = useState(false)
@@ -245,11 +246,14 @@ function ObjectiveBlock({
   return (
     <div className="border-b border-[rgba(255,255,255,0.04)] last:border-0">
       {/* Objective title row */}
-      <div className="flex items-center gap-2 px-4 py-3 group/obj">
+      <div onClick={() => setIsExpanded(v => !v)}
+        className="flex items-center gap-2 px-4 py-3 group/obj cursor-pointer hover:bg-[rgba(255,255,255,0.02)] transition-colors">
+        <span style={{ fontSize: 8, color: '#94A3B8', display: 'inline-block', transition: 'transform .13s', transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)', flexShrink: 0 }}>&#9654;</span>
         <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
         {editingTitle ? (
           <input
             autoFocus value={titleVal}
+            onClick={e => e.stopPropagation()}
             onChange={e => setTitleVal(e.target.value)}
             onKeyDown={e => {
               if (e.key === 'Enter' && !e.nativeEvent.isComposing) saveTitle()
@@ -261,7 +265,7 @@ function ObjectiveBlock({
         ) : (
           <span className="text-[14px] font-medium text-[rgba(226,232,240,0.8)]">{obj.title}</span>
         )}
-        <div className="flex items-center gap-0.5 opacity-0 group-hover/obj:opacity-100 transition-opacity ml-1">
+        <div className="flex items-center gap-0.5 opacity-0 group-hover/obj:opacity-100 transition-opacity ml-1" onClick={e => e.stopPropagation()}>
           <button onClick={() => { setEditingTitle(true); setTitleVal(obj.title) }}
             className="text-[rgba(226,232,240,0.3)] hover:text-[rgba(226,232,240,0.5)] p-0.5 transition-colors"><Pencil size={9} /></button>
           <button onClick={() => onDeleteObj(obj.id)}
@@ -270,7 +274,7 @@ function ObjectiveBlock({
       </div>
 
       {/* Sub-item table */}
-      <div className="overflow-x-auto pb-3 px-4" style={{ scrollbarWidth: 'thin' }}>
+      {isExpanded && <div className="overflow-x-auto pb-3 px-4" style={{ scrollbarWidth: 'thin' }}>
         <table className="border-collapse text-[13px]" style={{ minWidth: '100%' }}>
           {/* Header */}
           <thead>
@@ -389,7 +393,7 @@ function ObjectiveBlock({
             </tr>
           </tbody>
         </table>
-      </div>
+      </div>}
     </div>
   )
 }
@@ -578,7 +582,7 @@ export default function ObjectivesPage() {
     setObjectives(objs)
     setSubItems(sis)
     setSubEntries(ses)
-    setExpandedGroups(new Set(grps.map(x => x.id)))
+    setExpandedGroups(new Set())
     setLoading(false)
   }
 
