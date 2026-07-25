@@ -269,7 +269,7 @@ function ObjectiveBlock({
           <thead>
             <tr>
               <th className="text-left text-[13px] text-[rgba(226,232,240,0.4)] font-normal pb-3 pr-4 w-28 min-w-[112px]"
-                style={{ position: 'sticky', left: 0, background: '#161B24', zIndex: 2, borderRight: '1px solid rgba(255,255,255,0.06)' }}>
+                style={{ position: 'sticky', left: 0, background: '#1A2028', zIndex: 2, borderRight: '1px solid rgba(255,255,255,0.06)' }}>
                 안건
               </th>
               {allDates.map(d => (
@@ -330,14 +330,14 @@ function ObjectiveBlock({
             {subItems.map(si => (
               <tr key={si.id} className="group/si">
                 {/* Sub-item title — sticky */}
-                <td className="pr-4 py-3 align-top w-28 min-w-[112px]"
-                  style={{ position: 'sticky', left: 0, background: '#26282E', zIndex: 1 }}>
+                <td className="pr-4 py-1.5 align-top w-28 min-w-[112px]"
+                  style={{ position: 'sticky', left: 0, background: '#1A2028', zIndex: 1 }}>
                   <SubItemTitle si={si} onSave={onSaveSubItemTitle} onDelete={onDeleteSubItem} />
                 </td>
 
                 {/* Entry cells */}
                 {allDates.map(d => (
-                  <td key={d} className="px-2 py-3 align-top min-w-[200px]">
+                  <td key={d} className="px-2 py-1.5 align-top min-w-[200px]">
                     <SubCell
                       entry={subEntries.find(e => e.sub_item_id === si.id && e.entry_date === d)}
                       subItemId={si.id}
@@ -354,7 +354,7 @@ function ObjectiveBlock({
 
             {/* Add sub-item row */}
             <tr>
-              <td className="pt-3 pb-2" style={{ position: 'sticky', left: 0, background: '#26282E', zIndex: 1 }}>
+              <td className="pt-1.5 pb-1.5" style={{ position: 'sticky', left: 0, background: '#1A2028', zIndex: 1 }}>
                 {addingItem ? (
                   <div className="flex items-center gap-1">
                     <input
