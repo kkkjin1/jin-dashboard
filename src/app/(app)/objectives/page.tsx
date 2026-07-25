@@ -183,6 +183,92 @@ function SubItemTitle({ si, onSave, onDelete }: {
   )
 }
 
+// ── SubItemCard ────────────────────────────────────────────
+interface SubItemCardProps {
+  si: ObjSubItem
+  siEntries: ObjSubEntry[]
+  largeCells?: boolean
+  onSaveTitle: (id: string, title: string) => Promise<void>
+  onDeleteItem: (id: string) => Promise<void>
+  onSaveEntry: (subItemId: string, date: string, content: string) => Promise<void>
+  onDeleteEntry: (id: string) => Promise<void>
+}
+function SubItemCard({ si, siEntries, largeCells, onSaveTitle, onDeleteItem, onSaveEntry, onDeleteEntry }: SubItemCardProps) {
+  const [showHistory, setShowHistory] = useState(false)
+  const [addingToday, setAddingToday] = useState(false)
+  const [weekStart, weekEnd] = getThisWeekRange()
+
+  const latest = siEntries[0] as ObjSubEntry | undefined
+  const older = siEntries.slice(1)
+  const todayEntry = siEntries.find(e => e.entry_date === todayStr())
+
+  return (
+    <div className="bg-[rgba(255,255,255,0.025)] border border-[rgba(255,255,255,0.06)] rounded-[13px] px-4 py-3.5 w-full">
+      <SubItemTitle si={si} onSave={onSaveTitle} onDelete={onDeleteItem} />
+
+      {addingToday ? (
+        <div className="mt-3 w-full">
+          <SubCell
+            entry={todayEntry}
+            subItemId={si.id}
+            date={todayStr()}
+            onSave={async (sid, date, content) => { await onSaveEntry(sid, date, content); setAddingToday(false) }}
+            onDelete={async (id) => { await onDeleteEntry(id); setAddingToday(false) }}
+            large={largeCells}
+            isThisWeek={!largeCells}
+          />
+        </div>
+      ) : latest ? (
+        <>
+          <div className="mt-3 w-full">
+            <SubCell
+              entry={latest}
+              subItemId={si.id}
+              date={latest.entry_date}
+              onSave={onSaveEntry}
+              onDelete={onDeleteEntry}
+              large={largeCells}
+              isThisWeek={!largeCells && latest.entry_date >= weekStart && latest.entry_date <= weekEnd}
+            />
+          </div>
+          {latest.entry_date !== todayStr() && (
+            <button onClick={() => setAddingToday(true)}
+              className="mt-2 flex items-center gap-1 text-[11px] text-[rgba(226,232,240,0.3)] hover:text-[rgba(226,232,240,0.6)] transition-colors">
+              <Plus size={9} />오늘 업데이트 추가
+            </button>
+          )}
+        </>
+      ) : (
+        <button onClick={() => setAddingToday(true)}
+          className="mt-3 flex items-center gap-1.5 justify-center text-xs text-[rgba(226,232,240,0.35)] hover:text-[rgba(226,232,240,0.6)] border border-dashed border-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.16)] px-3 py-2 rounded-lg w-full transition-all">
+          <Plus size={10} />업데이트 추가
+        </button>
+      )}
+
+      {older.length > 0 && (
+        <div className="mt-2.5">
+          <button onClick={() => setShowHistory(v => !v)}
+            className="text-[11px] text-[rgba(226,232,240,0.3)] hover:text-[rgba(226,232,240,0.55)] transition-colors flex items-center gap-1">
+            <span style={{ fontSize: 7 }}>{showHistory ? '▲' : '▼'}</span>이전 기록 {older.length}건
+          </button>
+          {showHistory && (
+            <div className="mt-2 flex flex-col">
+              <span className="text-[11px] text-[#7B8397] mb-1">이전 기록 {older.length}건</span>
+              {older.map((e, i) => (
+                <div key={e.id}>
+                  {i > 0 && <div className="border-t border-[rgba(255,255,255,0.06)] my-2" />}
+                  <div className="text-[11px] text-[#7B8397] mb-1">{formatDate(e.entry_date)}</div>
+                  <MarkdownContent content={e.content} dark />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── ObjectiveBlock ─────────────────────────────────────────
 interface ObjectiveBlockProps {
   obj: ObjObjective
@@ -196,8 +282,8 @@ interface ObjectiveBlockProps {
   onDeleteSubItem: (id: string) => Promise<void>
   onSaveSubEntry: (subItemId: string, date: string, content: string) => Promise<void>
   onDeleteSubEntry: (id: string) => Promise<void>
-  onRenameDate: (oldDate: string, newDate: string) => Promise<void>
-  onDeleteDate: (date: string) => Promise<void>
+  onRenameDate?: (oldDate: string, newDate: string) => Promise<void>
+  onDeleteDate?: (date: string) => Promise<void>
   largeCells?: boolean
 }
 function ObjectiveBlock({
@@ -205,7 +291,6 @@ function ObjectiveBlock({
   onDeleteObj, onSaveObjTitle,
   onAddSubItem, onSaveSubItemTitle, onDeleteSubItem,
   onSaveSubEntry, onDeleteSubEntry,
-  onRenameDate, onDeleteDate,
   largeCells,
 }: ObjectiveBlockProps) {
   const [isExpanded, setIsExpanded] = useState(false)
@@ -214,18 +299,6 @@ function ObjectiveBlock({
   const [addingItem, setAddingItem] = useState(false)
   const winFocused = useWindowFocused()
   const [newItemTitle, setNewItemTitle] = useState('')
-  const [addingDate, setAddingDate] = useState(false)
-  const [newDate, setNewDate] = useState(todayStr)
-  const [localDates, setLocalDates] = useState<string[]>([])
-  const [editingDate, setEditingDate] = useState<string | null>(null)
-  const [editDateVal, setEditDateVal] = useState('')
-
-  const entryDates = subEntries.map(e => e.entry_date)
-  const rawDates = [...new Set([...entryDates, ...localDates])]
-  const allDates = (rawDates.length > 0 ? rawDates : [todayStr()]).sort()
-
-  const [weekStart, weekEnd] = getThisWeekRange()
-  const STICKY_BG = '#161B24'
 
   async function saveTitle() {
     const t = titleVal.trim()
@@ -240,32 +313,6 @@ function ObjectiveBlock({
     await onAddSubItem(obj.id, t)
     setNewItemTitle('')
     setAddingItem(false)
-  }
-
-  function confirmDate() {
-    if (!newDate) return
-    setLocalDates(prev => [...new Set([...prev, newDate])])
-    setAddingDate(false)
-    setNewDate(todayStr())
-  }
-
-  async function saveEditDate(oldDate: string) {
-    const nd = editDateVal.trim()
-    setEditingDate(null)
-    if (!nd || nd === oldDate) return
-    if (localDates.includes(oldDate)) {
-      setLocalDates(prev => prev.map(d => d === oldDate ? nd : d))
-    }
-    await onRenameDate(oldDate, nd)
-  }
-
-  async function handleDeleteDate(date: string) {
-    if (localDates.includes(date) && !entryDates.includes(date)) {
-      setLocalDates(prev => prev.filter(d => d !== date))
-      return
-    }
-    await onDeleteDate(date)
-    setLocalDates(prev => prev.filter(d => d !== date))
   }
 
   return (
@@ -298,110 +345,48 @@ function ObjectiveBlock({
         </div>
       </div>
 
-      {/* Sub-item table */}
-      {isExpanded && <div className="overflow-x-auto mt-4 pb-2" style={{ scrollbarWidth: 'thin' }}>
-        <table className="border-collapse text-[13px]" style={{ minWidth: '100%' }}>
-          {/* Header */}
-          <thead>
-            <tr>
-              <th className="text-left text-[11px] text-[rgba(226,232,240,0.35)] font-normal pb-3 pl-6 pr-4 min-w-[160px]"
-                style={{ position: 'sticky', left: 0, background: STICKY_BG, zIndex: 2 }}>
-                안건
-              </th>
-              {allDates.map(d => (
-                <th key={d} className="text-[12px] text-[rgba(226,232,240,0.4)] font-normal pb-3 px-2.5 whitespace-nowrap min-w-[230px] text-left group/datecol">
-                  {editingDate === d ? (
-                    <input
-                      type="date" autoFocus value={editDateVal}
-                      onChange={e => setEditDateVal(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter') saveEditDate(d); if (e.key === 'Escape') setEditingDate(null) }}
-                      onBlur={() => saveEditDate(d)}
-                      className="text-xs text-[#E5E7EB] border border-[rgba(255,255,255,0.15)] rounded px-1 py-0.5 focus:outline-none bg-[#1A1C1F] w-24"
-                    />
-                  ) : (
-                    <div className="flex items-center gap-1.5">
-                      <button onClick={() => { setEditingDate(d); setEditDateVal(d) }}
-                        className="hover:text-[rgba(226,232,240,0.7)] transition-colors">{formatDate(d)}</button>
-                      <button onClick={() => handleDeleteDate(d)}
-                        className="opacity-0 group-hover/datecol:opacity-100 text-[rgba(226,232,240,0.2)] hover:text-red-400 transition-all p-0.5"><X size={8} /></button>
-                    </div>
-                  )}
-                </th>
-              ))}
-              <th className="pb-3 pl-2 min-w-[80px]">
-                {addingDate ? (
-                  <div className="flex items-center gap-1">
-                    <input type="date" value={newDate} onChange={e => setNewDate(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter') confirmDate(); if (e.key === 'Escape') setAddingDate(false) }}
-                      className="text-xs text-[#E5E7EB] border border-[rgba(255,255,255,0.15)] rounded px-1 py-0.5 focus:outline-none bg-[#1A1C1F] w-24" />
-                    <button onClick={confirmDate} className="text-[#4C7FE0] text-xs font-medium hover:opacity-70 transition-opacity">확인</button>
-                  </div>
-                ) : (
-                  <button onClick={() => setAddingDate(true)}
-                    className="flex items-center gap-0.5 text-xs text-[rgba(226,232,240,0.3)] hover:text-[rgba(226,232,240,0.5)] transition-colors whitespace-nowrap">
-                    <Plus size={9} />날짜
-                  </button>
-                )}
-              </th>
-            </tr>
-          </thead>
+      {/* 안건 카드 리스트 */}
+      {isExpanded && (
+        <div className="flex flex-col gap-3 mt-4 pb-2">
+          {subItems.map(si => (
+            <SubItemCard
+              key={si.id}
+              si={si}
+              siEntries={subEntries.filter(e => e.sub_item_id === si.id)}
+              largeCells={largeCells}
+              onSaveTitle={onSaveSubItemTitle}
+              onDeleteItem={onDeleteSubItem}
+              onSaveEntry={onSaveSubEntry}
+              onDeleteEntry={onDeleteSubEntry}
+            />
+          ))}
 
-          {/* Rows */}
-          <tbody>
-            {subItems.map(si => (
-              <tr key={si.id} className="group/si">
-                <td className="pl-6 pr-4 py-2.5 align-top min-w-[160px]"
-                  style={{ position: 'sticky', left: 0, background: STICKY_BG, zIndex: 1 }}>
-                  <SubItemTitle si={si} onSave={onSaveSubItemTitle} onDelete={onDeleteSubItem} />
-                </td>
-                {allDates.map(d => (
-                  <td key={d} className="px-2.5 py-2.5 align-top">
-                    <SubCell
-                      entry={subEntries.find(e => e.sub_item_id === si.id && e.entry_date === d)}
-                      subItemId={si.id}
-                      date={d}
-                      onSave={onSaveSubEntry}
-                      onDelete={onDeleteSubEntry}
-                      large={largeCells}
-                      isThisWeek={!largeCells && d >= weekStart && d <= weekEnd}
-                    />
-                  </td>
-                ))}
-                <td />
-              </tr>
-            ))}
-
-            {/* Add sub-item row */}
-            <tr>
-              <td className="pl-6 pr-4 pt-2 pb-1" style={{ position: 'sticky', left: 0, background: STICKY_BG, zIndex: 1 }}>
-                {addingItem ? (
-                  <div className="flex items-center gap-1">
-                    <input
-                      autoFocus value={newItemTitle}
-                      onChange={e => setNewItemTitle(e.target.value)}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter' && !e.nativeEvent.isComposing) submitItem()
-                        if (e.key === 'Escape') { setAddingItem(false); setNewItemTitle('') }
-                      }}
-                      placeholder="안건 입력"
-                      className="text-[13px] text-[#E5E7EB] placeholder:text-[#5B6270] border-b border-[rgba(255,255,255,0.2)] focus:outline-none bg-transparent w-28"
-                    />
-                    <button onClick={submitItem}
-                      className="text-xs text-[#4C7FE0] font-medium hover:opacity-70 transition-opacity">확인</button>
-                    <button onClick={() => { setAddingItem(false); setNewItemTitle('') }}
-                      className="text-xs text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)] transition-colors">취소</button>
-                  </div>
-                ) : (
-                  <button onClick={() => setAddingItem(true)}
-                    className="flex items-center gap-1 text-xs text-[rgba(226,232,240,0.3)] hover:text-[rgba(226,232,240,0.6)] border border-dashed border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] hover:bg-[rgba(255,255,255,0.04)] px-2.5 py-1 rounded-lg transition-all">
-                    <Plus size={9} />안건 추가
-                  </button>
-                )}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>}
+          {/* 안건 추가 */}
+          {addingItem ? (
+            <div className="flex items-center gap-1.5 px-1">
+              <input
+                autoFocus value={newItemTitle}
+                onChange={e => setNewItemTitle(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && !e.nativeEvent.isComposing) submitItem()
+                  if (e.key === 'Escape') { setAddingItem(false); setNewItemTitle('') }
+                }}
+                placeholder="안건 입력"
+                className="text-[13px] text-[#E5E7EB] placeholder:text-[#5B6270] border-b border-[rgba(255,255,255,0.2)] focus:outline-none bg-transparent w-36"
+              />
+              <button onClick={submitItem}
+                className="text-xs text-[#4C7FE0] font-medium hover:opacity-70 transition-opacity">확인</button>
+              <button onClick={() => { setAddingItem(false); setNewItemTitle('') }}
+                className="text-xs text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)] transition-colors">취소</button>
+            </div>
+          ) : (
+            <button onClick={() => setAddingItem(true)}
+              className="flex items-center gap-1 text-xs text-[rgba(226,232,240,0.3)] hover:text-[rgba(226,232,240,0.6)] border border-dashed border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] hover:bg-[rgba(255,255,255,0.04)] px-2.5 py-1.5 rounded-lg transition-all w-fit">
+              <Plus size={9} />안건 추가
+            </button>
+          )}
+        </div>
+      )}
     </div>
   )
 }
