@@ -21,6 +21,13 @@ function teamDotColor(name: string): string {
   const key = TEAM_COLOR[name] ?? colorKeyFromName(name)
   return CATEGORY_PALETTE[key].solid
 }
+function teamHeaderBg(name: string): string {
+  const hex = teamDotColor(name)
+  const r = parseInt(hex.slice(1, 3), 16)
+  const g = parseInt(hex.slice(3, 5), 16)
+  const b = parseInt(hex.slice(5, 7), 16)
+  return `rgba(${r},${g},${b},0.09)`
+}
 
 // Alt+Tab 등 윈도우 포커스 이탈 시 편집창 닫힘 방지
 function useWindowFocused() {
@@ -773,41 +780,48 @@ export default function ObjectivesPage() {
               const isOpen = expandedGroups.has(group.id)
               const groupObjs = objectives.filter(o => o.group_id === group.id)
               return (
-                <div key={group.id}>
+                <div key={group.id} className="rounded-xl overflow-hidden"
+                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.09)' }}>
+
                   {/* Group header */}
-                  <div className="flex items-center gap-2 mb-2">
-                    <button onClick={() => toggleGroup(group.id)}
-                      className="flex items-center gap-2 hover:opacity-75 transition-opacity select-none">
-                      <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: teamDotColor(group.name) }} />
+                  <div
+                    onClick={() => toggleGroup(group.id)}
+                    className="flex items-center gap-2 cursor-pointer select-none px-4 py-4"
+                    style={{ background: teamHeaderBg(group.name), borderBottom: isOpen ? '1px solid rgba(255,255,255,0.07)' : 'none' }}>
+                    <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: teamDotColor(group.name) }} />
+                    <span onClick={e => e.stopPropagation()}>
                       <GroupNameEditor name={group.name} onSave={name => saveGroupName(group.id, name)} />
-                      <span className="text-xs text-[rgba(226,232,240,0.4)] font-normal">{groupObjs.length}개</span>
-                      <span style={{ fontSize: 9, color: '#94A3B8', display: 'inline-block', transition: 'transform .13s', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}>&#9654;</span>
-                    </button>
-                    <button onClick={() => deleteGroup(group.id)} className="text-[rgba(226,232,240,0.2)] hover:text-red-400 transition-colors p-0.5"><Trash2 size={11} /></button>
-                    <button onClick={() => setExpandedGroupId(group.id)} title="크게 편집"
-                      className="text-[rgba(226,232,240,0.2)] hover:text-[#A1A7B3] transition-colors p-0.5"><Maximize2 size={11} /></button>
-                    {isOpen && (addingObjFor === group.id ? (
-                      <div className="flex items-center gap-1.5 ml-1">
-                        <input autoFocus value={newObjTitle} onChange={e => setNewObjTitle(e.target.value)}
-                          onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) addObjective(group.id); if (e.key === 'Escape') { setAddingObjFor(null); setNewObjTitle('') } }}
-                          placeholder="목표 입력" className="text-xs px-2 py-1 border border-[rgba(255,255,255,0.09)] rounded-lg focus:outline-none focus:border-[rgba(255,255,255,0.2)] bg-[#1A1C1F] text-[#E5E7EB] placeholder:text-[#5B6270] w-40" />
-                        <button onClick={() => addObjective(group.id)} className="text-xs px-2 py-1 bg-[#4C7FE0] text-white rounded-lg hover:bg-[#3A6CC8] transition-colors">추가</button>
-                        <button onClick={() => { setAddingObjFor(null); setNewObjTitle('') }} className="text-xs text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)] transition-colors">취소</button>
-                      </div>
-                    ) : (
-                      <button onClick={() => setAddingObjFor(group.id)}
-                        className="ml-1 flex items-center gap-1 text-xs text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)] border border-dashed border-[rgba(255,255,255,0.09)] hover:border-gray-300 px-2 py-0.5 rounded-lg transition-all">
-                        <Plus size={9} /> 목표 추가
-                      </button>
-                    ))}
+                    </span>
+                    <span className="text-xs text-[rgba(226,232,240,0.4)] font-normal">{groupObjs.length}개</span>
+                    <span style={{ fontSize: 9, color: '#94A3B8', display: 'inline-block', transition: 'transform .13s', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}>&#9654;</span>
+                    <div className="ml-auto flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
+                      {isOpen && (addingObjFor === group.id ? (
+                        <div className="flex items-center gap-1.5">
+                          <input autoFocus value={newObjTitle} onChange={e => setNewObjTitle(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) addObjective(group.id); if (e.key === 'Escape') { setAddingObjFor(null); setNewObjTitle('') } }}
+                            placeholder="목표 입력" className="text-xs px-2 py-1 border border-[rgba(255,255,255,0.09)] rounded-lg focus:outline-none focus:border-[rgba(255,255,255,0.2)] bg-[#1A1C1F] text-[#E5E7EB] placeholder:text-[#5B6270] w-40" />
+                          <button onClick={() => addObjective(group.id)} className="text-xs px-2 py-1 bg-[#4C7FE0] text-white rounded-lg hover:bg-[#3A6CC8] transition-colors">추가</button>
+                          <button onClick={() => { setAddingObjFor(null); setNewObjTitle('') }} className="text-xs text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)] transition-colors">취소</button>
+                        </div>
+                      ) : (
+                        <button onClick={() => setAddingObjFor(group.id)}
+                          className="flex items-center gap-1 text-xs text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)] border border-dashed border-[rgba(255,255,255,0.09)] hover:border-[rgba(255,255,255,0.25)] px-2 py-0.5 rounded-lg transition-all">
+                          <Plus size={9} /> 목표 추가
+                        </button>
+                      ))}
+                      <button onClick={() => setExpandedGroupId(group.id)} title="크게 편집"
+                        className="text-[rgba(226,232,240,0.2)] hover:text-[#A1A7B3] transition-colors p-0.5"><Maximize2 size={11} /></button>
+                      <button onClick={() => deleteGroup(group.id)}
+                        className="text-[rgba(226,232,240,0.2)] hover:text-red-400 transition-colors p-0.5"><Trash2 size={11} /></button>
+                    </div>
                   </div>
 
                   {/* Objective blocks */}
                   {isOpen && (
-                    <div className="surface-card rounded-2xl overflow-hidden">
+                    <div>
                       {groupObjs.length === 0 ? (
                         <button onClick={() => setAddingObjFor(group.id)}
-                          className="w-full py-6 text-xs text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.5)] hover:bg-[rgba(255,255,255,0.03)] transition-all flex items-center justify-center gap-1">
+                          className="w-full py-5 text-xs text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.5)] hover:bg-[rgba(255,255,255,0.03)] transition-all flex items-center justify-center gap-1">
                           <Plus size={11} /> 목표를 추가하세요
                         </button>
                       ) : (
