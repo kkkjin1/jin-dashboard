@@ -1031,7 +1031,7 @@ export default function ObjectivesPage() {
                 const thisWeekCount = groupEntries.filter(se => se.entry_date >= weekStart && se.entry_date <= weekEnd).length
                 return (
                   <div key={group.id} className="rounded-xl overflow-hidden"
-                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)' }}>
 
                     {/* Group header */}
                     <div
@@ -1044,7 +1044,7 @@ export default function ObjectivesPage() {
                       </span>
                       {/* Stats */}
                       <div className="flex items-center gap-2 ml-1" onClick={e => e.stopPropagation()}>
-                        <span className="text-[11px] text-[rgba(226,232,240,0.35)]">Goal {groupObjs.length}</span>
+                        <span className="text-[11px] text-[rgba(226,232,240,0.5)] font-medium">Goal {groupObjs.length}</span>
                         {thisWeekCount > 0 && (
                           <span className="text-[11px] px-1.5 py-0.5 rounded-md font-medium"
                             style={{ background: 'rgba(74,127,224,0.15)', color: 'rgba(74,127,224,0.9)' }}>
