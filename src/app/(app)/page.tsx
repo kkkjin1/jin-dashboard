@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useMemo } from 'react'
+import { CATEGORY_PALETTE, MEMO_TAG, colorKeyFromName } from '@/lib/categoryColors'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -646,13 +647,6 @@ export default function HomePage() {
   ))
   const dots = ['#7A82D8', '#5E8FBF', '#38BE98', '#C87840']
 
-  const MEMO_TAG_COL: Record<string, string> = {
-    '업무관련': '#8DAEE6',
-    '회의관련': '#C8B240',
-    '아이디어': '#A898D8',
-    '공지':     '#D08080',
-    '완료':     '#52C4A0',
-  }
 
   // Row divider
   function rd(i: number, len: number): React.CSSProperties {
@@ -1007,7 +1001,7 @@ export default function HomePage() {
                       sub="Ctrl+3으로 빠르게 추가하세요."
                     />
                   : memos.map((memo, i) => {
-                      const dotColor = MEMO_TAG_COL[memo.tag] ?? dots[i % 4]
+                      const dotColor = CATEGORY_PALETTE[MEMO_TAG[memo.tag] ?? colorKeyFromName(memo.tag)].solid
                       return (
                         <ListRow key={memo.id} onClick={() => { localStorage.setItem('memos_open_id', memo.id); router.push('/memos') }}
                           style={{ ...rd(i, memos.length) }}>

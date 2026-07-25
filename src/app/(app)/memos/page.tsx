@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { CATEGORY_PALETTE, MEMO_TAG, colorKeyFromName } from '@/lib/categoryColors'
 import dynamic from 'next/dynamic'
 import { MemoPageSkeleton } from '@/components/ui/Skeleton'
 import { createClient } from '@/lib/supabase/client'
@@ -25,25 +26,17 @@ function formatMonthLabel(ym: string): string {
   return `${y}년 ${parseInt(m)}월`
 }
 
-const TAG_BADGE: Record<MemoTag, string> = {
-  '공지':    'bg-[#DDD0A0]/10 text-[#DDD0A0] border-[#DDD0A0]/25',
-  '업무관련': 'bg-[#A8C4A8]/10 text-[#A8C4A8] border-[#A8C4A8]/25',
-  '회의관련': 'bg-[#A8B8CC]/10 text-[#A8B8CC] border-[#A8B8CC]/25',
-  '아이디어': 'bg-[#CCA8A8]/10 text-[#CCA8A8] border-[#CCA8A8]/25',
-  '완료':    'bg-[#C4C4B0]/10 text-[#C4C4B0] border-[#C4C4B0]/25',
-}
-
-const TAG_ACCENT: Record<MemoTag, string> = {
-  '공지':    'border-t-[#DDD0A0]',
-  '업무관련': 'border-t-[#A8C4A8]',
-  '회의관련': 'border-t-[#A8B8CC]',
-  '아이디어': 'border-t-[#CCA8A8]',
-  '완료':    'border-t-[#C4C4B0]',
-}
-
 const pill  = 'text-xs px-3.5 py-1.5 rounded-full border font-medium transition-all whitespace-nowrap'
 const pOn  = 'bg-[#4C7FE0] text-white border-[#4C7FE0] shadow-sm'
 const pOff = 'bg-white/[0.06] backdrop-blur-xl border-white/[0.09] text-white/50 hover:bg-white/[0.1] hover:text-[#E2E8F0]'
+
+function memoTagStyle(tag: string) {
+  const c = CATEGORY_PALETTE[MEMO_TAG[tag] ?? colorKeyFromName(tag)]
+  return { background: c.bg, color: c.text, borderColor: c.border }
+}
+function memoTagSolid(tag: string): string {
+  return CATEGORY_PALETTE[MEMO_TAG[tag] ?? colorKeyFromName(tag)].solid
+}
 
 interface MemoCardProps {
   memo: QuickMemo
@@ -61,8 +54,8 @@ function MemoCard({ memo, onEdit, onDelete, draggable: drag, onDragStart, select
       draggable={drag}
       onDragStart={onDragStart}
       onClick={() => onEdit(memo)}
-      className={`group relative border-t-2 border border-white/[0.09] rounded-2xl p-3 cursor-pointer select-none transition-all overflow-hidden h-full flex flex-col ${TAG_ACCENT[memo.tag]} ${selected ? 'bg-white/[0.12]' : 'bg-white/[0.06] hover:bg-white/[0.09]'}`}
-      style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.18)' }}>
+      className={`group relative border-t-2 border border-white/[0.09] rounded-2xl p-3 cursor-pointer select-none transition-all overflow-hidden h-full flex flex-col ${selected ? 'bg-white/[0.12]' : 'bg-white/[0.06] hover:bg-white/[0.09]'}`}
+      style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.18)', borderTopColor: memoTagSolid(memo.tag) }}>
       <p className="text-xs font-semibold text-[#E2E8F0] leading-snug line-clamp-2 flex-shrink-0">
         {memo.title}
       </p>
@@ -77,7 +70,7 @@ function MemoCard({ memo, onEdit, onDelete, draggable: drag, onDragStart, select
           onChange={e => { e.stopPropagation(); onToggleSelect?.(memo.id) }}
           onClick={e => e.stopPropagation()}
           className="w-3 h-3 rounded accent-gray-400 flex-shrink-0 cursor-pointer" />
-        <span className={`text-[9px] px-1.5 py-0.5 rounded-full border font-medium flex-shrink-0 ${TAG_BADGE[memo.tag]}`}>
+        <span className="text-[9px] px-1.5 py-0.5 rounded-full border font-medium flex-shrink-0" style={memoTagStyle(memo.tag)}>
           {memo.tag}
         </span>
         <span className="text-[9px] text-white/[0.28] ml-auto">
@@ -144,7 +137,8 @@ function EditModal({ memo, onSave, onAutoSave, onClose }: EditModalProps) {
           <div className="flex gap-1.5 flex-wrap">
             {ALL_TAGS.map(t => (
               <button key={t} onClick={() => setTag(t)}
-                className={`text-xs px-3 py-1.5 rounded-full border transition-all font-medium ${tag === t ? pOn : `border-white/[0.09] text-white/50 hover:bg-white/[0.06] ${TAG_BADGE[t]}`}`}>
+                className={`text-xs px-3 py-1.5 rounded-full border transition-all font-medium ${tag === t ? pOn : 'hover:bg-white/[0.06] hover:opacity-80'}`}
+                style={tag !== t ? memoTagStyle(t) : undefined}>
                 {t}
               </button>
             ))}
@@ -359,7 +353,8 @@ export default function MemosPage() {
           <div className="flex gap-1.5 mb-3 flex-wrap">
             {ALL_TAGS.map(t => (
               <button key={t} onClick={() => setNewTag(t)}
-                className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-all ${newTag === t ? pOn : `${TAG_BADGE[t]} hover:opacity-80`}`}>
+                className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-all ${newTag === t ? pOn : 'hover:opacity-80'}`}
+                style={newTag !== t ? memoTagStyle(t) : undefined}>
                 {t}
               </button>
             ))}
@@ -385,12 +380,9 @@ export default function MemosPage() {
         {FILTER_TAGS.map(tag => (
           <button key={tag} onClick={() => setFilterTag(tag)}
             className={`text-xs px-3.5 py-1.5 rounded-full border font-medium transition-all whitespace-nowrap ${
-              filterTag === tag
-                ? pOn
-                : tag !== '전체'
-                  ? `${TAG_BADGE[tag as MemoTag]} hover:opacity-80 backdrop-blur-xl`
-                  : pOff
-            }`}>
+              filterTag === tag ? pOn : tag !== '전체' ? 'hover:opacity-80 backdrop-blur-xl' : pOff
+            }`}
+            style={filterTag !== tag && tag !== '전체' ? memoTagStyle(tag) : undefined}>
             {tag}
             {tag !== '전체' && (
               <span className="ml-1 opacity-60">{memos.filter(m => m.tag === tag).length}</span>
@@ -411,7 +403,7 @@ export default function MemosPage() {
                   className="flex items-center gap-2 w-full text-left group mb-3 pb-2"
                   style={{ borderBottom: '1px solid rgba(221,208,160,0.25)' }}>
                   <span className="text-[10px] mr-0.5">📌</span>
-                  <span className={`text-xs font-semibold px-3 py-1 rounded-full border ${TAG_BADGE['공지']}`}>공지</span>
+                  <span className="text-xs font-semibold px-3 py-1 rounded-full border" style={memoTagStyle('공지')}>공지</span>
                   <span className="text-xs text-white/50 border border-white/[0.09] px-2 py-0.5 rounded-full"
                     style={{ background: 'rgba(255,255,255,0.06)' }}>{noticeMemos.length}개</span>
                   <span className="text-[10px] text-white/[0.28] ml-auto group-hover:text-white/50 transition-colors">
@@ -440,7 +432,7 @@ export default function MemosPage() {
                   <button onClick={() => toggleTagCollapse(tag)}
                     className="flex items-center gap-2 w-full text-left group mb-3 pb-2"
                     style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                    <span className={`text-xs font-semibold px-3 py-1 rounded-full border ${TAG_BADGE[tag]}`}>{tag}</span>
+                    <span className="text-xs font-semibold px-3 py-1 rounded-full border" style={memoTagStyle(tag)}>{tag}</span>
                     <span className="text-xs text-white/50 border border-white/[0.09] px-2 py-0.5 rounded-full"
                       style={{ background: 'rgba(255,255,255,0.06)' }}>{items.length}개</span>
                     <span className="text-[10px] text-white/[0.28] ml-auto group-hover:text-white/50 transition-colors">
@@ -474,7 +466,7 @@ export default function MemosPage() {
               inlineTitle={inlineTitle} setInlineTitle={setInlineTitle}
               inlineContent={inlineContent} setInlineContent={setInlineContent}
               inlineContentRef={inlineContentRef} handleInlineSave={handleInlineSave}
-              pill={pill} pOn={pOn} pOff={pOff} TAG_BADGE={TAG_BADGE} ALL_TAGS={ALL_TAGS} />
+              pill={pill} pOn={pOn} pOff={pOff} ALL_TAGS={ALL_TAGS} />
           </div>
         ) : (
           /* ── 필터 뷰: 월별 그루핑 ── */
@@ -519,14 +511,13 @@ export default function MemosPage() {
   )
 }
 
-function InlineAddForm({ inlineTag, setInlineTag, inlineTitle, setInlineTitle, inlineContent, setInlineContent, inlineContentRef, handleInlineSave, pill, pOn, pOff, TAG_BADGE, ALL_TAGS }: {
+function InlineAddForm({ inlineTag, setInlineTag, inlineTitle, setInlineTitle, inlineContent, setInlineContent, inlineContentRef, handleInlineSave, pill, pOn, pOff, ALL_TAGS }: {
   inlineTag: MemoTag | null; setInlineTag: (t: MemoTag | null) => void
   inlineTitle: string; setInlineTitle: (v: string) => void
   inlineContent: string; setInlineContent: (v: string) => void
   inlineContentRef: React.RefObject<HTMLTextAreaElement | null>
   handleInlineSave: (tag: MemoTag) => void
   pill: string; pOn: string; pOff: string
-  TAG_BADGE: Record<MemoTag, string>
   ALL_TAGS: MemoTag[]
 }) {
   return inlineTag ? (
@@ -535,7 +526,8 @@ function InlineAddForm({ inlineTag, setInlineTag, inlineTitle, setInlineTitle, i
       <div className="flex gap-1.5 mb-3 flex-wrap">
         {ALL_TAGS.map(t => (
           <button key={t} onClick={() => setInlineTag(t)}
-            className={`text-[10px] px-2 py-0.5 rounded-full border transition-all ${inlineTag === t ? pOn : TAG_BADGE[t]}`}>
+            className={`text-[10px] px-2 py-0.5 rounded-full border transition-all ${inlineTag === t ? pOn : ''}`}
+            style={inlineTag !== t ? memoTagStyle(t) : undefined}>
             {t}
           </button>
         ))}
