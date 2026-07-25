@@ -58,7 +58,7 @@ function formatMonth(month: string): string {
 }
 
 const pill  = 'text-xs px-3.5 py-1.5 rounded-full border font-medium transition-all whitespace-nowrap'
-const pOn  = 'bg-[#1B3A6B] text-white border-[#1B3A6B] shadow-sm'
+const pOn  = 'bg-[#4C7FE0] text-white border-[#4C7FE0] shadow-sm'
 const pOff = 'bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border-[rgba(255,255,255,0.09)] text-[rgba(226,232,240,0.5)] hover:bg-[rgba(255,255,255,0.06)] hover:text-[rgba(226,232,240,0.8)]'
 
 // ─── 분석 패널 ────────────────────────────────────────────────────────────────
@@ -583,13 +583,13 @@ export default function OneOnOnePage() {
         <div className="flex items-center bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border border-[rgba(255,255,255,0.09)] rounded-full p-1">
           <button onClick={() => setView('team')}
             className={`text-xs px-3.5 py-1.5 rounded-full transition-all font-medium ${
-              view === 'team' ? 'bg-[#1B3A6B] text-white shadow-sm' : 'text-[rgba(226,232,240,0.5)] hover:text-[rgba(226,232,240,0.8)]'
+              view === 'team' ? 'bg-[#4C7FE0] text-white shadow-sm' : 'text-[rgba(226,232,240,0.5)] hover:text-[rgba(226,232,240,0.8)]'
             }`}>
             팀원 1on1
           </button>
           <button onClick={() => setView('my-feedback')}
             className={`text-xs px-3.5 py-1.5 rounded-full transition-all font-medium ${
-              view === 'my-feedback' ? 'bg-[#1B3A6B] text-white shadow-sm' : 'text-[rgba(226,232,240,0.5)] hover:text-[rgba(226,232,240,0.8)]'
+              view === 'my-feedback' ? 'bg-[#4C7FE0] text-white shadow-sm' : 'text-[rgba(226,232,240,0.5)] hover:text-[rgba(226,232,240,0.8)]'
             }`}>
             내 피드백
           </button>
@@ -646,7 +646,7 @@ export default function OneOnOnePage() {
                               </Link>
                             )}
                             <button onClick={() => createSession(member.id)}
-                              className="text-[10px] bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] px-2 py-0.5 rounded-full hover:bg-[#D5E6F7] transition-colors text-center whitespace-nowrap">
+                              className="text-[10px] bg-[rgba(76,127,224,0.1)] text-[#4C7FE0] border border-[rgba(76,127,224,0.25)] px-2 py-0.5 rounded-full hover:bg-[rgba(76,127,224,0.18)] transition-colors text-center whitespace-nowrap">
                               + 신규
                             </button>
                           </div>

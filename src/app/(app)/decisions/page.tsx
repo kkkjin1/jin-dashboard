@@ -63,7 +63,7 @@ interface Log {
 }
 
 const pill  = 'text-xs px-3.5 py-1.5 rounded-full border font-medium transition-all whitespace-nowrap'
-const pOn  = 'bg-[#1B3A6B] text-white border-[#1B3A6B] shadow-sm'
+const pOn  = 'bg-[#4C7FE0] text-white border-[#4C7FE0] shadow-sm'
 const pOff = 'bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border-[rgba(255,255,255,0.09)] text-[rgba(226,232,240,0.5)] hover:bg-[rgba(255,255,255,0.06)] hover:text-[rgba(226,232,240,0.8)]'
 
 export default function DecisionsPage() {
@@ -264,7 +264,7 @@ export default function DecisionsPage() {
           {PERSONAS.map(p => (
             <button key={p} onClick={() => setActiveTab(p)}
               className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all flex items-center gap-1.5 whitespace-nowrap ${
-                activeTab === p ? 'bg-[#1B3A6B] text-white shadow-sm' : 'text-[rgba(226,232,240,0.5)] hover:text-[rgba(226,232,240,0.8)]'
+                activeTab === p ? 'bg-[#4C7FE0] text-white shadow-sm' : 'text-[rgba(226,232,240,0.5)] hover:text-[rgba(226,232,240,0.8)]'
               }`}>
               {p}
               {countByPersona(p) > 0 && (
@@ -320,7 +320,7 @@ export default function DecisionsPage() {
                   <span className="text-xs text-[rgba(226,232,240,0.4)]">{PERSONA_META[activeTab].role} · {tabLogs.length}건</span>
                 </div>
                 <button onClick={() => { setAddOpen(v => !v); setSaveError(''); setTimeout(() => titleRef.current?.focus(), 50) }}
-                  className={addOpen ? `${pill} ${pOff}` : 'text-xs bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] px-4 py-1.5 rounded-full font-medium hover:bg-[#D5E6F7] transition-colors'}>
+                  className={addOpen ? `${pill} ${pOff}` : 'text-xs bg-[rgba(76,127,224,0.1)] text-[#4C7FE0] border border-[rgba(76,127,224,0.25)] px-4 py-1.5 rounded-full font-medium hover:bg-[rgba(76,127,224,0.18)] transition-colors'}>
                   {addOpen ? '취소' : '+ 기록 추가'}
                 </button>
               </div>
@@ -357,7 +357,7 @@ export default function DecisionsPage() {
                     <div className="flex gap-2">
                       <button onClick={() => { setAddOpen(false); setSaveError('') }} className={`${pill} ${pOff}`}>취소</button>
                       <button onClick={addLog} disabled={!newTitle.trim() || !stripHtml(newContent) || saving}
-                        className="text-xs bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] px-5 py-1.5 rounded-full disabled:opacity-30 hover:bg-[#D5E6F7] transition-colors font-medium">
+                        className="text-xs bg-[rgba(76,127,224,0.1)] text-[#4C7FE0] border border-[rgba(76,127,224,0.25)] px-5 py-1.5 rounded-full disabled:opacity-30 hover:bg-[rgba(76,127,224,0.18)] transition-colors font-medium">
                         {saving ? '저장 중...' : '저장'}
                       </button>
                     </div>
@@ -448,7 +448,7 @@ export default function DecisionsPage() {
                 onClick={copyPrompt}
                 disabled={tabLogs.length === 0 || !stripHtml(question)}
                 className={`w-full py-3 rounded-2xl text-sm font-semibold transition-all ${
-                  copied ? 'bg-[#BADEC8] text-[#2D5A45]' : 'bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] hover:bg-[#D5E6F7]'
+                  copied ? 'bg-[#BADEC8] text-[#2D5A45]' : 'bg-[rgba(76,127,224,0.1)] text-[#4C7FE0] border border-[rgba(76,127,224,0.25)] hover:bg-[rgba(76,127,224,0.18)]'
                 } disabled:opacity-30 disabled:cursor-not-allowed`}>
                 {copied ? '✓ 복사됨 — Claude.ai에 붙여넣기' : `${activeTab} 페르소나 프롬프트 복사`}
               </button>

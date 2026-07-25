@@ -143,7 +143,7 @@ export default function QuickTaskInput() {
                         </>
                       )}
                     </div>
-                    <span className={`text-xs ${isSel ? 'text-[#1B3A6B] font-medium' : 'text-gray-700'}`}>
+                    <span className={`text-xs ${isSel ? 'text-[#4C7FE0] font-medium' : 'text-gray-700'}`}>
                       {r.title}
                     </span>
                   </div>

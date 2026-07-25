@@ -430,7 +430,7 @@ export default function SchedulePage() {
   }
 
   const pillBase = 'text-xs px-3.5 py-1.5 rounded-full border font-medium transition-all whitespace-nowrap'
-  const pillActive = 'bg-[#1B3A6B] text-white border-[#1B3A6B] shadow-sm'
+  const pillActive = 'bg-[#4C7FE0] text-white border-[#4C7FE0] shadow-sm'
   const pillInactive = 'bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border-[rgba(255,255,255,0.09)] text-[rgba(226,232,240,0.5)] hover:bg-[rgba(255,255,255,0.06)] hover:text-[rgba(226,232,240,0.8)]'
 
   return (
@@ -621,7 +621,7 @@ export default function SchedulePage() {
                       {DOW_LABELS_SCHED.map((label, d) => (
                         <button key={d} type="button" onClick={() => toggleMeetDow(d)}
                           className={`text-[9px] w-6 h-6 rounded-full font-medium transition-colors ${
-                            meetForm.days_of_week.includes(d) ? 'bg-[#1B3A6B] text-white' : 'bg-[rgba(255,255,255,0.06)] text-[rgba(226,232,240,0.4)] hover:bg-[rgba(255,255,255,0.08)]'
+                            meetForm.days_of_week.includes(d) ? 'bg-[#4C7FE0] text-white' : 'bg-[rgba(255,255,255,0.06)] text-[rgba(226,232,240,0.4)] hover:bg-[rgba(255,255,255,0.08)]'
                           }`}>
                           {label}
                         </button>
@@ -639,7 +639,7 @@ export default function SchedulePage() {
                     <button onClick={() => setShowMeetingForm(false)}
                       className="text-[10px] text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)]">취소</button>
                     <button onClick={addMeetingSchedule} disabled={!meetForm.title.trim()}
-                      className="text-[10px] bg-[#1B3A6B] text-white px-2.5 py-1 rounded-full disabled:opacity-40">
+                      className="text-[10px] bg-[#4C7FE0] text-white px-2.5 py-1 rounded-full disabled:opacity-40">
                       저장
                     </button>
                   </div>
@@ -805,7 +805,7 @@ export default function SchedulePage() {
             <div className="flex justify-end gap-2 mt-5">
               <button onClick={() => setShowRepeatModal(false)} className="text-xs text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)] px-3 py-1.5">취소</button>
               <button onClick={handleCreateRepeating} disabled={!repeatTitle.trim()}
-                className="text-xs bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] px-4 py-1.5 rounded-full hover:bg-[#D5E6F7] disabled:opacity-30">
+                className="text-xs bg-[rgba(76,127,224,0.1)] text-[#4C7FE0] border border-[rgba(76,127,224,0.25)] px-4 py-1.5 rounded-full hover:bg-[rgba(76,127,224,0.18)] disabled:opacity-30">
                 {repeatMonthCount}개 일정 생성
               </button>
             </div>

@@ -164,7 +164,7 @@ function NoteAccordion({ note, isOpen, onToggle, onDelete, onEdit, onEditTitle }
                 <span className={`text-xs transition-opacity ${autoSaved ? 'text-emerald-500 opacity-100' : 'opacity-0'}`}>자동저장됨</span>
                 <div className="flex gap-2">
                   <button onClick={() => setEditing(false)} className="text-xs text-gray-400 hover:text-gray-600 px-3 py-1 rounded-lg">취소</button>
-                  <button onClick={handleSaveEdit} className="text-xs bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] px-3 py-1 rounded-lg hover:bg-[#D5E6F7]">저장</button>
+                  <button onClick={handleSaveEdit} className="text-xs bg-[rgba(76,127,224,0.1)] text-[#4C7FE0] border border-[rgba(76,127,224,0.25)] px-3 py-1 rounded-lg hover:bg-[rgba(76,127,224,0.18)]">저장</button>
                 </div>
               </div>
             </>

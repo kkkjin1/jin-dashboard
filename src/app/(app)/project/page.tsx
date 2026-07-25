@@ -38,9 +38,9 @@ export default function ProjectPage() {
             <button key={c} onClick={() => selectCat(c)}
               className="text-xs px-3.5 py-1.5 rounded-full font-semibold transition-all whitespace-nowrap"
               style={cat === c ? {
-                background: '#1B3A6B',
+                background: '#4C7FE0',
                 color: '#E2E8F0',
-                border: '1px solid #1B3A6B',
+                border: '1px solid #4C7FE0',
                 boxShadow: '0 1px 4px rgba(0,0,0,0.3)',
               } : {
                 background: 'rgba(255,255,255,0.06)',

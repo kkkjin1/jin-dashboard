@@ -376,7 +376,7 @@ export default function SubTaskDetailPage() {
               onSubmit={saveNote} onEscape={() => {}} minHeight={80} />
             <div className="flex justify-end mt-2">
               <button onClick={saveNote}
-                className="text-xs bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] px-3 py-1.5 rounded-lg hover:bg-[#D5E6F7] transition-colors">
+                className="text-xs bg-[rgba(76,127,224,0.1)] text-[#4C7FE0] border border-[rgba(76,127,224,0.25)] px-3 py-1.5 rounded-lg hover:bg-[rgba(76,127,224,0.18)] transition-colors">
                 저장
               </button>
             </div>
@@ -410,7 +410,7 @@ export default function SubTaskDetailPage() {
               placeholder="https://..."
               className="flex-1 text-xs border border-[rgba(255,255,255,0.1)] rounded-lg px-3 py-2 focus:outline-none bg-[rgba(255,255,255,0.06)] text-[rgba(226,232,240,0.75)] placeholder:text-[rgba(226,232,240,0.25)]" />
             <button onClick={addLink}
-              className="text-xs bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] px-3 py-2 rounded-lg hover:bg-[#D5E6F7] transition-colors whitespace-nowrap">
+              className="text-xs bg-[rgba(76,127,224,0.1)] text-[#4C7FE0] border border-[rgba(76,127,224,0.25)] px-3 py-2 rounded-lg hover:bg-[rgba(76,127,224,0.18)] transition-colors whitespace-nowrap">
               링크 추가
             </button>
           </div>

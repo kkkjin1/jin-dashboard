@@ -205,7 +205,7 @@ export default function LearningDetailPage() {
                 onClick={() => updateResource({ media_type: resource.media_type === type ? null : type })}
                 className="text-xs px-3 py-1 rounded-full border transition-all"
                 style={resource.media_type === type
-                  ? { background: '#1B3A6B', color: '#E8F0FB', borderColor: '#2A5A9B' }
+                  ? { background: '#4C7FE0', color: 'rgba(220,230,252,0.9)', borderColor: 'rgba(76,127,224,0.5)' }
                   : { background: 'rgba(255,255,255,0.05)', color: T2, borderColor: 'rgba(255,255,255,0.09)' }}>
                 {MEDIA_ICONS[type]} {type}
               </button>
@@ -222,7 +222,7 @@ export default function LearningDetailPage() {
                 onClick={() => toggleTag(tag)}
                 className="text-xs px-3 py-1 rounded-full border transition-all"
                 style={(resource.tags ?? []).includes(tag)
-                  ? { background: '#1B3A6B', color: '#E8F0FB', borderColor: '#2A5A9B' }
+                  ? { background: '#4C7FE0', color: 'rgba(220,230,252,0.9)', borderColor: 'rgba(76,127,224,0.5)' }
                   : { background: 'rgba(255,255,255,0.05)', color: T2, borderColor: 'rgba(255,255,255,0.09)' }}>
                 {tag}
               </button>

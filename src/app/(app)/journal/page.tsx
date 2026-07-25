@@ -197,7 +197,7 @@ export default function JournalPage() {
               className="text-xs px-3 py-1.5 rounded-full transition-all"
               style={
                 fromDate === r.from && toDate === r.to
-                  ? { background: '#1B3A6B', color: '#fff', border: '1px solid #1B3A6B' }
+                  ? { background: '#4C7FE0', color: '#fff', border: '1px solid #4C7FE0' }
                   : { background: 'rgba(255,255,255,0.06)', color: 'rgba(226,232,240,0.7)', border: '1px solid rgba(255,255,255,0.09)' }
               }
             >
@@ -258,7 +258,7 @@ export default function JournalPage() {
                   className="text-left p-2.5 rounded-xl transition-all"
                   style={
                     isSelected
-                      ? { background: '#1B3A6B', border: '1px solid #1B3A6B', color: '#fff' }
+                      ? { background: '#4C7FE0', border: '1px solid #4C7FE0', color: '#fff' }
                       : { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', color: '#E2E8F0' }
                   }
                 >
@@ -310,7 +310,7 @@ export default function JournalPage() {
               onClick={handleDownload}
               disabled={selected.size === 0}
               className="text-xs px-4 py-2 rounded-xl transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-              style={{ background: '#1B3A6B', color: '#fff' }}
+              style={{ background: '#4C7FE0', color: '#fff' }}
             >
               MD 다운로드
             </button>

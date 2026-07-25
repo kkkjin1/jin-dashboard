@@ -32,7 +32,7 @@ export default function FullscreenNoteEditor({ value, onChange, onSave, onClose,
             {onSave && (
               <button
                 onClick={() => { onSave(); onClose() }}
-                className="text-xs bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] px-3.5 py-1.5 rounded-lg hover:bg-[#D5E6F7] transition-colors">
+                className="text-xs bg-[rgba(76,127,224,0.1)] text-[#4C7FE0] border border-[rgba(76,127,224,0.25)] px-3.5 py-1.5 rounded-lg hover:bg-[rgba(76,127,224,0.18)] transition-colors">
                 저장
               </button>
             )}

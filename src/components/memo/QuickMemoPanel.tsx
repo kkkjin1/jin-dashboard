@@ -104,7 +104,7 @@ export default function QuickMemoPanel() {
       style={{
         right: btnPos.right,
         bottom: btnPos.bottom,
-        background: '#1c2a3c',
+        background: 'rgba(76,127,224,0.12)',
         color: 'rgba(230,231,234,0.85)',
         boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.07), 0 0 0 1px rgba(255,255,255,0.05), 0 8px 32px rgba(0,0,0,0.32)',
       }}
@@ -112,8 +112,8 @@ export default function QuickMemoPanel() {
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onClick={handleBtnClick}
-      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#1f3045' }}
-      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '#1c2a3c' }}
+      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(76,127,224,0.2)' }}
+      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(76,127,224,0.12)' }}
       className="fixed z-[64] w-12 h-12 rounded-full flex items-center justify-center text-xl font-light touch-none select-none cursor-grab active:cursor-grabbing transition-all duration-200 ease-out"
       title="빠른 메모 (Ctrl+3) — 드래그로 위치 이동"
     >

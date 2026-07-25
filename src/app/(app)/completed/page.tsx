@@ -444,7 +444,7 @@ export default function CompletedPage() {
           <button key={p} onClick={() => selectQuick(p)}
             className={`text-sm px-4 py-2 rounded-full font-medium transition-all whitespace-nowrap border ${
               quickPeriod === p
-                ? 'bg-[#1B3A6B] text-white border-[#1B3A6B] shadow-sm'
+                ? 'bg-[#4C7FE0] text-white border-[#4C7FE0] shadow-sm'
                 : 'bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border-[rgba(255,255,255,0.09)] text-[rgba(226,232,240,0.5)] hover:bg-[rgba(255,255,255,0.06)] hover:text-[rgba(226,232,240,0.8)]'
             }`}>
             {p}

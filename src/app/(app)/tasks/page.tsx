@@ -36,7 +36,7 @@ function formatMonth(ym: string): string {
 }
 
 const pill  = 'text-xs px-3.5 py-1.5 rounded-full border font-medium transition-all whitespace-nowrap'
-const pOn  = 'bg-[#1B3A6B] text-white border-[#1B3A6B] shadow-sm'
+const pOn  = 'bg-[#4C7FE0] text-white border-[#4C7FE0] shadow-sm'
 const pOff = 'bg-white/40 backdrop-blur-xl border-white/60 text-gray-500 hover:bg-white/60 hover:text-gray-700'
 
 export default function TasksPage() {
@@ -452,7 +452,7 @@ export default function TasksPage() {
               className="flex-1 text-xs bg-white border border-stone-200 rounded-lg px-2 py-1.5 focus:outline-none focus:border-gray-400 placeholder:text-gray-300"
             />
             <button onClick={addPart}
-              className="text-xs bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] px-3 py-1.5 rounded-lg hover:bg-[#D5E6F7] transition-colors whitespace-nowrap">
+              className="text-xs bg-[rgba(76,127,224,0.1)] text-[#4C7FE0] border border-[rgba(76,127,224,0.25)] px-3 py-1.5 rounded-lg hover:bg-[rgba(76,127,224,0.18)] transition-colors whitespace-nowrap">
               + 추가
             </button>
           </div>

@@ -133,7 +133,7 @@ export default function WeeklyGoalsWidget({ tasks }: Props) {
                 onClick={() => toggleDone(goal.id)}
                 className={`flex-shrink-0 mt-0.5 w-3.5 h-3.5 rounded border transition-colors ${
                   goal.done
-                    ? 'bg-[#1B3A6B] border-[#1B3A6B]'
+                    ? 'bg-[#4C7FE0] border-[#4C7FE0]'
                     : 'border-gray-300 hover:border-gray-500'
                 }`}
               >

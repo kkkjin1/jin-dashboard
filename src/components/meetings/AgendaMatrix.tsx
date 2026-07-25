@@ -320,7 +320,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
   if (loading) return <div className="flex items-center justify-center h-32 text-sm text-gray-400 animate-pulse">불러오는 중…</div>
 
   // ── 공통 상수 (모든 뷰에서 사용) ─────────────────────────────────
-  const catColor  = CAT_BORDER[category] ?? '#1B3A6B'
+  const catColor  = CAT_BORDER[category] ?? '#4C7FE0'
   const W_ROAD    = 68
   const MONTH_KO  = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월']
   const curYM     = todayStr.slice(0, 7)
@@ -772,7 +772,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
 
     const getItemGroupColor = (item: AgendaItem) => {
       const g = groups.find(gr => gr.id === item.group_id)
-      return CAT_BORDER[g?.category ?? ''] ?? g?.color ?? '#1B3A6B'
+      return CAT_BORDER[g?.category ?? ''] ?? g?.color ?? '#4C7FE0'
     }
 
     // ── 공통: 테이블 헤더 ──
@@ -812,7 +812,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
           {/* ── 연도 화살표 ── */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
             <button onClick={() => setPeriodPickerYear(p => p - 1)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, color: '#6B7280', padding: '0 4px', lineHeight: 1 }}>‹</button>
-            <span style={{ fontSize: 12, fontWeight: 700, color: '#1B3A6B' }}>{periodPickerYear}년</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#4C7FE0' }}>{periodPickerYear}년</span>
             <button onClick={() => setPeriodPickerYear(p => p + 1)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, color: '#6B7280', padding: '0 4px', lineHeight: 1 }}>›</button>
           </div>
           {/* ── 분기/반기 단축키 ── */}
@@ -844,7 +844,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                 {MONTHS_KO.map((m, i) => <option key={i+1} value={i+1}>{m}</option>)}
               </select>
               <button onClick={() => updateRoadmapPeriod(item.id, periodPickerYear, `${periodPickerStartM}-${periodPickerEndM}`)}
-                style={{ fontSize: 10, fontWeight: 700, color: 'white', background: '#1B3A6B', border: 'none', borderRadius: 5, padding: '3px 7px', cursor: 'pointer', flexShrink: 0 }}>적용</button>
+                style={{ fontSize: 10, fontWeight: 700, color: 'white', background: '#4C7FE0', border: 'none', borderRadius: 5, padding: '3px 7px', cursor: 'pointer', flexShrink: 0 }}>적용</button>
             </div>
           </div>
           {/* ── 없음 ── */}
@@ -866,7 +866,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
           <div style={{ fontSize: 10, fontWeight: 700, color: '#9CA3AF', letterSpacing: '.05em', marginBottom: 8 }}>범주 기간</div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
             <button onClick={() => setPeriodPickerYear(p => p - 1)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, color: '#6B7280', padding: '0 4px', lineHeight: 1 }}>‹</button>
-            <span style={{ fontSize: 12, fontWeight: 700, color: '#1B3A6B' }}>{periodPickerYear}년</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#4C7FE0' }}>{periodPickerYear}년</span>
             <button onClick={() => setPeriodPickerYear(p => p + 1)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, color: '#6B7280', padding: '0 4px', lineHeight: 1 }}>›</button>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3, marginBottom: 8 }}>
@@ -896,7 +896,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                 {['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'].map((m, i) => <option key={i+1} value={i+1}>{m}</option>)}
               </select>
               <button onClick={() => updateGroupRoadmapPeriod(group.id, periodPickerYear, `${periodPickerStartM}-${periodPickerEndM}`)}
-                style={{ fontSize: 10, fontWeight: 700, color: 'white', background: '#1B3A6B', border: 'none', borderRadius: 5, padding: '3px 7px', cursor: 'pointer', flexShrink: 0 }}>적용</button>
+                style={{ fontSize: 10, fontWeight: 700, color: 'white', background: '#4C7FE0', border: 'none', borderRadius: 5, padding: '3px 7px', cursor: 'pointer', flexShrink: 0 }}>적용</button>
             </div>
           </div>
           <button onClick={() => updateGroupRoadmapPeriod(group.id, null, null)}

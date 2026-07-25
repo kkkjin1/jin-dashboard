@@ -37,7 +37,7 @@ function formatYM(ym: string): string {
 }
 
 const pill  = 'text-xs px-3.5 py-1.5 rounded-full border font-medium transition-all whitespace-nowrap'
-const pOn  = 'bg-[#1B3A6B] text-white border-[#1B3A6B] shadow-sm'
+const pOn  = 'bg-[#4C7FE0] text-white border-[#4C7FE0] shadow-sm'
 const pOff = 'bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border-[rgba(255,255,255,0.09)] text-[rgba(226,232,240,0.5)] hover:bg-[rgba(255,255,255,0.1)] hover:text-[#E2E8F0]'
 
 interface TaskLinkRow {

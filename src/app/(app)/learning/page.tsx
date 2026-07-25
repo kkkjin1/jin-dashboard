@@ -30,7 +30,7 @@ const STATUS_KEYS: Status[] = ['todo', 'doing', 'done']
 type SiteShortcut = { id: string; title: string; url: string }
 
 const pill  = 'text-xs px-3.5 py-1.5 rounded-full border font-medium transition-all whitespace-nowrap'
-const pOn  = 'bg-[#1B3A6B] text-white border-[#1B3A6B] shadow-sm'
+const pOn  = 'bg-[#4C7FE0] text-white border-[#4C7FE0] shadow-sm'
 const pOff = 'bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border-[rgba(255,255,255,0.09)] text-[rgba(226,232,240,0.5)] hover:bg-[rgba(255,255,255,0.06)] hover:text-[rgba(226,232,240,0.8)]'
 
 function getStatus(tags: string[]): Status {
@@ -300,7 +300,7 @@ function handleDragLeave(e: React.DragEvent) {
                 <button key={key} onClick={() => toggleCol(key)}
                   className="flex items-center gap-2 w-full text-left py-1.5 px-1 rounded-md hover:bg-[rgba(255,255,255,0.06)] transition-colors">
                   <span className="w-3.5 h-3.5 rounded flex items-center justify-center flex-shrink-0"
-                    style={{ background: activeCols.has(key) ? '#1B3A6B' : 'rgba(255,255,255,0.08)', border: `1px solid ${activeCols.has(key) ? '#2A5A9B' : 'rgba(255,255,255,0.12)'}` }}>
+                    style={{ background: activeCols.has(key) ? '#4C7FE0' : 'rgba(255,255,255,0.08)', border: `1px solid ${activeCols.has(key) ? 'rgba(76,127,224,0.5)' : 'rgba(255,255,255,0.12)'}` }}>
                     {activeCols.has(key) && <span style={{ fontSize: 8, color: '#fff' }}>✓</span>}
                   </span>
                   <span className="text-[12px]" style={{ color: activeCols.has(key) ? 'rgba(226,232,240,0.9)' : 'rgba(226,232,240,0.4)' }}>{label}</span>
@@ -310,7 +310,7 @@ function handleDragLeave(e: React.DragEvent) {
           )}
         </div>
         <button onClick={() => setShowAddForm(v => !v)}
-          className="text-sm bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] px-4 py-2 rounded-full hover:bg-[#D5E6F7] transition-colors shadow-sm">
+          className="text-sm bg-[rgba(76,127,224,0.1)] text-[#4C7FE0] border border-[rgba(76,127,224,0.25)] px-4 py-2 rounded-full hover:bg-[rgba(76,127,224,0.18)] transition-colors shadow-sm">
           + 새 자료
         </button>
       </div>
@@ -346,7 +346,7 @@ function handleDragLeave(e: React.DragEvent) {
               onKeyDown={e => { if (e.key === 'Enter') addCustomTag(); if (e.key === 'Escape') { setShowAddTag(false); setNewTagInput('') } }}
               placeholder="범주명"
               className="text-xs bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] rounded-full px-3 py-1.5 focus:outline-none w-24" />
-            <button onClick={addCustomTag} className="text-xs bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] px-2.5 py-1.5 rounded-full">추가</button>
+            <button onClick={addCustomTag} className="text-xs bg-[rgba(76,127,224,0.1)] text-[#4C7FE0] border border-[rgba(76,127,224,0.25)] px-2.5 py-1.5 rounded-full">추가</button>
             <button onClick={() => { setShowAddTag(false); setNewTagInput('') }} className="text-xs text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)]">취소</button>
           </div>
         ) : (
@@ -663,7 +663,7 @@ function handleDragLeave(e: React.DragEvent) {
                                         <>
                                           <button onClick={e => { e.stopPropagation(); saveEdit(r.id) }}
                                             className="text-[10px] px-2 py-0.5 rounded-full font-medium"
-                                            style={{ background: '#1B3A6B', color: '#E8F0FB', border: '1px solid #2A5A9B' }}>
+                                            style={{ background: '#4C7FE0', color: 'rgba(220,230,252,0.9)', border: '1px solid rgba(76,127,224,0.5)' }}>
                                             저장
                                           </button>
                                           <button onClick={e => { e.stopPropagation(); cancelEdit() }}

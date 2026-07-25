@@ -254,7 +254,7 @@ export default function QuickAgendaInput({ onAdded }: Props) {
                 <button
                   onClick={handleSubmit}
                   disabled={saving}
-                  className="flex-shrink-0 text-[11px] bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] px-3 py-1 rounded-lg hover:bg-[#D5E6F7] disabled:opacity-40 transition-colors"
+                  className="flex-shrink-0 text-[11px] bg-[rgba(76,127,224,0.1)] text-[#4C7FE0] border border-[rgba(76,127,224,0.25)] px-3 py-1 rounded-lg hover:bg-[rgba(76,127,224,0.18)] disabled:opacity-40 transition-colors"
                 >
                   {saving ? '저장…' : '추가 ↵'}
                 </button>

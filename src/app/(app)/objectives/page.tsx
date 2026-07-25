@@ -66,7 +66,7 @@ function SubCell({ entry, subItemId, date, onSave, onDelete, large }: SubCellPro
     return (
       <div
         style={{ minHeight: cellH }}
-        className="min-w-[200px] bg-[rgba(255,255,255,0.05)] border border-[#1B3A6B]/30 rounded-lg overflow-hidden"
+        className="min-w-[200px] bg-[rgba(255,255,255,0.05)] border border-[#4C7FE0]/30 rounded-lg overflow-hidden"
         onBlur={e => { if (!winFocused.current) return; if (!e.currentTarget.contains(e.relatedTarget as Node)) save() }}
       >
         <TiptapEditor
@@ -306,7 +306,7 @@ function ObjectiveBlock({
                     <input type="date" value={newDate} onChange={e => setNewDate(e.target.value)}
                       onKeyDown={e => { if (e.key === 'Enter') confirmDate(); if (e.key === 'Escape') setAddingDate(false) }}
                       className="text-xs text-[#E5E7EB] border border-[rgba(255,255,255,0.15)] rounded px-1 py-0.5 focus:outline-none bg-[#1A1C1F] w-24" />
-                    <button onClick={confirmDate} className="text-[#1B3A6B] text-xs font-medium hover:opacity-70 transition-opacity">확인</button>
+                    <button onClick={confirmDate} className="text-[#4C7FE0] text-xs font-medium hover:opacity-70 transition-opacity">확인</button>
                   </div>
                 ) : (
                   <button onClick={() => setAddingDate(true)}
@@ -361,7 +361,7 @@ function ObjectiveBlock({
                       className="text-[13px] text-[#E5E7EB] placeholder:text-[#5B6270] border-b border-[rgba(255,255,255,0.2)] focus:outline-none bg-transparent w-28"
                     />
                     <button onClick={submitItem}
-                      className="text-xs text-[#1B3A6B] font-medium hover:opacity-70 transition-opacity">확인</button>
+                      className="text-xs text-[#4C7FE0] font-medium hover:opacity-70 transition-opacity">확인</button>
                     <button onClick={() => { setAddingItem(false); setNewItemTitle('') }}
                       className="text-xs text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)] transition-colors">취소</button>
                   </div>
@@ -393,7 +393,7 @@ function GroupNameEditor({ name, onSave }: { name: string; onSave: (v: string) =
       className="text-[13px] font-semibold text-[rgba(226,232,240,0.9)] border-b border-gray-300 focus:outline-none bg-transparent w-32" />
   )
   return (
-    <span className="text-[13px] font-semibold text-[rgba(226,232,240,0.9)] hover:text-[#1B3A6B] transition-colors"
+    <span className="text-[13px] font-semibold text-[rgba(226,232,240,0.9)] hover:text-[#4C7FE0] transition-colors"
       onDoubleClick={e => { e.stopPropagation(); setEditing(true) }}>{name}</span>
   )
 }
@@ -463,7 +463,7 @@ function GroupEditOverlay({
                 placeholder="목표 입력"
                 className="text-xs px-2.5 py-1.5 border border-[rgba(255,255,255,0.09)] rounded-lg focus:outline-none focus:border-[rgba(255,255,255,0.2)] bg-[#1A1C1F] text-[#E5E7EB] placeholder:text-[#5B6270] w-44" />
               <button onClick={handleAddObj}
-                className="text-xs px-2.5 py-1.5 bg-[#1B3A6B] text-white rounded-lg hover:bg-[#22497E] transition-colors">추가</button>
+                className="text-xs px-2.5 py-1.5 bg-[#4C7FE0] text-white rounded-lg hover:bg-[#3A6CC8] transition-colors">추가</button>
               <button onClick={() => { setAddingObj(false); setNewObjTitle('') }}
                 className="text-xs text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)] transition-colors">취소</button>
             </div>
@@ -482,7 +482,7 @@ function GroupEditOverlay({
           <div className="flex flex-col items-center justify-center h-48 gap-3 text-[13px] text-[rgba(226,232,240,0.4)]">
             <p>목표를 추가하세요</p>
             <button onClick={() => setAddingObj(true)}
-              className="text-xs px-4 py-2 rounded-full bg-[#1B3A6B]/10 text-[rgba(161,167,179,0.9)] hover:bg-[#1B3A6B]/20 transition-colors">
+              className="text-xs px-4 py-2 rounded-full bg-[#4C7FE0]/10 text-[rgba(161,167,179,0.9)] hover:bg-[#4C7FE0]/20 transition-colors">
               + 목표 추가
             </button>
           </div>
@@ -727,7 +727,7 @@ export default function ObjectivesPage() {
             {[1,2,3,4].map(q => (
               <button key={q} onClick={() => setSelectedQ(q)}
                 className={`text-xs px-3 py-1.5 rounded-full border font-semibold transition-all ${
-                  selectedQ === q ? 'bg-[#1B3A6B] text-white border-[#1B3A6B] shadow-sm' : 'bg-[rgba(255,255,255,0.06)] border-[rgba(255,255,255,0.09)] text-[rgba(226,232,240,0.5)] hover:bg-[rgba(255,255,255,0.06)] hover:text-[rgba(226,232,240,0.8)]'
+                  selectedQ === q ? 'bg-[#4C7FE0] text-white border-[#4C7FE0] shadow-sm' : 'bg-[rgba(255,255,255,0.06)] border-[rgba(255,255,255,0.09)] text-[rgba(226,232,240,0.5)] hover:bg-[rgba(255,255,255,0.06)] hover:text-[rgba(226,232,240,0.8)]'
                 }`}>Q{q}</button>
             ))}
           </div>
@@ -738,7 +738,7 @@ export default function ObjectivesPage() {
               <input autoFocus value={newGroupName} onChange={e => setNewGroupName(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) addGroup(); if (e.key === 'Escape') { setAddingGroup(false); setNewGroupName('') } }}
                 placeholder="팀 이름" className="text-xs px-2.5 py-1.5 border border-[rgba(255,255,255,0.09)] rounded-lg focus:outline-none focus:border-[rgba(255,255,255,0.2)] bg-[#1A1C1F] text-[#E5E7EB] placeholder:text-[#5B6270] w-28" />
-              <button onClick={addGroup} className="text-xs px-2.5 py-1.5 bg-[#1B3A6B] text-white rounded-lg hover:bg-[#22497E] transition-colors">추가</button>
+              <button onClick={addGroup} className="text-xs px-2.5 py-1.5 bg-[#4C7FE0] text-white rounded-lg hover:bg-[#3A6CC8] transition-colors">추가</button>
               <button onClick={() => { setAddingGroup(false); setNewGroupName('') }} className="text-xs text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)] transition-colors">취소</button>
             </div>
           ) : (
@@ -758,7 +758,7 @@ export default function ObjectivesPage() {
           <div className="flex flex-col items-center justify-center h-48 gap-3 text-[13px] text-[rgba(226,232,240,0.4)]">
             <p>팀을 추가하고 {quarterLabel(activeQ)} 목표를 관리하세요</p>
             <button onClick={() => setAddingGroup(true)}
-              className="text-xs px-4 py-2 rounded-full bg-[#1B3A6B]/10 text-[#1B3A6B] hover:bg-[#1B3A6B]/15 transition-colors">+ 첫 번째 팀 추가</button>
+              className="text-xs px-4 py-2 rounded-full bg-[#4C7FE0]/10 text-[#4C7FE0] hover:bg-[#4C7FE0]/15 transition-colors">+ 첫 번째 팀 추가</button>
           </div>
         ) : (
           <div className="flex flex-col gap-6">
@@ -784,7 +784,7 @@ export default function ObjectivesPage() {
                         <input autoFocus value={newObjTitle} onChange={e => setNewObjTitle(e.target.value)}
                           onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) addObjective(group.id); if (e.key === 'Escape') { setAddingObjFor(null); setNewObjTitle('') } }}
                           placeholder="목표 입력" className="text-xs px-2 py-1 border border-[rgba(255,255,255,0.09)] rounded-lg focus:outline-none focus:border-[rgba(255,255,255,0.2)] bg-[#1A1C1F] text-[#E5E7EB] placeholder:text-[#5B6270] w-40" />
-                        <button onClick={() => addObjective(group.id)} className="text-xs px-2 py-1 bg-[#1B3A6B] text-white rounded-lg hover:bg-[#22497E] transition-colors">추가</button>
+                        <button onClick={() => addObjective(group.id)} className="text-xs px-2 py-1 bg-[#4C7FE0] text-white rounded-lg hover:bg-[#3A6CC8] transition-colors">추가</button>
                         <button onClick={() => { setAddingObjFor(null); setNewObjTitle('') }} className="text-xs text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)] transition-colors">취소</button>
                       </div>
                     ) : (

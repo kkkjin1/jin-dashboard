@@ -169,7 +169,7 @@ export default function TopNav() {
                       {item.label}
                     </span>
                     {inPrimary && !isHidden && (
-                      <span className="text-[9px] text-[#1B3A6B] bg-[#E8F0FB] border border-[#C5D8F0] px-1.5 py-0.5 rounded-full font-medium">바</span>
+                      <span className="text-[9px] text-[#4C7FE0] bg-[rgba(76,127,224,0.1)] border border-[rgba(76,127,224,0.25)] px-1.5 py-0.5 rounded-full font-medium">바</span>
                     )}
                     <button onClick={() => toggleHidden(item.href)}
                       className="flex-shrink-0 text-gray-300 hover:text-gray-600 transition-colors p-0.5">
@@ -192,7 +192,7 @@ export default function TopNav() {
 
           {/* 로고 */}
           <div className="flex items-center gap-2.5 flex-shrink-0">
-            <div className="w-7 h-7 bg-[#1B3A6B] rounded-lg flex items-center justify-center">
+            <div className="w-7 h-7 bg-[#4C7FE0] rounded-lg flex items-center justify-center">
               <span className="text-xs font-bold text-white">인</span>
             </div>
             <span className="text-sm font-semibold text-gray-800 tracking-tight">인사기획 워크</span>
@@ -207,7 +207,7 @@ export default function TopNav() {
                   <Link key={item.href} href={item.href}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
                       isActive
-                        ? 'bg-[#1B3A6B] text-white shadow-sm'
+                        ? 'bg-[#4C7FE0] text-white shadow-sm'
                         : 'text-gray-500 hover:text-gray-800 hover:bg-white/60'
                     }`}>
                     <item.icon size={12} strokeWidth={1.5} />
@@ -222,7 +222,7 @@ export default function TopNav() {
                   onClick={() => setMoreOpen(p => !p)}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
                     isSecondaryActive
-                      ? 'bg-[#1B3A6B] text-white shadow-sm'
+                      ? 'bg-[#4C7FE0] text-white shadow-sm'
                       : 'text-gray-500 hover:text-gray-800 hover:bg-white/60'
                   }`}>
                   <MoreHorizontal size={12} strokeWidth={1.5} />
@@ -271,7 +271,7 @@ export default function TopNav() {
       {/* ── 모바일 상단 헤더 ── */}
       <header className="md:hidden flex items-center h-12 px-4 flex-shrink-0">
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 bg-[#1B3A6B] rounded-md flex items-center justify-center">
+          <div className="w-6 h-6 bg-[#4C7FE0] rounded-md flex items-center justify-center">
             <span className="text-[10px] font-bold text-white">인</span>
           </div>
           <span className="text-sm font-semibold text-stone-800">인사기획 워크</span>

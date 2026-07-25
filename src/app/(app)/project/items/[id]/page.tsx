@@ -705,7 +705,7 @@ export default function AgendaItemDetailPage() {
                   onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) addSubTask(); if (e.key === 'Escape') { setAddingSubTask(false); setNewSTTitle('') } }}
                   placeholder="하위 태스크 이름 입력 후 Enter (프로젝트탭과 자동 연동)"
                   className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-gray-400" />
-                <button onClick={addSubTask} className="text-xs bg-[#E8F0FB] text-[#1B3A6B] border border-[#C5D8F0] px-3 py-1.5 rounded-lg">추가</button>
+                <button onClick={addSubTask} className="text-xs bg-[rgba(76,127,224,0.1)] text-[#4C7FE0] border border-[rgba(76,127,224,0.25)] px-3 py-1.5 rounded-lg">추가</button>
                 <button onClick={() => { setAddingSubTask(false); setNewSTTitle('') }} className="text-xs text-gray-400 px-2">취소</button>
               </div>
             ) : (

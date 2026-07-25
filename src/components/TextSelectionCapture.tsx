@@ -171,7 +171,7 @@ export default function TextSelectionCapture({ sourceName, sourceType }: Props) 
           ✓ 업무에 연동됨
         </div>
       ) : mode === 'button' ? (
-        <div className="flex items-center gap-0 bg-[#1B3A6B]/90 backdrop-blur-sm rounded-lg shadow-lg overflow-hidden">
+        <div className="flex items-center gap-0 bg-[#4C7FE0]/90 backdrop-blur-sm rounded-lg shadow-lg overflow-hidden">
           <button
             onClick={() => setMode('memo')}
             className="text-white text-[11px] px-2.5 py-1.5 hover:bg-white/10 transition-colors whitespace-nowrap"
@@ -194,7 +194,7 @@ export default function TextSelectionCapture({ sourceName, sourceType }: Props) 
                 key={t}
                 onClick={() => setTag(t)}
                 className={`text-[9px] px-2 py-0.5 rounded-full border font-medium transition-colors ${
-                  tag === t ? 'bg-[#1B3A6B] text-white border-[#1B3A6B]' : cls
+                  tag === t ? 'bg-[#4C7FE0] text-white border-[#4C7FE0]' : cls
                 }`}
               >
                 {label}
@@ -226,7 +226,7 @@ export default function TextSelectionCapture({ sourceName, sourceType }: Props) 
             <button
               onClick={saveMemo}
               disabled={saving || !title.trim()}
-              className="text-[10px] bg-[#1B3A6B] text-white px-3 py-1 rounded-lg hover:bg-[#22497E] disabled:opacity-40 transition-colors"
+              className="text-[10px] bg-[#4C7FE0] text-white px-3 py-1 rounded-lg hover:bg-[#3A6CC8] disabled:opacity-40 transition-colors"
             >
               {saving ? '저장 중…' : '저장'}
             </button>

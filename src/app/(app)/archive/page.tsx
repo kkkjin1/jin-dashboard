@@ -181,8 +181,8 @@ export default function ArchivePage() {
           let btnStyle: React.CSSProperties
           if (isSelected) {
             btnStyle = {
-              background: '#1B3A6B',
-              border: '1px solid #1B3A6B',
+              background: '#4C7FE0',
+              border: '1px solid #4C7FE0',
               color: '#E2E8F0',
               boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
             }

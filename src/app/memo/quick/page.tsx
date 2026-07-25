@@ -163,7 +163,7 @@ export default function QuickMemoPage() {
         <button
           onClick={handleSave}
           disabled={!title.trim() || saving}
-          className="text-xs bg-[#1c2a3c] text-[rgba(230,231,234,0.85)] border border-[rgba(255,255,255,0.08)] px-4 py-2 rounded-lg hover:bg-[#1f3045] disabled:opacity-30 transition-colors"
+          className="text-xs bg-[rgba(76,127,224,0.1)] text-[rgba(230,231,234,0.85)] border border-[rgba(255,255,255,0.08)] px-4 py-2 rounded-lg hover:bg-[rgba(76,127,224,0.18)] disabled:opacity-30 transition-colors"
           style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.07)' }}
         >
           {savedMsg || (saving ? '저장 중...' : meetingDate ? '일정 등록' : '저장')}

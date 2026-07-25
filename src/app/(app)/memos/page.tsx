@@ -42,7 +42,7 @@ const TAG_ACCENT: Record<MemoTag, string> = {
 }
 
 const pill  = 'text-xs px-3.5 py-1.5 rounded-full border font-medium transition-all whitespace-nowrap'
-const pOn  = 'bg-[#1B3A6B] text-white border-[#1B3A6B] shadow-sm'
+const pOn  = 'bg-[#4C7FE0] text-white border-[#4C7FE0] shadow-sm'
 const pOff = 'bg-white/[0.06] backdrop-blur-xl border-white/[0.09] text-white/50 hover:bg-white/[0.1] hover:text-[#E2E8F0]'
 
 interface MemoCardProps {
@@ -347,7 +347,7 @@ export default function MemosPage() {
           총 {memos.length}개
         </span>
         <button onClick={() => setShowAddForm(v => !v)}
-          className="text-sm bg-[#1B3A6B]/40 text-[#A8C4F0] border border-[#1B3A6B]/50 px-4 py-2 rounded-full hover:bg-[#1B3A6B]/60 transition-colors">
+          className="text-sm bg-[#4C7FE0]/40 text-[#A8C4F0] border border-[#4C7FE0]/50 px-4 py-2 rounded-full hover:bg-[#4C7FE0]/60 transition-colors">
           + 메모 추가
         </button>
       </div>
@@ -494,7 +494,7 @@ export default function MemosPage() {
                     <span className="text-sm font-semibold text-white/70 group-hover:text-[#E2E8F0] transition-colors">{formatMonthLabel(ym)}</span>
                     <span className="text-xs text-white/50 border border-white/[0.09] px-2 py-0.5 rounded-full"
                       style={{ background: 'rgba(255,255,255,0.06)' }}>{items.length}개</span>
-                    {idx === 0 && <span className="text-[10px] text-[#A8C4F0] border border-[#1B3A6B]/40 px-2 py-0.5 rounded-full"
+                    {idx === 0 && <span className="text-[10px] text-[#A8C4F0] border border-[#4C7FE0]/40 px-2 py-0.5 rounded-full"
                       style={{ background: 'rgba(27,58,107,0.2)' }}>최신</span>}
                     <span className="text-xs text-white/[0.28] ml-auto group-hover:text-white/50 transition-colors">{isCollapsed ? '▶' : '▼'}</span>
                   </button>
