@@ -204,6 +204,7 @@ function GroupMatrix({
   onDeleteObj, onSaveObjTitle, onAddSubItem, onSaveSubItemTitle, onDeleteSubItem,
   onSaveSubEntry, onDeleteSubEntry, onRenameDate, onDeleteDate,
 }: GroupMatrixProps) {
+  console.log('GroupMatrix rendered', group.name)
   const [expandedObjs, setExpandedObjs] = useState<Set<string>>(new Set())
   const [localDates, setLocalDates] = useState<string[]>([])
   const [addingDate, setAddingDate] = useState(false)
@@ -1022,10 +1023,12 @@ export default function ObjectivesPage() {
         ) : (
           <div className="flex flex-col gap-4">
             {(() => {
+              console.log('[ObjPage] groups.length=', groups.length, 'expandedGroups=', [...expandedGroups])
               const [weekStart, weekEnd] = getThisWeekRange()
               return groups.map(group => {
                 const isOpen = expandedGroups.has(group.id)
                 const groupObjs = objectives.filter(o => o.group_id === group.id)
+                console.log('[ObjPage] group.id=', group.id, 'isOpen=', isOpen, 'groupObjs.length=', groupObjs.length)
                 const groupSIIds = new Set(subItems.filter(si => groupObjs.some(o => o.id === si.objective_id)).map(si => si.id))
                 const groupEntries = subEntries.filter(se => groupSIIds.has(se.sub_item_id))
                 const thisWeekCount = groupEntries.filter(se => se.entry_date >= weekStart && se.entry_date <= weekEnd).length
