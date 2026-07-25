@@ -188,12 +188,13 @@ interface SubItemCardProps {
   si: ObjSubItem
   siEntries: ObjSubEntry[]
   largeCells?: boolean
+  first?: boolean
   onSaveTitle: (id: string, title: string) => Promise<void>
   onDeleteItem: (id: string) => Promise<void>
   onSaveEntry: (subItemId: string, date: string, content: string) => Promise<void>
   onDeleteEntry: (id: string) => Promise<void>
 }
-function SubItemCard({ si, siEntries, largeCells, onSaveTitle, onDeleteItem, onSaveEntry, onDeleteEntry }: SubItemCardProps) {
+function SubItemCard({ si, siEntries, largeCells, first, onSaveTitle, onDeleteItem, onSaveEntry, onDeleteEntry }: SubItemCardProps) {
   const [showHistory, setShowHistory] = useState(false)
   const [addingToday, setAddingToday] = useState(false)
   const [weekStart, weekEnd] = getThisWeekRange()
@@ -203,7 +204,7 @@ function SubItemCard({ si, siEntries, largeCells, onSaveTitle, onDeleteItem, onS
   const todayEntry = siEntries.find(e => e.entry_date === todayStr())
 
   return (
-    <div className="bg-[rgba(255,255,255,0.025)] border border-[rgba(255,255,255,0.06)] rounded-[13px] px-4 py-3.5 w-full">
+    <div className={(first ? "" : "border-t border-[rgba(255,255,255,0.06)] ") + "pt-3.5 pb-1 px-1 w-full"}>
       <SubItemTitle si={si} onSave={onSaveTitle} onDelete={onDeleteItem} />
 
       {addingToday ? (
@@ -348,12 +349,13 @@ function ObjectiveBlock({
       {/* 안건 카드 리스트 */}
       {isExpanded && (
         <div className="flex flex-col gap-3 mt-4 pb-2">
-          {subItems.map(si => (
+          {subItems.map((si, index) => (
             <SubItemCard
               key={si.id}
               si={si}
               siEntries={subEntries.filter(e => e.sub_item_id === si.id)}
               largeCells={largeCells}
+              first={index === 0}
               onSaveTitle={onSaveSubItemTitle}
               onDeleteItem={onDeleteSubItem}
               onSaveEntry={onSaveSubEntry}
