@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useState, useEffect, useRef, Fragment } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { createClient } from '@/lib/supabase/client'
 import { CATEGORY_PALETTE, TEAM_COLOR, colorKeyFromName } from '@/lib/categoryColors'
@@ -183,225 +183,6 @@ function SubItemTitle({ si, onSave, onDelete }: {
   )
 }
 
-// ── GroupMatrix ────────────────────────────────────────────
-interface GroupMatrixProps {
-  group: ObjGroup
-  groupObjs: ObjObjective[]
-  subItems: ObjSubItem[]
-  subEntries: ObjSubEntry[]
-  onDeleteObj: (id: string) => Promise<void>
-  onSaveObjTitle: (id: string, title: string) => Promise<void>
-  onAddSubItem: (objId: string, title: string) => Promise<void>
-  onSaveSubItemTitle: (id: string, title: string) => Promise<void>
-  onDeleteSubItem: (id: string) => Promise<void>
-  onSaveSubEntry: (subItemId: string, date: string, content: string) => Promise<void>
-  onDeleteSubEntry: (id: string) => Promise<void>
-  onRenameDate: (oldDate: string, newDate: string) => Promise<void>
-  onDeleteDate: (date: string) => Promise<void>
-}
-function GroupMatrix({
-  group, groupObjs, subItems, subEntries,
-  onDeleteObj, onSaveObjTitle, onAddSubItem, onSaveSubItemTitle, onDeleteSubItem,
-  onSaveSubEntry, onDeleteSubEntry, onRenameDate, onDeleteDate,
-}: GroupMatrixProps) {
-  console.log('GroupMatrix rendered', group.name)
-  const [expandedObjs, setExpandedObjs] = useState<Set<string>>(new Set())
-  const [localDates, setLocalDates] = useState<string[]>([])
-  const [addingDate, setAddingDate] = useState(false)
-  const [newDate, setNewDate] = useState(todayStr)
-  const [editingDate, setEditingDate] = useState<string | null>(null)
-  const [editDateVal, setEditDateVal] = useState('')
-  const [addingItemFor, setAddingItemFor] = useState<string | null>(null)
-  const [newItemTitle, setNewItemTitle] = useState('')
-  const [editingObjId, setEditingObjId] = useState<string | null>(null)
-  const [objTitleVal, setObjTitleVal] = useState('')
-  const winFocused = useWindowFocused()
-
-  const entryDates = subEntries.map(e => e.entry_date)
-  const rawDates = [...new Set([...entryDates, ...localDates])]
-  const allDates = (rawDates.length > 0 ? rawDates : [todayStr()]).sort()
-
-  const [weekStart, weekEnd] = getThisWeekRange()
-
-  function toggleObj(id: string) {
-    setExpandedObjs(p => { const s = new Set(p); s.has(id) ? s.delete(id) : s.add(id); return s })
-  }
-  function confirmDate() {
-    if (!newDate) return
-    setLocalDates(prev => [...new Set([...prev, newDate])])
-    setAddingDate(false); setNewDate(todayStr())
-  }
-  async function saveEditDate(oldDate: string) {
-    const nd = editDateVal.trim(); setEditingDate(null)
-    if (!nd || nd === oldDate) return
-    if (localDates.includes(oldDate)) setLocalDates(prev => prev.map(d => d === oldDate ? nd : d))
-    await onRenameDate(oldDate, nd)
-  }
-  async function handleDeleteDate(date: string) {
-    if (localDates.includes(date) && !entryDates.includes(date)) { setLocalDates(prev => prev.filter(d => d !== date)); return }
-    await onDeleteDate(date); setLocalDates(prev => prev.filter(d => d !== date))
-  }
-  async function submitItem(objId: string) {
-    const t = newItemTitle.trim(); if (!t) return
-    await onAddSubItem(objId, t); setNewItemTitle(''); setAddingItemFor(null)
-  }
-  async function saveObjTitle(id: string) {
-    const t = objTitleVal.trim(); setEditingObjId(null)
-    if (!t) return
-    await onSaveObjTitle(id, t)
-  }
-
-  const color = teamDotColor(group.name)
-  const STICKY_BG = '#161B24'
-
-  return (
-    <div className="overflow-x-auto pb-4 px-4" style={{ scrollbarWidth: 'thin' }}>
-      <table className="border-collapse text-[13px]" style={{ minWidth: '100%' }}>
-        <thead>
-          <tr>
-            <th className="text-left text-[11px] text-[rgba(226,232,240,0.3)] font-normal pb-3 pr-6"
-              style={{ position: 'sticky', left: 0, background: STICKY_BG, zIndex: 3, minWidth: 196, width: 196 }}>
-              목표 / 안건
-            </th>
-            {allDates.map(d => (
-              <th key={d} className="text-[12px] text-[rgba(226,232,240,0.45)] font-normal pb-3 px-2.5 min-w-[230px] text-left group/datecol whitespace-nowrap">
-                {editingDate === d ? (
-                  <input type="date" autoFocus value={editDateVal}
-                    onChange={e => setEditDateVal(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') saveEditDate(d); if (e.key === 'Escape') setEditingDate(null) }}
-                    onBlur={() => { if (!winFocused.current) return; saveEditDate(d) }}
-                    className="text-xs text-[#E5E7EB] border border-[rgba(255,255,255,0.15)] rounded px-1 py-0.5 focus:outline-none bg-[#1A1C1F] w-24" />
-                ) : (
-                  <div className="flex items-center gap-1.5">
-                    <button onClick={() => { setEditingDate(d); setEditDateVal(d) }}
-                      className="hover:text-[rgba(226,232,240,0.8)] transition-colors">{formatDate(d)}</button>
-                    <button onClick={() => handleDeleteDate(d)}
-                      className="opacity-0 group-hover/datecol:opacity-100 text-[rgba(226,232,240,0.2)] hover:text-red-400 transition-all p-0.5"><X size={8} /></button>
-                  </div>
-                )}
-              </th>
-            ))}
-            <th className="pb-3 pl-2 min-w-[80px]">
-              {addingDate ? (
-                <div className="flex items-center gap-1">
-                  <input type="date" value={newDate} onChange={e => setNewDate(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') confirmDate(); if (e.key === 'Escape') setAddingDate(false) }}
-                    className="text-xs text-[#E5E7EB] border border-[rgba(255,255,255,0.15)] rounded px-1 py-0.5 focus:outline-none bg-[#1A1C1F] w-24" />
-                  <button onClick={confirmDate} className="text-[#4C7FE0] text-xs font-medium hover:opacity-70 transition-opacity">확인</button>
-                </div>
-              ) : (
-                <button onClick={() => setAddingDate(true)}
-                  className="flex items-center gap-0.5 text-xs text-[rgba(226,232,240,0.3)] hover:text-[rgba(226,232,240,0.5)] transition-colors whitespace-nowrap">
-                  <Plus size={9} />날짜
-                </button>
-              )}
-            </th>
-          </tr>
-        </thead>
-
-        <tbody>
-          {groupObjs.map(obj => {
-            const objSubItems = subItems.filter(si => si.objective_id === obj.id)
-            const isObjOpen = expandedObjs.has(obj.id)
-            const isEditingTitle = editingObjId === obj.id
-
-            return (
-              <Fragment key={obj.id}>
-                {/* ── Objective header row ── */}
-                <tr>
-                  <td style={{ position: 'sticky', left: 0, background: STICKY_BG, zIndex: 2, minWidth: 196, width: 196, borderTop: '1px solid rgba(255,255,255,0.05)' }}
-                    className="py-2.5 pr-6">
-                    <div className="flex items-center gap-2 group/obj">
-                      <span onClick={() => toggleObj(obj.id)} style={{ fontSize: 7, color: '#94A3B8', display: 'inline-block', transition: 'transform .15s', transform: isObjOpen ? 'rotate(90deg)' : 'rotate(0deg)', cursor: 'pointer', flexShrink: 0 }}>&#9654;</span>
-                      <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-                      {isEditingTitle ? (
-                        <input autoFocus value={objTitleVal}
-                          onChange={e => setObjTitleVal(e.target.value)}
-                          onKeyDown={e => {
-                            if (e.key === 'Enter' && !e.nativeEvent.isComposing) saveObjTitle(obj.id)
-                            if (e.key === 'Escape') setEditingObjId(null)
-                          }}
-                          onBlur={() => { if (!winFocused.current) return; saveObjTitle(obj.id) }}
-                          className="text-[13px] font-semibold text-[#E5E7EB] border-b border-[rgba(255,255,255,0.2)] focus:outline-none bg-transparent flex-1 min-w-0 max-w-[120px]" />
-                      ) : (
-                        <span onClick={() => toggleObj(obj.id)}
-                          className="text-[13px] font-semibold text-[rgba(226,232,240,0.85)] cursor-pointer flex-1 truncate">{obj.title}</span>
-                      )}
-                      <div className="flex items-center gap-0.5 opacity-0 group-hover/obj:opacity-100 transition-opacity flex-shrink-0">
-                        <button onClick={() => { setEditingObjId(obj.id); setObjTitleVal(obj.title) }}
-                          className="text-[rgba(226,232,240,0.3)] hover:text-[rgba(226,232,240,0.6)] p-0.5 transition-colors"><Pencil size={9} /></button>
-                        <button onClick={() => onDeleteObj(obj.id)}
-                          className="text-[rgba(226,232,240,0.3)] hover:text-red-400 p-0.5 transition-colors"><Trash2 size={9} /></button>
-                      </div>
-                    </div>
-                  </td>
-                  {allDates.map(d => <td key={d} className="px-2.5 py-2.5" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }} />)}
-                  <td style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }} />
-                </tr>
-
-                {/* ── Sub-item rows (when expanded) ── */}
-                {isObjOpen && objSubItems.map(si => (
-                  <tr key={si.id}>
-                    <td style={{ position: 'sticky', left: 0, background: STICKY_BG, zIndex: 2, minWidth: 196, width: 196 }}
-                      className="pr-6 py-2 align-top pl-7">
-                      <SubItemTitle si={si} onSave={onSaveSubItemTitle} onDelete={onDeleteSubItem} />
-                    </td>
-                    {allDates.map(d => (
-                      <td key={d} className="px-2.5 py-2 align-top">
-                        <SubCell
-                          entry={subEntries.find(e => e.sub_item_id === si.id && e.entry_date === d)}
-                          subItemId={si.id}
-                          date={d}
-                          onSave={onSaveSubEntry}
-                          onDelete={onDeleteSubEntry}
-                          isThisWeek={d >= weekStart && d <= weekEnd}
-                        />
-                      </td>
-                    ))}
-                    <td />
-                  </tr>
-                ))}
-
-                {/* ── Add sub-item row (when expanded) ── */}
-                {isObjOpen && (
-                  <tr>
-                    <td style={{ position: 'sticky', left: 0, background: STICKY_BG, zIndex: 2 }}
-                      className="pl-7 pr-6 pb-3 pt-1.5">
-                      {addingItemFor === obj.id ? (
-                        <div className="flex items-center gap-1">
-                          <input autoFocus value={newItemTitle}
-                            onChange={e => setNewItemTitle(e.target.value)}
-                            onKeyDown={e => {
-                              if (e.key === 'Enter' && !e.nativeEvent.isComposing) submitItem(obj.id)
-                              if (e.key === 'Escape') { setAddingItemFor(null); setNewItemTitle('') }
-                            }}
-                            placeholder="안건 입력"
-                            className="text-[13px] text-[#E5E7EB] placeholder:text-[#5B6270] border-b border-[rgba(255,255,255,0.2)] focus:outline-none bg-transparent w-28" />
-                          <button onClick={() => submitItem(obj.id)}
-                            className="text-xs text-[#4C7FE0] font-medium hover:opacity-70 transition-opacity">확인</button>
-                          <button onClick={() => { setAddingItemFor(null); setNewItemTitle('') }}
-                            className="text-xs text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)] transition-colors">취소</button>
-                        </div>
-                      ) : (
-                        <button onClick={() => setAddingItemFor(obj.id)}
-                          className="flex items-center gap-1 text-xs text-[rgba(226,232,240,0.3)] hover:text-[rgba(226,232,240,0.5)] transition-colors">
-                          <Plus size={9} />안건 추가
-                        </button>
-                      )}
-                    </td>
-                    {allDates.map(d => <td key={d} className="px-2.5 pb-3" />)}
-                    <td />
-                  </tr>
-                )}
-              </Fragment>
-            )
-          })}
-        </tbody>
-      </table>
-    </div>
-  )
-}
-
 // ── ObjectiveBlock ─────────────────────────────────────────
 interface ObjectiveBlockProps {
   obj: ObjObjective
@@ -439,10 +220,12 @@ function ObjectiveBlock({
   const [editingDate, setEditingDate] = useState<string | null>(null)
   const [editDateVal, setEditDateVal] = useState('')
 
-  // Dates = union of entry dates + locally added dates; default to today if empty
   const entryDates = subEntries.map(e => e.entry_date)
   const rawDates = [...new Set([...entryDates, ...localDates])]
   const allDates = (rawDates.length > 0 ? rawDates : [todayStr()]).sort()
+
+  const [weekStart, weekEnd] = getThisWeekRange()
+  const STICKY_BG = '#161B24'
 
   async function saveTitle() {
     const t = titleVal.trim()
@@ -486,12 +269,12 @@ function ObjectiveBlock({
   }
 
   return (
-    <div className="border-b border-[rgba(255,255,255,0.04)] last:border-0">
+    <div className="border-t border-[rgba(255,255,255,0.07)] first:border-t-0 pt-7 pb-7 last:pb-4 mx-4">
       {/* Objective title row */}
       <div onClick={() => setIsExpanded(v => !v)}
-        className="flex items-center gap-2 px-4 py-3 group/obj cursor-pointer hover:bg-[rgba(255,255,255,0.02)] transition-colors">
+        className="flex items-center gap-2.5 px-0 py-2 group/obj cursor-pointer hover:opacity-90 transition-opacity select-none">
         <span style={{ fontSize: 8, color: '#94A3B8', display: 'inline-block', transition: 'transform .13s', transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)', flexShrink: 0 }}>&#9654;</span>
-        <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+        <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
         {editingTitle ? (
           <input
             autoFocus value={titleVal}
@@ -502,10 +285,10 @@ function ObjectiveBlock({
               if (e.key === 'Escape') { setTitleVal(obj.title); setEditingTitle(false) }
             }}
             onBlur={() => { if (!winFocused.current) return; saveTitle() }}
-            className="text-[14px] font-medium text-[#E5E7EB] border-b border-[rgba(255,255,255,0.2)] focus:outline-none bg-transparent flex-1 max-w-xs"
+            className="text-[15px] font-semibold text-[#E5E7EB] border-b border-[rgba(255,255,255,0.2)] focus:outline-none bg-transparent flex-1 max-w-xs"
           />
         ) : (
-          <span className="text-[14px] font-medium text-[rgba(226,232,240,0.8)]">{obj.title}</span>
+          <span className="text-[15px] font-semibold text-[rgba(226,232,240,0.9)]">{obj.title}</span>
         )}
         <div className="flex items-center gap-0.5 opacity-0 group-hover/obj:opacity-100 transition-opacity ml-1" onClick={e => e.stopPropagation()}>
           <button onClick={() => { setEditingTitle(true); setTitleVal(obj.title) }}
@@ -516,51 +299,36 @@ function ObjectiveBlock({
       </div>
 
       {/* Sub-item table */}
-      {isExpanded && <div className="overflow-x-auto pb-3 px-4" style={{ scrollbarWidth: 'thin' }}>
+      {isExpanded && <div className="overflow-x-auto mt-4 pb-2" style={{ scrollbarWidth: 'thin' }}>
         <table className="border-collapse text-[13px]" style={{ minWidth: '100%' }}>
           {/* Header */}
           <thead>
             <tr>
-              <th className="text-left text-[13px] text-[rgba(226,232,240,0.4)] font-normal pb-3 pr-4 w-28 min-w-[112px]"
-                style={{ position: 'sticky', left: 0, background: '#161B24', zIndex: 2, borderRight: '1px solid rgba(255,255,255,0.06)' }}>
+              <th className="text-left text-[11px] text-[rgba(226,232,240,0.35)] font-normal pb-3 pl-6 pr-4 min-w-[160px]"
+                style={{ position: 'sticky', left: 0, background: STICKY_BG, zIndex: 2 }}>
                 안건
               </th>
               {allDates.map(d => (
-                <th key={d} className="text-[13px] text-[rgba(226,232,240,0.4)] font-normal pb-3 px-2 whitespace-nowrap min-w-[200px] text-center group/datecol">
+                <th key={d} className="text-[12px] text-[rgba(226,232,240,0.4)] font-normal pb-3 px-2.5 whitespace-nowrap min-w-[230px] text-left group/datecol">
                   {editingDate === d ? (
-                    <div className="flex items-center gap-1 justify-center">
-                      <input
-                        type="date"
-                        autoFocus
-                        value={editDateVal}
-                        onChange={e => setEditDateVal(e.target.value)}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter') saveEditDate(d)
-                          if (e.key === 'Escape') setEditingDate(null)
-                        }}
-                        onBlur={() => saveEditDate(d)}
-                        className="text-xs text-[#E5E7EB] border border-[rgba(255,255,255,0.15)] rounded px-1 py-0.5 focus:outline-none bg-[#1A1C1F] w-24"
-                      />
-                    </div>
+                    <input
+                      type="date" autoFocus value={editDateVal}
+                      onChange={e => setEditDateVal(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') saveEditDate(d); if (e.key === 'Escape') setEditingDate(null) }}
+                      onBlur={() => saveEditDate(d)}
+                      className="text-xs text-[#E5E7EB] border border-[rgba(255,255,255,0.15)] rounded px-1 py-0.5 focus:outline-none bg-[#1A1C1F] w-24"
+                    />
                   ) : (
-                    <div className="flex items-center gap-1 justify-center">
-                      <button
-                        onClick={() => { setEditingDate(d); setEditDateVal(d) }}
-                        className="hover:text-[rgba(226,232,240,0.7)] transition-colors"
-                      >
-                        {formatDate(d)}
-                      </button>
-                      <button
-                        onClick={() => handleDeleteDate(d)}
-                        className="opacity-0 group-hover/datecol:opacity-100 text-[rgba(226,232,240,0.2)] hover:text-red-400 transition-all p-0.5"
-                      >
-                        <X size={8} />
-                      </button>
+                    <div className="flex items-center gap-1.5">
+                      <button onClick={() => { setEditingDate(d); setEditDateVal(d) }}
+                        className="hover:text-[rgba(226,232,240,0.7)] transition-colors">{formatDate(d)}</button>
+                      <button onClick={() => handleDeleteDate(d)}
+                        className="opacity-0 group-hover/datecol:opacity-100 text-[rgba(226,232,240,0.2)] hover:text-red-400 transition-all p-0.5"><X size={8} /></button>
                     </div>
                   )}
                 </th>
               ))}
-              <th className="pb-2.5 pl-2 min-w-[80px]">
+              <th className="pb-3 pl-2 min-w-[80px]">
                 {addingDate ? (
                   <div className="flex items-center gap-1">
                     <input type="date" value={newDate} onChange={e => setNewDate(e.target.value)}
@@ -582,15 +350,12 @@ function ObjectiveBlock({
           <tbody>
             {subItems.map(si => (
               <tr key={si.id} className="group/si">
-                {/* Sub-item title — sticky */}
-                <td className="pr-4 py-1.5 align-top w-28 min-w-[112px]"
-                  style={{ position: 'sticky', left: 0, background: '#161B24', zIndex: 1 }}>
+                <td className="pl-6 pr-4 py-2.5 align-top min-w-[160px]"
+                  style={{ position: 'sticky', left: 0, background: STICKY_BG, zIndex: 1 }}>
                   <SubItemTitle si={si} onSave={onSaveSubItemTitle} onDelete={onDeleteSubItem} />
                 </td>
-
-                {/* Entry cells */}
                 {allDates.map(d => (
-                  <td key={d} className="px-2 py-1.5 align-top min-w-[200px]">
+                  <td key={d} className="px-2.5 py-2.5 align-top">
                     <SubCell
                       entry={subEntries.find(e => e.sub_item_id === si.id && e.entry_date === d)}
                       subItemId={si.id}
@@ -598,6 +363,7 @@ function ObjectiveBlock({
                       onSave={onSaveSubEntry}
                       onDelete={onDeleteSubEntry}
                       large={largeCells}
+                      isThisWeek={!largeCells && d >= weekStart && d <= weekEnd}
                     />
                   </td>
                 ))}
@@ -607,7 +373,7 @@ function ObjectiveBlock({
 
             {/* Add sub-item row */}
             <tr>
-              <td className="pt-1.5 pb-1.5" style={{ position: 'sticky', left: 0, background: '#161B24', zIndex: 1 }}>
+              <td className="pl-6 pr-4 pt-2 pb-1" style={{ position: 'sticky', left: 0, background: STICKY_BG, zIndex: 1 }}>
                 {addingItem ? (
                   <div className="flex items-center gap-1">
                     <input
@@ -1022,91 +788,92 @@ export default function ObjectivesPage() {
           </div>
         ) : (
           <div className="flex flex-col gap-4">
-            {(() => {
-              console.log('[ObjPage] groups.length=', groups.length, 'expandedGroups=', [...expandedGroups])
+            {groups.map(group => {
+              const isOpen = expandedGroups.has(group.id)
+              const groupObjs = objectives.filter(o => o.group_id === group.id)
               const [weekStart, weekEnd] = getThisWeekRange()
-              return groups.map(group => {
-                const isOpen = expandedGroups.has(group.id)
-                const groupObjs = objectives.filter(o => o.group_id === group.id)
-                console.log('[ObjPage] group.id=', group.id, 'isOpen=', isOpen, 'groupObjs.length=', groupObjs.length)
-                const groupSIIds = new Set(subItems.filter(si => groupObjs.some(o => o.id === si.objective_id)).map(si => si.id))
-                const groupEntries = subEntries.filter(se => groupSIIds.has(se.sub_item_id))
-                const thisWeekCount = groupEntries.filter(se => se.entry_date >= weekStart && se.entry_date <= weekEnd).length
-                return (
-                  <div key={group.id} className="rounded-xl overflow-hidden"
-                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)' }}>
+              const groupSIIds = new Set(subItems.filter(si => groupObjs.some(o => o.id === si.objective_id)).map(si => si.id))
+              const groupEntries = subEntries.filter(se => groupSIIds.has(se.sub_item_id))
+              const thisWeekCount = groupEntries.filter(se => se.entry_date >= weekStart && se.entry_date <= weekEnd).length
+              return (
+                <div key={group.id} className="rounded-xl overflow-hidden"
+                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)' }}>
 
-                    {/* Group header */}
-                    <div
-                      onClick={() => toggleGroup(group.id)}
-                      className="flex items-center gap-2.5 cursor-pointer select-none px-4 py-3.5"
-                      style={{ background: teamHeaderBg(group.name), borderBottom: isOpen ? '1px solid rgba(255,255,255,0.07)' : 'none' }}>
-                      <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: teamDotColor(group.name) }} />
-                      <span onClick={e => e.stopPropagation()}>
-                        <GroupNameEditor name={group.name} onSave={name => saveGroupName(group.id, name)} />
-                      </span>
-                      {/* Stats */}
-                      <div className="flex items-center gap-2 ml-1" onClick={e => e.stopPropagation()}>
-                        <span className="text-[11px] text-[rgba(226,232,240,0.5)] font-medium">Goal {groupObjs.length}</span>
-                        {thisWeekCount > 0 && (
-                          <span className="text-[11px] px-1.5 py-0.5 rounded-md font-medium"
-                            style={{ background: 'rgba(74,127,224,0.15)', color: 'rgba(74,127,224,0.9)' }}>
-                            이번주 {thisWeekCount}건
-                          </span>
-                        )}
-                      </div>
-                      <span style={{ fontSize: 9, color: '#94A3B8', display: 'inline-block', transition: 'transform .13s', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}>&#9654;</span>
-                      <div className="ml-auto flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
-                        {isOpen && (addingObjFor === group.id ? (
-                          <div className="flex items-center gap-1.5">
-                            <input autoFocus value={newObjTitle} onChange={e => setNewObjTitle(e.target.value)}
-                              onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) addObjective(group.id); if (e.key === 'Escape') { setAddingObjFor(null); setNewObjTitle('') } }}
-                              placeholder="목표 입력" className="text-xs px-2 py-1 border border-[rgba(255,255,255,0.09)] rounded-lg focus:outline-none focus:border-[rgba(255,255,255,0.2)] bg-[#1A1C1F] text-[#E5E7EB] placeholder:text-[#5B6270] w-40" />
-                            <button onClick={() => addObjective(group.id)} className="text-xs px-2 py-1 bg-[#4C7FE0] text-white rounded-lg hover:bg-[#3A6CC8] transition-colors">추가</button>
-                            <button onClick={() => { setAddingObjFor(null); setNewObjTitle('') }} className="text-xs text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)] transition-colors">취소</button>
-                          </div>
-                        ) : (
-                          <button onClick={() => setAddingObjFor(group.id)}
-                            className="flex items-center gap-1 text-xs text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)] border border-dashed border-[rgba(255,255,255,0.09)] hover:border-[rgba(255,255,255,0.25)] px-2 py-0.5 rounded-lg transition-all">
-                            <Plus size={9} /> 목표 추가
-                          </button>
-                        ))}
-                        <button onClick={() => setExpandedGroupId(group.id)} title="크게 편집"
-                          className="text-[rgba(226,232,240,0.2)] hover:text-[#A1A7B3] transition-colors p-0.5"><Maximize2 size={11} /></button>
-                        <button onClick={() => deleteGroup(group.id)}
-                          className="text-[rgba(226,232,240,0.2)] hover:text-red-400 transition-colors p-0.5"><Trash2 size={11} /></button>
-                      </div>
+                  {/* Group header */}
+                  <div
+                    onClick={() => toggleGroup(group.id)}
+                    className="flex items-center gap-2.5 cursor-pointer select-none px-4 py-3.5"
+                    style={{ background: teamHeaderBg(group.name), borderBottom: isOpen ? '1px solid rgba(255,255,255,0.07)' : 'none' }}>
+                    <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: teamDotColor(group.name) }} />
+                    <span onClick={e => e.stopPropagation()}>
+                      <GroupNameEditor name={group.name} onSave={name => saveGroupName(group.id, name)} />
+                    </span>
+                    <div className="flex items-center gap-2 ml-1" onClick={e => e.stopPropagation()}>
+                      <span className="text-[11px] text-[rgba(226,232,240,0.5)] font-medium">Goal {groupObjs.length}</span>
+                      {thisWeekCount > 0 && (
+                        <span className="text-[11px] px-1.5 py-0.5 rounded-md font-medium"
+                          style={{ background: 'rgba(74,127,224,0.15)', color: 'rgba(74,127,224,0.9)' }}>
+                          이번주 {thisWeekCount}건
+                        </span>
+                      )}
                     </div>
-
-                    {/* GroupMatrix */}
-                    {isOpen && (
-                      groupObjs.length === 0 ? (
-                        <button onClick={() => setAddingObjFor(group.id)}
-                          className="w-full py-5 text-xs text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.5)] hover:bg-[rgba(255,255,255,0.03)] transition-all flex items-center justify-center gap-1">
-                          <Plus size={11} /> 목표를 추가하세요
-                        </button>
+                    <span style={{ fontSize: 9, color: '#94A3B8', display: 'inline-block', transition: 'transform .13s', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}>&#9654;</span>
+                    <div className="ml-auto flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
+                      {isOpen && (addingObjFor === group.id ? (
+                        <div className="flex items-center gap-1.5">
+                          <input autoFocus value={newObjTitle} onChange={e => setNewObjTitle(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) addObjective(group.id); if (e.key === 'Escape') { setAddingObjFor(null); setNewObjTitle('') } }}
+                            placeholder="목표 입력" className="text-xs px-2 py-1 border border-[rgba(255,255,255,0.09)] rounded-lg focus:outline-none focus:border-[rgba(255,255,255,0.2)] bg-[#1A1C1F] text-[#E5E7EB] placeholder:text-[#5B6270] w-40" />
+                          <button onClick={() => addObjective(group.id)} className="text-xs px-2 py-1 bg-[#4C7FE0] text-white rounded-lg hover:bg-[#3A6CC8] transition-colors">추가</button>
+                          <button onClick={() => { setAddingObjFor(null); setNewObjTitle('') }} className="text-xs text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)] transition-colors">취소</button>
+                        </div>
                       ) : (
-                        <GroupMatrix
-                          group={group}
-                          groupObjs={groupObjs}
-                          subItems={subItems.filter(si => groupObjs.some(o => o.id === si.objective_id))}
-                          subEntries={groupEntries}
-                          onDeleteObj={deleteObjective}
-                          onSaveObjTitle={saveObjTitle}
-                          onAddSubItem={addSubItem}
-                          onSaveSubItemTitle={saveSubItemTitle}
-                          onDeleteSubItem={deleteSubItem}
-                          onSaveSubEntry={saveSubEntry}
-                          onDeleteSubEntry={deleteSubEntry}
-                          onRenameDate={renameDate}
-                          onDeleteDate={deleteDate}
-                        />
-                      )
-                    )}
+                        <button onClick={() => setAddingObjFor(group.id)}
+                          className="flex items-center gap-1 text-xs text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)] border border-dashed border-[rgba(255,255,255,0.09)] hover:border-[rgba(255,255,255,0.25)] px-2 py-0.5 rounded-lg transition-all">
+                          <Plus size={9} /> 목표 추가
+                        </button>
+                      ))}
+                      <button onClick={() => setExpandedGroupId(group.id)} title="크게 편집"
+                        className="text-[rgba(226,232,240,0.2)] hover:text-[#A1A7B3] transition-colors p-0.5"><Maximize2 size={11} /></button>
+                      <button onClick={() => deleteGroup(group.id)}
+                        className="text-[rgba(226,232,240,0.2)] hover:text-red-400 transition-colors p-0.5"><Trash2 size={11} /></button>
+                    </div>
                   </div>
-                )
-              })
-            })()}
+
+                  {/* Objectives */}
+                  {isOpen && (
+                    groupObjs.length === 0 ? (
+                      <button onClick={() => setAddingObjFor(group.id)}
+                        className="w-full py-5 text-xs text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.5)] hover:bg-[rgba(255,255,255,0.03)] transition-all flex items-center justify-center gap-1">
+                        <Plus size={11} /> 목표를 추가하세요
+                      </button>
+                    ) : (
+                      <div className="py-2">
+                        {groupObjs.map(obj => (
+                          <ObjectiveBlock
+                            key={obj.id}
+                            obj={obj}
+                            color={teamDotColor(group.name)}
+                            subItems={subItems.filter(si => si.objective_id === obj.id)}
+                            subEntries={subEntries.filter(se =>
+                              subItems.filter(si => si.objective_id === obj.id).some(si => si.id === se.sub_item_id))}
+                            onDeleteObj={deleteObjective}
+                            onSaveObjTitle={saveObjTitle}
+                            onAddSubItem={addSubItem}
+                            onSaveSubItemTitle={saveSubItemTitle}
+                            onDeleteSubItem={deleteSubItem}
+                            onSaveSubEntry={saveSubEntry}
+                            onDeleteSubEntry={deleteSubEntry}
+                            onRenameDate={renameDate}
+                            onDeleteDate={deleteDate}
+                          />
+                        ))}
+                      </div>
+                    )
+                  )}
+                </div>
+              )
+            })}
           </div>
         )}
       </div>
