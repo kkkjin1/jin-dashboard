@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { createClient } from '@/lib/supabase/client'
+import { CATEGORY_PALETTE, TEAM_COLOR, colorKeyFromName } from '@/lib/categoryColors'
 import { format, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, X, Maximize2 } from 'lucide-react'
@@ -15,6 +16,11 @@ interface ObjSubItem  { id: string; objective_id: string; title: string; sort_or
 interface ObjSubEntry { id: string; sub_item_id: string; entry_date: string; content: string }
 
 const GROUP_COLORS = ['#4A7FC0','#5DBD97','#E8914A','#A855F7','#EF4444','#F59E0B','#EC4899','#06B6D4','#84CC16','#8B5CF6']
+
+function teamDotColor(name: string): string {
+  const key = TEAM_COLOR[name] ?? colorKeyFromName(name)
+  return CATEGORY_PALETTE[key].solid
+}
 
 // Alt+Tab 등 윈도우 포커스 이탈 시 편집창 닫힘 방지
 function useWindowFocused() {
@@ -449,7 +455,7 @@ function GroupEditOverlay({
           <ChevronLeft size={15} />목표관리
         </button>
         <div className="w-px h-4 bg-[rgba(255,255,255,0.1)]" />
-        <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: group.color }} />
+        <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: teamDotColor(group.name) }} />
         <GroupNameEditor name={group.name} onSave={onSaveGroupName} />
         <div className="ml-auto flex items-center gap-2">
           {addingObj ? (
@@ -492,7 +498,7 @@ function GroupEditOverlay({
               <div key={obj.id} className="surface-card rounded-2xl overflow-hidden">
                 <ObjectiveBlock
                   obj={obj}
-                  color={group.color}
+                  color={teamDotColor(group.name)}
                   subItems={subItems.filter(si => si.objective_id === obj.id)}
                   subEntries={subEntries.filter(se =>
                     subItems.filter(si => si.objective_id === obj.id).some(si => si.id === se.sub_item_id))}
@@ -771,7 +777,7 @@ export default function ObjectivesPage() {
                   <div className="flex items-center gap-2 mb-2">
                     <button onClick={() => toggleGroup(group.id)}
                       className="flex items-center gap-2 hover:opacity-75 transition-opacity select-none">
-                      <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: group.color }} />
+                      <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: teamDotColor(group.name) }} />
                       <GroupNameEditor name={group.name} onSave={name => saveGroupName(group.id, name)} />
                       <span className="text-xs text-[rgba(226,232,240,0.4)] font-normal">{groupObjs.length}개</span>
                       <span style={{ fontSize: 9, color: '#94A3B8', display: 'inline-block', transition: 'transform .13s', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}>&#9654;</span>
@@ -808,7 +814,7 @@ export default function ObjectivesPage() {
                           <ObjectiveBlock
                             key={obj.id}
                             obj={obj}
-                            color={group.color}
+                            color={teamDotColor(group.name)}
                             subItems={subItems.filter(si => si.objective_id === obj.id)}
                             subEntries={subEntries.filter(se => subItems.filter(si => si.objective_id === obj.id).some(si => si.id === se.sub_item_id))}
                             onDeleteObj={deleteObjective}
