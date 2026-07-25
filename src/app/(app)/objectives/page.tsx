@@ -94,7 +94,7 @@ function SubCell({ entry, subItemId, date, onSave, onDelete, large }: SubCellPro
       <div
         onClick={() => { setVal(entry.content); setEditing(true) }}
         style={{ minHeight: cellH }}
-        className="min-w-[200px] cursor-text bg-[rgba(255,255,255,0.03)] rounded-lg px-2.5 py-2.5 hover:bg-[rgba(255,255,255,0.06)] transition-colors"
+        className="min-w-[200px] cursor-text bg-[rgba(255,255,255,0.03)] rounded-lg px-2.5 py-1.5 hover:bg-[rgba(255,255,255,0.06)] transition-colors"
       >
         <MarkdownContent content={entry.content} dark />
       </div>
@@ -104,7 +104,7 @@ function SubCell({ entry, subItemId, date, onSave, onDelete, large }: SubCellPro
   return (
     <div
       onClick={() => { setVal(''); setEditing(true) }}
-      style={{ minHeight: cellH, padding: '8px 10px' }}
+      style={{ minHeight: cellH, padding: '6px 10px' }}
       className="min-w-[200px] rounded-lg border border-dashed border-transparent hover:border-[rgba(255,255,255,0.09)] cursor-pointer transition-colors flex items-center"
     >
       <span className="text-xs select-none" style={{ color: '#5C6478' }}>클릭해서 입력</span>
@@ -269,7 +269,7 @@ function ObjectiveBlock({
           <thead>
             <tr>
               <th className="text-left text-[13px] text-[rgba(226,232,240,0.4)] font-normal pb-3 pr-4 w-28 min-w-[112px]"
-                style={{ position: 'sticky', left: 0, background: '#1A2028', zIndex: 2, borderRight: '1px solid rgba(255,255,255,0.06)' }}>
+                style={{ position: 'sticky', left: 0, background: '#161B24', zIndex: 2, borderRight: '1px solid rgba(255,255,255,0.06)' }}>
                 안건
               </th>
               {allDates.map(d => (
@@ -331,7 +331,7 @@ function ObjectiveBlock({
               <tr key={si.id} className="group/si">
                 {/* Sub-item title — sticky */}
                 <td className="pr-4 py-1.5 align-top w-28 min-w-[112px]"
-                  style={{ position: 'sticky', left: 0, background: '#1A2028', zIndex: 1 }}>
+                  style={{ position: 'sticky', left: 0, background: '#161B24', zIndex: 1 }}>
                   <SubItemTitle si={si} onSave={onSaveSubItemTitle} onDelete={onDeleteSubItem} />
                 </td>
 
@@ -354,7 +354,7 @@ function ObjectiveBlock({
 
             {/* Add sub-item row */}
             <tr>
-              <td className="pt-1.5 pb-1.5" style={{ position: 'sticky', left: 0, background: '#1A2028', zIndex: 1 }}>
+              <td className="pt-1.5 pb-1.5" style={{ position: 'sticky', left: 0, background: '#161B24', zIndex: 1 }}>
                 {addingItem ? (
                   <div className="flex items-center gap-1">
                     <input
