@@ -38,49 +38,49 @@ function memoTagSolid(tag: string): string {
   return CATEGORY_PALETTE[MEMO_TAG[tag] ?? colorKeyFromName(tag)].solid
 }
 
-interface MemoCardProps {
+interface MemoRowProps {
   memo: QuickMemo
   onEdit: (m: QuickMemo) => void
   onDelete: (id: string) => void
   draggable?: boolean
   onDragStart?: () => void
+  onDragOver?: (e: React.DragEvent) => void
+  onDrop?: () => void
   selected?: boolean
   onToggleSelect?: (id: string) => void
 }
 
-function MemoCard({ memo, onEdit, onDelete, draggable: drag, onDragStart, selected, onToggleSelect }: MemoCardProps) {
+function MemoRow({ memo, onEdit, onDelete, draggable: drag, onDragStart, onDragOver, onDrop, selected, onToggleSelect }: MemoRowProps) {
   return (
     <div
       draggable={drag}
       onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
       onClick={() => onEdit(memo)}
-      className={`group relative border-t-2 border border-white/[0.09] rounded-2xl p-3 cursor-pointer select-none transition-all overflow-hidden h-full flex flex-col ${selected ? 'bg-white/[0.12]' : 'bg-white/[0.06] hover:bg-white/[0.09]'}`}
-      style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.18)', borderTopColor: memoTagSolid(memo.tag) }}>
-      <p className="text-xs font-semibold text-[#E2E8F0] leading-snug line-clamp-2 flex-shrink-0">
+      className={`group flex items-center gap-3 cursor-pointer select-none transition-colors ${selected ? 'bg-white/[0.06]' : 'hover:bg-white/[0.03]'}`}
+      style={{ padding: '9px 4px', borderBottom: '0.5px solid rgba(255,255,255,0.05)' }}>
+      <input type="checkbox" checked={selected ?? false}
+        onChange={e => { e.stopPropagation(); onToggleSelect?.(memo.id) }}
+        onClick={e => e.stopPropagation()}
+        className="w-3 h-3 rounded accent-gray-400 flex-shrink-0 cursor-pointer" />
+      <div style={{ width: 2.5, height: 26, background: memoTagSolid(memo.tag), flexShrink: 0, borderRadius: 2 }} />
+      <p style={{ fontSize: 12, fontWeight: 500, flexShrink: 0, minWidth: 100, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#E2E8F0' }}>
         {memo.title}
       </p>
-      {memo.content && (
-        <p className="text-[10px] leading-relaxed line-clamp-2 break-words whitespace-pre-wrap mt-1 flex-1 overflow-hidden text-white/50">
-          {stripHtml(memo.content)}
-        </p>
-      )}
-      {!memo.content && <div className="flex-1" />}
-      <div className="flex items-center gap-1.5 mt-1.5 flex-shrink-0">
-        <input type="checkbox" checked={selected ?? false}
-          onChange={e => { e.stopPropagation(); onToggleSelect?.(memo.id) }}
-          onClick={e => e.stopPropagation()}
-          className="w-3 h-3 rounded accent-gray-400 flex-shrink-0 cursor-pointer" />
-        <span className="text-[9px] px-1.5 py-0.5 rounded-full border font-medium flex-shrink-0" style={memoTagStyle(memo.tag)}>
-          {memo.tag}
-        </span>
-        <span className="text-[9px] text-white/[0.28] ml-auto">
-          {format(parseISO(memo.created_at), 'M/d', { locale: ko })}
-        </span>
-        <button onClick={e => { e.stopPropagation(); onDelete(memo.id) }}
-          className="text-[9px] text-white/[0.28] hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">
-          삭제
-        </button>
-      </div>
+      <p style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#98A1B2', fontSize: 11 }}>
+        {memo.content ? stripHtml(memo.content) : ''}
+      </p>
+      <span className="text-[9px] px-1.5 py-0.5 rounded-full border font-medium flex-shrink-0" style={memoTagStyle(memo.tag)}>
+        {memo.tag}
+      </span>
+      <span style={{ fontSize: 10, color: '#7B8397', flexShrink: 0 }}>
+        {format(parseISO(memo.created_at), 'M/d', { locale: ko })}
+      </span>
+      <button onClick={e => { e.stopPropagation(); onDelete(memo.id) }}
+        className="text-[9px] text-white/[0.28] hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">
+        삭제
+      </button>
     </div>
   )
 }
@@ -411,13 +411,12 @@ export default function MemosPage() {
                   </span>
                 </button>
                 {!collapsedTags.has('공지') && (
-                  <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
+                  <div style={{ border: '0.5px solid rgba(224,165,107,0.22)', borderRadius: 10, background: 'rgba(224,165,107,0.05)' }}>
                     {noticeMemos.map(memo => (
-                      <div key={memo.id} className="aspect-square" onDragOver={e => e.preventDefault()} onDrop={() => handleDropOnTag(memo.tag)}>
-                        <MemoCard memo={memo} onEdit={setEditing} onDelete={deleteMemo}
-                          draggable onDragStart={() => setDraggingId(memo.id)}
-                          selected={selectedIds.has(memo.id)} onToggleSelect={toggleSelect} />
-                      </div>
+                      <MemoRow key={memo.id} memo={memo} onEdit={setEditing} onDelete={deleteMemo}
+                        draggable onDragStart={() => setDraggingId(memo.id)}
+                        onDragOver={e => e.preventDefault()} onDrop={() => handleDropOnTag(memo.tag)}
+                        selected={selectedIds.has(memo.id)} onToggleSelect={toggleSelect} />
                     ))}
                   </div>
                 )}
@@ -428,7 +427,7 @@ export default function MemosPage() {
             {tagSections.map(({ tag, items }) => {
               const isCollapsed = collapsedTags.has(tag)
               return (
-                <div key={tag}>
+                <div key={tag} style={{ borderTop: '0.5px solid rgba(255,255,255,0.07)', paddingTop: 16 }}>
                   <button onClick={() => toggleTagCollapse(tag)}
                     className="flex items-center gap-2 w-full text-left group mb-3 pb-2"
                     style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
@@ -440,13 +439,12 @@ export default function MemosPage() {
                     </span>
                   </button>
                   {!isCollapsed && (
-                    <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
+                    <div>
                       {items.map(memo => (
-                        <div key={memo.id} className="aspect-square" onDragOver={e => e.preventDefault()} onDrop={() => handleDropOnTag(memo.tag)}>
-                          <MemoCard memo={memo} onEdit={setEditing} onDelete={deleteMemo}
-                            draggable onDragStart={() => setDraggingId(memo.id)}
-                            selected={selectedIds.has(memo.id)} onToggleSelect={toggleSelect} />
-                        </div>
+                        <MemoRow key={memo.id} memo={memo} onEdit={setEditing} onDelete={deleteMemo}
+                          draggable onDragStart={() => setDraggingId(memo.id)}
+                          onDragOver={e => e.preventDefault()} onDrop={() => handleDropOnTag(memo.tag)}
+                          selected={selectedIds.has(memo.id)} onToggleSelect={toggleSelect} />
                       ))}
                     </div>
                   )}
@@ -491,13 +489,12 @@ export default function MemosPage() {
                     <span className="text-xs text-white/[0.28] ml-auto group-hover:text-white/50 transition-colors">{isCollapsed ? '▶' : '▼'}</span>
                   </button>
                   {!isCollapsed && (
-                    <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
+                    <div>
                       {items.map((memo: QuickMemo) => (
-                        <div key={memo.id} className="aspect-square" onDragOver={e => e.preventDefault()} onDrop={() => handleDropOnTag(memo.tag)}>
-                          <MemoCard memo={memo} onEdit={setEditing} onDelete={deleteMemo}
-                            draggable onDragStart={() => setDraggingId(memo.id)}
-                            selected={selectedIds.has(memo.id)} onToggleSelect={toggleSelect} />
-                        </div>
+                        <MemoRow key={memo.id} memo={memo} onEdit={setEditing} onDelete={deleteMemo}
+                          draggable onDragStart={() => setDraggingId(memo.id)}
+                          onDragOver={e => e.preventDefault()} onDrop={() => handleDropOnTag(memo.tag)}
+                          selected={selectedIds.has(memo.id)} onToggleSelect={toggleSelect} />
                       ))}
                     </div>
                   )}
