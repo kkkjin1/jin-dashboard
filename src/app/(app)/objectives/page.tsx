@@ -57,8 +57,9 @@ interface SubCellProps {
 function SubCell({ entry, subItemId, date, onSave, onDelete, large }: SubCellProps) {
   const [editing, setEditing] = useState(false)
   const [val, setVal] = useState(entry?.content ?? '')
-  const cellH = large ? 320 : 140
-  const taRows = large ? 16 : 8
+  const cellH    = large ? 320 : 34
+  const editMinH = large ? 320 : 80
+  const taRows   = large ? 16 : 3
   const winFocused = useWindowFocused()
 
   async function save() {
@@ -71,7 +72,7 @@ function SubCell({ entry, subItemId, date, onSave, onDelete, large }: SubCellPro
   if (editing) {
     return (
       <div
-        style={{ minHeight: cellH }}
+        style={{ minHeight: editMinH }}
         className="min-w-[200px] bg-[rgba(255,255,255,0.05)] border border-[#4C7FE0]/30 rounded-lg overflow-hidden"
         onBlur={e => { if (!winFocused.current) return; if (!e.currentTarget.contains(e.relatedTarget as Node)) save() }}
       >
@@ -82,7 +83,7 @@ function SubCell({ entry, subItemId, date, onSave, onDelete, large }: SubCellPro
           onSubmit={save}
           onEscape={() => { setVal(entry?.content ?? ''); setEditing(false) }}
           autoFocus
-          minHeight={cellH - 60}
+          minHeight={editMinH - 20}
         />
       </div>
     )
@@ -103,10 +104,10 @@ function SubCell({ entry, subItemId, date, onSave, onDelete, large }: SubCellPro
   return (
     <div
       onClick={() => { setVal(''); setEditing(true) }}
-      style={{ height: cellH }}
-      className="min-w-[200px] rounded-lg border border-dashed border-transparent hover:border-[rgba(255,255,255,0.09)] cursor-pointer transition-colors flex items-center justify-center"
+      style={{ minHeight: cellH, padding: '8px 10px' }}
+      className="min-w-[200px] rounded-lg border border-dashed border-transparent hover:border-[rgba(255,255,255,0.09)] cursor-pointer transition-colors flex items-center"
     >
-      <span className="text-xs text-[rgba(226,232,240,0.2)] select-none">클릭해서 입력</span>
+      <span className="text-xs select-none" style={{ color: '#5C6478' }}>클릭해서 입력</span>
     </div>
   )
 }
