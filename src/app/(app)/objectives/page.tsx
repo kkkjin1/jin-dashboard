@@ -90,7 +90,7 @@ function SubCell({ entry, subItemId, date, onSave, onDelete, large, isThisWeek }
     return (
       <div
         style={{ minHeight: editMinH }}
-        className="min-w-[220px] bg-[rgba(255,255,255,0.04)] border border-[#4C7FE0]/40 rounded-[13px] overflow-hidden"
+        className="min-w-[220px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.06)] rounded-[13px] overflow-hidden"
         onBlur={e => { if (!winFocused.current) return; if (!e.currentTarget.contains(e.relatedTarget as Node)) save() }}
       >
         <TiptapEditor
@@ -107,14 +107,14 @@ function SubCell({ entry, subItemId, date, onSave, onDelete, large, isThisWeek }
   }
 
   if (entry?.content) {
-    const accentBorder = (!large && isThisWeek) ? { borderLeftWidth: 3, borderLeftColor: '#4C7FE0' } : {}
+    const accentBorder = (!large && isThisWeek) ? { borderColor: 'rgba(76,127,224,0.25)', borderLeftWidth: 3, borderLeftColor: '#4C7FE0' } : {}
     return (
       <div
         onClick={() => { setVal(entry.content); setEditing(true) }}
         style={{ minHeight: cellH, ...accentBorder }}
         className={large
           ? "min-w-[200px] cursor-text bg-[rgba(255,255,255,0.03)] rounded-lg px-2.5 py-1.5 hover:bg-[rgba(255,255,255,0.06)] transition-colors"
-          : "min-w-[220px] cursor-text bg-[rgba(255,255,255,0.025)] border border-[rgba(255,255,255,0.06)] rounded-[13px] px-4 py-3.5 hover:shadow-[0_4px_20px_rgba(0,0,0,0.3)] transition-all"
+          : "min-w-[220px] cursor-text bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.06)] rounded-[13px] px-5 py-4 hover:bg-[rgba(255,255,255,0.05)] transition-colors"
         }
       >
         <MarkdownContent content={entry.content} dark />
@@ -128,7 +128,7 @@ function SubCell({ entry, subItemId, date, onSave, onDelete, large, isThisWeek }
       style={{ minHeight: cellH }}
       className={large
         ? "min-w-[200px] rounded-lg border border-dashed border-transparent hover:border-[rgba(255,255,255,0.09)] cursor-pointer transition-colors flex items-center px-2.5"
-        : "min-w-[220px] rounded-[13px] border border-dashed border-[rgba(255,255,255,0.07)] hover:border-[rgba(255,255,255,0.14)] hover:bg-[rgba(255,255,255,0.02)] cursor-pointer transition-all flex flex-col items-center justify-center gap-1.5"
+        : "min-w-[220px] rounded-[13px] border border-dashed border-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.14)] hover:bg-[rgba(255,255,255,0.02)] cursor-pointer px-5 py-4 transition-colors flex flex-col items-center justify-center gap-1.5"
       }
     >
       {large
