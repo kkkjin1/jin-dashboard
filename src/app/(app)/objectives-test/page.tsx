@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { CATEGORY_PALETTE, TEAM_COLOR, colorKeyFromName } from '@/lib/categoryColors'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
-import { Plus, Trash2, ChevronLeft, ChevronRight, Users, Target, Zap, Info, MoreVertical } from 'lucide-react'
+import { Plus, Trash2, ChevronLeft, ChevronRight, Users, Target, Zap, Info, MoreVertical, Download, Archive, CheckCheck, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import MarkdownContent from '@/components/MarkdownContent'
 
 const TiptapEditor = dynamic(() => import('@/components/TiptapEditor'), { ssr: false })
@@ -231,7 +231,7 @@ function MatrixCell({
 // ── ObjectiveRow ───────────────────────────────────────────
 function ObjectiveRow({
   obj, index, entries, weekCols,
-  onSaveTitle, onSaveDesc, onDelete, onSaveEntry, onDeleteEntry,
+  onSaveTitle, onSaveDesc, onDelete, onArchive, onSaveEntry, onDeleteEntry,
 }: {
   obj: ObjectiveV2
   index: number
@@ -240,6 +240,7 @@ function ObjectiveRow({
   onSaveTitle: (id: string, t: string) => Promise<void>
   onSaveDesc: (id: string, d: string) => Promise<void>
   onDelete: (id: string) => Promise<void>
+  onArchive: (id: string) => Promise<void>
   onSaveEntry: (oid: string, ws: string, content: string) => Promise<void>
   onDeleteEntry: (id: string) => Promise<void>
 }) {
@@ -264,7 +265,7 @@ function ObjectiveRow({
     <div
       className="flex group/row"
       style={{
-        marginTop: 20,
+        marginTop: 18,
         borderRadius: 14,
         border: '1px solid rgba(255,255,255,0.05)',
         background: 'rgba(255,255,255,0.02)',
@@ -276,7 +277,7 @@ function ObjectiveRow({
     >
       {/* Left sticky panel */}
       <div
-        className="sticky left-0 z-[15] w-[280px] flex-shrink-0 flex items-start gap-2 px-4 py-2.5"
+        className="sticky left-0 z-[15] w-[280px] flex-shrink-0 flex items-start gap-2 px-4 py-2"
         style={{ background: '#1E2535', borderRight: '1px solid rgba(255,255,255,0.04)' }}
       >
         <div className="flex-1 min-w-0">
@@ -348,17 +349,28 @@ function ObjectiveRow({
           </div>
         </div>
 
-        <button
-          onClick={() => onDelete(obj.id)}
-          className="opacity-0 group-hover/row:opacity-100 text-[rgba(226,232,240,0.2)] hover:text-red-400 p-0.5 transition-all flex-shrink-0 mt-1"
-        >
-          <Trash2 size={9} />
-        </button>
+        <div className="flex flex-col gap-1 flex-shrink-0 mt-1">
+          <button
+            onClick={() => onArchive(obj.id)}
+            title="완료 처리"
+            className="opacity-0 group-hover/row:opacity-100 text-[rgba(226,232,240,0.2)] hover:text-green-400 p-0.5 transition-all"
+          >
+            <CheckCheck size={9} />
+          </button>
+          <button
+            onClick={() => onDelete(obj.id)}
+            title="삭제"
+            className="opacity-0 group-hover/row:opacity-100 text-[rgba(226,232,240,0.2)] hover:text-red-400 p-0.5 transition-all"
+          >
+            <Trash2 size={9} />
+          </button>
+        </div>
       </div>
 
       {/* Week cells */}
-      {weekCols.map((col, wi) => {
+      {weekCols.map((col) => {
         const entry = entries.find(e => e.week_start === col.start)
+        const displayIdx = WEEK_REL_LABELS.indexOf(col.label)
         return (
           <div
             key={col.start}
@@ -372,7 +384,7 @@ function ObjectiveRow({
               entry={entry}
               objectiveId={obj.id}
               weekStart={col.start}
-              weekIndex={wi}
+              weekIndex={displayIdx >= 0 ? displayIdx : 3}
               isThisWeek={col.isThisWeek}
               isFuture={col.isFuture}
               onSave={onSaveEntry}
@@ -388,8 +400,8 @@ function ObjectiveRow({
 // ── GroupSection ───────────────────────────────────────────
 function GroupSection({
   group, objectives, entries, weekCols, isOpen, onToggle,
-  onDeleteGroup, onAddObjective, onDeleteObj, onSaveObjTitle, onSaveObjDesc,
-  onSaveEntry, onDeleteEntry,
+  onDeleteGroup, onSaveGroupName, onAddObjective, onDeleteObj, onArchiveObj,
+  onSaveObjTitle, onSaveObjDesc, onSaveEntry, onDeleteEntry,
 }: {
   group: GroupV2
   objectives: ObjectiveV2[]
@@ -398,8 +410,10 @@ function GroupSection({
   isOpen: boolean
   onToggle: () => void
   onDeleteGroup: (id: string) => Promise<void>
+  onSaveGroupName: (id: string, name: string) => Promise<void>
   onAddObjective: (groupId: string, title: string, desc: string) => Promise<void>
   onDeleteObj: (id: string) => Promise<void>
+  onArchiveObj: (id: string) => Promise<void>
   onSaveObjTitle: (id: string, t: string) => Promise<void>
   onSaveObjDesc: (id: string, d: string) => Promise<void>
   onSaveEntry: (oid: string, ws: string, content: string) => Promise<void>
@@ -408,6 +422,9 @@ function GroupSection({
   const [addingObj, setAddingObj] = useState(false)
   const [newTitle, setNewTitle] = useState('')
   const [newDesc, setNewDesc] = useState('')
+  const [editingName, setEditingName] = useState(false)
+  const [nameVal, setNameVal] = useState(group.name)
+  const wfGrp = useWinFocused()
 
   const thisWeekStart = weekCols.find(c => c.isThisWeek)?.start ?? ''
   const groupObjIds = new Set(objectives.map(o => o.id))
@@ -428,13 +445,13 @@ function GroupSection({
     <div>
       {/* Group header row */}
       <div
-        onClick={onToggle}
-        className="flex items-center cursor-pointer select-none group/grp px-5 py-4"
+        onClick={editingName ? undefined : onToggle}
+        className="flex items-center cursor-pointer select-none group/grp px-5 py-3"
         style={{
           background: 'rgba(255,255,255,0.025)',
           borderTop: '1px solid rgba(255,255,255,0.06)',
           borderBottom: '1px solid rgba(255,255,255,0.06)',
-          minHeight: 64,
+          minHeight: 57,
           transition: 'background 0.15s',
         }}
         onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.042)' }}
@@ -442,26 +459,47 @@ function GroupSection({
       >
         {/* Expand icon */}
         <ChevronRight
-          size={16}
+          size={15}
           className="flex-shrink-0 mr-3 text-[rgba(226,232,240,0.38)] transition-transform duration-[130ms]"
           style={{ transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}
         />
 
         {/* Color dot */}
         <div
-          className="w-2.5 h-2.5 rounded-full flex-shrink-0 mr-3"
+          className="w-2 h-2 rounded-full flex-shrink-0 mr-3"
           style={{ backgroundColor: color }}
         />
 
         {/* Team info */}
         <div className="flex-1 min-w-0">
-          <span className="text-[17px] font-bold text-[rgba(226,232,240,0.92)] block leading-snug">
-            {group.name}
-          </span>
+          {editingName ? (
+            <input
+              autoFocus
+              value={nameVal}
+              onChange={e => setNameVal(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                  if (nameVal.trim()) onSaveGroupName(group.id, nameVal.trim())
+                  setEditingName(false)
+                }
+                if (e.key === 'Escape') { setNameVal(group.name); setEditingName(false) }
+              }}
+              onBlur={() => { if (!wfGrp.current) return; if (nameVal.trim()) onSaveGroupName(group.id, nameVal.trim()); setEditingName(false) }}
+              onClick={e => e.stopPropagation()}
+              className="text-[16px] font-bold text-[rgba(226,232,240,0.92)] bg-transparent border-b border-[rgba(255,255,255,0.25)] focus:outline-none w-full max-w-[240px]"
+            />
+          ) : (
+            <span
+              className="text-[16px] font-bold text-[rgba(226,232,240,0.92)] block leading-snug cursor-text"
+              onClick={e => { e.stopPropagation(); setNameVal(group.name); setEditingName(true) }}
+            >
+              {group.name}
+            </span>
+          )}
           <div className="flex items-center gap-2 mt-0.5">
-            <span className="text-[12px] text-[rgba(226,232,240,0.38)]">목표 {objectives.length}개</span>
+            <span className="text-[11px] text-[rgba(226,232,240,0.38)]">목표 {objectives.length}개</span>
             <span className="text-[10px] text-[rgba(226,232,240,0.2)]">·</span>
-            <span className="text-[12px] text-[rgba(226,232,240,0.38)]">이번주 업데이트 {thisWeekCount}건</span>
+            <span className="text-[11px] text-[rgba(226,232,240,0.38)]">이번주 업데이트 {thisWeekCount}건</span>
           </div>
         </div>
 
@@ -499,6 +537,7 @@ function GroupSection({
               onSaveTitle={onSaveObjTitle}
               onSaveDesc={onSaveObjDesc}
               onDelete={onDeleteObj}
+              onArchive={onArchiveObj}
               onSaveEntry={onSaveEntry}
               onDeleteEntry={onDeleteEntry}
             />
@@ -563,6 +602,8 @@ export default function ObjectivesTestPage() {
   const activeQ = `${selYear}-Q${selQ}`
 
   const weekCols = getFixedWeekCols()
+  const [showPastWeeks, setShowPastWeeks] = useState(true)
+  const visibleCols = showPastWeeks ? weekCols : weekCols.filter(c => c.isThisWeek)
 
   const [groups, setGroups] = useState<GroupV2[]>([])
   const [objectives, setObjectives] = useState<ObjectiveV2[]>([])
@@ -607,8 +648,18 @@ export default function ObjectivesTestPage() {
       const grp = data as GroupV2
       setGroups(p => [...p, grp])
       setExpandedGroups(p => new Set([...p, grp.id]))
+      // 팀 생성 시 정기보고 목표 자동 추가
+      const { data: objData } = await supabase.from('objectives_v2')
+        .insert({ group_id: grp.id, title: `${name}팀 정기보고`, description: '', quarter: activeQ, sort_order: 1 })
+        .select().single()
+      if (objData) setObjectives(p => [...p, objData as ObjectiveV2])
     }
     setNewGroupName(''); setAddingGroup(false)
+  }
+
+  async function saveGroupName(id: string, name: string) {
+    await supabase.from('objective_groups_v2').update({ name }).eq('id', id)
+    setGroups(p => p.map(g => g.id === id ? { ...g, name } : g))
   }
 
   async function deleteGroup(id: string) {
@@ -663,13 +714,52 @@ export default function ObjectivesTestPage() {
     setEntries(p => p.filter(e => e.id !== id))
   }
 
+  // ── Archive Objective ──────────────────────────────────
+  async function archiveObjective(id: string) {
+    const archivedQ = `${activeQ}_done`
+    await supabase.from('objectives_v2').update({ quarter: archivedQ }).eq('id', id)
+    setObjectives(p => p.filter(o => o.id !== id))
+    setEntries(p => p.filter(e => e.objective_id !== id))
+  }
+
+  // ── MD Export ─────────────────────────────────────────
+  function exportMarkdown() {
+    let md = `# 목표 리뷰 — ${selYear} Q${selQ}\n\n`
+    for (const group of groups) {
+      const gObjs = objectives.filter(o => o.group_id === group.id)
+      md += `## ${group.name}\n\n`
+      for (const obj of gObjs) {
+        md += `### ${obj.title}\n`
+        if (obj.description) md += `> ${obj.description}\n`
+        md += '\n'
+        const objEntries = entries.filter(e => e.objective_id === obj.id)
+        const sortedEntries = [...objEntries].sort((a, b) => a.week_start.localeCompare(b.week_start))
+        for (const en of sortedEntries) {
+          const col = weekCols.find(c => c.start === en.week_start)
+          const label = col?.label ?? en.week_start
+          const text = en.content.replace(/<[^>]*>/g, '').trim()
+          if (text) md += `**${label}**: ${text}\n\n`
+        }
+      }
+    }
+    const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `목표리뷰_${selYear}Q${selQ}.md`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
   // ── Stats ──────────────────────────────────────────────
   const thisWeekStart = weekCols.find(c => c.isThisWeek)?.start ?? ''
   const thisWeekEntries = entries.filter(e => e.week_start === thisWeekStart && e.content)
 
   const COL_W = 220
   const LEFT_W = 280
-  const totalMinW = LEFT_W + COL_W * 4
+  const totalMinW = LEFT_W + COL_W * visibleCols.length
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -684,15 +774,40 @@ export default function ObjectivesTestPage() {
               주간 목표 진행상황을 리뷰합니다.
             </span>
           </div>
-          <div
-            className="flex-shrink-0 px-3 py-1 rounded-full text-[11.5px] font-semibold"
-            style={{
-              background: 'rgba(76,127,224,0.12)',
-              color: 'rgba(76,127,224,0.85)',
-              border: '1px solid rgba(76,127,224,0.22)',
-            }}
-          >
-            {selYear} · Q{selQ}
+          <div className="flex items-center gap-2">
+            {/* 이전주 토글 */}
+            <button
+              onClick={() => setShowPastWeeks(p => !p)}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium border transition-all"
+              style={{
+                background: showPastWeeks ? 'rgba(76,127,224,0.1)' : 'rgba(255,255,255,0.04)',
+                color: showPastWeeks ? 'rgba(76,127,224,0.85)' : 'rgba(226,232,240,0.45)',
+                borderColor: showPastWeeks ? 'rgba(76,127,224,0.22)' : 'rgba(255,255,255,0.08)',
+              }}
+            >
+              {showPastWeeks ? <PanelLeftClose size={12} /> : <PanelLeftOpen size={12} />}
+              {showPastWeeks ? '이전주 접기' : '이전주 펼치기'}
+            </button>
+            {/* MD 다운로드 */}
+            <button
+              onClick={exportMarkdown}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium border border-[rgba(255,255,255,0.08)] text-[rgba(226,232,240,0.45)] hover:text-[rgba(226,232,240,0.75)] hover:bg-[rgba(255,255,255,0.06)] transition-all"
+              style={{ background: 'rgba(255,255,255,0.04)' }}
+            >
+              <Download size={12} />
+              MD 저장
+            </button>
+            {/* Q Pill */}
+            <div
+              className="px-3 py-1 rounded-full text-[11.5px] font-semibold"
+              style={{
+                background: 'rgba(76,127,224,0.12)',
+                color: 'rgba(76,127,224,0.85)',
+                border: '1px solid rgba(76,127,224,0.22)',
+              }}
+            >
+              {selYear} · Q{selQ}
+            </div>
           </div>
         </div>
       </div>
@@ -822,14 +937,16 @@ export default function ObjectivesTestPage() {
                   group={group}
                   objectives={objectives.filter(o => o.group_id === group.id)}
                   entries={entries}
-                  weekCols={weekCols}
+                  weekCols={visibleCols}
                   isOpen={expandedGroups.has(group.id)}
                   onToggle={() => setExpandedGroups(p => {
                     const s = new Set(p); s.has(group.id) ? s.delete(group.id) : s.add(group.id); return s
                   })}
                   onDeleteGroup={deleteGroup}
+                  onSaveGroupName={saveGroupName}
                   onAddObjective={addObjective}
                   onDeleteObj={deleteObjective}
+                  onArchiveObj={archiveObjective}
                   onSaveObjTitle={saveObjTitle}
                   onSaveObjDesc={saveObjDesc}
                   onSaveEntry={saveEntry}
