@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { CATEGORY_PALETTE, TEAM_COLOR, colorKeyFromName } from '@/lib/categoryColors'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
-import { Plus, Trash2, ChevronLeft, ChevronRight, Users, Circle, Zap, Info, MoreVertical } from 'lucide-react'
+import { Plus, Trash2, ChevronLeft, ChevronRight, Users, Target, Zap, Info, MoreVertical } from 'lucide-react'
 import MarkdownContent from '@/components/MarkdownContent'
 
 const TiptapEditor = dynamic(() => import('@/components/TiptapEditor'), { ssr: false })
@@ -205,17 +205,23 @@ function MatrixCell({
   return (
     <div
       onClick={() => { setVal(''); setEditing(true) }}
-      className="rounded-[12px] border cursor-pointer flex flex-col items-center justify-center gap-2 hover:bg-[rgba(255,255,255,0.04)] hover:border-[rgba(255,255,255,0.1)] transition-colors"
+      className="group/empty rounded-[12px] border cursor-pointer flex flex-col items-center justify-center gap-2 transition-all"
       style={{
         background: 'rgba(255,255,255,0.015)',
         borderColor: 'rgba(255,255,255,0.05)',
         minHeight: 80,
         padding: 12,
+        transition: 'background 0.15s, border-color 0.15s',
       }}
+      onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'rgba(255,255,255,0.04)'; el.style.borderColor = 'rgba(255,255,255,0.1)' }}
+      onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'rgba(255,255,255,0.015)'; el.style.borderColor = 'rgba(255,255,255,0.05)' }}
     >
-      <Plus size={16} className="text-[rgba(255,255,255,0.2)]" />
-      <span className="text-[12px] text-[rgba(226,232,240,0.22)] text-center leading-tight">
+      <Plus size={16} className="text-[rgba(255,255,255,0.2)] group-hover/empty:text-[rgba(255,255,255,0.38)] transition-colors" />
+      <span className="text-[12px] text-[rgba(226,232,240,0.22)] text-center leading-tight block group-hover/empty:hidden">
         메모 작성
+      </span>
+      <span className="text-[11px] text-[rgba(226,232,240,0.5)] text-center leading-tight hidden group-hover/empty:block">
+        클릭하여 메모 작성
       </span>
     </div>
   )
@@ -262,7 +268,10 @@ function ObjectiveRow({
         border: '1px solid rgba(255,255,255,0.05)',
         background: 'rgba(255,255,255,0.02)',
         overflow: 'clip',
+        transition: 'background 0.15s, border-color 0.15s',
       }}
+      onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'rgba(255,255,255,0.03)'; el.style.borderColor = 'rgba(255,255,255,0.09)' }}
+      onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'rgba(255,255,255,0.02)'; el.style.borderColor = 'rgba(255,255,255,0.05)' }}
     >
       {/* Left sticky panel */}
       <div
@@ -325,7 +334,7 @@ function ObjectiveRow({
           <div className="mt-3">
             <div className="flex items-center justify-between mb-1">
               <span className="text-[10px] font-medium text-[rgba(226,232,240,0.32)] tracking-wide uppercase">진행률</span>
-              <span className="text-[10px] text-[rgba(226,232,240,0.25)]">—</span>
+              <span className="text-[10px] font-semibold text-[rgba(226,232,240,0.38)]">0%</span>
             </div>
             <div className="h-[2px] rounded-full bg-[rgba(255,255,255,0.07)]" />
           </div>
@@ -427,7 +436,10 @@ function GroupSection({
           borderTop: '1px solid rgba(255,255,255,0.06)',
           borderBottom: '1px solid rgba(255,255,255,0.06)',
           minHeight: 64,
+          transition: 'background 0.15s',
         }}
+        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.042)' }}
+        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.025)' }}
       >
         {/* Expand icon */}
         <ChevronRight
@@ -459,6 +471,14 @@ function GroupSection({
           className="flex-shrink-0 flex items-center gap-2 ml-4"
           onClick={e => e.stopPropagation()}
         >
+          {/* Status Badge — placeholder: 보고 완료 */}
+          <div
+            className="flex items-center gap-1.5 px-2.5 h-6 rounded-full"
+            style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.2)' }}
+          >
+            <div className="w-1.5 h-1.5 rounded-full bg-[#22C55E] flex-shrink-0" />
+            <span className="text-[11px] font-medium" style={{ color: 'rgba(34,197,94,0.85)' }}>보고 완료</span>
+          </div>
           <button
             className="w-7 h-7 flex items-center justify-center rounded-lg text-[rgba(226,232,240,0.3)] hover:bg-[rgba(255,255,255,0.06)] hover:text-[rgba(226,232,240,0.65)] transition-colors"
           >
@@ -724,28 +744,37 @@ export default function ObjectivesTestPage() {
         <div className="flex items-center gap-2">
           {/* Card 1: 팀 */}
           <div
-            className="flex flex-col justify-center px-4 rounded-[12px] border cursor-default hover:bg-[rgba(255,255,255,0.03)] transition-colors"
+            className="flex flex-col justify-center px-4 rounded-[12px] border cursor-default hover:bg-[rgba(255,255,255,0.05)] transition-colors"
             style={{ height: 64, background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)' }}
           >
-            <span className="text-[11px] text-[rgba(226,232,240,0.38)] mb-1">팀</span>
+            <div className="flex items-center gap-1.5 mb-1">
+              <Users size={11} className="text-[rgba(226,232,240,0.3)]" />
+              <span className="text-[11px] text-[rgba(226,232,240,0.38)]">팀</span>
+            </div>
             <span className="text-[22px] font-bold text-[rgba(226,232,240,0.88)] leading-none">{groups.length}</span>
           </div>
 
           {/* Card 2: 전체 목표 */}
           <div
-            className="flex flex-col justify-center px-4 rounded-[12px] border cursor-default hover:bg-[rgba(255,255,255,0.03)] transition-colors"
+            className="flex flex-col justify-center px-4 rounded-[12px] border cursor-default hover:bg-[rgba(255,255,255,0.05)] transition-colors"
             style={{ height: 64, background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)' }}
           >
-            <span className="text-[11px] text-[rgba(226,232,240,0.38)] mb-1">전체 목표</span>
+            <div className="flex items-center gap-1.5 mb-1">
+              <Target size={11} className="text-[rgba(226,232,240,0.3)]" />
+              <span className="text-[11px] text-[rgba(226,232,240,0.38)]">전체 목표</span>
+            </div>
             <span className="text-[22px] font-bold text-[rgba(226,232,240,0.88)] leading-none">{objectives.length}</span>
           </div>
 
           {/* Card 3: 이번주 업데이트 */}
           <div
-            className="flex flex-col justify-center px-4 rounded-[12px] border cursor-default hover:bg-[rgba(255,255,255,0.03)] transition-colors"
+            className="flex flex-col justify-center px-4 rounded-[12px] border cursor-default hover:bg-[rgba(255,255,255,0.05)] transition-colors"
             style={{ height: 64, background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)' }}
           >
-            <span className="text-[11px] text-[rgba(226,232,240,0.38)] mb-1">이번주 업데이트</span>
+            <div className="flex items-center gap-1.5 mb-1">
+              <Zap size={11} className="text-[rgba(76,127,224,0.5)]" />
+              <span className="text-[11px] text-[rgba(226,232,240,0.38)]">이번주 업데이트</span>
+            </div>
             <span className="text-[22px] font-bold leading-none" style={{ color: 'rgba(76,127,224,0.88)' }}>
               {thisWeekEntries.length}
             </span>
@@ -816,13 +845,23 @@ export default function ObjectivesTestPage() {
           {/* Team List */}
           <div style={{ minWidth: totalMinW }}>
             {loading ? (
-              <div className="flex items-center justify-center h-32 text-[13px] text-[rgba(226,232,240,0.4)]">불러오는 중…</div>
+              <div className="flex items-center justify-center h-40 text-[13px] text-[rgba(226,232,240,0.4)]">불러오는 중…</div>
             ) : groups.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-48 gap-3 text-[13px] text-[rgba(226,232,240,0.4)]">
-                <p>팀을 추가하고 목표를 관리하세요</p>
-                <button onClick={() => setAddingGroup(true)}
-                  className="text-xs px-4 py-2 rounded-full bg-[#4C7FE0]/10 text-[#4C7FE0] hover:bg-[#4C7FE0]/15 transition-colors">
-                  + 첫 번째 팀 추가
+              <div className="flex flex-col items-center justify-center py-20 gap-5">
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)' }}>
+                  <Users size={24} className="text-[rgba(226,232,240,0.28)]" />
+                </div>
+                <div className="text-center">
+                  <p className="text-[15px] font-semibold text-[rgba(226,232,240,0.62)] mb-1">아직 생성된 팀이 없습니다</p>
+                  <p className="text-[12px] text-[rgba(226,232,240,0.35)]">팀을 만들고 분기 목표를 관리하세요</p>
+                </div>
+                <button
+                  onClick={() => setAddingGroup(true)}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-full text-white text-[13px] font-semibold hover:opacity-85 transition-opacity"
+                  style={{ background: '#4C7FE0' }}
+                >
+                  <Plus size={13} />
+                  첫 번째 팀 만들기
                 </button>
               </div>
             ) : (
