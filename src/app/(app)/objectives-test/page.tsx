@@ -60,23 +60,24 @@ function getWeekCols(anchor: Date, count = 4): WeekCol[] {
   })
 }
 
-// 3주전→2주전→지난주→이번주 (오래된 순 → 최신 순)
-const WEEK_DOT_COLORS = ['#1E3A8A', '#3B82F6', '#F59E0B', '#22C55E']
-const WEEK_REL_LABELS = ['3주전', '2주전', '지난주', '이번주']
+// 3주전→2주전→지난주→이번주→다음주→2주후
+const WEEK_DOT_COLORS = ['#1E3A8A', '#3B82F6', '#F59E0B', '#22C55E', '#A78BFA', '#6B7280']
+const WEEK_REL_LABELS  = ['3주전',   '2주전',   '지난주',  '이번주',  '다음주',  '2주후']
+const WEEK_OFFSETS     = [-3, -2, -1, 0, 1, 2]
 
 function getFixedWeekCols(): WeekCol[] {
   const thisMonday = getMondayOf(new Date())
-  return Array.from({ length: 4 }, (_, i) => {
-    const offset = -(3 - i)  // i=0 → -3(3주전), i=3 → 0(이번주)
+  const thisStr    = format(thisMonday, 'yyyy-MM-dd')
+  return WEEK_OFFSETS.map((offset, i) => {
     const mon = shiftWeeks(thisMonday, offset)
-    const sun = new Date(mon)
-    sun.setDate(mon.getDate() + 6)
+    const sun = new Date(mon); sun.setDate(mon.getDate() + 6)
+    const start = format(mon, 'yyyy-MM-dd')
     return {
-      start: format(mon, 'yyyy-MM-dd'),
+      start,
       end: format(sun, 'yyyy-MM-dd'),
       label: WEEK_REL_LABELS[i],
-      isThisWeek: i === 3,
-      isFuture: false,
+      isThisWeek: start === thisStr,
+      isFuture: offset > 0,
     }
   })
 }
@@ -376,8 +377,8 @@ function ObjectiveRow({
             key={col.start}
             className="w-[220px] flex-shrink-0 p-2"
             style={{
-              background: col.isThisWeek ? 'rgba(76,127,224,0.05)' : 'transparent',
-              borderLeft: col.isThisWeek ? '1px solid rgba(76,127,224,0.15)' : '1px solid rgba(255,255,255,0.04)',
+              background: col.isThisWeek ? 'rgba(76,127,224,0.05)' : col.isFuture ? 'rgba(167,139,250,0.03)' : 'transparent',
+              borderLeft: col.isThisWeek ? '1px solid rgba(76,127,224,0.15)' : col.isFuture ? '1px solid rgba(167,139,250,0.12)' : '1px solid rgba(255,255,255,0.04)',
             }}
           >
             <MatrixCell
