@@ -119,11 +119,12 @@ function StatItem({ icon, label, accent }: { icon: React.ReactNode; label: strin
 
 // ── MatrixCell ─────────────────────────────────────────────
 function MatrixCell({
-  entry, objectiveId, weekStart, isThisWeek, isFuture, onSave, onDelete,
+  entry, objectiveId, weekStart, weekIndex, isThisWeek, isFuture, onSave, onDelete,
 }: {
   entry: EntryV2 | undefined
   objectiveId: string
   weekStart: string
+  weekIndex: number
   isThisWeek: boolean
   isFuture: boolean
   onSave: (oid: string, ws: string, content: string) => Promise<void>
@@ -155,6 +156,7 @@ function MatrixCell({
 
   // ── 내용 있음 ────────────────────────────────────────────
   if (entry?.content) {
+    const [, mm, dd] = weekStart.split('-')
     return (
       <div
         className="relative group/cell rounded-[12px] border cursor-text hover:bg-[rgba(255,255,255,0.04)] transition-colors"
@@ -165,8 +167,18 @@ function MatrixCell({
         }}
         onClick={() => { setVal(entry.content); setEditing(true) }}
       >
-        {/* 상단 라벨 */}
-        <span className="block text-[11px] font-medium text-[rgba(226,232,240,0.3)] mb-2.5 tracking-wide uppercase">
+        {/* 주차 헤더 */}
+        <div className="flex items-center gap-2 mb-2.5">
+          <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: WEEK_DOT_COLORS[weekIndex] }} />
+          <span className="text-[11px] font-semibold text-[rgba(226,232,240,0.65)]">{WEEK_REL_LABELS[weekIndex]}</span>
+          <span className="text-[10px] text-[rgba(226,232,240,0.3)]">({parseInt(mm)}/{parseInt(dd)})</span>
+        </div>
+
+        {/* 구분선 */}
+        <div className="border-t border-[rgba(255,255,255,0.05)] mb-3" />
+
+        {/* 업데이트 라벨 */}
+        <span className="block text-[11px] font-medium text-[rgba(226,232,240,0.45)] mb-2 tracking-wide uppercase">
           업데이트
         </span>
 
@@ -180,7 +192,7 @@ function MatrixCell({
 
         {/* 본문 */}
         <div
-          className="overflow-auto text-[13px] leading-[1.65] text-[rgba(226,232,240,0.75)]"
+          className="overflow-auto text-[14px] leading-[1.75] text-[rgba(226,232,240,0.82)]"
           style={{ maxHeight: 160 }}
         >
           <MarkdownContent content={entry.content} dark />
@@ -193,7 +205,7 @@ function MatrixCell({
   return (
     <div
       onClick={() => { setVal(''); setEditing(true) }}
-      className="rounded-[12px] border cursor-pointer flex flex-col items-center justify-center gap-2 hover:bg-[rgba(255,255,255,0.035)] hover:border-[rgba(255,255,255,0.1)] transition-colors"
+      className="rounded-[12px] border cursor-pointer flex flex-col items-center justify-center gap-2 hover:bg-[rgba(255,255,255,0.04)] hover:border-[rgba(255,255,255,0.1)] transition-colors"
       style={{
         background: 'rgba(255,255,255,0.015)',
         borderColor: 'rgba(255,255,255,0.05)',
@@ -201,9 +213,9 @@ function MatrixCell({
         padding: 16,
       }}
     >
-      <Plus size={13} className="text-[rgba(255,255,255,0.2)]" />
+      <Plus size={16} className="text-[rgba(255,255,255,0.2)]" />
       <span className="text-[12px] text-[rgba(226,232,240,0.22)] text-center leading-tight">
-        이번주 업데이트 작성
+        메모 작성
       </span>
     </div>
   )
@@ -245,7 +257,7 @@ function ObjectiveRow({
     <div
       className="flex group/row"
       style={{
-        marginTop: 16,
+        marginTop: 20,
         borderRadius: 14,
         border: '1px solid rgba(255,255,255,0.05)',
         background: 'rgba(255,255,255,0.02)',
@@ -254,7 +266,7 @@ function ObjectiveRow({
     >
       {/* Left sticky panel */}
       <div
-        className="sticky left-0 z-[15] w-[280px] flex-shrink-0 flex items-start gap-2 px-5 py-4"
+        className="sticky left-0 z-[15] w-[280px] flex-shrink-0 flex items-start gap-2 px-6 py-5"
         style={{ background: '#1E2535', borderRight: '1px solid rgba(255,255,255,0.04)' }}
       >
         <div className="flex-1 min-w-0">
@@ -276,11 +288,11 @@ function ObjectiveRow({
               onChange={e => setTitleVal(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) saveTitle(); if (e.key === 'Escape') { setTitleVal(obj.title); setEditTitle(false) } }}
               onBlur={() => { if (!wf.current) return; saveTitle() }}
-              className="text-[16px] font-semibold text-[#E5E7EB] bg-transparent border-b border-[rgba(255,255,255,0.2)] focus:outline-none w-full block" />
+              className="text-[17px] font-semibold text-[#E5E7EB] bg-transparent border-b border-[rgba(255,255,255,0.2)] focus:outline-none w-full block" />
           ) : (
             <span
               onClick={() => { setTitleVal(obj.title); setEditTitle(true) }}
-              className="text-[16px] font-semibold text-[rgba(226,232,240,0.92)] cursor-text block leading-snug"
+              className="text-[17px] font-semibold text-[rgba(226,232,240,0.92)] cursor-text block leading-snug"
             >
               {obj.title}
             </span>
@@ -308,6 +320,27 @@ function ObjectiveRow({
               설명 추가
             </span>
           )}
+
+          {/* Progress */}
+          <div className="mt-4">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[10px] font-medium text-[rgba(226,232,240,0.35)] tracking-wide uppercase">진행률</span>
+              <span className="text-[11px] text-[rgba(226,232,240,0.28)]">—</span>
+            </div>
+            <div className="h-[3px] rounded-full bg-[rgba(255,255,255,0.07)]" />
+          </div>
+
+          {/* Assignee */}
+          <div className="flex items-center gap-2 mt-3.5">
+            <div className="w-5 h-5 rounded-full flex-shrink-0 border border-[rgba(255,255,255,0.1)]" style={{ background: 'rgba(255,255,255,0.06)' }} />
+            <span className="text-[11px] text-[rgba(226,232,240,0.3)]">미지정</span>
+          </div>
+
+          {/* Due Date */}
+          <div className="flex items-center gap-1.5 mt-2">
+            <span className="text-[10px] font-medium text-[rgba(226,232,240,0.3)]">마감일</span>
+            <span className="text-[11px] text-[rgba(226,232,240,0.25)]">미설정</span>
+          </div>
         </div>
 
         <button
@@ -319,7 +352,7 @@ function ObjectiveRow({
       </div>
 
       {/* Week cells */}
-      {weekCols.map(col => {
+      {weekCols.map((col, wi) => {
         const entry = entries.find(e => e.week_start === col.start)
         return (
           <div
@@ -334,6 +367,7 @@ function ObjectiveRow({
               entry={entry}
               objectiveId={obj.id}
               weekStart={col.start}
+              weekIndex={wi}
               isThisWeek={col.isThisWeek}
               isFuture={col.isFuture}
               onSave={onSaveEntry}
