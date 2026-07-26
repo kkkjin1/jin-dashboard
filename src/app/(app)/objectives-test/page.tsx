@@ -60,21 +60,22 @@ function getWeekCols(anchor: Date, count = 4): WeekCol[] {
   })
 }
 
-// 이번주→지난주→2주전→3주전 고정 4주 (최신 → 과거 순)
-const WEEK_DOT_COLORS = ['#22C55E', '#F59E0B', '#3B82F6', '#1E3A8A']
-const WEEK_REL_LABELS = ['이번주', '지난주', '2주전', '3주전']
+// 3주전→2주전→지난주→이번주 (오래된 순 → 최신 순)
+const WEEK_DOT_COLORS = ['#1E3A8A', '#3B82F6', '#F59E0B', '#22C55E']
+const WEEK_REL_LABELS = ['3주전', '2주전', '지난주', '이번주']
 
 function getFixedWeekCols(): WeekCol[] {
   const thisMonday = getMondayOf(new Date())
   return Array.from({ length: 4 }, (_, i) => {
-    const mon = shiftWeeks(thisMonday, -i)
+    const offset = -(3 - i)  // i=0 → -3(3주전), i=3 → 0(이번주)
+    const mon = shiftWeeks(thisMonday, offset)
     const sun = new Date(mon)
     sun.setDate(mon.getDate() + 6)
     return {
       start: format(mon, 'yyyy-MM-dd'),
       end: format(sun, 'yyyy-MM-dd'),
       label: WEEK_REL_LABELS[i],
-      isThisWeek: i === 0,
+      isThisWeek: i === 3,
       isFuture: false,
     }
   })
@@ -275,13 +276,13 @@ function ObjectiveRow({
     >
       {/* Left sticky panel */}
       <div
-        className="sticky left-0 z-[15] w-[280px] flex-shrink-0 flex items-start gap-2 px-5 py-3"
+        className="sticky left-0 z-[15] w-[280px] flex-shrink-0 flex items-start gap-2 px-4 py-2.5"
         style={{ background: '#1E2535', borderRight: '1px solid rgba(255,255,255,0.04)' }}
       >
         <div className="flex-1 min-w-0">
           {/* Goal badge */}
           <span
-            className="inline-block text-[10px] font-semibold px-2 py-0.5 rounded mb-2 border"
+            className="inline-block text-[10px] font-semibold px-2 py-0.5 rounded mb-1.5 border"
             style={{
               color: 'rgba(226,232,240,0.4)',
               borderColor: 'rgba(255,255,255,0.1)',
@@ -330,17 +331,15 @@ function ObjectiveRow({
             </span>
           )}
 
-          {/* Progress */}
-          <div className="mt-3">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[10px] font-medium text-[rgba(226,232,240,0.32)] tracking-wide uppercase">진행률</span>
-              <span className="text-[10px] font-semibold text-[rgba(226,232,240,0.38)]">0%</span>
-            </div>
-            <div className="h-[2px] rounded-full bg-[rgba(255,255,255,0.07)]" />
+          {/* Progress — bar + 0% 인라인 */}
+          <div className="mt-2.5 flex items-center gap-2">
+            <span className="text-[10px] font-medium text-[rgba(226,232,240,0.32)] tracking-wide uppercase flex-shrink-0">진행률</span>
+            <div className="flex-1 h-[2px] rounded-full bg-[rgba(255,255,255,0.07)]" />
+            <span className="text-[10px] font-semibold text-[rgba(226,232,240,0.38)] flex-shrink-0">0%</span>
           </div>
 
           {/* Assignee + Due Date — 한 줄 */}
-          <div className="flex items-center gap-1.5 mt-2.5">
+          <div className="flex items-center gap-1.5 mt-2">
             <div className="w-4 h-4 rounded-full flex-shrink-0 border border-[rgba(255,255,255,0.1)]" style={{ background: 'rgba(255,255,255,0.06)' }} />
             <span className="text-[11px] text-[rgba(226,232,240,0.35)]">미지정</span>
             <span className="text-[10px] text-[rgba(226,232,240,0.2)] mx-0.5">·</span>
@@ -742,28 +741,34 @@ export default function ObjectivesTestPage() {
       {/* ── StatsRow ──────────────────────────────────────── */}
       <div className="flex-shrink-0 px-6 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
         <div className="flex items-center gap-2">
-          {/* Card 1: 팀 */}
-          <div
-            className="flex flex-col justify-center px-4 rounded-[12px] border cursor-default hover:bg-[rgba(255,255,255,0.05)] transition-colors"
-            style={{ height: 64, background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)' }}
-          >
-            <div className="flex items-center gap-1.5 mb-1">
-              <Users size={11} className="text-[rgba(226,232,240,0.3)]" />
-              <span className="text-[11px] text-[rgba(226,232,240,0.38)]">팀</span>
-            </div>
-            <span className="text-[22px] font-bold text-[rgba(226,232,240,0.88)] leading-none">{groups.length}</span>
-          </div>
-
-          {/* Card 2: 전체 목표 */}
+          {/* Card 1: 현재 분기 */}
           <div
             className="flex flex-col justify-center px-4 rounded-[12px] border cursor-default hover:bg-[rgba(255,255,255,0.05)] transition-colors"
             style={{ height: 64, background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)' }}
           >
             <div className="flex items-center gap-1.5 mb-1">
               <Target size={11} className="text-[rgba(226,232,240,0.3)]" />
-              <span className="text-[11px] text-[rgba(226,232,240,0.38)]">전체 목표</span>
+              <span className="text-[11px] text-[rgba(226,232,240,0.38)]">현재 분기</span>
             </div>
-            <span className="text-[22px] font-bold text-[rgba(226,232,240,0.88)] leading-none">{objectives.length}</span>
+            <div className="flex items-baseline gap-1.5 leading-none">
+              <span className="text-[22px] font-bold text-[rgba(226,232,240,0.88)]">Q{selQ}</span>
+              <span className="text-[13px] font-medium text-[rgba(226,232,240,0.45)]">{selYear}</span>
+            </div>
+          </div>
+
+          {/* Card 2: 리뷰 상태 */}
+          <div
+            className="flex flex-col justify-center px-4 rounded-[12px] border cursor-default hover:bg-[rgba(255,255,255,0.05)] transition-colors"
+            style={{ height: 64, background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)' }}
+          >
+            <div className="flex items-center gap-1.5 mb-1">
+              <Users size={11} className="text-[rgba(226,232,240,0.3)]" />
+              <span className="text-[11px] text-[rgba(226,232,240,0.38)]">리뷰 상태</span>
+            </div>
+            <div className="flex items-baseline gap-1.5 leading-none">
+              <span className="text-[22px] font-bold text-[rgba(226,232,240,0.88)]">{groups.length}</span>
+              <span className="text-[11px] font-medium" style={{ color: 'rgba(34,197,94,0.75)' }}>보고 완료</span>
+            </div>
           </div>
 
           {/* Card 3: 이번주 업데이트 */}
@@ -787,60 +792,6 @@ export default function ObjectivesTestPage() {
 
         {/* ── MainContent ──────────────────────────────── */}
         <div className="flex-1 min-h-0 overflow-auto">
-
-          {/* Week column headers */}
-          <div className="flex overflow-x-auto scrollbar-hide" style={{ minWidth: totalMinW }}>
-            {/* 좌측 빈 셀 (GoalCard 폭 맞춤) */}
-            <div
-              className="sticky left-0 z-[20] w-[280px] flex-shrink-0"
-              style={{
-                background: '#161B24',
-                borderTop: '1px solid rgba(255,255,255,0.05)',
-                borderRight: '1px solid rgba(255,255,255,0.05)',
-              }}
-            />
-            {weekCols.map((col, i) => {
-              const [, mm, dd] = col.start.split('-')
-              const dateLabel = `(${parseInt(mm)}/${parseInt(dd)})`
-              return (
-                <div
-                  key={col.start}
-                  className="w-[220px] flex-shrink-0 flex items-center gap-2.5 px-4 py-3"
-                  style={{
-                    background: col.isThisWeek ? 'rgba(76,127,224,0.08)' : '#161B24',
-                    borderTop: col.isThisWeek ? '1px solid rgba(76,127,224,0.22)' : '1px solid rgba(255,255,255,0.05)',
-                    borderLeft: col.isThisWeek ? '1px solid rgba(76,127,224,0.22)' : '1px solid rgba(255,255,255,0.05)',
-                  }}
-                >
-                  <div
-                    className="flex-shrink-0 rounded-full"
-                    style={{
-                      width: col.isThisWeek ? 9 : 7,
-                      height: col.isThisWeek ? 9 : 7,
-                      backgroundColor: WEEK_DOT_COLORS[i],
-                    }}
-                  />
-                  <div>
-                    <span
-                      className="block leading-tight font-semibold"
-                      style={{
-                        fontSize: col.isThisWeek ? 13 : 12,
-                        color: col.isThisWeek ? 'rgba(226,232,240,0.92)' : 'rgba(226,232,240,0.75)',
-                      }}
-                    >
-                      {col.label}
-                    </span>
-                    <span
-                      className="block mt-0.5 text-[10px]"
-                      style={{ color: col.isThisWeek ? 'rgba(226,232,240,0.45)' : 'rgba(226,232,240,0.3)' }}
-                    >
-                      {dateLabel}
-                    </span>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
 
           {/* Team List */}
           <div style={{ minWidth: totalMinW }}>
