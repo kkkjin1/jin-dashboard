@@ -646,19 +646,17 @@ export default function ObjectivesTestPage() {
     <div className="flex flex-col h-full min-h-0">
 
       {/* ── PageHeader ────────────────────────────────────── */}
-      <div className="flex-shrink-0 px-6 pt-6 pb-6" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        <div className="flex items-start justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-[30px] font-bold text-[#E2E8F0] leading-tight">목표 리뷰</h1>
-              <Info size={16} className="text-[rgba(226,232,240,0.28)] mt-1.5 flex-shrink-0" />
-            </div>
-            <p className="text-[13px] text-[rgba(226,232,240,0.38)] mt-1.5">
-              주간 목표 진행상황을 리뷰하고 관리합니다.
-            </p>
+      <div className="flex-shrink-0 px-6 py-3.5" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-[26px] font-bold text-[#E2E8F0] leading-none">목표 리뷰</h1>
+            <Info size={13} className="text-[rgba(226,232,240,0.28)] flex-shrink-0" />
+            <span className="text-[11px] text-[rgba(226,232,240,0.45)] ml-0.5">
+              주간 목표 진행상황을 리뷰합니다.
+            </span>
           </div>
           <div
-            className="flex-shrink-0 px-3.5 py-1.5 rounded-full text-[12px] font-semibold mt-1"
+            className="flex-shrink-0 px-3 py-1 rounded-full text-[11.5px] font-semibold"
             style={{
               background: 'rgba(76,127,224,0.12)',
               color: 'rgba(76,127,224,0.85)',
@@ -671,34 +669,34 @@ export default function ObjectivesTestPage() {
       </div>
 
       {/* ── QuarterNav ────────────────────────────────────── */}
-      <div className="flex-shrink-0 px-6 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        <div className="flex items-center gap-5">
+      <div className="flex-shrink-0 px-6 py-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+        <div className="flex items-center gap-4">
           {/* Year navigation */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1">
             <button
               onClick={() => setSelYear(y => y - 1)}
-              className="w-8 h-8 flex items-center justify-center rounded-full text-[rgba(226,232,240,0.4)] hover:bg-[rgba(255,255,255,0.07)] hover:text-[rgba(226,232,240,0.8)] transition-colors"
+              className="w-7 h-7 flex items-center justify-center rounded-full text-[rgba(226,232,240,0.4)] hover:bg-[rgba(255,255,255,0.07)] hover:text-[rgba(226,232,240,0.8)] transition-colors"
             >
-              <ChevronLeft size={15} />
+              <ChevronLeft size={13} />
             </button>
-            <span className="text-[14px] font-semibold text-[rgba(226,232,240,0.82)] min-w-[40px] text-center select-none">
+            <span className="text-[13px] font-semibold text-[rgba(226,232,240,0.82)] min-w-[38px] text-center select-none">
               {selYear}
             </span>
             <button
               onClick={() => setSelYear(y => y + 1)}
-              className="w-8 h-8 flex items-center justify-center rounded-full text-[rgba(226,232,240,0.4)] hover:bg-[rgba(255,255,255,0.07)] hover:text-[rgba(226,232,240,0.8)] transition-colors"
+              className="w-7 h-7 flex items-center justify-center rounded-full text-[rgba(226,232,240,0.4)] hover:bg-[rgba(255,255,255,0.07)] hover:text-[rgba(226,232,240,0.8)] transition-colors"
             >
-              <ChevronRight size={15} />
+              <ChevronRight size={13} />
             </button>
           </div>
 
           {/* Quarter pills */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1">
             {[1, 2, 3, 4].map(q => (
               <button
                 key={q}
                 onClick={() => setSelQ(q)}
-                className={`px-5 h-[38px] rounded-full text-[13px] font-semibold border transition-all ${
+                className={`px-4 h-[32px] rounded-full text-[12px] font-semibold border transition-all ${
                   selQ === q
                     ? 'bg-[#4C7FE0] text-white border-[#4C7FE0]'
                     : 'bg-[rgba(255,255,255,0.04)] border-[rgba(255,255,255,0.08)] text-[rgba(226,232,240,0.45)] hover:text-[rgba(226,232,240,0.78)] hover:bg-[rgba(255,255,255,0.07)] hover:border-[rgba(255,255,255,0.13)]'
@@ -712,33 +710,33 @@ export default function ObjectivesTestPage() {
       </div>
 
       {/* ── StatsRow ──────────────────────────────────────── */}
-      <div className="flex-shrink-0 px-6 py-5" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        <div className="flex items-center gap-3">
+      <div className="flex-shrink-0 px-6 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+        <div className="flex items-center gap-2">
           {/* Card 1: 팀 */}
           <div
-            className="flex flex-col justify-center px-5 rounded-[14px] border cursor-default hover:bg-[rgba(255,255,255,0.03)] transition-colors"
-            style={{ height: 80, background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)' }}
+            className="flex flex-col justify-center px-4 rounded-[12px] border cursor-default hover:bg-[rgba(255,255,255,0.03)] transition-colors"
+            style={{ height: 64, background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)' }}
           >
-            <span className="text-[11px] text-[rgba(226,232,240,0.38)] mb-1.5">팀</span>
-            <span className="text-[24px] font-bold text-[rgba(226,232,240,0.88)] leading-none">{groups.length}</span>
+            <span className="text-[11px] text-[rgba(226,232,240,0.38)] mb-1">팀</span>
+            <span className="text-[22px] font-bold text-[rgba(226,232,240,0.88)] leading-none">{groups.length}</span>
           </div>
 
           {/* Card 2: 전체 목표 */}
           <div
-            className="flex flex-col justify-center px-5 rounded-[14px] border cursor-default hover:bg-[rgba(255,255,255,0.03)] transition-colors"
-            style={{ height: 80, background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)' }}
+            className="flex flex-col justify-center px-4 rounded-[12px] border cursor-default hover:bg-[rgba(255,255,255,0.03)] transition-colors"
+            style={{ height: 64, background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)' }}
           >
-            <span className="text-[11px] text-[rgba(226,232,240,0.38)] mb-1.5">전체 목표</span>
-            <span className="text-[24px] font-bold text-[rgba(226,232,240,0.88)] leading-none">{objectives.length}</span>
+            <span className="text-[11px] text-[rgba(226,232,240,0.38)] mb-1">전체 목표</span>
+            <span className="text-[22px] font-bold text-[rgba(226,232,240,0.88)] leading-none">{objectives.length}</span>
           </div>
 
           {/* Card 3: 이번주 업데이트 */}
           <div
-            className="flex flex-col justify-center px-5 rounded-[14px] border cursor-default hover:bg-[rgba(255,255,255,0.03)] transition-colors"
-            style={{ height: 80, background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)' }}
+            className="flex flex-col justify-center px-4 rounded-[12px] border cursor-default hover:bg-[rgba(255,255,255,0.03)] transition-colors"
+            style={{ height: 64, background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)' }}
           >
-            <span className="text-[11px] text-[rgba(226,232,240,0.38)] mb-1.5">이번주 업데이트</span>
-            <span className="text-[24px] font-bold leading-none" style={{ color: 'rgba(76,127,224,0.88)' }}>
+            <span className="text-[11px] text-[rgba(226,232,240,0.38)] mb-1">이번주 업데이트</span>
+            <span className="text-[22px] font-bold leading-none" style={{ color: 'rgba(76,127,224,0.88)' }}>
               {thisWeekEntries.length}
             </span>
           </div>
