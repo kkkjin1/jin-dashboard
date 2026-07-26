@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { CATEGORY_PALETTE, TEAM_COLOR, colorKeyFromName } from '@/lib/categoryColors'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
-import { Plus, Trash2, ChevronLeft, ChevronRight, Users, Circle, Zap } from 'lucide-react'
+import { Plus, Trash2, ChevronLeft, ChevronRight, Users, Circle, Zap, Info, MoreVertical } from 'lucide-react'
 import MarkdownContent from '@/components/MarkdownContent'
 
 const TiptapEditor = dynamic(() => import('@/components/TiptapEditor'), { ssr: false })
@@ -56,6 +56,26 @@ function getWeekCols(anchor: Date, count = 4): WeekCol[] {
       label: `${fmtKo(mon, 'M/d(eee)')} ~ ${fmtKo(sun, 'M/d(eee)')}`,
       isThisWeek: start === thisMonday,
       isFuture: start > thisMonday,
+    }
+  })
+}
+
+// 이번주→지난주→2주전→3주전 고정 4주 (최신 → 과거 순)
+const WEEK_DOT_COLORS = ['#22C55E', '#F59E0B', '#3B82F6', '#1E3A8A']
+const WEEK_REL_LABELS = ['이번주', '지난주', '2주전', '3주전']
+
+function getFixedWeekCols(): WeekCol[] {
+  const thisMonday = getMondayOf(new Date())
+  return Array.from({ length: 4 }, (_, i) => {
+    const mon = shiftWeeks(thisMonday, -i)
+    const sun = new Date(mon)
+    sun.setDate(mon.getDate() + 6)
+    return {
+      start: format(mon, 'yyyy-MM-dd'),
+      end: format(sun, 'yyyy-MM-dd'),
+      label: WEEK_REL_LABELS[i],
+      isThisWeek: i === 0,
+      isFuture: false,
     }
   })
 }
@@ -120,60 +140,84 @@ function MatrixCell({
     setEditing(false)
   }
 
+  // ── 편집 모드 ───────────────────────────────────────────
   if (editing) return (
     <div
-      className="min-h-[100px] bg-[rgba(255,255,255,0.04)] border border-[#4C7FE0]/40 rounded-[10px] overflow-hidden"
+      className="rounded-[12px] overflow-hidden border"
+      style={{ background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(76,127,224,0.3)' }}
       onBlur={e => { if (!wf.current) return; if (!e.currentTarget.contains(e.relatedTarget as Node)) save() }}
     >
       <TiptapEditor dark value={val} onChange={setVal} onSubmit={save}
         onEscape={() => { setVal(entry?.content ?? ''); setEditing(false) }}
-        autoFocus minHeight={80} />
+        autoFocus minHeight={100} />
     </div>
   )
 
+  // ── 내용 있음 ────────────────────────────────────────────
   if (entry?.content) {
-    const accentStyle = isThisWeek
-      ? { borderLeftWidth: 3, borderLeftColor: 'rgba(76,127,224,0.6)' }
-      : {}
     return (
       <div
+        className="relative group/cell rounded-[12px] border cursor-text hover:bg-[rgba(255,255,255,0.04)] transition-colors"
+        style={{
+          background: 'rgba(255,255,255,0.025)',
+          borderColor: 'rgba(255,255,255,0.06)',
+          padding: 16,
+        }}
         onClick={() => { setVal(entry.content); setEditing(true) }}
-        style={accentStyle}
-        className="min-h-[90px] cursor-text bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.06)] rounded-[10px] px-3.5 py-3 hover:bg-[rgba(255,255,255,0.05)] transition-colors"
       >
-        <MarkdownContent content={entry.content} dark />
+        {/* 상단 라벨 */}
+        <span className="block text-[11px] font-medium text-[rgba(226,232,240,0.3)] mb-2.5 tracking-wide uppercase">
+          업데이트
+        </span>
+
+        {/* 삭제 버튼 — 우측 상단 hover */}
+        <button
+          onClick={e => { e.stopPropagation(); onDelete(entry.id) }}
+          className="absolute top-3 right-3 opacity-0 group-hover/cell:opacity-100 text-[rgba(226,232,240,0.25)] hover:text-red-400 transition-all p-0.5"
+        >
+          <Trash2 size={10} />
+        </button>
+
+        {/* 본문 */}
+        <div
+          className="overflow-auto text-[13px] leading-[1.65] text-[rgba(226,232,240,0.75)]"
+          style={{ maxHeight: 160 }}
+        >
+          <MarkdownContent content={entry.content} dark />
+        </div>
       </div>
     )
   }
 
+  // ── 빈 상태 ─────────────────────────────────────────────
   return (
     <div
       onClick={() => { setVal(''); setEditing(true) }}
-      className={`min-h-[90px] rounded-[10px] border border-dashed cursor-pointer transition-all flex flex-col items-center justify-center gap-1.5 ${
-        isThisWeek || isFuture
-          ? 'border-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.15)] hover:bg-[rgba(255,255,255,0.02)]'
-          : 'border-transparent hover:border-[rgba(255,255,255,0.05)]'
-      }`}
+      className="rounded-[12px] border cursor-pointer flex flex-col items-center justify-center gap-2 hover:bg-[rgba(255,255,255,0.035)] hover:border-[rgba(255,255,255,0.1)] transition-colors"
+      style={{
+        background: 'rgba(255,255,255,0.015)',
+        borderColor: 'rgba(255,255,255,0.05)',
+        minHeight: 104,
+        padding: 16,
+      }}
     >
-      {(isThisWeek || isFuture) && (
-        <>
-          <Plus size={12} className="text-[rgba(255,255,255,0.18)]" />
-          <span className="text-[10px] text-[rgba(226,232,240,0.2)] text-center px-3 leading-tight">이번주 계획 입력</span>
-        </>
-      )}
+      <Plus size={13} className="text-[rgba(255,255,255,0.2)]" />
+      <span className="text-[12px] text-[rgba(226,232,240,0.22)] text-center leading-tight">
+        이번주 업데이트 작성
+      </span>
     </div>
   )
 }
 
 // ── ObjectiveRow ───────────────────────────────────────────
 function ObjectiveRow({
-  obj, entries, weekCols, color,
+  obj, index, entries, weekCols,
   onSaveTitle, onSaveDesc, onDelete, onSaveEntry, onDeleteEntry,
 }: {
   obj: ObjectiveV2
+  index: number
   entries: EntryV2[]
   weekCols: WeekCol[]
-  color: string
   onSaveTitle: (id: string, t: string) => Promise<void>
   onSaveDesc: (id: string, d: string) => Promise<void>
   onDelete: (id: string) => Promise<void>
@@ -198,42 +242,77 @@ function ObjectiveRow({
   }
 
   return (
-    <div className="flex group/row" style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+    <div
+      className="flex group/row"
+      style={{
+        marginTop: 16,
+        borderRadius: 14,
+        border: '1px solid rgba(255,255,255,0.05)',
+        background: 'rgba(255,255,255,0.02)',
+        overflow: 'clip',
+      }}
+    >
       {/* Left sticky panel */}
       <div
-        className="sticky left-0 z-[15] w-[220px] flex-shrink-0 flex items-start gap-2 px-4 py-3"
-        style={{ background: '#161B24', borderRight: '1px solid rgba(255,255,255,0.05)' }}
+        className="sticky left-0 z-[15] w-[280px] flex-shrink-0 flex items-start gap-2 px-5 py-4"
+        style={{ background: '#1E2535', borderRight: '1px solid rgba(255,255,255,0.04)' }}
       >
-        <div className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0" style={{ backgroundColor: color }} />
         <div className="flex-1 min-w-0">
+          {/* Goal badge */}
+          <span
+            className="inline-block text-[10px] font-semibold px-2 py-0.5 rounded mb-2.5 border"
+            style={{
+              color: 'rgba(226,232,240,0.4)',
+              borderColor: 'rgba(255,255,255,0.1)',
+              background: 'rgba(255,255,255,0.04)',
+            }}
+          >
+            Goal {index + 1}
+          </span>
+
+          {/* Title */}
           {editTitle ? (
             <input autoFocus value={titleVal}
               onChange={e => setTitleVal(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) saveTitle(); if (e.key === 'Escape') { setTitleVal(obj.title); setEditTitle(false) } }}
               onBlur={() => { if (!wf.current) return; saveTitle() }}
-              className="text-[13px] font-semibold text-[#E5E7EB] bg-transparent border-b border-[rgba(255,255,255,0.2)] focus:outline-none w-full" />
+              className="text-[16px] font-semibold text-[#E5E7EB] bg-transparent border-b border-[rgba(255,255,255,0.2)] focus:outline-none w-full block" />
           ) : (
             <span
               onClick={() => { setTitleVal(obj.title); setEditTitle(true) }}
-              className="text-[13px] font-semibold text-[rgba(226,232,240,0.88)] cursor-text block leading-snug"
-            >{obj.title}</span>
+              className="text-[16px] font-semibold text-[rgba(226,232,240,0.92)] cursor-text block leading-snug"
+            >
+              {obj.title}
+            </span>
           )}
+
+          {/* Description */}
           {editDesc ? (
             <input autoFocus value={descVal}
               onChange={e => setDescVal(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) saveDesc(); if (e.key === 'Escape') { setDescVal(obj.description); setEditDesc(false) } }}
               onBlur={() => { if (!wf.current) return; saveDesc() }}
-              className="text-[11px] text-[rgba(226,232,240,0.4)] bg-transparent border-b border-[rgba(255,255,255,0.12)] focus:outline-none w-full mt-1" />
-          ) : (
+              className="text-[12px] text-[rgba(226,232,240,0.4)] bg-transparent border-b border-[rgba(255,255,255,0.12)] focus:outline-none w-full mt-2" />
+          ) : obj.description ? (
             <span
               onClick={() => { setDescVal(obj.description); setEditDesc(true) }}
-              className="text-[11px] text-[rgba(226,232,240,0.32)] cursor-text block mt-1 leading-snug"
-            >{obj.description || <span className="italic opacity-40">설명 추가</span>}</span>
+              className="text-[12px] text-[rgba(226,232,240,0.38)] cursor-text block mt-2 leading-snug"
+            >
+              {obj.description}
+            </span>
+          ) : (
+            <span
+              onClick={() => { setDescVal(''); setEditDesc(true) }}
+              className="text-[11px] text-transparent hover:text-[rgba(226,232,240,0.2)] cursor-text block mt-2 transition-colors select-none"
+            >
+              설명 추가
+            </span>
           )}
         </div>
+
         <button
           onClick={() => onDelete(obj.id)}
-          className="opacity-0 group-hover/row:opacity-100 text-[rgba(226,232,240,0.2)] hover:text-red-400 p-0.5 transition-all flex-shrink-0 mt-0.5"
+          className="opacity-0 group-hover/row:opacity-100 text-[rgba(226,232,240,0.2)] hover:text-red-400 p-0.5 transition-all flex-shrink-0 mt-1"
         >
           <Trash2 size={9} />
         </button>
@@ -311,70 +390,54 @@ function GroupSection({
       {/* Group header row */}
       <div
         onClick={onToggle}
+        className="flex items-center cursor-pointer select-none group/grp px-5 py-4"
         style={{
-          background: bgColor,
+          background: 'rgba(255,255,255,0.025)',
           borderTop: '1px solid rgba(255,255,255,0.06)',
-          borderBottom: isOpen ? '1px solid rgba(255,255,255,0.06)' : 'none',
+          borderBottom: '1px solid rgba(255,255,255,0.06)',
+          minHeight: 64,
         }}
-        className="flex cursor-pointer select-none group/grp"
       >
-        {/* Left sticky part */}
+        {/* Expand icon */}
+        <ChevronRight
+          size={16}
+          className="flex-shrink-0 mr-3 text-[rgba(226,232,240,0.38)] transition-transform duration-[130ms]"
+          style={{ transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}
+        />
+
+        {/* Color dot */}
         <div
-          className="sticky left-0 z-[15] w-[220px] flex-shrink-0 flex items-center gap-2 px-4 py-3"
-          style={{ background: bgColor, borderRight: '1px solid rgba(255,255,255,0.06)' }}
+          className="w-2.5 h-2.5 rounded-full flex-shrink-0 mr-3"
+          style={{ backgroundColor: color }}
+        />
+
+        {/* Team info */}
+        <div className="flex-1 min-w-0">
+          <span className="text-[17px] font-bold text-[rgba(226,232,240,0.92)] block leading-snug">
+            {group.name}
+          </span>
+          <span className="text-[12px] text-[rgba(226,232,240,0.38)] block mt-0.5">
+            목표 {objectives.length}개 · 최근 업데이트 —
+          </span>
+        </div>
+
+        {/* Right actions */}
+        <div
+          className="flex-shrink-0 flex items-center gap-2 ml-4"
+          onClick={e => e.stopPropagation()}
         >
-          <span style={{
-            fontSize: 8, color: '#94A3B8', display: 'inline-block',
-            transition: 'transform .13s', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)',
-            flexShrink: 0,
-          }}>▶</span>
-          <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-          <span className="text-[13px] font-semibold text-[rgba(226,232,240,0.9)]">{group.name}</span>
-          <span className="text-[11px] text-[rgba(226,232,240,0.35)] ml-0.5">{objectives.length} Goals</span>
-          {thisWeekCount > 0 && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded font-medium"
-              style={{ background: 'rgba(76,127,224,0.15)', color: 'rgba(76,127,224,0.85)' }}>
-              이번주 {thisWeekCount}건
-            </span>
-          )}
-        </div>
-
-        {/* Right stats columns */}
-        <div className="flex flex-1">
-          {weekCols.map(col => {
-            const colCount = groupEntries.filter(e => e.week_start === col.start && e.content).length
-            return (
-              <div
-                key={col.start}
-                className="w-[220px] flex-shrink-0 flex items-center px-3 py-3"
-                style={{
-                  background: col.isThisWeek ? 'rgba(76,127,224,0.03)' : 'transparent',
-                  borderLeft: '1px solid rgba(255,255,255,0.04)',
-                }}
-              >
-                {colCount > 0 && (
-                  <span className="text-[11px] text-[rgba(226,232,240,0.28)]">업데이트 {colCount}건</span>
-                )}
-              </div>
-            )
-          })}
-        </div>
-
-        {/* Add obj button + delete */}
-        <div className="flex-shrink-0 flex items-center gap-2 px-3" onClick={e => e.stopPropagation()}>
-          {isOpen && !addingObj && (
+          {!addingObj && (
             <button
               onClick={() => setAddingObj(true)}
-              className="flex items-center gap-1 text-[11px] text-[rgba(226,232,240,0.3)] hover:text-[rgba(226,232,240,0.6)] transition-colors"
+              className="flex items-center gap-1.5 text-[12px] text-[rgba(226,232,240,0.48)] hover:text-[rgba(226,232,240,0.82)] border border-[rgba(255,255,255,0.09)] hover:border-[rgba(255,255,255,0.18)] rounded-lg px-3 py-1.5 transition-all"
             >
-              <Plus size={10} />목표
+              <Plus size={11} />목표 추가
             </button>
           )}
           <button
-            onClick={() => onDeleteGroup(group.id)}
-            className="opacity-0 group-hover/grp:opacity-100 text-[rgba(226,232,240,0.2)] hover:text-red-400 p-0.5 transition-all"
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-[rgba(226,232,240,0.3)] hover:bg-[rgba(255,255,255,0.06)] hover:text-[rgba(226,232,240,0.65)] transition-colors"
           >
-            <Trash2 size={11} />
+            <MoreVertical size={14} />
           </button>
         </div>
       </div>
@@ -382,13 +445,13 @@ function GroupSection({
       {/* Objective rows */}
       {isOpen && (
         <>
-          {objectives.map(obj => (
+          {objectives.map((obj, idx) => (
             <ObjectiveRow
               key={obj.id}
               obj={obj}
+              index={idx}
               entries={entries.filter(e => e.objective_id === obj.id)}
               weekCols={weekCols}
-              color={color}
               onSaveTitle={onSaveObjTitle}
               onSaveDesc={onSaveObjDesc}
               onDelete={onDeleteObj}
@@ -401,8 +464,8 @@ function GroupSection({
           {addingObj && (
             <div className="flex" style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
               <div
-                className="sticky left-0 z-[15] w-[220px] flex-shrink-0 px-4 py-3 flex flex-col gap-1.5"
-                style={{ background: '#161B24', borderRight: '1px solid rgba(255,255,255,0.05)' }}
+                className="sticky left-0 z-[15] w-[280px] flex-shrink-0 px-5 py-4 flex flex-col gap-1.5"
+                style={{ background: '#1A2030', borderRight: '1px solid rgba(255,255,255,0.05)' }}
               >
                 <input autoFocus value={newTitle}
                   onChange={e => setNewTitle(e.target.value)}
@@ -439,8 +502,8 @@ function GroupSection({
           {objectives.length === 0 && !addingObj && (
             <div className="flex" style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
               <div
-                className="sticky left-0 z-[15] w-[220px] flex-shrink-0 px-4 py-5"
-                style={{ background: '#161B24', borderRight: '1px solid rgba(255,255,255,0.05)' }}
+                className="sticky left-0 z-[15] w-[280px] flex-shrink-0 px-5 py-5"
+                style={{ background: '#1A2030', borderRight: '1px solid rgba(255,255,255,0.05)' }}
               >
                 <button onClick={() => setAddingObj(true)}
                   className="text-xs text-[rgba(226,232,240,0.3)] hover:text-[rgba(226,232,240,0.6)] transition-colors flex items-center gap-1">
@@ -470,13 +533,7 @@ export default function ObjectivesTestPage() {
   const [selQ, setSelQ] = useState(() => Math.ceil((now.getMonth() + 1) / 3))
   const activeQ = `${selYear}-Q${selQ}`
 
-  // Anchor = first week in the 4-column window (currentWeek - 2 weeks → current is 3rd col)
-  const [anchor, setAnchor] = useState<Date>(() => shiftWeeks(getMondayOf(new Date()), -2))
-  const weekCols = getWeekCols(anchor, 4)
-
-  const lastSunday = new Date(anchor)
-  lastSunday.setDate(anchor.getDate() + 4 * 7 - 1)
-  const rangeLabel = `${fmtKo(anchor, 'yyyy.MM.dd')} ~ ${fmtKo(lastSunday, 'MM.dd')} (4주)`
+  const weekCols = getFixedWeekCols()
 
   const [groups, setGroups] = useState<GroupV2[]>([])
   const [objectives, setObjectives] = useState<ObjectiveV2[]>([])
@@ -582,143 +639,202 @@ export default function ObjectivesTestPage() {
   const thisWeekEntries = entries.filter(e => e.week_start === thisWeekStart && e.content)
 
   const COL_W = 220
-  const LEFT_W = 220
+  const LEFT_W = 280
   const totalMinW = LEFT_W + COL_W * 4
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      {/* ── Fixed Header ──────────────────────────────────── */}
-      <div className="flex-shrink-0" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        {/* Title + quarter picker */}
-        <div className="flex items-center gap-3 px-6 pt-4 pb-3 flex-wrap">
-          <h1 className="text-lg font-bold text-[#E2E8F0]">목표관리</h1>
-          <div className="flex items-center gap-1 bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] rounded-full px-1 py-1">
-            <button onClick={() => setSelYear(y => y - 1)}
-              className="w-6 h-6 flex items-center justify-center rounded-full text-[rgba(226,232,240,0.4)] hover:bg-[rgba(255,255,255,0.06)] hover:text-[rgba(226,232,240,0.8)] transition-colors">
-              <ChevronLeft size={13} />
-            </button>
-            <span className="text-xs font-semibold text-[rgba(226,232,240,0.8)] px-1 min-w-[36px] text-center select-none">{selYear}</span>
-            <button onClick={() => setSelYear(y => y + 1)}
-              className="w-6 h-6 flex items-center justify-center rounded-full text-[rgba(226,232,240,0.4)] hover:bg-[rgba(255,255,255,0.06)] hover:text-[rgba(226,232,240,0.8)] transition-colors">
-              <ChevronRight size={13} />
-            </button>
-          </div>
-          <div className="flex items-center gap-1">
-            {[1, 2, 3, 4].map(q => (
-              <button key={q} onClick={() => setSelQ(q)}
-                className={`text-xs px-3 py-1.5 rounded-full border font-semibold transition-all ${
-                  selQ === q
-                    ? 'bg-[#4C7FE0] text-white border-[#4C7FE0]'
-                    : 'bg-[rgba(255,255,255,0.06)] border-[rgba(255,255,255,0.09)] text-[rgba(226,232,240,0.5)] hover:text-[rgba(226,232,240,0.8)]'
-                }`}>Q{q}</button>
-            ))}
-          </div>
-          <div className="ml-auto flex items-center gap-2">
-            {addingGroup ? (
-              <div className="flex items-center gap-1.5">
-                <input autoFocus value={newGroupName} onChange={e => setNewGroupName(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) addGroup(); if (e.key === 'Escape') { setAddingGroup(false); setNewGroupName('') } }}
-                  placeholder="팀 이름"
-                  className="text-xs px-2.5 py-1.5 border border-[rgba(255,255,255,0.09)] rounded-lg focus:outline-none focus:border-[rgba(255,255,255,0.2)] bg-[#1A1C1F] text-[#E5E7EB] placeholder:text-[#5B6270] w-28" />
-                <button onClick={addGroup} className="text-xs px-2.5 py-1.5 bg-[#4C7FE0] text-white rounded-lg hover:bg-[#3A6CC8] transition-colors">추가</button>
-                <button onClick={() => { setAddingGroup(false); setNewGroupName('') }}
-                  className="text-xs text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)] transition-colors">취소</button>
-              </div>
-            ) : (
-              <button onClick={() => setAddingGroup(true)}
-                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border border-dashed border-[rgba(255,255,255,0.2)] text-[rgba(226,232,240,0.5)] hover:border-[rgba(255,255,255,0.35)] hover:text-[rgba(226,232,240,0.8)] transition-all">
-                <Plus size={11} />팀 추가
-              </button>
-            )}
-          </div>
-        </div>
 
-        {/* Stats bar */}
-        <div className="flex items-center gap-5 px-6 pb-3">
-          <StatItem icon={<Users size={12} />} label={`팀 ${groups.length}개`} />
-          <StatItem icon={<Circle size={12} />} label={`전체 목표 ${objectives.length}개`} />
-          <StatItem icon={<Zap size={12} />} label={`이번주 업데이트 ${thisWeekEntries.length}건`} accent />
-        </div>
-
-        {/* Week navigation + column headers */}
-        <div className="flex overflow-x-auto scrollbar-hide" style={{ minWidth: totalMinW }}>
-          {/* Left sticky nav */}
-          <div
-            className="sticky left-0 z-[20] w-[220px] flex-shrink-0 flex items-center gap-1 px-3 py-2.5"
-            style={{ background: '#161B24', borderTop: '1px solid rgba(255,255,255,0.05)', borderRight: '1px solid rgba(255,255,255,0.05)' }}
-          >
-            <button onClick={() => setAnchor(d => shiftWeeks(d, -1))}
-              className="flex items-center gap-0.5 text-[11px] text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)] transition-colors">
-              <ChevronLeft size={12} />이전주
-            </button>
-            <span className="text-[9px] text-[rgba(226,232,240,0.2)] flex-1 text-center leading-tight">{rangeLabel}</span>
-            <button onClick={() => setAnchor(d => shiftWeeks(d, 1))}
-              className="flex items-center gap-0.5 text-[11px] text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)] transition-colors">
-              다음주<ChevronRight size={12} />
-            </button>
-          </div>
-
-          {/* Week column headers */}
-          {weekCols.map(col => (
-            <div
-              key={col.start}
-              className="w-[220px] flex-shrink-0 flex items-center gap-2 px-3 py-2.5"
-              style={{
-                background: col.isThisWeek ? 'rgba(76,127,224,0.05)' : '#161B24',
-                borderTop: '1px solid rgba(255,255,255,0.05)',
-                borderLeft: '1px solid rgba(255,255,255,0.05)',
-              }}
-            >
-              <span className={`text-[11px] font-medium ${col.isThisWeek ? 'text-[rgba(226,232,240,0.7)]' : 'text-[rgba(226,232,240,0.3)]'}`}>
-                {col.label}
-              </span>
-              {col.isThisWeek && (
-                <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold flex-shrink-0"
-                  style={{ background: 'rgba(76,127,224,0.2)', color: 'rgba(76,127,224,0.9)' }}>
-                  이번주
-                </span>
-              )}
+      {/* ── PageHeader ────────────────────────────────────── */}
+      <div className="flex-shrink-0 px-6 pt-6 pb-6" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        <div className="flex items-start justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-[30px] font-bold text-[#E2E8F0] leading-tight">목표 리뷰</h1>
+              <Info size={16} className="text-[rgba(226,232,240,0.28)] mt-1.5 flex-shrink-0" />
             </div>
-          ))}
+            <p className="text-[13px] text-[rgba(226,232,240,0.38)] mt-1.5">
+              주간 목표 진행상황을 리뷰하고 관리합니다.
+            </p>
+          </div>
+          <div
+            className="flex-shrink-0 px-3.5 py-1.5 rounded-full text-[12px] font-semibold mt-1"
+            style={{
+              background: 'rgba(76,127,224,0.12)',
+              color: 'rgba(76,127,224,0.85)',
+              border: '1px solid rgba(76,127,224,0.22)',
+            }}
+          >
+            {selYear} · Q{selQ}
+          </div>
         </div>
       </div>
 
-      {/* ── Scrollable Content ─────────────────────────────── */}
-      <div className="flex-1 min-h-0 overflow-auto">
-        <div style={{ minWidth: totalMinW }}>
-          {loading ? (
-            <div className="flex items-center justify-center h-32 text-[13px] text-[rgba(226,232,240,0.4)]">불러오는 중…</div>
-          ) : groups.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-48 gap-3 text-[13px] text-[rgba(226,232,240,0.4)]">
-              <p>팀을 추가하고 목표를 관리하세요</p>
-              <button onClick={() => setAddingGroup(true)}
-                className="text-xs px-4 py-2 rounded-full bg-[#4C7FE0]/10 text-[#4C7FE0] hover:bg-[#4C7FE0]/15 transition-colors">
-                + 첫 번째 팀 추가
+      {/* ── QuarterNav ────────────────────────────────────── */}
+      <div className="flex-shrink-0 px-6 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        <div className="flex items-center gap-5">
+          {/* Year navigation */}
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setSelYear(y => y - 1)}
+              className="w-8 h-8 flex items-center justify-center rounded-full text-[rgba(226,232,240,0.4)] hover:bg-[rgba(255,255,255,0.07)] hover:text-[rgba(226,232,240,0.8)] transition-colors"
+            >
+              <ChevronLeft size={15} />
+            </button>
+            <span className="text-[14px] font-semibold text-[rgba(226,232,240,0.82)] min-w-[40px] text-center select-none">
+              {selYear}
+            </span>
+            <button
+              onClick={() => setSelYear(y => y + 1)}
+              className="w-8 h-8 flex items-center justify-center rounded-full text-[rgba(226,232,240,0.4)] hover:bg-[rgba(255,255,255,0.07)] hover:text-[rgba(226,232,240,0.8)] transition-colors"
+            >
+              <ChevronRight size={15} />
+            </button>
+          </div>
+
+          {/* Quarter pills */}
+          <div className="flex items-center gap-1.5">
+            {[1, 2, 3, 4].map(q => (
+              <button
+                key={q}
+                onClick={() => setSelQ(q)}
+                className={`px-5 h-[38px] rounded-full text-[13px] font-semibold border transition-all ${
+                  selQ === q
+                    ? 'bg-[#4C7FE0] text-white border-[#4C7FE0]'
+                    : 'bg-[rgba(255,255,255,0.04)] border-[rgba(255,255,255,0.08)] text-[rgba(226,232,240,0.45)] hover:text-[rgba(226,232,240,0.78)] hover:bg-[rgba(255,255,255,0.07)] hover:border-[rgba(255,255,255,0.13)]'
+                }`}
+              >
+                Q{q}
               </button>
-            </div>
-          ) : (
-            groups.map(group => (
-              <GroupSection
-                key={group.id}
-                group={group}
-                objectives={objectives.filter(o => o.group_id === group.id)}
-                entries={entries}
-                weekCols={weekCols}
-                isOpen={expandedGroups.has(group.id)}
-                onToggle={() => setExpandedGroups(p => {
-                  const s = new Set(p); s.has(group.id) ? s.delete(group.id) : s.add(group.id); return s
-                })}
-                onDeleteGroup={deleteGroup}
-                onAddObjective={addObjective}
-                onDeleteObj={deleteObjective}
-                onSaveObjTitle={saveObjTitle}
-                onSaveObjDesc={saveObjDesc}
-                onSaveEntry={saveEntry}
-                onDeleteEntry={deleteEntry}
-              />
-            ))
-          )}
+            ))}
+          </div>
         </div>
+      </div>
+
+      {/* ── StatsRow ──────────────────────────────────────── */}
+      <div className="flex-shrink-0 px-6 py-5" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        <div className="flex items-center gap-3">
+          {/* Card 1: 팀 */}
+          <div
+            className="flex flex-col justify-center px-5 rounded-[14px] border cursor-default hover:bg-[rgba(255,255,255,0.03)] transition-colors"
+            style={{ height: 80, background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)' }}
+          >
+            <span className="text-[11px] text-[rgba(226,232,240,0.38)] mb-1.5">팀</span>
+            <span className="text-[24px] font-bold text-[rgba(226,232,240,0.88)] leading-none">{groups.length}</span>
+          </div>
+
+          {/* Card 2: 전체 목표 */}
+          <div
+            className="flex flex-col justify-center px-5 rounded-[14px] border cursor-default hover:bg-[rgba(255,255,255,0.03)] transition-colors"
+            style={{ height: 80, background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)' }}
+          >
+            <span className="text-[11px] text-[rgba(226,232,240,0.38)] mb-1.5">전체 목표</span>
+            <span className="text-[24px] font-bold text-[rgba(226,232,240,0.88)] leading-none">{objectives.length}</span>
+          </div>
+
+          {/* Card 3: 이번주 업데이트 */}
+          <div
+            className="flex flex-col justify-center px-5 rounded-[14px] border cursor-default hover:bg-[rgba(255,255,255,0.03)] transition-colors"
+            style={{ height: 80, background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)' }}
+          >
+            <span className="text-[11px] text-[rgba(226,232,240,0.38)] mb-1.5">이번주 업데이트</span>
+            <span className="text-[24px] font-bold leading-none" style={{ color: 'rgba(76,127,224,0.88)' }}>
+              {thisWeekEntries.length}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* ── MainLayout ───────────────────────────────────── */}
+      <div className="flex flex-1 min-h-0">
+
+        {/* ── MainContent ──────────────────────────────── */}
+        <div className="flex-1 min-h-0 overflow-auto">
+
+          {/* Week column headers */}
+          <div className="flex overflow-x-auto scrollbar-hide" style={{ minWidth: totalMinW }}>
+            {/* 좌측 빈 셀 (GoalCard 폭 맞춤) */}
+            <div
+              className="sticky left-0 z-[20] w-[280px] flex-shrink-0"
+              style={{
+                background: '#161B24',
+                borderTop: '1px solid rgba(255,255,255,0.05)',
+                borderRight: '1px solid rgba(255,255,255,0.05)',
+              }}
+            />
+            {weekCols.map((col, i) => {
+              const [, mm, dd] = col.start.split('-')
+              const dateLabel = `(${parseInt(mm)}/${parseInt(dd)})`
+              return (
+                <div
+                  key={col.start}
+                  className="w-[220px] flex-shrink-0 flex items-center gap-2.5 px-4 py-3"
+                  style={{
+                    background: '#161B24',
+                    borderTop: '1px solid rgba(255,255,255,0.05)',
+                    borderLeft: '1px solid rgba(255,255,255,0.05)',
+                  }}
+                >
+                  <div
+                    className="w-2 h-2 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: WEEK_DOT_COLORS[i] }}
+                  />
+                  <div>
+                    <span className="text-[12px] font-semibold text-[rgba(226,232,240,0.75)] block leading-tight">
+                      {col.label}
+                    </span>
+                    <span className="text-[10px] text-[rgba(226,232,240,0.3)] block mt-0.5">
+                      {dateLabel}
+                    </span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Team List */}
+          <div style={{ minWidth: totalMinW }}>
+            {loading ? (
+              <div className="flex items-center justify-center h-32 text-[13px] text-[rgba(226,232,240,0.4)]">불러오는 중…</div>
+            ) : groups.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-48 gap-3 text-[13px] text-[rgba(226,232,240,0.4)]">
+                <p>팀을 추가하고 목표를 관리하세요</p>
+                <button onClick={() => setAddingGroup(true)}
+                  className="text-xs px-4 py-2 rounded-full bg-[#4C7FE0]/10 text-[#4C7FE0] hover:bg-[#4C7FE0]/15 transition-colors">
+                  + 첫 번째 팀 추가
+                </button>
+              </div>
+            ) : (
+              groups.map(group => (
+                <GroupSection
+                  key={group.id}
+                  group={group}
+                  objectives={objectives.filter(o => o.group_id === group.id)}
+                  entries={entries}
+                  weekCols={weekCols}
+                  isOpen={expandedGroups.has(group.id)}
+                  onToggle={() => setExpandedGroups(p => {
+                    const s = new Set(p); s.has(group.id) ? s.delete(group.id) : s.add(group.id); return s
+                  })}
+                  onDeleteGroup={deleteGroup}
+                  onAddObjective={addObjective}
+                  onDeleteObj={deleteObjective}
+                  onSaveObjTitle={saveObjTitle}
+                  onSaveObjDesc={saveObjDesc}
+                  onSaveEntry={saveEntry}
+                  onDeleteEntry={deleteEntry}
+                />
+              ))
+            )}
+          </div>
+
+        </div>
+
+        {/* ── ArchiveSidebar [STEP 4] ───────────────────── */}
+        <div className="flex-shrink-0 w-[200px]" style={{ borderLeft: '1px solid rgba(255,255,255,0.06)' }}>
+          <span className="text-[11px] text-[rgba(226,232,240,0.2)] px-4 py-3 block">ArchiveSidebar</span>
+        </div>
+
       </div>
     </div>
   )
