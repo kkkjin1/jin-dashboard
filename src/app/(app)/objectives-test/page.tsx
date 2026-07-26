@@ -426,14 +426,6 @@ function GroupSection({
           className="flex-shrink-0 flex items-center gap-2 ml-4"
           onClick={e => e.stopPropagation()}
         >
-          {!addingObj && (
-            <button
-              onClick={() => setAddingObj(true)}
-              className="flex items-center gap-1.5 text-[12px] text-[rgba(226,232,240,0.48)] hover:text-[rgba(226,232,240,0.82)] border border-[rgba(255,255,255,0.09)] hover:border-[rgba(255,255,255,0.18)] rounded-lg px-3 py-1.5 transition-all"
-            >
-              <Plus size={11} />목표 추가
-            </button>
-          )}
           <button
             className="w-7 h-7 flex items-center justify-center rounded-lg text-[rgba(226,232,240,0.3)] hover:bg-[rgba(255,255,255,0.06)] hover:text-[rgba(226,232,240,0.65)] transition-colors"
           >
@@ -460,65 +452,50 @@ function GroupSection({
             />
           ))}
 
-          {/* Add objective input row */}
-          {addingObj && (
-            <div className="flex" style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+          {/* 목표 추가 영역 — 목록 하단 */}
+          <div className="px-3 pt-2 pb-3">
+            {addingObj ? (
               <div
-                className="sticky left-0 z-[15] w-[280px] flex-shrink-0 px-5 py-4 flex flex-col gap-1.5"
-                style={{ background: '#1A2030', borderRight: '1px solid rgba(255,255,255,0.05)' }}
+                className="rounded-[12px] border px-5 py-4 flex flex-col gap-2"
+                style={{ borderColor: 'rgba(76,127,224,0.25)', background: 'rgba(255,255,255,0.02)' }}
               >
-                <input autoFocus value={newTitle}
+                <input
+                  autoFocus value={newTitle}
                   onChange={e => setNewTitle(e.target.value)}
                   onKeyDown={e => {
                     if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleAddObj()
                     if (e.key === 'Escape') { setAddingObj(false); setNewTitle(''); setNewDesc('') }
                   }}
                   placeholder="목표 입력"
-                  className="text-[13px] font-semibold text-[#E5E7EB] placeholder:text-[#5B6270] border-b border-[rgba(255,255,255,0.2)] focus:outline-none bg-transparent w-full" />
-                <input value={newDesc}
+                  className="text-[14px] font-semibold text-[#E5E7EB] placeholder:text-[#5B6270] border-b border-[rgba(255,255,255,0.2)] focus:outline-none bg-transparent w-full pb-1"
+                />
+                <input
+                  value={newDesc}
                   onChange={e => setNewDesc(e.target.value)}
                   onKeyDown={e => {
                     if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleAddObj()
                     if (e.key === 'Escape') { setAddingObj(false); setNewTitle(''); setNewDesc('') }
                   }}
                   placeholder="설명 (선택)"
-                  className="text-[11px] text-[rgba(226,232,240,0.4)] placeholder:text-[#5B6270] border-b border-[rgba(255,255,255,0.12)] focus:outline-none bg-transparent w-full" />
-                <div className="flex gap-2 mt-0.5">
+                  className="text-[12px] text-[rgba(226,232,240,0.4)] placeholder:text-[#5B6270] border-b border-[rgba(255,255,255,0.12)] focus:outline-none bg-transparent w-full pb-1"
+                />
+                <div className="flex gap-2 mt-1">
                   <button onClick={handleAddObj} className="text-xs text-[#4C7FE0] font-medium hover:opacity-70 transition-opacity">추가</button>
                   <button onClick={() => { setAddingObj(false); setNewTitle(''); setNewDesc('') }}
                     className="text-xs text-[rgba(226,232,240,0.35)] hover:text-[rgba(226,232,240,0.6)] transition-colors">취소</button>
                 </div>
               </div>
-              {weekCols.map(col => (
-                <div key={col.start} className="w-[220px] flex-shrink-0 p-2 min-h-[80px]"
-                  style={{
-                    background: col.isThisWeek ? 'rgba(76,127,224,0.025)' : 'transparent',
-                    borderLeft: '1px solid rgba(255,255,255,0.04)',
-                  }} />
-              ))}
-            </div>
-          )}
-
-          {objectives.length === 0 && !addingObj && (
-            <div className="flex" style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
-              <div
-                className="sticky left-0 z-[15] w-[280px] flex-shrink-0 px-5 py-5"
-                style={{ background: '#1A2030', borderRight: '1px solid rgba(255,255,255,0.05)' }}
+            ) : (
+              <button
+                onClick={() => setAddingObj(true)}
+                className="w-full h-[52px] rounded-[12px] border border-dashed border-[rgba(255,255,255,0.08)] flex items-center justify-center gap-2 text-[13px] font-medium text-[rgba(226,232,240,0.55)] hover:bg-[rgba(255,255,255,0.025)] hover:border-[rgba(255,255,255,0.16)] hover:text-[rgba(226,232,240,0.8)] transition-all"
+                style={{ background: 'transparent' }}
               >
-                <button onClick={() => setAddingObj(true)}
-                  className="text-xs text-[rgba(226,232,240,0.3)] hover:text-[rgba(226,232,240,0.6)] transition-colors flex items-center gap-1">
-                  <Plus size={10} />목표를 추가하세요
-                </button>
-              </div>
-              {weekCols.map(col => (
-                <div key={col.start} className="w-[220px] flex-shrink-0 min-h-[60px]"
-                  style={{
-                    background: col.isThisWeek ? 'rgba(76,127,224,0.025)' : 'transparent',
-                    borderLeft: '1px solid rgba(255,255,255,0.04)',
-                  }} />
-              ))}
-            </div>
-          )}
+                <Plus size={13} />
+                {objectives.length === 0 ? '첫 번째 목표 추가' : '목표 추가'}
+              </button>
+            )}
+          </div>
         </>
       )}
     </div>
