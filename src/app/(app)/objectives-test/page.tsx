@@ -209,8 +209,8 @@ function MatrixCell({
       style={{
         background: 'rgba(255,255,255,0.015)',
         borderColor: 'rgba(255,255,255,0.05)',
-        minHeight: 104,
-        padding: 16,
+        minHeight: 80,
+        padding: 12,
       }}
     >
       <Plus size={16} className="text-[rgba(255,255,255,0.2)]" />
@@ -266,13 +266,13 @@ function ObjectiveRow({
     >
       {/* Left sticky panel */}
       <div
-        className="sticky left-0 z-[15] w-[280px] flex-shrink-0 flex items-start gap-2 px-6 py-5"
+        className="sticky left-0 z-[15] w-[280px] flex-shrink-0 flex items-start gap-2 px-5 py-3"
         style={{ background: '#1E2535', borderRight: '1px solid rgba(255,255,255,0.04)' }}
       >
         <div className="flex-1 min-w-0">
           {/* Goal badge */}
           <span
-            className="inline-block text-[10px] font-semibold px-2 py-0.5 rounded mb-2.5 border"
+            className="inline-block text-[10px] font-semibold px-2 py-0.5 rounded mb-2 border"
             style={{
               color: 'rgba(226,232,240,0.4)',
               borderColor: 'rgba(255,255,255,0.1)',
@@ -304,42 +304,39 @@ function ObjectiveRow({
               onChange={e => setDescVal(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) saveDesc(); if (e.key === 'Escape') { setDescVal(obj.description); setEditDesc(false) } }}
               onBlur={() => { if (!wf.current) return; saveDesc() }}
-              className="text-[12px] text-[rgba(226,232,240,0.4)] bg-transparent border-b border-[rgba(255,255,255,0.12)] focus:outline-none w-full mt-2" />
+              className="text-[12px] text-[rgba(226,232,240,0.55)] bg-transparent border-b border-[rgba(255,255,255,0.12)] focus:outline-none w-full mt-1.5" />
           ) : obj.description ? (
             <span
               onClick={() => { setDescVal(obj.description); setEditDesc(true) }}
-              className="text-[12px] text-[rgba(226,232,240,0.38)] cursor-text block mt-2 leading-snug"
+              className="text-[12px] text-[rgba(226,232,240,0.58)] cursor-text block mt-1.5 leading-snug"
             >
               {obj.description}
             </span>
           ) : (
             <span
               onClick={() => { setDescVal(''); setEditDesc(true) }}
-              className="text-[11px] text-transparent hover:text-[rgba(226,232,240,0.2)] cursor-text block mt-2 transition-colors select-none"
+              className="text-[11px] text-transparent hover:text-[rgba(226,232,240,0.2)] cursor-text block mt-1.5 transition-colors select-none"
             >
               설명 추가
             </span>
           )}
 
           {/* Progress */}
-          <div className="mt-4">
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[10px] font-medium text-[rgba(226,232,240,0.35)] tracking-wide uppercase">진행률</span>
-              <span className="text-[11px] text-[rgba(226,232,240,0.28)]">—</span>
+          <div className="mt-3">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[10px] font-medium text-[rgba(226,232,240,0.32)] tracking-wide uppercase">진행률</span>
+              <span className="text-[10px] text-[rgba(226,232,240,0.25)]">—</span>
             </div>
-            <div className="h-[3px] rounded-full bg-[rgba(255,255,255,0.07)]" />
+            <div className="h-[2px] rounded-full bg-[rgba(255,255,255,0.07)]" />
           </div>
 
-          {/* Assignee */}
-          <div className="flex items-center gap-2 mt-3.5">
-            <div className="w-5 h-5 rounded-full flex-shrink-0 border border-[rgba(255,255,255,0.1)]" style={{ background: 'rgba(255,255,255,0.06)' }} />
-            <span className="text-[11px] text-[rgba(226,232,240,0.3)]">미지정</span>
-          </div>
-
-          {/* Due Date */}
-          <div className="flex items-center gap-1.5 mt-2">
-            <span className="text-[10px] font-medium text-[rgba(226,232,240,0.3)]">마감일</span>
-            <span className="text-[11px] text-[rgba(226,232,240,0.25)]">미설정</span>
+          {/* Assignee + Due Date — 한 줄 */}
+          <div className="flex items-center gap-1.5 mt-2.5">
+            <div className="w-4 h-4 rounded-full flex-shrink-0 border border-[rgba(255,255,255,0.1)]" style={{ background: 'rgba(255,255,255,0.06)' }} />
+            <span className="text-[11px] text-[rgba(226,232,240,0.35)]">미지정</span>
+            <span className="text-[10px] text-[rgba(226,232,240,0.2)] mx-0.5">·</span>
+            <span className="text-[10px] font-medium text-[rgba(226,232,240,0.28)]">마감일</span>
+            <span className="text-[10px] text-[rgba(226,232,240,0.22)]">미설정</span>
           </div>
         </div>
 
@@ -359,8 +356,8 @@ function ObjectiveRow({
             key={col.start}
             className="w-[220px] flex-shrink-0 p-2"
             style={{
-              background: col.isThisWeek ? 'rgba(76,127,224,0.025)' : 'transparent',
-              borderLeft: '1px solid rgba(255,255,255,0.04)',
+              background: col.isThisWeek ? 'rgba(76,127,224,0.05)' : 'transparent',
+              borderLeft: col.isThisWeek ? '1px solid rgba(76,127,224,0.15)' : '1px solid rgba(255,255,255,0.04)',
             }}
           >
             <MatrixCell
@@ -450,9 +447,11 @@ function GroupSection({
           <span className="text-[17px] font-bold text-[rgba(226,232,240,0.92)] block leading-snug">
             {group.name}
           </span>
-          <span className="text-[12px] text-[rgba(226,232,240,0.38)] block mt-0.5">
-            목표 {objectives.length}개 · 최근 업데이트 —
-          </span>
+          <div className="flex items-center gap-2 mt-0.5">
+            <span className="text-[12px] text-[rgba(226,232,240,0.38)]">목표 {objectives.length}개</span>
+            <span className="text-[10px] text-[rgba(226,232,240,0.2)]">·</span>
+            <span className="text-[12px] text-[rgba(226,232,240,0.38)]">이번주 업데이트 {thisWeekCount}건</span>
+          </div>
         </div>
 
         {/* Right actions */}
@@ -779,20 +778,33 @@ export default function ObjectivesTestPage() {
                   key={col.start}
                   className="w-[220px] flex-shrink-0 flex items-center gap-2.5 px-4 py-3"
                   style={{
-                    background: '#161B24',
-                    borderTop: '1px solid rgba(255,255,255,0.05)',
-                    borderLeft: '1px solid rgba(255,255,255,0.05)',
+                    background: col.isThisWeek ? 'rgba(76,127,224,0.08)' : '#161B24',
+                    borderTop: col.isThisWeek ? '1px solid rgba(76,127,224,0.22)' : '1px solid rgba(255,255,255,0.05)',
+                    borderLeft: col.isThisWeek ? '1px solid rgba(76,127,224,0.22)' : '1px solid rgba(255,255,255,0.05)',
                   }}
                 >
                   <div
-                    className="w-2 h-2 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: WEEK_DOT_COLORS[i] }}
+                    className="flex-shrink-0 rounded-full"
+                    style={{
+                      width: col.isThisWeek ? 9 : 7,
+                      height: col.isThisWeek ? 9 : 7,
+                      backgroundColor: WEEK_DOT_COLORS[i],
+                    }}
                   />
                   <div>
-                    <span className="text-[12px] font-semibold text-[rgba(226,232,240,0.75)] block leading-tight">
+                    <span
+                      className="block leading-tight font-semibold"
+                      style={{
+                        fontSize: col.isThisWeek ? 13 : 12,
+                        color: col.isThisWeek ? 'rgba(226,232,240,0.92)' : 'rgba(226,232,240,0.75)',
+                      }}
+                    >
                       {col.label}
                     </span>
-                    <span className="text-[10px] text-[rgba(226,232,240,0.3)] block mt-0.5">
+                    <span
+                      className="block mt-0.5 text-[10px]"
+                      style={{ color: col.isThisWeek ? 'rgba(226,232,240,0.45)' : 'rgba(226,232,240,0.3)' }}
+                    >
                       {dateLabel}
                     </span>
                   </div>
@@ -837,11 +849,6 @@ export default function ObjectivesTestPage() {
             )}
           </div>
 
-        </div>
-
-        {/* ── ArchiveSidebar [STEP 4] ───────────────────── */}
-        <div className="flex-shrink-0 w-[200px]" style={{ borderLeft: '1px solid rgba(255,255,255,0.06)' }}>
-          <span className="text-[11px] text-[rgba(226,232,240,0.2)] px-4 py-3 block">ArchiveSidebar</span>
         </div>
 
       </div>
