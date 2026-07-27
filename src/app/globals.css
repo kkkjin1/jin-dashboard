@@ -331,6 +331,7 @@ html, body {
 .tiptap-input strong { font-weight: 700; }
 .tiptap-input u { text-decoration: underline; }
 .tiptap-input mark { border-radius: 2px; padding: 0 2px; }
+.tiptap-input img { max-width: 100%; border-radius: 6px; display: block; margin: 4px 0; }
 
 /* ── HTML 노트 렌더링 (MarkdownContent) — 라이트 ── */
 .note-html { color: #374151; line-height: 1.7; font-size: 15px; }
@@ -379,6 +380,7 @@ html, body {
 .tiptap-input-dark strong { font-weight: 700; }
 .tiptap-input-dark u { text-decoration: underline; }
 .tiptap-input-dark mark { border-radius: 2px; padding: 0 2px; }
+.tiptap-input-dark img { max-width: 100%; border-radius: 6px; display: block; margin: 4px 0; }
 
 /* ── HTML 노트 렌더링 (MarkdownContent) — 다크 ── */
 .note-html-dark { color: rgba(226,232,240,0.8); line-height: 1.7; font-size: 15px; }
