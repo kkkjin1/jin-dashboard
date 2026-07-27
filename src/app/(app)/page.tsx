@@ -18,6 +18,7 @@ type TodayTodo = Omit<TaskTodo, 'tasks'> & {
 type SubTaskWithContext = AgendaSubTask & {
   updated_at?: string | null
   agenda_items: { id: string; title: string; agenda_groups: { name: string; color: string; category: string } | null } | null
+  sub_task_notes?: { created_at: string; edited_at: string | null }[]
 }
 
 // ── Category Colors (고정) ─────────────────────────────────────────────────
@@ -462,8 +463,8 @@ export default function HomePage() {
   const [searchQuery,   setSearchQuery]   = useState('')
   const [weekFilter,    setWeekFilter]    = useState<'all' | 'mon' | 'tue' | 'wed' | 'thu' | 'fri'>('all')
   const [now,           setNow]           = useState(new Date())
-  const [stCols,        setStCols]        = useState<[number, number, number, number]>([72, 160, 80, 72])
-  const [stSort,        setStSort]        = useState<{ col: string; dir: 'asc' | 'desc' } | null>(null)
+  const [stCols,        setStCols]        = useState<[number, number, number, number]>([60, 120, 72, 60])
+  const [stSort,        setStSort]        = useState<{ col: string; dir: 'asc' | 'desc' } | null>({ col: '업데이트', dir: 'desc' })
   const [stRowH,        setStRowH]        = useState(40)
   const stScrollRef = useRef<HTMLDivElement>(null)
   const stColsRef = useRef(stCols)
@@ -493,7 +494,7 @@ export default function HomePage() {
         { data: stData }, { data: tdData }, { data: wkData },
         { data: mData },  { data: mmData }, { data: jData },
       ] = await Promise.all([
-        sb.current.from('agenda_sub_tasks').select('*, agenda_items(id, title, agenda_groups(name, color, category))').eq('status', 'active').order('sort_order').limit(20),
+        sb.current.from('agenda_sub_tasks').select('*, agenda_items(id, title, agenda_groups(name, color, category)), sub_task_notes(created_at, edited_at)').eq('status', 'active').order('sort_order').limit(20),
         sb.current.from('task_todos').select('*, tasks(id, title, short_name, part)').eq('schedule_tag', 'today').eq('done', false).order('sort_order').limit(15),
         sb.current.from('task_todos').select('*, tasks(id, title, short_name, part)').in('schedule_tag', ['tomorrow', 'this_week']).eq('done', false).order('sort_order').limit(30),
         sb.current.from('meetings').select('*').order('meeting_date', { ascending: false }).limit(20),
@@ -530,7 +531,7 @@ export default function HomePage() {
 
   useEffect(() => {
     try {
-      const s = localStorage.getItem('dash_st_cols_v5')
+      const s = localStorage.getItem('dash_st_cols_v6')
       if (s) {
         const p = JSON.parse(s)
         if (Array.isArray(p) && p.length === 4) setStCols(p as [number, number, number, number])
@@ -571,7 +572,7 @@ export default function HomePage() {
         next[2] = newL; next[3] = total - newL
       }
       setStCols(next)
-      try { localStorage.setItem('dash_st_cols_v5', JSON.stringify(next)) } catch {}
+      try { localStorage.setItem('dash_st_cols_v6', JSON.stringify(next)) } catch {}
     }
     function onUp() {
       document.removeEventListener('mousemove', onMove)
@@ -601,6 +602,16 @@ export default function HomePage() {
     return res.slice(0, 8)
   }, [searchQuery, subTasks, meetings, memos])
 
+  function latestNoteDate(st: SubTaskWithContext): string {
+    const notes = st.sub_task_notes
+    if (!notes?.length) return st.updated_at ?? ''
+    const max = notes.reduce((m, n) => {
+      const d = n.edited_at ?? n.created_at
+      return d > m ? d : m
+    }, '')
+    return max || (st.updated_at ?? '')
+  }
+
   const sortedSubTasks = useMemo(() => {
     if (!stSort) return subTasks
     return [...subTasks].sort((a, b) => {
@@ -608,7 +619,7 @@ export default function HomePage() {
       if (stSort.col === '상세TASK') { av = a.title; bv = b.title }
       else if (stSort.col === '안건') { av = a.agenda_items?.title ?? ''; bv = b.agenda_items?.title ?? '' }
       else if (stSort.col === '범주') { av = a.agenda_items?.agenda_groups?.category ?? ''; bv = b.agenda_items?.agenda_groups?.category ?? '' }
-      else if (stSort.col === '업데이트') { av = a.updated_at ?? ''; bv = b.updated_at ?? '' }
+      else if (stSort.col === '업데이트') { av = latestNoteDate(a); bv = latestNoteDate(b) }
       else if (stSort.col === '마감') { av = a.target_date ?? a.due_date ?? ''; bv = b.target_date ?? b.due_date ?? '' }
       return stSort.dir === 'asc' ? av.localeCompare(bv, 'ko') : bv.localeCompare(av, 'ko')
     })
@@ -868,7 +879,7 @@ export default function HomePage() {
                   </div>
                   {/* 안건: resize ci=0 */}
                   <div style={{ position: 'relative', textAlign: 'center' }}>
-                    <div onMouseDown={e => { e.preventDefault(); startStColResize(0, e.clientX) }} style={{ position: 'absolute', left: 0, top: -4, bottom: -4, width: 8, cursor: 'col-resize', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div onMouseDown={e => { e.preventDefault(); startStColResize(0, e.clientX) }} style={{ position: 'absolute', left: -4, top: -4, bottom: -4, width: 16, cursor: 'col-resize', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <div style={{ width: 1, height: 12, background: 'rgba(255,255,255,0.18)', borderRadius: 1, pointerEvents: 'none' }} />
                     </div>
                     <button onClick={() => toggleSort('안건')} style={{ fontSize: 10, fontWeight: 600, color: stSort?.col === '안건' ? TEXT2 : TEXT3, letterSpacing: '0.04em', textTransform: 'uppercase', background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 2, padding: 0, paddingLeft: 10 }}>
@@ -877,7 +888,7 @@ export default function HomePage() {
                   </div>
                   {/* 상세TASK: resize ci=1 */}
                   <div style={{ position: 'relative', paddingLeft: 10 }}>
-                    <div onMouseDown={e => { e.preventDefault(); startStColResize(1, e.clientX) }} style={{ position: 'absolute', left: 0, top: -4, bottom: -4, width: 8, cursor: 'col-resize', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div onMouseDown={e => { e.preventDefault(); startStColResize(1, e.clientX) }} style={{ position: 'absolute', left: -4, top: -4, bottom: -4, width: 16, cursor: 'col-resize', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <div style={{ width: 1, height: 12, background: 'rgba(255,255,255,0.18)', borderRadius: 1, pointerEvents: 'none' }} />
                     </div>
                     <button onClick={() => toggleSort('상세TASK')} style={{ fontSize: 10, fontWeight: 600, color: stSort?.col === '상세TASK' ? TEXT2 : TEXT3, letterSpacing: '0.04em', textTransform: 'uppercase', background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 2, padding: 0 }}>
@@ -886,7 +897,7 @@ export default function HomePage() {
                   </div>
                   {/* 업데이트: resize ci=2 */}
                   <div style={{ position: 'relative', textAlign: 'center' }}>
-                    <div onMouseDown={e => { e.preventDefault(); startStColResize(2, e.clientX) }} style={{ position: 'absolute', left: 0, top: -4, bottom: -4, width: 8, cursor: 'col-resize', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div onMouseDown={e => { e.preventDefault(); startStColResize(2, e.clientX) }} style={{ position: 'absolute', left: -4, top: -4, bottom: -4, width: 16, cursor: 'col-resize', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <div style={{ width: 1, height: 12, background: 'rgba(255,255,255,0.18)', borderRadius: 1, pointerEvents: 'none' }} />
                     </div>
                     <button onClick={() => toggleSort('업데이트')} style={{ fontSize: 10, fontWeight: 600, color: stSort?.col === '업데이트' ? TEXT2 : TEXT3, letterSpacing: '0.04em', textTransform: 'uppercase', background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 2, padding: 0, paddingLeft: 10 }}>
@@ -895,7 +906,7 @@ export default function HomePage() {
                   </div>
                   {/* 마감: resize ci=3 */}
                   <div style={{ position: 'relative', textAlign: 'center' }}>
-                    <div onMouseDown={e => { e.preventDefault(); startStColResize(3, e.clientX) }} style={{ position: 'absolute', left: 0, top: -4, bottom: -4, width: 8, cursor: 'col-resize', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div onMouseDown={e => { e.preventDefault(); startStColResize(3, e.clientX) }} style={{ position: 'absolute', left: -4, top: -4, bottom: -4, width: 16, cursor: 'col-resize', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <div style={{ width: 1, height: 12, background: 'rgba(255,255,255,0.18)', borderRadius: 1, pointerEvents: 'none' }} />
                     </div>
                     <button onClick={() => toggleSort('마감')} style={{ fontSize: 10, fontWeight: 600, color: stSort?.col === '마감' ? TEXT2 : TEXT3, letterSpacing: '0.04em', textTransform: 'uppercase', background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 2, padding: 0, paddingLeft: 10 }}>
@@ -935,14 +946,14 @@ export default function HomePage() {
                                   ) : <span style={{ color: TEXT3, fontSize: 10 }}>—</span>}
                                 </div>
                                 {/* 상세TASK */}
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, paddingLeft: 10 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, paddingLeft: 10, overflow: 'hidden' }}>
                                   <div style={{ width: 5, height: 5, borderRadius: '50%', background: gc, flexShrink: 0, opacity: 0.9 }} />
-                                  <span style={{ fontSize: 13.5, fontWeight: 500, color: TEXT1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{st.title}</span>
+                                  <span style={{ fontSize: 13.5, fontWeight: 500, color: TEXT1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: '1 1 0', minWidth: 0 }}>{st.title}</span>
                                 </div>
                                 {/* 업데이트 */}
                                 <div style={{ textAlign: 'center' }}>
                                   <span style={{ fontSize: 11, color: TEXT3, whiteSpace: 'nowrap' }}>
-                                    {st.updated_at ? (() => { try { return format(parseISO(st.updated_at), 'yyyy.MM.dd') } catch { return '—' } })() : '—'}
+                                    {(() => { try { const d = latestNoteDate(st); return d ? format(parseISO(d), 'yyyy.MM.dd') : '—' } catch { return '—' } })()}
                                   </span>
                                 </div>
                                 {/* 마감 */}
