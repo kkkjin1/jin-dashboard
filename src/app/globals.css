@@ -297,6 +297,13 @@ html, body {
   }
 }
 
+/* ── 퀵메모 contenteditable placeholder ── */
+.qm-editor:empty::before {
+  content: attr(data-placeholder);
+  color: rgb(91 98 112);
+  pointer-events: none;
+}
+
 /* ── Pretendard 페이지 ── */
 .pretendard-page {
   font-family: 'Pretendard', 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;

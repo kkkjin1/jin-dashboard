@@ -1,9 +1,8 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { MemoTag } from '@/types'
-import SmartTextarea from '@/components/SmartTextarea'
 
 const TAGS: MemoTag[] = ['업무관련', '회의관련', '아이디어', '공지']
 
@@ -26,14 +25,27 @@ function parseMeetingDate(text: string): string | null {
 
 export default function QuickMemoPage() {
   const [title, setTitle] = useState('')
-  const [content, setContent] = useState('')
   const [tag, setTag] = useState<MemoTag>('업무관련')
   const [saving, setSaving] = useState(false)
   const [savedMsg, setSavedMsg] = useState('')
+  const [autoSaved, setAutoSaved] = useState(false)
   const titleRef = useRef<HTMLInputElement>(null)
-  const contentRef = useRef<HTMLTextAreaElement | null>(null)
+  const contentRef = useRef<HTMLDivElement>(null)
   const supabase = createClient()
 
+  // ── 자동저장 (localStorage) ──────────────────────────────────────────────
+  const saveDraft = useCallback((t: string, tg: MemoTag) => {
+    const html = contentRef.current?.innerHTML ?? ''
+    if (t || html) {
+      localStorage.setItem('quick_memo_draft', JSON.stringify({ title: t, content: html, tag: tg }))
+      setAutoSaved(true)
+      setTimeout(() => setAutoSaved(false), 1500)
+    } else {
+      localStorage.removeItem('quick_memo_draft')
+    }
+  }, [])
+
+  // ── 초기 복원 ────────────────────────────────────────────────────────────
   useEffect(() => {
     document.title = '빠른 메모'
     try {
@@ -41,21 +53,14 @@ export default function QuickMemoPage() {
       if (saved) {
         const { title: t, content: c, tag: tg } = JSON.parse(saved)
         if (t) setTitle(t)
-        if (c) setContent(c)
+        if (c && contentRef.current) contentRef.current.innerHTML = c
         if (tg) setTag(tg)
       }
     } catch {}
     setTimeout(() => titleRef.current?.focus(), 80)
   }, [])
 
-  useEffect(() => {
-    if (title || content) {
-      localStorage.setItem('quick_memo_draft', JSON.stringify({ title, content, tag }))
-    } else {
-      localStorage.removeItem('quick_memo_draft')
-    }
-  }, [title, content, tag])
-
+  // ── ESC 닫기 ─────────────────────────────────────────────────────────────
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') window.close()
@@ -64,11 +69,74 @@ export default function QuickMemoPage() {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
+  // ── 이미지 삽입 ──────────────────────────────────────────────────────────
+  function insertImage(src: string) {
+    const editor = contentRef.current
+    if (!editor) return
+    editor.focus()
+    const img = document.createElement('img')
+    img.src = src
+    img.style.maxWidth = '100%'
+    img.style.borderRadius = '6px'
+    img.style.display = 'block'
+    img.style.margin = '4px 0'
+    const sel = window.getSelection()
+    if (sel?.rangeCount) {
+      const range = sel.getRangeAt(0)
+      range.deleteContents()
+      range.insertNode(img)
+      const next = document.createRange()
+      next.setStartAfter(img)
+      next.collapse(true)
+      sel.removeAllRanges()
+      sel.addRange(next)
+    } else {
+      editor.appendChild(img)
+    }
+    saveDraft(title, tag)
+  }
+
+  // ── 붙여넣기 (이미지 우선, 텍스트는 기본 동작) ───────────────────────────
+  function handlePaste(e: React.ClipboardEvent<HTMLDivElement>) {
+    const items = e.clipboardData?.items
+    if (!items) return
+    for (const item of Array.from(items)) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault()
+        const blob = item.getAsFile()
+        if (!blob) continue
+        const reader = new FileReader()
+        reader.onload = ev => insertImage(ev.target?.result as string)
+        reader.readAsDataURL(blob)
+        return
+      }
+    }
+  }
+
+  // ── 드래그앤드롭 ─────────────────────────────────────────────────────────
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'copy'
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault()
+    Array.from(e.dataTransfer.files)
+      .filter(f => f.type.startsWith('image/'))
+      .forEach(file => {
+        const reader = new FileReader()
+        reader.onload = ev => insertImage(ev.target?.result as string)
+        reader.readAsDataURL(file)
+      })
+  }
+
   const meetingDate = tag === '회의관련' ? parseMeetingDate(title) : null
 
+  // ── 저장 ─────────────────────────────────────────────────────────────────
   async function handleSave() {
     if (!title.trim()) return
     setSaving(true)
+    const content = contentRef.current?.innerHTML ?? ''
     if (tag === '회의관련' && meetingDate) {
       const { data: newMeeting } = await supabase
         .from('project_meetings')
@@ -80,14 +148,14 @@ export default function QuickMemoPage() {
       }
       setSavedMsg('📅 일정에 추가됨!')
     } else {
-      await supabase.from('quick_memos').insert({ title: title.trim(), content: content.trim(), tag })
+      await supabase.from('quick_memos').insert({ title: title.trim(), content, tag })
       if (window.opener) window.opener.dispatchEvent(new CustomEvent('quick-memo-saved'))
       setSavedMsg('저장됨!')
     }
     localStorage.removeItem('quick_memo_draft')
     setSaving(false)
     setTitle('')
-    setContent('')
+    if (contentRef.current) contentRef.current.innerHTML = ''
     setTag('업무관련')
     setTimeout(() => {
       setSavedMsg('')
@@ -97,21 +165,21 @@ export default function QuickMemoPage() {
 
   return (
     <div className="h-screen flex flex-col p-5" style={{ background: '#161B24', colorScheme: 'dark', boxSizing: 'border-box' }}>
+      {/* 헤더 */}
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-semibold text-[#E5E7EB] text-sm tracking-wide">빠른 메모</h3>
-        <button
-          onClick={() => window.close()}
-          className="text-[#5B6270] hover:text-[#E5E7EB] text-lg leading-none transition-colors"
-        >
-          ×
-        </button>
+        <div className="flex items-center gap-2">
+          {autoSaved && <span className="text-[10px] text-[#5B6270]">임시저장됨</span>}
+          <button onClick={() => window.close()} className="text-[#5B6270] hover:text-[#E5E7EB] text-lg leading-none transition-colors">×</button>
+        </div>
       </div>
 
+      {/* 태그 */}
       <div className="flex gap-1.5 mb-3">
         {TAGS.map(t => (
           <button
             key={t}
-            onClick={() => setTag(t)}
+            onClick={() => { setTag(t); saveDraft(title, t) }}
             className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
               tag === t
                 ? TAG_COLORS[t]
@@ -123,10 +191,11 @@ export default function QuickMemoPage() {
         ))}
       </div>
 
+      {/* 제목 */}
       <input
         ref={titleRef}
         value={title}
-        onChange={e => setTitle(e.target.value)}
+        onChange={e => { setTitle(e.target.value); saveDraft(e.target.value, tag) }}
         onKeyDown={e => {
           if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey) { e.preventDefault(); contentRef.current?.focus() }
           if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); handleSave() }
@@ -144,22 +213,26 @@ export default function QuickMemoPage() {
         </p>
       )}
 
-      <div className="flex-1 min-h-0 mb-3">
-        <SmartTextarea
-          ref={contentRef}
-          value={content}
-          onChange={setContent}
-          onKeyDown={e => {
-            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); handleSave() }
-          }}
-          placeholder="내용 (선택)"
-          className="w-full text-sm placeholder:text-[#5B6270] border border-[rgba(255,255,255,0.08)] rounded-lg px-3 py-2 focus:outline-none focus:border-[rgba(255,255,255,0.2)]"
-          style={{ minHeight: '120px', resize: 'none', background: '#1A1C1F', color: '#E5E7EB' }}
-        />
-      </div>
+      {/* 본문 — contenteditable (텍스트 + 이미지 붙여넣기) */}
+      <div
+        ref={contentRef}
+        contentEditable
+        suppressContentEditableWarning
+        data-placeholder="내용 또는 이미지 붙여넣기 (선택)"
+        onInput={() => saveDraft(title, tag)}
+        onPaste={handlePaste}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+        onKeyDown={e => {
+          if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); handleSave() }
+        }}
+        className="qm-editor flex-1 min-h-0 mb-3 w-full text-sm border border-[rgba(255,255,255,0.08)] rounded-lg px-3 py-2 focus:outline-none focus:border-[rgba(255,255,255,0.2)] overflow-y-auto"
+        style={{ background: '#1A1C1F', color: '#E5E7EB', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}
+      />
 
+      {/* 푸터 */}
       <div className="flex justify-between items-center">
-        <span className="text-xs text-[#5B6270]">ESC 닫기 · Ctrl+Enter 저장</span>
+        <span className="text-xs text-[#5B6270]">ESC 닫기 · Ctrl+Enter 저장 · 이미지 붙여넣기 가능</span>
         <button
           onClick={handleSave}
           disabled={!title.trim() || saving}
