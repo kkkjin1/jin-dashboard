@@ -329,26 +329,41 @@ export function JournalFullscreenEditor({ selectedDate, current, yesterday, meet
   const dateLabel = formatDateLabel(selectedDate)
   const totalActivity = todayCtx.memos.length + todayCtx.meetings.length + todayCtx.oneOnOnes.length + todayCtx.newTasks.length + todayCtx.taskNotes.length
 
+  const D = {
+    bg:      '#0F1319',
+    surface: 'rgba(255,255,255,0.03)',
+    border:  'rgba(255,255,255,0.08)',
+    divider: 'rgba(255,255,255,0.06)',
+    t1:      'rgba(226,232,240,0.85)',
+    t2:      'rgba(226,232,240,0.55)',
+    t3:      'rgba(226,232,240,0.3)',
+  }
+
   return (
     <>
       {/* 배경 오버레이 */}
-      <div className="fixed inset-0 bg-black/40 z-[85]" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/60 z-[85]" onClick={onClose} />
 
       {/* 풀스크린 카드 */}
-      <div className="fixed inset-0 md:inset-10 bg-white rounded-none md:rounded-2xl shadow-2xl z-[86] flex flex-col overflow-hidden">
+      <div className="fixed inset-0 md:inset-10 rounded-none md:rounded-2xl shadow-2xl z-[86] flex flex-col overflow-hidden"
+        style={{ background: D.bg, border: `1px solid ${D.border}` }}>
 
         {/* 헤더 */}
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100 flex-shrink-0">
-          <span className="text-sm font-semibold text-gray-700 flex-1 min-w-0 truncate">🪴 {dateLabel} 회고</span>
-          <span className="text-[10px] text-gray-300 hidden md:block whitespace-nowrap">ESC 닫기 · Ctrl+Enter 저장</span>
+        <div className="flex items-center gap-2 px-4 py-3 flex-shrink-0" style={{ borderBottom: `1px solid ${D.border}` }}>
+          <span className="text-sm font-semibold flex-1 min-w-0 truncate" style={{ color: D.t1 }}>🪴 {dateLabel} 회고</span>
+          <span className="text-[10px] hidden md:block whitespace-nowrap" style={{ color: D.t3 }}>ESC 닫기 · Ctrl+Enter 저장</span>
           <button
             onClick={doSave}
             disabled={!draft.trim() || saving}
-            className="flex-shrink-0 text-xs bg-[rgba(76,127,224,0.1)] text-[#4C7FE0] border border-[rgba(76,127,224,0.25)] px-3 py-1.5 rounded-lg hover:bg-[rgba(76,127,224,0.18)] disabled:opacity-40 transition-colors"
+            className="flex-shrink-0 text-xs px-3 py-1.5 rounded-lg disabled:opacity-40 transition-colors"
+            style={{ background: 'rgba(79,141,255,0.15)', color: '#7EB3FF', border: '1px solid rgba(79,141,255,0.3)' }}
           >
             {saving ? '저장 중…' : '저장'}
           </button>
-          <button onClick={onClose} className="flex-shrink-0 text-gray-400 hover:text-gray-600 text-xl leading-none px-1">×</button>
+          <button onClick={onClose} className="flex-shrink-0 text-xl leading-none px-1 transition-colors"
+            style={{ color: D.t3 }}
+            onMouseEnter={e => (e.currentTarget.style.color = D.t1)}
+            onMouseLeave={e => (e.currentTarget.style.color = D.t3)}>×</button>
         </div>
 
         {/* 본문: 좌(작성) + 우(오늘 활동) */}
@@ -359,54 +374,64 @@ export function JournalFullscreenEditor({ selectedDate, current, yesterday, meet
 
             {/* 어제 회고 — 상단 compact 표시 */}
             {yesterday && (
-              <div className="flex-shrink-0 px-5 py-2.5 border-b border-gray-100 bg-gray-50/60">
-                <p className="text-[10px] font-semibold text-gray-300 tracking-wider mb-1 uppercase">어제 회고</p>
-                <p className="text-xs text-gray-400 leading-relaxed line-clamp-3 whitespace-pre-wrap">{yesterday.content}</p>
+              <div className="flex-shrink-0 px-5 py-2.5" style={{ borderBottom: `1px solid ${D.border}`, background: D.surface }}>
+                <p className="text-[10px] font-semibold tracking-wider mb-1 uppercase" style={{ color: D.t3 }}>어제 회고</p>
+                <p className="text-xs leading-relaxed line-clamp-3 whitespace-pre-wrap" style={{ color: D.t2 }}>{yesterday.content}</p>
               </div>
             )}
 
             {/* 오늘 작성 영역 */}
             <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-3 min-h-0">
-              <p className="text-[11px] font-semibold text-gray-400 flex-shrink-0">{dateLabel} 회고 작성</p>
+              <p className="text-[11px] font-semibold flex-shrink-0" style={{ color: D.t3 }}>{dateLabel} 회고 작성</p>
               <textarea
                 ref={textareaRef}
                 value={draft}
                 onChange={e => setDraft(e.target.value)}
                 placeholder="오늘 뭐했고, 어떤 고민이 있었는지, 어떤 진전이 있었는지 자유롭게…"
-                className="flex-1 text-sm text-gray-700 placeholder:text-gray-300 resize-none focus:outline-none leading-relaxed min-h-[200px] bg-transparent w-full"
+                className="flex-1 text-sm resize-none focus:outline-none leading-relaxed min-h-[200px] bg-transparent w-full"
+                style={{ color: D.t1 }}
               />
 
               {/* @ 회의 연결 + # 태그 */}
-              <div className="flex-shrink-0 border-t border-gray-100 pt-3 flex flex-col gap-2">
+              <div className="flex-shrink-0 pt-3 flex flex-col gap-2" style={{ borderTop: `1px solid ${D.divider}` }}>
                 <div className="flex flex-wrap gap-1.5 items-center">
                   {linkedMeetingIds.map(mid => {
                     const m = meetings.find(x => x.id === mid)
                     return m ? (
-                      <span key={mid} className="flex items-center gap-0.5 text-[10px] bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full">
+                      <span key={mid} className="flex items-center gap-0.5 text-[10px] px-2 py-0.5 rounded-full"
+                        style={{ background: 'rgba(79,141,255,0.12)', color: '#7EB3FF', border: '1px solid rgba(79,141,255,0.25)' }}>
                         @ {m.title}
-                        <button onClick={() => setLinkedMeetingIds(prev => prev.filter(i => i !== mid))} className="ml-0.5 text-blue-400 hover:text-blue-600">×</button>
+                        <button onClick={() => setLinkedMeetingIds(prev => prev.filter(i => i !== mid))}
+                          className="ml-0.5" style={{ color: 'rgba(126,179,255,0.6)' }}>×</button>
                       </span>
                     ) : null
                   })}
                   <button onClick={() => setShowMeetingPicker(p => !p)}
-                    className="text-[11px] text-gray-300 hover:text-blue-500 transition-colors">
+                    className="text-[11px] transition-colors" style={{ color: D.t3 }}
+                    onMouseEnter={e => (e.currentTarget.style.color = '#7EB3FF')}
+                    onMouseLeave={e => (e.currentTarget.style.color = D.t3)}>
                     @ 회의 연결
                   </button>
                 </div>
 
                 {showMeetingPicker && (
-                  <div className="bg-white border border-gray-200 rounded-xl shadow-lg p-3 flex flex-col gap-1 max-h-48 overflow-y-auto">
+                  <div className="rounded-xl p-3 flex flex-col gap-1 max-h-48 overflow-y-auto"
+                    style={{ background: '#1A2030', border: `1px solid ${D.border}` }}>
                     <input ref={meetingSearchRef} value={meetingSearch}
                       onChange={e => setMeetingSearch(e.target.value)}
                       placeholder="회의 검색…"
-                      className="text-sm border-b border-gray-100 pb-2 mb-1 focus:outline-none text-gray-600 placeholder:text-gray-300" />
+                      className="text-sm pb-2 mb-1 focus:outline-none bg-transparent"
+                      style={{ color: D.t1, borderBottom: `1px solid ${D.divider}` }} />
                     {filteredMeetings.length === 0
-                      ? <p className="text-xs text-gray-300 py-2 text-center">검색 결과 없음</p>
+                      ? <p className="text-xs py-2 text-center" style={{ color: D.t3 }}>검색 결과 없음</p>
                       : filteredMeetings.map(m => (
                         <button key={m.id} onClick={() => linkMeeting(m.id)}
-                          className="text-left text-sm px-2 py-1.5 hover:bg-gray-50 rounded-lg text-gray-600 truncate">
+                          className="text-left text-sm px-2 py-1.5 rounded-lg truncate transition-colors"
+                          style={{ color: D.t2 }}
+                          onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
+                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                           {m.title}
-                          {m.meeting_date && <span className="text-gray-300 ml-1.5 text-xs">{m.meeting_date}</span>}
+                          {m.meeting_date && <span className="ml-1.5 text-xs" style={{ color: D.t3 }}>{m.meeting_date}</span>}
                         </button>
                       ))
                     }
@@ -415,9 +440,11 @@ export function JournalFullscreenEditor({ selectedDate, current, yesterday, meet
 
                 <div className="flex flex-wrap gap-1.5 items-center">
                   {tags.map(t => (
-                    <span key={t} className="flex items-center gap-0.5 text-[10px] bg-gray-50 text-gray-500 border border-gray-200 px-2 py-0.5 rounded-full">
+                    <span key={t} className="flex items-center gap-0.5 text-[10px] px-2 py-0.5 rounded-full"
+                      style={{ background: 'rgba(255,255,255,0.07)', color: D.t2, border: `1px solid ${D.border}` }}>
                       #{t}
-                      <button onClick={() => setTags(prev => prev.filter(x => x !== t))} className="ml-0.5 text-gray-300 hover:text-gray-500">×</button>
+                      <button onClick={() => setTags(prev => prev.filter(x => x !== t))}
+                        className="ml-0.5" style={{ color: D.t3 }}>×</button>
                     </span>
                   ))}
                   <input
@@ -425,91 +452,95 @@ export function JournalFullscreenEditor({ selectedDate, current, yesterday, meet
                     onChange={e => setTagInput(e.target.value.replace(/\s/g, ''))}
                     onKeyDown={e => { if (e.nativeEvent.isComposing) return; if (e.key === 'Enter') { e.preventDefault(); addTag() } }}
                     placeholder="# 태그"
-                    className="text-[11px] text-gray-500 focus:outline-none w-16 placeholder:text-gray-300"
+                    className="text-[11px] focus:outline-none w-16 bg-transparent"
+                    style={{ color: D.t2 }}
                   />
                 </div>
 
-                {saveError && <p className="text-xs text-red-500">{saveError}</p>}
+                {saveError && <p className="text-xs text-red-400">{saveError}</p>}
               </div>
             </div>
           </div>
 
           {/* ── 우: 오늘 활동 피드 (고정 섹션) ── */}
-          <div className="md:w-1/2 flex flex-col border-t md:border-t-0 md:border-l border-gray-100 min-h-0 bg-gray-50/40">
-            <div className="px-4 py-3 border-b border-gray-100 flex-shrink-0 flex items-center gap-2">
-              <p className="text-[11px] font-semibold text-gray-500 flex-1">{dateLabel} 활동</p>
+          <div className="md:w-1/2 flex flex-col border-t md:border-t-0 md:border-l border-[rgba(255,255,255,0.08)] min-h-0" style={{ background: D.surface }}>
+            <div className="px-4 py-3 flex-shrink-0 flex items-center gap-2" style={{ borderBottom: `1px solid ${D.border}` }}>
+              <p className="text-[11px] font-semibold flex-1" style={{ color: D.t2 }}>{dateLabel} 활동</p>
               {totalActivity > 0 && (
-                <span className="text-[9px] bg-violet-100 text-violet-600 px-1.5 py-0.5 rounded-full font-medium">{totalActivity}</span>
+                <span className="text-[9px] px-1.5 py-0.5 rounded-full font-medium"
+                  style={{ background: 'rgba(139,92,246,0.15)', color: '#A78BFA' }}>{totalActivity}</span>
               )}
             </div>
-            <div className="flex-1 overflow-y-auto scrollbar-hide divide-y divide-gray-100">
+            <div className="flex-1 overflow-y-auto scrollbar-hide" style={{ borderTop: `1px solid ${D.divider}` }}>
 
               {/* 회의록 */}
-              <div className="px-4 py-3">
-                <p className="text-[10px] font-semibold text-gray-400 tracking-wider mb-2">💬 회의록</p>
+              <div className="px-4 py-3" style={{ borderBottom: `1px solid ${D.divider}` }}>
+                <p className="text-[10px] font-semibold tracking-wider mb-2" style={{ color: D.t3 }}>💬 회의록</p>
                 {todayCtx.meetings.length > 0 ? todayCtx.meetings.map(m => (
                   <Link key={m.id} href={`/meetings/${m.id}`}
-                    className="block text-[13px] text-blue-500 hover:text-blue-700 truncate mb-1.5 transition-colors">
+                    className="block text-[13px] truncate mb-1.5 transition-colors"
+                    style={{ color: '#7EB3FF' }}>
                     · {m.title}
                   </Link>
-                )) : <p className="text-[12px] text-gray-300">—</p>}
+                )) : <p className="text-[12px]" style={{ color: D.t3 }}>—</p>}
               </div>
 
               {/* 1on1 */}
-              <div className="px-4 py-3">
-                <p className="text-[10px] font-semibold text-gray-400 tracking-wider mb-2">👥 1on1</p>
+              <div className="px-4 py-3" style={{ borderBottom: `1px solid ${D.divider}` }}>
+                <p className="text-[10px] font-semibold tracking-wider mb-2" style={{ color: D.t3 }}>👥 1on1</p>
                 {todayCtx.oneOnOnes.length > 0 ? todayCtx.oneOnOnes.map(o => (
                   <Link key={o.id} href={`/one-on-one/${o.memberId}/${o.id}`}
-                    className="block text-[13px] text-purple-500 hover:text-purple-700 truncate mb-1.5 transition-colors">
+                    className="block text-[13px] truncate mb-1.5 transition-colors"
+                    style={{ color: '#A78BFA' }}>
                     · {o.memberName ?? '1on1 세션'}
                   </Link>
-                )) : <p className="text-[12px] text-gray-300">—</p>}
+                )) : <p className="text-[12px]" style={{ color: D.t3 }}>—</p>}
               </div>
 
               {/* 메모 */}
-              <div className="px-4 py-3">
-                <p className="text-[10px] font-semibold text-gray-400 tracking-wider mb-2">📝 메모</p>
+              <div className="px-4 py-3" style={{ borderBottom: `1px solid ${D.divider}` }}>
+                <p className="text-[10px] font-semibold tracking-wider mb-2" style={{ color: D.t3 }}>📝 메모</p>
                 {todayCtx.memos.length > 0 ? todayCtx.memos.map(m => (
                   <div key={m.id} className="flex items-baseline gap-1.5 mb-1.5">
-                    <span className="text-[13px] text-gray-700 truncate">· {m.title}</span>
-                    {m.tag && <span className="text-[11px] text-gray-400 flex-shrink-0">{m.tag}</span>}
+                    <span className="text-[13px] truncate" style={{ color: D.t1 }}>· {m.title}</span>
+                    {m.tag && <span className="text-[11px] flex-shrink-0" style={{ color: D.t3 }}>{m.tag}</span>}
                   </div>
-                )) : <p className="text-[12px] text-gray-300">—</p>}
+                )) : <p className="text-[12px]" style={{ color: D.t3 }}>—</p>}
               </div>
 
-              {/* 프로젝트 업무 (상세task 기준) */}
-              <div className="px-4 py-3">
-                <p className="text-[10px] font-semibold text-gray-400 tracking-wider mb-2">📋 프로젝트 업무</p>
+              {/* 프로젝트 업무 */}
+              <div className="px-4 py-3" style={{ borderBottom: `1px solid ${D.divider}` }}>
+                <p className="text-[10px] font-semibold tracking-wider mb-2" style={{ color: D.t3 }}>📋 프로젝트 업무</p>
                 {todayCtx.newTasks.length > 0 ? todayCtx.newTasks.map(t => (
                   <div key={t.id} className="mb-2 flex items-start gap-1.5">
                     <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium flex-shrink-0 mt-0.5 ${TASK_STATUS_CLS[t.status] ?? 'bg-gray-100 text-gray-400'}`}>
                       {TASK_STATUS_LABEL[t.status] ?? t.status}
                     </span>
                     <div className="min-w-0">
-                      <p className="text-[13px] text-gray-700 truncate">{t.title}</p>
+                      <p className="text-[13px] truncate" style={{ color: D.t1 }}>{t.title}</p>
                       {t.agendaItemTitle && (
-                        <p className="text-[11px] text-gray-400">[{t.agendaItemTitle}]</p>
+                        <p className="text-[11px]" style={{ color: D.t3 }}>[{t.agendaItemTitle}]</p>
                       )}
                     </div>
                   </div>
-                )) : <p className="text-[12px] text-gray-300">—</p>}
+                )) : <p className="text-[12px]" style={{ color: D.t3 }}>—</p>}
               </div>
 
               {/* 업무 노트 */}
               <div className="px-4 py-3">
-                <p className="text-[10px] font-semibold text-gray-400 tracking-wider mb-2">💡 업무 노트</p>
+                <p className="text-[10px] font-semibold tracking-wider mb-2" style={{ color: D.t3 }}>💡 업무 노트</p>
                 {todayCtx.taskNotes.length > 0 ? todayCtx.taskNotes.map(n => (
                   <div key={n.id} className="mb-2.5">
                     {(n.subTaskTitle || n.agendaItemTitle) && (
-                      <p className="text-[11px] text-gray-400 mb-0.5">
+                      <p className="text-[11px] mb-0.5" style={{ color: D.t3 }}>
                         {n.agendaItemTitle && `[${n.agendaItemTitle}] `}{n.subTaskTitle}
                       </p>
                     )}
-                    <p className="text-[13px] text-gray-700 line-clamp-2 leading-relaxed">
+                    <p className="text-[13px] line-clamp-2 leading-relaxed" style={{ color: D.t2 }}>
                       · {n.title || n.content.slice(0, 80)}
                     </p>
                   </div>
-                )) : <p className="text-[12px] text-gray-300">—</p>}
+                )) : <p className="text-[12px]" style={{ color: D.t3 }}>—</p>}
               </div>
 
             </div>

@@ -5,6 +5,7 @@ import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { Color, TextStyle } from '@tiptap/extension-text-style'
 import Highlight from '@tiptap/extension-highlight'
+import Image from '@tiptap/extension-image'
 
 const COLOR_MAP: Record<string, string> = {
   red: '#EF4444', blue: '#3B82F6', green: '#22C55E',
@@ -94,6 +95,7 @@ const EXTENSIONS = [
   TextStyle,
   Color,
   Highlight.configure({ multicolor: true }),
+  Image.configure({ allowBase64: true }),
 ]
 
 interface Props {
@@ -140,6 +142,43 @@ export default function TiptapEditor({
     return false
   }, [])
 
+  const stablePaste = useCallback((_view: unknown, e: ClipboardEvent) => {
+    const items = e.clipboardData?.items
+    if (!items) return false
+    for (const item of Array.from(items)) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault()
+        const blob = item.getAsFile()
+        if (!blob) continue
+        const reader = new FileReader()
+        reader.onload = ev => {
+          const src = ev.target?.result as string
+          editorRef.current?.chain().focus().setImage({ src }).run()
+        }
+        reader.readAsDataURL(blob)
+        return true
+      }
+    }
+    return false
+  }, [])
+
+  const stableDrop = useCallback((_view: unknown, e: DragEvent, _slice: unknown, moved: boolean) => {
+    if (moved || !e.dataTransfer?.files.length) return false
+    for (const file of Array.from(e.dataTransfer.files)) {
+      if (file.type.startsWith('image/')) {
+        e.preventDefault()
+        const reader = new FileReader()
+        reader.onload = ev => {
+          const src = ev.target?.result as string
+          editorRef.current?.chain().focus().setImage({ src }).run()
+        }
+        reader.readAsDataURL(file)
+        return true
+      }
+    }
+    return false
+  }, [])
+
   const editor = useEditor({
     extensions: EXTENSIONS,
     content: legacyToHtml(value),
@@ -147,6 +186,8 @@ export default function TiptapEditor({
     editorProps: {
       attributes: { class: `${dark ? 'tiptap-input-dark' : 'tiptap-input'} outline-none`, style: `min-height:${minHeight}px; padding:8px 0;` },
       handleKeyDown: stableKeyDown,
+      handlePaste: stablePaste,
+      handleDrop: stableDrop,
     },
   })
 

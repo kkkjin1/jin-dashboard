@@ -47,7 +47,7 @@ function NoteTitleInput({
       onClick={e => e.stopPropagation()}
       onFocus={e => e.stopPropagation()}
       placeholder={placeholder}
-      className="text-xs font-medium bg-transparent border-b border-transparent hover:border-gray-200 focus:border-blue-400 focus:outline-none transition-colors cursor-text text-gray-600 placeholder:text-gray-400"
+      className="text-xs font-medium bg-transparent border-b border-transparent hover:border-[rgba(255,255,255,0.2)] focus:border-[rgba(255,255,255,0.35)] focus:outline-none transition-colors cursor-text text-[rgba(226,232,240,0.8)] placeholder:text-[rgba(226,232,240,0.3)]"
       style={{ minWidth: '40px', maxWidth: '100%', fieldSizing: 'content' } as React.CSSProperties}
     />
   )
@@ -453,11 +453,11 @@ export default function AgendaItemDetailPage() {
         </div>
 
         {/* ── 전반적인 메모 박스 ── */}
-        <div className="rounded-2xl border border-gray-200 overflow-hidden bg-white/70">
-          <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">업무 개요 · 메모</span>
+        <div className="surface-card rounded-2xl overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-3 border-b border-[rgba(255,255,255,0.06)]">
+            <span className="text-xs font-semibold text-[rgba(226,232,240,0.4)] uppercase tracking-wider">업무 개요 · 메모</span>
             <button onClick={() => setExpandFor('description')}
-              className="text-[10px] text-gray-400 hover:text-gray-600 px-2 py-0.5 rounded hover:bg-gray-100 transition-colors">
+              className="text-[10px] text-[rgba(226,232,240,0.3)] hover:text-[rgba(226,232,240,0.65)] px-2 py-0.5 rounded hover:bg-[rgba(255,255,255,0.06)] transition-colors">
               크게 편집
             </button>
           </div>
@@ -469,27 +469,27 @@ export default function AgendaItemDetailPage() {
             className="px-5 py-4"
           />
           {/* 업무 첨부파일 */}
-          <div className="border-t border-gray-100 px-5 py-3 bg-gray-50/60">
+          <div className="border-t border-[rgba(255,255,255,0.06)] px-5 py-3" style={{ background: 'rgba(255,255,255,0.02)' }}>
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">업무 첨부파일</span>
-              <label className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md cursor-pointer transition-colors ${uploadingFor === 'item' ? 'bg-gray-100 text-gray-300' : 'bg-white border border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700'}`}>
+              <span className="text-[10px] font-semibold text-[rgba(226,232,240,0.35)] uppercase tracking-wider">업무 첨부파일</span>
+              <label className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md cursor-pointer transition-colors ${uploadingFor === 'item' ? 'bg-[rgba(255,255,255,0.04)] text-[rgba(226,232,240,0.25)]' : 'bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] text-[rgba(226,232,240,0.5)] hover:border-[rgba(255,255,255,0.2)] hover:text-[rgba(226,232,240,0.8)]'}`}>
                 📎 {uploadingFor === 'item' ? '업로드 중…' : '파일 추가'}
                 <input type="file" multiple className="hidden" onChange={e => handleUpload(e, 'item')} disabled={uploadingFor === 'item'} />
               </label>
-              {uploadError && <span className="text-[10px] text-red-500 ml-1">{uploadError}</span>}
+              {uploadError && <span className="text-[10px] text-red-400 ml-1">{uploadError}</span>}
             </div>
             {itemAtts.length === 0 ? (
-              <p className="text-[10px] text-gray-400">이 업무 전체에 해당하는 파일을 첨부하세요</p>
+              <p className="text-[10px] text-[rgba(226,232,240,0.3)]">이 업무 전체에 해당하는 파일을 첨부하세요</p>
             ) : (
               <div className="flex flex-wrap gap-1.5">
                 {itemAtts.map(att => (
-                  <div key={att.id} className="flex items-center gap-1 text-[11px] bg-white border border-gray-200 rounded-lg px-2.5 py-1 group/att">
+                  <div key={att.id} className="flex items-center gap-1 text-[11px] bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] rounded-lg px-2.5 py-1 group/att">
                     <a href={att.url} target="_blank" rel="noopener noreferrer"
-                      className="text-gray-600 hover:text-gray-900 hover:underline transition-colors truncate max-w-[180px]">
+                      className="text-[rgba(226,232,240,0.65)] hover:text-[rgba(226,232,240,0.9)] hover:underline transition-colors truncate max-w-[180px]">
                       📄 {att.name}
                     </a>
                     <button onClick={() => deleteAttachment(att)}
-                      className="text-gray-300 hover:text-red-400 transition-colors opacity-0 group-hover/att:opacity-100 ml-0.5">×</button>
+                      className="text-[rgba(226,232,240,0.2)] hover:text-red-400 transition-colors opacity-0 group-hover/att:opacity-100 ml-0.5">×</button>
                   </div>
                 ))}
               </div>
@@ -729,15 +729,15 @@ export default function AgendaItemDetailPage() {
       {expandFor && (() => {
         if (expandFor === 'description') {
           return (
-            <div className="fixed inset-0 z-[200] bg-white flex flex-col">
-              <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200 flex-shrink-0"
-                style={{ borderLeft: `4px solid ${groupColor}` }}>
+            <div className="fixed inset-0 z-[200] flex flex-col" style={{ background: '#0F1319' }}>
+              <div className="flex items-center justify-between px-5 py-3 flex-shrink-0"
+                style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', borderLeft: `4px solid ${groupColor}` }}>
                 <div>
-                  <div className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider mb-0.5">업무 개요 · 메모</div>
-                  <div className="text-sm font-semibold text-gray-800">{item?.title ?? ''}</div>
+                  <div className="text-[10px] text-[rgba(226,232,240,0.4)] font-semibold uppercase tracking-wider mb-0.5">업무 개요 · 메모</div>
+                  <div className="text-sm font-semibold text-[rgba(226,232,240,0.9)]">{item?.title ?? ''}</div>
                 </div>
                 <button onClick={() => setExpandFor(null)}
-                  className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-600 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200">
+                  className="flex items-center gap-1.5 text-xs text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)] px-3 py-1.5 rounded-lg hover:bg-[rgba(255,255,255,0.06)] transition-colors border border-[rgba(255,255,255,0.08)]">
                   <span>ESC</span><span> 닫기</span>
                 </button>
               </div>
@@ -753,33 +753,33 @@ export default function AgendaItemDetailPage() {
         const selectedNote = allNotes.find(n => n.id === selId) ?? null
         const expandStColor = expandST.status === 'done' ? '#9CA3AF' : (expandST.status === 'hold' ? '#F59E0B' : groupColor)
         return (
-          <div className="fixed inset-0 z-[200] bg-white flex flex-col">
-            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200 flex-shrink-0"
-              style={{ borderLeft: `4px solid ${groupColor}` }}>
+          <div className="fixed inset-0 z-[200] flex flex-col" style={{ background: '#0F1319' }}>
+            <div className="flex items-center justify-between px-5 py-3 flex-shrink-0"
+              style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', borderLeft: `4px solid ${expandStColor}` }}>
               <div>
-                <div className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider mb-0.5">세부task · 노트</div>
-                <div className="text-sm font-semibold text-gray-800">{expandST.title}</div>
+                <div className="text-[10px] text-[rgba(226,232,240,0.4)] font-semibold uppercase tracking-wider mb-0.5">세부task · 노트</div>
+                <div className="text-sm font-semibold text-[rgba(226,232,240,0.9)]">{expandST.title}</div>
               </div>
               <div className="flex items-center gap-2">
                 <button onClick={() => addNoteEntry(expandST)} disabled={addingNoteFor === expandST.id}
-                  className="text-xs text-[#5DBD97] hover:text-[#4aab84] disabled:text-gray-300 disabled:cursor-not-allowed border border-[#5DBD97]/30 disabled:border-gray-200 rounded-lg px-3 py-1.5 transition-colors">
+                  className="text-xs text-[#5DBD97] hover:text-[#4aab84] disabled:text-[rgba(226,232,240,0.25)] disabled:cursor-not-allowed border border-[#5DBD97]/30 disabled:border-[rgba(255,255,255,0.08)] rounded-lg px-3 py-1.5 transition-colors">
                   {addingNoteFor === expandST.id ? '추가 중…' : '+ 새 기록'}
                 </button>
                 <button onClick={() => setExpandFor(null)}
-                  className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-600 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200">
+                  className="flex items-center gap-1.5 text-xs text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)] px-3 py-1.5 rounded-lg hover:bg-[rgba(255,255,255,0.06)] transition-colors border border-[rgba(255,255,255,0.08)]">
                   <span>ESC</span><span> 닫기</span>
                 </button>
               </div>
             </div>
             <div className="flex-1 min-h-0 flex">
               {/* 왼쪽: 날짜 목록 */}
-              <div style={{ width: 100, borderRight: '1px solid #E5E9F0', flexShrink: 0, background: '#F5F7FA', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+              <div style={{ width: 100, borderRight: '1px solid rgba(255,255,255,0.07)', flexShrink: 0, background: 'rgba(255,255,255,0.03)', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
                 {allNotes.map(note => {
                   const isSelected = note.id === selId
                   return (
                     <button key={note.id}
                       onClick={() => setSelectedNoteIds(p => ({ ...p, [expandST.id]: note.id }))}
-                      style={{ padding: '10px 12px', fontSize: 12, textAlign: 'center', background: isSelected ? `${expandStColor}15` : 'transparent', color: isSelected ? expandStColor : '#8FA0B5', fontWeight: isSelected ? 700 : 400, cursor: 'pointer', border: 'none', borderBottom: '1px solid #F0F4F8', display: 'block', width: '100%', lineHeight: 1.3 }}>
+                      style={{ padding: '10px 12px', fontSize: 12, textAlign: 'center', background: isSelected ? `${expandStColor}22` : 'transparent', color: isSelected ? expandStColor : 'rgba(226,232,240,0.4)', fontWeight: isSelected ? 700 : 400, cursor: 'pointer', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'block', width: '100%', lineHeight: 1.3 }}>
                       {formatNoteDate(note.created_at)}
                     </button>
                   )
@@ -803,7 +803,7 @@ export default function AgendaItemDetailPage() {
                     />
                   </>
                 ) : (
-                  <div className="flex items-center justify-center h-full text-sm text-gray-400">+ 새 기록을 추가하세요</div>
+                  <div className="flex items-center justify-center h-full text-sm text-[rgba(226,232,240,0.3)]">+ 새 기록을 추가하세요</div>
                 )}
               </div>
             </div>
