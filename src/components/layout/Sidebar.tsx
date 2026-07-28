@@ -20,7 +20,8 @@ const NAV_SECTIONS = [
       { href: '/tasks',      label: '업무 목록', key: '3', icon: ClipboardList },
       { href: '/objectives', label: '목표관리',  key: '',  icon: Target },
       { href: '/objectives-test', label: '목표관리(TEST)', key: '', icon: Target },
-      { href: '/completed',  label: '완료 성과', key: '',  icon: Trophy },
+      { href: '/completed',       label: '완료 성과',       key: '',  icon: Trophy },
+      { href: '/completed-test', label: '완료성과(test)',   key: '',  icon: Trophy },
     ],
   },
   {

@@ -109,10 +109,11 @@ interface Props {
   minHeight?: number
   className?: string
   dark?: boolean
+  hideToolbar?: boolean
 }
 
 export default function TiptapEditor({
-  value, onChange, onSubmit, onEscape, onExpand, onSelectionChange, autoFocus, minHeight = 160, className, dark,
+  value, onChange, onSubmit, onEscape, onExpand, onSelectionChange, autoFocus, minHeight = 160, className, dark, hideToolbar,
 }: Props) {
   // Refs로 콜백 최신값 유지 — useCallback deps를 [] 로 고정해 Tiptap이 매 렌더마다 options 변경을 감지하지 않도록 함
   const onChangeRef          = useRef(onChange)
@@ -228,7 +229,7 @@ export default function TiptapEditor({
   return (
     <div className={className}>
       {/* Toolbar */}
-      <div className={`flex items-center gap-0.5 border-b pb-2 mb-2 flex-wrap ${d ? 'border-[rgba(255,255,255,0.09)]' : 'border-gray-100'}`}>
+      {!hideToolbar && <div className={`flex items-center gap-0.5 border-b pb-2 mb-2 flex-wrap ${d ? 'border-[rgba(255,255,255,0.09)]' : 'border-gray-100'}`}>
         <button type="button"
           onMouseDown={e => { e.preventDefault(); editor.chain().focus().toggleBold().run() }}
           className={btnCls(editor.isActive('bold'), 'font-bold')}>B</button>
@@ -275,7 +276,7 @@ export default function TiptapEditor({
               className={`ml-auto text-xs px-1.5 py-1 rounded ${d ? 'hover:bg-[rgba(255,255,255,0.08)] text-[rgba(226,232,240,0.3)]' : 'hover:bg-gray-100 text-gray-400'}`} title="크게 쓰기">⛶</button>
           </>
         )}
-      </div>
+      </div>}
 
       <EditorContent editor={editor} />
     </div>
