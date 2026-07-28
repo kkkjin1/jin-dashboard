@@ -53,6 +53,14 @@ html, body {
   height: 100%;
 }
 
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
 :root {
   color-scheme: light;
 
