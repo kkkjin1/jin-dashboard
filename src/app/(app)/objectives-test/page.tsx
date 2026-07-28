@@ -789,6 +789,15 @@ export default function ObjectivesTestPage() {
               {showPastWeeks ? <PanelLeftClose size={12} /> : <PanelLeftOpen size={12} />}
               {showPastWeeks ? '이전주 접기' : '이전주 펼치기'}
             </button>
+            {/* + 팀 추가 */}
+            <button
+              onClick={() => setAddingGroup(true)}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold border transition-all"
+              style={{ background: 'rgba(76,127,224,0.1)', color: 'rgba(76,127,224,0.85)', borderColor: 'rgba(76,127,224,0.22)' }}
+            >
+              <Plus size={12} />
+              팀 추가
+            </button>
             {/* MD 다운로드 */}
             <button
               onClick={exportMarkdown}
@@ -932,28 +941,56 @@ export default function ObjectivesTestPage() {
                 </button>
               </div>
             ) : (
-              groups.map(group => (
-                <GroupSection
-                  key={group.id}
-                  group={group}
-                  objectives={objectives.filter(o => o.group_id === group.id)}
-                  entries={entries}
-                  weekCols={visibleCols}
-                  isOpen={expandedGroups.has(group.id)}
-                  onToggle={() => setExpandedGroups(p => {
-                    const s = new Set(p); s.has(group.id) ? s.delete(group.id) : s.add(group.id); return s
-                  })}
-                  onDeleteGroup={deleteGroup}
-                  onSaveGroupName={saveGroupName}
-                  onAddObjective={addObjective}
-                  onDeleteObj={deleteObjective}
-                  onArchiveObj={archiveObjective}
-                  onSaveObjTitle={saveObjTitle}
-                  onSaveObjDesc={saveObjDesc}
-                  onSaveEntry={saveEntry}
-                  onDeleteEntry={deleteEntry}
-                />
-              ))
+              <>
+                {groups.map(group => (
+                  <GroupSection
+                    key={group.id}
+                    group={group}
+                    objectives={objectives.filter(o => o.group_id === group.id)}
+                    entries={entries}
+                    weekCols={visibleCols}
+                    isOpen={expandedGroups.has(group.id)}
+                    onToggle={() => setExpandedGroups(p => {
+                      const s = new Set(p); s.has(group.id) ? s.delete(group.id) : s.add(group.id); return s
+                    })}
+                    onDeleteGroup={deleteGroup}
+                    onSaveGroupName={saveGroupName}
+                    onAddObjective={addObjective}
+                    onDeleteObj={deleteObjective}
+                    onArchiveObj={archiveObjective}
+                    onSaveObjTitle={saveObjTitle}
+                    onSaveObjDesc={saveObjDesc}
+                    onSaveEntry={saveEntry}
+                    onDeleteEntry={deleteEntry}
+                  />
+                ))}
+                {addingGroup && (
+                  <div className="flex items-center gap-2 px-4 py-3" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+                    <input
+                      autoFocus
+                      value={newGroupName}
+                      onChange={e => setNewGroupName(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') { e.preventDefault(); addGroup() }
+                        if (e.key === 'Escape') { setAddingGroup(false); setNewGroupName('') }
+                      }}
+                      placeholder="팀 이름 입력 후 Enter"
+                      className="flex-1 text-[13px] bg-transparent focus:outline-none"
+                      style={{ color: 'rgba(226,232,240,0.85)', borderBottom: '1px solid rgba(255,255,255,0.18)' }}
+                    />
+                    <button onClick={addGroup}
+                      className="text-[11px] px-3 py-1 rounded-full font-semibold transition-all"
+                      style={{ background: 'rgba(76,127,224,0.15)', color: 'rgba(76,127,224,0.9)', border: '1px solid rgba(76,127,224,0.25)' }}>
+                      추가
+                    </button>
+                    <button onClick={() => { setAddingGroup(false); setNewGroupName('') }}
+                      className="text-[11px] px-2 py-1 rounded-full transition-all"
+                      style={{ color: 'rgba(226,232,240,0.35)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                      취소
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
 
