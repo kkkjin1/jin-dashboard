@@ -146,8 +146,9 @@ function MatrixCell({
   // ── 편집 모드 ───────────────────────────────────────────
   if (editing) return (
     <div
+      ref={el => { el?.scrollIntoView({ inline: 'nearest', block: 'nearest' }) }}
       className="rounded-[12px] overflow-hidden border"
-      style={{ background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(76,127,224,0.3)' }}
+      style={{ background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(76,127,224,0.3)', position: 'relative', zIndex: 20 }}
       onBlur={e => { if (!wf.current) return; if (!e.currentTarget.contains(e.relatedTarget as Node)) save() }}
     >
       <TiptapEditor dark value={val} onChange={setVal} onSubmit={save}
