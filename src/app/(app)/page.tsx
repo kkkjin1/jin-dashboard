@@ -459,10 +459,11 @@ function DualLaneTimeline({ meetings, todos, now, onAdd }: {
 export default function HomePage() {
   const router = useRouter()
   const [doneTasks,     setDoneTasks]     = useState<string[]>([])
+  const [doneAgenda,    setDoneAgenda]    = useState<string[]>([])
   const [showJournal,   setShowJournal]   = useState(false)
   const [searchOpen,    setSearchOpen]    = useState(false)
   const [searchQuery,   setSearchQuery]   = useState('')
-  const [weekFilter,    setWeekFilter]    = useState<'all' | 'mon' | 'tue' | 'wed' | 'thu' | 'fri'>('all')
+  const [weekFilter,    setWeekFilter]    = useState<'all' | 'tomorrow' | 'week' | 'unscheduled'>('all')
   const [now,           setNow]           = useState(new Date())
   const [stCols,        setStCols]        = useState<[number, number, number, number]>([60, 120, 72, 60])
   const [stSort,        setStSort]        = useState<{ col: string; dir: 'asc' | 'desc' } | null>({ col: '업데이트', dir: 'desc' })
@@ -495,7 +496,7 @@ export default function HomePage() {
         { data: stData }, { data: tdData }, { data: wkData },
         { data: mData },  { data: mmData }, { data: jData },
       ] = await Promise.all([
-        sb.current.from('agenda_sub_tasks').select('*, agenda_items(id, title, agenda_groups(name, color, category)), sub_task_notes(created_at, edited_at)').eq('status', 'active').order('sort_order').limit(20),
+        sb.current.from('agenda_sub_tasks').select('*, agenda_items(id, title, agenda_groups(name, color, category)), sub_task_notes(created_at, edited_at)').eq('status', 'active').order('sort_order').limit(100),
         sb.current.from('task_todos').select('*, tasks(id, title, short_name, part)').eq('schedule_tag', 'today').eq('done', false).order('sort_order').limit(15),
         sb.current.from('task_todos').select('*, tasks(id, title, short_name, part)').in('schedule_tag', ['tomorrow', 'this_week']).eq('done', false).order('sort_order').limit(30),
         sb.current.from('meetings').select('*').order('meeting_date', { ascending: false }).limit(20),
@@ -643,14 +644,25 @@ export default function HomePage() {
   const today          = todayStr()
   const todayMeetings  = meetings.filter(m => m.meeting_date?.startsWith(today))
   const recentMeetings = meetings.slice(0, 5)
-  const DAY_KEYS = ['sun','mon','tue','wed','thu','fri','sat']
+  const _pad = (n: number) => String(n).padStart(2, '0')
   const tomorrowDate = new Date(now); tomorrowDate.setDate(now.getDate() + 1)
-  const tomorrowDayKey = DAY_KEYS[tomorrowDate.getDay()]
+  const fridayDate   = new Date(now); fridayDate.setDate(now.getDate() + (5 - now.getDay() + 7) % 7)
+  const tomorrowStr  = `${tomorrowDate.getFullYear()}-${_pad(tomorrowDate.getMonth()+1)}-${_pad(tomorrowDate.getDate())}`
+  const fridayStr    = `${fridayDate.getFullYear()}-${_pad(fridayDate.getMonth()+1)}-${_pad(fridayDate.getDate())}`
+
+  // agenda_sub_tasks → date-based derived lists
+  const todayAgendaItems       = subTasks.filter(st => st.target_date === today)
+  const tomorrowAgendaItems    = subTasks.filter(st => st.target_date === tomorrowStr)
+  const weekAgendaItems        = subTasks.filter(st => st.target_date && st.target_date > tomorrowStr && st.target_date <= fridayStr)
+  const unscheduledAgendaItems = subTasks.filter(st => !st.target_date)
+
   const filteredWeek = weekFilter === 'all'
     ? weekTodos
-    : (weekFilter as string) === tomorrowDayKey
+    : weekFilter === 'tomorrow'
       ? weekTodos.filter(t => t.schedule_tag === 'tomorrow')
-      : weekTodos.filter(t => t.schedule_tag === 'this_week')
+      : weekFilter === 'week'
+        ? weekTodos.filter(t => t.schedule_tag === 'this_week')
+        : []
   const meetingsForJournal = meetings.map(m => ({ id: m.id, title: m.title, meeting_date: m.meeting_date ?? undefined }))
 
   const skel = (n: number) => Array.from({ length: n }, (_, i) => (
@@ -968,32 +980,57 @@ export default function HomePage() {
             {/* 오늘 업무 */}
             <CardSection title="오늘 업무" link="/tasks" linkLabel="+ 추가" icon={<CheckSquare size={14} strokeWidth={2} style={{ color: '#38BE98' }} />}>
               {loading ? <div>{skel(4)}</div>
-                : todayTodos.length === 0
+                : todayTodos.length === 0 && todayAgendaItems.length === 0
                   ? <EmptyState
                       icon={<CheckSquare size={20} strokeWidth={1.5} />}
                       label="오늘 업무가 비어있어요."
                       sub="여유로운 하루거나, 추가해보세요."
                     />
-                  : todayTodos.map((t, i) => {
-                      const done = doneTasks.includes(t.id)
-                      return (
-                        <ListRow key={t.id} style={{ ...rd(i, todayTodos.length) }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0' }}>
-                            <button
-                              onClick={() => toggleTask(t.id)}
-                              style={{ width: 16, height: 16, borderRadius: '50%', border: `1.5px solid ${done ? '#38BE98' : 'rgba(255,255,255,0.18)'}`, background: done ? '#38BE98' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer', transition: 'all 200ms ease-out' }}
-                            >
-                              {done && <svg width="6" height="6" viewBox="0 0 8 8" fill="none"><path d="M1.5 4L3 5.5L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
-                            </button>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <p style={{ fontSize: 14, fontWeight: done ? 400 : 500, color: done ? TEXT3 : TEXT1, textDecoration: done ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', transition: 'color 200ms' }}>{t.title}</p>
-                              {t.tasks && <p style={{ fontSize: 12, color: TEXT3, marginTop: 1 }}>{t.tasks.short_name ?? t.tasks.title}</p>}
+                  : <>
+                      {todayTodos.map((t, i) => {
+                        const done = doneTasks.includes(t.id)
+                        return (
+                          <ListRow key={t.id} style={{ ...rd(i, todayTodos.length + todayAgendaItems.length) }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0' }}>
+                              <button
+                                onClick={() => toggleTask(t.id)}
+                                style={{ width: 16, height: 16, borderRadius: '50%', border: `1.5px solid ${done ? '#38BE98' : 'rgba(255,255,255,0.18)'}`, background: done ? '#38BE98' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer', transition: 'all 200ms ease-out' }}
+                              >
+                                {done && <svg width="6" height="6" viewBox="0 0 8 8" fill="none"><path d="M1.5 4L3 5.5L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+                              </button>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <p style={{ fontSize: 14, fontWeight: done ? 400 : 500, color: done ? TEXT3 : TEXT1, textDecoration: done ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', transition: 'color 200ms' }}>{t.title}</p>
+                                {t.tasks && <p style={{ fontSize: 12, color: TEXT3, marginTop: 1 }}>{t.tasks.short_name ?? t.tasks.title}</p>}
+                              </div>
+                              {t.tasks && <span className={tagCls(t.tasks.part)}>{t.tasks.part}</span>}
                             </div>
-                            {t.tasks && <span className={tagCls(t.tasks.part)}>{t.tasks.part}</span>}
-                          </div>
-                        </ListRow>
-                      )
-                    })
+                          </ListRow>
+                        )
+                      })}
+                      {todayAgendaItems.map((st, i) => {
+                        const done = doneAgenda.includes(st.id)
+                        const groupColor = st.agenda_items?.agenda_groups?.color ?? TEXT3
+                        const total = todayTodos.length + todayAgendaItems.length
+                        const globalIdx = todayTodos.length + i
+                        return (
+                          <ListRow key={st.id} style={{ ...rd(globalIdx, total) }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0' }}>
+                              <button
+                                onClick={() => setDoneAgenda(p => p.includes(st.id) ? p.filter(x => x !== st.id) : [...p, st.id])}
+                                style={{ width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${done ? '#38BE98' : 'rgba(255,255,255,0.18)'}`, background: done ? '#38BE98' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer', transition: 'all 200ms ease-out' }}
+                              >
+                                {done && <svg width="6" height="6" viewBox="0 0 8 8" fill="none"><path d="M1.5 4L3 5.5L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+                              </button>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <p style={{ fontSize: 14, fontWeight: done ? 400 : 500, color: done ? TEXT3 : TEXT1, textDecoration: done ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', transition: 'color 200ms' }}>{st.title}</p>
+                                {st.agenda_items && <p style={{ fontSize: 12, color: TEXT3, marginTop: 1 }}>{st.agenda_items.title}</p>}
+                              </div>
+                              <div style={{ width: 6, height: 6, borderRadius: 2, background: groupColor, flexShrink: 0, opacity: 0.85 }} />
+                            </div>
+                          </ListRow>
+                        )
+                      })}
+                    </>
               }
             </CardSection>
 
@@ -1056,22 +1093,20 @@ export default function HomePage() {
               icon={<CalendarDays size={14} strokeWidth={2} style={{ color: '#5E8FBF' }} />}
               extra={
                 <div style={{ display: 'flex', gap: 3 }}>
-                  {([['all','전체'],['mon','월'],['tue','화'],['wed','수'],['thu','목'],['fri','금']] as const).map(([f, label]) => {
+                  {([['all','전체'],['tomorrow','내일'],['week','금주'],['unscheduled','미진행']] as const).map(([f, label]) => {
                     const isActive = weekFilter === f
-                    const isToday = (f as string) === DAY_KEYS[now.getDay()]
                     return (
-                      <button key={f} onClick={() => setWeekFilter(f as typeof weekFilter)}
+                      <button key={f} onClick={() => setWeekFilter(f)}
                         style={{
                           fontSize: 11,
-                          padding: f === 'all' ? '3px 7px' : '3px 6px',
-                          borderRadius: f === 'all' ? 7 : 999,
-                          minWidth: f === 'all' ? 'auto' : 22,
+                          padding: '3px 7px',
+                          borderRadius: 7,
                           border: `1px solid ${isActive ? 'rgba(91,126,196,0.35)' : 'rgba(255,255,255,0.07)'}`,
                           background: isActive ? 'rgba(91,126,196,0.14)' : 'transparent',
-                          color: isActive ? '#8DAEE6' : isToday ? TEXT2 : TEXT3,
+                          color: isActive ? '#8DAEE6' : TEXT3,
                           cursor: 'pointer',
                           transition: 'all 150ms ease',
-                          fontWeight: isActive ? 600 : isToday ? 500 : 400,
+                          fontWeight: isActive ? 600 : 400,
                         }}>
                         {label}
                       </button>
@@ -1081,59 +1116,106 @@ export default function HomePage() {
               }
             >
               {loading ? <div>{skel(4)}</div>
-                : filteredWeek.length === 0
-                  ? <EmptyState
-                      icon={<CalendarDays size={20} strokeWidth={1.5} />}
-                      label={weekFilter === 'all' ? '이번 주 업무가 없습니다.' : `${({'mon':'월요일','tue':'화요일','wed':'수요일','thu':'목요일','fri':'금요일'} as Record<string,string>)[weekFilter] ?? ''} 업무가 없습니다.`}
-                    />
-                  : weekFilter !== 'all'
-                    ? filteredWeek.map((t, i) => (
-                        <ListRow key={t.id} style={{ ...rd(i, filteredWeek.length) }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0' }}>
-                            <div style={{ width: 5, height: 5, borderRadius: 1.5, background: t.schedule_tag === 'tomorrow' ? '#5E8FBF' : '#7A82D8', flexShrink: 0, opacity: 0.85 }} />
-                            <span style={{ fontSize: 13.5, fontWeight: 500, color: TEXT1, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</span>
+                : (() => {
+                    const filtAgenda = weekFilter === 'tomorrow' ? tomorrowAgendaItems
+                      : weekFilter === 'week'        ? weekAgendaItems
+                      : weekFilter === 'unscheduled' ? unscheduledAgendaItems
+                      : [] // 'all' handled separately below
+                    const isEmpty = weekFilter === 'all'
+                      ? filteredWeek.length === 0 && tomorrowAgendaItems.length === 0 && weekAgendaItems.length === 0 && unscheduledAgendaItems.length === 0
+                      : filteredWeek.length === 0 && filtAgenda.length === 0
+                    if (isEmpty) return (
+                      <EmptyState
+                        icon={<CalendarDays size={20} strokeWidth={1.5} />}
+                        label={weekFilter === 'all' ? '이번 주 업무가 없습니다.' : weekFilter === 'tomorrow' ? '내일 업무가 없습니다.' : weekFilter === 'week' ? '이번 주 업무가 없습니다.' : '미진행 항목이 없습니다.'}
+                      />
+                    )
+                    // ── 공통 row helpers ──
+                    const dotColor = (tag: string | null | undefined) => tag === 'tomorrow' ? '#5E8FBF' : '#7A82D8'
+                    function TaskRow({ t, i, len }: { t: TodayTodo; i: number; len: number }) {
+                      return (
+                        <ListRow style={{ ...rd(i, len) }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minHeight: 40 }}>
+                            <div style={{ width: 5, height: 5, borderRadius: 1.5, background: dotColor(t.schedule_tag), flexShrink: 0, opacity: 0.85 }} />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <span style={{ fontSize: 13.5, fontWeight: 500, color: TEXT1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>{t.title}</span>
+                              {t.tasks && <span style={{ fontSize: 11, color: TEXT3 }}>{t.tasks.short_name ?? t.tasks.title}</span>}
+                            </div>
                           </div>
                         </ListRow>
-                      ))
-                    : (() => {
-                        const tomorrows = filteredWeek.filter(t => t.schedule_tag === 'tomorrow')
-                        const thisWeek  = filteredWeek.filter(t => t.schedule_tag === 'this_week')
-                        function WeekRow({ t, i, len }: { t: TodayTodo; i: number; len: number }) {
-                          return (
-                            <ListRow style={{ ...rd(i, len) }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 10, minHeight: 44 }}>
-                                <div style={{ width: 5, height: 5, borderRadius: 1.5, background: t.schedule_tag === 'tomorrow' ? '#5E8FBF' : '#7A82D8', flexShrink: 0, opacity: 0.85 }} />
-                                <span style={{ fontSize: 13.5, fontWeight: 500, color: TEXT1, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</span>
-                              </div>
-                            </ListRow>
-                          )
-                        }
-                        return (
+                      )
+                    }
+                    function AgendaRow({ st, i, len }: { st: SubTaskWithContext; i: number; len: number }) {
+                      const gc = st.agenda_items?.agenda_groups?.color ?? TEXT3
+                      return (
+                        <ListRow style={{ ...rd(i, len) }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minHeight: 40 }}>
+                            <div style={{ width: 5, height: 5, borderRadius: 2, background: gc, flexShrink: 0, opacity: 0.85 }} />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <span style={{ fontSize: 13.5, fontWeight: 500, color: TEXT1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>{st.title}</span>
+                              {st.agenda_items && <span style={{ fontSize: 11, color: TEXT3 }}>{st.agenda_items.title}</span>}
+                            </div>
+                          </div>
+                        </ListRow>
+                      )
+                    }
+                    // ── 필터별 뷰 ──
+                    if (weekFilter !== 'all') {
+                      const combined = [...filteredWeek.map(t => ({ kind: 'task' as const, t })), ...filtAgenda.map(st => ({ kind: 'agenda' as const, st }))]
+                      return <>{combined.map((item, i) => item.kind === 'task'
+                        ? <TaskRow key={item.t.id} t={item.t} i={i} len={combined.length} />
+                        : <AgendaRow key={item.st.id} st={item.st} i={i} len={combined.length} />
+                      )}</>
+                    }
+                    // 'all' — 내일 / 금주 / 미진행 grouped
+                    const tomorrows = filteredWeek.filter(t => t.schedule_tag === 'tomorrow')
+                    const thisWeek  = filteredWeek.filter(t => t.schedule_tag === 'this_week')
+                    const allTomorrow = [...tomorrows, ...tomorrowAgendaItems]
+                    const allWeek     = [...thisWeek, ...weekAgendaItems]
+                    const allUnscheduled = unscheduledAgendaItems
+                    function GroupLabel({ color, label }: { color: string; label: string }) {
+                      return (
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginBottom: 6, padding: '2px 8px', borderRadius: 999, background: `${color}14`, border: `1px solid ${color}2A` }}>
+                          <div style={{ width: 4, height: 4, borderRadius: '50%', background: color }} />
+                          <span style={{ fontSize: 10.5, fontWeight: 600, color, letterSpacing: '0.01em' }}>{label}</span>
+                        </div>
+                      )
+                    }
+                    return (
+                      <>
+                        {allTomorrow.length > 0 && (
                           <>
-                            {tomorrows.length > 0 && (
-                              <>
-                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginBottom: 6, padding: '2px 8px', borderRadius: 999, background: 'rgba(80,118,190,0.09)', border: '1px solid rgba(80,118,190,0.17)' }}>
-                                  <div style={{ width: 4, height: 4, borderRadius: '50%', background: '#5E8FBF' }} />
-                                  <span style={{ fontSize: 10.5, fontWeight: 600, color: '#8DAEE6', letterSpacing: '0.01em' }}>내일</span>
-                                </div>
-                                {tomorrows.map((t, i) => <WeekRow key={t.id} t={t} i={i} len={tomorrows.length} />)}
-                              </>
-                            )}
-                            {tomorrows.length > 0 && thisWeek.length > 0 && (
-                              <div style={{ borderTop: `1px solid ${DIVIDER}`, margin: '10px 0 8px' }} />
-                            )}
-                            {thisWeek.length > 0 && (
-                              <>
-                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginBottom: 6, padding: '2px 8px', borderRadius: 999, background: 'rgba(95,90,200,0.09)', border: '1px solid rgba(95,90,200,0.17)' }}>
-                                  <div style={{ width: 4, height: 4, borderRadius: '50%', background: '#7A82D8' }} />
-                                  <span style={{ fontSize: 10.5, fontWeight: 600, color: '#9EA8E0', letterSpacing: '0.01em' }}>금주</span>
-                                </div>
-                                {thisWeek.map((t, i) => <WeekRow key={t.id} t={t} i={i} len={thisWeek.length} />)}
-                              </>
+                            <GroupLabel color="#5E8FBF" label="내일" />
+                            {allTomorrow.map((item, i) => 'schedule_tag' in item
+                              ? <TaskRow key={item.id} t={item as TodayTodo} i={i} len={allTomorrow.length} />
+                              : <AgendaRow key={item.id} st={item as SubTaskWithContext} i={i} len={allTomorrow.length} />
                             )}
                           </>
-                        )
-                      })()
+                        )}
+                        {allTomorrow.length > 0 && allWeek.length > 0 && (
+                          <div style={{ borderTop: `1px solid ${DIVIDER}`, margin: '10px 0 8px' }} />
+                        )}
+                        {allWeek.length > 0 && (
+                          <>
+                            <GroupLabel color="#7A82D8" label="금주" />
+                            {allWeek.map((item, i) => 'schedule_tag' in item
+                              ? <TaskRow key={item.id} t={item as TodayTodo} i={i} len={allWeek.length} />
+                              : <AgendaRow key={item.id} st={item as SubTaskWithContext} i={i} len={allWeek.length} />
+                            )}
+                          </>
+                        )}
+                        {allUnscheduled.length > 0 && (allTomorrow.length > 0 || allWeek.length > 0) && (
+                          <div style={{ borderTop: `1px solid ${DIVIDER}`, margin: '10px 0 8px' }} />
+                        )}
+                        {allUnscheduled.length > 0 && (
+                          <>
+                            <GroupLabel color="#C87840" label="미진행" />
+                            {allUnscheduled.map((st, i) => <AgendaRow key={st.id} st={st} i={i} len={allUnscheduled.length} />)}
+                          </>
+                        )}
+                      </>
+                    )
+                  })()
               }
             </CardSection>
 
