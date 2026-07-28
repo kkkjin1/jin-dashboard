@@ -104,6 +104,7 @@ interface Props {
   onSubmit?: () => void
   onEscape?: () => void
   onExpand?: () => void
+  onSelectionChange?: (text: string) => void
   autoFocus?: boolean
   minHeight?: number
   className?: string
@@ -111,14 +112,20 @@ interface Props {
 }
 
 export default function TiptapEditor({
-  value, onChange, onSubmit, onEscape, onExpand, autoFocus, minHeight = 160, className, dark,
+  value, onChange, onSubmit, onEscape, onExpand, onSelectionChange, autoFocus, minHeight = 160, className, dark,
 }: Props) {
   // Refs로 콜백 최신값 유지 — useCallback deps를 [] 로 고정해 Tiptap이 매 렌더마다 options 변경을 감지하지 않도록 함
-  const onChangeRef = useRef(onChange)
-  const onSubmitRef = useRef(onSubmit)
-  const onEscapeRef = useRef(onEscape)
-  const editorRef   = useRef<ReturnType<typeof useEditor>>(null)
-  useEffect(() => { onChangeRef.current = onChange; onSubmitRef.current = onSubmit; onEscapeRef.current = onEscape })
+  const onChangeRef          = useRef(onChange)
+  const onSubmitRef          = useRef(onSubmit)
+  const onEscapeRef          = useRef(onEscape)
+  const onSelectionChangeRef = useRef(onSelectionChange)
+  const editorRef            = useRef<ReturnType<typeof useEditor>>(null)
+  useEffect(() => {
+    onChangeRef.current = onChange
+    onSubmitRef.current = onSubmit
+    onEscapeRef.current = onEscape
+    onSelectionChangeRef.current = onSelectionChange
+  })
 
   const stableOnUpdate = useCallback(({ editor }: { editor: NonNullable<ReturnType<typeof useEditor>> }) => {
     onChangeRef.current(editor.getHTML())
@@ -179,10 +186,18 @@ export default function TiptapEditor({
     return false
   }, [])
 
+  const stableOnSelectionUpdate = useCallback(({ editor }: { editor: NonNullable<ReturnType<typeof useEditor>> }) => {
+    if (!onSelectionChangeRef.current) return
+    const { from, to } = editor.state.selection
+    const text = from !== to ? editor.state.doc.textBetween(from, to, ' ').trim() : ''
+    onSelectionChangeRef.current(text)
+  }, [])
+
   const editor = useEditor({
     extensions: EXTENSIONS,
     content: legacyToHtml(value),
     onUpdate: stableOnUpdate,
+    onSelectionUpdate: stableOnSelectionUpdate,
     editorProps: {
       attributes: { class: `${dark ? 'tiptap-input-dark' : 'tiptap-input'} outline-none`, style: `min-height:${minHeight}px; padding:8px 0;` },
       handleKeyDown: stableKeyDown,

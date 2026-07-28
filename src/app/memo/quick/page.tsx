@@ -24,6 +24,9 @@ function parseMeetingDate(text: string): string | null {
   return null
 }
 
+type AgendaGroupOption  = { id: string; name: string; color: string }
+type AgendaItemOption   = { id: string; title: string }
+
 export default function QuickMemoPage() {
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
@@ -33,6 +36,61 @@ export default function QuickMemoPage() {
   const [autoSaved, setAutoSaved] = useState(false)
   const titleRef = useRef<HTMLInputElement>(null)
   const supabase = createClient()
+
+  // ── 세부task 연동 state ──────────────────────────────────────────────────────
+  const [selText,        setSelText]        = useState('')
+  const [showPicker,     setShowPicker]     = useState(false)
+  const [pickerStep,     setPickerStep]     = useState<'group' | 'item'>('group')
+  const [groups,         setGroups]         = useState<AgendaGroupOption[]>([])
+  const [pickerItems,    setPickerItems]    = useState<AgendaItemOption[]>([])
+  const [pickerLoading,  setPickerLoading]  = useState(false)
+  const [subTaskCreated, setSubTaskCreated] = useState('')
+
+  // 안건 그룹 미리 로드
+  useEffect(() => {
+    supabase.from('agenda_groups').select('id, name, color').order('sort_order').then(({ data }) => {
+      setGroups((data ?? []) as AgendaGroupOption[])
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const handleSelectionChange = useCallback((text: string) => {
+    setSelText(text)
+    if (!text) setShowPicker(false)
+  }, [])
+
+  async function onGroupSelect(groupId: string) {
+    setPickerLoading(true)
+    const { data } = await supabase
+      .from('agenda_items')
+      .select('id, title')
+      .eq('group_id', groupId)
+      .eq('status', 'active')
+      .order('sort_order')
+    setPickerItems((data ?? []) as AgendaItemOption[])
+    setPickerLoading(false)
+    setPickerStep('item')
+  }
+
+  async function onItemSelect(agendaItemId: string) {
+    setPickerLoading(true)
+    const { count } = await supabase
+      .from('agenda_sub_tasks')
+      .select('*', { count: 'exact', head: true })
+      .eq('agenda_item_id', agendaItemId)
+    await supabase.from('agenda_sub_tasks').insert({
+      agenda_item_id: agendaItemId,
+      title: selText,
+      status: 'active',
+      sort_order: (count ?? 0) + 1,
+    })
+    setPickerLoading(false)
+    setSubTaskCreated(selText)
+    setSelText('')
+    setShowPicker(false)
+    setPickerStep('group')
+    setTimeout(() => setSubTaskCreated(''), 2500)
+  }
 
   // ── 자동저장 (localStorage) ──────────────────────────────────────────────
   const saveDraft = useCallback((t: string, c: string, tg: MemoTag) => {
@@ -63,11 +121,14 @@ export default function QuickMemoPage() {
   // ── ESC 닫기 ─────────────────────────────────────────────────────────────
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') window.close()
+      if (e.key === 'Escape') {
+        if (showPicker) { setShowPicker(false); return }
+        window.close()
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [])
+  }, [showPicker])
 
   const meetingDate = tag === '회의관련' ? parseMeetingDate(title) : null
 
@@ -151,21 +212,103 @@ export default function QuickMemoPage() {
         </p>
       )}
 
-      {/* 본문 — TiptapEditor (마크다운 + 이미지 붙여넣기) */}
-      <div className="flex-1 min-h-0 mb-3 overflow-y-auto border border-[rgba(255,255,255,0.08)] rounded-lg px-3 py-2"
+      {/* 본문 — TiptapEditor */}
+      <div className="flex-1 min-h-0 mb-2 overflow-y-auto border border-[rgba(255,255,255,0.08)] rounded-lg px-3 py-2"
         style={{ background: '#1A1C1F' }}>
         <TiptapEditor
           value={content}
           onChange={v => { setContent(v); saveDraft(title, v, tag) }}
           onSubmit={handleSave}
+          onSelectionChange={handleSelectionChange}
           dark
-          minHeight={160}
+          minHeight={140}
         />
       </div>
 
+      {/* ── 세부task 생성 Bar ── */}
+      {subTaskCreated ? (
+        <div className="mb-2 px-3 py-2 rounded-lg text-xs flex items-center gap-2"
+          style={{ background: 'rgba(56,190,152,0.12)', border: '1px solid rgba(56,190,152,0.2)', color: '#38BE98' }}>
+          <span>✓</span>
+          <span className="flex-1 truncate">세부task 생성됨: {subTaskCreated}</span>
+        </div>
+      ) : selText && !showPicker ? (
+        <div className="mb-2 flex items-center gap-2">
+          <div className="flex-1 min-w-0 text-xs px-2.5 py-1.5 rounded-lg truncate"
+            style={{ background: 'rgba(255,255,255,0.04)', color: '#9CA3AF', border: '1px solid rgba(255,255,255,0.07)' }}>
+            &ldquo;{selText}&rdquo;
+          </div>
+          <button
+            type="button"
+            onMouseDown={e => { e.preventDefault(); setShowPicker(true); setPickerStep('group') }}
+            className="flex-shrink-0 text-xs px-3 py-1.5 rounded-lg font-medium transition-colors"
+            style={{ background: 'rgba(76,127,224,0.14)', color: '#8DAEE6', border: '1px solid rgba(76,127,224,0.25)' }}>
+            + 세부task
+          </button>
+        </div>
+      ) : null}
+
+      {/* ── 안건 Picker ── */}
+      {showPicker && (
+        <div className="mb-2 rounded-lg overflow-hidden"
+          style={{ background: '#1A2030', border: '1px solid rgba(255,255,255,0.09)' }}>
+          {/* Picker 헤더 */}
+          <div className="flex items-center justify-between px-3 py-2"
+            style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+            {pickerStep === 'item' ? (
+              <button
+                type="button"
+                onClick={() => setPickerStep('group')}
+                className="text-[11px] flex items-center gap-1"
+                style={{ color: '#7B8397' }}>
+                ← 뒤로
+              </button>
+            ) : (
+              <span className="text-[11px]" style={{ color: '#7B8397' }}>프로젝트 선택</span>
+            )}
+            <span className="text-[10px] truncate max-w-[160px] px-2" style={{ color: '#5B6270' }}>
+              &ldquo;{selText}&rdquo;
+            </span>
+            <button type="button" onClick={() => setShowPicker(false)}
+              className="text-[13px] leading-none" style={{ color: '#5B6270' }}>×</button>
+          </div>
+
+          {/* Picker 목록 */}
+          <div className="max-h-[140px] overflow-y-auto py-1">
+            {pickerLoading ? (
+              <div className="text-[11px] px-3 py-3 text-center" style={{ color: '#5B6270' }}>로딩 중...</div>
+            ) : pickerStep === 'group' ? (
+              groups.length === 0
+                ? <div className="text-[11px] px-3 py-3 text-center" style={{ color: '#5B6270' }}>프로젝트가 없습니다</div>
+                : groups.map(g => (
+                    <button key={g.id} type="button"
+                      onClick={() => onGroupSelect(g.id)}
+                      className="w-full text-left flex items-center gap-2.5 px-3 py-2 text-xs transition-colors hover:bg-[rgba(255,255,255,0.05)]"
+                      style={{ color: '#C9D2E0' }}>
+                      <span style={{ width: 8, height: 8, borderRadius: 2, background: g.color, flexShrink: 0, display: 'inline-block' }} />
+                      {g.name}
+                    </button>
+                  ))
+            ) : (
+              pickerItems.length === 0
+                ? <div className="text-[11px] px-3 py-3 text-center" style={{ color: '#5B6270' }}>안건이 없습니다</div>
+                : pickerItems.map(item => (
+                    <button key={item.id} type="button"
+                      onClick={() => onItemSelect(item.id)}
+                      disabled={pickerLoading}
+                      className="w-full text-left px-3 py-2 text-xs transition-colors hover:bg-[rgba(255,255,255,0.05)] disabled:opacity-40"
+                      style={{ color: '#C9D2E0' }}>
+                      {item.title}
+                    </button>
+                  ))
+            )}
+          </div>
+        </div>
+      )}
+
       {/* 푸터 */}
       <div className="flex justify-between items-center">
-        <span className="text-xs text-[#5B6270]">ESC 닫기 · Ctrl+Enter 저장 · 이미지 붙여넣기 가능</span>
+        <span className="text-xs text-[#5B6270]">ESC 닫기 · Ctrl+Enter 저장 · 텍스트 선택 → 세부task</span>
         <button
           onClick={handleSave}
           disabled={!title.trim() || saving}
