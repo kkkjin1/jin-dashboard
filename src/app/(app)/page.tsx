@@ -21,6 +21,7 @@ type SubTaskWithContext = AgendaSubTask & {
   agenda_items: { id: string; title: string; agenda_groups: { name: string; color: string; category: string } | null } | null
   sub_task_notes?: { created_at: string; edited_at: string | null }[]
 }
+type TLExtra = { id: string; title: string; subtitle?: string }
 
 // ── Category Colors (고정) ─────────────────────────────────────────────────
 const CATEGORY_COLOR: Record<string, string> = {
@@ -87,20 +88,28 @@ function EmptyState({ icon, label, sub }: { icon: React.ReactNode; label: string
 }
 
 // ── List Row wrapper (row-level hover) ──────────────────────────────────────
-function ListRow({ children, style, onClick }: { children: React.ReactNode; style?: React.CSSProperties; onClick?: () => void }) {
+function ListRow({ children, style, onClick, draggable, onDragStart }: {
+  children: React.ReactNode
+  style?: React.CSSProperties
+  onClick?: () => void
+  draggable?: boolean
+  onDragStart?: (e: React.DragEvent) => void
+}) {
   const [h, setH] = useState(false)
   return (
     <div
       onMouseEnter={() => setH(true)}
       onMouseLeave={() => setH(false)}
       onClick={onClick}
+      draggable={draggable}
+      onDragStart={onDragStart}
       style={{
         borderRadius: 8,
         marginLeft: -10, marginRight: -10,
         paddingLeft: 10, paddingRight: 10,
         background: h ? 'rgba(255,255,255,0.05)' : 'transparent',
         transition: 'background 120ms ease',
-        cursor: onClick ? 'pointer' : 'default',
+        cursor: draggable ? 'grab' : onClick ? 'pointer' : 'default',
         ...style,
       }}
     >
@@ -224,16 +233,30 @@ function DualLaneTimeline({ meetings, todos, now, onAdd }: {
   const tDragRef   = useRef<{ id: string; startX: number; startHour: number } | null>(null)
   const tResizeRef = useRef<{ id: string; startX: number; startDur: number } | null>(null)
 
+  // ── Extras (외부에서 드래그된 항목) ────────────────────────────────────
+  const [extras,   setExtras]   = useState<TLExtra[]>([])
+  const [extraPos, setExtraPos] = useState<Record<string, number>>({})
+  const [extraDur, setExtraDur] = useState<Record<string, number>>({})
+  const [dropIndicatorX, setDropIndicatorX] = useState<number | null>(null)
+  const exDragRef   = useRef<{ id: string; startX: number; startHour: number } | null>(null)
+  const exResizeRef = useRef<{ id: string; startX: number; startDur: number } | null>(null)
+
   useEffect(() => {
     try {
       const mp = localStorage.getItem('home_tl_pos')
       const md = localStorage.getItem('home_tl_dur')
       const tp = localStorage.getItem('home_tl_task_pos')
       const td = localStorage.getItem('home_tl_task_dur')
+      const ex = localStorage.getItem('home_tl_extras')
+      const ep = localStorage.getItem('home_tl_extra_pos')
+      const ed = localStorage.getItem('home_tl_extra_dur')
       if (mp) setMPos(JSON.parse(mp))
       if (md) setMDur(JSON.parse(md))
       if (tp) setTPos(JSON.parse(tp))
       if (td) setTDur(JSON.parse(td))
+      if (ex) setExtras(JSON.parse(ex))
+      if (ep) setExtraPos(JSON.parse(ep))
+      if (ed) setExtraDur(JSON.parse(ed))
     } catch {}
   }, [])
 
@@ -241,6 +264,9 @@ function DualLaneTimeline({ meetings, todos, now, onAdd }: {
   useEffect(() => { try { localStorage.setItem('home_tl_dur', JSON.stringify(mDur)) } catch {} }, [mDur])
   useEffect(() => { try { localStorage.setItem('home_tl_task_pos', JSON.stringify(tPos)) } catch {} }, [tPos])
   useEffect(() => { try { localStorage.setItem('home_tl_task_dur', JSON.stringify(tDur)) } catch {} }, [tDur])
+  useEffect(() => { try { localStorage.setItem('home_tl_extras', JSON.stringify(extras)) } catch {} }, [extras])
+  useEffect(() => { try { localStorage.setItem('home_tl_extra_pos', JSON.stringify(extraPos)) } catch {} }, [extraPos])
+  useEffect(() => { try { localStorage.setItem('home_tl_extra_dur', JSON.stringify(extraDur)) } catch {} }, [extraDur])
 
   const hW = cw > 0 ? cw / (H_END - H_START) : 0
 
@@ -298,6 +324,67 @@ function DualLaneTimeline({ meetings, todos, now, onAdd }: {
     window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp)
   }
 
+  // ── Extra drag/resize handlers ─────────────────────────────────────────
+  function onExDragStart(id: string, startX: number) {
+    const startHour = extraPos[id] ?? H_START
+    exDragRef.current = { id, startX, startHour }
+    function onMove(e: MouseEvent) {
+      if (!exDragRef.current || hW === 0) return
+      const dur = extraDur[id] ?? 1
+      const newH = Math.max(H_START, Math.min(H_END - dur, exDragRef.current.startHour + (e.clientX - exDragRef.current.startX) / hW))
+      setExtraPos(p => ({ ...p, [id]: newH }))
+    }
+    function onUp() { exDragRef.current = null; window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
+    window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp)
+  }
+
+  function onExResizeStart(id: string, startX: number) {
+    exResizeRef.current = { id, startX, startDur: extraDur[id] ?? 1 }
+    function onMove(e: MouseEvent) {
+      if (!exResizeRef.current || hW === 0) return
+      const newD = Math.max(0.25, Math.min(H_END - (extraPos[id] ?? H_START), exResizeRef.current.startDur + (e.clientX - exResizeRef.current.startX) / hW))
+      setExtraDur(p => ({ ...p, [id]: newD }))
+    }
+    function onUp() { exResizeRef.current = null; window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
+    window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp)
+  }
+
+  function onRemoveExtra(id: string) {
+    setExtras(p => p.filter(e => e.id !== id))
+    setExtraPos(p => { const n = { ...p }; delete n[id]; return n })
+    setExtraDur(p => { const n = { ...p }; delete n[id]; return n })
+  }
+
+  function onContainerDragOver(e: React.DragEvent) {
+    if (!e.dataTransfer.types.includes('tl-extra')) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'copy'
+    if (!containerRef.current || hW === 0) return
+    const rect = containerRef.current.getBoundingClientRect()
+    setDropIndicatorX(e.clientX - rect.left)
+  }
+
+  function onContainerDragLeave() { setDropIndicatorX(null) }
+
+  function onContainerDrop(e: React.DragEvent) {
+    e.preventDefault()
+    setDropIndicatorX(null)
+    try {
+      const raw = e.dataTransfer.getData('tl-extra')
+      if (!raw || !containerRef.current || hW === 0) return
+      const item: TLExtra = JSON.parse(raw)
+      const rect = containerRef.current.getBoundingClientRect()
+      const hour = Math.max(H_START, Math.min(H_END - 1, H_START + (e.clientX - rect.left) / hW))
+      if (extras.some(ex => ex.id === item.id)) {
+        setExtraPos(p => ({ ...p, [item.id]: hour }))
+        return
+      }
+      setExtras(p => [...p, item])
+      setExtraPos(p => ({ ...p, [item.id]: hour }))
+      setExtraDur(p => ({ ...p, [item.id]: 1 }))
+    } catch {}
+  }
+
   const curH    = now.getHours() + now.getMinutes() / 60
   const inRange = curH >= H_START && curH <= H_END
   const curX    = hW > 0 ? Math.max(0, Math.min(cw, (curH - H_START) * hW)) : 0
@@ -333,7 +420,12 @@ function DualLaneTimeline({ meetings, todos, now, onAdd }: {
         </button>
       </div>
 
-      <div ref={containerRef} style={{ position: 'relative', margin: '8px 22px 14px', height: TL_CARD_H }}>
+      <div ref={containerRef}
+        style={{ position: 'relative', margin: '8px 22px 14px', height: TL_CARD_H }}
+        onDragOver={onContainerDragOver}
+        onDragLeave={onContainerDragLeave}
+        onDrop={onContainerDrop}
+      >
         {/* Lane labels removed */}
 
         {/* Hour labels */}
@@ -434,6 +526,35 @@ function DualLaneTimeline({ meetings, todos, now, onAdd }: {
               <span style={{ fontSize: 11.5, fontWeight: 500, color: 'rgba(255,255,255,0.88)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }}>{t.title}</span>
               <div onMouseDown={e => { e.stopPropagation(); e.preventDefault(); onTResizeStart(t.id, e.clientX) }}
                 style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 8, cursor: 'ew-resize' }} />
+            </div>
+          )
+        })}
+
+        {/* ── Drop indicator ── */}
+        {dropIndicatorX !== null && cw > 0 && (
+          <div style={{ position: 'absolute', left: dropIndicatorX, top: TL_TIME_H, bottom: 0, width: 2, background: 'rgba(76,127,224,0.7)', pointerEvents: 'none', zIndex: 20, boxShadow: '0 0 8px rgba(76,127,224,0.4)' }} />
+        )}
+
+        {/* ── Lane 2: extras (외부 드래그 항목) ── */}
+        {extras.map((ex, i) => {
+          const hour = extraPos[ex.id] ?? (H_START + (todos.length + i) * 1.2)
+          const dur  = extraDur[ex.id] ?? 1
+          const { x, w } = cardGeom(hour, dur)
+          return (
+            <div key={ex.id}
+              onMouseDown={e => { e.preventDefault(); onExDragStart(ex.id, e.clientX) }}
+              style={{ position: 'absolute', left: x, width: w, top: TL_LANE2_TOP, height: TL_LANE_H, borderRadius: 8, cursor: 'grab', background: 'rgba(40,98,130,0.62)', border: '1px solid rgba(70,148,200,0.22)', padding: '5px 10px', display: 'flex', flexDirection: 'column', justifyContent: 'center', overflow: 'hidden', userSelect: 'none', zIndex: 6 }}>
+              <span style={{ fontSize: 9.5, fontWeight: 600, color: 'rgba(255,255,255,0.50)', lineHeight: 1, marginBottom: 3 }}>{hourToStr(hour)}</span>
+              <span style={{ fontSize: 11.5, fontWeight: 500, color: 'rgba(255,255,255,0.88)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }}>{ex.title}</span>
+              {ex.subtitle && <span style={{ fontSize: 9.5, color: 'rgba(255,255,255,0.40)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }}>{ex.subtitle}</span>}
+              <div onMouseDown={e => { e.stopPropagation(); e.preventDefault(); onExResizeStart(ex.id, e.clientX) }}
+                style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 8, cursor: 'ew-resize' }} />
+              <button
+                onMouseDown={e => e.stopPropagation()}
+                onClick={e => { e.stopPropagation(); onRemoveExtra(ex.id) }}
+                style={{ position: 'absolute', right: 12, top: 5, width: 14, height: 14, background: 'rgba(255,255,255,0.14)', border: 'none', borderRadius: '50%', color: 'rgba(255,255,255,0.7)', cursor: 'pointer', fontSize: 9, lineHeight: 1, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                ×
+              </button>
             </div>
           )
         })}
@@ -928,7 +1049,9 @@ export default function HomePage() {
                     : sortedSubTasks.map((st, i) => {
                         const gc = st.agenda_items?.agenda_groups?.color ?? '#818CF8'
                         return (
-                          <Link key={st.id} href={`/subtasks/${st.id}`} style={{ textDecoration: 'none', display: 'block', height: stRowH }}>
+                          <Link key={st.id} href={`/subtasks/${st.id}`} style={{ textDecoration: 'none', display: 'block', height: stRowH }}
+                            draggable
+                            onDragStart={e => { e.dataTransfer.setData('tl-extra', JSON.stringify({ id: `st_${st.id}`, title: st.title, subtitle: st.agenda_items?.title ?? '' })); e.dataTransfer.effectAllowed = 'copy' }}>
                             <ListRow style={{ ...rd(i, sortedSubTasks.length), height: '100%', display: 'flex', alignItems: 'center' }}>
                               <div style={{ display: 'grid', gridTemplateColumns: `${stCols[0]}px ${stCols[1]}px 1fr ${stCols[2]}px ${stCols[3]}px`, alignItems: 'center', width: '100%' }}>
                                 {/* 범주: 고정 색상 */}
@@ -1013,7 +1136,10 @@ export default function HomePage() {
                         const total = todayTodos.length + todayAgendaItems.length
                         const globalIdx = todayTodos.length + i
                         return (
-                          <ListRow key={st.id} style={{ ...rd(globalIdx, total) }}>
+                          <ListRow key={st.id}
+                            draggable
+                            onDragStart={e => { e.dataTransfer.setData('tl-extra', JSON.stringify({ id: `st_${st.id}`, title: st.title, subtitle: st.agenda_items?.title ?? '' })); e.dataTransfer.effectAllowed = 'copy' }}
+                            style={{ ...rd(globalIdx, total) }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0' }}>
                               <button
                                 onClick={() => setDoneAgenda(p => p.includes(st.id) ? p.filter(x => x !== st.id) : [...p, st.id])}
@@ -1051,7 +1177,10 @@ export default function HomePage() {
                   : memos.map((memo, i) => {
                       const dotColor = CATEGORY_PALETTE[MEMO_TAG[memo.tag] ?? colorKeyFromName(memo.tag)].solid
                       return (
-                        <ListRow key={memo.id} onClick={() => { localStorage.setItem('memos_open_id', memo.id); router.push('/memos') }}
+                        <ListRow key={memo.id}
+                          draggable
+                          onDragStart={e => { e.dataTransfer.setData('tl-extra', JSON.stringify({ id: `memo_${memo.id}`, title: memo.title, subtitle: memo.tag })); e.dataTransfer.effectAllowed = 'copy' }}
+                          onClick={() => { localStorage.setItem('memos_open_id', memo.id); router.push('/memos') }}
                           style={{ ...rd(i, memos.length) }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '8px 0' }}>
                             <div style={{ width: 6, height: 6, borderRadius: '50%', background: dotColor, flexShrink: 0, boxShadow: `0 0 5px ${dotColor}80` }} />
