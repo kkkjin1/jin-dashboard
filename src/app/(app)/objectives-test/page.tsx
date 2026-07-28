@@ -140,7 +140,7 @@ function StatItem({ icon, label, accent }: { icon: React.ReactNode; label: strin
 
 // ── EntryModal ─────────────────────────────────────────────
 function EntryModal({
-  entry, objTitle, weekLabel, onClose, onSave, onDelete,
+  entry, objTitle, weekLabel, onClose, onSave, onDelete, defaultEditing = false,
 }: {
   entry: EntryV2
   objTitle: string
@@ -148,8 +148,9 @@ function EntryModal({
   onClose: () => void
   onSave: (content: string) => Promise<void>
   onDelete: () => Promise<void>
+  defaultEditing?: boolean
 }) {
-  const [editing, setEditing] = useState(false)
+  const [editing, setEditing] = useState(defaultEditing)
   const [val, setVal] = useState(entry.content)
   const [saving, setSaving] = useState(false)
 
@@ -181,8 +182,8 @@ function EntryModal({
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-6" style={{ background: 'rgba(0,0,0,0.65)' }}>
       <div className="absolute inset-0" onClick={onClose} />
       <div
-        className="relative w-full max-w-2xl flex flex-col rounded-2xl overflow-hidden"
-        style={{ background: '#1A2030', border: '1px solid rgba(255,255,255,0.1)', maxHeight: '80vh', boxShadow: '0 24px 80px rgba(0,0,0,0.5)' }}
+        className="relative w-full max-w-3xl flex flex-col rounded-2xl overflow-hidden"
+        style={{ background: '#1A2030', border: '1px solid rgba(255,255,255,0.1)', maxHeight: '90vh', boxShadow: '0 24px 80px rgba(0,0,0,0.5)' }}
       >
         {/* 헤더 */}
         <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
@@ -223,7 +224,7 @@ function EntryModal({
               dark value={val} onChange={setVal}
               onSubmit={handleSave}
               onEscape={() => { setVal(entry.content); setEditing(false) }}
-              autoFocus minHeight={300}
+              autoFocus minHeight={460}
             />
           ) : (
             <div className="text-[15px] leading-[1.8] text-[rgba(226,232,240,0.85)]">
@@ -273,6 +274,7 @@ function MatrixCell({
   const [editing, setEditing] = useState(false)
   const [val, setVal] = useState(entry?.content ?? '')
   const [modalOpen, setModalOpen] = useState(false)
+  const [modalEditMode, setModalEditMode] = useState(false)
   const wf = useWinFocused()
 
   async function save() {
@@ -307,7 +309,7 @@ function MatrixCell({
           borderColor: 'rgba(255,255,255,0.06)',
           padding: 16,
         }}
-        onClick={() => { setVal(entry.content); setEditing(true) }}
+        onClick={() => { setModalEditMode(true); setModalOpen(true) }}
       >
         {/* 주차 헤더 */}
         <div className="flex items-center gap-2 mb-2.5">
@@ -324,11 +326,11 @@ function MatrixCell({
           업데이트
         </span>
 
-        {/* 크게보기 버튼 */}
+        {/* 크게보기 버튼 — 읽기 모드로 열기 */}
         <button
-          onClick={e => { e.stopPropagation(); setModalOpen(true) }}
+          onClick={e => { e.stopPropagation(); setModalEditMode(false); setModalOpen(true) }}
           className="absolute top-3 right-9 opacity-0 group-hover/cell:opacity-100 text-[rgba(226,232,240,0.25)] hover:text-[rgba(226,232,240,0.7)] transition-all p-0.5"
-          title="크게 보기"
+          title="크게 보기 (읽기)"
         >
           <Maximize2 size={10} />
         </button>
@@ -355,7 +357,8 @@ function MatrixCell({
             entry={entry}
             objTitle={objTitle}
             weekLabel={`${WEEK_REL_LABELS[weekIndex]} (${parseInt(mm)}/${parseInt(dd)})`}
-            onClose={() => setModalOpen(false)}
+            defaultEditing={modalEditMode}
+            onClose={() => { setModalOpen(false); setModalEditMode(false) }}
             onSave={async (content) => { await onSave(objectiveId, weekStart, content) }}
             onDelete={async () => { await onDelete(entry.id) }}
           />

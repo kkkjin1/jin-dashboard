@@ -5,16 +5,17 @@ import { useRouter } from 'next/navigation'
 
 type BtnPos = { right: number; bottom: number }
 
-let _popupCount = 0
-
 function openQuickMemo() {
-  _popupCount++
-  const cascade = ((_popupCount - 1) % 10) * 30
+  // sessionStorage로 cascade 카운트 유지 (페이지 새로고침 후에도 유지, 탭 닫으면 리셋)
+  const n = (parseInt(sessionStorage.getItem('_qmc') ?? '0') + 1) % 20
+  sessionStorage.setItem('_qmc', String(n))
+  const cascade = (n - 1) * 24
   const left = window.screenX + window.outerWidth - 480 - cascade
-  const top = window.screenY + 80 + cascade
+  const top  = window.screenY + 80 + cascade
+  // 항상 고유한 이름 → 기존 팝업을 navigate하지 않고 항상 새 팝업 오픈
   window.open(
     '/memo/quick',
-    `quick-memo-popup-${_popupCount}`,
+    `qm_${Date.now()}`,
     `width=440,height=520,left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no,resizable=yes`,
   )
 }

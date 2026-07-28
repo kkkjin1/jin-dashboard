@@ -27,10 +27,19 @@ function parseMeetingDate(text: string): string | null {
 type AgendaGroupOption  = { id: string; name: string; color: string }
 type AgendaItemOption   = { id: string; title: string }
 
+function readDraft() {
+  try {
+    const s = localStorage.getItem('quick_memo_draft')
+    if (s) return JSON.parse(s) as { title: string; content: string; tag: MemoTag }
+  } catch {}
+  return null
+}
+
 export default function QuickMemoPage() {
-  const [title, setTitle] = useState('')
-  const [content, setContent] = useState('')
-  const [tag, setTag] = useState<MemoTag>('업무관련')
+  // 지연 초기화: TiptapEditor 첫 렌더 전에 draft 값을 확정 → 에디터가 처음부터 올바른 내용으로 초기화됨
+  const [title,   setTitle]   = useState(() => readDraft()?.title   ?? '')
+  const [content, setContent] = useState(() => readDraft()?.content ?? '')
+  const [tag,     setTag]     = useState<MemoTag>(() => readDraft()?.tag ?? '업무관련')
   const [saving, setSaving] = useState(false)
   const [savedMsg, setSavedMsg] = useState('')
   const [autoSaved, setAutoSaved] = useState(false)
@@ -103,18 +112,9 @@ export default function QuickMemoPage() {
     }
   }, [])
 
-  // ── 초기 복원 ────────────────────────────────────────────────────────────
+  // ── 마운트 시 포커스만 (draft 복원은 useState 지연 초기화로 처리) ────────────
   useEffect(() => {
     document.title = '빠른 메모'
-    try {
-      const saved = localStorage.getItem('quick_memo_draft')
-      if (saved) {
-        const { title: t, content: c, tag: tg } = JSON.parse(saved)
-        if (t) setTitle(t)
-        if (c) setContent(c)
-        if (tg) setTag(tg)
-      }
-    } catch {}
     setTimeout(() => titleRef.current?.focus(), 80)
   }, [])
 
