@@ -2,10 +2,11 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { fetchAllTasks } from '@/lib/tasks'
+import TiptapEditor from '@/components/TiptapEditor'
 import type { Task, AchievementCategory } from '@/types'
 
 const COLUMNS: { key: AchievementCategory | null; label: string; dot: string; accent: string }[] = [
@@ -185,6 +186,14 @@ export default function CompletedPage() {
   const [selectedMonth, setSelectedMonth] = useState<string>(nowYM)
   const [monthData, setMonthData] = useState<PeriodSummary>(EMPTY_SUMMARY)
 
+  // 주간/월간 회고 —— null = 로딩 중, string = 초기 에디터 내용
+  const [weekJournal, setWeekJournal]         = useState<string | null>(null)
+  const [monthJournal, setMonthJournal]       = useState<string | null>(null)
+  const [weekJournalSaved,  setWeekJournalSaved]  = useState(false)
+  const [monthJournalSaved, setMonthJournalSaved] = useState(false)
+  const weekSaveRef  = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const monthSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   const supabase = createClient()
 
   useEffect(() => {
@@ -244,6 +253,46 @@ export default function CompletedPage() {
       setMonthData(await buildPeriodSummary(notesRes, completedRes, meetingsRes, oo1Res, mbRes, agendaRes))
     })
   }, [quickPeriod, selectedMonth])
+
+  // 주간 회고 fetch
+  useEffect(() => {
+    if (quickPeriod !== '주간') return
+    setWeekJournal(null)
+    const key = `week_${weekStart.toISOString().slice(0, 10)}`
+    supabase.from('period_journals').select('content').eq('period_key', key).maybeSingle()
+      .then(({ data }) => setWeekJournal(data?.content ?? ''))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quickPeriod, weekStart])
+
+  // 월간 회고 fetch
+  useEffect(() => {
+    if (quickPeriod !== '당월') return
+    setMonthJournal(null)
+    const key = `month_${selectedMonth}`
+    supabase.from('period_journals').select('content').eq('period_key', key).maybeSingle()
+      .then(({ data }) => setMonthJournal(data?.content ?? ''))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quickPeriod, selectedMonth])
+
+  function handleWeekJournalChange(content: string) {
+    const key = `week_${weekStart.toISOString().slice(0, 10)}`
+    if (weekSaveRef.current) clearTimeout(weekSaveRef.current)
+    weekSaveRef.current = setTimeout(async () => {
+      await supabase.from('period_journals').upsert({ period_key: key, period_type: 'weekly', content }, { onConflict: 'period_key' })
+      setWeekJournalSaved(true)
+      setTimeout(() => setWeekJournalSaved(false), 1500)
+    }, 800)
+  }
+
+  function handleMonthJournalChange(content: string) {
+    const key = `month_${selectedMonth}`
+    if (monthSaveRef.current) clearTimeout(monthSaveRef.current)
+    monthSaveRef.current = setTimeout(async () => {
+      await supabase.from('period_journals').upsert({ period_key: key, period_type: 'monthly', content }, { onConflict: 'period_key' })
+      setMonthJournalSaved(true)
+      setTimeout(() => setMonthJournalSaved(false), 1500)
+    }, 800)
+  }
 
   const filtered = useMemo(() => {
     if (fromMonth && toMonth) return tasks.filter(t => { const m = getTaskMonth(t); return m ? m >= fromMonth && m <= toMonth : false })
@@ -464,6 +513,16 @@ export default function CompletedPage() {
                 className="text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.8)] px-3 py-1.5 rounded-full bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border border-[rgba(255,255,255,0.09)] hover:bg-[rgba(255,255,255,0.06)] transition-all text-sm">→</button>
             </div>
             <SummaryGrid data={weekData} />
+            {weekJournal !== null && (
+              <RetroSection
+                label="이번 주 회고"
+                hint="이번 주 성과와 아쉬웠던 점, 다음 주 개선 방향을 기록하세요"
+                editorKey={`week_${weekStart.toISOString().slice(0, 10)}`}
+                initialContent={weekJournal}
+                onChange={handleWeekJournalChange}
+                autoSaved={weekJournalSaved}
+              />
+            )}
           </div>
         )}
 
@@ -477,6 +536,16 @@ export default function CompletedPage() {
                 className="text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.8)] px-3 py-1.5 rounded-full bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border border-[rgba(255,255,255,0.09)] hover:bg-[rgba(255,255,255,0.06)] transition-all text-sm">→</button>
             </div>
             <SummaryGrid data={monthData} />
+            {monthJournal !== null && (
+              <RetroSection
+                label={`${formatYM(selectedMonth)} 회고`}
+                hint="이번 달 성과와 아쉬웠던 점, 다음 달 방향을 기록하세요"
+                editorKey={`month_${selectedMonth}`}
+                initialContent={monthJournal}
+                onChange={handleMonthJournalChange}
+                autoSaved={monthJournalSaved}
+              />
+            )}
             {renderKanban()}
           </div>
         )}
@@ -546,6 +615,41 @@ export default function CompletedPage() {
           </div>
         )}
 
+      </div>
+    </div>
+  )
+}
+
+function RetroSection({
+  label, hint, editorKey, initialContent, onChange, autoSaved,
+}: {
+  label: string
+  hint: string
+  editorKey: string
+  initialContent: string
+  onChange: (v: string) => void
+  autoSaved: boolean
+}) {
+  return (
+    <div className="mb-6 backdrop-blur-xl rounded-3xl p-5"
+      style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.09)' }}>
+      <div className="flex items-center justify-between mb-1">
+        <h2 className="text-sm font-bold" style={{ color: 'rgba(226,232,240,0.9)' }}>{label}</h2>
+        <span className="text-[11px] transition-opacity duration-300"
+          style={{ color: 'rgba(226,232,240,0.4)', opacity: autoSaved ? 1 : 0 }}>
+          자동저장됨
+        </span>
+      </div>
+      <p className="text-xs mb-4" style={{ color: 'rgba(226,232,240,0.35)' }}>{hint}</p>
+      <div className="rounded-xl px-3 py-2"
+        style={{ background: '#13171F', border: '1px solid rgba(255,255,255,0.07)' }}>
+        <TiptapEditor
+          key={editorKey}
+          value={initialContent}
+          onChange={onChange}
+          dark
+          minHeight={200}
+        />
       </div>
     </div>
   )

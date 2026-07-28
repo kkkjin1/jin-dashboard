@@ -511,7 +511,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                           <div style={{ width: 120, padding: '10px 12px', fontSize: 12, borderLeft: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center' }} onClick={e => e.stopPropagation()}>
                             <select value={item.assignee_id ?? ''} onChange={e => updateItemAssignee(item.id, e.target.value || null)}
                               className="text-xs bg-transparent border-none outline-none cursor-pointer w-full"
-                              style={{ color: item.assignee_id ? S.t2 : S.t3 }}>
+                              style={{ color: item.assignee_id ? S.t2 : S.t3, colorScheme: 'dark' }}>
                               <option value="">-</option>
                               {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                             </select>

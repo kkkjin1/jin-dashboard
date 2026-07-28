@@ -27,9 +27,14 @@ function parseMeetingDate(text: string): string | null {
 type AgendaGroupOption  = { id: string; name: string; color: string }
 type AgendaItemOption   = { id: string; title: string }
 
+// 팝업마다 고유한 window.name(qm_xxxxx)을 키에 포함 → 여러 팝업 간 draft 공유 방지
+function draftKey() {
+  if (typeof window !== 'undefined' && window.name?.startsWith('qm_')) return `quick_memo_draft_${window.name}`
+  return 'quick_memo_draft'
+}
 function readDraft() {
   try {
-    const s = localStorage.getItem('quick_memo_draft')
+    const s = localStorage.getItem(draftKey())
     if (s) return JSON.parse(s) as { title: string; content: string; tag: MemoTag }
   } catch {}
   return null
@@ -43,6 +48,7 @@ export default function QuickMemoPage() {
   const [saving, setSaving] = useState(false)
   const [savedMsg, setSavedMsg] = useState('')
   const [autoSaved, setAutoSaved] = useState(false)
+  const [editorKey, setEditorKey] = useState(0)
   const titleRef = useRef<HTMLInputElement>(null)
   const supabase = createClient()
 
@@ -104,11 +110,11 @@ export default function QuickMemoPage() {
   // ── 자동저장 (localStorage) ──────────────────────────────────────────────
   const saveDraft = useCallback((t: string, c: string, tg: MemoTag) => {
     if (t || c) {
-      localStorage.setItem('quick_memo_draft', JSON.stringify({ title: t, content: c, tag: tg }))
+      localStorage.setItem(draftKey(), JSON.stringify({ title: t, content: c, tag: tg }))
       setAutoSaved(true)
       setTimeout(() => setAutoSaved(false), 1500)
     } else {
-      localStorage.removeItem('quick_memo_draft')
+      localStorage.removeItem(draftKey())
     }
   }, [])
 
@@ -151,11 +157,12 @@ export default function QuickMemoPage() {
       if (window.opener) window.opener.dispatchEvent(new CustomEvent('quick-memo-saved'))
       setSavedMsg('저장됨!')
     }
-    localStorage.removeItem('quick_memo_draft')
+    localStorage.removeItem(draftKey())
     setSaving(false)
     setTitle('')
     setContent('')
     setTag('업무관련')
+    setEditorKey(k => k + 1)  // Tiptap 에디터 재마운트 → 빈 상태로 초기화
     setTimeout(() => {
       setSavedMsg('')
       titleRef.current?.focus()
@@ -216,6 +223,7 @@ export default function QuickMemoPage() {
       <div className="flex-1 min-h-0 mb-2 overflow-y-auto border border-[rgba(255,255,255,0.08)] rounded-lg px-3 py-2"
         style={{ background: '#1A1C1F' }}>
         <TiptapEditor
+          key={editorKey}
           value={content}
           onChange={v => { setContent(v); saveDraft(title, v, tag) }}
           onSubmit={handleSave}

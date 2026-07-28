@@ -346,7 +346,7 @@ export default function SubTaskDetailPage() {
           <div className="flex items-center gap-1.5">
             <span className="text-xs text-[rgba(226,232,240,0.4)]">담당</span>
             <select value={subTask.assignee_id ?? ''} onChange={e => updateAssignee(e.target.value)}
-              className="text-xs border border-[rgba(255,255,255,0.1)] rounded-lg px-2 py-1 focus:outline-none bg-[rgba(255,255,255,0.06)] text-[rgba(226,232,240,0.75)] [&>option]:bg-[#26282E]">
+              className="text-xs border border-[rgba(255,255,255,0.1)] rounded-lg px-2 py-1 focus:outline-none bg-[#26282E] text-[rgba(226,232,240,0.75)] [color-scheme:dark]">
               <option value="">미지정</option>
               {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
             </select>
