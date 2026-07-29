@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
   Home, ClipboardList, Trophy, MessageSquare, CalendarDays,
@@ -62,6 +62,30 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const routerRef = useRef(router)
   useEffect(() => { routerRef.current = router }, [router])
 
+  const [hiddenMenus, setHiddenMenus] = useState<string[]>([])
+  const [teamName, setTeamName] = useState('인사기획팀')
+
+  useEffect(() => {
+    function loadSettings() {
+      const hidden = localStorage.getItem('dashboard_hidden_menus')
+      if (hidden) { try { setHiddenMenus(JSON.parse(hidden)) } catch {} }
+      const name = localStorage.getItem('dashboard_team_name')
+      if (name) setTeamName(name)
+    }
+    loadSettings()
+    window.addEventListener('nav-visibility-change', loadSettings)
+    window.addEventListener('team-name-change', loadSettings)
+    return () => {
+      window.removeEventListener('nav-visibility-change', loadSettings)
+      window.removeEventListener('team-name-change', loadSettings)
+    }
+  }, [])
+
+  const visibleSections = NAV_SECTIONS.map(section => ({
+    ...section,
+    items: section.items.filter(item => !hiddenMenus.includes(item.href)),
+  })).filter(section => section.items.length > 0)
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || e.isComposing) return
@@ -109,7 +133,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-[12.5px] font-semibold text-[#E7EAF0] truncate">김진일</p>
-            <p className="text-[10.5px] text-[#98A1B2] truncate">인사기획팀 팀장</p>
+            <p className="text-[10.5px] text-[#98A1B2] truncate">{teamName} 팀장</p>
           </div>
           <button onClick={onToggle}
             className="flex-shrink-0 p-1 text-[#7B8397] hover:text-[rgba(255,255,255,0.7)] rounded-md transition-colors">
@@ -120,15 +144,15 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
       {/* ── 네비게이션 ── */}
       <nav className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-hide py-3">
-        {NAV_SECTIONS.map((section, si) => (
+        {visibleSections.map((section, si) => (
           <div key={section.label} className={si > 0 ? 'mt-3' : ''}>
             {/* 기타 섹션만 레이블 표시, 나머지는 구분선만 */}
-            {!collapsed && si === 2 && (
+            {!collapsed && section.label === '기타' && (
               <p className="px-3 mb-1 text-[9.5px] font-semibold text-[#7B8397] uppercase tracking-widest">
                 기타
               </p>
             )}
-            {!collapsed && si === 1 && (
+            {!collapsed && section.label === '워크' && (
               <div className="mx-3 mb-2 border-t border-[rgba(255,255,255,0.06)]" />
             )}
             {collapsed && si > 0 && (

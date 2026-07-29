@@ -197,6 +197,10 @@ export default function MemosPage() {
   const [inlineTitle, setInlineTitle] = useState('')
   const [inlineContent, setInlineContent] = useState('')
   const [collapsedMonths, setCollapsedMonths] = useState<Set<string>>(new Set())
+  const [rowTag, setRowTag] = useState<MemoTag>('업무관련')
+  const [rowTitle, setRowTitle] = useState('')
+  const [rowContent, setRowContent] = useState('')
+  const [rowDate, setRowDate] = useState(() => new Date().toISOString().slice(0, 10))
   const inlineContentRef = useRef<HTMLTextAreaElement>(null)
   const supabase = createClient()
 
@@ -252,6 +256,18 @@ export default function MemosPage() {
       setEditing(newMemo)
     }
     setInlineTag(null); setInlineTitle(''); setInlineContent('')
+  }
+
+  async function handleRowSave() {
+    if (!rowTitle.trim()) return
+    const created_at = new Date(rowDate + 'T12:00:00').toISOString()
+    const { data } = await supabase.from('quick_memos')
+      .insert({ title: rowTitle.trim(), content: rowContent.trim(), tag: rowTag, created_at })
+      .select().single()
+    if (data) setMemos(prev => [data as QuickMemo, ...prev])
+    setRowTitle('')
+    setRowContent('')
+    setRowDate(new Date().toISOString().slice(0, 10))
   }
 
   async function deleteMemo(id: string) {
@@ -393,6 +409,16 @@ export default function MemosPage() {
 
       {/* 콘텐츠 */}
       <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
+        {/* 변수행 — 스크롤 영역 최상단 */}
+        <div style={{ borderBottom: '0.5px solid rgba(255,255,255,0.1)', paddingBottom: 4, marginBottom: 10 }}>
+          <MemoInputRow
+            tag={rowTag} setTag={setRowTag}
+            title={rowTitle} setTitle={setRowTitle}
+            content={rowContent} setContent={setRowContent}
+            date={rowDate} setDate={setRowDate}
+            onSave={handleRowSave}
+          />
+        </div>
         {filterTag === '전체' ? (
           /* ── 전체 뷰: 공지 상단 고정 + 범주별 섹션 ── */
           <div className="space-y-6 pb-6">
@@ -504,6 +530,52 @@ export default function MemosPage() {
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+function MemoInputRow({ tag, setTag, title, setTitle, content, setContent, date, setDate, onSave }: {
+  tag: MemoTag; setTag: (t: MemoTag) => void
+  title: string; setTitle: (v: string) => void
+  content: string; setContent: (v: string) => void
+  date: string; setDate: (v: string) => void
+  onSave: () => void
+}) {
+  return (
+    <div className="flex items-center gap-2" style={{ padding: '7px 4px' }}>
+      <div style={{ width: 2.5, height: 22, background: memoTagSolid(tag), flexShrink: 0, borderRadius: 2 }} />
+      <input
+        value={title} onChange={e => setTitle(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Enter') onSave() }}
+        placeholder="제목"
+        className="text-xs font-medium focus:outline-none bg-transparent placeholder:text-white/20"
+        style={{ color: '#E2E8F0', minWidth: 90, maxWidth: 150, borderBottom: '1px solid rgba(255,255,255,0.1)' }}
+      />
+      <input
+        value={content} onChange={e => setContent(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Enter') onSave() }}
+        placeholder="내용"
+        className="flex-1 text-xs focus:outline-none bg-transparent placeholder:text-white/20"
+        style={{ color: '#98A1B2' }}
+      />
+      <select value={tag} onChange={e => setTag(e.target.value as MemoTag)}
+        className="text-[9px] px-1.5 py-0.5 rounded-full border focus:outline-none"
+        style={{ ...memoTagStyle(tag), cursor: 'pointer' }}>
+        {ALL_TAGS.map(t => <option key={t} value={t} style={{ background: '#1e2130', color: '#E2E8F0' }}>{t}</option>)}
+      </select>
+      <input type="date" value={date} onChange={e => setDate(e.target.value)}
+        className="text-[10px] focus:outline-none rounded px-1 py-0.5"
+        style={{ color: '#7B8397', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', colorScheme: 'dark' } as React.CSSProperties}
+      />
+      <button onClick={onSave} disabled={!title.trim()}
+        className="text-[10px] px-2.5 py-1 rounded-full flex-shrink-0 transition-all"
+        style={{
+          background: title.trim() ? 'rgba(76,127,224,0.3)' : 'rgba(255,255,255,0.04)',
+          color: title.trim() ? '#A8C4F0' : 'rgba(255,255,255,0.2)',
+          border: `1px solid ${title.trim() ? 'rgba(76,127,224,0.4)' : 'rgba(255,255,255,0.06)'}`,
+        }}>
+        추가
+      </button>
     </div>
   )
 }

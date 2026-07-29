@@ -137,13 +137,13 @@ export default function TiptapEditor({
     if (e.key === 'Escape') { onEscapeRef.current?.(); return true }
     const ed = editorRef.current
     if (!ed) return false
-    if ((e.ctrlKey || e.metaKey) && e.key === '1') {
+    if (e.altKey && e.key === '1') {
       ed.isActive('textStyle', { color: '#EF4444' })
         ? ed.chain().focus().unsetColor().run()
         : ed.chain().focus().setColor('#EF4444').run()
       return true
     }
-    if ((e.ctrlKey || e.metaKey) && e.key === '2') {
+    if (e.altKey && e.key === '2') {
       ed.chain().focus().toggleHighlight({ color: '#FEF08A' }).run()
       return true
     }
@@ -250,7 +250,7 @@ export default function TiptapEditor({
           <button key={label} type="button"
             onMouseDown={e => { e.preventDefault(); editor.chain().focus().setColor(hex).run() }}
             className="w-[14px] h-[14px] rounded-full hover:scale-125 flex-shrink-0 transition-transform"
-            style={{ backgroundColor: hex }} title={`${label}${hex === '#EF4444' ? ' (Ctrl+1)' : ''}`} />
+            style={{ backgroundColor: hex }} title={`${label}${hex === '#EF4444' ? ' (Alt+1)' : ''}`} />
         ))}
         <button type="button"
           onMouseDown={e => { e.preventDefault(); editor.chain().focus().unsetColor().run() }}
@@ -262,7 +262,7 @@ export default function TiptapEditor({
           <button key={label} type="button"
             onMouseDown={e => { e.preventDefault(); editor.chain().focus().toggleHighlight({ color: hex }).run() }}
             className={`w-[14px] h-[14px] rounded hover:scale-125 flex-shrink-0 transition-transform border ${d ? 'border-[rgba(255,255,255,0.2)]' : 'border-gray-200'}`}
-            style={{ backgroundColor: hex }} title={`형광 ${label}${hex === '#FEF08A' ? ' (Ctrl+2)' : ''}`} />
+            style={{ backgroundColor: hex }} title={`형광 ${label}${hex === '#FEF08A' ? ' (Alt+2)' : ''}`} />
         ))}
         <button type="button"
           onMouseDown={e => { e.preventDefault(); editor.chain().focus().unsetHighlight().run() }}
