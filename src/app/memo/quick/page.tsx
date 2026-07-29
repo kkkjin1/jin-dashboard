@@ -55,28 +55,33 @@ type AgendaGroupOption = { id: string; name: string; color: string }
 type AgendaItemOption  = { id: string; title: string }
 
 export default function QuickMemoPage() {
-  // 슬롯 소유권 결정 — 최초 렌더 시 1회
-  const [init] = useState(() => {
-    const { isHolder, draft } = claimSlot()
-    return {
-      isHolder,
-      title:   draft?.title   ?? '',
-      content: draft?.content ?? '',
-      tag:     (draft?.tag    ?? '업무관련') as MemoTag,
+  const [title,        setTitle]        = useState('')
+  const [content,      setContent]      = useState('')
+  const [tag,          setTag]          = useState<MemoTag>('업무관련')
+  const [saving,       setSaving]       = useState(false)
+  const [savedMsg,     setSavedMsg]     = useState('')
+  const [autoSaved,    setAutoSaved]    = useState(false)
+  const [editorKey,    setEditorKey]    = useState(0)
+  // isHolderState: 버튼 렌더 제어 (SSR은 false → useEffect에서 클라이언트 확정)
+  const [isHolderState, setIsHolderState] = useState(false)
+
+  const titleRef  = useRef<HTMLInputElement>(null)
+  const isHolder  = useRef(false)  // 슬롯 소유 여부 (saveDraft 등에서 사용)
+  const supabase  = createClient()
+
+  // ── 클라이언트 마운트 시 슬롯 소유권 확정 + draft 복원 ─────────────────────
+  useEffect(() => {
+    const { isHolder: holder, draft } = claimSlot()
+    isHolder.current = holder
+    setIsHolderState(holder)
+    if (holder && draft) {
+      setTitle(draft.title ?? '')
+      setContent(draft.content ?? '')
+      setTag(draft.tag ?? '업무관련')
+      setEditorKey(k => k + 1)
     }
-  })
-
-  const [title,   setTitle]   = useState(init.title)
-  const [content, setContent] = useState(init.content)
-  const [tag,     setTag]     = useState<MemoTag>(init.tag)
-  const [saving,  setSaving]  = useState(false)
-  const [savedMsg, setSavedMsg] = useState('')
-  const [autoSaved, setAutoSaved] = useState(false)
-  const [editorKey, setEditorKey] = useState(0)
-
-  const titleRef   = useRef<HTMLInputElement>(null)
-  const isHolder   = useRef(init.isHolder)  // 슬롯 소유 여부 (mutable — 저장 후 변경됨)
-  const supabase   = createClient()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // ── 세부task 연동 ─────────────────────────────────────────────────────────
   const [selText,        setSelText]        = useState('')
@@ -204,7 +209,7 @@ export default function QuickMemoPage() {
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <h3 className="font-semibold text-[#E5E7EB] text-sm tracking-wide">빠른 메모</h3>
-          {!init.isHolder && (
+          {!isHolderState && (
             <span className="text-[10px] px-2 py-0.5 rounded-full"
               style={{ background: 'rgba(255,255,255,0.06)', color: '#5B6270', border: '1px solid rgba(255,255,255,0.08)' }}>
               새 메모
@@ -340,7 +345,7 @@ export default function QuickMemoPage() {
         </div>
         <div className="flex items-center gap-2">
           {/* 초기화 후 닫기 — holder 팝업에 항상 표시 */}
-          {init.isHolder && (
+          {isHolderState && (
             <button
               onClick={handleDiscardAndClose}
               className="text-xs px-3 py-2 rounded-lg border transition-all whitespace-nowrap"
