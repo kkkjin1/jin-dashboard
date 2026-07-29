@@ -569,7 +569,7 @@ function MemoInputRow({ tag, setTag, title, setTitle, content, setContent, date,
   onResizeTitle?: (e: React.MouseEvent) => void
 }) {
   return (
-    <div className="flex items-center gap-0" style={{ padding: '7px 4px', borderBottom: '0.5px solid rgba(255,255,255,0.07)' }}>
+    <div className="flex items-center gap-0" style={{ padding: '9px 4px', borderBottom: '0.5px solid rgba(255,255,255,0.07)' }}>
       {/* 체크 placeholder */}
       <div className="w-3 h-3 flex-shrink-0 mr-3" />
       <div style={{ width: 2.5, height: 22, background: memoTagSolid(tag), flexShrink: 0, borderRadius: 2, marginRight: 8 }} />
@@ -596,13 +596,13 @@ function MemoInputRow({ tag, setTag, title, setTitle, content, setContent, date,
         style={{ color: '#98A1B2' }}
       />
       <select value={tag} onChange={e => setTag(e.target.value as MemoTag)}
-        className="text-[9px] px-1.5 py-0.5 rounded-full border focus:outline-none"
-        style={{ ...memoTagStyle(tag), cursor: 'pointer' }}>
+        className="text-[9px] px-1.5 py-0.5 rounded-full border focus:outline-none flex-shrink-0"
+        style={{ ...memoTagStyle(tag), cursor: 'pointer', width: 75, minWidth: 0 }}>
         {ALL_TAGS.map(t => <option key={t} value={t} style={{ background: '#1e2130', color: '#E2E8F0' }}>{t}</option>)}
       </select>
       <input type="date" value={date} onChange={e => setDate(e.target.value)}
-        className="text-[10px] focus:outline-none rounded px-1 py-0.5"
-        style={{ color: '#7B8397', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', colorScheme: 'dark' } as React.CSSProperties}
+        className="text-[10px] focus:outline-none rounded px-1 py-0.5 flex-shrink-0"
+        style={{ color: '#7B8397', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', colorScheme: 'dark', width: 108 } as React.CSSProperties}
       />
       <button onClick={onSave} disabled={!title.trim()}
         className="text-[10px] px-2.5 py-1 rounded-full flex-shrink-0 transition-all"

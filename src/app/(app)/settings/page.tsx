@@ -162,8 +162,10 @@ export default function SettingsPage() {
   }
 
   async function updateMember(id: string) {
+    if (!editTeamId) { alert('팀을 선택해주세요'); return }
     const partValue = resolvePartValue(editTeamId, editPartId)
-    await supabase.from('members').update({ name: editName, part: partValue }).eq('id', id)
+    const { error } = await supabase.from('members').update({ name: editName, part: partValue }).eq('id', id)
+    if (error) { alert(`저장 실패: ${error.message}`); return }
     setMembers(prev => prev.map(m => m.id === id ? { ...m, name: editName, part: partValue } : m))
     setEditId(null)
   }
@@ -422,7 +424,7 @@ export default function SettingsPage() {
                                   {selectedEditTeam.parts.map(p => <option key={p.id} value={p.id} style={{ background: '#1e2130' }}>{p.name}</option>)}
                                 </select>
                               )}
-                              <button onClick={() => updateMember(m.id)} className="text-xs" style={{ color: '#93c5fd' }}>저장</button>
+                              <button onClick={() => updateMember(m.id)} disabled={!editTeamId} className="text-xs" style={{ color: editTeamId ? '#93c5fd' : 'rgba(226,232,240,0.2)', cursor: editTeamId ? 'pointer' : 'default' }}>저장</button>
                               <button onClick={() => setEditId(null)} className="text-xs" style={{ color: 'rgba(226,232,240,0.4)' }}>취소</button>
                             </>
                           ) : (

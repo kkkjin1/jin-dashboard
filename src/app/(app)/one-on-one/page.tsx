@@ -23,6 +23,9 @@ const FEEDBACK_TYPE_STYLE: Record<FeedbackType, string> = {
 }
 const ANALYSIS_TYPES: FeedbackType[] = ['긍정', '부정', '요청']
 
+interface OrgPart { id: string; name: string }
+interface OrgTeam { id: string; name: string; parts: OrgPart[] }
+
 type Period = '이번 주' | '이번 달' | '3개월' | '전체'
 const PERIODS: Period[] = ['이번 주', '이번 달', '3개월', '전체']
 
@@ -497,6 +500,8 @@ export default function OneOnOnePage() {
   const [sessions, setSessions] = useState<OneOnOne[]>([])
   const [view, setView] = useState<'team' | 'my-feedback'>('team')
   const [archiveOpen, setArchiveOpen] = useState(false)
+  const [org, setOrg] = useState<OrgTeam[]>([])
+  const [hiddenTeams, setHiddenTeams] = useState<Set<string>>(new Set())
   const router = useRouter()
   const supabase = createClient()
 
@@ -510,6 +515,10 @@ export default function OneOnOnePage() {
       setArchivedMembers(archived)
       setSessions((data ?? []) as OneOnOne[])
     })
+    const storedOrg = localStorage.getItem('dashboard_org')
+    if (storedOrg) { try { setOrg(JSON.parse(storedOrg)) } catch {} }
+    const storedHidden = localStorage.getItem('oneOnOne_hidden_teams')
+    if (storedHidden) { try { setHiddenTeams(new Set(JSON.parse(storedHidden))) } catch {} }
   }, [])
 
   function getLastSession(memberId: string): OneOnOne | undefined {
@@ -529,11 +538,35 @@ export default function OneOnOnePage() {
     if (data) router.push(`/one-on-one/${memberId}/${(data as { id: string }).id}`)
   }
 
-  const grouped = [
-    { label: '팀장', list: members.filter(m => m.part === '팀장') },
-    { label: '코어파트', list: members.filter(m => m.part === '코어') },
-    { label: '비즈파트', list: members.filter(m => m.part === '비즈') },
-  ].filter(g => g.list.length > 0)
+  function toggleTeam(teamId: string) {
+    setHiddenTeams(prev => {
+      const next = new Set(prev)
+      if (next.has(teamId)) next.delete(teamId)
+      else next.add(teamId)
+      localStorage.setItem('oneOnOne_hidden_teams', JSON.stringify(Array.from(next)))
+      return next
+    })
+  }
+
+  const grouped = useMemo(() => {
+    if (org.length === 0) {
+      return [
+        { label: '팀장', teamId: '팀장', list: members.filter(m => m.part === '팀장') },
+        { label: '코어파트', teamId: '코어', list: members.filter(m => m.part === '코어') },
+        { label: '비즈파트', teamId: '비즈', list: members.filter(m => m.part === '비즈') },
+      ].filter(g => g.list.length > 0)
+    }
+    const groups = org.map(team => {
+      const list = members.filter(m =>
+        team.parts.length === 0 ? m.part === team.id : team.parts.some(p => p.id === m.part)
+      )
+      return { label: team.name, teamId: team.id, list }
+    }).filter(g => g.list.length > 0)
+    const assignedIds = new Set(groups.flatMap(g => g.list.map(m => m.id)))
+    const unassigned = members.filter(m => !assignedIds.has(m.id))
+    if (unassigned.length > 0) groups.push({ label: '미배정', teamId: '__unassigned', list: unassigned })
+    return groups
+  }, [org, members])
 
   const [matrixSortAsc, setMatrixSortAsc] = useState(false)
 
@@ -610,7 +643,19 @@ export default function OneOnOnePage() {
           <div className="flex flex-col md:flex-row gap-6 w-full pb-6">
             {/* LEFT: 프로필 카드 그리드 */}
             <div className="min-w-0 md:flex-[60]">
-              {grouped.map(({ label, list }) => (
+              {/* 팀별 on/off 토글 */}
+              {grouped.length > 0 && (
+                <div className="flex gap-2 flex-wrap mb-4">
+                  {grouped.map(g => (
+                    <button key={g.teamId} onClick={() => toggleTeam(g.teamId)}
+                      className={`${pill} ${!hiddenTeams.has(g.teamId) ? pOn : pOff}`}>
+                      {g.label}
+                      <span className="ml-1 opacity-60 text-[10px]">{g.list.length}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {grouped.filter(g => !hiddenTeams.has(g.teamId)).map(({ label, list }) => (
                 <div key={label} className="mb-7">
                   <h2 className="text-xs font-semibold text-[rgba(226,232,240,0.4)] mb-3 uppercase tracking-wide">{label}</h2>
                   <div className="grid grid-cols-2 gap-2">
