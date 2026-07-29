@@ -337,8 +337,8 @@ export default function QuickMemoPage() {
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
           <span className="text-[10px] text-[#3B404D] whitespace-nowrap">ESC · Ctrl+Enter</span>
-          {/* 저장 안 하고 초기화 — holder에 내용이 있을 때만 표시 */}
-          {init.isHolder && hasDraftContent && (
+          {/* 저장 안 하고 초기화 — holder 팝업에 항상 표시 */}
+          {init.isHolder && (
             <button
               onClick={handleDiscardAndClose}
               className="text-[11px] transition-colors whitespace-nowrap"
