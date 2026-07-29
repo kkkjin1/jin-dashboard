@@ -48,9 +48,11 @@ interface MemoRowProps {
   onDrop?: () => void
   selected?: boolean
   onToggleSelect?: (id: string) => void
+  titleWidth?: number
+  onResizeTitle?: (e: React.MouseEvent) => void
 }
 
-function MemoRow({ memo, onEdit, onDelete, draggable: drag, onDragStart, onDragOver, onDrop, selected, onToggleSelect }: MemoRowProps) {
+function MemoRow({ memo, onEdit, onDelete, draggable: drag, onDragStart, onDragOver, onDrop, selected, onToggleSelect, titleWidth = 150, onResizeTitle }: MemoRowProps) {
   return (
     <div
       draggable={drag}
@@ -58,17 +60,26 @@ function MemoRow({ memo, onEdit, onDelete, draggable: drag, onDragStart, onDragO
       onDragOver={onDragOver}
       onDrop={onDrop}
       onClick={() => onEdit(memo)}
-      className={`group flex items-center gap-3 cursor-pointer select-none transition-colors ${selected ? 'bg-white/[0.06]' : 'hover:bg-white/[0.03]'}`}
+      className={`group flex items-center gap-0 cursor-pointer select-none transition-colors ${selected ? 'bg-white/[0.06]' : 'hover:bg-white/[0.03]'}`}
       style={{ padding: '9px 4px', borderBottom: '0.5px solid rgba(255,255,255,0.05)' }}>
       <input type="checkbox" checked={selected ?? false}
         onChange={e => { e.stopPropagation(); onToggleSelect?.(memo.id) }}
         onClick={e => e.stopPropagation()}
-        className="w-3 h-3 rounded accent-gray-400 flex-shrink-0 cursor-pointer" />
-      <div style={{ width: 2.5, height: 26, background: memoTagSolid(memo.tag), flexShrink: 0, borderRadius: 2 }} />
-      <p style={{ fontSize: 12, fontWeight: 500, flexShrink: 0, minWidth: 100, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#E2E8F0' }}>
+        className="w-3 h-3 rounded accent-gray-400 flex-shrink-0 cursor-pointer mr-3" />
+      <div style={{ width: 2.5, height: 26, background: memoTagSolid(memo.tag), flexShrink: 0, borderRadius: 2, marginRight: 8 }} />
+      <p style={{ fontSize: 12, fontWeight: 500, flexShrink: 0, width: titleWidth, minWidth: titleWidth, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#E2E8F0' }}>
         {memo.title}
       </p>
-      <p style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#98A1B2', fontSize: 11 }}>
+      {/* 구분선 — 드래그로 제목 폭 조정 */}
+      <div
+        onMouseDown={e => { e.stopPropagation(); onResizeTitle?.(e) }}
+        onClick={e => e.stopPropagation()}
+        className="group/resize"
+        style={{ width: 10, alignSelf: 'stretch', cursor: 'col-resize', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: 1, height: 14, borderRadius: 1, background: 'rgba(255,255,255,0.1)', transition: 'background 0.15s' }}
+          className="group-hover/resize:!bg-[rgba(255,255,255,0.35)]" />
+      </div>
+      <p style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#98A1B2', fontSize: 11, marginLeft: 4 }}>
         {memo.content ? stripHtml(memo.content) : ''}
       </p>
       <span className="text-[9px] px-1.5 py-0.5 rounded-full border font-medium flex-shrink-0" style={memoTagStyle(memo.tag)}>
@@ -201,6 +212,7 @@ export default function MemosPage() {
   const [rowTitle, setRowTitle] = useState('')
   const [rowContent, setRowContent] = useState('')
   const [rowDate, setRowDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [titleWidth, setTitleWidth] = useState(150)
   const inlineContentRef = useRef<HTMLTextAreaElement>(null)
   const supabase = createClient()
 
@@ -337,6 +349,16 @@ export default function MemosPage() {
     setCollapsedTags(prev => { const s = new Set(prev); s.has(tag) ? s.delete(tag) : s.add(tag); return s })
   }
 
+  function startResizeTitle(e: React.MouseEvent) {
+    e.preventDefault()
+    const startX = e.clientX
+    const startW = titleWidth
+    const onMove = (ev: MouseEvent) => setTitleWidth(Math.max(80, Math.min(320, startW + ev.clientX - startX)))
+    const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }
+
   if (loading) return <MemoPageSkeleton />
 
   return (
@@ -409,16 +431,6 @@ export default function MemosPage() {
 
       {/* 콘텐츠 */}
       <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
-        {/* 변수행 — 스크롤 영역 최상단 */}
-        <div style={{ borderBottom: '0.5px solid rgba(255,255,255,0.1)', paddingBottom: 4, marginBottom: 10 }}>
-          <MemoInputRow
-            tag={rowTag} setTag={setRowTag}
-            title={rowTitle} setTitle={setRowTitle}
-            content={rowContent} setContent={setRowContent}
-            date={rowDate} setDate={setRowDate}
-            onSave={handleRowSave}
-          />
-        </div>
         {filterTag === '전체' ? (
           /* ── 전체 뷰: 공지 상단 고정 + 범주별 섹션 ── */
           <div className="space-y-6 pb-6">
@@ -442,12 +454,23 @@ export default function MemosPage() {
                       <MemoRow key={memo.id} memo={memo} onEdit={setEditing} onDelete={deleteMemo}
                         draggable onDragStart={() => setDraggingId(memo.id)}
                         onDragOver={e => e.preventDefault()} onDrop={() => handleDropOnTag(memo.tag)}
-                        selected={selectedIds.has(memo.id)} onToggleSelect={toggleSelect} />
+                        selected={selectedIds.has(memo.id)} onToggleSelect={toggleSelect}
+                        titleWidth={titleWidth} onResizeTitle={startResizeTitle} />
                     ))}
                   </div>
                 )}
               </div>
             )}
+
+            {/* 변수행 — 공지 아래, 본문 최상단 */}
+            <MemoInputRow
+              tag={rowTag} setTag={setRowTag}
+              title={rowTitle} setTitle={setRowTitle}
+              content={rowContent} setContent={setRowContent}
+              date={rowDate} setDate={setRowDate}
+              onSave={handleRowSave}
+              titleWidth={titleWidth} onResizeTitle={startResizeTitle}
+            />
 
             {/* 나머지 범주별 섹션 */}
             {tagSections.map(({ tag, items }) => {
@@ -470,7 +493,8 @@ export default function MemosPage() {
                         <MemoRow key={memo.id} memo={memo} onEdit={setEditing} onDelete={deleteMemo}
                           draggable onDragStart={() => setDraggingId(memo.id)}
                           onDragOver={e => e.preventDefault()} onDrop={() => handleDropOnTag(memo.tag)}
-                          selected={selectedIds.has(memo.id)} onToggleSelect={toggleSelect} />
+                          selected={selectedIds.has(memo.id)} onToggleSelect={toggleSelect}
+                          titleWidth={titleWidth} onResizeTitle={startResizeTitle} />
                       ))}
                     </div>
                   )}
@@ -495,6 +519,15 @@ export default function MemosPage() {
         ) : (
           /* ── 필터 뷰: 월별 그루핑 ── */
           <div className="space-y-6 pb-6">
+            {/* 변수행 */}
+            <MemoInputRow
+              tag={rowTag} setTag={setRowTag}
+              title={rowTitle} setTitle={setRowTitle}
+              content={rowContent} setContent={setRowContent}
+              date={rowDate} setDate={setRowDate}
+              onSave={handleRowSave}
+              titleWidth={titleWidth} onResizeTitle={startResizeTitle}
+            />
             {displayed.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-40 gap-2">
                 <p className="text-white/[0.28] text-sm">해당 태그의 메모가 없습니다</p>
@@ -520,7 +553,8 @@ export default function MemosPage() {
                         <MemoRow key={memo.id} memo={memo} onEdit={setEditing} onDelete={deleteMemo}
                           draggable onDragStart={() => setDraggingId(memo.id)}
                           onDragOver={e => e.preventDefault()} onDrop={() => handleDropOnTag(memo.tag)}
-                          selected={selectedIds.has(memo.id)} onToggleSelect={toggleSelect} />
+                          selected={selectedIds.has(memo.id)} onToggleSelect={toggleSelect}
+                          titleWidth={titleWidth} onResizeTitle={startResizeTitle} />
                       ))}
                     </div>
                   )}
@@ -534,28 +568,40 @@ export default function MemosPage() {
   )
 }
 
-function MemoInputRow({ tag, setTag, title, setTitle, content, setContent, date, setDate, onSave }: {
+function MemoInputRow({ tag, setTag, title, setTitle, content, setContent, date, setDate, onSave, titleWidth = 150, onResizeTitle }: {
   tag: MemoTag; setTag: (t: MemoTag) => void
   title: string; setTitle: (v: string) => void
   content: string; setContent: (v: string) => void
   date: string; setDate: (v: string) => void
   onSave: () => void
+  titleWidth?: number
+  onResizeTitle?: (e: React.MouseEvent) => void
 }) {
   return (
-    <div className="flex items-center gap-2" style={{ padding: '7px 4px' }}>
-      <div style={{ width: 2.5, height: 22, background: memoTagSolid(tag), flexShrink: 0, borderRadius: 2 }} />
+    <div className="flex items-center gap-0" style={{ padding: '7px 4px', borderBottom: '0.5px solid rgba(255,255,255,0.07)' }}>
+      {/* 체크 placeholder */}
+      <div className="w-3 h-3 flex-shrink-0 mr-3" />
+      <div style={{ width: 2.5, height: 22, background: memoTagSolid(tag), flexShrink: 0, borderRadius: 2, marginRight: 8 }} />
       <input
         value={title} onChange={e => setTitle(e.target.value)}
         onKeyDown={e => { if (e.key === 'Enter') onSave() }}
         placeholder="제목"
         className="text-xs font-medium focus:outline-none bg-transparent placeholder:text-white/20"
-        style={{ color: '#E2E8F0', minWidth: 90, maxWidth: 150, borderBottom: '1px solid rgba(255,255,255,0.1)' }}
+        style={{ color: '#E2E8F0', width: titleWidth, minWidth: titleWidth, flexShrink: 0 }}
       />
+      {/* 구분선 — 드래그로 제목 폭 조정 */}
+      <div
+        onMouseDown={onResizeTitle}
+        className="group/resize"
+        style={{ width: 10, alignSelf: 'stretch', cursor: 'col-resize', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: 1, height: 14, borderRadius: 1, background: 'rgba(255,255,255,0.15)' }}
+          className="group-hover/resize:!bg-[rgba(255,255,255,0.4)]" />
+      </div>
       <input
         value={content} onChange={e => setContent(e.target.value)}
         onKeyDown={e => { if (e.key === 'Enter') onSave() }}
         placeholder="내용"
-        className="flex-1 text-xs focus:outline-none bg-transparent placeholder:text-white/20"
+        className="flex-1 text-xs focus:outline-none bg-transparent placeholder:text-white/20 ml-1"
         style={{ color: '#98A1B2' }}
       />
       <select value={tag} onChange={e => setTag(e.target.value as MemoTag)}

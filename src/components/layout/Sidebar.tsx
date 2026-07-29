@@ -63,6 +63,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   useEffect(() => { routerRef.current = router }, [router])
 
   const [hiddenMenus, setHiddenMenus] = useState<string[]>([])
+  const [menuOrder, setMenuOrder] = useState<string[]>([])
   const [teamName, setTeamName] = useState('인사기획팀')
 
   useEffect(() => {
@@ -71,20 +72,39 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
       if (hidden) { try { setHiddenMenus(JSON.parse(hidden)) } catch {} }
       const name = localStorage.getItem('dashboard_team_name')
       if (name) setTeamName(name)
+      const order = localStorage.getItem('dashboard_menu_order')
+      if (order) { try { setMenuOrder(JSON.parse(order)) } catch {} }
     }
     loadSettings()
     window.addEventListener('nav-visibility-change', loadSettings)
     window.addEventListener('team-name-change', loadSettings)
+    window.addEventListener('nav-order-change', loadSettings)
     return () => {
       window.removeEventListener('nav-visibility-change', loadSettings)
       window.removeEventListener('team-name-change', loadSettings)
+      window.removeEventListener('nav-order-change', loadSettings)
     }
   }, [])
 
-  const visibleSections = NAV_SECTIONS.map(section => ({
-    ...section,
-    items: section.items.filter(item => !hiddenMenus.includes(item.href)),
-  })).filter(section => section.items.length > 0)
+  // 모든 아이템 flat 목록 (NAV_SECTIONS 유지)
+  const allItems = NAV_SECTIONS.flatMap(s => s.items)
+
+  // 커스텀 순서 있으면 적용, 없으면 원래 섹션 구조 유지
+  const visibleSections = menuOrder.length > 0
+    ? (() => {
+        const ordered = menuOrder
+          .map(href => allItems.find(i => i.href === href))
+          .filter(Boolean) as typeof allItems
+        // 순서에 없는 아이템도 포함
+        const seen = new Set(menuOrder)
+        allItems.forEach(i => { if (!seen.has(i.href)) ordered.push(i) })
+        const visible = ordered.filter(i => !hiddenMenus.includes(i.href))
+        return visible.length > 0 ? [{ label: '', items: visible }] : []
+      })()
+    : NAV_SECTIONS.map(section => ({
+        ...section,
+        items: section.items.filter(item => !hiddenMenus.includes(item.href)),
+      })).filter(section => section.items.length > 0)
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -145,7 +165,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
       {/* ── 네비게이션 ── */}
       <nav className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-hide py-3">
         {visibleSections.map((section, si) => (
-          <div key={section.label} className={si > 0 ? 'mt-3' : ''}>
+          <div key={section.label || `section-${si}`} className={si > 0 ? 'mt-3' : ''}>
             {/* 기타 섹션만 레이블 표시, 나머지는 구분선만 */}
             {!collapsed && section.label === '기타' && (
               <p className="px-3 mb-1 text-[9.5px] font-semibold text-[#7B8397] uppercase tracking-widest">
