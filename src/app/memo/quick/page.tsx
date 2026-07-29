@@ -334,29 +334,43 @@ export default function QuickMemoPage() {
       )}
 
       {/* 푸터 */}
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3 min-w-0">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           <span className="text-[10px] text-[#3B404D] whitespace-nowrap">ESC · Ctrl+Enter</span>
-          {/* 저장 안 하고 초기화 — holder 팝업에 항상 표시 */}
+        </div>
+        <div className="flex items-center gap-2">
+          {/* 초기화 후 닫기 — holder 팝업에 항상 표시 */}
           {init.isHolder && (
             <button
               onClick={handleDiscardAndClose}
-              className="text-[11px] transition-colors whitespace-nowrap"
-              style={{ color: '#4A5060', border: 'none', background: 'none', cursor: 'pointer', padding: 0 }}
-              onMouseEnter={e => (e.currentTarget.style.color = '#f87171')}
-              onMouseLeave={e => (e.currentTarget.style.color = '#4A5060')}
+              className="text-xs px-3 py-2 rounded-lg border transition-all whitespace-nowrap"
+              style={{
+                background: 'rgba(239,68,68,0.07)',
+                border: '1px solid rgba(239,68,68,0.25)',
+                color: 'rgba(252,129,129,0.7)',
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = 'rgba(239,68,68,0.14)'
+                e.currentTarget.style.borderColor = 'rgba(239,68,68,0.45)'
+                e.currentTarget.style.color = '#FC8181'
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = 'rgba(239,68,68,0.07)'
+                e.currentTarget.style.borderColor = 'rgba(239,68,68,0.25)'
+                e.currentTarget.style.color = 'rgba(252,129,129,0.7)'
+              }}
               title="복원 없이 닫기 — 다음에 열면 빈 창">
               초기화 후 닫기
             </button>
           )}
+          <button
+            onClick={handleSave}
+            disabled={!title.trim() || saving}
+            className="text-xs bg-[rgba(76,127,224,0.1)] text-[rgba(230,231,234,0.85)] border border-[rgba(255,255,255,0.08)] px-4 py-2 rounded-lg hover:bg-[rgba(76,127,224,0.18)] disabled:opacity-30 transition-colors flex-shrink-0"
+            style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.07)' }}>
+            {savedMsg || (saving ? '저장 중...' : meetingDate ? '일정 등록' : '저장')}
+          </button>
         </div>
-        <button
-          onClick={handleSave}
-          disabled={!title.trim() || saving}
-          className="text-xs bg-[rgba(76,127,224,0.1)] text-[rgba(230,231,234,0.85)] border border-[rgba(255,255,255,0.08)] px-4 py-2 rounded-lg hover:bg-[rgba(76,127,224,0.18)] disabled:opacity-30 transition-colors flex-shrink-0"
-          style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.07)' }}>
-          {savedMsg || (saving ? '저장 중...' : meetingDate ? '일정 등록' : '저장')}
-        </button>
       </div>
     </div>
   )
