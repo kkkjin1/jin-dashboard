@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
@@ -8,26 +8,34 @@ import { ko } from 'date-fns/locale'
 import { createClient } from '@/lib/supabase/client'
 import type { OneOnOne, Member, NoteEntry } from '@/types'
 import dynamic from 'next/dynamic'
-import MarkdownContent from '@/components/MarkdownContent'
 const TiptapEditor = dynamic(() => import('@/components/TiptapEditor'), { ssr: false })
+
+const T1 = 'rgba(226,232,240,0.92)'
+const T2 = 'rgba(226,232,240,0.55)'
+const T3 = 'rgba(226,232,240,0.35)'
+const BORDER = 'rgba(255,255,255,0.08)'
+const MEMBER_COLOR = '#4C7FE0'
 
 export default function OneOnOneSessionPage() {
   const { memberId, sessionId } = useParams<{ memberId: string; sessionId: string }>()
   const router = useRouter()
   const supabase = createClient()
 
-  const [session, setSession] = useState<OneOnOne | null>(null)
-  const [member, setMember] = useState<Member | null>(null)
-  const [prevNextAppointment, setPrevNextAppointment] = useState<string | null>(null)
-  const [prevSessionDate, setPrevSessionDate] = useState<string | null>(null)
-  const [titleInput, setTitleInput] = useState('')
-  const [contentInput, setContentInput] = useState('')
-  const [nextAppointment, setNextAppointment] = useState('')
+  const [session, setSession]               = useState<OneOnOne | null>(null)
+  const [member, setMember]                 = useState<Member | null>(null)
+  const [prevNextAppointment, setPrevNext]  = useState<string | null>(null)
+  const [prevSessionDate, setPrevDate]      = useState<string | null>(null)
+  const [prevTitle, setPrevTitle]           = useState<string | null>(null)
+  const [prevContent, setPrevContent]       = useState<string | null>(null)
+  const [prevOpen, setPrevOpen]             = useState(false)
+  const [titleInput, setTitleInput]         = useState('')
+  const [contentInput, setContentInput]     = useState('')
+  const [nextAppointment, setNextAppointment]       = useState('')
   const [nextAppointmentDate, setNextAppointmentDate] = useState('')
-  const [deleting, setDeleting] = useState(false)
+  const [deleting, setDeleting]             = useState(false)
 
-  const titleRef = useRef<HTMLInputElement>(null)
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const titleRef   = useRef<HTMLInputElement>(null)
+  const saveTimer  = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const autoFocused = useRef(false)
 
   useEffect(() => {
@@ -36,7 +44,7 @@ export default function OneOnOneSessionPage() {
         supabase.from('one_on_ones').select('*').eq('id', sessionId).single(),
         supabase.from('members').select('*').eq('id', memberId).single(),
         supabase.from('one_on_ones')
-          .select('id, session_date, next_appointment, created_at')
+          .select('id, session_date, next_appointment, title, notes, created_at')
           .eq('member_id', memberId)
           .order('session_date', { ascending: true })
           .order('created_at', { ascending: true }),
@@ -54,12 +62,15 @@ export default function OneOnOneSessionPage() {
         const idx = (allSessions as OneOnOne[]).findIndex(x => x.id === sessionId)
         if (idx > 0) {
           const prev = (allSessions as OneOnOne[])[idx - 1]
-          setPrevNextAppointment(prev.next_appointment ?? null)
-          setPrevSessionDate(prev.session_date ?? null)
+          setPrevNext(prev.next_appointment ?? null)
+          setPrevDate(prev.session_date ?? null)
+          setPrevTitle(prev.title ?? null)
+          setPrevContent(prev.notes?.[0]?.content ?? null)
         }
       }
     }
     load()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, memberId])
 
   useEffect(() => {
@@ -89,8 +100,7 @@ export default function OneOnOneSessionPage() {
       content: c,
       created_at: existingNote?.created_at ?? new Date().toISOString(),
     }
-    const rest = session.notes.slice(1)
-    await updateSession({ notes: [newNote, ...rest] })
+    await updateSession({ notes: [newNote, ...session.notes.slice(1)] })
   }
 
   async function saveNextAppointment() {
@@ -118,7 +128,7 @@ export default function OneOnOneSessionPage() {
       contentInput,
       '',
       nextAppointment ? `다음 약속: ${nextAppointment}` : '',
-    ].filter(l => l !== undefined)
+    ]
     const blob = new Blob([lines.join('\n')], { type: 'text/markdown' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -128,70 +138,88 @@ export default function OneOnOneSessionPage() {
     URL.revokeObjectURL(url)
   }
 
-  if (!session || !member) return <div className="p-8 text-gray-400 text-sm animate-pulse">불러오는 중...</div>
+  if (!session || !member) return <div style={{ padding: 32, color: T3, fontSize: 14 }} className="animate-pulse">불러오는 중...</div>
+
+  const prevDateLabel = prevSessionDate
+    ? (() => { try { return format(parseISO(prevSessionDate), 'M월 d일', { locale: ko }) } catch { return prevSessionDate } })()
+    : null
+  const hasPrev = !!(prevNextAppointment || prevContent)
 
   return (
-    <div className="h-full overflow-y-auto p-4 md:p-5">
-      <div className="flex items-center justify-between mb-5">
-        <Link href={`/one-on-one/${memberId}`} className="text-sm text-gray-400 hover:text-gray-600">
-          ← {member.name} 1on1 목록
-        </Link>
-        <button onClick={handleDownload}
-          className="text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-white transition-colors">
-          MD 다운로드
-        </button>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      {/* 상단 네비 */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', flexShrink: 0, borderBottom: `1px solid ${BORDER}` }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Link href={`/one-on-one/${memberId}`}
+            style={{ fontSize: 12, color: T3, textDecoration: 'none', transition: 'color 150ms' }}
+            onMouseEnter={e => (e.currentTarget.style.color = T2)}
+            onMouseLeave={e => (e.currentTarget.style.color = T3)}>
+            ← {member.name} 1on1 목록
+          </Link>
+          <div style={{ width: 1, height: 12, background: BORDER }} />
+          {/* 날짜 */}
+          <input type="date" value={session.session_date ?? ''}
+            onChange={e => updateSession({ session_date: e.target.value || null })}
+            style={{ fontSize: 11, border: `1px solid ${BORDER}`, borderRadius: 7, padding: '3px 8px', background: 'rgba(255,255,255,0.05)', color: T2, outline: 'none', colorScheme: 'dark' }} />
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button onClick={handleDownload}
+            style={{ fontSize: 11, color: T3, border: `1px solid ${BORDER}`, borderRadius: 8, padding: '4px 12px', background: 'transparent', cursor: 'pointer', transition: 'color 150ms, background 150ms' }}
+            onMouseEnter={e => { e.currentTarget.style.color = T2; e.currentTarget.style.background = 'rgba(255,255,255,0.05)' }}
+            onMouseLeave={e => { e.currentTarget.style.color = T3; e.currentTarget.style.background = 'transparent' }}>
+            MD 다운로드
+          </button>
+        </div>
       </div>
 
-      <div className="flex gap-6 items-start">
-        {/* 메인 콘텐츠 */}
-        <div className="flex-1 min-w-0 max-w-2xl">
-          {/* 헤더: 아바타 + 제목 + 날짜 */}
-          <div className="flex items-start gap-3 mb-6">
-            <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 font-medium flex-shrink-0">
-              {member.name[0]}
-            </div>
-            <div className="flex-1">
-              <p className="text-xs text-gray-400 mb-1">{member.name} 1on1</p>
-              <input
-                ref={titleRef}
-                value={titleInput}
-                onChange={e => setTitleInput(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') { updateSession({ title: titleInput || null }) }
-                  if (e.key === 'Escape') setTitleInput(session.title ?? '')
-                }}
-                onBlur={() => updateSession({ title: titleInput.trim() || null })}
-                placeholder="1on1 제목"
-                className="w-full text-xl font-bold text-gray-900 focus:outline-none border-b-2 border-transparent focus:border-blue-300 pb-0.5 transition-colors bg-transparent mb-2"
-              />
-              <input type="date" value={session.session_date ?? ''}
-                onChange={e => updateSession({ session_date: e.target.value || null })}
-                className="text-xs border border-gray-200 rounded px-2 py-0.5 focus:outline-none" />
-            </div>
+      {/* 본문 */}
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', gap: 16, padding: '16px 20px 32px', overflowY: 'auto' }} className="scrollbar-hide">
+
+        {/* ── 메인 콘텐츠 ── */}
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+          {/* 제목 */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: MEMBER_COLOR, flexShrink: 0 }} />
+            <input
+              ref={titleRef}
+              value={titleInput}
+              onChange={e => setTitleInput(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') updateSession({ title: titleInput || null })
+                if (e.key === 'Escape') setTitleInput(session.title ?? '')
+              }}
+              onBlur={() => updateSession({ title: titleInput.trim() || null })}
+              placeholder="1on1 제목"
+              style={{ flex: 1, fontSize: 20, fontWeight: 700, color: T1, background: 'transparent', border: 'none', borderBottom: '2px solid transparent', outline: 'none', paddingBottom: 2, transition: 'border-color 150ms' }}
+              onFocus={e => (e.currentTarget.style.borderBottomColor = 'rgba(76,127,224,0.5)')}
+              onBlurCapture={e => (e.currentTarget.style.borderBottomColor = 'transparent')}
+            />
           </div>
 
-          {/* 기록 */}
-          <div className="mb-6">
-            <h2 className="text-sm font-semibold text-gray-700 mb-3">기록</h2>
-            <div className="rounded-xl border border-gray-100 p-4">
-              <TiptapEditor
-                value={contentInput}
-                onChange={handleContentChange}
-                autoFocus={false}
-                minHeight={280}
-              />
+          {/* 기록 에디터 */}
+          <div className="surface-card rounded-2xl overflow-hidden">
+            <div style={{ padding: '10px 20px 8px', borderBottom: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: T3, letterSpacing: '0.04em', textTransform: 'uppercase' }}>기록</span>
             </div>
+            <TiptapEditor
+              dark
+              value={contentInput}
+              onChange={handleContentChange}
+              autoFocus={false}
+              minHeight={300}
+            />
           </div>
 
-          {/* 기존 노트 (여러 토글이 있던 구 데이터) */}
+          {/* 구 노트 데이터 */}
           {session.notes.length > 1 && (
-            <div className="mb-6">
-              <p className="text-xs text-gray-400 mb-2">이전 기록</p>
-              <div className="space-y-2">
+            <div>
+              <p style={{ fontSize: 11, color: T3, marginBottom: 8 }}>이전 기록</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {session.notes.slice(1).map((note, idx) => (
-                  <div key={idx} className="bg-gray-50 rounded-xl border border-gray-100 p-3">
-                    <p className="text-xs text-gray-400 mb-1">{note.title}</p>
-                    <MarkdownContent content={note.content} className="text-sm text-gray-600" />
+                  <div key={idx} className="surface-card rounded-xl" style={{ padding: 14 }}>
+                    <p style={{ fontSize: 11, color: T3, marginBottom: 6 }}>{note.title}</p>
+                    <div className="prose-dark" dangerouslySetInnerHTML={{ __html: note.content }} />
                   </div>
                 ))}
               </div>
@@ -199,64 +227,88 @@ export default function OneOnOneSessionPage() {
           )}
 
           {/* 다음 약속 */}
-          <div className="mb-6">
-            <h2 className="text-sm font-semibold text-gray-700 mb-1">다음 약속</h2>
-            <p className="text-xs text-gray-400 mb-3">다음 1on1에서 확인할 약속이나 과제</p>
-            <div className="bg-white rounded-xl border border-gray-100 p-4">
-              {/* 다음 1on1 일자 — 일정탭 연동 */}
-              <div className="flex items-center gap-2 mb-3 pb-3 border-b border-gray-50">
-                <span className="text-xs text-gray-400 font-medium whitespace-nowrap">다음 1on1 일자</span>
-                <input
-                  type="date"
-                  value={nextAppointmentDate}
-                  onChange={e => {
-                    setNextAppointmentDate(e.target.value)
-                    saveNextAppointmentDate(e.target.value)
-                  }}
-                  className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none text-gray-600 bg-white"
-                />
+          <div className="surface-card rounded-2xl overflow-hidden">
+            <div style={{ padding: '10px 20px 8px', borderBottom: `1px solid ${BORDER}` }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: T3, letterSpacing: '0.04em', textTransform: 'uppercase' }}>다음 약속</span>
+              <p style={{ fontSize: 11, color: T3, marginTop: 1, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>다음 1on1에서 확인할 약속이나 과제</p>
+            </div>
+            <div style={{ padding: '12px 20px 16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, paddingBottom: 12, borderBottom: `1px solid ${BORDER}` }}>
+                <span style={{ fontSize: 11, color: T2, fontWeight: 500, whiteSpace: 'nowrap' }}>다음 1on1 일자</span>
+                <input type="date" value={nextAppointmentDate}
+                  onChange={e => { setNextAppointmentDate(e.target.value); saveNextAppointmentDate(e.target.value) }}
+                  style={{ fontSize: 11, border: `1px solid ${BORDER}`, borderRadius: 8, padding: '4px 8px', background: 'rgba(255,255,255,0.06)', color: T2, outline: 'none', colorScheme: 'dark' }} />
                 {nextAppointmentDate && (
-                  <button
-                    onClick={() => { setNextAppointmentDate(''); saveNextAppointmentDate('') }}
-                    className="text-[10px] text-gray-300 hover:text-red-400 transition-colors">
-                    × 제거
-                  </button>
+                  <button onClick={() => { setNextAppointmentDate(''); saveNextAppointmentDate('') }}
+                    style={{ fontSize: 10, color: T3, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                    onMouseEnter={e => (e.currentTarget.style.color = '#f87171')}
+                    onMouseLeave={e => (e.currentTarget.style.color = T3)}>× 제거</button>
                 )}
                 {nextAppointmentDate && (
-                  <span className="text-[10px] text-purple-500 bg-purple-50 border border-purple-100 px-2 py-0.5 rounded-full ml-auto">
+                  <span style={{ fontSize: 10, color: '#a78bfa', background: 'rgba(167,139,250,0.12)', border: '1px solid rgba(167,139,250,0.2)', padding: '2px 8px', borderRadius: 20, marginLeft: 'auto' }}>
                     일정탭 연동됨
                   </span>
                 )}
               </div>
-              <textarea
-                value={nextAppointment}
+              <textarea value={nextAppointment}
                 onChange={e => setNextAppointment(e.target.value)}
                 onBlur={saveNextAppointment}
-                placeholder="다음 1on1에서 챙길 것들을 입력하세요 (자동 저장)"
+                placeholder="다음 1on1에서 챙길 것들을 입력하세요"
                 rows={3}
-                className="w-full text-sm focus:outline-none resize-none text-gray-700 placeholder:text-gray-300"
-              />
+                style={{ width: '100%', fontSize: 13, color: T1, background: 'transparent', border: 'none', outline: 'none', resize: 'none', lineHeight: 1.65 }}
+                className="placeholder:text-[rgba(226,232,240,0.25)]" />
             </div>
           </div>
 
-          <div className="border-t border-gray-100 pt-6">
+          {/* 삭제 */}
+          <div style={{ paddingTop: 4 }}>
             <button onClick={deleteSession} disabled={deleting}
-              className="text-sm text-red-400 hover:text-red-600 transition-colors">이 기록 삭제</button>
+              style={{ fontSize: 12, color: 'rgba(248,113,113,0.5)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, transition: 'color 150ms' }}
+              onMouseEnter={e => (e.currentTarget.style.color = '#f87171')}
+              onMouseLeave={e => (e.currentTarget.style.color = 'rgba(248,113,113,0.5)')}>
+              이 기록 삭제
+            </button>
           </div>
         </div>
 
-        {/* 우측 패널: 이전 약속 */}
-        {prevNextAppointment && (
-          <div className="w-56 flex-shrink-0 sticky top-8">
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-              <p className="text-xs font-semibold text-amber-600 mb-1">이전 약속</p>
-              {prevSessionDate && (
-                <p className="text-xs text-amber-400 mb-2">
-                  {(() => { try { return format(parseISO(prevSessionDate), 'M월 d일', { locale: ko }) } catch { return prevSessionDate } })()} 1on1
-                </p>
-              )}
-              <p className="text-sm text-amber-900 whitespace-pre-wrap">{prevNextAppointment}</p>
-            </div>
+        {/* ── 우측 사이드 패널 ── */}
+        {hasPrev && (
+          <div style={{ width: 220, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
+
+            {/* 이전 약속 */}
+            {prevNextAppointment && (
+              <div style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: 14, padding: '12px 14px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: '#fbbf24', letterSpacing: '0.02em' }}>이전 약속</span>
+                  {prevDateLabel && <span style={{ fontSize: 10, color: 'rgba(251,191,36,0.5)' }}>{prevDateLabel}</span>}
+                </div>
+                <p style={{ fontSize: 13, color: 'rgba(253,230,138,0.82)', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{prevNextAppointment}</p>
+              </div>
+            )}
+
+            {/* 이전 기록 (접기/펼치기) */}
+            {prevContent && (
+              <div style={{ border: `1px solid ${BORDER}`, borderRadius: 14, overflow: 'hidden', background: 'rgba(255,255,255,0.03)' }}>
+                <button onClick={() => setPrevOpen(v => !v)}
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', gap: 8 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: T2 }}>이전 기록</span>
+                    {(prevDateLabel || prevTitle) && (
+                      <span style={{ fontSize: 10, color: T3 }}>
+                        {[prevDateLabel, prevTitle].filter(Boolean).join(' · ')}
+                      </span>
+                    )}
+                  </div>
+                  <span style={{ fontSize: 11, color: T3, flexShrink: 0, transition: 'transform 200ms', transform: prevOpen ? 'rotate(180deg)' : 'rotate(0deg)', display: 'inline-block' }}>▾</span>
+                </button>
+                {prevOpen && (
+                  <div style={{ borderTop: `1px solid ${BORDER}`, padding: '10px 14px 14px', maxHeight: 380, overflowY: 'auto' }} className="scrollbar-hide">
+                    <div className="prose-dark" dangerouslySetInnerHTML={{ __html: prevContent }} />
+                  </div>
+                )}
+              </div>
+            )}
+
           </div>
         )}
       </div>

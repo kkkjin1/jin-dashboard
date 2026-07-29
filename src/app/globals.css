@@ -217,6 +217,20 @@ html, body {
     0 18px 60px rgba(0, 0, 0, 0.15);
 }
 
+/* ── Dark-theme rich HTML content (TiptapEditor output) ── */
+.prose-dark p { margin-bottom: 0.55em; color: rgba(226,232,240,0.82); font-size: 13px; line-height: 1.7; }
+.prose-dark p:last-child { margin-bottom: 0; }
+.prose-dark p:empty { margin-bottom: 0.2em; }
+.prose-dark ul, .prose-dark ol { margin: 0.4em 0 0.5em 1.4em; }
+.prose-dark li { margin-bottom: 0.25em; font-size: 13px; color: rgba(226,232,240,0.82); line-height: 1.65; }
+.prose-dark strong { color: rgba(226,232,240,0.96); font-weight: 600; }
+.prose-dark em { color: rgba(226,232,240,0.8); }
+.prose-dark h1 { font-size: 15px; font-weight: 700; color: rgba(226,232,240,0.96); margin: 1em 0 0.4em; }
+.prose-dark h2 { font-size: 14px; font-weight: 600; color: rgba(226,232,240,0.92); margin: 0.8em 0 0.35em; }
+.prose-dark h3 { font-size: 13px; font-weight: 600; color: rgba(226,232,240,0.88); margin: 0.6em 0 0.3em; }
+.prose-dark blockquote { border-left: 3px solid rgba(255,255,255,0.15); padding-left: 0.75em; color: rgba(226,232,240,0.5); margin: 0.5em 0; }
+.prose-dark code { background: rgba(255,255,255,0.08); padding: 0.1em 0.35em; border-radius: 4px; font-size: 12px; color: rgba(226,232,240,0.8); }
+
 /* ── Active / selected navigation item ── */
 .surface-nav-active {
   background: rgba(76, 127, 224, 0.16);

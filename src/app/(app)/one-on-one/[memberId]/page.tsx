@@ -8,56 +8,95 @@ import type { Member, OneOnOne } from '@/types'
 import { format, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
 
+const T1 = 'rgba(226,232,240,0.92)'
+const T2 = 'rgba(226,232,240,0.55)'
+const T3 = 'rgba(226,232,240,0.35)'
+const BORDER = 'rgba(255,255,255,0.08)'
+
+function stripHtml(html: string): string {
+  return html.replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+function SessionPreviewCard({ session, memberId, isSelected, onClick }: {
+  session: OneOnOne; memberId: string; isSelected: boolean; onClick: () => void
+}) {
+  const dateLabel = session.session_date
+    ? format(parseISO(session.session_date), 'yy.M.d (E)', { locale: ko })
+    : '날짜 미지정'
+  const preview = stripHtml(session.notes[0]?.content ?? '').slice(0, 60)
+
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        padding: '11px 14px',
+        borderRadius: 12,
+        cursor: 'pointer',
+        background: isSelected ? 'rgba(76,127,224,0.16)' : 'rgba(255,255,255,0.04)',
+        border: `1px solid ${isSelected ? 'rgba(76,127,224,0.35)' : BORDER}`,
+        transition: 'background 120ms, border-color 120ms',
+      }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
+        <p style={{ fontSize: 13, fontWeight: 600, color: isSelected ? '#93C5FD' : T1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>
+          {session.title || '제목 없음'}
+        </p>
+        {session.next_appointment && (
+          <span style={{ fontSize: 10, color: '#fbbf24', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 10, padding: '1px 6px', marginLeft: 8, flexShrink: 0 }}>약속</span>
+        )}
+      </div>
+      <p style={{ fontSize: 11, color: isSelected ? 'rgba(147,197,253,0.6)' : T3, marginBottom: preview ? 4 : 0 }}>{dateLabel}</p>
+      {preview && (
+        <p style={{ fontSize: 11, color: isSelected ? 'rgba(147,197,253,0.55)' : T3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{preview}</p>
+      )}
+    </div>
+  )
+}
+
 function SessionDetail({ session, memberId }: { session: OneOnOne; memberId: string }) {
   const dateLabel = session.session_date
     ? format(parseISO(session.session_date), 'yyyy년 M월 d일 (E)', { locale: ko })
     : '날짜 미지정'
 
   return (
-    <div style={{
-      background: 'rgba(255,255,255,0.06)',
-      border: '1px solid rgba(255,255,255,0.09)',
-      boxShadow: '0 20px 40px rgba(0,0,0,0.18), 0 1px 0 rgba(255,255,255,0.07) inset',
-      borderRadius: 20,
-    }} className="p-5 h-full flex flex-col gap-4">
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-xs mb-1" style={{ color: 'rgba(226,232,240,0.5)' }}>{dateLabel}</p>
-          <p className="text-base font-semibold" style={{ color: '#E2E8F0' }}>{session.title || dateLabel}</p>
+    <div className="surface-card rounded-2xl overflow-hidden" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      {/* 헤더 */}
+      <div style={{ padding: '14px 20px', borderBottom: `1px solid ${BORDER}`, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexShrink: 0 }}>
+        <div style={{ minWidth: 0 }}>
+          <p style={{ fontSize: 11, color: T3, marginBottom: 3 }}>{dateLabel}</p>
+          <p style={{ fontSize: 16, fontWeight: 600, color: T1, lineHeight: 1.3 }}>{session.title || '제목 없음'}</p>
         </div>
-        <Link
-          href={`/one-on-one/${memberId}/${session.id}`}
-          style={{
-            color: 'rgba(226,232,240,0.5)',
-            border: '1px solid rgba(255,255,255,0.09)',
-            borderRadius: 6,
-          }}
-          className="text-xs px-2.5 py-1 transition-colors flex-shrink-0 ml-3 hover:bg-white/10 hover:text-[#E2E8F0]">
+        <Link href={`/one-on-one/${memberId}/${session.id}`}
+          style={{ fontSize: 11, color: T3, border: `1px solid ${BORDER}`, borderRadius: 8, padding: '5px 12px', textDecoration: 'none', flexShrink: 0, whiteSpace: 'nowrap', transition: 'color 150ms, background 150ms', background: 'transparent' }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = T1; (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)' }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = T3; (e.currentTarget as HTMLElement).style.background = 'transparent' }}>
           편집 →
         </Link>
       </div>
 
-      {session.next_appointment && (
-        <div style={{ background: 'rgba(245,158,11,0.12)', borderRadius: 8, border: '1px solid rgba(245,158,11,0.2)' }} className="px-4 py-3">
-          <p className="text-xs font-semibold mb-1" style={{ color: '#F59E0B' }}>약속 내용</p>
-          <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: 'rgba(245,158,11,0.85)' }}>{session.next_appointment}</p>
-        </div>
-      )}
+      {/* 내용 */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px' }} className="scrollbar-hide">
+        {/* 다음 약속 */}
+        {session.next_appointment && (
+          <div style={{ background: 'rgba(245,158,11,0.09)', border: '1px solid rgba(245,158,11,0.18)', borderRadius: 10, padding: '10px 14px', marginBottom: 16 }}>
+            <p style={{ fontSize: 11, fontWeight: 600, color: '#fbbf24', marginBottom: 5, letterSpacing: '0.02em' }}>약속 내용</p>
+            <p style={{ fontSize: 13, lineHeight: 1.65, color: 'rgba(253,230,138,0.82)', whiteSpace: 'pre-wrap' }}>{session.next_appointment}</p>
+          </div>
+        )}
 
-      {session.notes.length > 0 ? (
-        <div className="flex-1 overflow-y-auto space-y-4">
-          {session.notes.map((note, i) => (
-            <div key={i}>
-              {note.title && (
-                <p className="text-xs font-semibold mb-1.5" style={{ color: 'rgba(226,232,240,0.5)' }}>{note.title}</p>
+        {/* 노트 본문 — HTML 렌더링 */}
+        {session.notes.length > 0 ? (
+          session.notes.map((note, i) => (
+            <div key={i} style={{ marginBottom: i < session.notes.length - 1 ? 20 : 0 }}>
+              {note.title && i > 0 && (
+                <p style={{ fontSize: 11, fontWeight: 600, color: T3, marginBottom: 6, letterSpacing: '0.03em', textTransform: 'uppercase' }}>{note.title}</p>
               )}
-              <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: 'rgba(226,232,240,0.8)' }}>{note.content}</p>
+              <div className="prose-dark" dangerouslySetInnerHTML={{ __html: note.content }} />
             </div>
-          ))}
-        </div>
-      ) : (
-        <p className="text-sm text-center py-6" style={{ color: 'rgba(226,232,240,0.28)' }}>노트가 없습니다</p>
-      )}
+          ))
+        ) : (
+          <p style={{ fontSize: 13, textAlign: 'center', color: T3, paddingTop: 40 }}>노트가 없습니다</p>
+        )}
+      </div>
     </div>
   )
 }
@@ -84,6 +123,7 @@ export default function MemberOneOnOnePage() {
       setSessions(list)
       if (list.length > 0) setSelectedSessionId(list[0].id)
     })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [memberId])
 
   async function createSession(useTemplate: boolean) {
@@ -128,154 +168,117 @@ export default function MemberOneOnOnePage() {
   }
 
   if (!member) return (
-    <div style={{ background: '#0F1319', minHeight: '100%' }} className="p-8 text-sm animate-pulse">
-      <span style={{ color: 'rgba(226,232,240,0.5)' }}>불러오는 중...</span>
-    </div>
+    <div style={{ padding: 32, color: T3, fontSize: 14 }} className="animate-pulse">불러오는 중...</div>
   )
 
   const selectedSession = sessions.find(s => s.id === selectedSessionId) ?? null
 
   return (
-    <div style={{ background: '#13151C', minHeight: '100%' }} className="h-full overflow-y-auto p-4 md:p-5">
-      <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center gap-3">
-          <Link href="/one-on-one" className="text-sm transition-colors" style={{ color: 'rgba(226,232,240,0.5)' }}
-            onMouseEnter={e => (e.currentTarget.style.color = '#E2E8F0')}
-            onMouseLeave={e => (e.currentTarget.style.color = 'rgba(226,232,240,0.5)')}>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', padding: '16px 20px' }}>
+      {/* 상단 헤더 */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Link href="/one-on-one"
+            style={{ fontSize: 12, color: T3, textDecoration: 'none', transition: 'color 150ms' }}
+            onMouseEnter={e => (e.currentTarget.style.color = T2)}
+            onMouseLeave={e => (e.currentTarget.style.color = T3)}>
             ← 목록
           </Link>
-          <div className="w-px h-4" style={{ background: 'rgba(255,255,255,0.06)' }} />
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium"
-              style={{ background: 'rgba(255,255,255,0.1)', color: 'rgba(226,232,240,0.7)' }}>
+          <div style={{ width: 1, height: 14, background: BORDER }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(76,127,224,0.2)', border: '1.5px solid rgba(76,127,224,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#93C5FD', fontWeight: 700, fontSize: 13 }}>
               {member.name[0]}
             </div>
-            <h1 className="text-xl font-bold" style={{ color: '#E2E8F0' }}>{member.name}</h1>
-            <span className="text-xs px-2 py-0.5 rounded"
-              style={{ color: 'rgba(226,232,240,0.5)', background: 'rgba(255,255,255,0.08)' }}>
-              {member.part}
-            </span>
+            <span style={{ fontSize: 17, fontWeight: 700, color: T1 }}>{member.name}</span>
+            <span style={{ fontSize: 11, color: T3, background: 'rgba(255,255,255,0.07)', border: `1px solid ${BORDER}`, borderRadius: 6, padding: '1px 7px' }}>{member.part}</span>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {checkedIds.size > 0 && (
             <button onClick={deleteChecked}
-              className="text-xs px-3 py-1.5 rounded-md transition-colors"
-              style={{ background: 'rgba(239,68,68,0.8)', color: '#fff' }}>
+              style={{ fontSize: 12, padding: '5px 12px', borderRadius: 8, background: 'rgba(239,68,68,0.85)', color: '#fff', border: 'none', cursor: 'pointer' }}>
               {checkedIds.size}개 삭제
             </button>
           )}
           <button onClick={() => setShowModal(true)}
-            className="text-sm px-4 py-2 rounded-md transition-colors"
-            style={{ background: 'rgba(59,130,246,0.15)', color: '#93C5FD', border: '1px solid rgba(59,130,246,0.25)' }}>
+            style={{ fontSize: 12, padding: '6px 14px', borderRadius: 8, background: 'rgba(76,127,224,0.15)', color: '#93C5FD', border: '1px solid rgba(76,127,224,0.3)', cursor: 'pointer', transition: 'background 150ms' }}
+            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(76,127,224,0.22)')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'rgba(76,127,224,0.15)')}>
             + 새 1on1
           </button>
         </div>
       </div>
 
       {sessions.length === 0 ? (
-        <div className="text-center py-16">
-          <p className="text-sm" style={{ color: 'rgba(226,232,240,0.28)' }}>아직 1on1 기록이 없습니다</p>
-        </div>
+        <div style={{ textAlign: 'center', paddingTop: 64, color: T3, fontSize: 13 }}>아직 1on1 기록이 없습니다</div>
       ) : (
-        <div className="flex gap-5">
-          {/* LEFT: 세션 목록 */}
-          <div className="w-72 flex-shrink-0 overflow-y-auto max-h-[calc(100vh-200px)]">
-            <div className="flex items-center gap-2 px-1 mb-2">
+        <div style={{ display: 'flex', gap: 14, flex: 1, minHeight: 0 }}>
+          {/* 좌측: 세션 목록 */}
+          <div style={{ width: 240, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
               <input type="checkbox"
                 checked={sessions.length > 0 && sessions.every(s => checkedIds.has(s.id))}
                 onChange={toggleCheckAll}
-                className="w-3 h-3 rounded cursor-pointer"
-                style={{ accentColor: 'rgba(226,232,240,0.6)' }}
-                title="전체 선택" />
-              <span className="text-xs" style={{ color: 'rgba(226,232,240,0.5)' }}>전체 선택</span>
+                style={{ width: 12, height: 12, accentColor: T2, cursor: 'pointer' }} />
+              <span style={{ fontSize: 11, color: T3 }}>전체 선택</span>
             </div>
-            <div className="space-y-1.5">
-              {sessions.map(session => {
-                const isSelected = session.id === selectedSessionId
-                const isChecked = checkedIds.has(session.id)
-                const dateLabel = session.session_date
-                  ? format(parseISO(session.session_date), 'yyyy.M.d (E)', { locale: ko })
-                  : '날짜 미지정'
-                return (
-                  <div
-                    key={session.id}
-                    onClick={() => setSelectedSessionId(session.id)}
-                    className="rounded-lg px-3 py-3 cursor-pointer transition-colors flex items-center gap-2"
-                    style={isSelected
-                      ? { background: '#10B981', border: '1px solid #10B981' }
-                      : { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                    <input type="checkbox"
-                      checked={isChecked}
-                      onChange={() => toggleCheck(session.id)}
-                      onClick={e => e.stopPropagation()}
-                      className="w-3 h-3 rounded cursor-pointer flex-shrink-0"
-                      style={{ accentColor: isSelected ? '#fff' : 'rgba(226,232,240,0.6)' }} />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium truncate" style={{ color: isSelected ? '#fff' : '#E2E8F0' }}>
-                        {session.title || dateLabel}
-                      </p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <p className="text-xs truncate" style={{ color: isSelected ? 'rgba(220,252,231,0.85)' : 'rgba(226,232,240,0.5)' }}>{dateLabel}</p>
-                        {session.next_appointment && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded flex-shrink-0"
-                            style={isSelected
-                              ? { background: 'rgba(245,158,11,0.8)', color: '#fff' }
-                              : { background: 'rgba(245,158,11,0.15)', color: '#F59E0B' }}>
-                            약속
-                          </span>
-                        )}
-                      </div>
-                    </div>
+            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }} className="scrollbar-hide">
+              {sessions.map(session => (
+                <div key={session.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                  <input type="checkbox"
+                    checked={checkedIds.has(session.id)}
+                    onChange={() => toggleCheck(session.id)}
+                    onClick={e => e.stopPropagation()}
+                    style={{ width: 12, height: 12, accentColor: T2, cursor: 'pointer', marginTop: 12, flexShrink: 0 }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <SessionPreviewCard
+                      session={session}
+                      memberId={memberId}
+                      isSelected={session.id === selectedSessionId}
+                      onClick={() => setSelectedSessionId(session.id)}
+                    />
                   </div>
-                )
-              })}
+                </div>
+              ))}
             </div>
           </div>
 
-          {/* RIGHT: 세션 상세 */}
-          <div className="flex-1 min-w-0 max-h-[calc(100vh-200px)] overflow-y-auto">
+          {/* 우측: 세션 상세 */}
+          <div style={{ flex: 1, minWidth: 0, minHeight: 0 }}>
             {selectedSession ? (
               <SessionDetail session={selectedSession} memberId={memberId} />
             ) : (
-              <div className="text-center py-16 text-sm" style={{ color: 'rgba(226,232,240,0.28)' }}>세션을 선택하세요</div>
+              <div style={{ textAlign: 'center', paddingTop: 64, color: T3, fontSize: 13 }}>세션을 선택하세요</div>
             )}
           </div>
         </div>
       )}
 
+      {/* 새 1on1 모달 */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.5)' }} onClick={() => setShowModal(false)}>
-          <div style={{
-            background: '#1C1F2A',
-            border: '1px solid rgba(255,255,255,0.09)',
-            boxShadow: '0 20px 40px rgba(0,0,0,0.4)',
-            borderRadius: 20,
-          }} className="p-6 w-80" onClick={e => e.stopPropagation()}>
-            <h3 className="font-semibold mb-4" style={{ color: '#E2E8F0' }}>새 1on1 시작</h3>
-            <p className="text-sm mb-5" style={{ color: 'rgba(226,232,240,0.5)' }}>어떻게 시작할까요?</p>
-            <div className="space-y-2">
-              <button onClick={() => createSession(false)} disabled={creating}
-                className="w-full text-left rounded-lg px-4 py-3 transition-colors"
-                style={{ border: '1px solid rgba(255,255,255,0.09)', background: 'transparent' }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
-                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                <p className="text-sm font-medium" style={{ color: '#E2E8F0' }}>빈 양식</p>
-                <p className="text-xs" style={{ color: 'rgba(226,232,240,0.5)' }}>백지 상태로 시작</p>
-              </button>
-              <button onClick={() => createSession(true)} disabled={creating}
-                className="w-full text-left rounded-lg px-4 py-3 transition-colors"
-                style={{ border: '1px solid rgba(255,255,255,0.09)', background: 'transparent' }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
-                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                <p className="text-sm font-medium" style={{ color: '#E2E8F0' }}>템플릿 적용</p>
-                <p className="text-xs" style={{ color: 'rgba(226,232,240,0.5)' }}>저장된 템플릿으로 시작</p>
-              </button>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.55)' }}
+          onClick={() => setShowModal(false)}>
+          <div className="surface-card rounded-2xl" style={{ padding: 24, width: 320 }} onClick={e => e.stopPropagation()}>
+            <h3 style={{ fontSize: 16, fontWeight: 600, color: T1, marginBottom: 6 }}>새 1on1 시작</h3>
+            <p style={{ fontSize: 13, color: T3, marginBottom: 20 }}>어떻게 시작할까요?</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {[
+                { label: '빈 양식', sub: '백지 상태로 시작', useTemplate: false },
+                { label: '템플릿 적용', sub: '저장된 템플릿으로 시작', useTemplate: true },
+              ].map(opt => (
+                <button key={opt.label} onClick={() => createSession(opt.useTemplate)} disabled={creating}
+                  style={{ textAlign: 'left', padding: '12px 16px', borderRadius: 12, border: `1px solid ${BORDER}`, background: 'transparent', cursor: 'pointer', transition: 'background 150ms', width: '100%' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                  <p style={{ fontSize: 13, fontWeight: 500, color: T1, marginBottom: 2 }}>{opt.label}</p>
+                  <p style={{ fontSize: 11, color: T3 }}>{opt.sub}</p>
+                </button>
+              ))}
             </div>
-            <button onClick={() => setShowModal(false)} className="mt-4 w-full text-xs transition-colors"
-              style={{ color: 'rgba(226,232,240,0.5)' }}
-              onMouseEnter={e => (e.currentTarget.style.color = '#E2E8F0')}
-              onMouseLeave={e => (e.currentTarget.style.color = 'rgba(226,232,240,0.5)')}>
+            <button onClick={() => setShowModal(false)}
+              style={{ marginTop: 16, width: '100%', fontSize: 12, color: T3, background: 'none', border: 'none', cursor: 'pointer', transition: 'color 150ms' }}
+              onMouseEnter={e => (e.currentTarget.style.color = T2)}
+              onMouseLeave={e => (e.currentTarget.style.color = T3)}>
               취소
             </button>
           </div>

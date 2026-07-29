@@ -19,7 +19,7 @@ type TodayTodo = Omit<TaskTodo, 'tasks'> & {
 type SubTaskWithContext = AgendaSubTask & {
   updated_at?: string | null
   agenda_items: { id: string; title: string; agenda_groups: { name: string; color: string; category: string } | null } | null
-  sub_task_notes?: { created_at: string; edited_at: string | null }[]
+  sub_task_notes?: { created_at: string; edited_at: string | null; content: string | null }[]
 }
 type TLExtra = { id: string; title: string; subtitle?: string }
 
@@ -586,7 +586,7 @@ export default function HomePage() {
   const [searchQuery,   setSearchQuery]   = useState('')
   const [weekFilter,    setWeekFilter]    = useState<'all' | 'tomorrow' | 'week' | 'unscheduled'>('all')
   const [now,           setNow]           = useState(new Date())
-  const [stCols,        setStCols]        = useState<[number, number, number, number]>([60, 120, 72, 60])
+  const [stCols,        setStCols]        = useState<[number, number, number, number, number]>([60, 120, 72, 60, 130])
   const [stSort,        setStSort]        = useState<{ col: string; dir: 'asc' | 'desc' } | null>({ col: '업데이트', dir: 'desc' })
   const [stRowH,        setStRowH]        = useState(40)
   const stScrollRef = useRef<HTMLDivElement>(null)
@@ -617,7 +617,7 @@ export default function HomePage() {
         { data: stData }, { data: tdData }, { data: wkData },
         { data: mData },  { data: mmData }, { data: jData },
       ] = await Promise.all([
-        sb.current.from('agenda_sub_tasks').select('*, agenda_items(id, title, agenda_groups(name, color, category)), sub_task_notes(created_at, edited_at)').eq('status', 'active').order('sort_order').limit(100),
+        sb.current.from('agenda_sub_tasks').select('*, agenda_items(id, title, agenda_groups(name, color, category)), sub_task_notes(created_at, edited_at, content)').eq('status', 'active').order('sort_order').limit(100),
         sb.current.from('task_todos').select('*, tasks(id, title, short_name, part)').eq('schedule_tag', 'today').eq('done', false).order('sort_order').limit(15),
         sb.current.from('task_todos').select('*, tasks(id, title, short_name, part)').in('schedule_tag', ['tomorrow', 'this_week']).eq('done', false).order('sort_order').limit(30),
         sb.current.from('meetings').select('*').order('meeting_date', { ascending: false }).limit(20),
@@ -654,10 +654,10 @@ export default function HomePage() {
 
   useEffect(() => {
     try {
-      const s = localStorage.getItem('dash_st_cols_v6')
+      const s = localStorage.getItem('dash_st_cols_v7')
       if (s) {
         const p = JSON.parse(s)
-        if (Array.isArray(p) && p.length === 4) setStCols(p as [number, number, number, number])
+        if (Array.isArray(p) && p.length === 5) setStCols(p as [number, number, number, number, number])
       }
     } catch {}
   }, [])
@@ -673,29 +673,34 @@ export default function HomePage() {
   }, [subTasks, loading])
 
   function startStColResize(ci: number, startX: number) {
-    const startWidths = stColsRef.current.slice() as [number, number, number, number]
+    const startWidths = stColsRef.current.slice() as [number, number, number, number, number]
     function onMove(e: MouseEvent) {
       const delta = e.clientX - startX
-      const next = startWidths.slice() as [number, number, number, number]
+      const next = startWidths.slice() as [number, number, number, number, number]
       if (ci === 0) {
-        // 범주(fixed) ↔ 안건(fixed): two-col swap
+        // 범주 ↔ 안건 swap
         const total = startWidths[0] + startWidths[1]
         const newL = Math.min(total - 44, Math.max(30, startWidths[0] + delta))
         next[0] = newL; next[1] = total - newL
       } else if (ci === 1) {
-        // 안건(fixed) ↔ 상세TASK(1fr): drag right → 안건 grows
+        // 안건 ↔ 상세TASK(1fr): drag right → 안건 grows
         next[1] = Math.max(44, startWidths[1] + delta)
       } else if (ci === 2) {
-        // 상세TASK(1fr) ↔ 업데이트(fixed): drag right → 업데이트 narrows
-        next[2] = Math.max(44, startWidths[2] - delta)
+        // 상세TASK(1fr) ↔ 업데이트내용: drag right → 업데이트내용 narrows
+        next[4] = Math.max(44, startWidths[4] - delta)
+      } else if (ci === 3) {
+        // 업데이트내용 ↔ 업데이트 swap
+        const total = startWidths[4] + startWidths[2]
+        const newL = Math.min(total - 44, Math.max(44, startWidths[4] + delta))
+        next[4] = newL; next[2] = total - newL
       } else {
-        // 업데이트(fixed) ↔ 마감(fixed): two-col swap
+        // 업데이트 ↔ 마감 swap
         const total = startWidths[2] + startWidths[3]
         const newL = Math.min(total - 44, Math.max(44, startWidths[2] + delta))
         next[2] = newL; next[3] = total - newL
       }
       setStCols(next)
-      try { localStorage.setItem('dash_st_cols_v6', JSON.stringify(next)) } catch {}
+      try { localStorage.setItem('dash_st_cols_v7', JSON.stringify(next)) } catch {}
     }
     function onUp() {
       document.removeEventListener('mousemove', onMove)
@@ -733,6 +738,18 @@ export default function HomePage() {
       return d > m ? d : m
     }, '')
     return max || (st.updated_at ?? '')
+  }
+
+  function latestNoteContent(st: SubTaskWithContext): string {
+    const notes = st.sub_task_notes
+    if (!notes?.length) return ''
+    const latest = notes.reduce((m, n) => {
+      const d = n.edited_at ?? n.created_at
+      const md = m.edited_at ?? m.created_at
+      return d > md ? n : m
+    })
+    const text = (latest.content ?? '').replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, ' ').trim()
+    return text.length > 60 ? text.slice(0, 60) + '…' : text
   }
 
   const sortedSubTasks = useMemo(() => {
@@ -995,9 +1012,9 @@ export default function HomePage() {
                   onMouseEnter={e => ((e.target as HTMLElement).style.color = TEXT2)}
                   onMouseLeave={e => ((e.target as HTMLElement).style.color = TEXT3)}>전체 →</Link>
               </div>
-              {/* 컬럼 헤더: 범주 | 안건 | 상세TASK(1fr) | 마감 */}
+              {/* 컬럼 헤더: 범주 | 안건 | 상세TASK(1fr) | 업데이트 | 업데이트내용 | 마감 */}
               {!loading && subTasks.length > 0 && (
-                <div style={{ display: 'grid', gridTemplateColumns: `${stCols[0]}px ${stCols[1]}px 1fr ${stCols[2]}px ${stCols[3]}px`, padding: '0 0 6px', borderBottom: `1px solid ${DIVIDER}`, marginBottom: 2, flexShrink: 0, alignItems: 'center' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: `${stCols[0]}px ${stCols[1]}px 1fr ${stCols[4]}px ${stCols[2]}px ${stCols[3]}px`, padding: '0 0 6px', borderBottom: `1px solid ${DIVIDER}`, marginBottom: 2, flexShrink: 0, alignItems: 'center' }}>
                   {/* 범주 */}
                   <div style={{ textAlign: 'center' }}>
                     <button onClick={() => toggleSort('범주')} style={{ fontSize: 10, fontWeight: 600, color: stSort?.col === '범주' ? TEXT2 : TEXT3, letterSpacing: '0.04em', textTransform: 'uppercase', background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 2, padding: 0 }}>
@@ -1022,18 +1039,25 @@ export default function HomePage() {
                       상세TASK{stSort?.col === '상세TASK' ? <span style={{ fontSize: 9 }}>{stSort.dir === 'asc' ? '↑' : '↓'}</span> : null}
                     </button>
                   </div>
-                  {/* 업데이트: resize ci=2 */}
-                  <div style={{ position: 'relative', textAlign: 'center' }}>
+                  {/* 업데이트 내용: resize ci=2 */}
+                  <div style={{ position: 'relative', paddingLeft: 10 }}>
                     <div onMouseDown={e => { e.preventDefault(); startStColResize(2, e.clientX) }} style={{ position: 'absolute', left: -4, top: -4, bottom: -4, width: 16, cursor: 'col-resize', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <div style={{ width: 1, height: 12, background: 'rgba(255,255,255,0.18)', borderRadius: 1, pointerEvents: 'none' }} />
+                    </div>
+                    <span style={{ fontSize: 10, fontWeight: 600, color: TEXT3, letterSpacing: '0.04em', textTransform: 'uppercase' }}>업데이트 내용</span>
+                  </div>
+                  {/* 업데이트: resize ci=3 */}
+                  <div style={{ position: 'relative', textAlign: 'center' }}>
+                    <div onMouseDown={e => { e.preventDefault(); startStColResize(3, e.clientX) }} style={{ position: 'absolute', left: -4, top: -4, bottom: -4, width: 16, cursor: 'col-resize', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <div style={{ width: 1, height: 12, background: 'rgba(255,255,255,0.18)', borderRadius: 1, pointerEvents: 'none' }} />
                     </div>
                     <button onClick={() => toggleSort('업데이트')} style={{ fontSize: 10, fontWeight: 600, color: stSort?.col === '업데이트' ? TEXT2 : TEXT3, letterSpacing: '0.04em', textTransform: 'uppercase', background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 2, padding: 0, paddingLeft: 10 }}>
                       업데이트{stSort?.col === '업데이트' ? <span style={{ fontSize: 9 }}>{stSort.dir === 'asc' ? '↑' : '↓'}</span> : null}
                     </button>
                   </div>
-                  {/* 마감: resize ci=3 */}
+                  {/* 마감: resize ci=4 */}
                   <div style={{ position: 'relative', textAlign: 'center' }}>
-                    <div onMouseDown={e => { e.preventDefault(); startStColResize(3, e.clientX) }} style={{ position: 'absolute', left: -4, top: -4, bottom: -4, width: 16, cursor: 'col-resize', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div onMouseDown={e => { e.preventDefault(); startStColResize(4, e.clientX) }} style={{ position: 'absolute', left: -4, top: -4, bottom: -4, width: 16, cursor: 'col-resize', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <div style={{ width: 1, height: 12, background: 'rgba(255,255,255,0.18)', borderRadius: 1, pointerEvents: 'none' }} />
                     </div>
                     <button onClick={() => toggleSort('마감')} style={{ fontSize: 10, fontWeight: 600, color: stSort?.col === '마감' ? TEXT2 : TEXT3, letterSpacing: '0.04em', textTransform: 'uppercase', background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 2, padding: 0, paddingLeft: 10 }}>
@@ -1053,7 +1077,7 @@ export default function HomePage() {
                             draggable
                             onDragStart={e => { e.dataTransfer.setData('tl-extra', JSON.stringify({ id: `st_${st.id}`, title: st.title, subtitle: st.agenda_items?.title ?? '' })); e.dataTransfer.effectAllowed = 'copy' }}>
                             <ListRow style={{ ...rd(i, sortedSubTasks.length), height: '100%', display: 'flex', alignItems: 'center' }}>
-                              <div style={{ display: 'grid', gridTemplateColumns: `${stCols[0]}px ${stCols[1]}px 1fr ${stCols[2]}px ${stCols[3]}px`, alignItems: 'center', width: '100%' }}>
+                              <div style={{ display: 'grid', gridTemplateColumns: `${stCols[0]}px ${stCols[1]}px 1fr ${stCols[4]}px ${stCols[2]}px ${stCols[3]}px`, alignItems: 'center', width: '100%' }}>
                                 {/* 범주: 고정 색상 */}
                                 <div style={{ textAlign: 'center' }}>
                                   {st.agenda_items?.agenda_groups ? (() => {
@@ -1078,6 +1102,12 @@ export default function HomePage() {
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, paddingLeft: 10, overflow: 'hidden' }}>
                                   <div style={{ width: 5, height: 5, borderRadius: '50%', background: gc, flexShrink: 0, opacity: 0.9 }} />
                                   <span style={{ fontSize: 13.5, fontWeight: 500, color: TEXT1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: '1 1 0', minWidth: 0 }}>{st.title}</span>
+                                </div>
+                                {/* 업데이트 내용 */}
+                                <div style={{ paddingLeft: 10, overflow: 'hidden' }}>
+                                  <span style={{ fontSize: 11, color: TEXT3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>
+                                    {latestNoteContent(st) || '—'}
+                                  </span>
                                 </div>
                                 {/* 업데이트 */}
                                 <div style={{ textAlign: 'center' }}>
