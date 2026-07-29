@@ -431,6 +431,16 @@ export default function MemosPage() {
 
       {/* 콘텐츠 */}
       <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
+        {/* 변수행 — scroll 최상단, 데이터 행과 동일 스타일로 붙어있음 */}
+        <MemoInputRow
+          tag={rowTag} setTag={setRowTag}
+          title={rowTitle} setTitle={setRowTitle}
+          content={rowContent} setContent={setRowContent}
+          date={rowDate} setDate={setRowDate}
+          onSave={handleRowSave}
+          titleWidth={titleWidth} onResizeTitle={startResizeTitle}
+        />
+
         {filterTag === '전체' ? (
           /* ── 전체 뷰: 공지 상단 고정 + 범주별 섹션 ── */
           <div className="space-y-6 pb-6">
@@ -461,16 +471,6 @@ export default function MemosPage() {
                 )}
               </div>
             )}
-
-            {/* 변수행 — 공지 아래, 본문 최상단 */}
-            <MemoInputRow
-              tag={rowTag} setTag={setRowTag}
-              title={rowTitle} setTitle={setRowTitle}
-              content={rowContent} setContent={setRowContent}
-              date={rowDate} setDate={setRowDate}
-              onSave={handleRowSave}
-              titleWidth={titleWidth} onResizeTitle={startResizeTitle}
-            />
 
             {/* 나머지 범주별 섹션 */}
             {tagSections.map(({ tag, items }) => {
@@ -519,15 +519,6 @@ export default function MemosPage() {
         ) : (
           /* ── 필터 뷰: 월별 그루핑 ── */
           <div className="space-y-6 pb-6">
-            {/* 변수행 */}
-            <MemoInputRow
-              tag={rowTag} setTag={setRowTag}
-              title={rowTitle} setTitle={setRowTitle}
-              content={rowContent} setContent={setRowContent}
-              date={rowDate} setDate={setRowDate}
-              onSave={handleRowSave}
-              titleWidth={titleWidth} onResizeTitle={startResizeTitle}
-            />
             {displayed.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-40 gap-2">
                 <p className="text-white/[0.28] text-sm">해당 태그의 메모가 없습니다</p>
