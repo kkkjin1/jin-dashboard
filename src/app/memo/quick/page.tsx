@@ -15,10 +15,7 @@ const TAG_COLORS: Record<MemoTag, string> = {
   '완료':     'bg-[rgba(91,98,112,0.15)] text-[#7B8290] border-[rgba(91,98,112,0.3)]',
 }
 
-// ── Draft slot keys ──────────────────────────────────────────────────────────
-// 공유 슬롯 하나. 첫 번째 팝업만 소유권(owner)을 가져가고, 나머지는 fresh.
-const DRAFT_KEY  = 'quick_memo_draft'        // 내용
-const OWNER_KEY  = 'quick_memo_draft_owner'  // 현재 소유 팝업의 window.name
+const DRAFT_KEY = 'quick_memo_draft'
 
 function readDraft() {
   try {
@@ -26,20 +23,6 @@ function readDraft() {
     if (s) return JSON.parse(s) as { title: string; content: string; tag: MemoTag }
   } catch {}
   return null
-}
-
-// 마운트 시 한 번만 실행. 슬롯이 비어있으면 내 것으로 가져간다.
-function claimSlot(): { isHolder: boolean; draft: ReturnType<typeof readDraft> } {
-  if (typeof window === 'undefined') return { isHolder: false, draft: null }
-  const owner = localStorage.getItem(OWNER_KEY)
-  if (!owner) {
-    localStorage.setItem(OWNER_KEY, window.name)
-    return { isHolder: true, draft: readDraft() }
-  }
-  if (owner === window.name) {
-    return { isHolder: true, draft: readDraft() }
-  }
-  return { isHolder: false, draft: null }
 }
 
 function parseMeetingDate(text: string): string | null {
@@ -69,12 +52,12 @@ export default function QuickMemoPage() {
   const isHolder  = useRef(false)  // 슬롯 소유 여부 (saveDraft 등에서 사용)
   const supabase  = createClient()
 
-  // ── 클라이언트 마운트 시 슬롯 소유권 확정 + draft 복원 ─────────────────────
+  // ── 클라이언트 마운트: draft 복원 ────────────────────────────────────────
   useEffect(() => {
-    const { isHolder: holder, draft } = claimSlot()
-    isHolder.current = holder
-    setIsHolderState(holder)
-    if (holder && draft) {
+    isHolder.current = true
+    setIsHolderState(true)
+    const draft = readDraft()
+    if (draft) {
       setTitle(draft.title ?? '')
       setContent(draft.content ?? '')
       setTag(draft.tag ?? '업무관련')
@@ -116,16 +99,7 @@ export default function QuickMemoPage() {
     }
   }, [])
 
-  // ── beforeunload: 소유권 해제 (내용은 유지) → 다음 팝업이 복원 가능 ─────
-  useEffect(() => {
-    function onUnload() {
-      if (!isHolder.current) return
-      const owner = localStorage.getItem(OWNER_KEY)
-      if (owner === window.name) localStorage.removeItem(OWNER_KEY)
-    }
-    window.addEventListener('beforeunload', onUnload)
-    return () => window.removeEventListener('beforeunload', onUnload)
-  }, [])
+  // beforeunload: 아무것도 하지 않음 — draft는 localStorage에 그대로 남아 다음 열기 시 복원
 
   useEffect(() => {
     document.title = '빠른 메모'
@@ -143,11 +117,9 @@ export default function QuickMemoPage() {
     return () => window.removeEventListener('keydown', onKey)
   }, [showPicker])
 
-  // ── 저장 안 하고 초기화: draft 완전 제거 → 다음 열기 시 빈 창 ────────────
+  // ── 초기화 후 닫기: draft 제거 → 다음 열기 시 빈 창 ────────────────────
   function handleDiscardAndClose() {
     localStorage.removeItem(DRAFT_KEY)
-    localStorage.removeItem(OWNER_KEY)
-    isHolder.current = false
     window.close()
   }
 
@@ -192,9 +164,7 @@ export default function QuickMemoPage() {
       if (window.opener) window.opener.dispatchEvent(new CustomEvent('quick-memo-saved'))
       setSavedMsg('저장됨!')
     }
-    // 저장 완료 → draft 제거 + 슬롯 재취득(이 팝업에서 바로 새 메모 작성 가능)
     localStorage.removeItem(DRAFT_KEY)
-    localStorage.setItem(OWNER_KEY, window.name)
     setSaving(false)
     setTitle(''); setContent(''); setTag('업무관련')
     setEditorKey(k => k + 1)
