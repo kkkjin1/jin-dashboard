@@ -230,6 +230,7 @@ html, body {
 .prose-dark h3 { font-size: 13px; font-weight: 600; color: rgba(226,232,240,0.88); margin: 0.6em 0 0.3em; }
 .prose-dark blockquote { border-left: 3px solid rgba(255,255,255,0.15); padding-left: 0.75em; color: rgba(226,232,240,0.5); margin: 0.5em 0; }
 .prose-dark code { background: rgba(255,255,255,0.08); padding: 0.1em 0.35em; border-radius: 4px; font-size: 12px; color: rgba(226,232,240,0.8); }
+.prose-dark mark { border-radius: 2px; padding: 0 2px; color: rgba(0,0,0,0.85); }
 
 /* ── Active / selected navigation item ── */
 .surface-nav-active {
@@ -401,7 +402,7 @@ html, body {
 .tiptap-input-dark li > p { margin: 0; min-height: auto; }
 .tiptap-input-dark strong { font-weight: 700; }
 .tiptap-input-dark u { text-decoration: underline; }
-.tiptap-input-dark mark { border-radius: 2px; padding: 0 2px; }
+.tiptap-input-dark mark { border-radius: 2px; padding: 0 2px; color: rgba(0,0,0,0.85); }
 .tiptap-input-dark img { max-width: 100%; border-radius: 6px; display: block; margin: 4px 0; }
 
 /* ── HTML 노트 렌더링 (MarkdownContent) — 다크 ── */
@@ -424,7 +425,7 @@ html, body {
 .note-html-dark li > p { margin: 0; }
 .note-html-dark strong { font-weight: 700; }
 .note-html-dark u { text-decoration: underline; }
-.note-html-dark mark { border-radius: 2px; padding: 0 2px; }
+.note-html-dark mark { border-radius: 2px; padding: 0 2px; color: rgba(0,0,0,0.85); }
 .note-html-dark p.note-bullet-p { display: flex; gap: 4px; align-items: flex-start; margin: 0; }
 .note-html-dark .note-bullet-sym { flex-shrink: 0; line-height: inherit; }
 .note-html-dark .note-bullet-body { flex: 1; min-width: 0; }
