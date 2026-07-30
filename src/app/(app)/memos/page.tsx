@@ -20,6 +20,8 @@ const ALL_TAGS: MemoTag[] = ['공지', '업무관련', '회의관련', '아이�
 const FILTER_TAGS = ['전체', ...ALL_TAGS] as const
 type FilterTag = typeof FILTER_TAGS[number]
 
+interface ColWidths { title: number; content: number; tag: number }
+
 function formatMonthLabel(ym: string): string {
   if (ym === '날짜 없음') return '날짜 미지정'
   const [y, m] = ym.split('-')
@@ -92,6 +94,111 @@ function MemoRow({ memo, onEdit, onDelete, draggable: drag, onDragStart, onDragO
         className="text-[9px] text-white/[0.28] hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">
         삭제
       </button>
+    </div>
+  )
+}
+
+interface MemoRowGridProps {
+  memo: QuickMemo
+  onEdit: (m: QuickMemo) => void
+  onDelete: (id: string) => void
+  draggable?: boolean
+  onDragStart?: () => void
+  onDragOver?: (e: React.DragEvent) => void
+  onDrop?: () => void
+  selected?: boolean
+  onToggleSelect?: (id: string) => void
+  colWidths: ColWidths
+  onResizeCol: (col: keyof ColWidths, e: React.MouseEvent) => void
+}
+
+function MemoRowGrid({ memo, onEdit, onDelete, draggable: drag, onDragStart, onDragOver, onDrop, selected, onToggleSelect, colWidths, onResizeCol }: MemoRowGridProps) {
+  return (
+    <div
+      draggable={drag}
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+      onClick={() => onEdit(memo)}
+      className={`group flex items-center gap-0 cursor-pointer select-none transition-colors ${selected ? 'bg-white/[0.06]' : 'hover:bg-white/[0.03]'}`}
+      style={{ padding: '9px 4px', borderBottom: '0.5px solid rgba(255,255,255,0.05)' }}>
+      <input type="checkbox" checked={selected ?? false}
+        onChange={e => { e.stopPropagation(); onToggleSelect?.(memo.id) }}
+        onClick={e => e.stopPropagation()}
+        className="w-3 h-3 rounded accent-gray-400 flex-shrink-0 cursor-pointer mr-3" />
+      <div style={{ width: 2.5, height: 26, background: memoTagSolid(memo.tag), flexShrink: 0, borderRadius: 2, marginRight: 8 }} />
+      <p style={{ fontSize: 12, fontWeight: 500, flexShrink: 0, width: colWidths.title, minWidth: colWidths.title, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#E2E8F0' }}>
+        {memo.title}
+      </p>
+      <div
+        onMouseDown={e => { e.stopPropagation(); onResizeCol('title', e) }}
+        onClick={e => e.stopPropagation()}
+        className="group/resize"
+        style={{ width: 10, alignSelf: 'stretch', cursor: 'col-resize', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: 1, height: 14, borderRadius: 1, background: 'rgba(255,255,255,0.1)', transition: 'background 0.15s' }}
+          className="group-hover/resize:!bg-[rgba(255,255,255,0.35)]" />
+      </div>
+      <p style={{ width: colWidths.content, minWidth: colWidths.content, flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#98A1B2', fontSize: 11, marginLeft: 4 }}>
+        {memo.content ? stripHtml(memo.content) : ''}
+      </p>
+      <div
+        onMouseDown={e => { e.stopPropagation(); onResizeCol('content', e) }}
+        onClick={e => e.stopPropagation()}
+        className="group/resize"
+        style={{ width: 10, alignSelf: 'stretch', cursor: 'col-resize', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: 1, height: 14, borderRadius: 1, background: 'rgba(255,255,255,0.1)', transition: 'background 0.15s' }}
+          className="group-hover/resize:!bg-[rgba(255,255,255,0.35)]" />
+      </div>
+      <span className="text-[9px] px-1.5 py-0.5 rounded-full border font-medium flex-shrink-0" style={{ ...memoTagStyle(memo.tag), width: colWidths.tag, minWidth: colWidths.tag, textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {memo.tag}
+      </span>
+      <div style={{ width: 10, flexShrink: 0 }} />
+      <span style={{ fontSize: 10, color: '#7B8397', flexShrink: 0, minWidth: 36, textAlign: 'center' }}>
+        {format(parseISO(memo.created_at), 'M/d', { locale: ko })}
+      </span>
+      <button onClick={e => { e.stopPropagation(); onDelete(memo.id) }}
+        className="text-[9px] text-white/[0.28] hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">
+        삭제
+      </button>
+    </div>
+  )
+}
+
+function MemoColHeader({ colWidths, onResizeCol }: {
+  colWidths: ColWidths
+  onResizeCol: (col: keyof ColWidths, e: React.MouseEvent) => void
+}) {
+  return (
+    <div className="flex items-center gap-0 select-none"
+      style={{ padding: '9px 4px', borderBottom: '0.5px solid rgba(255,255,255,0.12)', alignItems: 'center' }}>
+      <div style={{ width: 12, marginRight: 12, flexShrink: 0 }} />
+      <div style={{ width: 2.5, marginRight: 8, flexShrink: 0 }} />
+      <span style={{ width: colWidths.title, minWidth: colWidths.title, flexShrink: 0, fontSize: 10, color: 'rgba(255,255,255,0.4)', fontWeight: 600, letterSpacing: '0.04em' }}>제목</span>
+      <div
+        onMouseDown={e => { e.stopPropagation(); onResizeCol('title', e) }}
+        className="group/resize"
+        style={{ width: 10, cursor: 'col-resize', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', alignSelf: 'stretch' }}>
+        <div style={{ width: 1, height: 14, borderRadius: 1, background: 'rgba(255,255,255,0.25)' }}
+          className="group-hover/resize:!bg-[rgba(255,255,255,0.6)]" />
+      </div>
+      <span style={{ width: colWidths.content, minWidth: colWidths.content, flexShrink: 0, fontSize: 10, color: 'rgba(255,255,255,0.4)', fontWeight: 600, letterSpacing: '0.04em', marginLeft: 4 }}>내용</span>
+      <div
+        onMouseDown={e => { e.stopPropagation(); onResizeCol('content', e) }}
+        className="group/resize"
+        style={{ width: 10, cursor: 'col-resize', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', alignSelf: 'stretch' }}>
+        <div style={{ width: 1, height: 14, borderRadius: 1, background: 'rgba(255,255,255,0.25)' }}
+          className="group-hover/resize:!bg-[rgba(255,255,255,0.6)]" />
+      </div>
+      <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', fontWeight: 600, flexShrink: 0, letterSpacing: '0.04em', width: colWidths.tag, minWidth: colWidths.tag, textAlign: 'center' }}>태그</span>
+      <div
+        onMouseDown={e => { e.stopPropagation(); onResizeCol('tag', e) }}
+        className="group/resize"
+        style={{ width: 10, cursor: 'col-resize', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', alignSelf: 'stretch' }}>
+        <div style={{ width: 1, height: 14, borderRadius: 1, background: 'rgba(255,255,255,0.25)' }}
+          className="group-hover/resize:!bg-[rgba(255,255,255,0.6)]" />
+      </div>
+      <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', fontWeight: 600, flexShrink: 0, letterSpacing: '0.04em', minWidth: 36, textAlign: 'center' }}>날짜</span>
+      <div style={{ width: 24, flexShrink: 0 }} />
     </div>
   )
 }
@@ -212,7 +319,13 @@ export default function MemosPage() {
   const [rowTitle, setRowTitle] = useState('')
   const [rowContent, setRowContent] = useState('')
   const [rowDate, setRowDate] = useState(() => new Date().toISOString().slice(0, 10))
-  const [titleWidth, setTitleWidth] = useState(150)
+  const [colWidths, setColWidths] = useState<ColWidths>(() => {
+    try {
+      const s = localStorage.getItem('memo_col_widths_v1')
+      if (s) { const p = JSON.parse(s); if (p && typeof p.title === 'number') return p as ColWidths }
+    } catch {}
+    return { title: 150, content: 280, tag: 56 }
+  })
   const inlineContentRef = useRef<HTMLTextAreaElement>(null)
   const supabase = createClient()
 
@@ -349,12 +462,18 @@ export default function MemosPage() {
     setCollapsedTags(prev => { const s = new Set(prev); s.has(tag) ? s.delete(tag) : s.add(tag); return s })
   }
 
-  function startResizeTitle(e: React.MouseEvent) {
+  function startResizeCol(col: keyof ColWidths, e: React.MouseEvent) {
     e.preventDefault()
     const startX = e.clientX
-    const startW = titleWidth
-    const onMove = (ev: MouseEvent) => setTitleWidth(Math.max(80, Math.min(320, startW + ev.clientX - startX)))
-    const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
+    const startW = colWidths[col]
+    const MIN = col === 'title' ? 60 : col === 'tag' ? 36 : 100
+    const MAX = col === 'title' ? 400 : col === 'tag' ? 120 : 1200
+    const onMove = (ev: MouseEvent) => setColWidths(prev => ({ ...prev, [col]: Math.max(MIN, Math.min(MAX, startW + ev.clientX - startX)) }))
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+      setColWidths(prev => { try { localStorage.setItem('memo_col_widths_v1', JSON.stringify(prev)) } catch {}; return prev })
+    }
     document.addEventListener('mousemove', onMove)
     document.addEventListener('mouseup', onUp)
   }
@@ -431,16 +550,6 @@ export default function MemosPage() {
 
       {/* 콘텐츠 */}
       <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
-        {/* 변수행 — scroll 최상단, 데이터 행과 동일 스타일로 붙어있음 */}
-        <MemoInputRow
-          tag={rowTag} setTag={setRowTag}
-          title={rowTitle} setTitle={setRowTitle}
-          content={rowContent} setContent={setRowContent}
-          date={rowDate} setDate={setRowDate}
-          onSave={handleRowSave}
-          titleWidth={titleWidth} onResizeTitle={startResizeTitle}
-        />
-
         {filterTag === '전체' ? (
           /* ── 전체 뷰: 공지 상단 고정 + 범주별 섹션 ── */
           <div className="space-y-6 pb-6">
@@ -465,7 +574,7 @@ export default function MemosPage() {
                         draggable onDragStart={() => setDraggingId(memo.id)}
                         onDragOver={e => e.preventDefault()} onDrop={() => handleDropOnTag(memo.tag)}
                         selected={selectedIds.has(memo.id)} onToggleSelect={toggleSelect}
-                        titleWidth={titleWidth} onResizeTitle={startResizeTitle} />
+                        titleWidth={colWidths.title} onResizeTitle={e => startResizeCol('title', e)} />
                     ))}
                   </div>
                 )}
@@ -489,12 +598,13 @@ export default function MemosPage() {
                   </button>
                   {!isCollapsed && (
                     <div>
+                      <MemoColHeader colWidths={colWidths} onResizeCol={startResizeCol} />
                       {items.map(memo => (
-                        <MemoRow key={memo.id} memo={memo} onEdit={setEditing} onDelete={deleteMemo}
+                        <MemoRowGrid key={memo.id} memo={memo} onEdit={setEditing} onDelete={deleteMemo}
                           draggable onDragStart={() => setDraggingId(memo.id)}
                           onDragOver={e => e.preventDefault()} onDrop={() => handleDropOnTag(memo.tag)}
                           selected={selectedIds.has(memo.id)} onToggleSelect={toggleSelect}
-                          titleWidth={titleWidth} onResizeTitle={startResizeTitle} />
+                          colWidths={colWidths} onResizeCol={startResizeCol} />
                       ))}
                     </div>
                   )}
@@ -524,34 +634,39 @@ export default function MemosPage() {
                 <p className="text-white/[0.28] text-sm">해당 태그의 메모가 없습니다</p>
                 <button onClick={() => setFilterTag('전체')} className={`${pill} ${pOff} text-white/50`}>전체 보기</button>
               </div>
-            ) : monthGroups.map(([ym, items], idx) => {
-              const isCollapsed = collapsedMonths.has(ym)
-              return (
-                <div key={ym}>
-                  <button onClick={() => toggleMonthCollapse(ym)}
-                    className="flex items-center gap-2 mb-4 w-full text-left group py-1 pb-2"
-                    style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                    <span className="text-sm font-semibold text-white/70 group-hover:text-[#E2E8F0] transition-colors">{formatMonthLabel(ym)}</span>
-                    <span className="text-xs text-white/50 border border-white/[0.09] px-2 py-0.5 rounded-full"
-                      style={{ background: 'rgba(255,255,255,0.06)' }}>{items.length}개</span>
-                    {idx === 0 && <span className="text-[10px] text-[#A8C4F0] border border-[#4C7FE0]/40 px-2 py-0.5 rounded-full"
-                      style={{ background: 'rgba(27,58,107,0.2)' }}>최신</span>}
-                    <span className="text-xs text-white/[0.28] ml-auto group-hover:text-white/50 transition-colors">{isCollapsed ? '▶' : '▼'}</span>
-                  </button>
-                  {!isCollapsed && (
-                    <div>
-                      {items.map((memo: QuickMemo) => (
-                        <MemoRow key={memo.id} memo={memo} onEdit={setEditing} onDelete={deleteMemo}
-                          draggable onDragStart={() => setDraggingId(memo.id)}
-                          onDragOver={e => e.preventDefault()} onDrop={() => handleDropOnTag(memo.tag)}
-                          selected={selectedIds.has(memo.id)} onToggleSelect={toggleSelect}
-                          titleWidth={titleWidth} onResizeTitle={startResizeTitle} />
-                      ))}
+            ) : (
+              <>
+                <MemoColHeader colWidths={colWidths} onResizeCol={startResizeCol} />
+                {monthGroups.map(([ym, items], idx) => {
+                  const isCollapsed = collapsedMonths.has(ym)
+                  return (
+                    <div key={ym}>
+                      <button onClick={() => toggleMonthCollapse(ym)}
+                        className="flex items-center gap-2 mb-4 w-full text-left group py-1 pb-2"
+                        style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                        <span className="text-sm font-semibold text-white/70 group-hover:text-[#E2E8F0] transition-colors">{formatMonthLabel(ym)}</span>
+                        <span className="text-xs text-white/50 border border-white/[0.09] px-2 py-0.5 rounded-full"
+                          style={{ background: 'rgba(255,255,255,0.06)' }}>{items.length}개</span>
+                        {idx === 0 && <span className="text-[10px] text-[#A8C4F0] border border-[#4C7FE0]/40 px-2 py-0.5 rounded-full"
+                          style={{ background: 'rgba(27,58,107,0.2)' }}>최신</span>}
+                        <span className="text-xs text-white/[0.28] ml-auto group-hover:text-white/50 transition-colors">{isCollapsed ? '▶' : '▼'}</span>
+                      </button>
+                      {!isCollapsed && (
+                        <div>
+                          {items.map((memo: QuickMemo) => (
+                            <MemoRowGrid key={memo.id} memo={memo} onEdit={setEditing} onDelete={deleteMemo}
+                              draggable onDragStart={() => setDraggingId(memo.id)}
+                              onDragOver={e => e.preventDefault()} onDrop={() => handleDropOnTag(memo.tag)}
+                              selected={selectedIds.has(memo.id)} onToggleSelect={toggleSelect}
+                              colWidths={colWidths} onResizeCol={startResizeCol} />
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              )
-            })}
+                  )
+                })}
+              </>
+            )}
           </div>
         )}
       </div>
@@ -559,7 +674,7 @@ export default function MemosPage() {
   )
 }
 
-function MemoInputRow({ tag, setTag, title, setTitle, content, setContent, date, setDate, onSave, titleWidth = 150, onResizeTitle }: {
+function MemoInputRow({ tag, setTag, title, setTitle, content, setContent, date, setDate, onSave, titleWidth = 150, onResizeTitle, sectionMode }: {
   tag: MemoTag; setTag: (t: MemoTag) => void
   title: string; setTitle: (v: string) => void
   content: string; setContent: (v: string) => void
@@ -567,6 +682,7 @@ function MemoInputRow({ tag, setTag, title, setTitle, content, setContent, date,
   onSave: () => void
   titleWidth?: number
   onResizeTitle?: (e: React.MouseEvent) => void
+  sectionMode?: boolean
 }) {
   return (
     <div className="flex items-center gap-0" style={{ padding: '9px 4px', borderBottom: '0.5px solid rgba(255,255,255,0.07)' }}>
@@ -595,15 +711,24 @@ function MemoInputRow({ tag, setTag, title, setTitle, content, setContent, date,
         className="flex-1 text-xs focus:outline-none bg-transparent placeholder:text-white/20 ml-1"
         style={{ color: '#98A1B2' }}
       />
-      <select value={tag} onChange={e => setTag(e.target.value as MemoTag)}
-        className="text-[9px] px-1.5 py-0.5 rounded-full border focus:outline-none flex-shrink-0"
-        style={{ ...memoTagStyle(tag), cursor: 'pointer', width: 75, minWidth: 0 }}>
-        {ALL_TAGS.map(t => <option key={t} value={t} style={{ background: '#1e2130', color: '#E2E8F0' }}>{t}</option>)}
-      </select>
-      <input type="date" value={date} onChange={e => setDate(e.target.value)}
-        className="text-[10px] focus:outline-none rounded px-1 py-0.5 flex-shrink-0"
-        style={{ color: '#7B8397', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', colorScheme: 'dark', width: 108 } as React.CSSProperties}
-      />
+      {sectionMode ? (
+        <>
+          <span className="text-[9px] px-1.5 py-0.5 rounded-full border font-medium flex-shrink-0" style={memoTagStyle(tag)}>{tag}</span>
+          <span style={{ fontSize: 10, color: '#7B8397', flexShrink: 0, width: 36, textAlign: 'center' }}>날짜</span>
+        </>
+      ) : (
+        <>
+          <select value={tag} onChange={e => setTag(e.target.value as MemoTag)}
+            className="text-[9px] px-1.5 py-0.5 rounded-full border focus:outline-none flex-shrink-0"
+            style={{ ...memoTagStyle(tag), cursor: 'pointer', width: 75, minWidth: 0 }}>
+            {ALL_TAGS.map(t => <option key={t} value={t} style={{ background: '#1e2130', color: '#E2E8F0' }}>{t}</option>)}
+          </select>
+          <input type="date" value={date} onChange={e => setDate(e.target.value)}
+            className="text-[10px] focus:outline-none rounded px-1 py-0.5 flex-shrink-0"
+            style={{ color: '#7B8397', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', colorScheme: 'dark', width: 108 } as React.CSSProperties}
+          />
+        </>
+      )}
       <button onClick={onSave} disabled={!title.trim()}
         className="text-[10px] px-2.5 py-1 rounded-full flex-shrink-0 transition-all"
         style={{

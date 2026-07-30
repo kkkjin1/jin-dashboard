@@ -654,7 +654,7 @@ export default function HomePage() {
 
   useEffect(() => {
     try {
-      const s = localStorage.getItem('dash_st_cols_v7')
+      const s = localStorage.getItem('dash_st_cols_v9')
       if (s) {
         const p = JSON.parse(s)
         if (Array.isArray(p) && p.length === 5) setStCols(p as [number, number, number, number, number])
@@ -683,10 +683,10 @@ export default function HomePage() {
         const newL = Math.min(total - 44, Math.max(30, startWidths[0] + delta))
         next[0] = newL; next[1] = total - newL
       } else if (ci === 1) {
-        // 안건 ↔ 상세TASK(1fr): drag right → 안건 grows
+        // 안건 grows → 상세TASK(1fr) shrinks
         next[1] = Math.max(44, startWidths[1] + delta)
       } else if (ci === 2) {
-        // 상세TASK(1fr) ↔ 업데이트내용: drag right → 업데이트내용 narrows
+        // 상세TASK grows (via 1fr) ↔ 업데이트내용 shrinks
         next[4] = Math.max(44, startWidths[4] - delta)
       } else if (ci === 3) {
         // 업데이트내용 ↔ 업데이트 swap
@@ -700,7 +700,7 @@ export default function HomePage() {
         next[2] = newL; next[3] = total - newL
       }
       setStCols(next)
-      try { localStorage.setItem('dash_st_cols_v7', JSON.stringify(next)) } catch {}
+      try { localStorage.setItem('dash_st_cols_v9', JSON.stringify(next)) } catch {}
     }
     function onUp() {
       document.removeEventListener('mousemove', onMove)
@@ -1002,6 +1002,7 @@ export default function HomePage() {
               flexDirection: 'column',
               height: '100%',
               minHeight: 0,
+              overflow: 'hidden',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, flexShrink: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
@@ -1014,7 +1015,7 @@ export default function HomePage() {
               </div>
               {/* 컬럼 헤더: 범주 | 안건 | 상세TASK(1fr) | 업데이트 | 업데이트내용 | 마감 */}
               {!loading && subTasks.length > 0 && (
-                <div style={{ display: 'grid', gridTemplateColumns: `${stCols[0]}px ${stCols[1]}px 1fr ${stCols[4]}px ${stCols[2]}px ${stCols[3]}px`, padding: '0 0 6px', borderBottom: `1px solid ${DIVIDER}`, marginBottom: 2, flexShrink: 0, alignItems: 'center' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: `${stCols[0]}px ${stCols[1]}px minmax(44px, 1fr) ${stCols[4]}px ${stCols[2]}px ${stCols[3]}px`, padding: '0 0 6px', borderBottom: `1px solid ${DIVIDER}`, marginBottom: 2, flexShrink: 0, alignItems: 'center' }}>
                   {/* 범주 */}
                   <div style={{ textAlign: 'center' }}>
                     <button onClick={() => toggleSort('범주')} style={{ fontSize: 10, fontWeight: 600, color: stSort?.col === '범주' ? TEXT2 : TEXT3, letterSpacing: '0.04em', textTransform: 'uppercase', background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 2, padding: 0 }}>
@@ -1077,7 +1078,7 @@ export default function HomePage() {
                             draggable
                             onDragStart={e => { e.dataTransfer.setData('tl-extra', JSON.stringify({ id: `st_${st.id}`, title: st.title, subtitle: st.agenda_items?.title ?? '' })); e.dataTransfer.effectAllowed = 'copy' }}>
                             <ListRow style={{ ...rd(i, sortedSubTasks.length), height: '100%', display: 'flex', alignItems: 'center' }}>
-                              <div style={{ display: 'grid', gridTemplateColumns: `${stCols[0]}px ${stCols[1]}px 1fr ${stCols[4]}px ${stCols[2]}px ${stCols[3]}px`, alignItems: 'center', width: '100%' }}>
+                              <div style={{ display: 'grid', gridTemplateColumns: `${stCols[0]}px ${stCols[1]}px minmax(44px, 1fr) ${stCols[4]}px ${stCols[2]}px ${stCols[3]}px`, alignItems: 'center', width: '100%' }}>
                                 {/* 범주: 고정 색상 */}
                                 <div style={{ textAlign: 'center' }}>
                                   {st.agenda_items?.agenda_groups ? (() => {

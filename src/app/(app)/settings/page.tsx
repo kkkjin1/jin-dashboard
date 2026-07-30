@@ -64,11 +64,18 @@ export default function SettingsPage() {
   const [newTeamId, setNewTeamId] = useState('')
   const [newPartId, setNewPartId] = useState('')
 
+  // 팀원 추가 직책
+  const [newRole, setNewRole] = useState('팀원')
+
   // 팀원 편집
   const [editId, setEditId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
   const [editTeamId, setEditTeamId] = useState('')
   const [editPartId, setEditPartId] = useState('')
+  const [editRole, setEditRole] = useState('팀원')
+
+  // 직책 저장 (localStorage)
+  const [memberRoles, setMemberRoles] = useState<Record<string, string>>({})
 
   // 메뉴 설정
   const [hiddenMenus, setHiddenMenus] = useState<string[]>([])
@@ -84,6 +91,9 @@ export default function SettingsPage() {
 
     const storedOrg = localStorage.getItem('dashboard_org')
     if (storedOrg) { try { setOrg(JSON.parse(storedOrg)) } catch {} }
+
+    const storedRoles = localStorage.getItem('dashboard_member_roles')
+    if (storedRoles) { try { setMemberRoles(JSON.parse(storedRoles)) } catch {} }
 
     const storedHidden = localStorage.getItem('dashboard_hidden_menus')
     if (storedHidden) { try { setHiddenMenus(JSON.parse(storedHidden)) } catch {} }
@@ -141,6 +151,19 @@ export default function SettingsPage() {
     ))
   }
 
+  // ── 직책 저장 ──────────────────────────────────────────────────
+  function saveRole(memberId: string, role: string) {
+    const next = { ...memberRoles, [memberId]: role }
+    setMemberRoles(next)
+    localStorage.setItem('dashboard_member_roles', JSON.stringify(next))
+  }
+
+  function roleBadgeStyle(role: string): React.CSSProperties {
+    if (role === '팀장') return { background: 'rgba(76,127,224,0.15)', color: '#A8C4F0', border: '1px solid rgba(76,127,224,0.25)' }
+    if (role === '파트장') return { background: 'rgba(147,107,224,0.15)', color: '#C4A8F0', border: '1px solid rgba(147,107,224,0.25)' }
+    return { background: 'rgba(255,255,255,0.06)', color: 'rgba(226,232,240,0.4)', border: '1px solid rgba(255,255,255,0.09)' }
+  }
+
   // ── 팀원 추가 ──────────────────────────────────────────────────
   const selectedTeam = org.find(t => t.id === newTeamId)
   const selectedEditTeam = org.find(t => t.id === editTeamId)
@@ -154,11 +177,17 @@ export default function SettingsPage() {
 
   async function addMember() {
     if (!newName.trim() || !newTeamId) return
+    if (selectedTeam && selectedTeam.parts.length > 0 && !newPartId) {
+      alert('파트를 선택해주세요'); return
+    }
     const partValue = resolvePartValue(newTeamId, newPartId)
-    const { data } = await supabase.from('members').insert({ name: newName.trim(), part: partValue }).select().single()
-    if (data) setMembers(prev => [...prev, data as Member])
-    setNewName('')
-    setNewPartId('')
+    const { data, error } = await supabase.from('members').insert({ name: newName.trim(), part: partValue }).select().single()
+    if (error) { alert(`저장 실패: ${error.message}`); return }
+    if (data) {
+      setMembers(prev => [...prev, data as Member])
+      saveRole(data.id, newRole)
+    }
+    setNewName(''); setNewPartId(''); setNewRole('팀원')
   }
 
   async function updateMember(id: string) {
@@ -167,6 +196,7 @@ export default function SettingsPage() {
     const { error } = await supabase.from('members').update({ name: editName, part: partValue }).eq('id', id)
     if (error) { alert(`저장 실패: ${error.message}`); return }
     setMembers(prev => prev.map(m => m.id === id ? { ...m, name: editName, part: partValue } : m))
+    saveRole(id, editRole)
     setEditId(null)
   }
 
@@ -252,7 +282,7 @@ export default function SettingsPage() {
   // ── 편집 시작 ────────────────────────────────────────────────
   function startEdit(m: Member) {
     setEditId(m.id); setEditName(m.name)
-    // 팀/파트 역추적
+    setEditRole(memberRoles[m.id] || '팀원')
     for (const team of org) {
       if (team.parts.length === 0 && team.id === m.part) { setEditTeamId(team.id); setEditPartId(''); return }
       const p = team.parts.find(p => p.id === m.part)
@@ -308,11 +338,75 @@ export default function SettingsPage() {
                     style={{ color: 'rgba(226,232,240,0.25)' }}>삭제</button>
                 </div>
 
-                {/* 파트 목록 */}
-                <div className="px-4 py-2">
-                  {team.parts.length === 0 ? (
-                    <p className="text-[10px] py-1" style={{ color: 'rgba(226,232,240,0.25)' }}>파트 없음 — 팀원이 팀에 직접 소속</p>
-                  ) : (
+                {/* 팀원 목록 (파트별) */}
+                {(() => {
+                  const tg = grouped.find(g => g.team.id === team.id)
+                  if (!tg) return null
+                  return tg.subgroups.map(({ part, list }) => {
+                    if (list.length === 0 && !part) return null
+                    return (
+                      <div key={part?.id ?? 'direct'}>
+                        {part && (
+                          <div className="px-4 pt-2.5 pb-1" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                            <span className="text-[10px] font-semibold" style={{ color: 'rgba(226,232,240,0.3)' }}>{part.name}</span>
+                          </div>
+                        )}
+                        {list.map(m => (
+                          <div key={m.id} className="flex items-center gap-2.5 px-4 py-2.5 group"
+                            style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                            {editId === m.id ? (
+                              <>
+                                <input value={editName} onChange={e => setEditName(e.target.value)}
+                                  autoFocus onKeyDown={e => { if (e.key === 'Enter') updateMember(m.id); if (e.key === 'Escape') setEditId(null) }}
+                                  style={{ ...inp, flex: 1, padding: '4px 8px', fontSize: 12 }} />
+                                <select value={editTeamId} onChange={e => { setEditTeamId(e.target.value); setEditPartId('') }}
+                                  style={{ ...inp, padding: '4px 8px', fontSize: 12, cursor: 'pointer' }}>
+                                  <option value="" style={{ background: '#1e2130' }}>팀</option>
+                                  {org.map(t => <option key={t.id} value={t.id} style={{ background: '#1e2130' }}>{t.name}</option>)}
+                                </select>
+                                {selectedEditTeam && selectedEditTeam.parts.length > 0 && (
+                                  <select value={editPartId} onChange={e => setEditPartId(e.target.value)}
+                                    style={{ ...inp, padding: '4px 8px', fontSize: 12, cursor: 'pointer' }}>
+                                    <option value="" style={{ background: '#1e2130' }}>파트</option>
+                                    {selectedEditTeam.parts.map(p => <option key={p.id} value={p.id} style={{ background: '#1e2130' }}>{p.name}</option>)}
+                                  </select>
+                                )}
+                                <select value={editRole} onChange={e => setEditRole(e.target.value)}
+                                  style={{ ...inp, padding: '4px 8px', fontSize: 12, cursor: 'pointer', minWidth: 64 }}>
+                                  {['팀원', '파트장', '팀장'].map(r => <option key={r} value={r} style={{ background: '#1e2130' }}>{r}</option>)}
+                                </select>
+                                <button onClick={() => updateMember(m.id)} disabled={!editTeamId}
+                                  className="text-xs" style={{ color: editTeamId ? '#93c5fd' : 'rgba(226,232,240,0.2)', cursor: editTeamId ? 'pointer' : 'default' }}>저장</button>
+                                <button onClick={() => setEditId(null)} className="text-xs" style={{ color: 'rgba(226,232,240,0.4)' }}>취소</button>
+                              </>
+                            ) : (
+                              <>
+                                <div className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-medium flex-shrink-0"
+                                  style={{ background: 'rgba(255,255,255,0.1)', color: 'rgba(226,232,240,0.5)' }}>
+                                  {m.name[0]}
+                                </div>
+                                <span className="flex-1 text-sm" style={{ color: '#E2E8F0' }}>{m.name}</span>
+                                {memberRoles[m.id] && (
+                                  <span className="text-[9px] px-1.5 py-0.5 rounded-full" style={roleBadgeStyle(memberRoles[m.id])}>
+                                    {memberRoles[m.id]}
+                                  </span>
+                                )}
+                                <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <button onClick={() => startEdit(m)} className="text-xs" style={{ color: 'rgba(226,232,240,0.5)' }}>수정</button>
+                                  <button onClick={() => archiveMember(m.id)} className="text-xs" style={{ color: 'rgba(226,232,240,0.28)' }}>퇴사</button>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  })
+                })()}
+
+                {/* 파트 목록 + 추가 */}
+                <div className="px-4 py-2" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                  {team.parts.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 py-1">
                       {team.parts.map(part => {
                         const cnt = members.filter(m => m.part === part.id).length
@@ -330,7 +424,7 @@ export default function SettingsPage() {
                     </div>
                   )}
                   {/* 파트 추가 */}
-                  <div className="flex gap-2 mt-2 pt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                  <div className="flex gap-2 mt-1">
                     <input
                       value={newPartInputs[team.id] ?? ''}
                       onChange={e => setNewPartInputs(prev => ({ ...prev, [team.id]: e.target.value }))}
@@ -372,6 +466,10 @@ export default function SettingsPage() {
                   {selectedTeam.parts.map(p => <option key={p.id} value={p.id} style={{ background: '#1e2130' }}>{p.name}</option>)}
                 </select>
               )}
+              <select value={newRole} onChange={e => setNewRole(e.target.value)}
+                style={{ ...inp, cursor: 'pointer', minWidth: 72 }}>
+                {['팀원', '파트장', '팀장'].map(r => <option key={r} value={r} style={{ background: '#1e2130' }}>{r}</option>)}
+              </select>
             </div>
             <button onClick={addMember} disabled={!newName.trim() || !newTeamId}
               className="text-sm py-2 rounded-lg transition-colors"
@@ -387,119 +485,52 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      {/* ══ 팀원 목록 ════════════════════════════════════════════ */}
-      {org.length > 0 && (
+      {/* ══ 미배정 팀원 ══════════════════════════════════════════ */}
+      {unassigned.length > 0 && (
         <section className="mb-8">
-          <h2 className="text-sm font-semibold mb-3" style={{ color: 'rgba(226,232,240,0.5)' }}>팀원 목록</h2>
-
-          {grouped.map(({ team, subgroups }) => {
-            const totalMembers = subgroups.reduce((sum, sg) => sum + sg.list.length, 0)
-            if (totalMembers === 0) return null
-            return (
-            <div key={team.id} className="mb-4">
-              {/* 팀 레이블 */}
-              <p className="text-xs font-semibold mb-2" style={{ color: 'rgba(226,232,240,0.4)' }}>{team.name}</p>
-
-              {subgroups.map(({ part, list }) => (
-                <div key={part?.id ?? 'direct'} className="mb-2">
-                  {part && list.length > 0 && (
-                    <p className="text-[10px] mb-1.5 px-1" style={{ color: 'rgba(226,232,240,0.3)' }}>{part.name}</p>
-                  )}
-                  {list.length === 0 ? null : (
-                    <div style={card}>
-                      {list.map((m, idx) => (
-                        <div key={m.id} className="flex items-center gap-3 px-4 py-3 group"
-                          style={idx !== 0 ? { borderTop: '1px solid rgba(255,255,255,0.06)' } : {}}>
-                          {editId === m.id ? (
-                            <>
-                              <input value={editName} onChange={e => setEditName(e.target.value)}
-                                autoFocus onKeyDown={e => { if (e.key === 'Enter') updateMember(m.id); if (e.key === 'Escape') setEditId(null) }}
-                                style={{ ...inp, flex: 1, padding: '4px 8px', fontSize: 12 }} />
-                              <select value={editTeamId} onChange={e => { setEditTeamId(e.target.value); setEditPartId('') }}
-                                style={{ ...inp, padding: '4px 8px', fontSize: 12, cursor: 'pointer' }}>
-                                <option value="" style={{ background: '#1e2130' }}>팀</option>
-                                {org.map(t => <option key={t.id} value={t.id} style={{ background: '#1e2130' }}>{t.name}</option>)}
-                              </select>
-                              {selectedEditTeam && selectedEditTeam.parts.length > 0 && (
-                                <select value={editPartId} onChange={e => setEditPartId(e.target.value)}
-                                  style={{ ...inp, padding: '4px 8px', fontSize: 12, cursor: 'pointer' }}>
-                                  <option value="" style={{ background: '#1e2130' }}>파트</option>
-                                  {selectedEditTeam.parts.map(p => <option key={p.id} value={p.id} style={{ background: '#1e2130' }}>{p.name}</option>)}
-                                </select>
-                              )}
-                              <button onClick={() => updateMember(m.id)} disabled={!editTeamId} className="text-xs" style={{ color: editTeamId ? '#93c5fd' : 'rgba(226,232,240,0.2)', cursor: editTeamId ? 'pointer' : 'default' }}>저장</button>
-                              <button onClick={() => setEditId(null)} className="text-xs" style={{ color: 'rgba(226,232,240,0.4)' }}>취소</button>
-                            </>
-                          ) : (
-                            <>
-                              <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0"
-                                style={{ background: 'rgba(255,255,255,0.1)', color: 'rgba(226,232,240,0.5)' }}>
-                                {m.name[0]}
-                              </div>
-                              <span className="flex-1 text-sm" style={{ color: '#E2E8F0' }}>{m.name}</span>
-                              <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button onClick={() => startEdit(m)} className="text-xs" style={{ color: 'rgba(226,232,240,0.5)' }}>수정</button>
-                                <button onClick={() => archiveMember(m.id)} className="text-xs" style={{ color: 'rgba(226,232,240,0.28)' }}>삭제(보존)</button>
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-            )
-          })}
-
-          {/* 미배정 팀원 */}
-          {unassigned.length > 0 && (
-            <div className="mb-4">
-              <p className="text-xs font-semibold mb-2" style={{ color: 'rgba(226,232,240,0.28)' }}>미배정 ({unassigned.length}명)</p>
-              <div style={card}>
-                {unassigned.map((m, idx) => (
-                  <div key={m.id} className="flex items-center gap-3 px-4 py-3 group"
-                    style={idx !== 0 ? { borderTop: '1px solid rgba(255,255,255,0.06)' } : {}}>
-                    {editId === m.id ? (
-                      <>
-                        <input value={editName} onChange={e => setEditName(e.target.value)}
-                          autoFocus onKeyDown={e => { if (e.key === 'Enter') updateMember(m.id); if (e.key === 'Escape') setEditId(null) }}
-                          style={{ ...inp, flex: 1, padding: '4px 8px', fontSize: 12 }} />
-                        <select value={editTeamId} onChange={e => { setEditTeamId(e.target.value); setEditPartId('') }}
-                          style={{ ...inp, padding: '4px 8px', fontSize: 12, cursor: 'pointer' }}>
-                          <option value="" style={{ background: '#1e2130' }}>팀</option>
-                          {org.map(t => <option key={t.id} value={t.id} style={{ background: '#1e2130' }}>{t.name}</option>)}
-                        </select>
-                        {selectedEditTeam && selectedEditTeam.parts.length > 0 && (
-                          <select value={editPartId} onChange={e => setEditPartId(e.target.value)}
-                            style={{ ...inp, padding: '4px 8px', fontSize: 12, cursor: 'pointer' }}>
-                            <option value="" style={{ background: '#1e2130' }}>파트</option>
-                            {selectedEditTeam.parts.map(p => <option key={p.id} value={p.id} style={{ background: '#1e2130' }}>{p.name}</option>)}
-                          </select>
-                        )}
-                        <button onClick={() => updateMember(m.id)} className="text-xs" style={{ color: '#93c5fd' }}>저장</button>
-                        <button onClick={() => setEditId(null)} className="text-xs" style={{ color: 'rgba(226,232,240,0.4)' }}>취소</button>
-                      </>
-                    ) : (
-                      <>
-                        <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0"
-                          style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(226,232,240,0.28)' }}>{m.name[0]}</div>
-                        <span className="flex-1 text-sm" style={{ color: 'rgba(226,232,240,0.5)' }}>{m.name}</span>
-                        <span className="text-[9px] px-1.5 py-0.5 rounded" style={{ background: 'rgba(255,255,255,0.04)', color: 'rgba(226,232,240,0.25)' }}>
-                          {m.part}
-                        </span>
-                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button onClick={() => startEdit(m)} className="text-xs" style={{ color: 'rgba(226,232,240,0.5)' }}>배정</button>
-                          <button onClick={() => archiveMember(m.id)} className="text-xs" style={{ color: 'rgba(226,232,240,0.28)' }}>삭제(보존)</button>
-                        </div>
-                      </>
+          <h2 className="text-sm font-semibold mb-3" style={{ color: 'rgba(226,232,240,0.28)' }}>미배정 ({unassigned.length}명)</h2>
+          <div style={card}>
+            {unassigned.map((m, idx) => (
+              <div key={m.id} className="flex items-center gap-3 px-4 py-3 group"
+                style={idx !== 0 ? { borderTop: '1px solid rgba(255,255,255,0.06)' } : {}}>
+                {editId === m.id ? (
+                  <>
+                    <input value={editName} onChange={e => setEditName(e.target.value)}
+                      autoFocus onKeyDown={e => { if (e.key === 'Enter') updateMember(m.id); if (e.key === 'Escape') setEditId(null) }}
+                      style={{ ...inp, flex: 1, padding: '4px 8px', fontSize: 12 }} />
+                    <select value={editTeamId} onChange={e => { setEditTeamId(e.target.value); setEditPartId('') }}
+                      style={{ ...inp, padding: '4px 8px', fontSize: 12, cursor: 'pointer' }}>
+                      <option value="" style={{ background: '#1e2130' }}>팀</option>
+                      {org.map(t => <option key={t.id} value={t.id} style={{ background: '#1e2130' }}>{t.name}</option>)}
+                    </select>
+                    {selectedEditTeam && selectedEditTeam.parts.length > 0 && (
+                      <select value={editPartId} onChange={e => setEditPartId(e.target.value)}
+                        style={{ ...inp, padding: '4px 8px', fontSize: 12, cursor: 'pointer' }}>
+                        <option value="" style={{ background: '#1e2130' }}>파트</option>
+                        {selectedEditTeam.parts.map(p => <option key={p.id} value={p.id} style={{ background: '#1e2130' }}>{p.name}</option>)}
+                      </select>
                     )}
-                  </div>
-                ))}
+                    <select value={editRole} onChange={e => setEditRole(e.target.value)}
+                      style={{ ...inp, padding: '4px 8px', fontSize: 12, cursor: 'pointer', minWidth: 64 }}>
+                      {['팀원', '파트장', '팀장'].map(r => <option key={r} value={r} style={{ background: '#1e2130' }}>{r}</option>)}
+                    </select>
+                    <button onClick={() => updateMember(m.id)} className="text-xs" style={{ color: '#93c5fd' }}>저장</button>
+                    <button onClick={() => setEditId(null)} className="text-xs" style={{ color: 'rgba(226,232,240,0.4)' }}>취소</button>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0"
+                      style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(226,232,240,0.28)' }}>{m.name[0]}</div>
+                    <span className="flex-1 text-sm" style={{ color: 'rgba(226,232,240,0.5)' }}>{m.name}</span>
+                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={() => startEdit(m)} className="text-xs" style={{ color: 'rgba(226,232,240,0.5)' }}>배정</button>
+                      <button onClick={() => archiveMember(m.id)} className="text-xs" style={{ color: 'rgba(226,232,240,0.28)' }}>삭제(보존)</button>
+                    </div>
+                  </>
+                )}
               </div>
-            </div>
-          )}
+            ))}
+          </div>
         </section>
       )}
 
