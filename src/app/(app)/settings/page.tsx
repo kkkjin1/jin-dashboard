@@ -392,14 +392,17 @@ export default function SettingsPage() {
         <section className="mb-8">
           <h2 className="text-sm font-semibold mb-3" style={{ color: 'rgba(226,232,240,0.5)' }}>팀원 목록</h2>
 
-          {grouped.map(({ team, subgroups }) => (
+          {grouped.map(({ team, subgroups }) => {
+            const totalMembers = subgroups.reduce((sum, sg) => sum + sg.list.length, 0)
+            if (totalMembers === 0) return null
+            return (
             <div key={team.id} className="mb-4">
               {/* 팀 레이블 */}
               <p className="text-xs font-semibold mb-2" style={{ color: 'rgba(226,232,240,0.4)' }}>{team.name}</p>
 
               {subgroups.map(({ part, list }) => (
-                <div key={part?.id ?? 'direct'} className="mb-2" style={list.length > 0 ? {} : undefined}>
-                  {part && (
+                <div key={part?.id ?? 'direct'} className="mb-2">
+                  {part && list.length > 0 && (
                     <p className="text-[10px] mb-1.5 px-1" style={{ color: 'rgba(226,232,240,0.3)' }}>{part.name}</p>
                   )}
                   {list.length === 0 ? null : (
@@ -447,7 +450,8 @@ export default function SettingsPage() {
                 </div>
               ))}
             </div>
-          ))}
+            )
+          })}
 
           {/* 미배정 팀원 */}
           {unassigned.length > 0 && (
