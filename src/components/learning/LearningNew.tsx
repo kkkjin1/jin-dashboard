@@ -8,6 +8,7 @@ import { useUserSetting } from '@/hooks/useUserSetting'
 import LearningSearchToolbar, { type StatusFilter, type MediaFilter } from './LearningSearchToolbar'
 import LearningSection from './LearningSection'
 import { getStatus } from './LearningRow'
+import { type ColWidths, loadColWidths, saveColWidths } from './colWidths'
 
 const DEFAULT_TAGS = ['HR', '경제', '리더십', '평가보상', '데이터', '조직문화', '기획']
 
@@ -20,6 +21,10 @@ export default function LearningNew() {
 
   const [resources, setResources] = useState<LearningResource[]>([])
   const [loading,   setLoading]   = useState(true)
+  const [colWidths, setColWidths] = useState<ColWidths>(() => {
+    if (typeof window === 'undefined') return { title: 280, source: 140, status: 64 }
+    return loadColWidths()
+  })
 
   const { value: customTags } = useUserSetting<string[]>('learning_custom_tags', DEFAULT_TAGS)
   const { value: siteShortcuts } = useUserSetting<SiteShortcut[]>('learning_site_shortcuts', [])
@@ -39,6 +44,26 @@ export default function LearningNew() {
     supabase.from('learning_resources').select('*').order('created_at', { ascending: false })
       .then(({ data }) => { setResources((data ?? []) as LearningResource[]); setLoading(false) })
   }, [])
+
+  // ── 컬럼 리사이즈 ─────────────────────────────────────
+  function startResize(col: keyof ColWidths, e: React.MouseEvent) {
+    e.preventDefault()
+    const startX    = e.clientX
+    const startW    = colWidths[col]
+    const MIN_W     = col === 'status' ? 52 : 80
+    const MAX_W     = col === 'title' ? 600 : col === 'source' ? 400 : 140
+
+    function onMove(ev: MouseEvent) {
+      const next = Math.min(MAX_W, Math.max(MIN_W, startW + ev.clientX - startX))
+      setColWidths(prev => { const w = { ...prev, [col]: next }; saveColWidths(w); return w })
+    }
+    function onUp() {
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+    }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }
 
   // ── CRUD (기존과 동일) ──────────────────────────────────
   async function handleAdd() {
@@ -218,6 +243,8 @@ export default function LearningNew() {
                 tag={tag}
                 allTags={allTags}
                 resources={items}
+                colWidths={colWidths}
+                onResizeCol={startResize}
                 onNavigate={id => router.push(`/learning/${id}`)}
                 onCycleStatus={cycleStatus}
               />
