@@ -426,7 +426,7 @@ export default function MemosPage() {
     setCollapsedMonths(prev => { const s = new Set(prev); s.has(ym) ? s.delete(ym) : s.add(ym); return s })
   }
 
-  const [collapsedTags, setCollapsedTags] = useState<Set<string>>(new Set(['공지', '업무관련', '회의관련', '아이디어', '완료']))
+  const [collapsedTags, setCollapsedTags] = useState<Set<string>>(new Set())
 
   // '전체' 뷰: 공지 상단 고정 + 나머지 범주별 섹션
   const NON_NOTICE_TAGS: MemoTag[] = ['업무관련', '회의관련', '아이디어', '완료']
@@ -636,17 +636,6 @@ export default function MemosPage() {
               </div>
             ) : (
               <>
-                <div className="flex items-center justify-end mb-2">
-                  <button
-                    onClick={() => setCollapsedMonths(new Set(monthGroups.slice(1).map(([ym]) => ym)))}
-                    className="text-[10px] px-2.5 py-1 rounded-full transition-colors"
-                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)', color: 'rgba(226,232,240,0.4)' }}
-                    onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = 'rgba(226,232,240,0.7)')}
-                    onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = 'rgba(226,232,240,0.4)')}
-                  >
-                    이전 접기
-                  </button>
-                </div>
                 <MemoColHeader colWidths={colWidths} onResizeCol={startResizeCol} />
                 {monthGroups.map(([ym, items], idx) => {
                   const isCollapsed = collapsedMonths.has(ym)
