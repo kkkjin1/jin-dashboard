@@ -515,10 +515,20 @@ export default function OneOnOnePage() {
       setArchivedMembers(archived)
       setSessions((data ?? []) as OneOnOne[])
     })
+    // localStorage 즉시 로드 (캐시)
     const storedOrg = localStorage.getItem('dashboard_org')
     if (storedOrg) { try { setOrg(JSON.parse(storedOrg)) } catch {} }
     const storedHidden = localStorage.getItem('oneOnOne_hidden_teams')
     if (storedHidden) { try { setHiddenTeams(new Set(JSON.parse(storedHidden))) } catch {} }
+
+    // Supabase 동기화 (Mac/Windows 공유)
+    supabase.from('user_preferences').select('value').eq('key', 'org').single()
+      .then(({ data }) => {
+        if (data?.value) {
+          setOrg(data.value as OrgTeam[])
+          localStorage.setItem('dashboard_org', JSON.stringify(data.value))
+        }
+      })
   }, [])
 
   function getLastSession(memberId: string): OneOnOne | undefined {
