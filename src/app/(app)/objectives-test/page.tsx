@@ -605,29 +605,31 @@ function GroupSection({
     setNewTitle(''); setNewDesc(''); setAddingObj(false)
   }
 
-  const color = dotColor(group.name)
-  const bgColor = headerBg(group.name)
+  const color    = dotColor(group.name)
+  const bgColor  = headerBg(group.name)
+  const hoverBg  = hexAlpha(color, 0.14)
+  const borderC  = hexAlpha(color, 0.18)
+  const boxC     = hexAlpha(color, 0.25)
 
   return (
-    <div>
+    <div style={{ borderRadius: 12, marginBottom: 8, boxShadow: `0 0 0 1px ${boxC}` }}>
       {/* Group header row */}
       <div
         onClick={editingName ? undefined : onToggle}
         className="flex items-center cursor-pointer select-none group/grp"
         style={{
-          background: 'rgba(255,255,255,0.025)',
-          borderTop: '1px solid rgba(255,255,255,0.06)',
-          borderBottom: '1px solid rgba(255,255,255,0.06)',
+          background: bgColor,
+          borderBottom: `1px solid ${borderC}`,
           minHeight: 57,
           transition: 'background 0.15s',
         }}
-        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.042)' }}
-        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.025)' }}
+        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = hoverBg }}
+        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = bgColor }}
       >
         {/* Sticky left — 팀 이름 (z-14, ObjectiveRow sticky z-15 아래) */}
         <div
           className="sticky left-0 z-[14] flex items-center flex-shrink-0"
-          style={{ width: LEFT_W, background: '#1E2535', minHeight: 57, padding: '12px 20px', borderRight: '1px solid rgba(255,255,255,0.04)' }}
+          style={{ width: LEFT_W, background: bgColor, minHeight: 57, padding: '12px 20px', borderRight: `1px solid ${borderC}` }}
         >
           {/* Expand icon */}
           <ChevronRight
