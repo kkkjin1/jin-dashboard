@@ -6,7 +6,7 @@ import type { ColWidths } from './colWidths'
 
 type Status = 'todo' | 'doing' | 'done'
 
-const MEDIA_EMOJI: Record<string, string> = { 책: '📚', 영상: '🎬', 아티클: '📄', 강의: '🎓', 기타: '📌' }
+const MEDIA_EMOJI: Record<string, string> = { 책: '📚', 영상: '🎬', 아티클: '📰', 강의: '🎓', 기타: '📌' }
 const STATUS_LABEL: Record<Status, string> = { todo: '보기전', doing: '보는중', done: '완료' }
 const STATUS_STYLE: Record<Status, React.CSSProperties> = {
   todo:  { background: 'rgba(255,255,255,0.06)', color: 'rgba(226,232,240,0.35)', border: '1px solid rgba(255,255,255,0.09)' },
@@ -36,7 +36,7 @@ export default function LearningRow({ resource, colWidths, onNavigate, onCycleSt
 
   return (
     <div
-      className="group flex items-center cursor-pointer transition-colors -mx-4 px-4"
+      className="group flex items-center cursor-pointer transition-colors"
       style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', padding: '10px 16px' }}
       onClick={onNavigate}
       onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.03)')}
