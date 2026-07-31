@@ -88,11 +88,14 @@ function getFixedWeekCols(): WeekCol[] {
   })
 }
 
+const VIBRANT_KEYS = ['blue', 'purple', 'teal', 'pink', 'green', 'cyan', 'lilac']
 function dotColor(name: string): string {
-  try {
-    const key = TEAM_COLOR[name] ?? colorKeyFromName(name)
-    return CATEGORY_PALETTE[key].solid
-  } catch { return '#4A7FC0' }
+  const stripped = name.replace(/팀$|부$|본부$|파트$/, '')
+  const key = TEAM_COLOR[name] ?? TEAM_COLOR[stripped]
+  if (key) return CATEGORY_PALETTE[key].solid
+  let h = 0
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0
+  return CATEGORY_PALETTE[VIBRANT_KEYS[h % VIBRANT_KEYS.length] as keyof typeof CATEGORY_PALETTE]?.solid ?? '#6B9BE0'
 }
 
 function hexAlpha(hex: string, alpha: number): string {
@@ -605,22 +608,25 @@ function GroupSection({
     setNewTitle(''); setNewDesc(''); setAddingObj(false)
   }
 
-  const color    = dotColor(group.name)
-  const bgColor  = hexAlpha(color, 0.11)
-  const leftBg   = hexAlpha(color, 0.18)
-  const hoverBg  = hexAlpha(color, 0.17)
-  const borderC  = hexAlpha(color, 0.2)
+  const color   = dotColor(group.name)
+  const bgColor = hexAlpha(color, 0.09)
+  const hoverBg = hexAlpha(color, 0.15)
 
   return (
-    <div style={{ marginBottom: 2 }}>
+    <div style={{
+      borderRadius: 12,
+      overflow: 'clip',
+      marginBottom: 8,
+      border: '1px solid rgba(255,255,255,0.1)',
+      background: 'rgba(255,255,255,0.03)',
+    }}>
       {/* Group header row */}
       <div
         onClick={editingName ? undefined : onToggle}
         className="flex items-center cursor-pointer select-none group/grp"
         style={{
           background: bgColor,
-          borderTop: `1px solid ${borderC}`,
-          borderBottom: isOpen ? `1px solid ${borderC}` : `1px solid ${borderC}`,
+          borderBottom: '1px solid rgba(255,255,255,0.08)',
           minHeight: 57,
           transition: 'background 0.15s',
         }}
@@ -629,8 +635,8 @@ function GroupSection({
       >
         {/* Sticky left — 팀 이름 (z-14, ObjectiveRow sticky z-15 아래) */}
         <div
-          className="sticky left-0 z-[14] flex items-center flex-shrink-0 group-hover/grp:brightness-110 transition-all"
-          style={{ width: LEFT_W, background: leftBg, minHeight: 57, padding: '12px 20px', borderRight: `1px solid ${borderC}` }}
+          className="sticky left-0 z-[14] flex items-center flex-shrink-0"
+          style={{ width: LEFT_W, background: bgColor, minHeight: 57, padding: '12px 20px', borderRight: '1px solid rgba(255,255,255,0.08)' }}
         >
           {/* Expand icon */}
           <ChevronRight
