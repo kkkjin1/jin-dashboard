@@ -59,6 +59,21 @@ export default function LearningSection({ tag, allTags, resources, onNavigate, o
         </span>
       </div>
 
+      {/* 변수행 (컬럼 헤더) */}
+      {!collapsed && (
+        <div
+          className="flex items-center gap-3 px-4 py-2"
+          style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+        >
+          <span className="w-6 flex-shrink-0" />
+          <span className="flex-1 text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'rgba(226,232,240,0.25)' }}>제목</span>
+          <span className="w-[140px] text-[10px] font-semibold uppercase tracking-wide flex-shrink-0" style={{ color: 'rgba(226,232,240,0.25)' }}>출처</span>
+          <span className="w-[52px] text-[10px] font-semibold uppercase tracking-wide text-center flex-shrink-0" style={{ color: 'rgba(226,232,240,0.25)' }}>상태</span>
+          <span className="w-[40px] text-[10px] font-semibold uppercase tracking-wide text-right flex-shrink-0" style={{ color: 'rgba(226,232,240,0.25)' }}>노트</span>
+          <span className="w-5 flex-shrink-0" />
+        </div>
+      )}
+
       {/* 리소스 목록 */}
       {!collapsed && (
         <div className="px-4 py-1">
