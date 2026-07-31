@@ -1,0 +1,248 @@
+'use client'
+
+import { useEffect, useState, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
+import { format, parseISO, subDays, startOfMonth, startOfYear } from 'date-fns'
+import { ko } from 'date-fns/locale'
+import type { Meeting } from '@/types'
+import { CATEGORY_PALETTE, MEETING_CATEGORY, colorKeyFromName } from '@/lib/categoryColors'
+import SearchToolbar, { type DateFilter, type SortOrder } from './SearchToolbar'
+import MeetingSection from './MeetingSection'
+
+const DEFAULT_CATS = ['코어', '비즈', '개인', '경영진', '기타']
+
+function catDot(cat: string): string {
+  const key = MEETING_CATEGORY[cat] ?? colorKeyFromName(cat)
+  return CATEGORY_PALETTE[key]?.solid ?? '#4A7FC0'
+}
+
+function filterByDate(meetings: Meeting[], filter: DateFilter): Meeting[] {
+  if (filter === '전체') return meetings
+  const today = new Date()
+  const todayStr = format(today, 'yyyy-MM-dd')
+
+  const from = (() => {
+    switch (filter) {
+      case '오늘':    return todayStr
+      case '최근7일': return format(subDays(today, 6), 'yyyy-MM-dd')
+      case '이번달':  return format(startOfMonth(today), 'yyyy-MM-dd')
+      case '이번분기': {
+        const qm = Math.floor(today.getMonth() / 3) * 3
+        return format(new Date(today.getFullYear(), qm, 1), 'yyyy-MM-dd')
+      }
+      case '이번반기': {
+        const hm = today.getMonth() < 6 ? 0 : 6
+        return format(new Date(today.getFullYear(), hm, 1), 'yyyy-MM-dd')
+      }
+      case '올해': return format(startOfYear(today), 'yyyy-MM-dd')
+      default:     return null
+    }
+  })()
+
+  if (!from) return meetings
+  return meetings.filter(m => m.meeting_date && m.meeting_date >= from && m.meeting_date <= todayStr)
+}
+
+export default function MeetingNotesNew() {
+  const supabase = createClient()
+  const router   = useRouter()
+
+  const [meetings,  setMeetings]  = useState<Meeting[]>([])
+  const [loading,   setLoading]   = useState(true)
+  const [catOrder,  setCatOrder]  = useState<string[]>([...DEFAULT_CATS])
+
+  // 필터 상태
+  const [search,     setSearch]     = useState('')
+  const [dateFilter, setDateFilter] = useState<DateFilter>('전체')
+  const [teamFilter, setTeamFilter] = useState('전체')
+  const [sortOrder,  setSortOrder]  = useState<SortOrder>('최신순')
+
+  // 새 회의록 추가
+  const [adding,    setAdding]    = useState(false)
+  const [newTitle,  setNewTitle]  = useState('')
+
+  useEffect(() => {
+    let savedOrder = [...DEFAULT_CATS]
+    try {
+      const saved = localStorage.getItem('meetings_cat_order')
+      if (saved) {
+        const parsed = JSON.parse(saved) as string[]
+        if (parsed.length > 0) savedOrder = parsed
+      }
+    } catch {}
+
+    supabase
+      .from('meetings')
+      .select('*')
+      .order('meeting_date', { ascending: false, nullsFirst: false })
+      .then(({ data: m }) => {
+        const loaded = (m ?? []) as Meeting[]
+        setMeetings(loaded)
+
+        // DB에 있는 신규 범주 자동 추가
+        const dbCats = [...new Set(loaded.map(mt => mt.category).filter((c): c is string => !!c && c !== '기타'))]
+        const missing = dbCats.filter(c => !savedOrder.includes(c))
+        if (missing.length > 0) {
+          const withoutEtc = savedOrder.filter(c => c !== '기타')
+          const next = [...withoutEtc, ...missing, ...(savedOrder.includes('기타') ? ['기타'] : [])]
+          savedOrder = next
+          localStorage.setItem('meetings_cat_order', JSON.stringify(next))
+        }
+        setCatOrder(savedOrder)
+        setLoading(false)
+      })
+  }, [])
+
+  async function handleAdd() {
+    const title = newTitle.trim()
+    if (!title) { setAdding(false); return }
+    const today = format(new Date(), 'yyyy-MM-dd')
+    const { data } = await supabase
+      .from('meetings')
+      .insert({ title, meeting_date: today, notes: [] })
+      .select()
+      .single()
+    if (data) {
+      setNewTitle('')
+      setAdding(false)
+      router.push(`/meetings/${(data as Meeting).id}`)
+    }
+  }
+
+  // 필터링 + 정렬
+  const filtered = useMemo(() => {
+    let list = filterByDate(meetings, dateFilter)
+
+    if (search.trim()) {
+      const q = search.trim().toLowerCase()
+      list = list.filter(m => m.title.toLowerCase().includes(q))
+    }
+
+    if (teamFilter !== '전체') {
+      const nonEtc = catOrder.filter(c => c !== '기타')
+      if (teamFilter === '기타') {
+        list = list.filter(m => !m.category || m.category === '기타' || !nonEtc.includes(m.category))
+      } else {
+        list = list.filter(m => m.category === teamFilter)
+      }
+    }
+
+    if (sortOrder === '오래된순') list = [...list].sort((a, b) => (a.meeting_date ?? '').localeCompare(b.meeting_date ?? ''))
+    else if (sortOrder === '제목순') list = [...list].sort((a, b) => a.title.localeCompare(b.title, 'ko'))
+    // 최신순은 이미 DB 쿼리에서 정렬됨
+
+    return list
+  }, [meetings, dateFilter, search, teamFilter, sortOrder, catOrder])
+
+  // 팀별 그룹
+  const groups = useMemo(() => {
+    const nonEtc = catOrder.filter(c => c !== '기타')
+    const result = catOrder
+      .map(cat => {
+        const items = cat === '기타'
+          ? filtered.filter(m => !m.category || m.category === '기타' || !nonEtc.includes(m.category ?? ''))
+          : filtered.filter(m => m.category === cat)
+        if (items.length === 0) return null
+        return { cat, items }
+      })
+      .filter(Boolean) as { cat: string; items: Meeting[] }[]
+
+    // catOrder에 없는 범주도 표시
+    const assignedIds = new Set(result.flatMap(g => g.items.map(m => m.id)))
+    const leftovers = filtered.filter(m => !assignedIds.has(m.id))
+    if (leftovers.length > 0) result.push({ cat: '기타', items: leftovers })
+
+    return result
+  }, [filtered, catOrder])
+
+  const teams = catOrder
+
+  return (
+    <div className="h-full flex flex-col overflow-hidden" style={{ background: '#0F1319' }}>
+
+      {/* 헤더 */}
+      <div className="flex-shrink-0 flex items-center pt-6 pb-3">
+        <div>
+          <h1 className="text-[20px] font-bold" style={{ color: '#E2E8F0' }}>회의록</h1>
+          <p className="text-[12px] mt-0.5" style={{ color: 'rgba(226,232,240,0.35)' }}>중요한 논의와 결정사항을 기록하고 관리하세요.</p>
+        </div>
+        <div className="ml-auto">
+          <button
+            onClick={() => setAdding(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-medium transition-colors"
+            style={{ background: 'rgba(76,127,224,0.18)', border: '1px solid rgba(76,127,224,0.35)', color: '#9DBEF5' }}
+          >
+            + 새 회의록
+          </button>
+        </div>
+      </div>
+
+      {/* 새 회의록 입력 폼 */}
+      {adding && (
+        <div
+          className="flex-shrink-0 rounded-2xl px-5 py-4 mb-3"
+          style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
+        >
+          <input
+            autoFocus
+            value={newTitle}
+            onChange={e => setNewTitle(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleAdd()
+              if (e.key === 'Escape') { setAdding(false); setNewTitle('') }
+            }}
+            onBlur={handleAdd}
+            placeholder="회의 제목 입력 후 Enter"
+            className="w-full text-[13px] bg-transparent focus:outline-none placeholder:text-[rgba(226,232,240,0.3)]"
+            style={{ color: '#E2E8F0' }}
+          />
+        </div>
+      )}
+
+      {/* 검색 툴바 (sticky) */}
+      <SearchToolbar
+        search={search}       setSearch={setSearch}
+        dateFilter={dateFilter} setDateFilter={setDateFilter}
+        teamFilter={teamFilter} setTeamFilter={setTeamFilter}
+        sortOrder={sortOrder}   setSortOrder={setSortOrder}
+        teams={teams}
+        total={filtered.length}
+      />
+
+      {/* 본문 */}
+      <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
+        {loading ? (
+          <div className="space-y-3 pb-6">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="h-40 rounded-2xl animate-pulse" style={{ background: 'rgba(255,255,255,0.04)' }} />
+            ))}
+          </div>
+        ) : groups.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-48 gap-3">
+            <p className="text-[13px]" style={{ color: 'rgba(226,232,240,0.3)' }}>조건에 맞는 회의록이 없습니다</p>
+            <button
+              onClick={() => { setSearch(''); setDateFilter('전체'); setTeamFilter('전체') }}
+              className="text-[12px] px-4 py-1.5 rounded-full transition-colors"
+              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(226,232,240,0.5)' }}
+            >
+              필터 초기화
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-3 pb-8">
+            {groups.map(({ cat, items }) => (
+              <MeetingSection
+                key={cat}
+                cat={cat}
+                meetings={items}
+                dotColor={catDot(cat)}
+                onNavigate={id => router.push(`/meetings/${id}`)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
