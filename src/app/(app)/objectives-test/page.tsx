@@ -973,7 +973,8 @@ export default function ObjectivesTestPage() {
   const activeQ = `${selYear}-Q${selQ}`
 
   const weekCols = getFixedWeekCols()
-  const visibleCols = weekCols
+  const [showPrevWeeks, setShowPrevWeeks] = useState(false)
+  const visibleCols = showPrevWeeks ? weekCols : weekCols.filter(c => c.isThisWeek)
 
   const [groups, setGroups] = useState<GroupV2[]>([])
   const [objectives, setObjectives] = useState<ObjectiveV2[]>([])
@@ -1127,7 +1128,7 @@ export default function ObjectivesTestPage() {
   const thisWeekStart = weekCols.find(c => c.isThisWeek)?.start ?? ''
   const thisWeekEntries = entries.filter(e => e.week_start === thisWeekStart && e.content)
 
-  const totalMinW = LEFT_W + COL_W * 2 + TODAY_W
+  const totalMinW = LEFT_W + visibleCols.filter(c => !c.isThisWeek).length * COL_W + TODAY_W
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -1151,6 +1152,18 @@ export default function ObjectivesTestPage() {
             >
               <Plus size={12} />
               팀 추가
+            </button>
+            {/* 이전주 토글 */}
+            <button
+              onClick={() => setShowPrevWeeks(v => !v)}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium border transition-all"
+              style={{
+                background: showPrevWeeks ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.04)',
+                color: showPrevWeeks ? 'rgba(226,232,240,0.65)' : 'rgba(226,232,240,0.38)',
+                borderColor: showPrevWeeks ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.08)',
+              }}
+            >
+              {showPrevWeeks ? '이전주 접기' : '이전주 보기'}
             </button>
             {/* MD 다운로드 */}
             <button
