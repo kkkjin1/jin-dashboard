@@ -67,7 +67,9 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const [teamName, setTeamName] = useState('인사기획팀')
 
   useEffect(() => {
-    function loadSettings() {
+    const allHrefs = NAV_SECTIONS.flatMap(s => s.items.map(i => i.href))
+
+    function loadFromLocal() {
       const hidden = localStorage.getItem('dashboard_hidden_menus')
       if (hidden) { try { setHiddenMenus(JSON.parse(hidden)) } catch {} }
       const name = localStorage.getItem('dashboard_team_name')
@@ -75,14 +77,36 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
       const order = localStorage.getItem('dashboard_menu_order')
       if (order) { try { setMenuOrder(JSON.parse(order)) } catch {} }
     }
-    loadSettings()
-    window.addEventListener('nav-visibility-change', loadSettings)
-    window.addEventListener('team-name-change', loadSettings)
-    window.addEventListener('nav-order-change', loadSettings)
+
+    async function syncFromDB() {
+      const supabase = createClient()
+      const { data: prefs } = await supabase
+        .from('user_preferences')
+        .select('key, value')
+        .in('key', ['menu_order', 'hidden_menus'])
+      for (const pref of prefs ?? []) {
+        if (pref.key === 'hidden_menus' && Array.isArray(pref.value)) {
+          setHiddenMenus(pref.value as string[])
+          localStorage.setItem('dashboard_hidden_menus', JSON.stringify(pref.value))
+        }
+        if (pref.key === 'menu_order' && Array.isArray(pref.value)) {
+          const full = [...pref.value as string[], ...allHrefs.filter(h => !(pref.value as string[]).includes(h))]
+          setMenuOrder(full)
+          localStorage.setItem('dashboard_menu_order', JSON.stringify(full))
+        }
+      }
+    }
+
+    loadFromLocal()
+    syncFromDB()
+
+    window.addEventListener('nav-visibility-change', loadFromLocal)
+    window.addEventListener('team-name-change', loadFromLocal)
+    window.addEventListener('nav-order-change', loadFromLocal)
     return () => {
-      window.removeEventListener('nav-visibility-change', loadSettings)
-      window.removeEventListener('team-name-change', loadSettings)
-      window.removeEventListener('nav-order-change', loadSettings)
+      window.removeEventListener('nav-visibility-change', loadFromLocal)
+      window.removeEventListener('team-name-change', loadFromLocal)
+      window.removeEventListener('nav-order-change', loadFromLocal)
     }
   }, [])
 

@@ -84,34 +84,64 @@ export default function SettingsPage() {
   const [dragOverHref, setDragOverHref] = useState<string | null>(null)
 
   useEffect(() => {
-    supabase.from('members').select('*').is('archived_at', null).order('name')
-      .then(({ data }) => setMembers((data ?? []) as Member[]))
-    supabase.from('members').select('*').not('archived_at', 'is', null).order('archived_at', { ascending: false })
-      .then(({ data }) => setArchived((data ?? []) as Member[]))
+    async function load() {
+      // ── 팀원 (role 컬럼 포함) ─────────────────────────────────
+      const { data: membersData } = await supabase.from('members').select('*').is('archived_at', null).order('name')
+      const { data: archivedData } = await supabase.from('members').select('*').not('archived_at', 'is', null).order('archived_at', { ascending: false })
+      setMembers((membersData ?? []) as Member[])
+      setArchived((archivedData ?? []) as Member[])
 
-    const storedOrg = localStorage.getItem('dashboard_org')
-    if (storedOrg) { try { setOrg(JSON.parse(storedOrg)) } catch {} }
+      // 직책: DB members.role → memberRoles state
+      const roles: Record<string, string> = {}
+      for (const m of (membersData ?? []) as Member[]) {
+        if (m.role) roles[m.id] = m.role
+      }
+      setMemberRoles(roles)
 
-    const storedRoles = localStorage.getItem('dashboard_member_roles')
-    if (storedRoles) { try { setMemberRoles(JSON.parse(storedRoles)) } catch {} }
+      // ── user_preferences (Supabase 우선, 없으면 localStorage 마이그레이션) ──
+      const { data: prefs } = await supabase
+        .from('user_preferences')
+        .select('key, value')
+        .in('key', ['org', 'menu_order', 'hidden_menus'])
+      const prefMap: Record<string, unknown> = Object.fromEntries((prefs ?? []).map(p => [p.key, p.value]))
 
-    const storedHidden = localStorage.getItem('dashboard_hidden_menus')
-    if (storedHidden) { try { setHiddenMenus(JSON.parse(storedHidden)) } catch {} }
+      // org
+      if (prefMap.org) {
+        setOrg(prefMap.org as OrgTeam[])
+        localStorage.setItem('dashboard_org', JSON.stringify(prefMap.org))
+      } else {
+        const stored = localStorage.getItem('dashboard_org')
+        if (stored) { try { const v = JSON.parse(stored) as OrgTeam[]; setOrg(v); supabase.from('user_preferences').upsert({ key: 'org', value: v }) } catch {} }
+      }
 
-    const storedOrder = localStorage.getItem('dashboard_menu_order')
-    if (storedOrder) {
-      try {
-        const o = JSON.parse(storedOrder) as string[]
+      // hidden_menus
+      if (Array.isArray(prefMap.hidden_menus)) {
+        setHiddenMenus(prefMap.hidden_menus as string[])
+        localStorage.setItem('dashboard_hidden_menus', JSON.stringify(prefMap.hidden_menus))
+      } else {
+        const stored = localStorage.getItem('dashboard_hidden_menus')
+        if (stored) { try { const v = JSON.parse(stored) as string[]; setHiddenMenus(v); supabase.from('user_preferences').upsert({ key: 'hidden_menus', value: v }) } catch {} }
+      }
+
+      // menu_order
+      if (Array.isArray(prefMap.menu_order)) {
+        const o = prefMap.menu_order as string[]
         const full = [...o, ...ALL_NAV.map(i => i.href).filter(h => !o.includes(h))]
         setMenuOrder(full)
-      } catch {}
+        localStorage.setItem('dashboard_menu_order', JSON.stringify(full))
+      } else {
+        const stored = localStorage.getItem('dashboard_menu_order')
+        if (stored) { try { const o = JSON.parse(stored) as string[]; const full = [...o, ...ALL_NAV.map(i => i.href).filter(h => !o.includes(h))]; setMenuOrder(full); supabase.from('user_preferences').upsert({ key: 'menu_order', value: o }) } catch {} }
+      }
     }
+    load()
   }, [])
 
   // ── 조직 저장 ──────────────────────────────────────────────────
   function saveOrg(next: OrgTeam[]) {
     setOrg(next)
     localStorage.setItem('dashboard_org', JSON.stringify(next))
+    supabase.from('user_preferences').upsert({ key: 'org', value: next })
   }
 
   function addTeam() {
@@ -156,6 +186,7 @@ export default function SettingsPage() {
     const next = { ...memberRoles, [memberId]: role }
     setMemberRoles(next)
     localStorage.setItem('dashboard_member_roles', JSON.stringify(next))
+    supabase.from('members').update({ role }).eq('id', memberId)
   }
 
   function roleBadgeStyle(role: string): React.CSSProperties {
@@ -261,6 +292,7 @@ export default function SettingsPage() {
     const next = hiddenMenus.includes(href) ? hiddenMenus.filter(h => h !== href) : [...hiddenMenus, href]
     setHiddenMenus(next)
     localStorage.setItem('dashboard_hidden_menus', JSON.stringify(next))
+    supabase.from('user_preferences').upsert({ key: 'hidden_menus', value: next })
     window.dispatchEvent(new Event('nav-visibility-change'))
   }
 
@@ -273,6 +305,7 @@ export default function SettingsPage() {
     o.splice(from, 1); o.splice(to, 0, draggingHref)
     setMenuOrder(o)
     localStorage.setItem('dashboard_menu_order', JSON.stringify(o))
+    supabase.from('user_preferences').upsert({ key: 'menu_order', value: o })
     window.dispatchEvent(new Event('nav-order-change'))
     setDraggingHref(null); setDragOverHref(null)
   }
