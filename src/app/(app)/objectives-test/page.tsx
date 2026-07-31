@@ -443,10 +443,10 @@ function ObjectiveRow({
       onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'rgba(255,255,255,0.03)'; el.style.borderColor = 'rgba(255,255,255,0.09)' }}
       onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'rgba(255,255,255,0.02)'; el.style.borderColor = 'rgba(255,255,255,0.05)' }}
     >
-      {/* Left sticky panel */}
+      {/* Left panel */}
       <div
-        className="sticky left-0 z-[15] w-[280px] flex-shrink-0 flex items-start gap-2 px-4 py-2"
-        style={{ background: '#1E2535', borderRight: '1px solid rgba(255,255,255,0.04)' }}
+        className="w-[280px] flex-shrink-0 flex items-start gap-2 px-4 py-2"
+        style={{ borderRight: '1px solid rgba(255,255,255,0.07)' }}
       >
         <div className="flex-1 min-w-0">
           {/* Goal badge */}
@@ -615,10 +615,10 @@ function GroupSection({
   return (
     <div style={{
       borderRadius: 12,
-      overflow: 'clip',
+      overflow: 'hidden',
       marginBottom: 8,
-      border: '1px solid rgba(255,255,255,0.1)',
-      background: 'rgba(255,255,255,0.03)',
+      border: '1px solid rgba(255,255,255,0.09)',
+      background: 'rgba(255,255,255,0.06)',
     }}>
       {/* Group header row */}
       <div
@@ -626,17 +626,17 @@ function GroupSection({
         className="flex items-center cursor-pointer select-none group/grp"
         style={{
           background: bgColor,
-          borderBottom: '1px solid rgba(255,255,255,0.08)',
+          borderBottom: '1px solid rgba(255,255,255,0.07)',
           minHeight: 57,
           transition: 'background 0.15s',
         }}
         onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = hoverBg }}
         onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = bgColor }}
       >
-        {/* Sticky left — 팀 이름 (z-14, ObjectiveRow sticky z-15 아래) */}
+        {/* Left panel (no sticky — overflow:hidden would break it) */}
         <div
-          className="sticky left-0 z-[14] flex items-center flex-shrink-0"
-          style={{ width: LEFT_W, background: bgColor, minHeight: 57, padding: '12px 20px', borderRight: '1px solid rgba(255,255,255,0.08)' }}
+          className="flex items-center flex-shrink-0"
+          style={{ width: LEFT_W, minHeight: 57, padding: '12px 20px', borderRight: '1px solid rgba(255,255,255,0.07)' }}
         >
           {/* Expand icon */}
           <ChevronRight
