@@ -16,7 +16,7 @@ const ALL_NAV = [
   { href: '/project',         label: '프로젝트' },
   { href: '/tasks',           label: '업무 목록' },
   { href: '/objectives',      label: '목표관리' },
-  { href: '/objectives-test', label: '목표관리(TEST)' },
+  { href: '/objectives-test', label: '목표리뷰' },
   { href: '/completed',       label: '완료 성과' },
   { href: '/completed-test',  label: '완료성과(test)' },
   { href: '/meetings',        label: '회의록' },
