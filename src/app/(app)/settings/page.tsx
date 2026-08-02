@@ -18,7 +18,7 @@ const ALL_NAV = [
   { href: '/objectives',      label: '목표관리' },
   { href: '/objectives-test', label: '목표리뷰' },
   { href: '/completed',       label: '완료 성과' },
-  { href: '/completed-test',  label: '완료성과(test)' },
+  { href: '/completed-test',  label: '성과회고' },
   { href: '/meetings',        label: '회의록' },
   { href: '/schedule',        label: '일정' },
   { href: '/memos',           label: '메모' },
