@@ -612,9 +612,7 @@ function GroupSection({
     setNewTitle(''); setNewDesc(''); setAddingObj(false)
   }
 
-  const color   = group.color || '#3B82F6'
-  const bgColor = hexAlpha(color, 0.09)
-  const hoverBg = hexAlpha(color, 0.15)
+  const color = group.color || '#3B82F6'
 
   return (
     <div style={{
@@ -629,13 +627,13 @@ function GroupSection({
         onClick={editingName ? undefined : onToggle}
         className="flex items-center cursor-pointer select-none group/grp"
         style={{
-          background: bgColor,
+          background: 'transparent',
           borderBottom: '1px solid rgba(255,255,255,0.07)',
           minHeight: 57,
           transition: 'background 0.15s',
         }}
-        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = hoverBg }}
-        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = bgColor }}
+        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)' }}
+        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}
       >
         {/* Left panel (no sticky — overflow:hidden would break it) */}
         <div
