@@ -88,14 +88,18 @@ function getFixedWeekCols(): WeekCol[] {
   })
 }
 
-const VIBRANT_KEYS = ['blue', 'purple', 'teal', 'pink', 'green', 'cyan', 'lilac']
+const VIVID_COLORS = ['#3B82F6', '#8B5CF6', '#10B981', '#EC4899', '#22C55E', '#06B6D4', '#A855F7']
+const PALETTE_TO_VIVID: Record<string, string> = {
+  blue: '#3B82F6', purple: '#8B5CF6', teal: '#0D9488', pink: '#EC4899',
+  green: '#22C55E', cyan: '#06B6D4', lilac: '#A855F7', amber: '#F59E0B', neutral: '#6B7280',
+}
 function dotColor(name: string): string {
   const stripped = name.replace(/팀$|부$|본부$|파트$/, '')
   const key = TEAM_COLOR[name] ?? TEAM_COLOR[stripped]
-  if (key) return CATEGORY_PALETTE[key].solid
+  if (key && PALETTE_TO_VIVID[key]) return PALETTE_TO_VIVID[key]
   let h = 0
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0
-  return CATEGORY_PALETTE[VIBRANT_KEYS[h % VIBRANT_KEYS.length] as keyof typeof CATEGORY_PALETTE]?.solid ?? '#6B9BE0'
+  return VIVID_COLORS[h % VIVID_COLORS.length]
 }
 
 function hexAlpha(hex: string, alpha: number): string {
@@ -433,7 +437,7 @@ function ObjectiveRow({
     <div
       className="flex group/row"
       style={{
-        marginTop: 18,
+        marginTop: 0,
         borderRadius: 14,
         border: '1px solid rgba(255,255,255,0.05)',
         background: 'rgba(255,255,255,0.02)',
@@ -608,7 +612,7 @@ function GroupSection({
     setNewTitle(''); setNewDesc(''); setAddingObj(false)
   }
 
-  const color   = dotColor(group.name)
+  const color   = group.color || '#3B82F6'
   const bgColor = hexAlpha(color, 0.09)
   const hoverBg = hexAlpha(color, 0.15)
 
@@ -636,7 +640,7 @@ function GroupSection({
         {/* Left panel (no sticky — overflow:hidden would break it) */}
         <div
           className="flex items-center flex-shrink-0"
-          style={{ width: LEFT_W, minHeight: 57, padding: '12px 20px', borderRight: '1px solid rgba(255,255,255,0.07)' }}
+          style={{ width: LEFT_W, minHeight: 57, padding: '12px 20px' }}
         >
           {/* Expand icon */}
           <ChevronRight
@@ -833,7 +837,7 @@ function FeedPanel({
     <>
       <div
         className="flex-shrink-0 flex flex-col"
-        style={{ width: 272, borderLeft: '1px solid rgba(255,255,255,0.07)', background: '#161B24' }}
+        style={{ width: 272, margin: '0 8px 0 8px', borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.09)', background: '#161B24' }}
       >
         {/* 헤더 */}
         <div
@@ -1017,7 +1021,7 @@ export default function ObjectivesTestPage() {
   async function addGroup() {
     const name = newGroupName.trim()
     if (!name) return
-    const COLORS = ['#4A7FC0','#5DBD97','#E8914A','#A855F7','#EF4444','#F59E0B','#EC4899','#06B6D4']
+    const COLORS = ['#3B82F6','#F59E0B','#10B981','#EF4444','#8B5CF6','#EC4899','#9CA3AF']
     const color = COLORS[groups.length % COLORS.length]
     const sort_order = (groups[groups.length - 1]?.sort_order ?? 0) + 1
     const { data } = await supabase.from('objective_groups_v2').insert({ name, color, sort_order }).select().single()
