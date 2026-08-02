@@ -13,7 +13,7 @@ interface Props {
 }
 
 export default function MeetingSection({ cat, meetings, dotColor, onNavigate }: Props) {
-  const [collapsed, setCollapsed] = useState(false)
+  const [collapsed, setCollapsed] = useState(true)
 
   const months = useMemo(() => {
     const map = new Map<string, Meeting[]>()
