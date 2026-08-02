@@ -20,7 +20,7 @@ const ALL_TAGS: MemoTag[] = ['공지', '업무관련', '회의관련', '아이�
 const FILTER_TAGS = ['전체', ...ALL_TAGS] as const
 type FilterTag = typeof FILTER_TAGS[number]
 
-interface ColWidths { title: number; content: number; tag: number }
+interface ColWidths { title: number; content: number; tag: number; date: number }
 
 function formatMonthLabel(ym: string): string {
   if (ym === '날짜 없음') return '날짜 미지정'
@@ -153,9 +153,17 @@ function MemoRowGrid({ memo, onEdit, onDelete, draggable: drag, onDragStart, onD
         {memo.tag}
       </span>
       <div style={{ width: 10, flexShrink: 0 }} />
-      <span style={{ fontSize: 10, color: '#7B8397', flexShrink: 0, minWidth: 36, textAlign: 'center' }}>
+      <span style={{ fontSize: 10, color: '#7B8397', flexShrink: 0, width: colWidths.date, minWidth: colWidths.date, textAlign: 'center' }}>
         {format(parseISO(memo.created_at), 'M/d', { locale: ko })}
       </span>
+      <div
+        onMouseDown={e => { e.stopPropagation(); onResizeCol('date', e) }}
+        onClick={e => e.stopPropagation()}
+        className="group/resize"
+        style={{ width: 10, alignSelf: 'stretch', cursor: 'col-resize', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: 1, height: 14, borderRadius: 1, background: 'rgba(255,255,255,0.1)', transition: 'background 0.15s' }}
+          className="group-hover/resize:!bg-[rgba(255,255,255,0.35)]" />
+      </div>
       <button onClick={e => { e.stopPropagation(); onDelete(memo.id) }}
         className="text-[9px] text-white/[0.28] hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">
         삭제
@@ -197,7 +205,14 @@ function MemoColHeader({ colWidths, onResizeCol }: {
         <div style={{ width: 1, height: 14, borderRadius: 1, background: 'rgba(255,255,255,0.25)' }}
           className="group-hover/resize:!bg-[rgba(255,255,255,0.6)]" />
       </div>
-      <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', fontWeight: 600, flexShrink: 0, letterSpacing: '0.04em', minWidth: 36, textAlign: 'center' }}>날짜</span>
+      <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', fontWeight: 600, flexShrink: 0, letterSpacing: '0.04em', width: colWidths.date, minWidth: colWidths.date, textAlign: 'center' }}>날짜</span>
+      <div
+        onMouseDown={e => { e.stopPropagation(); onResizeCol('date', e) }}
+        className="group/resize"
+        style={{ width: 10, cursor: 'col-resize', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', alignSelf: 'stretch' }}>
+        <div style={{ width: 1, height: 14, borderRadius: 1, background: 'rgba(255,255,255,0.25)' }}
+          className="group-hover/resize:!bg-[rgba(255,255,255,0.6)]" />
+      </div>
       <div style={{ width: 24, flexShrink: 0 }} />
     </div>
   )
@@ -322,9 +337,9 @@ export default function MemosPage() {
   const [colWidths, setColWidths] = useState<ColWidths>(() => {
     try {
       const s = localStorage.getItem('memo_col_widths_v1')
-      if (s) { const p = JSON.parse(s); if (p && typeof p.title === 'number') return p as ColWidths }
+      if (s) { const p = JSON.parse(s); if (p && typeof p.title === 'number') return { date: 36, ...p } as ColWidths }
     } catch {}
-    return { title: 150, content: 280, tag: 56 }
+    return { title: 150, content: 280, tag: 56, date: 36 }
   })
   const inlineContentRef = useRef<HTMLTextAreaElement>(null)
   const supabase = createClient()
@@ -466,8 +481,8 @@ export default function MemosPage() {
     e.preventDefault()
     const startX = e.clientX
     const startW = colWidths[col]
-    const MIN = col === 'title' ? 60 : col === 'tag' ? 36 : 100
-    const MAX = col === 'title' ? 400 : col === 'tag' ? 120 : 1200
+    const MIN = col === 'title' ? 60 : col === 'tag' ? 36 : col === 'date' ? 30 : 100
+    const MAX = col === 'title' ? 400 : col === 'tag' ? 120 : col === 'date' ? 100 : 1200
     const onMove = (ev: MouseEvent) => setColWidths(prev => ({ ...prev, [col]: Math.max(MIN, Math.min(MAX, startW + ev.clientX - startX)) }))
     const onUp = () => {
       document.removeEventListener('mousemove', onMove)
