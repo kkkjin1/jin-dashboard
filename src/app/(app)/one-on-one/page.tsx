@@ -89,34 +89,52 @@ function MemberRow({ member, sessions, role, onNewSession }: {
   return (
     <div className="group flex items-center gap-3 px-5 py-3 hover:bg-[rgba(255,255,255,0.02)] transition-colors"
       style={{ borderBottom: '1px solid rgba(255,255,255,0.045)' }}>
+
+      {/* 아바타 */}
       <div className="w-8 h-8 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0"
         style={{ background: 'rgba(255,255,255,0.07)', color: 'rgba(226,232,240,0.55)' }}>
         {member.name[0]}
       </div>
+
+      {/* 이름 + 직책 */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
           <span className="text-sm font-semibold" style={{ color: '#E2E8F0' }}>{member.name}</span>
           {roleStyle && <span className="text-[9px] px-1.5 py-0.5 rounded-full flex-shrink-0" style={roleStyle}>{role}</span>}
         </div>
-        <p className="text-[10px] mt-0.5" style={{ color: 'rgba(226,232,240,0.32)' }}>
-          {last?.session_date ? format(parseISO(last.session_date), 'M/d (E)', { locale: ko }) : '기록없음'}
-          {ms.length > 0 && ` · ${ms.length}회`}
+      </div>
+
+      {/* 마지막 면담 + 횟수 (항상 표시, 고정폭) */}
+      <div className="flex-shrink-0 text-right" style={{ width: 80 }}>
+        <p className="text-[10px]" style={{ color: 'rgba(226,232,240,0.38)' }}>
+          {last?.session_date ? format(parseISO(last.session_date), 'M/d (E)', { locale: ko }) : '—'}
+        </p>
+        <p className="text-[9px] mt-0.5" style={{ color: 'rgba(226,232,240,0.22)' }}>
+          {ms.length > 0 ? `${ms.length}회` : '기록없음'}
         </p>
       </div>
-      <span className={`text-[9px] px-1.5 py-0.5 rounded-full border flex-shrink-0 ${daysBadgeClass(days)}`}>
-        {daysLabel(days)}
-      </span>
-      <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-        {ms.length > 0 && (
+
+      {/* 경과일 배지 (고정폭, 항상 같은 위치) */}
+      <div className="flex-shrink-0 flex justify-end" style={{ width: 64 }}>
+        <span className={`text-[9px] px-1.5 py-0.5 rounded-full border ${daysBadgeClass(days)}`}>
+          {daysLabel(days)}
+        </span>
+      </div>
+
+      {/* 액션 버튼 (고정폭 — 기록 버튼 없을 땐 빈 공간으로 너비 유지) */}
+      <div className="flex-shrink-0 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity" style={{ width: 88 }}>
+        {ms.length > 0 ? (
           <Link href={`/one-on-one/${member.id}`}
-            className="text-[10px] px-2.5 py-1 rounded-lg transition-colors"
-            style={{ border: '1px solid rgba(255,255,255,0.09)', color: 'rgba(226,232,240,0.5)' }}>
+            className="text-[10px] px-2.5 py-1 rounded-lg transition-colors text-center"
+            style={{ width: 36, border: '1px solid rgba(255,255,255,0.09)', color: 'rgba(226,232,240,0.5)' }}>
             기록
           </Link>
+        ) : (
+          <div style={{ width: 36 }} />
         )}
         <button onClick={() => onNewSession(member.id)}
           className="text-[10px] px-2.5 py-1 rounded-lg transition-colors whitespace-nowrap"
-          style={{ background: 'rgba(76,127,224,0.12)', border: '1px solid rgba(76,127,224,0.25)', color: '#A8C4F0' }}>
+          style={{ flex: 1, background: 'rgba(76,127,224,0.12)', border: '1px solid rgba(76,127,224,0.25)', color: '#A8C4F0' }}>
           + 신규
         </button>
       </div>
@@ -338,7 +356,7 @@ function MyFeedbackView() {
                       <div className="flex gap-2">
                         <div className="flex-1">
                           <label className="text-xs text-[rgba(226,232,240,0.4)] mb-1 block">날짜</label>
-                          <input type="date" value={formDate} onChange={e => setFormDate(e.target.value)} className="text-sm bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] rounded-2xl px-3 py-1.5 focus:outline-none w-full" />
+                          <input type="date" value={formDate} onChange={e => setFormDate(e.target.value)} className="text-sm bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] rounded-2xl px-3 py-1.5 focus:outline-none w-full" style={{ colorScheme: 'dark', color: 'rgba(226,232,240,0.8)' }} />
                         </div>
                         <div className="flex-1">
                           <label className="text-xs text-[rgba(226,232,240,0.4)] mb-1 block">피드백 준 팀원</label>
