@@ -3,11 +3,10 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { format, parseISO, subDays, startOfMonth, startOfYear } from 'date-fns'
-import { ko } from 'date-fns/locale'
+import { format } from 'date-fns'
 import type { Meeting } from '@/types'
 import { CATEGORY_PALETTE, MEETING_CATEGORY, colorKeyFromName } from '@/lib/categoryColors'
-import SearchToolbar, { type DateFilter, type SortOrder } from './SearchToolbar'
+import SearchToolbar, { type SortOrder, type DateSelection } from './SearchToolbar'
 import MeetingSection from './MeetingSection'
 
 const DEFAULT_CATS = ['코어', '비즈', '개인', '경영진', '기타']
@@ -17,31 +16,9 @@ function catDot(cat: string): string {
   return CATEGORY_PALETTE[key]?.solid ?? '#4A7FC0'
 }
 
-function filterByDate(meetings: Meeting[], filter: DateFilter): Meeting[] {
-  if (filter === '전체') return meetings
-  const today = new Date()
-  const todayStr = format(today, 'yyyy-MM-dd')
-
-  const from = (() => {
-    switch (filter) {
-      case '오늘':    return todayStr
-      case '최근7일': return format(subDays(today, 6), 'yyyy-MM-dd')
-      case '이번달':  return format(startOfMonth(today), 'yyyy-MM-dd')
-      case '이번분기': {
-        const qm = Math.floor(today.getMonth() / 3) * 3
-        return format(new Date(today.getFullYear(), qm, 1), 'yyyy-MM-dd')
-      }
-      case '이번반기': {
-        const hm = today.getMonth() < 6 ? 0 : 6
-        return format(new Date(today.getFullYear(), hm, 1), 'yyyy-MM-dd')
-      }
-      case '올해': return format(startOfYear(today), 'yyyy-MM-dd')
-      default:     return null
-    }
-  })()
-
-  if (!from) return meetings
-  return meetings.filter(m => m.meeting_date && m.meeting_date >= from && m.meeting_date <= todayStr)
+function filterByDate(meetings: Meeting[], sel: DateSelection): Meeting[] {
+  if (!sel) return meetings
+  return meetings.filter(m => m.meeting_date && m.meeting_date >= sel.from && m.meeting_date <= sel.to)
 }
 
 export default function MeetingNotesNew() {
@@ -53,10 +30,10 @@ export default function MeetingNotesNew() {
   const [catOrder,  setCatOrder]  = useState<string[]>([...DEFAULT_CATS])
 
   // 필터 상태
-  const [search,     setSearch]     = useState('')
-  const [dateFilter, setDateFilter] = useState<DateFilter>('전체')
-  const [teamFilter, setTeamFilter] = useState('전체')
-  const [sortOrder,  setSortOrder]  = useState<SortOrder>('최신순')
+  const [search,         setSearch]         = useState('')
+  const [dateSelection,  setDateSelection]  = useState<DateSelection>(null)
+  const [teamFilter,     setTeamFilter]     = useState('전체')
+  const [sortOrder,     setSortOrder]     = useState<SortOrder>('최신순')
 
   // 새 회의록 추가
   const [adding,    setAdding]    = useState(false)
@@ -94,6 +71,13 @@ export default function MeetingNotesNew() {
       })
   }, [])
 
+  // catOrder 변경 시 localStorage에 저장
+  useEffect(() => {
+    if (catOrder.length > 0) {
+      localStorage.setItem('meetings_cat_order', JSON.stringify(catOrder))
+    }
+  }, [catOrder])
+
   async function handleAdd() {
     const title = newTitle.trim()
     if (!title) { setAdding(false); return }
@@ -112,7 +96,7 @@ export default function MeetingNotesNew() {
 
   // 필터링 + 정렬
   const filtered = useMemo(() => {
-    let list = filterByDate(meetings, dateFilter)
+    let list = filterByDate(meetings, dateSelection)
 
     if (search.trim()) {
       const q = search.trim().toLowerCase()
@@ -133,7 +117,7 @@ export default function MeetingNotesNew() {
     // 최신순은 이미 DB 쿼리에서 정렬됨
 
     return list
-  }, [meetings, dateFilter, search, teamFilter, sortOrder, catOrder])
+  }, [meetings, dateSelection, search, teamFilter, sortOrder, catOrder])
 
   // 팀별 그룹
   const groups = useMemo(() => {
@@ -155,8 +139,6 @@ export default function MeetingNotesNew() {
 
     return result
   }, [filtered, catOrder])
-
-  const teams = catOrder
 
   return (
     <div className="h-full flex flex-col overflow-hidden" style={{ background: '#0F1319' }}>
@@ -202,11 +184,11 @@ export default function MeetingNotesNew() {
 
       {/* 검색 툴바 (sticky) */}
       <SearchToolbar
-        search={search}       setSearch={setSearch}
-        dateFilter={dateFilter} setDateFilter={setDateFilter}
-        teamFilter={teamFilter} setTeamFilter={setTeamFilter}
-        sortOrder={sortOrder}   setSortOrder={setSortOrder}
-        teams={teams}
+        search={search}             setSearch={setSearch}
+        dateSelection={dateSelection} setDateSelection={setDateSelection}
+        teamFilter={teamFilter}     setTeamFilter={setTeamFilter}
+        sortOrder={sortOrder}       setSortOrder={setSortOrder}
+        catOrder={catOrder}         setCatOrder={setCatOrder}
         total={filtered.length}
       />
 
@@ -222,7 +204,7 @@ export default function MeetingNotesNew() {
           <div className="flex flex-col items-center justify-center h-48 gap-3">
             <p className="text-[13px]" style={{ color: 'rgba(226,232,240,0.3)' }}>조건에 맞는 회의록이 없습니다</p>
             <button
-              onClick={() => { setSearch(''); setDateFilter('전체'); setTeamFilter('전체') }}
+              onClick={() => { setSearch(''); setDateSelection(null); setTeamFilter('전체') }}
               className="text-[12px] px-4 py-1.5 rounded-full transition-colors"
               style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(226,232,240,0.5)' }}
             >

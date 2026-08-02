@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { CATEGORY_PALETTE, TEAM_COLOR, colorKeyFromName } from '@/lib/categoryColors'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
-import { Plus, Trash2, ChevronLeft, ChevronRight, Users, Target, Zap, Info, MoreVertical, Download, CheckCheck, X, Maximize2 } from 'lucide-react'
+import { Plus, Trash2, ChevronLeft, ChevronRight, Users, Target, Zap, Info, MoreVertical, Download, CheckCheck, X, Maximize2, GripVertical } from 'lucide-react'
 import MarkdownContent from '@/components/MarkdownContent'
 
 const TiptapEditor = dynamic(() => import('@/components/TiptapEditor'), { ssr: false })
@@ -576,6 +576,7 @@ function GroupSection({
   group, objectives, entries, weekCols, isOpen, onToggle,
   onDeleteGroup, onSaveGroupName, onAddObjective, onDeleteObj, onArchiveObj,
   onSaveObjTitle, onSaveObjDesc, onSaveEntry, onDeleteEntry,
+  isDraggable, onDragStart, onDragOver, onDrop, onDragEnd, isDragOver, isDragging,
 }: {
   group: GroupV2
   objectives: ObjectiveV2[]
@@ -592,6 +593,13 @@ function GroupSection({
   onSaveObjDesc: (id: string, d: string) => Promise<void>
   onSaveEntry: (oid: string, ws: string, content: string) => Promise<void>
   onDeleteEntry: (id: string) => Promise<void>
+  isDraggable?: boolean
+  onDragStart?: React.DragEventHandler<HTMLDivElement>
+  onDragOver?: React.DragEventHandler<HTMLDivElement>
+  onDrop?: React.DragEventHandler<HTMLDivElement>
+  onDragEnd?: React.DragEventHandler<HTMLDivElement>
+  isDragOver?: boolean
+  isDragging?: boolean
 }) {
   const [addingObj, setAddingObj] = useState(false)
   const [newTitle, setNewTitle] = useState('')
@@ -615,13 +623,22 @@ function GroupSection({
   const color = group.color || '#3B82F6'
 
   return (
-    <div style={{
-      borderRadius: 12,
-      overflow: 'hidden',
-      marginBottom: 8,
-      border: '1px solid rgba(255,255,255,0.09)',
-      background: 'rgba(255,255,255,0.06)',
-    }}>
+    <div
+      draggable={isDraggable}
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+      onDragEnd={onDragEnd}
+      style={{
+        borderRadius: 12,
+        overflow: 'hidden',
+        marginBottom: 8,
+        border: isDragOver ? '1px solid rgba(76,127,224,0.5)' : '1px solid rgba(255,255,255,0.09)',
+        background: 'rgba(255,255,255,0.06)',
+        opacity: isDragging ? 0.4 : 1,
+        transition: 'opacity 0.15s, border-color 0.15s',
+      }}
+    >
       {/* Group header row */}
       <div
         onClick={editingName ? undefined : onToggle}
@@ -640,6 +657,12 @@ function GroupSection({
           className="flex items-center flex-shrink-0"
           style={{ width: LEFT_W, minHeight: 57, padding: '12px 20px' }}
         >
+          {/* Drag handle */}
+          <GripVertical
+            size={14}
+            className="flex-shrink-0 mr-1.5 text-[rgba(226,232,240,0.2)] cursor-grab active:cursor-grabbing hover:text-[rgba(226,232,240,0.45)] transition-colors"
+            onClick={e => e.stopPropagation()}
+          />
           {/* Expand icon */}
           <ChevronRight
             size={15}
@@ -934,7 +957,6 @@ function FeedPanel({
                       <div
                         onClick={() => setModalItem(item)}
                         className="rounded-[10px] px-3 py-2 cursor-pointer transition-colors"
-                        style={{ borderLeft: `2.5px solid ${c}` }}
                         onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)' }}
                         onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}
                       >
@@ -991,6 +1013,8 @@ export default function ObjectivesTestPage() {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
   const [addingGroup, setAddingGroup] = useState(false)
   const [newGroupName, setNewGroupName] = useState('')
+  const [dragIdx, setDragIdx] = useState<number | null>(null)
+  const [overIdx, setOverIdx] = useState<number | null>(null)
 
   useEffect(() => { loadAll() }, [selYear, selQ])
 
@@ -1011,7 +1035,7 @@ export default function ObjectivesTestPage() {
     setGroups(grps)
     setObjectives(objs)
     setEntries(ens)
-    setExpandedGroups(new Set(grps.map(g => g.id)))
+    setExpandedGroups(new Set())
     setLoading(false)
   }
 
@@ -1048,6 +1072,16 @@ export default function ObjectivesTestPage() {
     setGroups(p => p.filter(g => g.id !== id))
     setObjectives(p => p.filter(o => o.group_id !== id))
     setEntries(p => p.filter(e => !removedIds.includes(e.objective_id)))
+  }
+
+  async function handleGroupReorder(fromIdx: number, toIdx: number) {
+    const reordered = [...groups]
+    const [moved] = reordered.splice(fromIdx, 1)
+    reordered.splice(toIdx, 0, moved)
+    setGroups(reordered)
+    for (let i = 0; i < reordered.length; i++) {
+      await supabase.from('objective_groups_v2').update({ sort_order: i + 1 }).eq('id', reordered[i].id)
+    }
   }
 
   // ── Objective CRUD ─────────────────────────────────────
@@ -1317,7 +1351,7 @@ export default function ObjectivesTestPage() {
               </div>
             ) : (
               <>
-                {groups.map(group => (
+                {groups.map((group, idx) => (
                   <GroupSection
                     key={group.id}
                     group={group}
@@ -1337,6 +1371,13 @@ export default function ObjectivesTestPage() {
                     onSaveObjDesc={saveObjDesc}
                     onSaveEntry={saveEntry}
                     onDeleteEntry={deleteEntry}
+                    isDraggable
+                    onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; setDragIdx(idx) }}
+                    onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setOverIdx(idx) }}
+                    onDrop={e => { e.preventDefault(); if (dragIdx !== null && dragIdx !== idx) handleGroupReorder(dragIdx, idx); setDragIdx(null); setOverIdx(null) }}
+                    onDragEnd={() => { setDragIdx(null); setOverIdx(null) }}
+                    isDragOver={overIdx === idx && dragIdx !== idx}
+                    isDragging={dragIdx === idx}
                   />
                 ))}
                 {addingGroup && (
