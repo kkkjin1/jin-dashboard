@@ -256,6 +256,14 @@ export default function SettingsPage() {
     setArchived(prev => prev.filter(m => m.id !== id))
   }
 
+  async function deleteMember(id: string) {
+    const m = members.find(m => m.id === id)
+    const { count } = await supabase.from('one_on_ones').select('*', { count: 'exact', head: true }).eq('member_id', id)
+    if (!confirm(`'${m?.name}' 영구 삭제${count ? `\n⚠️ 1on1 기록 ${count}건도 삭제됩니다` : ''}\n1on1 기록 보존이 필요하면 '퇴사' 처리를 이용하세요.`)) return
+    await supabase.from('members').delete().eq('id', id)
+    setMembers(prev => prev.filter(m => m.id !== id))
+  }
+
   // ── 그루핑 ────────────────────────────────────────────────────
   function getMemberDisplayPart(part: string): { teamName: string; partName?: string } {
     for (const team of org) {
@@ -427,6 +435,7 @@ export default function SettingsPage() {
                                 <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                   <button onClick={() => startEdit(m)} className="text-xs" style={{ color: 'rgba(226,232,240,0.5)' }}>수정</button>
                                   <button onClick={() => archiveMember(m.id)} className="text-xs" style={{ color: 'rgba(226,232,240,0.28)' }}>퇴사</button>
+                                  <button onClick={() => deleteMember(m.id)} className="text-xs hover:text-red-400 transition-colors" style={{ color: 'rgba(226,232,240,0.2)' }}>삭제</button>
                                 </div>
                               </>
                             )}
@@ -557,7 +566,8 @@ export default function SettingsPage() {
                     <span className="flex-1 text-sm" style={{ color: 'rgba(226,232,240,0.5)' }}>{m.name}</span>
                     <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button onClick={() => startEdit(m)} className="text-xs" style={{ color: 'rgba(226,232,240,0.5)' }}>배정</button>
-                      <button onClick={() => archiveMember(m.id)} className="text-xs" style={{ color: 'rgba(226,232,240,0.28)' }}>삭제(보존)</button>
+                      <button onClick={() => archiveMember(m.id)} className="text-xs" style={{ color: 'rgba(226,232,240,0.28)' }}>퇴사</button>
+                      <button onClick={() => deleteMember(m.id)} className="text-xs hover:text-red-400 transition-colors" style={{ color: 'rgba(226,232,240,0.2)' }}>삭제</button>
                     </div>
                   </>
                 )}
