@@ -125,12 +125,12 @@ function MemberRow({ member, sessions, role, onNewSession }: {
       <div className="flex-shrink-0 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity" style={{ width: 88 }}>
         {ms.length > 0 ? (
           <Link href={`/one-on-one/${member.id}`}
-            className="text-[10px] px-2.5 py-1 rounded-lg transition-colors text-center"
-            style={{ width: 36, border: '1px solid rgba(255,255,255,0.09)', color: 'rgba(226,232,240,0.5)' }}>
+            className="text-[10px] px-2.5 py-1 rounded-lg transition-colors whitespace-nowrap"
+            style={{ border: '1px solid rgba(255,255,255,0.09)', color: 'rgba(226,232,240,0.5)' }}>
             기록
           </Link>
         ) : (
-          <div style={{ width: 36 }} />
+          <span className="text-[10px] px-2.5 py-1 whitespace-nowrap invisible">기록</span>
         )}
         <button onClick={() => onNewSession(member.id)}
           className="text-[10px] px-2.5 py-1 rounded-lg transition-colors whitespace-nowrap"
