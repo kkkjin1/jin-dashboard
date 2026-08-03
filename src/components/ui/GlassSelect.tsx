@@ -113,7 +113,7 @@ export function GlassSelect({
             : 'text-[rgba(226,232,240,0.35)] hover:bg-[rgba(255,255,255,0.06)] hover:text-[rgba(226,232,240,0.6)]',
         ].join(' ')}
       >
-        {placeholder === '-' ? '—' : placeholder}
+        {placeholder === '-' ? '없음' : placeholder}
       </div>
       {options.map(opt => (
         <div

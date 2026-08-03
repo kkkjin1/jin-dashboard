@@ -518,7 +518,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                               value={item.assignee_id ?? ''}
                               onChange={v => updateItemAssignee(item.id, v || null)}
                               options={members.map(m => ({ value: m.id, label: m.name }))}
-                              placeholder="담당자"
+                              placeholder="-"
                               variant="inline"
                             />
                           </div>
@@ -579,7 +579,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                                 value={st.assignee_id ?? ''}
                                 onChange={v => updateSubTaskAssignee(st.id, v || null)}
                                 options={members.map(m => ({ value: m.id, label: m.name }))}
-                                placeholder="담당자"
+                                placeholder="-"
                                 variant="inline"
                               />
                             </div>
