@@ -170,7 +170,8 @@ export default function SchedulePage() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const withTasks = withDate.filter((r: any) => r.tasks)
       console.log('[schedule] todos with date/tag:', withDate.length, '/ with tasks join:', withTasks.length)
-      if (withDate.length > 0) console.log('[schedule] sample[0]:', JSON.stringify({ id: withDate[0].id, target_date: withDate[0].target_date, schedule_tag: withDate[0].schedule_tag, tasks: withDate[0].tasks }))
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      console.log('[schedule] all dates:', withTasks.map((r: any) => `td:${r.target_date ?? '-'} st:${r.schedule_tag ?? '-'}`))
       setScheduledTodos(withTasks.map((r: any) => ({ id: r.id, title: r.title, target_date: r.target_date ?? null, schedule_tag: r.schedule_tag ?? null, task: r.tasks })))
     })
   }
@@ -303,7 +304,7 @@ export default function SchedulePage() {
 
   function getDayScheduledTodos(day: Date): ScheduledTodo[] {
     if (viewFilter === '회의만') return []
-    return scheduledTodos.filter(t => {
+    const result = scheduledTodos.filter(t => {
       const effectiveDate = getEffectiveTodoDate(t)
       if (!effectiveDate || !isSameDay(effectiveDate, day)) return false
       const effectiveAssignee = todoAssigneeMap[t.id]
@@ -311,6 +312,8 @@ export default function SchedulePage() {
       if (partFilter !== '전체' && t.task.part !== partFilter) return false
       return true
     })
+    console.log('[schedule] getDayTodos', format(day, 'yyyy-MM-dd'), '→', result.length, '/ partFilter:', partFilter, '/ assigneeFilter:', assigneeFilter)
+    return result
   }
 
   function getDayOneOnOnes(day: Date): ScheduledOneOnOne[] {
