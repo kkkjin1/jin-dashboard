@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import type { AgendaItem, AgendaSubTask, Attachment } from '@/types'
+import type { AgendaItem, AgendaSubTask, Attachment, Member } from '@/types'
+import { fetchMembers } from '@/lib/tasks'
 import TiptapEditor from '@/components/TiptapEditor'
 
 const STATUS_CYCLE = ['active', 'hold', 'done'] as const
@@ -68,6 +69,7 @@ export default function AgendaItemDetailPage() {
   const [item,      setItem]      = useState<AgendaItem | null>(null)
   const [group,     setGroup]     = useState<{ name: string; color: string } | null>(null)
   const [subTasks,  setSubTasks]  = useState<SubTaskWithNote[]>([])
+  const [members,   setMembers]   = useState<Member[]>([])
   const [loading,   setLoading]   = useState(true)
 
   // 설명 박스
@@ -119,6 +121,7 @@ export default function AgendaItemDetailPage() {
   // ── 데이터 로드 ─────────────────────────────────────────────────
   const load = useCallback(async () => {
     setLoading(true)
+    fetchMembers().then(setMembers)
     const { data: iData } = await supabase
       .from('agenda_items')
       .select('*, agenda_groups(name, color)')
@@ -392,6 +395,22 @@ export default function AgendaItemDetailPage() {
     setSubTasks(p => p.map(s => s.id === stId ? { ...s, target_date: date ?? undefined } : s))
   }
 
+  async function updateSTAssignee(stId: string, assigneeId: string | null) {
+    await supabase.from('agenda_sub_tasks').update({ assignee_id: assigneeId }).eq('id', stId)
+    setSubTasks(p => p.map(s => s.id === stId ? { ...s, assignee_id: assigneeId } : s))
+  }
+
+  async function updateSTMidDate(stId: string, date: string | null) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase.from('agenda_sub_tasks') as any).update({ mid_date: date || null }).eq('id', stId)
+    setSubTasks(p => p.map(s => s.id === stId ? { ...s, mid_date: date || null } : s))
+  }
+
+  async function updateSTDueDate(stId: string, date: string | null) {
+    await supabase.from('agenda_sub_tasks').update({ due_date: date || null }).eq('id', stId)
+    setSubTasks(p => p.map(s => s.id === stId ? { ...s, due_date: date || null } : s))
+  }
+
   if (loading) return <div className="flex items-center justify-center h-40 text-sm text-gray-400 animate-pulse">불러오는 중…</div>
   if (!item)   return <div className="flex items-center justify-center h-40 text-sm text-gray-400">안건을 찾을 수 없습니다.</div>
 
@@ -594,6 +613,17 @@ export default function AgendaItemDetailPage() {
                   <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold flex-shrink-0 ml-1 ${STATUS_CLS[st.status as Status]}`}>
                     {STATUS_LABEL[st.status as Status]}
                   </span>
+                  {/* 담당자 & 완료일 헤더 표시 */}
+                  {st.assignee_id && (
+                    <div className="flex items-center gap-1.5 flex-shrink-0 ml-2 opacity-0 group-hover/acc:opacity-100 transition-opacity">
+                      <span className="text-[9px] text-[rgba(226,232,240,0.5)] bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] rounded px-1.5 py-0.5">
+                        {members.find(m => m.id === st.assignee_id)?.name ?? ''}
+                      </span>
+                      {st.due_date && (
+                        <span className="text-[9px] text-emerald-400/70">~{stDateLabel(st.due_date)}</span>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* 아코디언 본문 — 날짜 패널 */}
@@ -603,6 +633,39 @@ export default function AgendaItemDetailPage() {
                   const selectedNote = allNotes.find(n => n.id === selId) ?? null
                   return (
                     <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' }}>
+                      {/* ── 담당자 & 마일스톤 날짜 ── */}
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-4 py-2.5" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }} onClick={e => e.stopPropagation()}>
+                        <label className="flex items-center gap-1.5">
+                          <span className="text-[9px] text-[rgba(226,232,240,0.35)] uppercase tracking-wider flex-shrink-0">담당자</span>
+                          <select
+                            value={st.assignee_id ?? ''}
+                            onChange={e => updateSTAssignee(st.id, e.target.value || null)}
+                            className="text-[11px] bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] rounded-md px-2 py-0.5 text-[rgba(226,232,240,0.75)] focus:outline-none cursor-pointer [&>option]:bg-[#1E2228]">
+                            <option value="">-</option>
+                            {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                          </select>
+                        </label>
+                        {st.assignee_id && (
+                          <>
+                            <label className="flex items-center gap-1.5">
+                              <span className="text-[9px] text-[rgba(226,232,240,0.35)] uppercase tracking-wider flex-shrink-0">중간보고</span>
+                              <input type="date"
+                                value={st.mid_date ?? ''}
+                                onChange={e => updateSTMidDate(st.id, e.target.value || null)}
+                                className="text-[11px] bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] rounded-md px-2 py-0.5 text-[rgba(226,232,240,0.75)] focus:outline-none [color-scheme:dark]"
+                              />
+                            </label>
+                            <label className="flex items-center gap-1.5">
+                              <span className="text-[9px] text-[rgba(226,232,240,0.35)] uppercase tracking-wider flex-shrink-0">완료일자</span>
+                              <input type="date"
+                                value={st.due_date ?? ''}
+                                onChange={e => updateSTDueDate(st.id, e.target.value || null)}
+                                className="text-[11px] bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] rounded-md px-2 py-0.5 text-[rgba(226,232,240,0.75)] focus:outline-none [color-scheme:dark]"
+                              />
+                            </label>
+                          </>
+                        )}
+                      </div>
                       {/* 날짜 목록 + 에디터 */}
                       <div style={{ display: 'flex', minHeight: 160 }}>
                         {/* 왼쪽: 날짜 목록 */}

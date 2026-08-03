@@ -180,6 +180,7 @@ export interface AgendaSubTask {
   status: AgendaItemStatus
   sort_order: number
   assignee_id?: string | null
+  mid_date?: string | null
   due_date?: string | null
   target_date?: string | null
   created_at: string
