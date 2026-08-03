@@ -159,15 +159,18 @@ export default function SchedulePage() {
       fetchAllTasks(),
       fetchMembers(),
       supabase.from('meetings').select('id, title, meeting_date, category').not('meeting_date', 'is', null),
-      supabase.from('task_todos').select(sel).not('target_date', 'is', null).eq('done', false),
-      supabase.from('task_todos').select(sel).not('schedule_tag', 'is', null).eq('done', false),
-    ]).then(([t, m, { data: mtgs }, { data: byDate }, { data: byTag }]) => {
+      supabase.from('task_todos').select(sel).eq('done', false).limit(500),
+    ]).then(([t, m, { data: mtgs, error: mtgErr }, { data: allTodos, error: todosErr }]) => {
+      if (mtgErr) console.error('[schedule] meetings error:', mtgErr)
+      if (todosErr) console.error('[schedule] todos error:', todosErr)
+      console.log('[schedule] raw todos loaded:', allTodos?.length ?? 0)
       setTasks(t); setMembers(m)
       setMeetings((mtgs ?? []) as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>[])
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const merged = [...(byDate ?? []), ...(byTag ?? []).filter((r: any) => !(byDate ?? []).some((d: any) => d.id === r.id))]
+      const withDate = (allTodos ?? []).filter((r: any) => r.target_date || r.schedule_tag)
+      console.log('[schedule] todos with date/tag:', withDate.length)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      setScheduledTodos(merged.filter((r: any) => r.tasks).map((r: any) => ({ id: r.id, title: r.title, target_date: r.target_date ?? null, schedule_tag: r.schedule_tag ?? null, task: r.tasks })))
+      setScheduledTodos(withDate.filter((r: any) => r.tasks).map((r: any) => ({ id: r.id, title: r.title, target_date: r.target_date ?? null, schedule_tag: r.schedule_tag ?? null, task: r.tasks })))
     })
   }
 

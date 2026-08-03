@@ -1094,7 +1094,7 @@ export default function HomePage() {
           <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
 
           {/* Row 2 — 진행중 과업(2칸 flat table) · 오늘업무 */}
-          <div style={{ flex: 1.15, minHeight: 0, display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12 }}>
+          <div style={{ flex: 1.15, minHeight: 0, display: 'grid', gridTemplateColumns: '3fr 1fr', gap: 12 }}>
 
             {/* 진행중 과업 — flat table, embedded in background */}
             <div style={{
@@ -1106,7 +1106,7 @@ export default function HomePage() {
               minHeight: 0,
               overflow: 'hidden',
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, flexShrink: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4, flexShrink: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                   <span style={{ display: 'flex', alignItems: 'center' }}><Layers size={14} strokeWidth={2} style={{ color: '#5B7EC4' }} /></span>
                   <h2 style={{ fontSize: 15, fontWeight: 700, color: TEXT1, letterSpacing: '-0.02em' }}>진행중 과업</h2>
