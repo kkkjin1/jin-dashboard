@@ -879,6 +879,10 @@ export default function HomePage() {
   const todayFixedMeetings = fixedSchedules
     .filter(s => s.is_recurring ? (s.days_of_week ?? []).includes(todayDow) : s.date === today)
     .sort((a, b) => a.time.localeCompare(b.time))
+  // 오늘 실제 meeting 레코드가 이미 존재하면 고정 회의 목록에서 제외 (중복 방지)
+  const todayFixedMeetingsVisible = todayFixedMeetings.filter(
+    s => !meetings.some(m => m.title === s.title && m.meeting_date?.startsWith(today))
+  )
   const recentMeetings = meetings.slice(0, 5)
   const _pad = (n: number) => String(n).padStart(2, '0')
   const tomorrowDate = new Date(now); tomorrowDate.setDate(now.getDate() + 1)
@@ -1084,7 +1088,7 @@ export default function HomePage() {
           </div>
 
           {/* Row 1: Dual-lane timeline — full width */}
-          <DualLaneTimeline meetings={todayMeetings} todos={todayTodos} now={now} onAdd={handleAddMeeting} fixedMeetings={todayFixedMeetings} />
+          <DualLaneTimeline meetings={todayMeetings} todos={todayTodos} now={now} onAdd={handleAddMeeting} fixedMeetings={todayFixedMeetingsVisible} />
 
           {/* Rows 2 + 3 — flex column, fills remaining height */}
           <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -1232,7 +1236,7 @@ export default function HomePage() {
             {/* 오늘 업무 */}
             <CardSection title="오늘 업무" link="/tasks" linkLabel="+ 추가" icon={<CheckSquare size={14} strokeWidth={2} style={{ color: '#38BE98' }} />}>
               {loading ? <div>{skel(4)}</div>
-                : todayTodos.length === 0 && todayAgendaItems.length === 0 && todayMeetings.length === 0 && todayFixedMeetings.length === 0
+                : todayTodos.length === 0 && todayAgendaItems.length === 0 && todayMeetings.length === 0 && todayFixedMeetingsVisible.length === 0
                   ? <EmptyState
                       icon={<CheckSquare size={20} strokeWidth={1.5} />}
                       label="오늘 업무가 비어있어요."
@@ -1315,22 +1319,22 @@ export default function HomePage() {
                               </div>
                             )
                           })}
-                          {(todayTodos.length > 0 || todayAgendaItems.length > 0 || todayFixedMeetings.length > 0) && (
+                          {(todayTodos.length > 0 || todayAgendaItems.length > 0 || todayFixedMeetingsVisible.length > 0) && (
                             <div style={{ borderTop: `1px solid ${DIVIDER}`, margin: '4px 0 6px' }} />
                           )}
                         </>
                       )}
                       {/* ── 고정 회의 ── */}
-                      {todayFixedMeetings.length > 0 && (
+                      {todayFixedMeetingsVisible.length > 0 && (
                         <>
-                          {todayFixedMeetings.map((s, i) => {
+                          {todayFixedMeetingsVisible.map((s, i) => {
                             const isOpen = fMemoOpen[s.id] ?? false
                             const text   = fMemoTexts[s.id] ?? ''
                             const saving = fMemoSaving[s.id] ?? false
                             const saved  = fMemoSaved[s.id] ?? false
                             const linkedMeeting = meetings.find(m => m.title === s.title && m.meeting_date?.startsWith(today))
                             const prepNotes = ((linkedMeeting?.notes ?? []) as NoteEntry[]).filter(n => n.is_prep)
-                            const total = todayFixedMeetings.length + todayTodos.length + todayAgendaItems.length
+                            const total = todayFixedMeetingsVisible.length + todayTodos.length + todayAgendaItems.length
                             return (
                               <div key={s.id} style={{ ...rd(i, total), paddingBottom: 2 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0 5px' }}>
