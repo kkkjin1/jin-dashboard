@@ -216,6 +216,10 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
     await supabase.from('agenda_items').update({ assignee_id: assigneeId } as any).eq('id', itemId)
     setItems(p => p.map(i => i.id === itemId ? { ...i, assignee_id: assigneeId } : i))
   }
+  async function updateSubTaskAssignee(stId: string, assigneeId: string | null) {
+    await supabase.from('agenda_sub_tasks').update({ assignee_id: assigneeId }).eq('id', stId)
+    setSubTasks(p => p.map(s => s.id === stId ? { ...s, assignee_id: assigneeId } : s))
+  }
   async function cycleStatus(item: AgendaItem) {
     const order: AgendaItem['status'][] = ['active', 'hold', 'done']
     const next = order[(order.indexOf(item.status) + 1) % order.length]
@@ -441,7 +445,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                       <div style={{ flex: 1, minWidth: 180, padding: '8px 16px', fontSize: 11, fontWeight: 700, color: S.t3, letterSpacing: '.05em', textTransform: 'uppercase' as const }}>안건</div>
                       <div style={{ width: 90, padding: '8px 12px', fontSize: 11, fontWeight: 700, color: S.t3, letterSpacing: '.05em', textTransform: 'uppercase' as const, borderLeft: '1px solid rgba(255,255,255,0.07)' }}>상태</div>
                       <div style={{ width: 120, padding: '8px 12px', fontSize: 11, fontWeight: 700, color: S.t3, letterSpacing: '.05em', textTransform: 'uppercase' as const, borderLeft: '1px solid rgba(255,255,255,0.07)' }}>담당자</div>
-                      <div style={{ width: 80, padding: '8px 12px', borderLeft: '1px solid rgba(255,255,255,0.07)' }} />
+                      <div style={{ width: 160, padding: '8px 12px', borderLeft: '1px solid rgba(255,255,255,0.07)' }} />
                     </div>
                   )}
 
@@ -516,7 +520,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                               {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                             </select>
                           </div>
-                          <div style={{ width: 80, padding: '16px 12px', borderLeft: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={e => e.stopPropagation()}>
+                          <div style={{ width: 160, padding: '16px 12px', borderLeft: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={e => e.stopPropagation()}>
                             <div className="flex items-center gap-1.5 opacity-0 group-hover/irow:opacity-100 transition-all">
                               {editingItemId !== item.id && (
                                 <button onClick={() => { setEditingItemId(item.id); setEditITitle(item.title) }} className="text-[10px] text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)]">수정</button>
@@ -568,8 +572,15 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                               </div>
                             </div>
                             <div style={{ width: 90, borderLeft: '1px solid rgba(255,255,255,0.04)' }} />
-                            <div style={{ width: 120, borderLeft: '1px solid rgba(255,255,255,0.04)' }} />
-                            <div style={{ width: 80, padding: '8px 12px', borderLeft: '1px solid rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }} onClick={e => e.stopPropagation()}>
+                            <div style={{ width: 120, padding: '8px 12px', borderLeft: '1px solid rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center' }} onClick={e => e.stopPropagation()}>
+                              <select value={st.assignee_id ?? ''} onChange={e => { e.stopPropagation(); updateSubTaskAssignee(st.id, e.target.value || null) }}
+                                className="text-xs bg-transparent border-none outline-none cursor-pointer w-full"
+                                style={{ color: st.assignee_id ? S.t2 : S.t3, colorScheme: 'dark' }}>
+                                <option value="">-</option>
+                                {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                              </select>
+                            </div>
+                            <div style={{ width: 160, padding: '8px 12px', borderLeft: '1px solid rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }} onClick={e => e.stopPropagation()}>
                               <div className="flex items-center gap-1.5">
                                 {st.target_date && (
                                   <button onClick={() => updateSubTaskDate(st.id, null)}
