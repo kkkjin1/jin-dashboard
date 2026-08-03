@@ -382,8 +382,9 @@ export default function TaskDetailPage() {
 
   async function updateTodoDate(todoId: string, bucket: 'today' | 'tomorrow' | 'this_week' | null) {
     const target_date = bucket ? getTargetDateForBucket(bucket) : null
-    await supabase.from('task_todos').update({ target_date }).eq('id', todoId)
-    setTodos(prev => prev.map(t => t.id === todoId ? { ...t, target_date } : t))
+    const schedule_tag = bucket ?? null
+    await supabase.from('task_todos').update({ target_date, schedule_tag }).eq('id', todoId)
+    setTodos(prev => prev.map(t => t.id === todoId ? { ...t, target_date, schedule_tag } : t))
   }
 
   async function updateShortName(val: string) {

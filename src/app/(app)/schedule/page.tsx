@@ -154,7 +154,7 @@ export default function SchedulePage() {
   const supabase = createClient()
 
   function loadData() {
-    const sel = 'id, title, target_date, schedule_tag, tasks!inner(id, title, short_name, assignee_id, part)'
+    const sel = 'id, title, target_date, schedule_tag, tasks(id, title, short_name, assignee_id, part)'
     Promise.all([
       fetchAllTasks(),
       fetchMembers(),
@@ -167,21 +167,19 @@ export default function SchedulePage() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const merged = [...(byDate ?? []), ...(byTag ?? []).filter((r: any) => !(byDate ?? []).some((d: any) => d.id === r.id))]
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      setScheduledTodos(merged.map((r: any) => ({ id: r.id, title: r.title, target_date: r.target_date ?? null, schedule_tag: r.schedule_tag ?? null, task: r.tasks })))
+      setScheduledTodos(merged.filter((r: any) => r.tasks).map((r: any) => ({ id: r.id, title: r.title, target_date: r.target_date ?? null, schedule_tag: r.schedule_tag ?? null, task: r.tasks })))
     })
   }
 
   useEffect(() => {
     loadData()
 
-    function onFocus() { loadData() }
-    window.addEventListener('focus', onFocus)
-    return () => window.removeEventListener('focus', onFocus)
     // 할일별 담당자 맵 (task detail과 localStorage 공유)
     try {
       const raw = localStorage.getItem('todo_assignees') ?? ''
       if (raw) setTodoAssigneeMap(JSON.parse(raw) as Record<string, string>)
     } catch {}
+
     // 예정 1on1 (next_appointment_date 설정된 것)
     supabase
       .from('one_on_ones')
@@ -196,6 +194,10 @@ export default function SchedulePage() {
           next_appointment_date: r.next_appointment_date,
         })))
       })
+
+    function onFocus() { loadData() }
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
   }, [])
 
   useEffect(() => {
