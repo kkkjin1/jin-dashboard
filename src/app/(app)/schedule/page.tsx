@@ -7,7 +7,8 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { fetchAllTasks, fetchMembers } from '@/lib/tasks'
 import { useUserSetting } from '@/hooks/useUserSetting'
-import type { Task, Member, TaskStatus, Part, Meeting } from '@/types'
+import { useOrgData } from '@/hooks/useOrgData'
+import type { Task, Member, TaskStatus, Meeting } from '@/types'
 import { CATEGORY_PALETTE, MEETING_CATEGORY, type CategoryColorKey, colorKeyFromName } from '@/lib/categoryColors'
 
 interface MeetingSchedule {
@@ -18,6 +19,7 @@ interface MeetingSchedule {
   days_of_week?: number[]
   date?: string
   prep_note?: string
+  team_id?: string
 }
 
 const DOW_LABELS_SCHED = ['일', '월', '화', '수', '목', '금', '토']
@@ -57,7 +59,7 @@ export default function SchedulePage() {
   const [selectedDay, setSelectedDay] = useState<Date | null>(null)
   const [assigneeFilter, setAssigneeFilter] = useState<string>('전체')
   const [statusFilter, setStatusFilter] = useState<TaskStatus | '전체'>('전체')
-  const [partFilter, setPartFilter] = useState<Part | '전체'>('전체')
+  const [partFilter, setPartFilter] = useState<string>('전체')
   const [viewFilter, setViewFilter] = useState<'전체' | '업무만' | '회의만'>('전체')
   const [reportFilter, setReportFilter] = useState<'전체' | '중간공유' | '최종보고'>('전체')
   const [showPrevCal, setShowPrevCal] = useState(false)
@@ -65,7 +67,7 @@ export default function SchedulePage() {
   const [showAnalysis, setShowAnalysis] = useState(false)
   const [analysisPeriod, setAnalysisPeriod] = useState<'이번주' | '이번달' | '직전월'>('이번달')
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [editForm, setEditForm] = useState<{ title: string; time: string; is_recurring: boolean; days_of_week: number[]; date: string }>({ title: '', time: '09:00', is_recurring: true, days_of_week: [], date: todayStrSched() })
+  const [editForm, setEditForm] = useState<{ title: string; time: string; is_recurring: boolean; days_of_week: number[]; date: string; team_id: string }>({ title: '', time: '09:00', is_recurring: true, days_of_week: [], date: todayStrSched(), team_id: '' })
   const [showRepeatModal, setShowRepeatModal] = useState(false)
   const [repeatTitle, setRepeatTitle] = useState('')
   const [repeatDay, setRepeatDay] = useState('15')
@@ -78,11 +80,12 @@ export default function SchedulePage() {
   // 예정 1on1 (next_appointment_date 기준)
   const [scheduledOneOnOnes, setScheduledOneOnOnes] = useState<ScheduledOneOnOne[]>([])
   const router = useRouter()
+  const { flatParts } = useOrgData()
 
   // 고정 회의 관리
   const { value: schedules, save: saveSchedules } = useUserSetting<MeetingSchedule[]>('meeting_schedules', [])
   const [showMeetingForm, setShowMeetingForm] = useState(false)
-  const [meetForm, setMeetForm] = useState({ title: '', time: '09:00', is_recurring: true, days_of_week: [] as number[], date: todayStrSched() })
+  const [meetForm, setMeetForm] = useState({ title: '', time: '09:00', is_recurring: true, days_of_week: [] as number[], date: todayStrSched(), team_id: '' })
 
   function addMeetingSchedule() {
     if (!meetForm.title.trim()) return
@@ -92,9 +95,10 @@ export default function SchedulePage() {
       time: meetForm.time,
       is_recurring: meetForm.is_recurring,
       ...(meetForm.is_recurring ? { days_of_week: meetForm.days_of_week } : { date: meetForm.date }),
+      ...(meetForm.team_id ? { team_id: meetForm.team_id } : {}),
     }
     saveSchedules([...schedules, item])
-    setMeetForm({ title: '', time: '09:00', is_recurring: true, days_of_week: [], date: todayStrSched() })
+    setMeetForm({ title: '', time: '09:00', is_recurring: true, days_of_week: [], date: todayStrSched(), team_id: '' })
     setShowMeetingForm(false)
   }
 
@@ -111,6 +115,7 @@ export default function SchedulePage() {
       is_recurring: s.is_recurring,
       days_of_week: s.days_of_week ?? [],
       date: s.date ?? todayStrSched(),
+      team_id: s.team_id ?? '',
     })
   }
 
@@ -121,6 +126,7 @@ export default function SchedulePage() {
       title: editForm.title.trim(),
       time: editForm.time,
       is_recurring: editForm.is_recurring,
+      team_id: editForm.team_id || undefined,
       ...(editForm.is_recurring ? { days_of_week: editForm.days_of_week, date: undefined } : { date: editForm.date, days_of_week: undefined }),
     }))
     setEditingId(null)
@@ -185,7 +191,11 @@ export default function SchedulePage() {
       const tag = (e.target as HTMLElement).tagName
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
       if (e.ctrlKey || e.metaKey || e.altKey) return
-      if (e.code === 'KeyQ') setPartFilter(p => p === '전체' ? '코어' : p === '코어' ? '비즈' : '전체')
+      if (e.code === 'KeyQ') setPartFilter(p => {
+        const cycle = ['전체', ...flatParts.map(fp => fp.id)]
+        const idx = cycle.indexOf(p)
+        return cycle[(idx + 1) % cycle.length]
+      })
       if (e.code === 'KeyW') setStatusFilter(s => s === '전체' ? '진행필요' : s === '진행필요' ? '진행중' : s === '진행중' ? '완료' : '전체')
       if (e.code === 'KeyE') setReportFilter(r => r === '전체' ? '중간공유' : r === '중간공유' ? '최종보고' : '전체')
       if (e.code === 'KeyR') setViewFilter(v => v === '전체' ? '업무만' : v === '업무만' ? '회의만' : '전체')
@@ -278,9 +288,10 @@ export default function SchedulePage() {
     if (viewFilter === '업무만') return []
     const dow = getDay(day)
     const dateStr = format(day, 'yyyy-MM-dd')
-    return schedules.filter(s =>
-      s.is_recurring ? (s.days_of_week ?? []).includes(dow) : s.date === dateStr
-    ).sort((a, b) => a.time.localeCompare(b.time))
+    return schedules.filter(s => {
+      if (partFilter !== '전체' && s.team_id && s.team_id !== partFilter) return false
+      return s.is_recurring ? (s.days_of_week ?? []).includes(dow) : s.date === dateStr
+    }).sort((a, b) => a.time.localeCompare(b.time))
   }
 
   const selectedDayTasks = selectedDay ? getDayTasks(selectedDay) : []
@@ -497,9 +508,15 @@ export default function SchedulePage() {
 
       {/* 필터 pills */}
       <div className="flex-shrink-0 flex items-center gap-2 overflow-x-auto scrollbar-hide mb-4">
-        <button onClick={() => setPartFilter(p => p === '전체' ? '코어' : p === '코어' ? '비즈' : '전체')}
+        <button onClick={() => setPartFilter(p => {
+            const cycle = ['전체', ...flatParts.map(fp => fp.id)]
+            const idx = cycle.indexOf(p)
+            return cycle[(idx + 1) % cycle.length]
+          })}
           className={`${pillBase} ${partFilter !== '전체' ? pillActive : pillInactive}`}>
-          {partFilter === '전체' ? '전체 파트' : `${partFilter}파트`}
+          {partFilter === '전체'
+            ? (flatParts.length > 0 ? '전체 파트' : '파트')
+            : (flatParts.find(fp => fp.id === partFilter)?.label ?? partFilter)}
         </button>
 
         <button onClick={() => setStatusFilter(s => s === '전체' ? '진행필요' : s === '진행필요' ? '진행중' : s === '진행중' ? '완료' : '전체')}
@@ -695,6 +712,17 @@ export default function SchedulePage() {
                       className="text-xs border border-[rgba(255,255,255,0.09)] rounded px-1.5 py-0.5 focus:outline-none text-[rgba(226,232,240,0.7)] bg-[rgba(255,255,255,0.06)]"
                     />
                   )}
+                  {flatParts.length > 0 && (
+                    <select
+                      value={meetForm.team_id}
+                      onChange={e => setMeetForm(p => ({ ...p, team_id: e.target.value }))}
+                      className="w-full text-xs border border-[rgba(255,255,255,0.09)] rounded px-1.5 py-0.5 focus:outline-none text-[rgba(226,232,240,0.7)] bg-[rgba(255,255,255,0.06)] [&>option]:bg-[#26282E]">
+                      <option value="">팀/파트 선택 (선택사항)</option>
+                      {flatParts.map(fp => (
+                        <option key={fp.id} value={fp.id}>{fp.label}</option>
+                      ))}
+                    </select>
+                  )}
                   <div className="flex justify-end gap-1.5 pt-1">
                     <button onClick={() => setShowMeetingForm(false)}
                       className="text-[10px] text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)]">취소</button>
@@ -757,6 +785,17 @@ export default function SchedulePage() {
                               className="text-xs border border-[rgba(255,255,255,0.09)] rounded px-1.5 py-0.5 focus:outline-none text-[rgba(226,232,240,0.7)] bg-[rgba(255,255,255,0.06)]"
                             />
                           )}
+                          {flatParts.length > 0 && (
+                            <select
+                              value={editForm.team_id}
+                              onChange={e => setEditForm(p => ({ ...p, team_id: e.target.value }))}
+                              className="w-full text-xs border border-[rgba(255,255,255,0.09)] rounded px-1.5 py-0.5 focus:outline-none text-[rgba(226,232,240,0.7)] bg-[rgba(255,255,255,0.06)] [&>option]:bg-[#26282E]">
+                              <option value="">팀/파트 없음</option>
+                              {flatParts.map(fp => (
+                                <option key={fp.id} value={fp.id}>{fp.label}</option>
+                              ))}
+                            </select>
+                          )}
                           <div className="flex justify-end gap-1.5 pt-0.5">
                             <button onClick={() => setEditingId(null)}
                               className="text-[10px] text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)]">취소</button>
@@ -772,6 +811,11 @@ export default function SchedulePage() {
                       <div key={s.id} className="group flex items-center gap-2 px-1.5 py-1.5 rounded-lg hover:bg-[rgba(255,255,255,0.06)] transition-colors">
                         <span className="text-[11px] font-mono text-[rgba(226,232,240,0.4)] w-10 flex-shrink-0">{s.time}</span>
                         <span className="flex-1 text-[11px] text-[rgba(226,232,240,0.8)] truncate">{s.title}</span>
+                        {s.team_id && (
+                          <span className="text-[8px] px-1 py-0.5 rounded bg-emerald-900/40 text-emerald-400 flex-shrink-0">
+                            {flatParts.find(fp => fp.id === s.team_id)?.label ?? s.team_id}
+                          </span>
+                        )}
                         <span className="text-[8px] text-[rgba(226,232,240,0.3)] flex-shrink-0">
                           {s.is_recurring
                             ? (s.days_of_week ?? []).map(d => DOW_LABELS_SCHED[d]).join('')
