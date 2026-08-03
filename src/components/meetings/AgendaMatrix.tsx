@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { AgendaGroup, AgendaItem, AgendaSubTask, Attachment, Member } from '@/types'
 import TiptapEditor from '@/components/TiptapEditor'
 import { GlassSelect } from '@/components/ui/GlassSelect'
+import { DateCellPicker } from '@/components/ui/MiniDatePicker'
 
 // ── 상수 ────────────────────────────────────────────────────────────
 const STATUS_COLOR: Record<string, string> = { active: '#3B82F6', hold: '#6366F1', done: '#10B981' }
@@ -615,47 +616,9 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                             <div style={{ width: 130, padding: '6px 10px', borderLeft: '1px solid rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center' }} onClick={e => e.stopPropagation()}>
                               {st.assignee_id ? (
                                 /* 담당자 있음 → 중간보고 + 완료일 2개 */
-                                <div className="flex flex-col gap-0.5 w-full">
-                                  {/* 중간보고 */}
-                                  <div className="relative flex items-center gap-1 group/middate w-full cursor-pointer"
-                                    onClick={e => {
-                                      e.stopPropagation()
-                                      const inp = (e.currentTarget as HTMLElement).querySelector('input[type="date"]') as HTMLInputElement | null
-                                      console.warn('[jin-dash] middate click, inp=', inp)
-                                      try { inp?.showPicker() } catch(err) { console.warn('[jin-dash] showPicker failed:', err) }
-                                    }}>
-                                    <span style={{ fontSize: 9, fontWeight: 600, color: 'rgba(148,163,184,0.7)', flexShrink: 0, width: 10 }}>중</span>
-                                    <span style={{ fontSize: 9, fontWeight: 500, color: st.mid_date ? '#93C5FD' : 'rgba(226,232,240,0.18)', flex: 1 }}>
-                                      {st.mid_date ? st.mid_date.slice(5).replace('-', '/') : '—'}
-                                    </span>
-                                    {st.mid_date && (
-                                      <span className="hidden group-hover/middate:inline text-[8px] text-[rgba(226,232,240,0.25)] hover:text-red-400 cursor-pointer"
-                                        onClick={e => { e.stopPropagation(); updateSubTaskMidDate(st.id, null) }}>×</span>
-                                    )}
-                                    <input type="date" value={st.mid_date ?? ''}
-                                      style={{ position: 'absolute', inset: 0, opacity: 0, width: '100%', height: '100%', pointerEvents: 'none', colorScheme: 'dark' }}
-                                      onChange={e => updateSubTaskMidDate(st.id, e.target.value || null)} />
-                                  </div>
-                                  {/* 완료일 */}
-                                  <div className="relative flex items-center gap-1 group/duedate w-full cursor-pointer"
-                                    onClick={e => {
-                                      e.stopPropagation()
-                                      const inp = (e.currentTarget as HTMLElement).querySelector('input[type="date"]') as HTMLInputElement | null
-                                      console.warn('[jin-dash] duedate click, inp=', inp)
-                                      try { inp?.showPicker() } catch(err) { console.warn('[jin-dash] showPicker failed:', err) }
-                                    }}>
-                                    <span style={{ fontSize: 9, fontWeight: 600, color: 'rgba(148,163,184,0.7)', flexShrink: 0, width: 10 }}>완</span>
-                                    <span style={{ fontSize: 9, fontWeight: 500, color: st.due_date ? '#86EFAC' : 'rgba(226,232,240,0.18)', flex: 1 }}>
-                                      {st.due_date ? st.due_date.slice(5).replace('-', '/') : '—'}
-                                    </span>
-                                    {st.due_date && (
-                                      <span className="hidden group-hover/duedate:inline text-[8px] text-[rgba(226,232,240,0.25)] hover:text-red-400 cursor-pointer"
-                                        onClick={e => { e.stopPropagation(); updateSubTaskDueDate(st.id, null) }}>×</span>
-                                    )}
-                                    <input type="date" value={st.due_date ?? ''}
-                                      style={{ position: 'absolute', inset: 0, opacity: 0, width: '100%', height: '100%', pointerEvents: 'none', colorScheme: 'dark' }}
-                                      onChange={e => updateSubTaskDueDate(st.id, e.target.value || null)} />
-                                  </div>
+                                <div className="flex flex-col gap-0.5 w-full" onClick={e => e.stopPropagation()}>
+                                  <DateCellPicker label="중" value={st.mid_date ?? null} color="#93C5FD" onChange={v => updateSubTaskMidDate(st.id, v)} />
+                                  <DateCellPicker label="완" value={st.due_date ?? null} color="#86EFAC" onChange={v => updateSubTaskDueDate(st.id, v)} />
                                 </div>
                               ) : (
                                 /* 담당자 없음 → 완료일 1개 + 오늘/내일/금주 퀵버튼 */
