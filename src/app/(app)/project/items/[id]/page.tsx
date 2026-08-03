@@ -4,7 +4,6 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { AgendaItem, AgendaSubTask, Attachment, Member } from '@/types'
-import { fetchMembers } from '@/lib/tasks'
 import TiptapEditor from '@/components/TiptapEditor'
 
 const STATUS_CYCLE = ['active', 'hold', 'done'] as const
@@ -121,7 +120,6 @@ export default function AgendaItemDetailPage() {
   // ── 데이터 로드 ─────────────────────────────────────────────────
   const load = useCallback(async () => {
     setLoading(true)
-    fetchMembers().then(setMembers)
     const { data: iData } = await supabase
       .from('agenda_items')
       .select('*, agenda_groups(name, color)')
@@ -180,7 +178,12 @@ export default function AgendaItemDetailPage() {
   }, [id])
 
   useEffect(() => { load() }, [load])
-  useEffect(() => { fetchMembers().then(setMembers) }, [])
+  // fetchMembers는 내부에서 별도 createClient를 쓰므로 세션이 다를 수 있음
+  // → 이 컴포넌트의 supabase 인스턴스로 직접 쿼리
+  useEffect(() => {
+    supabase.from('members').select('id, name').is('archived_at', null).order('name')
+      .then(({ data }) => setMembers((data ?? []) as Member[]))
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // focus 파라미터 처리 — 해당 아코디언 열고 스크롤
   useEffect(() => {
@@ -619,8 +622,9 @@ export default function AgendaItemDetailPage() {
                     value={st.assignee_id ?? ''}
                     onChange={e => { e.stopPropagation(); updateSTAssignee(st.id, e.target.value || null) }}
                     onClick={e => e.stopPropagation()}
-                    className="ml-1.5 text-[9px] bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.09)] rounded px-1.5 py-0.5 text-[rgba(226,232,240,0.45)] hover:border-[rgba(255,255,255,0.2)] hover:text-[rgba(226,232,240,0.7)] focus:outline-none cursor-pointer flex-shrink-0 [&>option]:bg-[#1E2228] transition-colors">
-                    <option value="">담당자</option>
+                    className="ml-1.5 text-xs bg-transparent border-none outline-none cursor-pointer flex-shrink-0 [&>option]:bg-[#1E2228]"
+                    style={{ color: st.assignee_id ? 'rgba(226,232,240,0.8)' : 'rgba(226,232,240,0.35)', colorScheme: 'dark' }}>
+                    <option value="">-</option>
                     {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                   </select>
                   {st.assignee_id && st.due_date && (
