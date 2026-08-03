@@ -64,6 +64,8 @@ export default function SchedulePage() {
   const [showNextCal, setShowNextCal] = useState(false)
   const [showAnalysis, setShowAnalysis] = useState(false)
   const [analysisPeriod, setAnalysisPeriod] = useState<'이번주' | '이번달' | '직전월'>('이번달')
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editForm, setEditForm] = useState<{ title: string; time: string; is_recurring: boolean; days_of_week: number[]; date: string }>({ title: '', time: '09:00', is_recurring: true, days_of_week: [], date: todayStrSched() })
   const [showRepeatModal, setShowRepeatModal] = useState(false)
   const [repeatTitle, setRepeatTitle] = useState('')
   const [repeatDay, setRepeatDay] = useState('15')
@@ -98,6 +100,39 @@ export default function SchedulePage() {
 
   function removeMeetingSchedule(id: string) {
     saveSchedules(schedules.filter(s => s.id !== id))
+    if (editingId === id) setEditingId(null)
+  }
+
+  function startEdit(s: MeetingSchedule) {
+    setEditingId(s.id)
+    setEditForm({
+      title: s.title,
+      time: s.time,
+      is_recurring: s.is_recurring,
+      days_of_week: s.days_of_week ?? [],
+      date: s.date ?? todayStrSched(),
+    })
+  }
+
+  function saveEdit() {
+    if (!editingId || !editForm.title.trim()) return
+    saveSchedules(schedules.map(s => s.id !== editingId ? s : {
+      ...s,
+      title: editForm.title.trim(),
+      time: editForm.time,
+      is_recurring: editForm.is_recurring,
+      ...(editForm.is_recurring ? { days_of_week: editForm.days_of_week, date: undefined } : { date: editForm.date, days_of_week: undefined }),
+    }))
+    setEditingId(null)
+  }
+
+  function toggleEditDow(d: number) {
+    setEditForm(prev => ({
+      ...prev,
+      days_of_week: prev.days_of_week.includes(d)
+        ? prev.days_of_week.filter(x => x !== d)
+        : [...prev.days_of_week, d],
+    }))
   }
 
   function toggleMeetDow(d: number) {
@@ -646,22 +681,86 @@ export default function SchedulePage() {
                 {schedules.length === 0 ? (
                   <p className="text-xs text-[rgba(226,232,240,0.3)] text-center py-2">등록된 고정 회의 없음</p>
                 ) : (
-                  schedules.map(s => (
-                    <div key={s.id} className="group flex items-center gap-2 px-1.5 py-1.5 rounded-lg hover:bg-[rgba(255,255,255,0.06)] transition-colors">
-                      <span className="text-[11px] font-mono text-[rgba(226,232,240,0.4)] w-10 flex-shrink-0">{s.time}</span>
-                      <span className="flex-1 text-[11px] text-[rgba(226,232,240,0.8)] truncate">{s.title}</span>
-                      <span className="text-[8px] text-[rgba(226,232,240,0.3)] flex-shrink-0">
-                        {s.is_recurring
-                          ? (s.days_of_week ?? []).map(d => DOW_LABELS_SCHED[d]).join('')
-                          : s.date}
-                      </span>
-                      <button
-                        onClick={() => removeMeetingSchedule(s.id)}
-                        className="text-[9px] text-[rgba(226,232,240,0.2)] hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                        ×
-                      </button>
-                    </div>
-                  ))
+                  schedules.map(s => {
+                    if (editingId === s.id) {
+                      return (
+                        <div key={s.id} className="p-2.5 bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.12)] rounded-xl space-y-2">
+                          <input
+                            autoFocus
+                            value={editForm.title}
+                            onChange={e => setEditForm(p => ({ ...p, title: e.target.value }))}
+                            onKeyDown={e => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') setEditingId(null) }}
+                            className="w-full text-xs focus:outline-none border-b border-[rgba(255,255,255,0.06)] pb-1 bg-transparent text-[rgba(226,232,240,0.9)] placeholder:text-[rgba(226,232,240,0.3)]"
+                          />
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="time"
+                              value={editForm.time}
+                              onChange={e => setEditForm(p => ({ ...p, time: e.target.value }))}
+                              className="text-xs border border-[rgba(255,255,255,0.09)] rounded px-1.5 py-0.5 focus:outline-none text-[rgba(226,232,240,0.7)] bg-[rgba(255,255,255,0.06)]"
+                            />
+                            <label className="flex items-center gap-1 text-[10px] text-[rgba(226,232,240,0.5)] cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={editForm.is_recurring}
+                                onChange={e => setEditForm(p => ({ ...p, is_recurring: e.target.checked }))}
+                                className="w-3 h-3"
+                              />
+                              반복
+                            </label>
+                          </div>
+                          {editForm.is_recurring ? (
+                            <div className="flex gap-1">
+                              {DOW_LABELS_SCHED.map((label, d) => (
+                                <button key={d} type="button" onClick={() => toggleEditDow(d)}
+                                  className={`text-[9px] w-6 h-6 rounded-full font-medium transition-colors ${
+                                    editForm.days_of_week.includes(d) ? 'bg-[#4C7FE0] text-white' : 'bg-[rgba(255,255,255,0.06)] text-[rgba(226,232,240,0.4)] hover:bg-[rgba(255,255,255,0.08)]'
+                                  }`}>
+                                  {label}
+                                </button>
+                              ))}
+                            </div>
+                          ) : (
+                            <input
+                              type="date"
+                              value={editForm.date}
+                              onChange={e => setEditForm(p => ({ ...p, date: e.target.value }))}
+                              className="text-xs border border-[rgba(255,255,255,0.09)] rounded px-1.5 py-0.5 focus:outline-none text-[rgba(226,232,240,0.7)] bg-[rgba(255,255,255,0.06)]"
+                            />
+                          )}
+                          <div className="flex justify-end gap-1.5 pt-0.5">
+                            <button onClick={() => setEditingId(null)}
+                              className="text-[10px] text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)]">취소</button>
+                            <button onClick={saveEdit} disabled={!editForm.title.trim()}
+                              className="text-[10px] bg-[#4C7FE0] text-white px-2.5 py-1 rounded-full disabled:opacity-40">
+                              저장
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    }
+                    return (
+                      <div key={s.id} className="group flex items-center gap-2 px-1.5 py-1.5 rounded-lg hover:bg-[rgba(255,255,255,0.06)] transition-colors">
+                        <span className="text-[11px] font-mono text-[rgba(226,232,240,0.4)] w-10 flex-shrink-0">{s.time}</span>
+                        <span className="flex-1 text-[11px] text-[rgba(226,232,240,0.8)] truncate">{s.title}</span>
+                        <span className="text-[8px] text-[rgba(226,232,240,0.3)] flex-shrink-0">
+                          {s.is_recurring
+                            ? (s.days_of_week ?? []).map(d => DOW_LABELS_SCHED[d]).join('')
+                            : s.date}
+                        </span>
+                        <button
+                          onClick={() => startEdit(s)}
+                          className="text-[9px] text-[rgba(226,232,240,0.2)] hover:text-[rgba(226,232,240,0.6)] opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 px-0.5">
+                          ✎
+                        </button>
+                        <button
+                          onClick={() => removeMeetingSchedule(s.id)}
+                          className="text-[9px] text-[rgba(226,232,240,0.2)] hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                          ×
+                        </button>
+                      </div>
+                    )
+                  })
                 )}
               </div>
             </div>
