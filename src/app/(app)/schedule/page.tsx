@@ -154,12 +154,11 @@ export default function SchedulePage() {
   const supabase = createClient()
 
   function loadData() {
-    const sel = 'id, title, target_date, schedule_tag, tasks(id, title, short_name, part)'
     Promise.all([
       fetchAllTasks(),
       fetchMembers(),
       supabase.from('meetings').select('id, title, meeting_date, category').not('meeting_date', 'is', null),
-      supabase.from('task_todos').select(sel).eq('done', false).limit(500),
+      supabase.from('task_todos').select('*, tasks(id, title, short_name, part)').eq('done', false).limit(500),
     ]).then(([t, m, { data: mtgs, error: mtgErr }, { data: allTodos, error: todosErr }]) => {
       if (mtgErr) console.error('[schedule] meetings error:', mtgErr)
       if (todosErr) console.error('[schedule] todos error:', todosErr)
@@ -168,9 +167,11 @@ export default function SchedulePage() {
       setMeetings((mtgs ?? []) as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>[])
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const withDate = (allTodos ?? []).filter((r: any) => r.target_date || r.schedule_tag)
-      console.log('[schedule] todos with date/tag:', withDate.length)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      setScheduledTodos(withDate.filter((r: any) => r.tasks).map((r: any) => ({ id: r.id, title: r.title, target_date: r.target_date ?? null, schedule_tag: r.schedule_tag ?? null, task: r.tasks })))
+      const withTasks = withDate.filter((r: any) => r.tasks)
+      console.log('[schedule] todos with date/tag:', withDate.length, '/ with tasks join:', withTasks.length)
+      if (withDate.length > 0) console.log('[schedule] sample[0]:', JSON.stringify({ id: withDate[0].id, target_date: withDate[0].target_date, schedule_tag: withDate[0].schedule_tag, tasks: withDate[0].tasks }))
+      setScheduledTodos(withTasks.map((r: any) => ({ id: r.id, title: r.title, target_date: r.target_date ?? null, schedule_tag: r.schedule_tag ?? null, task: r.tasks })))
     })
   }
 
