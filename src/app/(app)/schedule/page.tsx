@@ -154,16 +154,20 @@ export default function SchedulePage() {
   const supabase = createClient()
 
   function loadData() {
+    const sel = 'id, title, target_date, schedule_tag, tasks!inner(id, title, short_name, assignee_id, part)'
     Promise.all([
       fetchAllTasks(),
       fetchMembers(),
       supabase.from('meetings').select('id, title, meeting_date, category').not('meeting_date', 'is', null),
-      supabase.from('task_todos').select('id, title, target_date, schedule_tag, tasks!inner(id, title, short_name, assignee_id, part)').or('target_date.not.is.null,schedule_tag.not.is.null').eq('done', false),
-    ]).then(([t, m, { data: mtgs }, { data: todoData }]) => {
+      supabase.from('task_todos').select(sel).not('target_date', 'is', null).eq('done', false),
+      supabase.from('task_todos').select(sel).not('schedule_tag', 'is', null).eq('done', false),
+    ]).then(([t, m, { data: mtgs }, { data: byDate }, { data: byTag }]) => {
       setTasks(t); setMembers(m)
       setMeetings((mtgs ?? []) as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>[])
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      setScheduledTodos((todoData ?? []).map((r: any) => ({ id: r.id, title: r.title, target_date: r.target_date, schedule_tag: r.schedule_tag, task: r.tasks })))
+      const merged = [...(byDate ?? []), ...(byTag ?? []).filter((r: any) => !(byDate ?? []).some((d: any) => d.id === r.id))]
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      setScheduledTodos(merged.map((r: any) => ({ id: r.id, title: r.title, target_date: r.target_date ?? null, schedule_tag: r.schedule_tag ?? null, task: r.tasks })))
     })
   }
 
