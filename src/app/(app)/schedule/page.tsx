@@ -176,7 +176,7 @@ export default function SchedulePage() {
     // 할일별 담당자 맵 (task detail과 localStorage 공유)
     try {
       const raw = localStorage.getItem('todo_assignees')
-      if (raw) setTodoAssigneeMap(JSON.parse(raw))
+      if (raw) setTodoAssigneeMap(JSON.parse(raw) as Record<string, string>)
     } catch {}
     // 예정 1on1 (next_appointment_date 설정된 것)
     supabase
