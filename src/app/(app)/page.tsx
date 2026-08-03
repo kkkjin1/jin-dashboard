@@ -217,11 +217,12 @@ function KpiChip({ dot, label, onClick }: { dot: string; label: string; onClick?
 }
 
 // ── DualLaneTimeline ───────────────────────────────────────────────────────
-function DualLaneTimeline({ meetings, todos, now, onAdd }: {
+function DualLaneTimeline({ meetings, todos, now, onAdd, fixedMeetings = [] }: {
   meetings: Meeting[]
   todos: TodayTodo[]
   now: Date
   onAdd: (title: string, startHour: number) => Promise<string | null>
+  fixedMeetings?: MeetingSchedule[]
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [cw, setCw] = useState(0)
@@ -508,6 +509,36 @@ function DualLaneTimeline({ meetings, todos, now, onAdd }: {
               <span style={{ fontSize: 9.5, fontWeight: 600, color: 'rgba(255,255,255,0.50)', lineHeight: 1, marginBottom: 3 }}>{hourToStr(hour)}</span>
               <span style={{ fontSize: 11.5, fontWeight: 500, color: 'rgba(255,255,255,0.88)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }}>{m.title}</span>
               <div onMouseDown={e => { e.stopPropagation(); e.preventDefault(); onMResizeStart(m.id, e.clientX) }}
+                style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 8, cursor: 'ew-resize' }} />
+            </div>
+          )
+        })}
+
+        {/* ── Lane 1: 고정 회의 ── */}
+        {fixedMeetings.map((s, i) => {
+          const fid = `fixed_${s.id}`
+          const [fh, fm] = s.time.split(':').map(Number)
+          const timeHour = fh + fm / 60
+          const hour = mPos[fid] ?? timeHour
+          const dur  = mDur[fid] ?? 1
+          const { x, w } = cardGeom(hour, dur)
+          const col = EV_COLS[(meetings.length + i) % EV_COLS.length]
+          return (
+            <div key={fid}
+              onMouseDown={e => { e.preventDefault(); onMDragStart(fid, e.clientX) }}
+              style={{
+                position: 'absolute', left: x, width: w,
+                top: TL_LANE1_TOP, height: TL_LANE_H,
+                borderRadius: 8, cursor: 'grab',
+                background: col.bg,
+                border: `1px solid rgba(56,190,152,0.30)`,
+                padding: '5px 10px',
+                display: 'flex', flexDirection: 'column', justifyContent: 'center',
+                overflow: 'hidden', userSelect: 'none', zIndex: 4,
+              }}>
+              <span style={{ fontSize: 9.5, fontWeight: 600, color: 'rgba(255,255,255,0.50)', lineHeight: 1, marginBottom: 3 }}>{s.time}</span>
+              <span style={{ fontSize: 11.5, fontWeight: 500, color: 'rgba(255,255,255,0.88)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }}>↺ {s.title}</span>
+              <div onMouseDown={e => { e.stopPropagation(); e.preventDefault(); onMResizeStart(fid, e.clientX) }}
                 style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 8, cursor: 'ew-resize' }} />
             </div>
           )
@@ -1028,7 +1059,7 @@ export default function HomePage() {
           </div>
 
           {/* Row 1: Dual-lane timeline — full width */}
-          <DualLaneTimeline meetings={todayMeetings} todos={todayTodos} now={now} onAdd={handleAddMeeting} />
+          <DualLaneTimeline meetings={todayMeetings} todos={todayTodos} now={now} onAdd={handleAddMeeting} fixedMeetings={todayFixedMeetings} />
 
           {/* Rows 2 + 3 — flex column, fills remaining height */}
           <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
