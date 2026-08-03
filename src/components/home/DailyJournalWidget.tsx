@@ -461,8 +461,11 @@ export function JournalFullscreenEditor({ selectedDate, current, yesterday, meet
                   {(['done','insight','challenge','tomorrow'] as SectionKey[]).map(key => {
                     const m = SECTION_META[key]
                     return (
-                      <div key={key} className="flex flex-col gap-1 rounded-xl p-2.5" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                        <span className="text-[10px] font-semibold" style={{ color: D.t3 }}>{m.emoji} {m.label}</span>
+                      <div key={key} className="flex flex-col gap-2 rounded-xl p-2.5" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                        <div className="flex items-center gap-1.5 pb-1.5" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                          <span style={{ fontSize: 13, lineHeight: 1 }}>{m.emoji}</span>
+                          <span className="text-[10px] font-semibold tracking-wide" style={{ color: 'rgba(226,232,240,0.7)' }}>{m.label}</span>
+                        </div>
                         <textarea ref={key === 'done' ? textareaRef : undefined}
                           rows={m.rows} value={sections[key]}
                           onChange={e => updateSection(key, e.target.value)}
@@ -482,8 +485,11 @@ export function JournalFullscreenEditor({ selectedDate, current, yesterday, meet
                   {(['good','grateful'] as SectionKey[]).map(key => {
                     const m = SECTION_META[key]
                     return (
-                      <div key={key} className="flex flex-col gap-1 rounded-xl p-2.5" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                        <span className="text-[10px] font-semibold" style={{ color: D.t3 }}>{m.emoji} {m.label}</span>
+                      <div key={key} className="flex flex-col gap-2 rounded-xl p-2.5" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                        <div className="flex items-center gap-1.5 pb-1.5" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                          <span style={{ fontSize: 13, lineHeight: 1 }}>{m.emoji}</span>
+                          <span className="text-[10px] font-semibold tracking-wide" style={{ color: 'rgba(226,232,240,0.7)' }}>{m.label}</span>
+                        </div>
                         <textarea rows={m.rows} value={sections[key]}
                           onChange={e => updateSection(key, e.target.value)}
                           placeholder={m.ph}
@@ -495,8 +501,11 @@ export function JournalFullscreenEditor({ selectedDate, current, yesterday, meet
                 </div>
 
                 {/* 식사 */}
-                <div className="mt-2 rounded-xl p-2.5 flex items-center gap-3" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                  <span className="text-[10px] font-semibold flex-shrink-0" style={{ color: D.t3 }}>🍽️ 식사</span>
+                <div className="mt-2 rounded-xl p-2.5" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                  <div className="flex items-center gap-1.5 pb-1.5 mb-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                    <span style={{ fontSize: 13, lineHeight: 1 }}>🍽️</span>
+                    <span className="text-[10px] font-semibold tracking-wide" style={{ color: 'rgba(226,232,240,0.7)' }}>식사</span>
+                  </div>
                   <div className="flex items-center gap-2 flex-1 min-w-0">
                     <span className="text-[10px]" style={{ color: D.t3 }}>점심</span>
                     <input value={lunch} onChange={e => updateMeal('lunch', e.target.value)}
@@ -506,11 +515,13 @@ export function JournalFullscreenEditor({ selectedDate, current, yesterday, meet
                       placeholder="—" className="flex-1 min-w-0 focus:outline-none bg-transparent text-[12px]" style={{ color: D.t1 }} />
                   </div>
                 </div>
-              </div>
 
               {/* ── 일반 ── */}
-              <div className="flex flex-col gap-1 rounded-xl p-2.5" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                <span className="text-[10px] font-semibold" style={{ color: D.t3 }}>📝 일반</span>
+              <div className="flex flex-col gap-2 rounded-xl p-2.5" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                <div className="flex items-center gap-1.5 pb-1.5" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                  <span style={{ fontSize: 13, lineHeight: 1 }}>📝</span>
+                  <span className="text-[10px] font-semibold tracking-wide" style={{ color: 'rgba(226,232,240,0.7)' }}>일반</span>
+                </div>
                 <textarea rows={3} value={sections.general}
                   onChange={e => updateSection('general', e.target.value)}
                   placeholder="기타 메모…"

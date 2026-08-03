@@ -3,27 +3,27 @@
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import nextDynamic from 'next/dynamic'
 import { createClient } from '@/lib/supabase/client'
 import { fetchAllTasks } from '@/lib/tasks'
 import type { Task } from '@/types'
+import { JournalFullscreenEditor } from '@/components/home/DailyJournalWidget'
+import type { DailyJournal } from '@/components/home/DailyJournalWidget'
 
-const TiptapEditor = nextDynamic(() => import('@/components/TiptapEditor'), { ssr: false })
-
-interface DailyJournal {
-  id: string
-  date: string
-  content: string
-  linked_task_ids: string[]
-  linked_meeting_ids: string[]
-}
+interface MeetingMin { id: string; title: string; meeting_date?: string | null }
 
 function localDateStr(d: Date) {
   return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-')
 }
+function todayStr() { return localDateStr(new Date()) }
 
 function nDaysAgo(n: number) {
   const d = new Date(); d.setDate(d.getDate() - n); return localDateStr(d)
+}
+
+function getPrevDate(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const dt = new Date(y, m - 1, d); dt.setDate(dt.getDate() - 1)
+  return localDateStr(dt)
 }
 
 function formatDateFull(ds: string) {
@@ -92,17 +92,17 @@ const pOn  = 'bg-[#4C7FE0] text-white border-[#4C7FE0] shadow-sm'
 const pOff = 'bg-white/[0.06] backdrop-blur-xl border-white/[0.09] text-white/50 hover:bg-white/[0.1] hover:text-[#E2E8F0]'
 
 /* ── 행 컴포넌트 ── */
-function JournalRow({ journal, selected, onToggleSelect, onEdit, onDelete }: {
+function JournalRow({ journal, selected, onToggleSelect, onOpen, onDelete }: {
   journal: DailyJournal
   selected: boolean
   onToggleSelect: (date: string) => void
-  onEdit: (j: DailyJournal) => void
+  onOpen: (j: DailyJournal) => void
   onDelete: (date: string) => void
 }) {
   const preview = stripMd(journal.content).slice(0, 160)
   return (
     <div
-      onClick={() => onEdit(journal)}
+      onClick={() => onOpen(journal)}
       className={`group flex items-center gap-0 cursor-pointer select-none transition-colors ${selected ? 'bg-white/[0.06]' : 'hover:bg-white/[0.03]'}`}
       style={{ padding: '9px 4px', borderBottom: '0.5px solid rgba(255,255,255,0.05)' }}>
       <input type="checkbox" checked={selected}
@@ -125,70 +125,6 @@ function JournalRow({ journal, selected, onToggleSelect, onEdit, onDelete }: {
   )
 }
 
-/* ── 편집 모달 ── */
-function JournalEditModal({ journal, onSave, onClose }: {
-  journal: DailyJournal
-  onSave: (date: string, content: string) => Promise<void>
-  onClose: () => void
-}) {
-  const [content, setContent] = useState(journal.content)
-  const [status, setStatus] = useState<'saving' | 'saved' | null>(null)
-  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  const isFirst = useRef(true)
-
-  useEffect(() => {
-    if (isFirst.current) { isFirst.current = false; return }
-    setStatus('saving')
-    clearTimeout(timer.current)
-    timer.current = setTimeout(async () => {
-      await onSave(journal.date, content)
-      setStatus('saved')
-      setTimeout(() => setStatus(null), 2000)
-    }, 1500)
-    return () => clearTimeout(timer.current)
-  }, [content])
-
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm p-4"
-      style={{ background: 'rgba(0,0,0,0.6)' }}
-      onClick={onClose}>
-      <div
-        className="backdrop-blur-xl rounded-3xl p-6 w-full max-w-2xl flex flex-col"
-        style={{ height: 'min(82vh, 720px)', maxHeight: '82vh', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.09)', boxShadow: '0 20px 40px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.07) inset' }}
-        onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-4 flex-shrink-0">
-          <h2 className="text-base font-semibold text-[#E2E8F0]">{formatDateFull(journal.date)}</h2>
-          <button onClick={onClose} className="text-white/[0.28] hover:text-white/70 text-lg leading-none transition-colors">×</button>
-        </div>
-        <div className="flex-1 min-h-0 overflow-y-auto rounded-2xl"
-          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
-          <TiptapEditor
-            dark
-            value={content}
-            onChange={setContent}
-            onSubmit={() => { onSave(journal.date, content); onClose() }}
-            autoFocus
-            minHeight={400}
-            className="p-3"
-          />
-        </div>
-        <div className="flex justify-between items-center mt-4 flex-shrink-0">
-          <p className="text-[10px] text-white/[0.28]">
-            {status === 'saving' ? '저장 중…' : status === 'saved' ? '✓ 자동저장됨' : 'Esc 닫기 · 자동저장'}
-          </p>
-          <button onClick={() => { onSave(journal.date, content); onClose() }} className={`${pill} ${pOn}`}>저장</button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 /* ── 필터 정의 ── */
 type FilterRange = 'all' | '7d' | '30d' | '90d'
 const RANGES: { key: FilterRange; label: string; days: number }[] = [
@@ -200,32 +136,56 @@ const RANGES: { key: FilterRange; label: string; days: number }[] = [
 
 /* ── 메인 페이지 ── */
 export default function JournalPage() {
-  const [journals, setJournals] = useState<DailyJournal[]>([])
-  const [tasks, setTasks]       = useState<Task[]>([])
-  const [loading, setLoading]   = useState(true)
-  const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [editing, setEditing]   = useState<DailyJournal | null>(null)
+  const [journals, setJournals]   = useState<DailyJournal[]>([])
+  const [tasks, setTasks]         = useState<Task[]>([])
+  const [meetings, setMeetings]   = useState<MeetingMin[]>([])
+  const [loading, setLoading]     = useState(true)
+  const [selected, setSelected]   = useState<Set<string>>(new Set())
   const [filterRange, setFilterRange] = useState<FilterRange>('all')
   const [collapsedMonths, setCollapsedMonths] = useState<Set<string>>(new Set())
+  const [editorState, setEditorState] = useState<{
+    date: string
+    journal: DailyJournal | null
+    yesterday: DailyJournal | null
+  } | null>(null)
+
   const supabase = createClient()
 
   useEffect(() => {
     async function load() {
-      const [{ data: j }, t] = await Promise.all([
+      const [{ data: j }, t, { data: m }] = await Promise.all([
         supabase.from('daily_journals').select('*').order('date', { ascending: false }),
         fetchAllTasks(),
+        supabase.from('project_meetings').select('id, title, meeting_date').order('meeting_date', { ascending: false }).limit(100),
       ])
       setJournals((j ?? []) as DailyJournal[])
       setTasks(t)
+      setMeetings((m ?? []) as MeetingMin[])
       setLoading(false)
     }
     load()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  async function saveEdit(date: string, content: string) {
-    await supabase.from('daily_journals').update({ content }).eq('date', date)
-    setJournals(prev => prev.map(j => j.date === date ? { ...j, content } : j))
+  /* 에디터 열기 */
+  function openEditor(date: string, journalData?: DailyJournal) {
+    const journal = journalData ?? journals.find(j => j.date === date) ?? null
+    const prevDate = getPrevDate(date)
+    const yesterday = journals.find(j => j.date === prevDate) ?? null
+    setEditorState({ date, journal, yesterday })
+  }
+
+  function openNewJournal() {
+    openEditor(todayStr())
+  }
+
+  function handleEditorSaved(saved: DailyJournal) {
+    setJournals(prev => {
+      const exists = prev.find(j => j.date === saved.date)
+      if (exists) return prev.map(j => j.date === saved.date ? saved : j)
+      return [saved, ...prev].sort((a, b) => b.date.localeCompare(a.date))
+    })
+    setEditorState(null)
   }
 
   async function deleteJournal(date: string) {
@@ -286,12 +246,22 @@ export default function JournalPage() {
 
   return (
     <div className="h-full flex flex-col overflow-hidden font-sans">
-      {editing && (
-        <JournalEditModal journal={editing} onSave={saveEdit} onClose={() => setEditing(null)} />
+
+      {/* 풀스크린 에디터 */}
+      {editorState && (
+        <JournalFullscreenEditor
+          selectedDate={editorState.date}
+          current={editorState.journal}
+          yesterday={editorState.yesterday}
+          meetings={meetings}
+          supabaseClient={supabase}
+          onSaved={handleEditorSaved}
+          onClose={() => setEditorState(null)}
+        />
       )}
 
       {/* 헤더 */}
-      <div className="flex-shrink-0 pt-6 pb-4 flex items-center gap-3">
+      <div className="flex-shrink-0 pt-6 pb-4 flex items-center gap-3 flex-wrap">
         <h1 className="text-xl font-bold text-[#E2E8F0] mr-auto">회고</h1>
         {selected.size > 0 && (
           <>
@@ -303,6 +273,10 @@ export default function JournalPage() {
           style={{ background: 'rgba(255,255,255,0.06)' }}>
           총 {journals.length}건
         </span>
+        <button onClick={openNewJournal}
+          className="text-sm bg-[#4C7FE0]/40 text-[#A8C4F0] border border-[#4C7FE0]/50 px-4 py-2 rounded-full hover:bg-[#4C7FE0]/60 transition-colors">
+          ✏️ 회고 작성하기
+        </button>
       </div>
 
       {/* 필터 pills */}
@@ -328,8 +302,12 @@ export default function JournalPage() {
       {/* 리스트 */}
       <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
         {displayed.length === 0 ? (
-          <div className="flex items-center justify-center h-40">
+          <div className="flex flex-col items-center justify-center h-40 gap-3">
             <p className="text-sm" style={{ color: 'rgba(226,232,240,0.28)' }}>기간 내 회고가 없습니다</p>
+            <button onClick={openNewJournal}
+              className="text-xs border border-dashed border-white/[0.15] rounded-full px-4 py-2 text-white/40 hover:text-white/60 hover:border-white/25 transition-all">
+              ✏️ 오늘 회고 작성하기
+            </button>
           </div>
         ) : (
           <div className="space-y-6 pb-6">
@@ -364,7 +342,7 @@ export default function JournalPage() {
                       journal={j}
                       selected={selected.has(j.date)}
                       onToggleSelect={toggleSelect}
-                      onEdit={setEditing}
+                      onOpen={j => openEditor(j.date, j)}
                       onDelete={deleteJournal}
                     />
                   ))}
