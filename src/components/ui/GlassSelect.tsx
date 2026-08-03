@@ -88,7 +88,7 @@ export function GlassSelect({
             ? 'bg-[rgba(76,127,224,0.18)] border-[#4C7FE0] text-[rgba(226,232,240,0.9)]'
             : 'bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border-[rgba(255,255,255,0.09)] text-[rgba(226,232,240,0.5)] hover:text-[rgba(226,232,240,0.8)]',
         ].join(' ')
-      : 'w-full text-xs rounded-full border transition-all cursor-pointer select-none px-2 py-0.5 flex items-center justify-center gap-1.5'
+      : 'w-full text-[10px] cursor-pointer select-none px-1 flex items-center justify-center gap-1 transition-colors'
 
   const dropdown = open ? createPortal(
     <div
@@ -148,11 +148,7 @@ export function GlassSelect({
           ref={triggerRef}
           type="button"
           className={triggerClass}
-          style={{
-            background: inlineBg,
-            border: `1px solid ${inlineBorder}`,
-            color: selectedColor ?? 'rgba(226,232,240,0.4)',
-          }}
+          style={{ color: selectedColor ?? 'rgba(226,232,240,0.28)' }}
           onClick={toggle}
         >
           {selectedColor && (

@@ -598,7 +598,10 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                                 )}
                               </div>
                             </div>
-                            <div style={{ width: 90, borderLeft: '1px solid rgba(255,255,255,0.04)' }} />
+                            <div style={{ width: 90, borderLeft: '1px solid rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', padding: '0 12px', fontSize: 11,
+                              color: st.status === 'done' ? '#10B981' : st.status === 'hold' ? '#6366F1' : 'rgba(226,232,240,0.35)' }}>
+                              {STATUS_LABEL[st.status]}
+                            </div>
                             <div style={{ width: 120, padding: '6px 10px', borderLeft: '1px solid rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center' }}>
                               <GlassSelect
                                 value={st.assignee_id ?? ''}
@@ -624,6 +627,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                                         onClick={e => { e.preventDefault(); e.stopPropagation(); updateSubTaskMidDate(st.id, null) }}>×</span>
                                     )}
                                     <input type="date" value={st.mid_date ?? ''} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                                      style={{ colorScheme: 'dark' }}
                                       onChange={e => updateSubTaskMidDate(st.id, e.target.value || null)} onClick={e => e.stopPropagation()} />
                                   </label>
                                   {/* 완료일 */}
@@ -637,6 +641,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                                         onClick={e => { e.preventDefault(); e.stopPropagation(); updateSubTaskDueDate(st.id, null) }}>×</span>
                                     )}
                                     <input type="date" value={st.due_date ?? ''} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                                      style={{ colorScheme: 'dark' }}
                                       onChange={e => updateSubTaskDueDate(st.id, e.target.value || null)} onClick={e => e.stopPropagation()} />
                                   </label>
                                 </div>

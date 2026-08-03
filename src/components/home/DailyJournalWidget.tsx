@@ -204,6 +204,44 @@ interface TodayCtx {
 }
 
 const TASK_STATUS_LABEL: Record<string, string> = { active: '진행중', hold: '보류', done: '완료' }
+
+// ── 회고 섹션 ────────────────────────────────────────────────────────
+const SECTION_KEYS = ['done','insight','challenge','tomorrow','good','grateful','meal','general'] as const
+type SectionKey = typeof SECTION_KEYS[number]
+const SECTION_META: Record<SectionKey, { emoji: string; label: string; ph: string; rows: number }> = {
+  done:      { emoji: '✅', label: '완료한 것',  ph: '오늘 완료한 업무…',       rows: 3 },
+  insight:   { emoji: '💡', label: '인사이트',   ph: '배운 것, 발견한 것…',      rows: 3 },
+  challenge: { emoji: '🔥', label: '힘들었던 것', ph: '막힌 것, 어려웠던 점…',   rows: 3 },
+  tomorrow:  { emoji: '🎯', label: '내일 집중',  ph: '가장 중요한 한 가지…',     rows: 3 },
+  good:      { emoji: '😊', label: '좋았던 일',  ph: '오늘 가장 좋았던 것…',     rows: 2 },
+  grateful:  { emoji: '🙏', label: '감사한 일',  ph: '',                        rows: 2 },
+  meal:      { emoji: '🍽️', label: '식사',       ph: '',                        rows: 1 },
+  general:   { emoji: '📝', label: '일반',       ph: '기타 메모…',               rows: 3 },
+}
+function parseSections(content: string): Record<SectionKey, string> {
+  const empty = Object.fromEntries(SECTION_KEYS.map(k => [k, ''])) as Record<SectionKey, string>
+  if (!content) return empty
+  if (!content.includes('## ')) { return { ...empty, general: content } }
+  const map: Record<string, SectionKey> = {
+    '완료한 것': 'done', '인사이트': 'insight', '힘들었던 것': 'challenge', '내일 집중': 'tomorrow',
+    '좋았던 일': 'good', '감사한 일': 'grateful', '식사': 'meal', '일반': 'general',
+  }
+  const parts = content.split(/^## /m)
+  for (const part of parts) {
+    const nl = part.indexOf('\n')
+    const header = part.slice(0, nl).trim()
+    const body = part.slice(nl + 1).trim()
+    const key = map[header]
+    if (key) empty[key] = body
+  }
+  return empty
+}
+function serializeSections(s: Record<SectionKey, string>): string {
+  return (SECTION_KEYS as readonly SectionKey[])
+    .filter(k => s[k].trim())
+    .map(k => `## ${SECTION_META[k].label}\n${s[k].trim()}`)
+    .join('\n\n')
+}
 const TASK_STATUS_CLS: Record<string, string> = {
   active: 'bg-blue-50 text-blue-500',
   hold: 'bg-gray-100 text-gray-400',
@@ -211,7 +249,39 @@ const TASK_STATUS_CLS: Record<string, string> = {
 }
 
 export function JournalFullscreenEditor({ selectedDate, current, yesterday, meetings, supabaseClient, onSaved, onClose }: EditorProps) {
-  const [draft, setDraft] = useState(current?.content ?? '')
+  const [sections, setSections] = useState<Record<SectionKey, string>>(() => parseSections(current?.content ?? ''))
+  const [lunch, setLunch] = useState(() => {
+    const m = (current?.content ?? '').match(/점심[:\s]+([^\n]+)/)
+    return m ? m[1].trim() : ''
+  })
+  const [dinner, setDinner] = useState(() => {
+    const m = (current?.content ?? '').match(/저녁[:\s]+([^\n]+)/)
+    return m ? m[1].trim() : ''
+  })
+
+  function updateSection(key: SectionKey, value: string) {
+    setSections(prev => {
+      const next = { ...prev, [key]: value }
+      const meal = [lunch && `점심: ${lunch}`, dinner && `저녁: ${dinner}`].filter(Boolean).join('\n')
+      next.meal = meal
+      const serialized = serializeSections(next)
+      setDraft(serialized)
+      return next
+    })
+  }
+  function updateMeal(type: 'lunch' | 'dinner', value: string) {
+    const newLunch = type === 'lunch' ? value : lunch
+    const newDinner = type === 'dinner' ? value : dinner
+    if (type === 'lunch') setLunch(value); else setDinner(value)
+    setSections(prev => {
+      const meal = [newLunch && `점심: ${newLunch}`, newDinner && `저녁: ${newDinner}`].filter(Boolean).join('\n')
+      const next = { ...prev, meal }
+      setDraft(serializeSections(next))
+      return next
+    })
+  }
+
+  const [draft, setDraft] = useState(() => serializeSections(parseSections(current?.content ?? '')) || (current?.content ?? ''))
   const [linkedMeetingIds, setLinkedMeetingIds] = useState<string[]>(current?.linked_meeting_ids ?? [])
   const [tags, setTags] = useState<string[]>(current?.tags ?? [])
   const [tagInput, setTagInput] = useState('')
@@ -382,15 +452,71 @@ export function JournalFullscreenEditor({ selectedDate, current, yesterday, meet
 
             {/* 오늘 작성 영역 */}
             <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-3 min-h-0">
-              <p className="text-[11px] font-semibold flex-shrink-0" style={{ color: D.t3 }}>{dateLabel} 회고 작성</p>
-              <textarea
-                ref={textareaRef}
-                value={draft}
-                onChange={e => setDraft(e.target.value)}
-                placeholder="오늘 뭐했고, 어떤 고민이 있었는지, 어떤 진전이 있었는지 자유롭게…"
-                className="flex-1 text-sm resize-none focus:outline-none leading-relaxed min-h-[200px] bg-transparent w-full"
-                style={{ color: D.t1 }}
-              />
+              <p className="text-[11px] font-semibold flex-shrink-0" style={{ color: D.t3 }}>{dateLabel} 회고</p>
+
+              {/* ── 업무 회고 (2×2) ── */}
+              <div className="flex-shrink-0">
+                <p className="text-[9px] font-semibold tracking-wider mb-1.5 uppercase" style={{ color: D.t3 }}>업무</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {(['done','insight','challenge','tomorrow'] as SectionKey[]).map(key => {
+                    const m = SECTION_META[key]
+                    return (
+                      <div key={key} className="flex flex-col gap-1 rounded-xl p-2.5" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                        <span className="text-[10px] font-semibold" style={{ color: D.t3 }}>{m.emoji} {m.label}</span>
+                        <textarea ref={key === 'done' ? textareaRef : undefined}
+                          rows={m.rows} value={sections[key]}
+                          onChange={e => updateSection(key, e.target.value)}
+                          placeholder={m.ph}
+                          className="resize-none focus:outline-none bg-transparent text-[12px] leading-relaxed w-full placeholder:opacity-30"
+                          style={{ color: D.t1 }} />
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* ── 개인 회고 ── */}
+              <div className="flex-shrink-0">
+                <p className="text-[9px] font-semibold tracking-wider mb-1.5 uppercase" style={{ color: D.t3 }}>개인</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {(['good','grateful'] as SectionKey[]).map(key => {
+                    const m = SECTION_META[key]
+                    return (
+                      <div key={key} className="flex flex-col gap-1 rounded-xl p-2.5" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                        <span className="text-[10px] font-semibold" style={{ color: D.t3 }}>{m.emoji} {m.label}</span>
+                        <textarea rows={m.rows} value={sections[key]}
+                          onChange={e => updateSection(key, e.target.value)}
+                          placeholder={m.ph}
+                          className="resize-none focus:outline-none bg-transparent text-[12px] leading-relaxed w-full placeholder:opacity-30"
+                          style={{ color: D.t1 }} />
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {/* 식사 */}
+                <div className="mt-2 rounded-xl p-2.5 flex items-center gap-3" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <span className="text-[10px] font-semibold flex-shrink-0" style={{ color: D.t3 }}>🍽️ 식사</span>
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <span className="text-[10px]" style={{ color: D.t3 }}>점심</span>
+                    <input value={lunch} onChange={e => updateMeal('lunch', e.target.value)}
+                      placeholder="—" className="flex-1 min-w-0 focus:outline-none bg-transparent text-[12px]" style={{ color: D.t1 }} />
+                    <span className="text-[10px]" style={{ color: D.t3 }}>저녁</span>
+                    <input value={dinner} onChange={e => updateMeal('dinner', e.target.value)}
+                      placeholder="—" className="flex-1 min-w-0 focus:outline-none bg-transparent text-[12px]" style={{ color: D.t1 }} />
+                  </div>
+                </div>
+              </div>
+
+              {/* ── 일반 ── */}
+              <div className="flex flex-col gap-1 rounded-xl p-2.5" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <span className="text-[10px] font-semibold" style={{ color: D.t3 }}>📝 일반</span>
+                <textarea rows={3} value={sections.general}
+                  onChange={e => updateSection('general', e.target.value)}
+                  placeholder="기타 메모…"
+                  className="resize-none focus:outline-none bg-transparent text-[12px] leading-relaxed w-full placeholder:opacity-30"
+                  style={{ color: D.t1 }} />
+              </div>
 
               {/* @ 회의 연결 + # 태그 */}
               <div className="flex-shrink-0 pt-3 flex flex-col gap-2" style={{ borderTop: `1px solid ${D.divider}` }}>
