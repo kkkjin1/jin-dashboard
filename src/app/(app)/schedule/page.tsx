@@ -555,13 +555,15 @@ export default function SchedulePage() {
       {/* 필터 pills */}
       <div className="flex-shrink-0 flex items-center gap-2 overflow-x-auto scrollbar-hide mb-4">
         <select value={partFilter} onChange={e => setPartFilter(e.target.value)}
-          className={`${pillBase} bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border-[rgba(255,255,255,0.09)] text-[rgba(226,232,240,0.5)] focus:outline-none cursor-pointer [&>option]:bg-[#26282E] [&>option]:text-[rgba(226,232,240,0.8)]`}>
+          className={`${pillBase} bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border-[rgba(255,255,255,0.09)] text-[rgba(226,232,240,0.5)] focus:outline-none cursor-pointer [&>option]:bg-[#26282E] [&>option]:text-[rgba(226,232,240,0.8)]`}
+          style={{ colorScheme: 'dark' }}>
           <option value="전체">전체 파트</option>
           {flatParts.map(fp => <option key={fp.id} value={fp.id}>{fp.label}</option>)}
         </select>
 
         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as TaskStatus | '전체')}
-          className={`${pillBase} bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border-[rgba(255,255,255,0.09)] text-[rgba(226,232,240,0.5)] focus:outline-none cursor-pointer [&>option]:bg-[#26282E] [&>option]:text-[rgba(226,232,240,0.8)]`}>
+          className={`${pillBase} bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border-[rgba(255,255,255,0.09)] text-[rgba(226,232,240,0.5)] focus:outline-none cursor-pointer [&>option]:bg-[#26282E] [&>option]:text-[rgba(226,232,240,0.8)]`}
+          style={{ colorScheme: 'dark' }}>
           <option value="전체">전체 상태</option>
           <option value="진행필요">진행필요</option>
           <option value="진행중">진행중</option>
@@ -569,21 +571,24 @@ export default function SchedulePage() {
         </select>
 
         <select value={reportFilter} onChange={e => setReportFilter(e.target.value as '전체' | '중간공유' | '최종보고')}
-          className={`${pillBase} bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border-[rgba(255,255,255,0.09)] text-[rgba(226,232,240,0.5)] focus:outline-none cursor-pointer [&>option]:bg-[#26282E] [&>option]:text-[rgba(226,232,240,0.8)]`}>
+          className={`${pillBase} bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border-[rgba(255,255,255,0.09)] text-[rgba(226,232,240,0.5)] focus:outline-none cursor-pointer [&>option]:bg-[#26282E] [&>option]:text-[rgba(226,232,240,0.8)]`}
+          style={{ colorScheme: 'dark' }}>
           <option value="전체">보고구분</option>
           <option value="중간공유">중간공유</option>
           <option value="최종보고">최종보고</option>
         </select>
 
         <select value={viewFilter} onChange={e => setViewFilter(e.target.value as '전체' | '업무만' | '회의만')}
-          className={`${pillBase} bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border-[rgba(255,255,255,0.09)] text-[rgba(226,232,240,0.5)] focus:outline-none cursor-pointer [&>option]:bg-[#26282E] [&>option]:text-[rgba(226,232,240,0.8)]`}>
+          className={`${pillBase} bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border-[rgba(255,255,255,0.09)] text-[rgba(226,232,240,0.5)] focus:outline-none cursor-pointer [&>option]:bg-[#26282E] [&>option]:text-[rgba(226,232,240,0.8)]`}
+          style={{ colorScheme: 'dark' }}>
           <option value="전체">업무+회의</option>
           <option value="업무만">업무만</option>
           <option value="회의만">회의만</option>
         </select>
 
         <select ref={assigneeRef} value={assigneeFilter} onChange={e => setAssigneeFilter(e.target.value)}
-          className={`${pillBase} bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border-[rgba(255,255,255,0.09)] text-[rgba(226,232,240,0.5)] focus:outline-none cursor-pointer [&>option]:bg-[#26282E] [&>option]:text-[rgba(226,232,240,0.8)]`}>
+          className={`${pillBase} bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border-[rgba(255,255,255,0.09)] focus:outline-none cursor-pointer [&>option]:bg-[#26282E] [&>option]:text-[rgba(226,232,240,0.8)] ${assigneeFilter !== '전체' ? 'text-[rgba(226,232,240,0.9)] border-[#4C7FE0] bg-[rgba(76,127,224,0.12)]' : 'text-[rgba(226,232,240,0.5)]'}`}
+          style={{ colorScheme: 'dark' }}>
           <option value="전체">전체 담당자</option>
           {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
         </select>

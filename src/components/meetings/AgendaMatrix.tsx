@@ -512,11 +512,11 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                           <div style={{ width: 90, padding: '16px 12px', fontSize: 12, color: S.t2, borderLeft: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center' }}>
                             {STATUS_LABEL[item.status]}
                           </div>
-                          <div style={{ width: 120, padding: '10px 12px', fontSize: 12, borderLeft: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center' }} onClick={e => e.stopPropagation()}>
+                          <div style={{ width: 120, padding: '8px 10px', fontSize: 12, borderLeft: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center' }} onClick={e => e.stopPropagation()}>
                             <select value={item.assignee_id ?? ''} onChange={e => updateItemAssignee(item.id, e.target.value || null)}
-                              className="text-xs bg-transparent border-none outline-none cursor-pointer w-full"
+                              className={`text-xs outline-none cursor-pointer w-full rounded-full px-2.5 py-0.5 border transition-all [&>option]:bg-[#1E2228] ${item.assignee_id ? 'bg-[rgba(76,127,224,0.15)] border-[rgba(76,127,224,0.3)]' : 'bg-[rgba(255,255,255,0.06)] border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)]'}`}
                               style={{ color: item.assignee_id ? S.t2 : S.t3, colorScheme: 'dark' }}>
-                              <option value="">-</option>
+                              <option value="">담당자</option>
                               {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                             </select>
                           </div>
@@ -572,11 +572,11 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                               </div>
                             </div>
                             <div style={{ width: 90, borderLeft: '1px solid rgba(255,255,255,0.04)' }} />
-                            <div style={{ width: 120, padding: '8px 12px', borderLeft: '1px solid rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center' }} onClick={e => e.stopPropagation()}>
+                            <div style={{ width: 120, padding: '6px 10px', borderLeft: '1px solid rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center' }} onClick={e => e.stopPropagation()}>
                               <select value={st.assignee_id ?? ''} onChange={e => { e.stopPropagation(); updateSubTaskAssignee(st.id, e.target.value || null) }}
-                                className="text-xs bg-transparent border-none outline-none cursor-pointer w-full"
+                                className={`text-xs outline-none cursor-pointer w-full rounded-full px-2 py-0.5 border transition-all [&>option]:bg-[#1E2228] ${st.assignee_id ? 'bg-[rgba(76,127,224,0.15)] border-[rgba(76,127,224,0.3)]' : 'bg-[rgba(255,255,255,0.05)] border-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.18)]'}`}
                                 style={{ color: st.assignee_id ? S.t2 : S.t3, colorScheme: 'dark' }}>
-                                <option value="">-</option>
+                                <option value="">담당자</option>
                                 {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                               </select>
                             </div>
