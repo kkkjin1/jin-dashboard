@@ -354,15 +354,19 @@ export default function TaskDetailPage() {
     setTodos(prev => prev.map(t => t.id === todoId ? { ...t, done, done_at: doneAt } : t))
   }
 
+  function localDateStr(d: Date): string {
+    return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-')
+  }
+
   function getTargetDateForBucket(bucket: 'today' | 'tomorrow' | 'this_week'): string {
     const d = new Date()
-    if (bucket === 'today') return d.toISOString().slice(0, 10)
-    if (bucket === 'tomorrow') { d.setDate(d.getDate() + 1); return d.toISOString().slice(0, 10) }
+    if (bucket === 'today') return localDateStr(d)
+    if (bucket === 'tomorrow') { d.setDate(d.getDate() + 1); return localDateStr(d) }
     // this_week → 이번 주 금요일
     const day = d.getDay()
     const daysToFri = (5 - day + 7) % 7
     d.setDate(d.getDate() + (daysToFri === 0 ? 0 : daysToFri))
-    return d.toISOString().slice(0, 10)
+    return localDateStr(d)
   }
 
   function getTodoBucketFromDate(targetDate: string | null | undefined): 'today' | 'tomorrow' | 'this_week' | null {

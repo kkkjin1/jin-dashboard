@@ -152,7 +152,7 @@ export default function SchedulePage() {
   const assigneeRef = useRef<HTMLSelectElement>(null)
   const supabase = createClient()
 
-  useEffect(() => {
+  function loadData() {
     Promise.all([
       fetchAllTasks(),
       fetchMembers(),
@@ -164,6 +164,14 @@ export default function SchedulePage() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       setScheduledTodos((todoData ?? []).map((r: any) => ({ id: r.id, title: r.title, target_date: r.target_date, task: r.tasks })))
     })
+  }
+
+  useEffect(() => {
+    loadData()
+
+    function onFocus() { loadData() }
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
     // 할일별 담당자 맵 (task detail과 localStorage 공유)
     try {
       const raw = localStorage.getItem('todo_assignees')
