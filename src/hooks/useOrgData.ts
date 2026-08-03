@@ -32,7 +32,7 @@ export function useOrgData() {
   const flatParts: FlatPart[] = org.flatMap(team =>
     team.parts.length === 0
       ? [{ id: team.id, label: team.name, teamId: team.id, teamLabel: team.name }]
-      : team.parts.map(p => ({ id: p.id, label: p.name, teamId: team.id, teamLabel: team.name }))
+      : team.parts.map(p => ({ id: p.id, label: `${team.name}_${p.name}`, teamId: team.id, teamLabel: team.name }))
   )
 
   return { org, flatParts }
