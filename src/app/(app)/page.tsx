@@ -6,13 +6,23 @@ import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Search, Plus, FileText, Clock, NotebookPen, Layers, CheckSquare, CalendarDays, StickyNote } from 'lucide-react'
+import { Search, Plus, FileText, Clock, NotebookPen, Layers, CheckSquare, CalendarDays, StickyNote, Repeat2 } from 'lucide-react'
 import type { TaskTodo, Meeting, QuickMemo, AgendaSubTask, NoteEntry } from '@/types'
 import { JournalFullscreenEditor, type DailyJournal } from '@/components/home/DailyJournalWidget'
+import { useUserSetting } from '@/hooks/useUserSetting'
 import { format, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
 
 // ── Types ──────────────────────────────────────────────────────────────────
+interface MeetingSchedule {
+  id: string
+  title: string
+  time: string
+  is_recurring: boolean
+  days_of_week?: number[]
+  date?: string
+}
+
 type TodayTodo = Omit<TaskTodo, 'tasks'> & {
   tasks: { id: string; title: string; short_name: string | null; part: string } | null
 }
@@ -805,8 +815,14 @@ export default function HomePage() {
     return null
   }
 
+  const { value: fixedSchedules } = useUserSetting<MeetingSchedule[]>('meeting_schedules', [])
+
   const today          = todayStr()
   const todayMeetings  = meetings.filter(m => m.meeting_date?.startsWith(today))
+  const todayDow = now.getDay()
+  const todayFixedMeetings = fixedSchedules
+    .filter(s => s.is_recurring ? (s.days_of_week ?? []).includes(todayDow) : s.date === today)
+    .sort((a, b) => a.time.localeCompare(b.time))
   const recentMeetings = meetings.slice(0, 5)
   const _pad = (n: number) => String(n).padStart(2, '0')
   const tomorrowDate = new Date(now); tomorrowDate.setDate(now.getDate() + 1)
@@ -1160,7 +1176,7 @@ export default function HomePage() {
             {/* 오늘 업무 */}
             <CardSection title="오늘 업무" link="/tasks" linkLabel="+ 추가" icon={<CheckSquare size={14} strokeWidth={2} style={{ color: '#38BE98' }} />}>
               {loading ? <div>{skel(4)}</div>
-                : todayTodos.length === 0 && todayAgendaItems.length === 0 && todayMeetings.length === 0
+                : todayTodos.length === 0 && todayAgendaItems.length === 0 && todayMeetings.length === 0 && todayFixedMeetings.length === 0
                   ? <EmptyState
                       icon={<CheckSquare size={20} strokeWidth={1.5} />}
                       label="오늘 업무가 비어있어요."
@@ -1240,6 +1256,28 @@ export default function HomePage() {
                                     </div>
                                   </div>
                                 )}
+                              </div>
+                            )
+                          })}
+                          {(todayTodos.length > 0 || todayAgendaItems.length > 0 || todayFixedMeetings.length > 0) && (
+                            <div style={{ borderTop: `1px solid ${DIVIDER}`, margin: '4px 0 6px' }} />
+                          )}
+                        </>
+                      )}
+                      {/* ── 고정 회의 ── */}
+                      {todayFixedMeetings.length > 0 && (
+                        <>
+                          {todayFixedMeetings.map((s, i) => {
+                            const total = todayFixedMeetings.length + todayTodos.length + todayAgendaItems.length
+                            return (
+                              <div key={s.id} style={{ ...rd(i, total), display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0' }}>
+                                <div style={{ width: 16, height: 16, borderRadius: 4, background: 'rgba(56,190,152,0.12)', border: '1px solid rgba(56,190,152,0.22)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                  <Repeat2 size={9} strokeWidth={2.5} style={{ color: '#38BE98' }} />
+                                </div>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <p style={{ fontSize: 14, fontWeight: 500, color: TEXT1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.title}</p>
+                                </div>
+                                <span style={{ fontSize: 11, color: TEXT3, flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{s.time}</span>
                               </div>
                             )
                           })}
