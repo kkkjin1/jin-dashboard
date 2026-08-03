@@ -159,20 +159,30 @@ export default function SchedulePage() {
       fetchMembers(),
       supabase.from('meetings').select('id, title, meeting_date, category').not('meeting_date', 'is', null),
       supabase.from('task_todos').select('*, tasks(id, title, short_name, part)').eq('done', false).limit(500),
-    ]).then(([t, m, { data: mtgs, error: mtgErr }, { data: allTodos, error: todosErr }]) => {
+      supabase.from('agenda_sub_tasks').select('id, title, target_date, agenda_items(id, title, agenda_groups(category))').not('target_date', 'is', null).neq('status', 'done'),
+    ]).then(([t, m, { data: mtgs, error: mtgErr }, { data: allTodos, error: todosErr }, { data: subTaskData, error: stErr }]) => {
       if (mtgErr) console.error('[schedule] meetings error:', mtgErr)
       if (todosErr) console.error('[schedule] todos error:', todosErr)
-      console.log('[schedule] raw todos loaded:', allTodos?.length ?? 0)
+      if (stErr) console.error('[schedule] subtasks error:', stErr)
       setTasks(t); setMembers(m)
       setMeetings((mtgs ?? []) as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>[])
+      // task_todos
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const withDate = (allTodos ?? []).filter((r: any) => r.target_date || r.schedule_tag)
+      const todoItems: ScheduledTodo[] = (allTodos ?? [])
+        .filter((r: any) => (r.target_date || r.schedule_tag) && r.tasks)
+        .map((r: any) => ({ id: r.id, title: r.title, target_date: r.target_date ?? null, schedule_tag: r.schedule_tag ?? null, task: r.tasks }))
+      // agenda_sub_tasks (오늘/내일/금주 버튼으로 target_date 설정된 항목)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const withTasks = withDate.filter((r: any) => r.tasks)
-      console.log('[schedule] todos with date/tag:', withDate.length, '/ with tasks join:', withTasks.length)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      console.log('[schedule] all dates:', withTasks.map((r: any) => `td:${r.target_date ?? '-'} st:${r.schedule_tag ?? '-'}`))
-      setScheduledTodos(withTasks.map((r: any) => ({ id: r.id, title: r.title, target_date: r.target_date ?? null, schedule_tag: r.schedule_tag ?? null, task: r.tasks })))
+      const subTaskItems: ScheduledTodo[] = (subTaskData ?? [])
+        .filter((r: any) => r.agenda_items)
+        .map((r: any) => ({
+          id: `agst_${r.id}`,
+          title: r.title,
+          target_date: r.target_date,
+          schedule_tag: null,
+          task: { id: r.agenda_items.id, title: r.agenda_items.title, short_name: null, part: r.agenda_items.agenda_groups?.category ?? '' },
+        }))
+      setScheduledTodos([...todoItems, ...subTaskItems])
     })
   }
 
