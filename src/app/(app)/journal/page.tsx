@@ -2,8 +2,7 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState } from 'react'
-import Link from 'next/link'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { fetchAllTasks } from '@/lib/tasks'
 import type { Task } from '@/types'
@@ -19,8 +18,6 @@ interface DailyJournal {
 function localDateStr(d: Date) {
   return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-')
 }
-
-function todayStr() { return localDateStr(new Date()) }
 
 function nDaysAgo(n: number) {
   const d = new Date(); d.setDate(d.getDate() - n); return localDateStr(d)
@@ -38,15 +35,22 @@ function formatDateShort(ds: string) {
   return `${d.getMonth() + 1}/${d.getDate()} (${days[d.getDay()]})`
 }
 
+function formatMonthLabel(ym: string): string {
+  const [y, m] = ym.split('-')
+  return `${y}년 ${parseInt(m)}월`
+}
+
+function stripMd(s: string) {
+  return s.replace(/##[^\n]*/g, '').replace(/\*\*[^*]*\*\*/g, '').replace(/\[.*?\]/g, '').replace(/\n+/g, ' ').trim()
+}
+
 function buildMarkdown(selected: string[], journals: DailyJournal[], tasks: Task[]) {
   const journalMap = new Map(journals.map(j => [j.date, j]))
   const sorted = [...selected].sort()
-
   const lines: string[] = []
   lines.push(`# 회고 기록 (${sorted[0]} ~ ${sorted[sorted.length - 1]})`)
   lines.push(`> 내보낸 일자 수: ${sorted.length}건`)
   lines.push('')
-
   for (const ds of sorted) {
     const j = journalMap.get(ds)
     lines.push(`## ${formatDateFull(ds)}`)
@@ -67,7 +71,6 @@ function buildMarkdown(selected: string[], journals: DailyJournal[], tasks: Task
     lines.push('---')
     lines.push('')
   }
-
   return lines.join('\n')
 }
 
@@ -81,36 +84,124 @@ function downloadMd(content: string, from: string, to: string) {
   URL.revokeObjectURL(url)
 }
 
-const QUICK_RANGES = [
-  { label: '최근 7일', from: nDaysAgo(7), to: todayStr() },
-  { label: '최근 30일', from: nDaysAgo(30), to: todayStr() },
-  { label: '최근 90일', from: nDaysAgo(90), to: todayStr() },
+const pill = 'text-xs px-3.5 py-1.5 rounded-full border font-medium transition-all whitespace-nowrap'
+const pOn  = 'bg-[#4C7FE0] text-white border-[#4C7FE0] shadow-sm'
+const pOff = 'bg-white/[0.06] backdrop-blur-xl border-white/[0.09] text-white/50 hover:bg-white/[0.1] hover:text-[#E2E8F0]'
+
+/* ── 행 컴포넌트 ── */
+function JournalRow({ journal, selected, onToggleSelect, onEdit, onDelete }: {
+  journal: DailyJournal
+  selected: boolean
+  onToggleSelect: (date: string) => void
+  onEdit: (j: DailyJournal) => void
+  onDelete: (date: string) => void
+}) {
+  const preview = stripMd(journal.content).slice(0, 160)
+  return (
+    <div
+      onClick={() => onEdit(journal)}
+      className={`group flex items-center gap-0 cursor-pointer select-none transition-colors ${selected ? 'bg-white/[0.06]' : 'hover:bg-white/[0.03]'}`}
+      style={{ padding: '9px 4px', borderBottom: '0.5px solid rgba(255,255,255,0.05)' }}>
+      <input type="checkbox" checked={selected}
+        onChange={e => { e.stopPropagation(); onToggleSelect(journal.date) }}
+        onClick={e => e.stopPropagation()}
+        className="w-3 h-3 rounded accent-gray-400 flex-shrink-0 cursor-pointer mr-3" />
+      <div style={{ width: 2.5, height: 26, background: '#4C7FE0', flexShrink: 0, borderRadius: 2, marginRight: 8 }} />
+      <span style={{ fontSize: 12, fontWeight: 600, flexShrink: 0, width: 88, color: '#E2E8F0' }}>
+        {formatDateShort(journal.date)}
+      </span>
+      <p style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#98A1B2', fontSize: 11 }}>
+        {preview || '(내용 없음)'}
+      </p>
+      <button
+        onClick={e => { e.stopPropagation(); onDelete(journal.date) }}
+        className="text-[9px] text-white/[0.28] hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0 ml-3">
+        삭제
+      </button>
+    </div>
+  )
+}
+
+/* ── 편집 모달 ── */
+function JournalEditModal({ journal, onSave, onClose }: {
+  journal: DailyJournal
+  onSave: (date: string, content: string) => Promise<void>
+  onClose: () => void
+}) {
+  const [content, setContent] = useState(journal.content)
+  const [status, setStatus] = useState<'saving' | 'saved' | null>(null)
+  const timer = useRef<ReturnType<typeof setTimeout>>()
+  const isFirst = useRef(true)
+
+  useEffect(() => {
+    if (isFirst.current) { isFirst.current = false; return }
+    setStatus('saving')
+    clearTimeout(timer.current)
+    timer.current = setTimeout(async () => {
+      await onSave(journal.date, content)
+      setStatus('saved')
+      setTimeout(() => setStatus(null), 2000)
+    }, 1500)
+    return () => clearTimeout(timer.current)
+  }, [content])
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm p-4"
+      style={{ background: 'rgba(0,0,0,0.6)' }}
+      onClick={onClose}>
+      <div
+        className="backdrop-blur-xl rounded-3xl p-6 w-full max-w-2xl flex flex-col"
+        style={{ height: 'min(82vh, 720px)', maxHeight: '82vh', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.09)', boxShadow: '0 20px 40px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.07) inset' }}
+        onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4 flex-shrink-0">
+          <h2 className="text-base font-semibold text-[#E2E8F0]">{formatDateFull(journal.date)}</h2>
+          <button onClick={onClose} className="text-white/[0.28] hover:text-white/70 text-lg leading-none transition-colors">×</button>
+        </div>
+        <div className="flex-1 min-h-0 rounded-2xl overflow-hidden"
+          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
+          <textarea
+            autoFocus
+            value={content}
+            onChange={e => setContent(e.target.value)}
+            className="w-full h-full text-sm text-[#E2E8F0] bg-transparent focus:outline-none resize-none p-4 font-mono leading-relaxed"
+            placeholder="회고 내용을 입력하세요…"
+          />
+        </div>
+        <div className="flex justify-between items-center mt-4 flex-shrink-0">
+          <p className="text-[10px] text-white/[0.28]">
+            {status === 'saving' ? '저장 중…' : status === 'saved' ? '✓ 자동저장됨' : 'Esc 닫기 · 자동저장'}
+          </p>
+          <button onClick={() => { onSave(journal.date, content); onClose() }} className={`${pill} ${pOn}`}>저장</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── 필터 정의 ── */
+type FilterRange = 'all' | '7d' | '30d' | '90d'
+const RANGES: { key: FilterRange; label: string; days: number }[] = [
+  { key: 'all', label: '전체', days: 0 },
+  { key: '7d',  label: '최근 7일', days: 7 },
+  { key: '30d', label: '최근 30일', days: 30 },
+  { key: '90d', label: '최근 90일', days: 90 },
 ]
 
-const CARD_STYLE: React.CSSProperties = {
-  background: 'rgba(255,255,255,0.06)',
-  border: '1px solid rgba(255,255,255,0.09)',
-  boxShadow: '0 20px 40px rgba(0,0,0,0.18), 0 1px 0 rgba(255,255,255,0.07) inset',
-  borderRadius: 20,
-}
-
-const INPUT_STYLE: React.CSSProperties = {
-  background: 'rgba(255,255,255,0.06)',
-  border: '1px solid rgba(255,255,255,0.09)',
-  color: '#E2E8F0',
-  colorScheme: 'dark',
-}
-
+/* ── 메인 페이지 ── */
 export default function JournalPage() {
-  const TODAY = todayStr()
   const [journals, setJournals] = useState<DailyJournal[]>([])
-  const [tasks, setTasks] = useState<Task[]>([])
-  const [loading, setLoading] = useState(true)
-  const [fromDate, setFromDate] = useState(nDaysAgo(30))
-  const [toDate, setToDate] = useState(TODAY)
+  const [tasks, setTasks]       = useState<Task[]>([])
+  const [loading, setLoading]   = useState(true)
   const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [preview, setPreview] = useState<string | null>(null)
-
+  const [editing, setEditing]   = useState<DailyJournal | null>(null)
+  const [filterRange, setFilterRange] = useState<FilterRange>('all')
+  const [collapsedMonths, setCollapsedMonths] = useState<Set<string>>(new Set())
   const supabase = createClient()
 
   useEffect(() => {
@@ -127,223 +218,157 @@ export default function JournalPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const inRange = journals.filter(j => j.date >= fromDate && j.date <= toDate)
-
-  function selectRange(from: string, to: string) {
-    setFromDate(from)
-    setToDate(to)
-    setSelected(new Set())
-    setPreview(null)
+  async function saveEdit(date: string, content: string) {
+    await supabase.from('daily_journals').update({ content }).eq('date', date)
+    setJournals(prev => prev.map(j => j.date === date ? { ...j, content } : j))
   }
 
-  function toggleDate(ds: string) {
-    setSelected(prev => {
-      const next = new Set(prev)
-      if (next.has(ds)) next.delete(ds)
-      else next.add(ds)
-      return next
-    })
-    setPreview(null)
+  async function deleteJournal(date: string) {
+    if (!confirm('회고를 삭제하시겠습니까?')) return
+    await supabase.from('daily_journals').delete().eq('date', date)
+    setJournals(prev => prev.filter(j => j.date !== date))
+    setSelected(prev => { const s = new Set(prev); s.delete(date); return s })
   }
 
-  function selectAll() {
-    setSelected(new Set(inRange.map(j => j.date)))
-    setPreview(null)
-  }
-
-  function clearAll() {
-    setSelected(new Set())
-    setPreview(null)
-  }
-
-  function handlePreview() {
-    if (selected.size === 0) return
-    setPreview(buildMarkdown([...selected], journals, tasks))
+  function toggleSelect(date: string) {
+    setSelected(prev => { const s = new Set(prev); s.has(date) ? s.delete(date) : s.add(date); return s })
   }
 
   function handleDownload() {
+    if (selected.size === 0) return
     const sorted = [...selected].sort()
-    const md = buildMarkdown(sorted, journals, tasks)
-    downloadMd(md, sorted[0], sorted[sorted.length - 1])
+    downloadMd(buildMarkdown(sorted, journals, tasks), sorted[0], sorted[sorted.length - 1])
+  }
+
+  const displayed = useMemo(() => {
+    if (filterRange === 'all') return journals
+    const cutoff = nDaysAgo(RANGES.find(r => r.key === filterRange)!.days)
+    return journals.filter(j => j.date >= cutoff)
+  }, [journals, filterRange])
+
+  const monthGroups = useMemo(() => {
+    const map = new Map<string, DailyJournal[]>()
+    displayed.forEach(j => {
+      const ym = j.date.slice(0, 7)
+      if (!map.has(ym)) map.set(ym, [])
+      map.get(ym)!.push(j)
+    })
+    return Array.from(map.entries()).sort(([a], [b]) => b.localeCompare(a))
+  }, [displayed])
+
+  const allDisplayedSelected = displayed.length > 0 && displayed.every(j => selected.has(j.date))
+
+  function toggleAllDisplayed() {
+    const dates = displayed.map(j => j.date)
+    if (allDisplayedSelected) {
+      setSelected(prev => { const s = new Set(prev); dates.forEach(d => s.delete(d)); return s })
+    } else {
+      setSelected(prev => { const s = new Set(prev); dates.forEach(d => s.add(d)); return s })
+    }
+  }
+
+  function toggleMonth(ym: string) {
+    setCollapsedMonths(prev => { const s = new Set(prev); s.has(ym) ? s.delete(ym) : s.add(ym); return s })
   }
 
   if (loading) return (
-    <div style={{ background: '#0F1319', minHeight: '100%' }} className="p-6 flex flex-col gap-4">
-      {[1, 2, 3].map(i => (
-        <div key={i} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 16 }} className="h-20 animate-pulse" />
+    <div className="p-6 flex flex-col gap-3">
+      {[1, 2, 3, 4].map(i => (
+        <div key={i} className="h-10 animate-pulse rounded-xl" style={{ background: 'rgba(255,255,255,0.06)' }} />
       ))}
     </div>
   )
 
   return (
-    <div style={{ background: '#0F1319', minHeight: '100%' }} className="h-full overflow-y-auto p-5 md:p-6 flex flex-col gap-5 font-sans">
+    <div className="h-full flex flex-col overflow-hidden font-sans">
+      {editing && (
+        <JournalEditModal journal={editing} onSave={saveEdit} onClose={() => setEditing(null)} />
+      )}
 
       {/* 헤더 */}
-      <div className="flex-shrink-0">
-        <h1 className="text-xl font-bold" style={{ color: '#E2E8F0' }}>회고 내보내기</h1>
-        <p className="text-sm mt-0.5" style={{ color: 'rgba(226,232,240,0.5)' }}>기간을 설정하고 원하는 날짜를 선택해 MD 파일로 내보내세요</p>
+      <div className="flex-shrink-0 pt-6 pb-4 flex items-center gap-3">
+        <h1 className="text-xl font-bold text-[#E2E8F0] mr-auto">회고</h1>
+        {selected.size > 0 && (
+          <>
+            <span className="text-xs" style={{ color: 'rgba(226,232,240,0.5)' }}>{selected.size}개 선택</span>
+            <button onClick={handleDownload} className={`${pill} ${pOn}`}>MD 다운로드</button>
+          </>
+        )}
+        <span className="text-xs text-white/50 border border-white/[0.09] px-3 py-1.5 rounded-full"
+          style={{ background: 'rgba(255,255,255,0.06)' }}>
+          총 {journals.length}건
+        </span>
       </div>
 
-      {/* Step 1: 기간 설정 */}
-      <div className="flex-shrink-0 p-4 flex flex-col gap-3" style={CARD_STYLE}>
-        <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'rgba(226,232,240,0.5)' }}>Step 1 · 기간 설정</p>
-
-        {/* 빠른 선택 */}
-        <div className="flex gap-2">
-          {QUICK_RANGES.map(r => (
-            <button
-              key={r.label}
-              onClick={() => selectRange(r.from, r.to)}
-              className="text-xs px-3 py-1.5 rounded-full transition-all"
-              style={
-                fromDate === r.from && toDate === r.to
-                  ? { background: '#4C7FE0', color: '#fff', border: '1px solid #4C7FE0' }
-                  : { background: 'rgba(255,255,255,0.06)', color: 'rgba(226,232,240,0.7)', border: '1px solid rgba(255,255,255,0.09)' }
-              }
-            >
-              {r.label}
-            </button>
-          ))}
-        </div>
-
-        {/* 직접 입력 */}
-        <div className="flex items-center gap-2">
-          <input
-            type="date"
-            max={toDate}
-            value={fromDate}
-            onChange={e => { setFromDate(e.target.value); setSelected(new Set()); setPreview(null) }}
-            className="text-xs rounded-lg px-3 py-2 focus:outline-none"
-            style={INPUT_STYLE}
-          />
-          <span className="text-sm" style={{ color: 'rgba(226,232,240,0.5)' }}>~</span>
-          <input
-            type="date"
-            min={fromDate}
-            max={TODAY}
-            value={toDate}
-            onChange={e => { setToDate(e.target.value); setSelected(new Set()); setPreview(null) }}
-            className="text-xs rounded-lg px-3 py-2 focus:outline-none"
-            style={INPUT_STYLE}
-          />
-          <span className="text-xs ml-1" style={{ color: 'rgba(226,232,240,0.5)' }}>{inRange.length}건</span>
-        </div>
+      {/* 필터 pills */}
+      <div className="flex-shrink-0 flex items-center gap-1.5 overflow-x-auto scrollbar-hide mb-4 flex-wrap">
+        {RANGES.map(r => (
+          <button key={r.key} onClick={() => setFilterRange(r.key)}
+            className={`${pill} ${filterRange === r.key ? pOn : pOff}`}>
+            {r.label}
+            {r.key !== 'all' && (
+              <span className="ml-1 opacity-60">
+                {journals.filter(j => j.date >= nDaysAgo(r.days)).length}
+              </span>
+            )}
+          </button>
+        ))}
+        {displayed.length > 0 && (
+          <button onClick={toggleAllDisplayed} className={`${pill} ${pOff} ml-1`}>
+            {allDisplayedSelected ? '전체 해제' : '전체 선택'}
+          </button>
+        )}
       </div>
 
-      {/* Step 2: 날짜 선택 */}
-      <div className="flex-shrink-0 p-4 flex flex-col gap-3" style={CARD_STYLE}>
-        <div className="flex items-center justify-between">
-          <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'rgba(226,232,240,0.5)' }}>Step 2 · 날짜 선택</p>
-          <div className="flex gap-2">
-            <button onClick={selectAll} className="text-[11px] transition-colors" style={{ color: 'rgba(226,232,240,0.5)' }}>전체 선택</button>
-            <span className="text-xs" style={{ color: 'rgba(226,232,240,0.28)' }}>|</span>
-            <button onClick={clearAll} className="text-[11px] transition-colors" style={{ color: 'rgba(226,232,240,0.5)' }}>초기화</button>
+      {/* 리스트 */}
+      <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
+        {displayed.length === 0 ? (
+          <div className="flex items-center justify-center h-40">
+            <p className="text-sm" style={{ color: 'rgba(226,232,240,0.28)' }}>기간 내 회고가 없습니다</p>
           </div>
-        </div>
-
-        {inRange.length === 0 ? (
-          <p className="text-sm text-center py-6" style={{ color: 'rgba(226,232,240,0.28)' }}>
-            선택한 기간에 회고가 없어요 —{' '}
-            <Link href="/" className="text-blue-400 hover:underline">홈에서 작성</Link>
-          </p>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1.5">
-            {inRange.map(j => {
-              const isSelected = selected.has(j.date)
-              const preview80 = j.content.slice(0, 60).replace(/\n/g, ' ')
+          <div className="space-y-6 pb-6">
+            {monthGroups.map(([ym, items]) => {
+              const isCollapsed = collapsedMonths.has(ym)
+              const monthSelected = items.filter(j => selected.has(j.date)).length
               return (
-                <button
-                  key={j.date}
-                  onClick={() => toggleDate(j.date)}
-                  className="text-left p-2.5 rounded-xl transition-all"
-                  style={
-                    isSelected
-                      ? { background: '#4C7FE0', border: '1px solid #4C7FE0', color: '#fff' }
-                      : { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', color: '#E2E8F0' }
-                  }
-                >
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <span
-                      className="w-3.5 h-3.5 rounded flex-shrink-0 border flex items-center justify-center text-[9px]"
-                      style={
-                        isSelected
-                          ? { background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.4)', color: '#fff' }
-                          : { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', color: 'transparent' }
-                      }
-                    >✓</span>
-                    <span className="text-[11px] font-semibold" style={{ color: isSelected ? '#fff' : '#E2E8F0' }}>
-                      {formatDateShort(j.date)}
+                <div key={ym}>
+                  <button onClick={() => toggleMonth(ym)}
+                    className="flex items-center gap-2 w-full text-left group mb-2 py-1 pb-2"
+                    style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                    <span className="text-sm font-semibold text-white/70 group-hover:text-[#E2E8F0] transition-colors">
+                      {formatMonthLabel(ym)}
                     </span>
-                  </div>
-                  <p className="text-[10px] leading-relaxed line-clamp-2" style={{ color: isSelected ? 'rgba(255,255,255,0.7)' : 'rgba(226,232,240,0.5)' }}>
-                    {preview80}
-                  </p>
-                </button>
+                    <span className="text-xs text-white/50 border border-white/[0.09] px-2 py-0.5 rounded-full"
+                      style={{ background: 'rgba(255,255,255,0.06)' }}>
+                      {items.length}건
+                    </span>
+                    {monthSelected > 0 && (
+                      <span className="text-[10px] text-[#A8C4F0] border border-[#4C7FE0]/40 px-2 py-0.5 rounded-full"
+                        style={{ background: 'rgba(27,58,107,0.2)' }}>
+                        {monthSelected}개 선택
+                      </span>
+                    )}
+                    <span className="text-xs text-white/[0.28] ml-auto group-hover:text-white/50 transition-colors">
+                      {isCollapsed ? '▶' : '▼'}
+                    </span>
+                  </button>
+                  {!isCollapsed && items.map(j => (
+                    <JournalRow
+                      key={j.date}
+                      journal={j}
+                      selected={selected.has(j.date)}
+                      onToggleSelect={toggleSelect}
+                      onEdit={setEditing}
+                      onDelete={deleteJournal}
+                    />
+                  ))}
+                </div>
               )
             })}
           </div>
         )}
       </div>
-
-      {/* Step 3: 내보내기 */}
-      <div className="flex-shrink-0 p-4 flex flex-col gap-3" style={CARD_STYLE}>
-        <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'rgba(226,232,240,0.5)' }}>Step 3 · 내보내기</p>
-
-        <div className="flex items-center gap-3">
-          <span className="text-sm" style={{ color: 'rgba(226,232,240,0.5)' }}>
-            {selected.size > 0 ? (
-              <><strong style={{ color: '#E2E8F0' }}>{selected.size}개</strong> 선택됨</>
-            ) : (
-              <span style={{ color: 'rgba(226,232,240,0.28)' }}>날짜를 선택하세요</span>
-            )}
-          </span>
-          <div className="flex gap-2 ml-auto">
-            <button
-              onClick={handlePreview}
-              disabled={selected.size === 0}
-              className="text-xs px-4 py-2 rounded-xl transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-              style={{ border: '1px solid rgba(255,255,255,0.09)', color: 'rgba(226,232,240,0.7)', background: 'rgba(255,255,255,0.06)' }}
-            >
-              미리보기
-            </button>
-            <button
-              onClick={handleDownload}
-              disabled={selected.size === 0}
-              className="text-xs px-4 py-2 rounded-xl transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-              style={{ background: '#4C7FE0', color: '#fff' }}
-            >
-              MD 다운로드
-            </button>
-          </div>
-        </div>
-
-        <p className="text-[11px]" style={{ color: 'rgba(226,232,240,0.5)' }}>
-          MD 파일을 ChatGPT · Claude 등에 붙여넣어 원하는 분석을 요청하세요
-        </p>
-      </div>
-
-      {/* 미리보기 */}
-      {preview && (
-        <div className="flex-shrink-0 p-4 flex flex-col gap-2" style={CARD_STYLE}>
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'rgba(226,232,240,0.5)' }}>미리보기</p>
-            <button
-              onClick={() => { navigator.clipboard.writeText(preview) }}
-              className="text-[11px] px-2.5 py-1 rounded-lg transition-colors"
-              style={{ color: 'rgba(226,232,240,0.5)', border: '1px solid rgba(255,255,255,0.09)' }}
-            >
-              복사
-            </button>
-          </div>
-          <pre
-            className="text-xs leading-relaxed whitespace-pre-wrap font-mono rounded-xl p-3 max-h-80 overflow-y-auto"
-            style={{ color: '#E2E8F0', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}
-          >
-            {preview}
-          </pre>
-        </div>
-      )}
-
     </div>
   )
 }
