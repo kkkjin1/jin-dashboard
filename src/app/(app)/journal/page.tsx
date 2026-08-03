@@ -130,7 +130,7 @@ function JournalEditModal({ journal, onSave, onClose }: {
 }) {
   const [content, setContent] = useState(journal.content)
   const [status, setStatus] = useState<'saving' | 'saved' | null>(null)
-  const timer = useRef<ReturnType<typeof setTimeout>>()
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const isFirst = useRef(true)
 
   useEffect(() => {
