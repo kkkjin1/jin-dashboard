@@ -459,10 +459,16 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                   {/* ── 컬럼 헤더 ── */}
                   {isOpen && (
                     <div className="flex" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-                      <div style={{ flex: 1, minWidth: 180, padding: '8px 16px', fontSize: 11, fontWeight: 700, color: S.t3, letterSpacing: '.05em', textTransform: 'uppercase' as const }}>안건</div>
-                      <div style={{ width: 90, padding: '8px 12px', fontSize: 11, fontWeight: 700, color: S.t3, letterSpacing: '.05em', textTransform: 'uppercase' as const, borderLeft: '1px solid rgba(255,255,255,0.07)' }}>상태</div>
-                      <div style={{ width: 120, padding: '8px 12px', fontSize: 11, fontWeight: 700, color: S.t3, letterSpacing: '.05em', textTransform: 'uppercase' as const, borderLeft: '1px solid rgba(255,255,255,0.07)' }}>담당자</div>
-                      <div style={{ width: 160, padding: '8px 12px', borderLeft: '1px solid rgba(255,255,255,0.07)' }} />
+                      {(() => {
+                        const hd: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: S.t3, letterSpacing: '.05em', textTransform: 'uppercase', padding: '8px 12px', borderLeft: '1px solid rgba(255,255,255,0.07)' }
+                        return (<>
+                          <div style={{ flex: 1, minWidth: 180, ...hd, borderLeft: 'none', paddingLeft: 16 }}>안건</div>
+                          <div style={{ width: 90, ...hd }}>상태</div>
+                          <div style={{ width: 120, ...hd }}>담당자</div>
+                          <div style={{ width: 130, ...hd }}>일정</div>
+                          <div style={{ width: 70, ...hd }}>비고</div>
+                        </>)
+                      })()}
                     </div>
                   )}
 
@@ -538,7 +544,10 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                               variant="inline"
                             />
                           </div>
-                          <div style={{ width: 160, padding: '16px 12px', borderLeft: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={e => e.stopPropagation()}>
+                          {/* 일정 (안건 행은 비워둠) */}
+                          <div style={{ width: 130, borderLeft: '1px solid rgba(255,255,255,0.05)' }} />
+                          {/* 비고 */}
+                          <div style={{ width: 70, padding: '12px 10px', borderLeft: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={e => e.stopPropagation()}>
                             <div className="flex items-center gap-1.5 opacity-0 group-hover/irow:opacity-100 transition-all">
                               {editingItemId !== item.id && (
                                 <button onClick={() => { setEditingItemId(item.id); setEditITitle(item.title) }} className="text-[10px] text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)]">수정</button>
@@ -599,32 +608,32 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                                 variant="inline"
                               />
                             </div>
-                            <div style={{ width: 160, padding: '6px 10px', borderLeft: '1px solid rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }} onClick={e => e.stopPropagation()}>
-                              {/* 담당자 있으면 중간보고+완료일, 없으면 기존 target_date */}
+                            {/* ── 일정 칼럼 ── */}
+                            <div style={{ width: 130, padding: '6px 10px', borderLeft: '1px solid rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center' }} onClick={e => e.stopPropagation()}>
                               {st.assignee_id ? (
-                                <div className="flex items-center gap-1.5">
-                                  {/* 중간보고일 */}
-                                  <label className="relative cursor-pointer flex items-center gap-0.5 group/middate" title="중간보고일">
-                                    <span className="text-[9px] font-semibold" style={{ color: 'rgba(226,232,240,0.35)' }}>중</span>
-                                    <span className="text-[9px] font-medium" style={{ color: st.mid_date ? '#93C5FD' : 'rgba(226,232,240,0.2)' }}>
+                                /* 담당자 있음 → 중간보고 + 완료일 2개 */
+                                <div className="flex flex-col gap-0.5 w-full">
+                                  {/* 중간보고 */}
+                                  <label className="relative cursor-pointer flex items-center gap-1 group/middate w-full">
+                                    <span style={{ fontSize: 9, fontWeight: 600, color: 'rgba(148,163,184,0.7)', flexShrink: 0, width: 10 }}>중</span>
+                                    <span style={{ fontSize: 9, fontWeight: 500, color: st.mid_date ? '#93C5FD' : 'rgba(226,232,240,0.18)', flex: 1 }}>
                                       {st.mid_date ? st.mid_date.slice(5).replace('-', '/') : '—'}
                                     </span>
                                     {st.mid_date && (
-                                      <span className="hidden group-hover/middate:inline text-[8px] text-[rgba(226,232,240,0.3)] hover:text-red-400 cursor-pointer ml-0.5"
+                                      <span className="hidden group-hover/middate:inline text-[8px] text-[rgba(226,232,240,0.25)] hover:text-red-400 cursor-pointer"
                                         onClick={e => { e.preventDefault(); e.stopPropagation(); updateSubTaskMidDate(st.id, null) }}>×</span>
                                     )}
                                     <input type="date" value={st.mid_date ?? ''} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                                       onChange={e => updateSubTaskMidDate(st.id, e.target.value || null)} onClick={e => e.stopPropagation()} />
                                   </label>
-                                  <span style={{ color: 'rgba(255,255,255,0.1)', fontSize: 10 }}>·</span>
                                   {/* 완료일 */}
-                                  <label className="relative cursor-pointer flex items-center gap-0.5 group/duedate" title="완료일">
-                                    <span className="text-[9px] font-semibold" style={{ color: 'rgba(226,232,240,0.35)' }}>완</span>
-                                    <span className="text-[9px] font-medium" style={{ color: st.due_date ? '#86EFAC' : 'rgba(226,232,240,0.2)' }}>
+                                  <label className="relative cursor-pointer flex items-center gap-1 group/duedate w-full">
+                                    <span style={{ fontSize: 9, fontWeight: 600, color: 'rgba(148,163,184,0.7)', flexShrink: 0, width: 10 }}>완</span>
+                                    <span style={{ fontSize: 9, fontWeight: 500, color: st.due_date ? '#86EFAC' : 'rgba(226,232,240,0.18)', flex: 1 }}>
                                       {st.due_date ? st.due_date.slice(5).replace('-', '/') : '—'}
                                     </span>
                                     {st.due_date && (
-                                      <span className="hidden group-hover/duedate:inline text-[8px] text-[rgba(226,232,240,0.3)] hover:text-red-400 cursor-pointer ml-0.5"
+                                      <span className="hidden group-hover/duedate:inline text-[8px] text-[rgba(226,232,240,0.25)] hover:text-red-400 cursor-pointer"
                                         onClick={e => { e.preventDefault(); e.stopPropagation(); updateSubTaskDueDate(st.id, null) }}>×</span>
                                     )}
                                     <input type="date" value={st.due_date ?? ''} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
@@ -632,27 +641,30 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                                   </label>
                                 </div>
                               ) : (
-                                <div className="flex items-center gap-0.5">
-                                  {st.target_date && (
+                                /* 담당자 없음 → 완료일 1개 + 오늘/내일/금주 퀵버튼 */
+                                <div className="flex items-center gap-1 w-full">
+                                  {st.target_date ? (
                                     <button onClick={() => updateSubTaskDate(st.id, null)}
-                                      style={{ fontSize: 9, padding: '2px 7px', borderRadius: 999, fontWeight: 600, border: 'none', cursor: 'pointer',
+                                      style={{ fontSize: 9, padding: '2px 8px', borderRadius: 999, fontWeight: 600, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap',
                                         background: st.target_date === sched.today ? 'rgba(220,38,38,0.18)' : st.target_date === sched.tomorrow ? 'rgba(245,158,11,0.18)' : 'rgba(59,130,246,0.18)',
                                         color: st.target_date === sched.today ? '#FC8181' : st.target_date === sched.tomorrow ? '#FCD34D' : '#93C5FD' }}>
                                       {stDateLabel(st.target_date, sched.today, sched.tomorrow)} ×
                                     </button>
-                                  )}
-                                  {!st.target_date && (
-                                    <div className="opacity-0 pointer-events-none group-hover/strow:opacity-100 group-hover/strow:pointer-events-auto transition-all flex items-center gap-0.5">
-                                      <button onClick={() => updateSubTaskDate(st.id, sched.today)} className="text-[9px] px-1.5 py-0.5 rounded bg-[rgba(220,38,38,0.12)] text-red-400 border border-[rgba(220,38,38,0.2)] font-medium">오늘</button>
-                                      <button onClick={() => updateSubTaskDate(st.id, sched.tomorrow)} className="text-[9px] px-1.5 py-0.5 rounded bg-[rgba(245,158,11,0.12)] text-amber-400 border border-[rgba(245,158,11,0.2)] font-medium">내일</button>
-                                      <button onClick={() => updateSubTaskDate(st.id, sched.friday)} className="text-[9px] px-1.5 py-0.5 rounded bg-[rgba(59,130,246,0.12)] text-blue-400 border border-[rgba(59,130,246,0.2)] font-medium">금주</button>
-                                      <label className="relative cursor-pointer text-[rgba(226,232,240,0.35)] hover:text-[rgba(226,232,240,0.6)] text-[10px] px-0.5">
-                                        📅<input type="date" className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" onChange={e => e.target.value && updateSubTaskDate(st.id, e.target.value)} />
+                                  ) : (
+                                    <div className="opacity-0 group-hover/strow:opacity-100 transition-all flex items-center gap-0.5">
+                                      <button onClick={() => updateSubTaskDate(st.id, sched.today)}  className="text-[9px] px-1.5 py-0.5 rounded-full bg-[rgba(220,38,38,0.12)]  text-red-400   border border-[rgba(220,38,38,0.2)]  font-medium">오늘</button>
+                                      <button onClick={() => updateSubTaskDate(st.id, sched.tomorrow)} className="text-[9px] px-1.5 py-0.5 rounded-full bg-[rgba(245,158,11,0.12)] text-amber-400 border border-[rgba(245,158,11,0.2)] font-medium">내일</button>
+                                      <button onClick={() => updateSubTaskDate(st.id, sched.friday)}  className="text-[9px] px-1.5 py-0.5 rounded-full bg-[rgba(59,130,246,0.12)]  text-blue-400  border border-[rgba(59,130,246,0.2)]  font-medium">금주</button>
+                                      <label className="relative cursor-pointer text-[rgba(226,232,240,0.3)] hover:text-[rgba(226,232,240,0.6)] text-[10px] leading-none" title="날짜 선택">
+                                        ⊕<input type="date" className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" onChange={e => e.target.value && updateSubTaskDate(st.id, e.target.value)} />
                                       </label>
                                     </div>
                                   )}
                                 </div>
                               )}
+                            </div>
+                            {/* ── 비고 칼럼 ── */}
+                            <div style={{ width: 70, padding: '6px 8px', borderLeft: '1px solid rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={e => e.stopPropagation()}>
                               <div className="opacity-0 group-hover/strow:opacity-100 transition-all flex items-center gap-1.5">
                                 {editingSTId !== st.id && (
                                   <button onClick={() => { setEditingSTId(st.id); setEditSTTitle(st.title) }} className="text-[10px] text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)]">수정</button>
