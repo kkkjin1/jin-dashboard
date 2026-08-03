@@ -274,10 +274,20 @@ export default function SchedulePage() {
     return scheduledOneOnOnes.filter(o => isSameDay(parseISO(o.next_appointment_date), day))
   }
 
+  function getDayFixedMeetings(day: Date): MeetingSchedule[] {
+    if (viewFilter === '업무만') return []
+    const dow = getDay(day)
+    const dateStr = format(day, 'yyyy-MM-dd')
+    return schedules.filter(s =>
+      s.is_recurring ? (s.days_of_week ?? []).includes(dow) : s.date === dateStr
+    ).sort((a, b) => a.time.localeCompare(b.time))
+  }
+
   const selectedDayTasks = selectedDay ? getDayTasks(selectedDay) : []
   const selectedDayMeetings = selectedDay ? getDayMeetings(selectedDay) : []
   const selectedDayTodos = selectedDay ? getDayScheduledTodos(selectedDay) : []
   const selectedDayOneOnOnes = selectedDay ? getDayOneOnOnes(selectedDay) : []
+  const selectedDayFixedMeetings = selectedDay ? getDayFixedMeetings(selectedDay) : []
 
   type DayListItem =
     | { itemId: string; type: 'task'; data: DayTask }
@@ -389,9 +399,15 @@ export default function SchedulePage() {
     const dayMeetings = getDayMeetings(day)
     const dayTodos = getDayScheduledTodos(day)
     const dayOneOnOnes = getDayOneOnOnes(day)
+    const dayFixed = getDayFixedMeetings(day)
+    // 실제 meeting 레코드가 있는 고정 회의는 중복 제외
+    const dayFixedFiltered = dayFixed.filter(
+      s => !dayMeetings.some(m => m.title === s.title)
+    )
     const allItems = [
       ...dayTasks.map(dt => ({ type: 'task' as const, dt })),
       ...dayMeetings.map(m => ({ type: 'meeting' as const, m })),
+      ...dayFixedFiltered.map(s => ({ type: 'fixed' as const, s })),
       ...dayTodos.map(t => ({ type: 'todo' as const, t })),
       ...dayOneOnOnes.map(o => ({ type: 'one-on-one' as const, o })),
     ]
@@ -441,6 +457,15 @@ export default function SchedulePage() {
                   title={`할일 | ${t.title}`}>
                   <span className="opacity-50 mr-0.5">·</span>{t.title}
                 </button>
+              )
+            } else if (item.type === 'fixed') {
+              const { s } = item
+              return (
+                <div key={`fixed-${s.id}-${idx}`}
+                  className="w-full text-left rounded-lg px-1.5 py-0.5 truncate text-[11px] leading-tight bg-emerald-900/40 text-emerald-300 border border-emerald-700/40"
+                  title={`고정회의 | ${s.title} ${s.time}`}>
+                  <span className="opacity-60 mr-0.5">↺</span>{s.time} {s.title}
+                </div>
               )
             } else {
               const { o } = item
@@ -555,6 +580,10 @@ export default function SchedulePage() {
               <div className="flex items-center gap-1.5">
                 <div className="w-3 h-2.5 bg-purple-100/70 rounded border border-purple-200/50" />
                 <span className="text-xs text-[rgba(226,232,240,0.4)]">1on1</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-2.5 bg-emerald-900/40 rounded border border-emerald-700/40" />
+                <span className="text-xs text-[rgba(226,232,240,0.4)]">고정회의</span>
               </div>
               <div className="ml-auto">
                 <button onClick={() => setShowAnalysis(v => !v)}
@@ -800,7 +829,7 @@ export default function SchedulePage() {
               </h3>
               {!selectedDay ? (
                 <p className="text-xs text-[rgba(226,232,240,0.3)] leading-relaxed">캘린더에서 날짜를 클릭하면 해당일 일정을 볼 수 있습니다</p>
-              ) : (selectedDayTasks.length === 0 && selectedDayMeetings.length === 0 && selectedDayTodos.length === 0 && selectedDayOneOnOnes.length === 0) ? (
+              ) : (selectedDayTasks.length === 0 && selectedDayMeetings.length === 0 && selectedDayTodos.length === 0 && selectedDayOneOnOnes.length === 0 && selectedDayFixedMeetings.length === 0) ? (
                 <p className="text-xs text-[rgba(226,232,240,0.3)]">예정된 일정이 없습니다</p>
               ) : (
                 <div className="space-y-2">
@@ -867,6 +896,23 @@ export default function SchedulePage() {
                       </div>
                       <p className="text-sm font-medium text-[rgba(226,232,240,0.9)]">{o.member_name}</p>
                       <p className="text-xs text-purple-400 mt-0.5">다음 1on1 예정</p>
+                    </div>
+                  ))}
+                  {selectedDayFixedMeetings
+                    .filter(s => !selectedDayMeetings.some(m => m.title === s.title))
+                    .map(s => (
+                    <div key={`fixed-panel-${s.id}`}
+                      className="bg-emerald-950/40 rounded-2xl border border-emerald-700/40 p-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-900/60 text-emerald-300">↺ 고정회의</span>
+                        <span className="text-xs font-mono text-emerald-400">{s.time}</span>
+                      </div>
+                      <p className="text-sm font-medium text-[rgba(226,232,240,0.9)]">{s.title}</p>
+                      <p className="text-xs text-emerald-500/70 mt-0.5">
+                        {s.is_recurring
+                          ? `매주 ${(s.days_of_week ?? []).map(d => ['일','월','화','수','목','금','토'][d]).join('·')}`
+                          : s.date}
+                      </p>
                     </div>
                   ))}
                 </div>
