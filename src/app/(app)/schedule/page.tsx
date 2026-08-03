@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, parseISO, getDay, addMonths, subMonths, getDaysInMonth } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { useRouter } from 'next/navigation'
@@ -10,6 +10,7 @@ import { useUserSetting } from '@/hooks/useUserSetting'
 import { useOrgData } from '@/hooks/useOrgData'
 import type { Task, Member, TaskStatus, Meeting } from '@/types'
 import { CATEGORY_PALETTE, MEETING_CATEGORY, type CategoryColorKey, colorKeyFromName } from '@/lib/categoryColors'
+import { GlassSelect } from '@/components/ui/GlassSelect'
 
 interface MeetingSchedule {
   id: string
@@ -150,7 +151,6 @@ export default function SchedulePage() {
         : [...prev.days_of_week, d],
     }))
   }
-  const assigneeRef = useRef<HTMLSelectElement>(null)
   const supabase = createClient()
 
   function loadData() {
@@ -229,7 +229,6 @@ export default function SchedulePage() {
       if (e.code === 'KeyW') setStatusFilter(s => s === '전체' ? '진행필요' : s === '진행필요' ? '진행중' : s === '진행중' ? '완료' : '전체')
       if (e.code === 'KeyE') setReportFilter(r => r === '전체' ? '중간공유' : r === '중간공유' ? '최종보고' : '전체')
       if (e.code === 'KeyR') setViewFilter(v => v === '전체' ? '업무만' : v === '업무만' ? '회의만' : '전체')
-      if (e.key === 'Tab') { e.preventDefault(); assigneeRef.current?.focus() }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -586,12 +585,14 @@ export default function SchedulePage() {
           <option value="회의만">회의만</option>
         </select>
 
-        <select ref={assigneeRef} value={assigneeFilter} onChange={e => setAssigneeFilter(e.target.value)}
-          className={`${pillBase} bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border-[rgba(255,255,255,0.09)] focus:outline-none cursor-pointer [&>option]:bg-[#26282E] [&>option]:text-[rgba(226,232,240,0.8)] ${assigneeFilter !== '전체' ? 'text-[rgba(226,232,240,0.9)] border-[#4C7FE0] bg-[rgba(76,127,224,0.12)]' : 'text-[rgba(226,232,240,0.5)]'}`}
-          style={{ colorScheme: 'dark' }}>
-          <option value="전체">전체 담당자</option>
-          {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-        </select>
+        <GlassSelect
+          value={assigneeFilter === '전체' ? '' : assigneeFilter}
+          onChange={v => setAssigneeFilter(v || '전체')}
+          options={members.map(m => ({ value: m.id, label: m.name }))}
+          placeholder="전체 담당자"
+          variant="pill"
+          activeWhenFilled
+        />
 
         <button onClick={() => setShowRepeatModal(true)}
           className={`${pillBase} ${pillInactive} ml-auto`}>
