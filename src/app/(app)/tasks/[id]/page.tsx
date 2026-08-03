@@ -371,9 +371,9 @@ export default function TaskDetailPage() {
 
   function getTodoBucketFromDate(targetDate: string | null | undefined): 'today' | 'tomorrow' | 'this_week' | null {
     if (!targetDate) return null
-    const todayStr = new Date().toISOString().slice(0, 10)
+    const todayStr = localDateStr(new Date())
     const d = new Date(); d.setDate(d.getDate() + 1)
-    const tomorrowStr = d.toISOString().slice(0, 10)
+    const tomorrowStr = localDateStr(d)
     if (targetDate === todayStr) return 'today'
     if (targetDate === tomorrowStr) return 'tomorrow'
     if (targetDate >= todayStr) return 'this_week'

@@ -635,7 +635,7 @@ export default function HomePage() {
   const [searchQuery,   setSearchQuery]   = useState('')
   const [weekFilter,    setWeekFilter]    = useState<'all' | 'tomorrow' | 'week' | 'unscheduled'>('all')
   const [now,           setNow]           = useState(new Date())
-  const [stCols,        setStCols]        = useState<[number, number, number, number, number]>([60, 120, 72, 60, 130])
+  const [stCols,        setStCols]        = useState<[number, number, number, number, number]>([56, 160, 72, 64, 100])
   const [stSort,        setStSort]        = useState<{ col: string; dir: 'asc' | 'desc' } | null>({ col: '업데이트', dir: 'desc' })
   const [stRowH,        setStRowH]        = useState(40)
   const stScrollRef = useRef<HTMLDivElement>(null)
