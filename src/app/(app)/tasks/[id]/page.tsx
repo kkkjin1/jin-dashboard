@@ -383,13 +383,11 @@ export default function TaskDetailPage() {
   async function updateTodoDate(todoId: string, bucket: 'today' | 'tomorrow' | 'this_week' | null) {
     const target_date = bucket ? getTargetDateForBucket(bucket) : null
     const schedule_tag = bucket ?? null
-    console.log('[todo] updateTodoDate', { todoId, bucket, target_date, schedule_tag })
     const { error } = await supabase.from('task_todos').update({ target_date, schedule_tag }).eq('id', todoId)
     if (error) {
       console.error('[todo] updateTodoDate FAILED:', error)
       return
     }
-    console.log('[todo] updateTodoDate OK')
     setTodos(prev => prev.map(t => t.id === todoId ? { ...t, target_date, schedule_tag } : t))
   }
 

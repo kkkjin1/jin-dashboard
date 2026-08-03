@@ -516,7 +516,7 @@ export default function AgendaItemDetailPage() {
                 {/* 아코디언 헤더 — 외부 div onClick으로 토글, 내부 인터랙티브 요소는 stopPropagation */}
                 <div
                   onClick={() => toggleST(st.id)}
-                  className="flex items-center gap-2.5 px-4 py-4 select-none group/acc hover:bg-[rgba(255,255,255,0.06)] transition-colors cursor-pointer"
+                  className="relative flex items-center gap-2.5 px-4 py-4 select-none group/acc hover:bg-[rgba(255,255,255,0.06)] transition-colors cursor-pointer"
                   style={{ background: isOpen ? `${stColor}18` : 'rgba(255,255,255,0.03)' }}>
                   {/* ▶ 비주얼 (클릭은 외부 div가 처리) */}
                   <span className="flex-shrink-0 p-1 -m-1" style={{ fontSize: 8, lineHeight: 1 }}>
@@ -570,7 +570,7 @@ export default function AgendaItemDetailPage() {
                         {stDateLabel(st.target_date)} ×
                       </button>
                     ) : (
-                      <div className="flex items-center gap-0.5 opacity-0 pointer-events-none group-hover/acc:opacity-100 group-hover/acc:pointer-events-auto transition-opacity">
+                      <div className="absolute right-28 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-0 pointer-events-none group-hover/acc:opacity-100 group-hover/acc:pointer-events-auto transition-opacity z-20 bg-[rgba(20,25,32,0.92)] rounded-md px-1 py-0.5 backdrop-blur-sm shadow-lg">
                         <button onClick={e => { e.stopPropagation(); updateSubTaskDate(st.id, sched.today) }}    className="text-[9px] px-1.5 py-0.5 rounded bg-red-50   text-red-600   hover:bg-red-100   border border-red-100   font-medium">오늘</button>
                         <button onClick={e => { e.stopPropagation(); updateSubTaskDate(st.id, sched.tomorrow) }} className="text-[9px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-100 font-medium">내일</button>
                         <button onClick={e => { e.stopPropagation(); updateSubTaskDate(st.id, sched.friday) }}   className="text-[9px] px-1.5 py-0.5 rounded bg-blue-50  text-blue-600  hover:bg-blue-100  border border-blue-100  font-medium">금주</button>

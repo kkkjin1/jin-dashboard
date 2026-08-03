@@ -322,7 +322,6 @@ export default function SchedulePage() {
       if (partFilter !== '전체' && t.task.part !== partFilter) return false
       return true
     })
-    console.log('[schedule] getDayTodos', format(day, 'yyyy-MM-dd'), '→', result.length, '/ partFilter:', partFilter, '/ assigneeFilter:', assigneeFilter)
     return result
   }
 
@@ -555,31 +554,33 @@ export default function SchedulePage() {
 
       {/* 필터 pills */}
       <div className="flex-shrink-0 flex items-center gap-2 overflow-x-auto scrollbar-hide mb-4">
-        <button onClick={() => setPartFilter(p => {
-            const cycle = ['전체', ...flatParts.map(fp => fp.id)]
-            const idx = cycle.indexOf(p)
-            return cycle[(idx + 1) % cycle.length]
-          })}
-          className={`${pillBase} ${partFilter !== '전체' ? pillActive : pillInactive}`}>
-          {partFilter === '전체'
-            ? (flatParts.length > 0 ? '전체 파트' : '파트')
-            : (flatParts.find(fp => fp.id === partFilter)?.label ?? partFilter)}
-        </button>
+        <select value={partFilter} onChange={e => setPartFilter(e.target.value)}
+          className={`${pillBase} bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border-[rgba(255,255,255,0.09)] text-[rgba(226,232,240,0.5)] focus:outline-none cursor-pointer [&>option]:bg-[#26282E] [&>option]:text-[rgba(226,232,240,0.8)]`}>
+          <option value="전체">전체 파트</option>
+          {flatParts.map(fp => <option key={fp.id} value={fp.id}>{fp.label}</option>)}
+        </select>
 
-        <button onClick={() => setStatusFilter(s => s === '전체' ? '진행필요' : s === '진행필요' ? '진행중' : s === '진행중' ? '완료' : '전체')}
-          className={`${pillBase} ${statusFilter !== '전체' ? pillActive : pillInactive}`}>
-          {statusFilter === '전체' ? '전체 상태' : statusFilter}
-        </button>
+        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as TaskStatus | '전체')}
+          className={`${pillBase} bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border-[rgba(255,255,255,0.09)] text-[rgba(226,232,240,0.5)] focus:outline-none cursor-pointer [&>option]:bg-[#26282E] [&>option]:text-[rgba(226,232,240,0.8)]`}>
+          <option value="전체">전체 상태</option>
+          <option value="진행필요">진행필요</option>
+          <option value="진행중">진행중</option>
+          <option value="완료">완료</option>
+        </select>
 
-        <button onClick={() => setReportFilter(r => r === '전체' ? '중간공유' : r === '중간공유' ? '최종보고' : '전체')}
-          className={`${pillBase} ${reportFilter !== '전체' ? 'bg-amber-500 text-white border-amber-500 shadow-sm' : pillInactive}`}>
-          {reportFilter === '전체' ? '보고구분' : reportFilter}
-        </button>
+        <select value={reportFilter} onChange={e => setReportFilter(e.target.value as '전체' | '중간공유' | '최종보고')}
+          className={`${pillBase} bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border-[rgba(255,255,255,0.09)] text-[rgba(226,232,240,0.5)] focus:outline-none cursor-pointer [&>option]:bg-[#26282E] [&>option]:text-[rgba(226,232,240,0.8)]`}>
+          <option value="전체">보고구분</option>
+          <option value="중간공유">중간공유</option>
+          <option value="최종보고">최종보고</option>
+        </select>
 
-        <button onClick={() => setViewFilter(v => v === '전체' ? '업무만' : v === '업무만' ? '회의만' : '전체')}
-          className={`${pillBase} ${viewFilter !== '전체' ? 'bg-[#1C2B3A] text-white border-[#1C2B3A] shadow-sm' : pillInactive}`}>
-          {viewFilter === '전체' ? '업무+회의' : viewFilter}
-        </button>
+        <select value={viewFilter} onChange={e => setViewFilter(e.target.value as '전체' | '업무만' | '회의만')}
+          className={`${pillBase} bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border-[rgba(255,255,255,0.09)] text-[rgba(226,232,240,0.5)] focus:outline-none cursor-pointer [&>option]:bg-[#26282E] [&>option]:text-[rgba(226,232,240,0.8)]`}>
+          <option value="전체">업무+회의</option>
+          <option value="업무만">업무만</option>
+          <option value="회의만">회의만</option>
+        </select>
 
         <select ref={assigneeRef} value={assigneeFilter} onChange={e => setAssigneeFilter(e.target.value)}
           className={`${pillBase} bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border-[rgba(255,255,255,0.09)] text-[rgba(226,232,240,0.5)] focus:outline-none cursor-pointer [&>option]:bg-[#26282E] [&>option]:text-[rgba(226,232,240,0.8)]`}>
@@ -923,64 +924,50 @@ export default function SchedulePage() {
               ) : (selectedDayTasks.length === 0 && selectedDayMeetings.length === 0 && selectedDayTodos.length === 0 && selectedDayOneOnOnes.length === 0 && selectedDayFixedMeetings.length === 0) ? (
                 <p className="text-xs text-[rgba(226,232,240,0.3)]">예정된 일정이 없습니다</p>
               ) : (
-                <div className="space-y-1">
-                  {getOrderedDayItems().map(item => (
-                    <div key={item.itemId}
-                      draggable
-                      onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; setDragItemId(item.itemId) }}
-                      onDragEnd={() => { setDragItemId(null); setDragOverId(null) }}
-                      onDragOver={e => { e.preventDefault(); if (dragItemId !== item.itemId) setDragOverId(item.itemId) }}
-                      onDrop={e => { e.preventDefault(); handleDayDrop(item.itemId) }}
-                      onClick={() => {
-                        if (item.type === 'meeting') router.push(`/meetings/${(item.data as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>).id}`)
-                        else if (item.type === 'todo') router.push(`/tasks/${(item.data as ScheduledTodo).task.id}`)
-                        else router.push(`/tasks/${(item.data as DayTask).task.id}`)
-                      }}
-                      className={`bg-[rgba(255,255,255,0.06)] rounded-xl border px-2.5 py-1.5 transition-all cursor-grab active:cursor-grabbing select-none flex items-center gap-2 ${
-                        item.type === 'meeting' ? 'border-[#BADEC8]/40 hover:border-[#BADEC8]/70' : 'border-[rgba(255,255,255,0.09)] hover:border-[rgba(255,255,255,0.12)]'
-                      } ${dragItemId === item.itemId ? 'opacity-40 scale-95' : ''} ${
-                        dragOverId === item.itemId && dragItemId !== item.itemId ? 'border-[#BADEC8] -translate-y-0.5' : ''
-                      }`}>
-                      <span className="text-[rgba(226,232,240,0.2)] text-[10px] flex-shrink-0">⠿</span>
-                      {item.type === 'meeting' ? (
-                        <span className="text-[10px] text-[#2D5A45] flex-shrink-0">💬</span>
-                      ) : item.type === 'todo' ? (
-                        <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-violet-900/40 text-violet-300 flex-shrink-0">할일</span>
-                      ) : (
-                        <span className={`text-[9px] px-1.5 py-0.5 rounded-full flex-shrink-0 ${(item.data as DayTask).dateType === 'mid' ? 'bg-[#F3E482]/20 text-[#F3E482]' : 'bg-[#90A7D8]/20 text-[#90A7D8]'}`}>
-                          {(item.data as DayTask).dateType === 'mid' ? '중간' : '최종'}
-                        </span>
-                      )}
-                      <span className="text-xs font-medium text-[rgba(226,232,240,0.85)] truncate flex-1">
-                        {item.type === 'meeting'
-                          ? (item.data as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>).title
-                          : item.type === 'todo'
-                            ? (item.data as ScheduledTodo).title
-                            : (item.data as DayTask).task.title}
-                      </span>
-                      {item.type === 'todo' && (
-                        <span className="text-[9px] text-[rgba(226,232,240,0.3)] flex-shrink-0 truncate max-w-16">
-                          {(item.data as ScheduledTodo).task.short_name ?? ''}
-                        </span>
-                      )}
-                    </div>
-                  ))}
+                <div className="divide-y divide-[rgba(255,255,255,0.05)]">
+                  {getOrderedDayItems().map(item => {
+                    const dotColor = item.type === 'meeting' ? '#BADEC8'
+                      : item.type === 'todo' ? '#A78BFA'
+                      : (item.data as DayTask).dateType === 'mid' ? '#F3E482' : '#90A7D8'
+                    const title = item.type === 'meeting'
+                      ? (item.data as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>).title
+                      : item.type === 'todo' ? (item.data as ScheduledTodo).title
+                      : (item.data as DayTask).task.title
+                    const sub = item.type === 'todo'
+                      ? ((item.data as ScheduledTodo).task.short_name ?? (item.data as ScheduledTodo).task.title)
+                      : item.type === 'task' ? (item.data as DayTask).task.short_name ?? ''
+                      : ''
+                    return (
+                      <div key={item.itemId}
+                        onClick={() => {
+                          if (item.type === 'meeting') router.push(`/meetings/${(item.data as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>).id}`)
+                          else if (item.type === 'todo') router.push(`/tasks/${(item.data as ScheduledTodo).task.id}`)
+                          else router.push(`/tasks/${(item.data as DayTask).task.id}`)
+                        }}
+                        className="flex items-center gap-2 py-2 cursor-pointer hover:bg-[rgba(255,255,255,0.04)] rounded-lg transition-colors px-1">
+                        <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: dotColor }} />
+                        <span className="text-[12px] text-[rgba(226,232,240,0.85)] truncate flex-1">{title}</span>
+                        {sub && <span className="text-[10px] text-[rgba(226,232,240,0.3)] flex-shrink-0 truncate max-w-[4rem]">{sub}</span>}
+                      </div>
+                    )
+                  })}
                   {selectedDayOneOnOnes.map(o => (
                     <div key={`oo-panel-${o.id}`}
                       onClick={() => router.push(`/one-on-one/${o.member_id}`)}
-                      className="rounded-xl border border-purple-800/40 px-2.5 py-1.5 flex items-center gap-2 cursor-pointer hover:border-purple-600/40 bg-purple-950/30">
-                      <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-purple-900/50 text-purple-300 flex-shrink-0">1on1</span>
-                      <span className="text-xs text-[rgba(226,232,240,0.85)] truncate">{o.member_name}</span>
+                      className="flex items-center gap-2 py-2 cursor-pointer hover:bg-[rgba(255,255,255,0.04)] rounded-lg transition-colors px-1">
+                      <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: '#C084FC' }} />
+                      <span className="text-[12px] text-[rgba(226,232,240,0.85)] truncate flex-1">{o.member_name}</span>
+                      <span className="text-[10px] text-purple-400 flex-shrink-0">1on1</span>
                     </div>
                   ))}
                   {selectedDayFixedMeetings
                     .filter(s => !selectedDayMeetings.some(m => m.title === s.title))
                     .map(s => (
                     <div key={`fixed-panel-${s.id}`}
-                      className="rounded-xl border border-emerald-700/40 px-2.5 py-1.5 flex items-center gap-2 bg-emerald-950/30">
-                      <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-900/50 text-emerald-300 flex-shrink-0">↺</span>
-                      <span className="text-[10px] font-mono text-emerald-400 flex-shrink-0">{s.time}</span>
-                      <span className="text-xs text-[rgba(226,232,240,0.85)] truncate">{s.title}</span>
+                      className="flex items-center gap-2 py-2 px-1 rounded-lg">
+                      <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: '#6EE7B7' }} />
+                      {s.time && <span className="text-[10px] font-mono text-emerald-400 flex-shrink-0">{s.time}</span>}
+                      <span className="text-[12px] text-[rgba(226,232,240,0.85)] truncate flex-1">{s.title}</span>
                     </div>
                   ))}
                 </div>
