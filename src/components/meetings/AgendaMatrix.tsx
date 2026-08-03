@@ -617,7 +617,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                                 /* 담당자 있음 → 중간보고 + 완료일 2개 */
                                 <div className="flex flex-col gap-0.5 w-full">
                                   {/* 중간보고 */}
-                                  <label className="relative cursor-pointer flex items-center gap-1 group/middate w-full">
+                                  <label className="relative cursor-pointer flex items-center gap-1 group/middate w-full" onClick={e => e.stopPropagation()}>
                                     <span style={{ fontSize: 9, fontWeight: 600, color: 'rgba(148,163,184,0.7)', flexShrink: 0, width: 10 }}>중</span>
                                     <span style={{ fontSize: 9, fontWeight: 500, color: st.mid_date ? '#93C5FD' : 'rgba(226,232,240,0.18)', flex: 1 }}>
                                       {st.mid_date ? st.mid_date.slice(5).replace('-', '/') : '—'}
@@ -628,10 +628,10 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                                     )}
                                     <input type="date" value={st.mid_date ?? ''} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                                       style={{ colorScheme: 'dark' }}
-                                      onChange={e => updateSubTaskMidDate(st.id, e.target.value || null)} onClick={e => e.stopPropagation()} />
+                                      onChange={e => updateSubTaskMidDate(st.id, e.target.value || null)} />
                                   </label>
                                   {/* 완료일 */}
-                                  <label className="relative cursor-pointer flex items-center gap-1 group/duedate w-full">
+                                  <label className="relative cursor-pointer flex items-center gap-1 group/duedate w-full" onClick={e => e.stopPropagation()}>
                                     <span style={{ fontSize: 9, fontWeight: 600, color: 'rgba(148,163,184,0.7)', flexShrink: 0, width: 10 }}>완</span>
                                     <span style={{ fontSize: 9, fontWeight: 500, color: st.due_date ? '#86EFAC' : 'rgba(226,232,240,0.18)', flex: 1 }}>
                                       {st.due_date ? st.due_date.slice(5).replace('-', '/') : '—'}
@@ -642,7 +642,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                                     )}
                                     <input type="date" value={st.due_date ?? ''} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                                       style={{ colorScheme: 'dark' }}
-                                      onChange={e => updateSubTaskDueDate(st.id, e.target.value || null)} onClick={e => e.stopPropagation()} />
+                                      onChange={e => updateSubTaskDueDate(st.id, e.target.value || null)} />
                                   </label>
                                 </div>
                               ) : (
