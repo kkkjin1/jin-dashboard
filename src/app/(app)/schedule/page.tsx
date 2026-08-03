@@ -41,7 +41,7 @@ interface ScheduledTodo {
   title: string
   target_date: string | null
   schedule_tag: string | null
-  task: { id: string; title: string; short_name: string | null; assignee_id: string | null; part: string }
+  task: { id: string; title: string; short_name: string | null; part: string }
 }
 
 interface ScheduledOneOnOne {
@@ -154,7 +154,7 @@ export default function SchedulePage() {
   const supabase = createClient()
 
   function loadData() {
-    const sel = 'id, title, target_date, schedule_tag, tasks(id, title, short_name, assignee_id, part)'
+    const sel = 'id, title, target_date, schedule_tag, tasks(id, title, short_name, part)'
     Promise.all([
       fetchAllTasks(),
       fetchMembers(),
@@ -302,7 +302,7 @@ export default function SchedulePage() {
     return scheduledTodos.filter(t => {
       const effectiveDate = getEffectiveTodoDate(t)
       if (!effectiveDate || !isSameDay(effectiveDate, day)) return false
-      const effectiveAssignee = todoAssigneeMap[t.id] ?? t.task.assignee_id
+      const effectiveAssignee = todoAssigneeMap[t.id]
       if (assigneeFilter !== '전체' && effectiveAssignee !== assigneeFilter) return false
       if (partFilter !== '전체' && t.task.part !== partFilter) return false
       return true
