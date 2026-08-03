@@ -1090,19 +1090,19 @@ export default function HomePage() {
           {/* Row 1: Dual-lane timeline — full width */}
           <DualLaneTimeline meetings={todayMeetings} todos={todayTodos} now={now} onAdd={handleAddMeeting} fixedMeetings={todayFixedMeetingsVisible} />
 
-          {/* Rows 2 + 3 — flex column, fills remaining height */}
-          <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {/* Rows 2 + 3 — 단일 3열 그리드, 열 정렬 보장 */}
+          <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gridTemplateRows: '1.15fr 0.85fr', columnGap: 12, rowGap: 14 }}>
 
-          {/* Row 2 — 진행중 과업(2칸 flat table) · 오늘업무 */}
-          <div style={{ flex: 1.15, minHeight: 0, display: 'grid', gridTemplateColumns: '3fr 1fr', gap: 12 }}>
+          {/* Row 2 — display:contents로 자식들이 바깥 그리드 직접 참여 */}
+          <div style={{ display: 'contents' }}>
 
-            {/* 진행중 과업 — flat table, embedded in background */}
+            {/* 진행중 과업 — col 1-2 span */}
             <div style={{
+              gridColumn: '1 / 3',
               background: 'transparent',
               padding: '4px 0',
               display: 'flex',
               flexDirection: 'column',
-              height: '100%',
               minHeight: 0,
               overflow: 'hidden',
             }}>
@@ -1457,8 +1457,8 @@ export default function HomePage() {
 
           </div>
 
-          {/* Row 3 — 퀵메모 · 최근회의록 · 회고 */}
-          <div style={{ flex: 0.85, minHeight: 0, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+          {/* Row 3 — display:contents로 자식들이 바깥 그리드 직접 참여 */}
+          <div style={{ display: 'contents' }}>
 
             {/* 퀵메모 */}
             <CardSection title="퀵메모" link="/memos" linkLabel="전체 →" icon={<StickyNote size={14} strokeWidth={2} style={{ color: '#70B8C4' }} />}>
