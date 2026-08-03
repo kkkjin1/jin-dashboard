@@ -8,7 +8,7 @@ import TiptapEditor from '@/components/TiptapEditor'
 import { GlassSelect } from '@/components/ui/GlassSelect'
 
 // ── 상수 ────────────────────────────────────────────────────────────
-const STATUS_COLOR: Record<string, string> = { active: '#3B82F6', hold: '#9CA3AF', done: '#10B981' }
+const STATUS_COLOR: Record<string, string> = { active: '#3B82F6', hold: '#6366F1', done: '#10B981' }
 const STATUS_LABEL: Record<string, string> = { active: '진행필요', hold: '진행중', done: '진행완료' }
 const GROUP_COLORS = ['#3B82F6','#F59E0B','#10B981','#EF4444','#8B5CF6','#EC4899','#9CA3AF']
 const MATRIX_CATS = ['코어', '비즈', '개인']
@@ -557,9 +557,9 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                                   onClick={e => e.stopPropagation()}
                                   style={{ cursor: 'grab', color: S.t3, fontSize: 12, userSelect: 'none', flexShrink: 0, lineHeight: 1 }}>⠿</span>
                                 <button onClick={e => { e.stopPropagation(); cycleSubTaskStatus(st) }}
-                                  style={{ width: 14, height: 14, borderRadius: 3, flexShrink: 0, border: `1.5px solid ${st.status === 'done' ? '#10B981' : st.status === 'hold' ? '#F59E0B' : (CAT_BORDER[group.category ?? ''] ?? group.color)}`, background: st.status === 'done' ? '#10B981' : 'transparent', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
+                                  style={{ width: 14, height: 14, borderRadius: 3, flexShrink: 0, border: `1.5px solid ${st.status === 'done' ? '#10B981' : st.status === 'hold' ? '#6366F1' : (CAT_BORDER[group.category ?? ''] ?? group.color)}`, background: st.status === 'done' ? '#10B981' : st.status === 'hold' ? 'rgba(99,102,241,0.2)' : 'transparent', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
                                   {st.status === 'done' && <span style={{ color: 'white', fontSize: 9, fontWeight: 800, lineHeight: 1 }}>✓</span>}
-                                  {st.status === 'hold' && <span style={{ color: '#F59E0B', fontSize: 9, lineHeight: 1 }}>−</span>}
+                                  {st.status === 'hold' && <span style={{ color: '#6366F1', fontSize: 7, lineHeight: 1 }}>▶</span>}
                                 </button>
                                 {editingSTId === st.id ? (
                                   <input autoFocus value={editSTTitle} onChange={e => setEditSTTitle(e.target.value)}
@@ -1084,7 +1084,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                                     {pdBadgeLabel(period)}
                                   </button>
                                   {/* 상태 도트 + 제목 */}
-                                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: isDone ? '#10B981' : item.status === 'hold' ? '#F59E0B' : gColor, flexShrink: 0, display: 'inline-block' }} />
+                                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: isDone ? '#10B981' : item.status === 'hold' ? '#6366F1' : gColor, flexShrink: 0, display: 'inline-block' }} />
                                   <span onClick={() => router.push(`/project/items/${item.id}`)} style={{ fontSize: 13, fontWeight: 500, color: isDone ? S.t3 : S.t1, textDecoration: isDone ? 'line-through' : 'none', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>{item.title}</span>
                                   {allItemSTs.length > 0 && <span style={{ fontSize: 10, color: S.t3, flexShrink: 0 }}>· {allItemSTs.length}</span>}
                                 </div>
@@ -1112,8 +1112,9 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                                   <td style={{ position: 'sticky', left: 0, zIndex: 2, background: 'rgba(255,255,255,0.025)', borderRight: S.bdL, padding: '5px 12px 5px 44px' }}>
                                     <div className="flex items-center gap-2">
                                       <button onClick={e => { e.stopPropagation(); cycleSubTaskStatus(st) }}
-                                        style={{ width: 12, height: 12, borderRadius: 3, flexShrink: 0, border: `1.5px solid ${st.status === 'done' ? '#10B981' : st.status === 'hold' ? '#F59E0B' : hexToRgba(gColor, 0.7)}`, background: st.status === 'done' ? '#10B981' : 'transparent', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        style={{ width: 12, height: 12, borderRadius: 3, flexShrink: 0, border: `1.5px solid ${st.status === 'done' ? '#10B981' : st.status === 'hold' ? '#6366F1' : hexToRgba(gColor, 0.7)}`, background: st.status === 'done' ? '#10B981' : st.status === 'hold' ? 'rgba(99,102,241,0.2)' : 'transparent', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                         {st.status === 'done' && <span style={{ color: 'white', fontSize: 8, lineHeight: 1 }}>✓</span>}
+                                        {st.status === 'hold' && <span style={{ color: '#6366F1', fontSize: 6, lineHeight: 1 }}>▶</span>}
                                       </button>
                                       <span onClick={() => router.push(`/project/items/${item.id}?focus=${st.id}`)} style={{ fontSize: 12, color: st.status === 'done' ? S.t3 : S.t2, textDecoration: st.status === 'done' ? 'line-through' : 'none', cursor: 'pointer' }}>{st.title}</span>
                                       {st.target_date && <span style={{ fontSize: 9, color: S.t3 }}>{stDateLabel(st.target_date, sched.today, sched.tomorrow)}</span>}
@@ -1122,7 +1123,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                                   {yearMonths.map((ym, mi) => (
                                     <td key={ym} style={{ borderLeft: mi%3===0 ? S.bdL : S.bd, verticalAlign: 'middle', textAlign: 'center', padding: 0,
                                       background: ym===curYM ? hexToRgba(catColor, 0.04) : 'transparent' }}>
-                                      {stYM === ym && <div style={{ width: 8, height: 8, borderRadius: '50%', background: st.status === 'done' ? '#10B981' : st.status === 'hold' ? '#F59E0B' : gColor, margin: '0 auto', opacity: 0.85 }} />}
+                                      {stYM === ym && <div style={{ width: 8, height: 8, borderRadius: '50%', background: st.status === 'done' ? '#10B981' : st.status === 'hold' ? '#6366F1' : gColor, margin: '0 auto', opacity: 0.85 }} />}
                                     </td>
                                   ))}
                                 </tr>
