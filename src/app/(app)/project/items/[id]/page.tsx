@@ -180,6 +180,7 @@ export default function AgendaItemDetailPage() {
   }, [id])
 
   useEffect(() => { load() }, [load])
+  useEffect(() => { fetchMembers().then(setMembers) }, [])
 
   // focus 파라미터 처리 — 해당 아코디언 열고 스크롤
   useEffect(() => {
@@ -613,16 +614,17 @@ export default function AgendaItemDetailPage() {
                   <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold flex-shrink-0 ml-1 ${STATUS_CLS[st.status as Status]}`}>
                     {STATUS_LABEL[st.status as Status]}
                   </span>
-                  {/* 담당자 & 완료일 헤더 표시 */}
-                  {st.assignee_id && (
-                    <div className="flex items-center gap-1.5 flex-shrink-0 ml-2 opacity-0 group-hover/acc:opacity-100 transition-opacity">
-                      <span className="text-[9px] text-[rgba(226,232,240,0.5)] bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] rounded px-1.5 py-0.5">
-                        {members.find(m => m.id === st.assignee_id)?.name ?? ''}
-                      </span>
-                      {st.due_date && (
-                        <span className="text-[9px] text-emerald-400/70">~{stDateLabel(st.due_date)}</span>
-                      )}
-                    </div>
+                  {/* 담당자 선택 — 헤더 row에서 바로 지정 */}
+                  <select
+                    value={st.assignee_id ?? ''}
+                    onChange={e => { e.stopPropagation(); updateSTAssignee(st.id, e.target.value || null) }}
+                    onClick={e => e.stopPropagation()}
+                    className="ml-1.5 text-[9px] bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.09)] rounded px-1.5 py-0.5 text-[rgba(226,232,240,0.45)] hover:border-[rgba(255,255,255,0.2)] hover:text-[rgba(226,232,240,0.7)] focus:outline-none cursor-pointer flex-shrink-0 [&>option]:bg-[#1E2228] transition-colors">
+                    <option value="">담당자</option>
+                    {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                  </select>
+                  {st.assignee_id && st.due_date && (
+                    <span className="text-[9px] text-emerald-400/60 flex-shrink-0">~{stDateLabel(st.due_date)}</span>
                   )}
                 </div>
 
@@ -633,39 +635,27 @@ export default function AgendaItemDetailPage() {
                   const selectedNote = allNotes.find(n => n.id === selId) ?? null
                   return (
                     <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' }}>
-                      {/* ── 담당자 & 마일스톤 날짜 ── */}
-                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-4 py-2.5" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }} onClick={e => e.stopPropagation()}>
-                        <label className="flex items-center gap-1.5">
-                          <span className="text-[9px] text-[rgba(226,232,240,0.35)] uppercase tracking-wider flex-shrink-0">담당자</span>
-                          <select
-                            value={st.assignee_id ?? ''}
-                            onChange={e => updateSTAssignee(st.id, e.target.value || null)}
-                            className="text-[11px] bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] rounded-md px-2 py-0.5 text-[rgba(226,232,240,0.75)] focus:outline-none cursor-pointer [&>option]:bg-[#1E2228]">
-                            <option value="">-</option>
-                            {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-                          </select>
-                        </label>
-                        {st.assignee_id && (
-                          <>
-                            <label className="flex items-center gap-1.5">
-                              <span className="text-[9px] text-[rgba(226,232,240,0.35)] uppercase tracking-wider flex-shrink-0">중간보고</span>
-                              <input type="date"
-                                value={st.mid_date ?? ''}
-                                onChange={e => updateSTMidDate(st.id, e.target.value || null)}
-                                className="text-[11px] bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] rounded-md px-2 py-0.5 text-[rgba(226,232,240,0.75)] focus:outline-none [color-scheme:dark]"
-                              />
-                            </label>
-                            <label className="flex items-center gap-1.5">
-                              <span className="text-[9px] text-[rgba(226,232,240,0.35)] uppercase tracking-wider flex-shrink-0">완료일자</span>
-                              <input type="date"
-                                value={st.due_date ?? ''}
-                                onChange={e => updateSTDueDate(st.id, e.target.value || null)}
-                                className="text-[11px] bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] rounded-md px-2 py-0.5 text-[rgba(226,232,240,0.75)] focus:outline-none [color-scheme:dark]"
-                              />
-                            </label>
-                          </>
-                        )}
-                      </div>
+                      {/* ── 마일스톤 날짜 (담당자 지정 시) ── */}
+                      {st.assignee_id && (
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-4 py-2.5" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }} onClick={e => e.stopPropagation()}>
+                          <label className="flex items-center gap-1.5">
+                            <span className="text-[9px] text-[rgba(226,232,240,0.35)] uppercase tracking-wider flex-shrink-0">중간보고</span>
+                            <input type="date"
+                              value={st.mid_date ?? ''}
+                              onChange={e => updateSTMidDate(st.id, e.target.value || null)}
+                              className="text-[11px] bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] rounded-md px-2 py-0.5 text-[rgba(226,232,240,0.75)] focus:outline-none [color-scheme:dark]"
+                            />
+                          </label>
+                          <label className="flex items-center gap-1.5">
+                            <span className="text-[9px] text-[rgba(226,232,240,0.35)] uppercase tracking-wider flex-shrink-0">완료일자</span>
+                            <input type="date"
+                              value={st.due_date ?? ''}
+                              onChange={e => updateSTDueDate(st.id, e.target.value || null)}
+                              className="text-[11px] bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] rounded-md px-2 py-0.5 text-[rgba(226,232,240,0.75)] focus:outline-none [color-scheme:dark]"
+                            />
+                          </label>
+                        </div>
+                      )}
                       {/* 날짜 목록 + 에디터 */}
                       <div style={{ display: 'flex', minHeight: 160 }}>
                         {/* 왼쪽: 날짜 목록 */}
