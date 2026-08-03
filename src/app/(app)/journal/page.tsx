@@ -3,9 +3,12 @@
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import nextDynamic from 'next/dynamic'
 import { createClient } from '@/lib/supabase/client'
 import { fetchAllTasks } from '@/lib/tasks'
 import type { Task } from '@/types'
+
+const TiptapEditor = nextDynamic(() => import('@/components/TiptapEditor'), { ssr: false })
 
 interface DailyJournal {
   id: string
@@ -163,14 +166,16 @@ function JournalEditModal({ journal, onSave, onClose }: {
           <h2 className="text-base font-semibold text-[#E2E8F0]">{formatDateFull(journal.date)}</h2>
           <button onClick={onClose} className="text-white/[0.28] hover:text-white/70 text-lg leading-none transition-colors">×</button>
         </div>
-        <div className="flex-1 min-h-0 rounded-2xl overflow-hidden"
+        <div className="flex-1 min-h-0 overflow-y-auto rounded-2xl"
           style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
-          <textarea
-            autoFocus
+          <TiptapEditor
+            dark
             value={content}
-            onChange={e => setContent(e.target.value)}
-            className="w-full h-full text-sm text-[#E2E8F0] bg-transparent focus:outline-none resize-none p-4 font-mono leading-relaxed"
-            placeholder="회고 내용을 입력하세요…"
+            onChange={setContent}
+            onSubmit={() => { onSave(journal.date, content); onClose() }}
+            autoFocus
+            minHeight={400}
+            className="p-3"
           />
         </div>
         <div className="flex justify-between items-center mt-4 flex-shrink-0">
