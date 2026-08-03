@@ -39,7 +39,8 @@ interface DayTask {
 interface ScheduledTodo {
   id: string
   title: string
-  target_date: string
+  target_date: string | null
+  schedule_tag: string | null
   task: { id: string; title: string; short_name: string | null; assignee_id: string | null; part: string }
 }
 
@@ -157,12 +158,12 @@ export default function SchedulePage() {
       fetchAllTasks(),
       fetchMembers(),
       supabase.from('meetings').select('id, title, meeting_date, category').not('meeting_date', 'is', null),
-      supabase.from('task_todos').select('id, title, target_date, tasks!inner(id, title, short_name, assignee_id, part)').not('target_date', 'is', null).eq('done', false),
+      supabase.from('task_todos').select('id, title, target_date, schedule_tag, tasks!inner(id, title, short_name, assignee_id, part)').or('target_date.not.is.null,schedule_tag.not.is.null').eq('done', false),
     ]).then(([t, m, { data: mtgs }, { data: todoData }]) => {
       setTasks(t); setMembers(m)
       setMeetings((mtgs ?? []) as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>[])
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      setScheduledTodos((todoData ?? []).map((r: any) => ({ id: r.id, title: r.title, target_date: r.target_date, task: r.tasks })))
+      setScheduledTodos((todoData ?? []).map((r: any) => ({ id: r.id, title: r.title, target_date: r.target_date, schedule_tag: r.schedule_tag, task: r.tasks })))
     })
   }
 
@@ -275,11 +276,26 @@ export default function SchedulePage() {
     return meetings.filter(m => m.meeting_date && isSameDay(parseISO(m.meeting_date), day))
   }
 
+  function getEffectiveTodoDate(t: ScheduledTodo): Date | null {
+    if (t.target_date) return parseISO(t.target_date)
+    if (t.schedule_tag) {
+      const d = new Date()
+      if (t.schedule_tag === 'today') return d
+      if (t.schedule_tag === 'tomorrow') { d.setDate(d.getDate() + 1); return d }
+      if (t.schedule_tag === 'this_week') {
+        const daysToFri = (5 - d.getDay() + 7) % 7
+        d.setDate(d.getDate() + (daysToFri === 0 ? 0 : daysToFri))
+        return d
+      }
+    }
+    return null
+  }
+
   function getDayScheduledTodos(day: Date): ScheduledTodo[] {
     if (viewFilter === '회의만') return []
     return scheduledTodos.filter(t => {
-      if (!isSameDay(parseISO(t.target_date), day)) return false
-      // 할일별 담당자 우선, 없으면 업무 담당자 사용
+      const effectiveDate = getEffectiveTodoDate(t)
+      if (!effectiveDate || !isSameDay(effectiveDate, day)) return false
       const effectiveAssignee = todoAssigneeMap[t.id] ?? t.task.assignee_id
       if (assigneeFilter !== '전체' && effectiveAssignee !== assigneeFilter) return false
       if (partFilter !== '전체' && t.task.part !== partFilter) return false
@@ -884,7 +900,7 @@ export default function SchedulePage() {
               ) : (selectedDayTasks.length === 0 && selectedDayMeetings.length === 0 && selectedDayTodos.length === 0 && selectedDayOneOnOnes.length === 0 && selectedDayFixedMeetings.length === 0) ? (
                 <p className="text-xs text-[rgba(226,232,240,0.3)]">예정된 일정이 없습니다</p>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-1">
                   {getOrderedDayItems().map(item => (
                     <div key={item.itemId}
                       draggable
@@ -897,74 +913,51 @@ export default function SchedulePage() {
                         else if (item.type === 'todo') router.push(`/tasks/${(item.data as ScheduledTodo).task.id}`)
                         else router.push(`/tasks/${(item.data as DayTask).task.id}`)
                       }}
-                      className={`bg-[rgba(255,255,255,0.06)] rounded-2xl border p-3 transition-all cursor-grab active:cursor-grabbing select-none ${
-                        item.type === 'meeting' ? 'border-[#BADEC8]/40 hover:border-[#BADEC8]/70' : 'border-[rgba(255,255,255,0.09)] hover:border-[rgba(255,255,255,0.09)]'
+                      className={`bg-[rgba(255,255,255,0.06)] rounded-xl border px-2.5 py-1.5 transition-all cursor-grab active:cursor-grabbing select-none flex items-center gap-2 ${
+                        item.type === 'meeting' ? 'border-[#BADEC8]/40 hover:border-[#BADEC8]/70' : 'border-[rgba(255,255,255,0.09)] hover:border-[rgba(255,255,255,0.12)]'
                       } ${dragItemId === item.itemId ? 'opacity-40 scale-95' : ''} ${
-                        dragOverId === item.itemId && dragItemId !== item.itemId ? 'border-[#BADEC8] -translate-y-0.5 shadow-sm' : ''
+                        dragOverId === item.itemId && dragItemId !== item.itemId ? 'border-[#BADEC8] -translate-y-0.5' : ''
                       }`}>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-[rgba(226,232,240,0.3)] text-xs">⠿</span>
-                        {item.type === 'meeting' ? (
-                          <span className="text-xs font-medium text-[#2D5A45]">💬 회의</span>
-                        ) : item.type === 'todo' ? (
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-violet-50 text-violet-700">할일</span>
-                        ) : (
-                          <span className={`text-xs px-2 py-0.5 rounded-full ${(item.data as DayTask).dateType === 'mid' ? 'bg-[#F3E482]/50 text-[#5A4A10]' : 'bg-[#90A7D8]/30 text-[#1E3A6B]'}`}>
-                            {(item.data as DayTask).dateType === 'mid' ? '중간공유' : '최종보고'}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-sm font-medium text-[rgba(226,232,240,0.9)] break-words leading-snug">
+                      <span className="text-[rgba(226,232,240,0.2)] text-[10px] flex-shrink-0">⠿</span>
+                      {item.type === 'meeting' ? (
+                        <span className="text-[10px] text-[#2D5A45] flex-shrink-0">💬</span>
+                      ) : item.type === 'todo' ? (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-violet-900/40 text-violet-300 flex-shrink-0">할일</span>
+                      ) : (
+                        <span className={`text-[9px] px-1.5 py-0.5 rounded-full flex-shrink-0 ${(item.data as DayTask).dateType === 'mid' ? 'bg-[#F3E482]/20 text-[#F3E482]' : 'bg-[#90A7D8]/20 text-[#90A7D8]'}`}>
+                          {(item.data as DayTask).dateType === 'mid' ? '중간' : '최종'}
+                        </span>
+                      )}
+                      <span className="text-xs font-medium text-[rgba(226,232,240,0.85)] truncate flex-1">
                         {item.type === 'meeting'
                           ? (item.data as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>).title
                           : item.type === 'todo'
                             ? (item.data as ScheduledTodo).title
                             : (item.data as DayTask).task.title}
-                      </p>
-                      {item.type === 'meeting' && (item.data as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>).category && (
-                        <span className="text-xs text-[#2D5A45] mt-0.5 block">{(item.data as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>).category}</span>
-                      )}
+                      </span>
                       {item.type === 'todo' && (
-                        <p className="text-xs text-[rgba(226,232,240,0.4)] mt-0.5">
-                          {(item.data as ScheduledTodo).task.short_name ?? (item.data as ScheduledTodo).task.title}
-                        </p>
-                      )}
-                      {item.type === 'task' && (
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          <span className="text-xs text-[rgba(226,232,240,0.4)]">{(item.data as DayTask).task.part}</span>
-                          {(item.data as DayTask).task.members?.name && (
-                            <span className="text-xs text-[rgba(226,232,240,0.4)]">{(item.data as DayTask).task.members?.name}</span>
-                          )}
-                        </div>
+                        <span className="text-[9px] text-[rgba(226,232,240,0.3)] flex-shrink-0 truncate max-w-16">
+                          {(item.data as ScheduledTodo).task.short_name ?? ''}
+                        </span>
                       )}
                     </div>
                   ))}
                   {selectedDayOneOnOnes.map(o => (
                     <div key={`oo-panel-${o.id}`}
                       onClick={() => router.push(`/one-on-one/${o.member_id}`)}
-                      className="bg-purple-50/60 rounded-2xl border border-purple-100/60 p-3 transition-all cursor-pointer hover:border-purple-200">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-700">1on1</span>
-                      </div>
-                      <p className="text-sm font-medium text-[rgba(226,232,240,0.9)]">{o.member_name}</p>
-                      <p className="text-xs text-purple-400 mt-0.5">다음 1on1 예정</p>
+                      className="rounded-xl border border-purple-800/40 px-2.5 py-1.5 flex items-center gap-2 cursor-pointer hover:border-purple-600/40 bg-purple-950/30">
+                      <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-purple-900/50 text-purple-300 flex-shrink-0">1on1</span>
+                      <span className="text-xs text-[rgba(226,232,240,0.85)] truncate">{o.member_name}</span>
                     </div>
                   ))}
                   {selectedDayFixedMeetings
                     .filter(s => !selectedDayMeetings.some(m => m.title === s.title))
                     .map(s => (
                     <div key={`fixed-panel-${s.id}`}
-                      className="bg-emerald-950/40 rounded-2xl border border-emerald-700/40 p-3">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-900/60 text-emerald-300">↺ 고정회의</span>
-                        <span className="text-xs font-mono text-emerald-400">{s.time}</span>
-                      </div>
-                      <p className="text-sm font-medium text-[rgba(226,232,240,0.9)]">{s.title}</p>
-                      <p className="text-xs text-emerald-500/70 mt-0.5">
-                        {s.is_recurring
-                          ? `매주 ${(s.days_of_week ?? []).map(d => ['일','월','화','수','목','금','토'][d]).join('·')}`
-                          : s.date}
-                      </p>
+                      className="rounded-xl border border-emerald-700/40 px-2.5 py-1.5 flex items-center gap-2 bg-emerald-950/30">
+                      <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-900/50 text-emerald-300 flex-shrink-0">↺</span>
+                      <span className="text-[10px] font-mono text-emerald-400 flex-shrink-0">{s.time}</span>
+                      <span className="text-xs text-[rgba(226,232,240,0.85)] truncate">{s.title}</span>
                     </div>
                   ))}
                 </div>
