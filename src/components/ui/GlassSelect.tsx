@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 export interface GlassOption {
   value: string
   label: string
+  color?: string  // 멤버별 고유 색상 dot
 }
 
 interface GlassSelectProps {
@@ -12,7 +13,6 @@ interface GlassSelectProps {
   onChange: (value: string) => void
   options: GlassOption[]
   placeholder?: string
-  /** 'pill' = 스케줄 필터바용, 'inline' = AgendaMatrix 셀 인라인용 */
   variant?: 'pill' | 'inline'
   activeWhenFilled?: boolean
   className?: string
@@ -34,8 +34,8 @@ export function GlassSelect({
 
   const selected = options.find(o => o.value === value)
   const isActive = activeWhenFilled && !!value
+  const selectedColor = selected?.color
 
-  // 드롭다운 위치 계산
   function calcPos() {
     if (!triggerRef.current) return
     const r = triggerRef.current.getBoundingClientRect()
@@ -54,7 +54,6 @@ export function GlassSelect({
     setOpen(false)
   }
 
-  // 외부 클릭 닫기
   useEffect(() => {
     if (!open) return
     function onDown(e: MouseEvent) {
@@ -66,13 +65,20 @@ export function GlassSelect({
     return () => document.removeEventListener('mousedown', onDown)
   }, [open])
 
-  // 스크롤 시 닫기
   useEffect(() => {
     if (!open) return
     function onScroll() { setOpen(false) }
     window.addEventListener('scroll', onScroll, true)
     return () => window.removeEventListener('scroll', onScroll, true)
   }, [open])
+
+  // inline variant: 담당자 선택 시 해당 멤버 색상으로 pill tint
+  const inlineBg = selectedColor
+    ? `${selectedColor}26`   // 15% opacity
+    : 'rgba(255,255,255,0.06)'
+  const inlineBorder = selectedColor
+    ? `${selectedColor}55`   // 33% opacity
+    : 'rgba(255,255,255,0.1)'
 
   const triggerClass =
     variant === 'pill'
@@ -82,12 +88,7 @@ export function GlassSelect({
             ? 'bg-[rgba(76,127,224,0.18)] border-[#4C7FE0] text-[rgba(226,232,240,0.9)]'
             : 'bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border-[rgba(255,255,255,0.09)] text-[rgba(226,232,240,0.5)] hover:text-[rgba(226,232,240,0.8)]',
         ].join(' ')
-      : [
-          'w-full text-xs rounded-full border transition-all cursor-pointer select-none px-2.5 py-0.5 text-center',
-          value
-            ? 'bg-[rgba(76,127,224,0.15)] border-[rgba(76,127,224,0.3)] text-[rgba(226,232,240,0.85)]'
-            : 'bg-[rgba(255,255,255,0.06)] border-[rgba(255,255,255,0.1)] text-[rgba(226,232,240,0.4)] hover:border-[rgba(255,255,255,0.2)]',
-        ].join(' ')
+      : 'w-full text-xs rounded-full border transition-all cursor-pointer select-none px-2 py-0.5 flex items-center justify-center gap-1.5'
 
   const dropdown = open ? createPortal(
     <div
@@ -103,16 +104,16 @@ export function GlassSelect({
       className="bg-[rgba(18,21,28,0.97)] backdrop-blur-2xl border border-[rgba(255,255,255,0.12)] rounded-2xl py-1.5"
       onClick={e => e.stopPropagation()}
     >
-      {/* 초기화 옵션 */}
       <div
         onClick={e => pick('', e)}
         className={[
-          'mx-1.5 px-3 py-1.5 text-xs cursor-pointer transition-colors rounded-xl',
+          'mx-1.5 px-3 py-1.5 text-xs cursor-pointer transition-colors rounded-xl flex items-center gap-2',
           !value
             ? 'bg-[rgba(255,255,255,0.08)] text-[rgba(226,232,240,0.65)]'
             : 'text-[rgba(226,232,240,0.35)] hover:bg-[rgba(255,255,255,0.06)] hover:text-[rgba(226,232,240,0.6)]',
         ].join(' ')}
       >
+        <span className="w-2 h-2 rounded-full bg-[rgba(255,255,255,0.15)] flex-shrink-0" />
         {placeholder === '-' ? '없음' : placeholder}
       </div>
       {options.map(opt => (
@@ -120,12 +121,19 @@ export function GlassSelect({
           key={opt.value}
           onClick={e => pick(opt.value, e)}
           className={[
-            'mx-1.5 px-3 py-1.5 text-xs cursor-pointer transition-colors rounded-xl',
+            'mx-1.5 px-3 py-1.5 text-xs cursor-pointer transition-colors rounded-xl flex items-center gap-2',
             value === opt.value
-              ? 'bg-[rgba(76,127,224,0.25)] text-[rgba(226,232,240,0.95)]'
+              ? 'text-[rgba(226,232,240,0.95)]'
               : 'text-[rgba(226,232,240,0.7)] hover:bg-[rgba(255,255,255,0.08)] hover:text-[rgba(226,232,240,0.9)]',
           ].join(' ')}
+          style={value === opt.value && opt.color
+            ? { background: `${opt.color}22` }
+            : undefined}
         >
+          {opt.color && (
+            <span style={{ background: opt.color }}
+              className="w-2 h-2 rounded-full flex-shrink-0" />
+          )}
           {opt.label}
         </div>
       ))}
@@ -135,9 +143,29 @@ export function GlassSelect({
 
   return (
     <div className={`relative ${className}`} onClick={e => e.stopPropagation()}>
-      <button ref={triggerRef} type="button" className={triggerClass} onClick={toggle}>
-        {selected?.label ?? placeholder}
-      </button>
+      {variant === 'inline' ? (
+        <button
+          ref={triggerRef}
+          type="button"
+          className={triggerClass}
+          style={{
+            background: inlineBg,
+            border: `1px solid ${inlineBorder}`,
+            color: selectedColor ?? 'rgba(226,232,240,0.4)',
+          }}
+          onClick={toggle}
+        >
+          {selectedColor && (
+            <span style={{ background: selectedColor }}
+              className="w-1.5 h-1.5 rounded-full flex-shrink-0" />
+          )}
+          <span className="truncate">{selected?.label ?? placeholder}</span>
+        </button>
+      ) : (
+        <button ref={triggerRef} type="button" className={triggerClass} onClick={toggle}>
+          {selected?.label ?? placeholder}
+        </button>
+      )}
       {dropdown}
     </div>
   )

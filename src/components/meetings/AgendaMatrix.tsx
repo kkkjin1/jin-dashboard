@@ -21,6 +21,8 @@ const CAT_BG: Record<string, string>     = { '코어': 'rgba(59,130,246,0.09)', 
 const CAT_BORDER: Record<string, string> = { '코어': '#3B82F6',                '비즈': '#F59E0B',                '개인': '#10B981' }
 const CAT_DOT: Record<string, string>    = { '코어': '#3B82F6',                '비즈': '#F59E0B',                '개인': '#10B981' }
 
+const MEMBER_COLORS = ['#3B82F6','#10B981','#8B5CF6','#F59E0B','#EC4899','#06B6D4','#EF4444','#84CC16','#F97316','#A78BFA']
+
 const W_LEFT = 240
 
 function hexToRgba(hex: string, alpha: number) {
@@ -112,6 +114,10 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
     const fri = new Date(d); fri.setDate(d.getDate() + (5 - d.getDay() + 7) % 7)
     return { today: fmt(d), tomorrow: fmt(tom), friday: fmt(fri) }
   }, [])
+
+  const memberColors = useMemo(() =>
+    Object.fromEntries(members.map((m, i) => [m.id, MEMBER_COLORS[i % MEMBER_COLORS.length]])),
+  [members])
 
   const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), [])
 
@@ -220,6 +226,16 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
   async function updateSubTaskAssignee(stId: string, assigneeId: string | null) {
     await supabase.from('agenda_sub_tasks').update({ assignee_id: assigneeId }).eq('id', stId)
     setSubTasks(p => p.map(s => s.id === stId ? { ...s, assignee_id: assigneeId } : s))
+  }
+  async function updateSubTaskMidDate(stId: string, date: string | null) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase.from('agenda_sub_tasks') as any).update({ mid_date: date }).eq('id', stId)
+    setSubTasks(p => p.map(s => s.id === stId ? { ...s, mid_date: date } : s))
+  }
+  async function updateSubTaskDueDate(stId: string, date: string | null) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase.from('agenda_sub_tasks') as any).update({ due_date: date }).eq('id', stId)
+    setSubTasks(p => p.map(s => s.id === stId ? { ...s, due_date: date } : s))
   }
   async function cycleStatus(item: AgendaItem) {
     const order: AgendaItem['status'][] = ['active', 'hold', 'done']
@@ -517,7 +533,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                             <GlassSelect
                               value={item.assignee_id ?? ''}
                               onChange={v => updateItemAssignee(item.id, v || null)}
-                              options={members.map(m => ({ value: m.id, label: m.name }))}
+                              options={members.map(m => ({ value: m.id, label: m.name, color: memberColors[m.id] }))}
                               placeholder="-"
                               variant="inline"
                             />
@@ -578,44 +594,77 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                               <GlassSelect
                                 value={st.assignee_id ?? ''}
                                 onChange={v => updateSubTaskAssignee(st.id, v || null)}
-                                options={members.map(m => ({ value: m.id, label: m.name }))}
+                                options={members.map(m => ({ value: m.id, label: m.name, color: memberColors[m.id] }))}
                                 placeholder="-"
                                 variant="inline"
                               />
                             </div>
-                            <div style={{ width: 160, padding: '8px 12px', borderLeft: '1px solid rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }} onClick={e => e.stopPropagation()}>
-                              <div className="flex items-center gap-1.5">
-                                {st.target_date && (
-                                  <button onClick={() => updateSubTaskDate(st.id, null)}
-                                    style={{ fontSize: 9, padding: '2px 7px', borderRadius: 999, fontWeight: 600, flexShrink: 0, border: 'none', cursor: 'pointer',
-                                      background: st.target_date === sched.today ? 'rgba(220,38,38,0.18)' : st.target_date === sched.tomorrow ? 'rgba(245,158,11,0.18)' : 'rgba(59,130,246,0.18)',
-                                      color: st.target_date === sched.today ? '#FC8181' : st.target_date === sched.tomorrow ? '#FCD34D' : '#93C5FD' }}>
-                                    {stDateLabel(st.target_date, sched.today, sched.tomorrow)} ×
-                                  </button>
-                                )}
-                                {!st.target_date && (
-                                  <div className="opacity-0 pointer-events-none group-hover/strow:opacity-100 group-hover/strow:pointer-events-auto transition-all flex items-center gap-0.5">
-                                    <button onClick={() => updateSubTaskDate(st.id, sched.today)} className="text-[9px] px-1.5 py-0.5 rounded bg-[rgba(220,38,38,0.12)] text-red-400 border border-[rgba(220,38,38,0.2)] font-medium">오늘</button>
-                                    <button onClick={() => updateSubTaskDate(st.id, sched.tomorrow)} className="text-[9px] px-1.5 py-0.5 rounded bg-[rgba(245,158,11,0.12)] text-amber-400 border border-[rgba(245,158,11,0.2)] font-medium">내일</button>
-                                    <button onClick={() => updateSubTaskDate(st.id, sched.friday)} className="text-[9px] px-1.5 py-0.5 rounded bg-[rgba(59,130,246,0.12)] text-blue-400 border border-[rgba(59,130,246,0.2)] font-medium">금주</button>
-                                    <label className="relative cursor-pointer text-[rgba(226,232,240,0.35)] hover:text-[rgba(226,232,240,0.6)] text-[10px] px-0.5" title="특정일 선택">
-                                      📅<input type="date" className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" onChange={e => e.target.value && updateSubTaskDate(st.id, e.target.value)} />
-                                    </label>
-                                  </div>
-                                )}
-                                <div className="opacity-0 group-hover/strow:opacity-100 transition-all flex items-center gap-1.5">
-                                  {editingSTId !== st.id && (
-                                    <button onClick={() => { setEditingSTId(st.id); setEditSTTitle(st.title) }} className="text-[10px] text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)]">수정</button>
+                            <div style={{ width: 160, padding: '6px 10px', borderLeft: '1px solid rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }} onClick={e => e.stopPropagation()}>
+                              {/* 담당자 있으면 중간보고+완료일, 없으면 기존 target_date */}
+                              {st.assignee_id ? (
+                                <div className="flex items-center gap-1.5">
+                                  {/* 중간보고일 */}
+                                  <label className="relative cursor-pointer flex items-center gap-0.5 group/middate" title="중간보고일">
+                                    <span className="text-[9px] font-semibold" style={{ color: 'rgba(226,232,240,0.35)' }}>중</span>
+                                    <span className="text-[9px] font-medium" style={{ color: st.mid_date ? '#93C5FD' : 'rgba(226,232,240,0.2)' }}>
+                                      {st.mid_date ? st.mid_date.slice(5).replace('-', '/') : '—'}
+                                    </span>
+                                    {st.mid_date && (
+                                      <span className="hidden group-hover/middate:inline text-[8px] text-[rgba(226,232,240,0.3)] hover:text-red-400 cursor-pointer ml-0.5"
+                                        onClick={e => { e.preventDefault(); e.stopPropagation(); updateSubTaskMidDate(st.id, null) }}>×</span>
+                                    )}
+                                    <input type="date" value={st.mid_date ?? ''} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                                      onChange={e => updateSubTaskMidDate(st.id, e.target.value || null)} onClick={e => e.stopPropagation()} />
+                                  </label>
+                                  <span style={{ color: 'rgba(255,255,255,0.1)', fontSize: 10 }}>·</span>
+                                  {/* 완료일 */}
+                                  <label className="relative cursor-pointer flex items-center gap-0.5 group/duedate" title="완료일">
+                                    <span className="text-[9px] font-semibold" style={{ color: 'rgba(226,232,240,0.35)' }}>완</span>
+                                    <span className="text-[9px] font-medium" style={{ color: st.due_date ? '#86EFAC' : 'rgba(226,232,240,0.2)' }}>
+                                      {st.due_date ? st.due_date.slice(5).replace('-', '/') : '—'}
+                                    </span>
+                                    {st.due_date && (
+                                      <span className="hidden group-hover/duedate:inline text-[8px] text-[rgba(226,232,240,0.3)] hover:text-red-400 cursor-pointer ml-0.5"
+                                        onClick={e => { e.preventDefault(); e.stopPropagation(); updateSubTaskDueDate(st.id, null) }}>×</span>
+                                    )}
+                                    <input type="date" value={st.due_date ?? ''} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                                      onChange={e => updateSubTaskDueDate(st.id, e.target.value || null)} onClick={e => e.stopPropagation()} />
+                                  </label>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-0.5">
+                                  {st.target_date && (
+                                    <button onClick={() => updateSubTaskDate(st.id, null)}
+                                      style={{ fontSize: 9, padding: '2px 7px', borderRadius: 999, fontWeight: 600, border: 'none', cursor: 'pointer',
+                                        background: st.target_date === sched.today ? 'rgba(220,38,38,0.18)' : st.target_date === sched.tomorrow ? 'rgba(245,158,11,0.18)' : 'rgba(59,130,246,0.18)',
+                                        color: st.target_date === sched.today ? '#FC8181' : st.target_date === sched.tomorrow ? '#FCD34D' : '#93C5FD' }}>
+                                      {stDateLabel(st.target_date, sched.today, sched.tomorrow)} ×
+                                    </button>
                                   )}
-                                  {deletingST === st.id ? (
-                                    <>
-                                      <button onClick={() => deleteSubTask(st.id)} className="text-[10px] text-red-400 font-semibold">삭제</button>
-                                      <button onClick={() => setDeletingST(null)} className="text-[10px] text-[rgba(226,232,240,0.4)]">취소</button>
-                                    </>
-                                  ) : (
-                                    <button onClick={() => setDeletingST(st.id)} className="text-[10px] text-[rgba(226,232,240,0.25)] hover:text-red-400">삭제</button>
+                                  {!st.target_date && (
+                                    <div className="opacity-0 pointer-events-none group-hover/strow:opacity-100 group-hover/strow:pointer-events-auto transition-all flex items-center gap-0.5">
+                                      <button onClick={() => updateSubTaskDate(st.id, sched.today)} className="text-[9px] px-1.5 py-0.5 rounded bg-[rgba(220,38,38,0.12)] text-red-400 border border-[rgba(220,38,38,0.2)] font-medium">오늘</button>
+                                      <button onClick={() => updateSubTaskDate(st.id, sched.tomorrow)} className="text-[9px] px-1.5 py-0.5 rounded bg-[rgba(245,158,11,0.12)] text-amber-400 border border-[rgba(245,158,11,0.2)] font-medium">내일</button>
+                                      <button onClick={() => updateSubTaskDate(st.id, sched.friday)} className="text-[9px] px-1.5 py-0.5 rounded bg-[rgba(59,130,246,0.12)] text-blue-400 border border-[rgba(59,130,246,0.2)] font-medium">금주</button>
+                                      <label className="relative cursor-pointer text-[rgba(226,232,240,0.35)] hover:text-[rgba(226,232,240,0.6)] text-[10px] px-0.5">
+                                        📅<input type="date" className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" onChange={e => e.target.value && updateSubTaskDate(st.id, e.target.value)} />
+                                      </label>
+                                    </div>
                                   )}
                                 </div>
+                              )}
+                              <div className="opacity-0 group-hover/strow:opacity-100 transition-all flex items-center gap-1.5">
+                                {editingSTId !== st.id && (
+                                  <button onClick={() => { setEditingSTId(st.id); setEditSTTitle(st.title) }} className="text-[10px] text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)]">수정</button>
+                                )}
+                                {deletingST === st.id ? (
+                                  <>
+                                    <button onClick={() => deleteSubTask(st.id)} className="text-[10px] text-red-400 font-semibold">삭제</button>
+                                    <button onClick={() => setDeletingST(null)} className="text-[10px] text-[rgba(226,232,240,0.4)]">취소</button>
+                                  </>
+                                ) : (
+                                  <button onClick={() => setDeletingST(st.id)} className="text-[10px] text-[rgba(226,232,240,0.25)] hover:text-red-400">삭제</button>
+                                )}
                               </div>
                             </div>
                           </div>
