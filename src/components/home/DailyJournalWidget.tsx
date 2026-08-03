@@ -515,6 +515,7 @@ export function JournalFullscreenEditor({ selectedDate, current, yesterday, meet
                       placeholder="—" className="flex-1 min-w-0 focus:outline-none bg-transparent text-[12px]" style={{ color: D.t1 }} />
                   </div>
                 </div>
+              </div>
 
               {/* ── 일반 ── */}
               <div className="flex flex-col gap-2 rounded-xl p-2.5" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
