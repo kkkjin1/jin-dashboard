@@ -98,18 +98,20 @@ function EmptyState({ icon, label, sub }: { icon: React.ReactNode; label: string
 }
 
 // ── List Row wrapper (row-level hover) ──────────────────────────────────────
-function ListRow({ children, style, onClick, draggable, onDragStart }: {
+function ListRow({ children, style, onClick, draggable, onDragStart, onMouseEnter, onMouseLeave }: {
   children: React.ReactNode
   style?: React.CSSProperties
   onClick?: () => void
   draggable?: boolean
   onDragStart?: (e: React.DragEvent) => void
+  onMouseEnter?: () => void
+  onMouseLeave?: () => void
 }) {
   const [h, setH] = useState(false)
   return (
     <div
-      onMouseEnter={() => setH(true)}
-      onMouseLeave={() => setH(false)}
+      onMouseEnter={() => { setH(true); onMouseEnter?.() }}
+      onMouseLeave={() => { setH(false); onMouseLeave?.() }}
       onClick={onClick}
       draggable={draggable}
       onDragStart={onDragStart}
@@ -633,7 +635,10 @@ export default function HomePage() {
   const [fMemoSaved,    setFMemoSaved]    = useState<Record<string, boolean>>({})
   const [searchOpen,    setSearchOpen]    = useState(false)
   const [searchQuery,   setSearchQuery]   = useState('')
-  const [weekFilter,    setWeekFilter]    = useState<'all' | 'tomorrow' | 'week' | 'unscheduled'>('all')
+  const [weekFilter,    setWeekFilter]    = useState<'all' | 'week' | 'unscheduled'>('all')
+  const [memoViewId,    setMemoViewId]    = useState<string | null>(null)
+  const [hoveredStId,   setHoveredStId]   = useState<string | null>(null)
+  const [datePickerStId,setDatePickerStId] = useState<string | null>(null)
   const [now,           setNow]           = useState(new Date())
   const [stCols,        setStCols]        = useState<[number, number, number, number, number]>([56, 160, 72, 64, 100])
   const [stSort,        setStSort]        = useState<{ col: string; dir: 'asc' | 'desc' } | null>({ col: '업데이트', dir: 'desc' })
@@ -691,7 +696,7 @@ export default function HomePage() {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); setSearchOpen(true) }
-      if (e.key === 'Escape') setSearchOpen(false)
+      if (e.key === 'Escape') { setSearchOpen(false); setMemoViewId(null) }
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
@@ -828,6 +833,13 @@ export default function HomePage() {
     setTimeout(() => setSubTasks(p => p.filter(st => st.id !== id)), 600)
   }
 
+  async function assignSubTaskDate(id: string, date: string) {
+    setSubTasks(p => p.map(st => st.id === id ? { ...st, target_date: date } : st))
+    await sb.current.from('agenda_sub_tasks').update({ target_date: date }).eq('id', id)
+    setDatePickerStId(null)
+    setHoveredStId(null)
+  }
+
   async function saveMeetingMemo(meetingId: string) {
     const text = (memoTexts[meetingId] ?? '').trim()
     if (!text) return
@@ -909,11 +921,9 @@ export default function HomePage() {
 
   const filteredWeek = weekFilter === 'all'
     ? weekTodos
-    : weekFilter === 'tomorrow'
-      ? weekTodos.filter(t => t.schedule_tag === 'tomorrow')
-      : weekFilter === 'week'
-        ? weekTodos.filter(t => t.schedule_tag === 'this_week')
-        : []
+    : weekFilter === 'week'
+      ? weekTodos.filter(t => t.schedule_tag === 'this_week')
+      : []
   const meetingsForJournal = meetings.map(m => ({ id: m.id, title: m.title, meeting_date: m.meeting_date ?? undefined }))
 
   const skel = (n: number) => Array.from({ length: n }, (_, i) => (
@@ -1462,6 +1472,60 @@ export default function HomePage() {
                           </ListRow>
                         )
                       })}
+                      {/* ── 내일 상세task (체크박스 없음, dimmed, hover 시 날짜변경) ── */}
+                      {tomorrowAgendaItems.length > 0 && (
+                        <>
+                          {(todayTodos.length > 0 || todayAgendaItems.length > 0) && (
+                            <div style={{ borderTop: `1px solid ${DIVIDER}`, margin: '4px 0 6px' }} />
+                          )}
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginBottom: 6, padding: '2px 8px', borderRadius: 999, background: 'rgba(94,143,191,0.08)', border: '1px solid rgba(94,143,191,0.18)' }}>
+                            <div style={{ width: 4, height: 4, borderRadius: '50%', background: '#5E8FBF' }} />
+                            <span style={{ fontSize: 10.5, fontWeight: 600, color: '#5E8FBF', letterSpacing: '0.01em' }}>내일</span>
+                          </div>
+                          {tomorrowAgendaItems.map((st, i) => {
+                            const gc = st.agenda_items?.agenda_groups?.color ?? TEXT3
+                            const hovered = hoveredStId === st.id
+                            const showPicker = datePickerStId === st.id
+                            return (
+                              <ListRow key={st.id}
+                                onMouseEnter={() => setHoveredStId(st.id)}
+                                onMouseLeave={() => { if (datePickerStId !== st.id) setHoveredStId(null) }}
+                                style={{ ...rd(i, tomorrowAgendaItems.length), opacity: 0.7 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0' }}>
+                                  <div style={{ width: 5, height: 5, borderRadius: 2, background: gc, flexShrink: 0, opacity: 0.65 }} />
+                                  <div style={{ flex: 1, minWidth: 0 }}>
+                                    <p style={{ fontSize: 14, color: TEXT2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{st.title}</p>
+                                    {st.agenda_items && <p style={{ fontSize: 12, color: TEXT3, marginTop: 1 }}>{st.agenda_items.title}</p>}
+                                  </div>
+                                  {hovered && !showPicker && (
+                                    <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
+                                      {['완료','오늘'].map(lbl => (
+                                        <button key={lbl} onClick={() => lbl === '완료' ? completeSubTask(st.id) : assignSubTaskDate(st.id, today)}
+                                          style={{ fontSize: 10.5, padding: '2px 7px', borderRadius: 5, border: `1px solid ${lbl === '완료' ? '#38BE9844' : '#5E8FBF44'}`, background: lbl === '완료' ? '#38BE9816' : '#5E8FBF16', color: lbl === '완료' ? '#38BE98' : '#5E8FBF', cursor: 'pointer' }}>
+                                          {lbl}
+                                        </button>
+                                      ))}
+                                      <button onClick={() => setDatePickerStId(st.id)}
+                                        style={{ fontSize: 10.5, padding: '2px 7px', borderRadius: 5, border: `1px solid rgba(255,255,255,0.12)`, background: 'rgba(255,255,255,0.05)', color: TEXT3, cursor: 'pointer' }}>
+                                        날짜▾
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                                {showPicker && (
+                                  <div style={{ paddingBottom: 6, paddingLeft: 15 }}>
+                                    <input type="date" autoFocus
+                                      onChange={e => { if (e.target.value) assignSubTaskDate(st.id, e.target.value) }}
+                                      onBlur={() => { setDatePickerStId(null); setHoveredStId(null) }}
+                                      style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, padding: '3px 8px', fontSize: 12, color: TEXT1, outline: 'none', colorScheme: 'dark' }}
+                                    />
+                                  </div>
+                                )}
+                              </ListRow>
+                            )
+                          })}
+                        </>
+                      )}
                     </>
               }
             </CardSection>
@@ -1486,7 +1550,7 @@ export default function HomePage() {
                         <ListRow key={memo.id}
                           draggable
                           onDragStart={e => { e.dataTransfer.setData('tl-extra', JSON.stringify({ id: `memo_${memo.id}`, title: memo.title, subtitle: memo.tag })); e.dataTransfer.effectAllowed = 'copy' }}
-                          onClick={() => { localStorage.setItem('memos_open_id', memo.id); router.push('/memos') }}
+                          onClick={() => setMemoViewId(memo.id)}
                           style={{ ...rd(i, memos.length) }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '8px 0' }}>
                             <div style={{ width: 6, height: 6, borderRadius: '50%', background: dotColor, flexShrink: 0, boxShadow: `0 0 5px ${dotColor}80` }} />
@@ -1531,7 +1595,7 @@ export default function HomePage() {
               icon={<CalendarDays size={14} strokeWidth={2} style={{ color: '#5E8FBF' }} />}
               extra={
                 <div style={{ display: 'flex', gap: 3 }}>
-                  {([['all','전체'],['tomorrow','내일'],['week','금주'],['unscheduled','미진행']] as const).map(([f, label]) => {
+                  {([['all','전체'],['week','금주'],['unscheduled','미진행']] as const).map(([f, label]) => {
                     const isActive = weekFilter === f
                     return (
                       <button key={f} onClick={() => setWeekFilter(f)}
@@ -1555,17 +1619,16 @@ export default function HomePage() {
             >
               {loading ? <div>{skel(4)}</div>
                 : (() => {
-                    const filtAgenda = weekFilter === 'tomorrow' ? tomorrowAgendaItems
-                      : weekFilter === 'week'        ? weekAgendaItems
+                    const filtAgenda = weekFilter === 'week'        ? weekAgendaItems
                       : weekFilter === 'unscheduled' ? unscheduledAgendaItems
                       : [] // 'all' handled separately below
                     const isEmpty = weekFilter === 'all'
-                      ? filteredWeek.length === 0 && tomorrowAgendaItems.length === 0 && weekAgendaItems.length === 0 && unscheduledAgendaItems.length === 0 && futureAgendaItems.length === 0
+                      ? filteredWeek.length === 0 && weekAgendaItems.length === 0 && unscheduledAgendaItems.length === 0 && futureAgendaItems.length === 0
                       : filteredWeek.length === 0 && filtAgenda.length === 0
                     if (isEmpty) return (
                       <EmptyState
                         icon={<CalendarDays size={20} strokeWidth={1.5} />}
-                        label={weekFilter === 'all' ? '이번 주 업무가 없습니다.' : weekFilter === 'tomorrow' ? '내일 업무가 없습니다.' : weekFilter === 'week' ? '이번 주 업무가 없습니다.' : '미진행 항목이 없습니다.'}
+                        label={weekFilter === 'all' ? '이번 주 업무가 없습니다.' : weekFilter === 'week' ? '이번 주 업무가 없습니다.' : '미진행 항목이 없습니다.'}
                       />
                     )
                     // ── 공통 row helpers ──
@@ -1586,12 +1649,24 @@ export default function HomePage() {
                         </ListRow>
                       )
                     }
+                    function QuickBtn({ label, color, onClick }: { label: string; color: string; onClick: () => void }) {
+                      return (
+                        <button onClick={e => { e.stopPropagation(); onClick() }}
+                          style={{ fontSize: 10.5, padding: '2px 7px', borderRadius: 5, border: `1px solid ${color}44`, background: `${color}16`, color, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 120ms' }}>
+                          {label}
+                        </button>
+                      )
+                    }
                     function AgendaRow({ st, i, len }: { st: SubTaskWithContext; i: number; len: number }) {
                       const gc = st.agenda_items?.agenda_groups?.color ?? TEXT3
+                      const hovered = hoveredStId === st.id
+                      const showPicker = datePickerStId === st.id
                       return (
                         <ListRow
                           draggable
                           onDragStart={e => { e.dataTransfer.setData('tl-extra', JSON.stringify({ id: `st_${st.id}`, title: st.title, subtitle: st.agenda_items?.title ?? '' })); e.dataTransfer.effectAllowed = 'copy' }}
+                          onMouseEnter={() => setHoveredStId(st.id)}
+                          onMouseLeave={() => { if (datePickerStId !== st.id) setHoveredStId(null) }}
                           style={{ ...rd(i, len) }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 10, minHeight: 40 }}>
                             <div style={{ width: 5, height: 5, borderRadius: 2, background: gc, flexShrink: 0, opacity: 0.85 }} />
@@ -1599,7 +1674,24 @@ export default function HomePage() {
                               <span style={{ fontSize: 13.5, fontWeight: 500, color: TEXT1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>{st.title}</span>
                               {st.agenda_items && <span style={{ fontSize: 11, color: TEXT3 }}>{st.agenda_items.title}</span>}
                             </div>
+                            {hovered && !showPicker && (
+                              <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
+                                <QuickBtn label="완료" color="#38BE98" onClick={() => completeSubTask(st.id)} />
+                                <QuickBtn label="오늘" color="#5E8FBF" onClick={() => assignSubTaskDate(st.id, today)} />
+                                <QuickBtn label="내일" color="#7A82D8" onClick={() => assignSubTaskDate(st.id, tomorrowStr)} />
+                                <QuickBtn label="날짜▾" color={TEXT3} onClick={() => setDatePickerStId(st.id)} />
+                              </div>
+                            )}
                           </div>
+                          {showPicker && (
+                            <div style={{ paddingBottom: 6, paddingLeft: 15 }}>
+                              <input type="date" autoFocus
+                                onChange={e => { if (e.target.value) assignSubTaskDate(st.id, e.target.value) }}
+                                onBlur={() => { setDatePickerStId(null); setHoveredStId(null) }}
+                                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, padding: '3px 8px', fontSize: 12, color: TEXT1, outline: 'none', colorScheme: 'dark' }}
+                              />
+                            </div>
+                          )}
                         </ListRow>
                       )
                     }
@@ -1611,11 +1703,8 @@ export default function HomePage() {
                         : <AgendaRow key={item.st.id} st={item.st} i={i} len={combined.length} />
                       )}</>
                     }
-                    // 'all' — 내일 / 금주 / 미진행 / 이후 grouped
-                    const tomorrows = filteredWeek.filter(t => t.schedule_tag === 'tomorrow')
-                    const thisWeek  = filteredWeek.filter(t => t.schedule_tag === 'this_week')
-                    const allTomorrow = [...tomorrows, ...tomorrowAgendaItems]
-                    const allWeek     = [...thisWeek, ...weekAgendaItems]
+                    // 'all' — 금주 / 이후날짜 / 미진행 grouped (내일은 오늘업무 박스로 이동)
+                    const allWeek = [...filteredWeek, ...weekAgendaItems]
                     const allUnscheduled = unscheduledAgendaItems
                     // 이후: target_date > fridayStr인 항목을 날짜별로 그룹핑
                     const futureDateKeys = [...new Set(futureAgendaItems.map(st => st.target_date!))].sort()
@@ -1640,18 +1729,6 @@ export default function HomePage() {
                     }
                     return (
                       <>
-                        {allTomorrow.length > 0 && (
-                          <>
-                            <GroupLabel color="#5E8FBF" label="내일" />
-                            {allTomorrow.map((item, i) => 'schedule_tag' in item
-                              ? <TaskRow key={item.id} t={item as TodayTodo} i={i} len={allTomorrow.length} />
-                              : <AgendaRow key={item.id} st={item as SubTaskWithContext} i={i} len={allTomorrow.length} />
-                            )}
-                          </>
-                        )}
-                        {allTomorrow.length > 0 && allWeek.length > 0 && (
-                          <div style={{ borderTop: `1px solid ${DIVIDER}`, margin: '10px 0 8px' }} />
-                        )}
                         {allWeek.length > 0 && (
                           <>
                             <GroupLabel color="#7A82D8" label="금주" />
@@ -1662,7 +1739,7 @@ export default function HomePage() {
                           </>
                         )}
                         {futureDateGroups.map(({ date, items }, gi) => {
-                          const priorHasItems = allTomorrow.length > 0 || allWeek.length > 0
+                          const priorHasItems = allWeek.length > 0
                           return (
                             <Fragment key={date}>
                               {(priorHasItems || gi > 0) && (
@@ -1675,7 +1752,7 @@ export default function HomePage() {
                         })}
                         {allUnscheduled.length > 0 && (
                           <>
-                            {(allTomorrow.length > 0 || allWeek.length > 0 || futureDateGroups.length > 0) && (
+                            {(allWeek.length > 0 || futureDateGroups.length > 0) && (
                               <div style={{ borderTop: `1px solid ${DIVIDER}`, margin: '10px 0 8px' }} />
                             )}
                             <GroupLabel color="#C87840" label="미진행" />
@@ -1692,6 +1769,49 @@ export default function HomePage() {
           </div>{/* end rows wrapper */}
         </div>
       </div>
+
+      {/* 퀵메모 팝업 */}
+      {memoViewId && typeof document !== 'undefined' && createPortal(
+        (() => {
+          const mv = memos.find(m => m.id === memoViewId)
+          if (!mv) return null
+          const dotColor = CATEGORY_PALETTE[MEMO_TAG[mv.tag] ?? colorKeyFromName(mv.tag)].solid
+          return (
+            <div className="fixed inset-0 z-[70] flex items-center justify-center p-6"
+              style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)' }}
+              onClick={() => setMemoViewId(null)}>
+              <div style={{ width: '100%', maxWidth: 640, maxHeight: '80vh', display: 'flex', flexDirection: 'column', background: '#1A1D25', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 18, boxShadow: '0 32px 80px rgba(0,0,0,0.5)', overflow: 'hidden' }}
+                onClick={e => e.stopPropagation()}>
+                {/* 헤더 */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.07)', flexShrink: 0 }}>
+                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: dotColor, boxShadow: `0 0 6px ${dotColor}80`, flexShrink: 0 }} />
+                  <span style={{ fontSize: 15, fontWeight: 700, color: TEXT1, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{mv.title || '(제목 없음)'}</span>
+                  <span style={{ fontSize: 11, color: TEXT3, flexShrink: 0 }}>{fmtDate(mv.created_at)}</span>
+                  <button onClick={() => setMemoViewId(null)}
+                    style={{ fontSize: 13, color: TEXT3, background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px', borderRadius: 5, flexShrink: 0 }}>✕</button>
+                </div>
+                {/* 본문 */}
+                <div className="scrollbar-hide" style={{ flex: 1, overflowY: 'auto', padding: '16px 20px' }}>
+                  {mv.content
+                    ? <div style={{ fontSize: 14, color: TEXT2, lineHeight: 1.75 }}
+                        // eslint-disable-next-line react/no-danger
+                        dangerouslySetInnerHTML={{ __html: mv.content }} />
+                    : <p style={{ fontSize: 13, color: TEXT3 }}>내용이 없습니다.</p>
+                  }
+                </div>
+                {/* 하단 액션 */}
+                <div style={{ padding: '12px 20px', borderTop: '1px solid rgba(255,255,255,0.07)', display: 'flex', gap: 8, flexShrink: 0 }}>
+                  <button onClick={() => { localStorage.setItem('memos_open_id', mv.id); router.push('/memos'); setMemoViewId(null) }}
+                    style={{ fontSize: 12, padding: '6px 14px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)', color: TEXT2, cursor: 'pointer' }}>
+                    편집하기 →
+                  </button>
+                </div>
+              </div>
+            </div>
+          )
+        })(),
+        document.body
+      )}
 
       {/* 검색 모달 */}
       {searchOpen && typeof document !== 'undefined' && createPortal(
