@@ -12,8 +12,6 @@ function openQuickMemo() {
   const cascade = (n - 1) * 24
   const left = window.screenX + window.outerWidth - 480 - cascade
   const top  = window.screenY + 80 + cascade
-  // 새 창은 항상 빈 메모 — 이전 draft 초기화
-  localStorage.removeItem('quick_memo_draft')
   // 항상 고유한 이름 → 기존 팝업을 navigate하지 않고 항상 새 팝업 오픈
   window.open(
     '/memo/quick',

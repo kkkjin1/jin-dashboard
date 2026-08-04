@@ -44,6 +44,7 @@ export default function QuickMemoPage() {
   const [saving,       setSaving]       = useState(false)
   const [savedMsg,     setSavedMsg]     = useState('')
   const [autoSaved,    setAutoSaved]    = useState(false)
+  const [slackCopied,  setSlackCopied]  = useState(false)
   const [editorKey,    setEditorKey]    = useState(0)
   // isHolderState: 버튼 렌더 제어 (SSR은 false → useEffect에서 클라이언트 확정)
   const [isHolderState, setIsHolderState] = useState(false)
@@ -121,6 +122,51 @@ export default function QuickMemoPage() {
   function handleDiscardAndClose() {
     localStorage.removeItem(DRAFT_KEY)
     window.close()
+  }
+
+  // ── 슬랙 복사: level 3+ ol → ul 변환 후 HTML 클립보드 ─────────────────
+  function htmlForSlack(html: string): string {
+    const doc = new DOMParser().parseFromString(html, 'text/html')
+    function convertDeepOls(node: Element, olDepth: number): void {
+      for (const child of Array.from(node.children)) {
+        if (child.tagName === 'OL') {
+          if (olDepth >= 2) {
+            const ul = doc.createElement('ul')
+            while (child.firstChild) ul.appendChild(child.firstChild)
+            child.replaceWith(ul)
+            convertDeepOls(ul, olDepth)
+          } else {
+            convertDeepOls(child, olDepth + 1)
+          }
+        } else {
+          convertDeepOls(child, olDepth)
+        }
+      }
+    }
+    convertDeepOls(doc.body, 0)
+    return doc.body.innerHTML
+  }
+
+  async function handleCopyForSlack() {
+    if (!title && !content) return
+    const titleHtml = title ? `<p><strong>${title}</strong></p>` : ''
+    const slackHtml = htmlForSlack(titleHtml + (content || ''))
+    const plain = new DOMParser().parseFromString(
+      (title ? title + '\n' : '') + content,
+      'text/html'
+    ).body.textContent ?? ''
+    try {
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          'text/html': new Blob([slackHtml], { type: 'text/html' }),
+          'text/plain': new Blob([plain], { type: 'text/plain' }),
+        }),
+      ])
+    } catch {
+      await navigator.clipboard.writeText(plain)
+    }
+    setSlackCopied(true)
+    setTimeout(() => setSlackCopied(false), 1500)
   }
 
   // ── 세부task ──────────────────────────────────────────────────────────────
@@ -314,6 +360,19 @@ export default function QuickMemoPage() {
           <span className="text-[10px] text-[#3B404D] whitespace-nowrap">ESC · Ctrl+Enter</span>
         </div>
         <div className="flex items-center gap-2">
+          {/* 슬랙 복사 */}
+          <button
+            onClick={handleCopyForSlack}
+            disabled={!hasDraftContent}
+            className="text-xs px-3 py-2 rounded-lg border transition-all whitespace-nowrap disabled:opacity-30"
+            style={{
+              background: slackCopied ? 'rgba(102,204,153,0.18)' : 'rgba(102,204,153,0.07)',
+              border: `1px solid ${slackCopied ? 'rgba(102,204,153,0.45)' : 'rgba(102,204,153,0.2)'}`,
+              color: slackCopied ? '#66CC99' : 'rgba(102,204,153,0.7)',
+            }}
+            title="슬랙에 붙여넣기 위한 형식으로 복사 (1/2단계 번호, 3/4단계 글머리)">
+            {slackCopied ? '복사됨!' : '슬랙 복사'}
+          </button>
           {/* 초기화 후 닫기 — holder 팝업에 항상 표시 */}
           {isHolderState && (
             <button
