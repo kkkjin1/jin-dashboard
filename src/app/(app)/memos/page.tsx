@@ -605,8 +605,9 @@ export default function MemosPage() {
             style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }} />
           <textarea ref={inlineContentRef} value={newContent} onChange={e => setNewContent(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleAddSave() }}
-            placeholder="내용 (선택, Ctrl+Enter 저장)" rows={2}
-            className="w-full text-xs focus:outline-none resize-none text-white/50 bg-transparent placeholder:text-white/30" />
+            placeholder="내용 (선택, Ctrl+Enter 저장)" rows={7}
+            className="w-full text-xs focus:outline-none resize-y text-white/50 bg-transparent placeholder:text-white/30"
+            style={{ minHeight: 140 }} />
           <div className="flex gap-2 justify-end mt-2">
             <button onClick={() => { try { localStorage.removeItem(QUICK_DRAFT_KEY) } catch {}; setNewTitle(''); setNewContent(''); setShowAddForm(false) }} className={`${pill} ${pOff}`}>취소</button>
             <button onClick={handleAddSave} className={`${pill} ${pOn}`}>저장</button>
