@@ -340,20 +340,20 @@ html, body {
 .tiptap-input h1 { font-size: 1.2rem; font-weight: 700; color: #111827; margin: 0.5rem 0 0.25rem; }
 .tiptap-input h2 { font-size: 1.05rem; font-weight: 600; color: #1f2937; margin: 0.4rem 0 0.2rem; }
 .tiptap-input h3 { font-size: 0.95rem; font-weight: 600; color: #374151; margin: 0.3rem 0 0.1rem; }
-.tiptap-input ul { padding-left: 1.4rem; list-style-type: disc; }
+.tiptap-input ul { padding-left: 1.1rem; list-style-type: disc; }
 .tiptap-input ul ul { list-style-type: circle; }
 /* 4단계: 1. → 1) → • → ○ */
-.tiptap-input ol { list-style: none; counter-reset: tipol; padding-left: 1.8rem; }
+.tiptap-input ol { list-style: none; counter-reset: tipol; padding-left: 1.4rem; }
 .tiptap-input ol > li { counter-increment: tipol; position: relative; }
-.tiptap-input ol > li::before { content: counter(tipol) "."; position: absolute; left: -1.8rem; width: 1.6rem; text-align: right; }
-.tiptap-input ol ol { list-style: none; counter-reset: tipol2; padding-left: 1.6rem; }
+.tiptap-input ol > li::before { content: counter(tipol) "."; position: absolute; left: -1.4rem; width: 1.2rem; text-align: right; }
+.tiptap-input ol ol { list-style: none; counter-reset: tipol2; padding-left: 1.2rem; }
 .tiptap-input ol ol > li { counter-increment: tipol2; }
-.tiptap-input ol ol > li::before { content: counter(tipol2) ")"; left: -1.6rem; width: 1.4rem; text-align: right; }
-.tiptap-input ol ol ol { list-style: none; padding-left: 1.4rem; }
+.tiptap-input ol ol > li::before { content: counter(tipol2) ")"; left: -1.2rem; width: 1rem; text-align: right; }
+.tiptap-input ol ol ol { list-style: none; padding-left: 1.1rem; }
 .tiptap-input ol ol ol > li { counter-increment: none; }
-.tiptap-input ol ol ol > li::before { content: "•"; left: -1.4rem; width: 1.2rem; text-align: center; }
-.tiptap-input ol ol ol ol { padding-left: 1.4rem; }
-.tiptap-input ol ol ol ol > li::before { content: "○"; }
+.tiptap-input ol ol ol > li::before { content: "•"; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 0.67; }
+.tiptap-input ol ol ol ol { padding-left: 1.1rem; }
+.tiptap-input ol ol ol ol > li::before { content: "○"; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1em; }
 .tiptap-input li > p { margin: 0; min-height: auto; }
 .tiptap-input strong { font-weight: 700; }
 .tiptap-input u { text-decoration: underline; }
@@ -367,19 +367,19 @@ html, body {
 .note-html h1 { font-size: 1.2rem; font-weight: 700; color: #111827; margin: 0.5rem 0 0.25rem; }
 .note-html h2 { font-size: 1.05rem; font-weight: 600; color: #1f2937; margin: 0.4rem 0 0.2rem; }
 .note-html h3 { font-size: 0.95rem; font-weight: 600; color: #374151; margin: 0.3rem 0 0.1rem; }
-.note-html ul { padding-left: 1.4rem; list-style-type: disc; }
+.note-html ul { padding-left: 1.1rem; list-style-type: disc; }
 .note-html ul ul { list-style-type: circle; }
-.note-html ol { list-style: none; counter-reset: noteol; padding-left: 1.8rem; }
+.note-html ol { list-style: none; counter-reset: noteol; padding-left: 1.4rem; }
 .note-html ol > li { counter-increment: noteol; position: relative; }
-.note-html ol > li::before { content: counter(noteol) "."; position: absolute; left: -1.8rem; width: 1.6rem; text-align: right; }
-.note-html ol ol { list-style: none; counter-reset: noteol2; padding-left: 1.6rem; }
+.note-html ol > li::before { content: counter(noteol) "."; position: absolute; left: -1.4rem; width: 1.2rem; text-align: right; }
+.note-html ol ol { list-style: none; counter-reset: noteol2; padding-left: 1.2rem; }
 .note-html ol ol > li { counter-increment: noteol2; }
-.note-html ol ol > li::before { content: counter(noteol2) ")"; left: -1.6rem; width: 1.4rem; text-align: right; }
-.note-html ol ol ol { list-style: none; padding-left: 1.4rem; }
+.note-html ol ol > li::before { content: counter(noteol2) ")"; left: -1.2rem; width: 1rem; text-align: right; }
+.note-html ol ol ol { list-style: none; padding-left: 1.1rem; }
 .note-html ol ol ol > li { counter-increment: none; }
-.note-html ol ol ol > li::before { content: "•"; left: -1.4rem; width: 1.2rem; text-align: center; }
-.note-html ol ol ol ol { padding-left: 1.4rem; }
-.note-html ol ol ol ol > li::before { content: "○"; }
+.note-html ol ol ol > li::before { content: "•"; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 0.67; }
+.note-html ol ol ol ol { padding-left: 1.1rem; }
+.note-html ol ol ol ol > li::before { content: "○"; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1em; }
 .note-html li > p { margin: 0; }
 .note-html strong { font-weight: 700; }
 .note-html u { text-decoration: underline; }
@@ -396,20 +396,20 @@ html, body {
 .tiptap-input-dark h1 { font-size: 1.2rem; font-weight: 700; color: #E2E8F0; margin: 0.5rem 0 0.25rem; }
 .tiptap-input-dark h2 { font-size: 1.05rem; font-weight: 600; color: rgba(226,232,240,0.9); margin: 0.4rem 0 0.2rem; }
 .tiptap-input-dark h3 { font-size: 0.95rem; font-weight: 600; color: rgba(226,232,240,0.8); margin: 0.3rem 0 0.1rem; }
-.tiptap-input-dark ul { padding-left: 1.4rem; list-style-type: disc; }
+.tiptap-input-dark ul { padding-left: 1.1rem; list-style-type: disc; }
 .tiptap-input-dark ul ul { list-style-type: circle; }
 /* 4단계: 1. → 1) → • → ○ */
-.tiptap-input-dark ol { list-style: none; counter-reset: tipold; padding-left: 1.8rem; }
+.tiptap-input-dark ol { list-style: none; counter-reset: tipold; padding-left: 1.4rem; }
 .tiptap-input-dark ol > li { counter-increment: tipold; position: relative; }
-.tiptap-input-dark ol > li::before { content: counter(tipold) "."; position: absolute; left: -1.8rem; width: 1.6rem; text-align: right; }
-.tiptap-input-dark ol ol { list-style: none; counter-reset: tipold2; padding-left: 1.6rem; }
+.tiptap-input-dark ol > li::before { content: counter(tipold) "."; position: absolute; left: -1.4rem; width: 1.2rem; text-align: right; }
+.tiptap-input-dark ol ol { list-style: none; counter-reset: tipold2; padding-left: 1.2rem; }
 .tiptap-input-dark ol ol > li { counter-increment: tipold2; }
-.tiptap-input-dark ol ol > li::before { content: counter(tipold2) ")"; left: -1.6rem; width: 1.4rem; text-align: right; }
-.tiptap-input-dark ol ol ol { list-style: none; padding-left: 1.4rem; }
+.tiptap-input-dark ol ol > li::before { content: counter(tipold2) ")"; left: -1.2rem; width: 1rem; text-align: right; }
+.tiptap-input-dark ol ol ol { list-style: none; padding-left: 1.1rem; }
 .tiptap-input-dark ol ol ol > li { counter-increment: none; }
-.tiptap-input-dark ol ol ol > li::before { content: "•"; left: -1.4rem; width: 1.2rem; text-align: center; }
-.tiptap-input-dark ol ol ol ol { padding-left: 1.4rem; }
-.tiptap-input-dark ol ol ol ol > li::before { content: "○"; }
+.tiptap-input-dark ol ol ol > li::before { content: "•"; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 0.67; }
+.tiptap-input-dark ol ol ol ol { padding-left: 1.1rem; }
+.tiptap-input-dark ol ol ol ol > li::before { content: "○"; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1em; }
 .tiptap-input-dark li > p { margin: 0; min-height: auto; }
 .tiptap-input-dark strong { font-weight: 700; }
 .tiptap-input-dark u { text-decoration: underline; }
@@ -424,19 +424,19 @@ html, body {
 .note-html-dark h1 { font-size: 1.2rem; font-weight: 700; color: #E2E8F0; margin: 0.5rem 0 0.25rem; }
 .note-html-dark h2 { font-size: 1.05rem; font-weight: 600; color: rgba(226,232,240,0.9); margin: 0.4rem 0 0.2rem; }
 .note-html-dark h3 { font-size: 0.95rem; font-weight: 600; color: rgba(226,232,240,0.8); margin: 0.3rem 0 0.1rem; }
-.note-html-dark ul { padding-left: 1.4rem; list-style-type: disc; }
+.note-html-dark ul { padding-left: 1.1rem; list-style-type: disc; }
 .note-html-dark ul ul { list-style-type: circle; }
-.note-html-dark ol { list-style: none; counter-reset: noteold; padding-left: 1.8rem; }
+.note-html-dark ol { list-style: none; counter-reset: noteold; padding-left: 1.4rem; }
 .note-html-dark ol > li { counter-increment: noteold; position: relative; }
-.note-html-dark ol > li::before { content: counter(noteold) "."; position: absolute; left: -1.8rem; width: 1.6rem; text-align: right; }
-.note-html-dark ol ol { list-style: none; counter-reset: noteold2; padding-left: 1.6rem; }
+.note-html-dark ol > li::before { content: counter(noteold) "."; position: absolute; left: -1.4rem; width: 1.2rem; text-align: right; }
+.note-html-dark ol ol { list-style: none; counter-reset: noteold2; padding-left: 1.2rem; }
 .note-html-dark ol ol > li { counter-increment: noteold2; }
-.note-html-dark ol ol > li::before { content: counter(noteold2) ")"; left: -1.6rem; width: 1.4rem; text-align: right; }
-.note-html-dark ol ol ol { list-style: none; padding-left: 1.4rem; }
+.note-html-dark ol ol > li::before { content: counter(noteold2) ")"; left: -1.2rem; width: 1rem; text-align: right; }
+.note-html-dark ol ol ol { list-style: none; padding-left: 1.1rem; }
 .note-html-dark ol ol ol > li { counter-increment: none; }
-.note-html-dark ol ol ol > li::before { content: "•"; left: -1.4rem; width: 1.2rem; text-align: center; }
-.note-html-dark ol ol ol ol { padding-left: 1.4rem; }
-.note-html-dark ol ol ol ol > li::before { content: "○"; }
+.note-html-dark ol ol ol > li::before { content: "•"; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 0.67; }
+.note-html-dark ol ol ol ol { padding-left: 1.1rem; }
+.note-html-dark ol ol ol ol > li::before { content: "○"; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1em; }
 .note-html-dark li > p { margin: 0; }
 .note-html-dark strong { font-weight: 700; }
 .note-html-dark u { text-decoration: underline; }
@@ -452,19 +452,19 @@ html, body {
 .md-preview h1 { font-size: 1.1rem; font-weight: 700; color: #111827; margin: 0.75rem 0 0.2rem; }
 .md-preview h2 { font-size: 0.975rem; font-weight: 600; color: #1f2937; margin: 0.6rem 0 0.15rem; }
 .md-preview h3 { font-size: 0.875rem; font-weight: 600; color: #374151; margin: 0.5rem 0 0.1rem; }
-.md-preview ul { padding-left: 1rem; list-style-type: disc; margin: 0.2rem 0; }
+.md-preview ul { padding-left: 0.9rem; list-style-type: disc; margin: 0.2rem 0; }
 .md-preview ul ul { list-style-type: circle; }
-.md-preview ol { list-style: none; counter-reset: mdol; padding-left: 1.5rem; margin: 0.2rem 0; }
+.md-preview ol { list-style: none; counter-reset: mdol; padding-left: 1.2rem; margin: 0.2rem 0; }
 .md-preview ol > li { counter-increment: mdol; position: relative; }
-.md-preview ol > li::before { content: counter(mdol) "."; position: absolute; left: -1.5rem; width: 1.3rem; text-align: right; }
-.md-preview ol ol { list-style: none; counter-reset: mdol2; padding-left: 1.4rem; }
+.md-preview ol > li::before { content: counter(mdol) "."; position: absolute; left: -1.2rem; width: 1rem; text-align: right; }
+.md-preview ol ol { list-style: none; counter-reset: mdol2; padding-left: 1.1rem; }
 .md-preview ol ol > li { counter-increment: mdol2; }
-.md-preview ol ol > li::before { content: counter(mdol2) ")"; left: -1.4rem; width: 1.2rem; text-align: right; }
-.md-preview ol ol ol { list-style: none; padding-left: 1.2rem; }
+.md-preview ol ol > li::before { content: counter(mdol2) ")"; left: -1.1rem; width: 0.9rem; text-align: right; }
+.md-preview ol ol ol { list-style: none; padding-left: 1rem; }
 .md-preview ol ol ol > li { counter-increment: none; }
-.md-preview ol ol ol > li::before { content: "•"; left: -1.2rem; width: 1rem; text-align: center; }
-.md-preview ol ol ol ol { padding-left: 1.2rem; }
-.md-preview ol ol ol ol > li::before { content: "○"; }
+.md-preview ol ol ol > li::before { content: "•"; left: -1rem; width: 0.8rem; text-align: center; font-size: 1.5em; line-height: 0.67; }
+.md-preview ol ol ol ol { padding-left: 1rem; }
+.md-preview ol ol ol ol > li::before { content: "○"; left: -1rem; width: 0.8rem; text-align: center; font-size: 1em; }
 .md-preview li { margin: 0.08rem 0; line-height: 1.65; }
 .md-preview li > p { margin: 0; }
 .md-preview strong { font-weight: 700; }
