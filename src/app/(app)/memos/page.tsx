@@ -361,7 +361,6 @@ export default function MemosPage() {
     return { title: 150, content: 280, tag: 56, date: 36 }
   })
   const inlineContentRef = useRef<HTMLTextAreaElement>(null)
-  const newContentRef = useRef('')   // TiptapEditor onChange는 React 배칭 외부에서 호출될 수 있으므로 ref로 동기화
   const supabase = createClient()
   const quickDraftTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const inlineDraftTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -373,8 +372,7 @@ export default function MemosPage() {
       const raw = localStorage.getItem(QUICK_DRAFT_KEY)
       if (raw) {
         const d = JSON.parse(raw) as { title: string; content: string; tag: MemoTag }
-        const restored = d.content ?? ''
-        setNewTitle(d.title ?? ''); setNewContent(restored); newContentRef.current = restored; setNewTag(d.tag ?? '업무관련')
+        setNewTitle(d.title ?? ''); setNewContent(d.content ?? ''); setNewTag(d.tag ?? '업무관련')
       }
     } catch {}
     setShowAddForm(true)
@@ -441,14 +439,13 @@ export default function MemosPage() {
 
   async function handleAddSave() {
     if (!newTitle.trim()) { setShowAddForm(false); return }
-    const content = newContentRef.current || newContent
     const { data, error } = await supabase.from('quick_memos')
-      .insert({ title: newTitle.trim(), content, tag: newTag })
+      .insert({ title: newTitle.trim(), content: newContent, tag: newTag })
       .select().single()
-    if (error || !data) return   // 에러 시 폼 유지 (입력 내용 보존)
+    if (error || !data) return
     setMemos(prev => [data as QuickMemo, ...prev])
     try { localStorage.removeItem(QUICK_DRAFT_KEY) } catch {}
-    setNewTitle(''); setNewContent(''); newContentRef.current = ''; setShowAddForm(false)
+    setNewTitle(''); setNewContent(''); setShowAddForm(false)
   }
 
   async function handleInlineSave(tag: MemoTag) {
@@ -599,17 +596,22 @@ export default function MemosPage() {
             placeholder="제목"
             className="w-full text-sm font-semibold text-[#E2E8F0] focus:outline-none pb-2 mb-3 bg-transparent placeholder:text-white/30"
             style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }} />
-          <div className="rounded-xl overflow-hidden scrollbar-hide"
-            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-            <TiptapEditor
-              dark
-              value={newContent}
-              onChange={html => { newContentRef.current = html; setNewContent(html) }}
-              onSubmit={handleAddSave}
-              minHeight={220}
-              className="p-3"
-            />
-          </div>
+          <SmartTextarea
+            value={newContent}
+            onChange={setNewContent}
+            onKeyDown={e => {
+              if (e.key === 'Escape') setShowAddForm(false)
+              if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); handleAddSave() }
+            }}
+            placeholder={`내용을 입력하세요...\n- 리스트, → 화살표, Ctrl+B 굵게`}
+            className="w-full text-sm text-[#E2E8F0] bg-transparent focus:outline-none resize-none scrollbar-hide placeholder:text-white/25 p-3 rounded-xl mb-1"
+            style={{
+              background: 'rgba(255,255,255,0.03)',
+              border: '1px solid rgba(255,255,255,0.06)',
+              minHeight: 130,
+              lineHeight: 1.65,
+            }}
+          />
           <div className="flex gap-2 justify-end mt-2">
             <button onClick={() => { try { localStorage.removeItem(QUICK_DRAFT_KEY) } catch {}; setNewTitle(''); setNewContent(''); setShowAddForm(false) }} className={`${pill} ${pOff}`}>취소</button>
             <button onClick={handleAddSave} className={`${pill} ${pOn}`}>저장</button>
