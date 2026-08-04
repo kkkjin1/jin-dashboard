@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect, useMemo } from 'react'
+import { useState, useRef, useEffect, useMemo, Fragment } from 'react'
 import { CATEGORY_PALETTE, MEMO_TAG, colorKeyFromName } from '@/lib/categoryColors'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
@@ -895,6 +895,7 @@ export default function HomePage() {
   const tomorrowAgendaItems    = subTasks.filter(st => st.target_date === tomorrowStr)
   const weekAgendaItems        = subTasks.filter(st => st.target_date && st.target_date > tomorrowStr && st.target_date <= fridayStr)
   const unscheduledAgendaItems = subTasks.filter(st => !st.target_date)
+  const futureAgendaItems      = subTasks.filter(st => st.target_date && st.target_date > fridayStr)
 
   const filteredWeek = weekFilter === 'all'
     ? weekTodos
@@ -1549,7 +1550,7 @@ export default function HomePage() {
                       : weekFilter === 'unscheduled' ? unscheduledAgendaItems
                       : [] // 'all' handled separately below
                     const isEmpty = weekFilter === 'all'
-                      ? filteredWeek.length === 0 && tomorrowAgendaItems.length === 0 && weekAgendaItems.length === 0 && unscheduledAgendaItems.length === 0
+                      ? filteredWeek.length === 0 && tomorrowAgendaItems.length === 0 && weekAgendaItems.length === 0 && unscheduledAgendaItems.length === 0 && futureAgendaItems.length === 0
                       : filteredWeek.length === 0 && filtAgenda.length === 0
                     if (isEmpty) return (
                       <EmptyState
@@ -1600,12 +1601,25 @@ export default function HomePage() {
                         : <AgendaRow key={item.st.id} st={item.st} i={i} len={combined.length} />
                       )}</>
                     }
-                    // 'all' — 내일 / 금주 / 미진행 grouped
+                    // 'all' — 내일 / 금주 / 미진행 / 이후 grouped
                     const tomorrows = filteredWeek.filter(t => t.schedule_tag === 'tomorrow')
                     const thisWeek  = filteredWeek.filter(t => t.schedule_tag === 'this_week')
                     const allTomorrow = [...tomorrows, ...tomorrowAgendaItems]
                     const allWeek     = [...thisWeek, ...weekAgendaItems]
                     const allUnscheduled = unscheduledAgendaItems
+                    // 이후: target_date > fridayStr인 항목을 날짜별로 그룹핑
+                    const futureDateKeys = [...new Set(futureAgendaItems.map(st => st.target_date!))].sort()
+                    const futureDateGroups = futureDateKeys.map(date => ({
+                      date,
+                      items: futureAgendaItems.filter(st => st.target_date === date),
+                    }))
+                    function formatFutureDate(dateStr: string): string {
+                      const d = new Date(dateStr + 'T00:00:00')
+                      const m = d.getMonth() + 1
+                      const day = d.getDate()
+                      const dow = ['일','월','화','수','목','금','토'][d.getDay()]
+                      return `${m}/${day} (${dow})`
+                    }
                     function GroupLabel({ color, label }: { color: string; label: string }) {
                       return (
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginBottom: 6, padding: '2px 8px', borderRadius: 999, background: `${color}14`, border: `1px solid ${color}2A` }}>
@@ -1646,6 +1660,18 @@ export default function HomePage() {
                             {allUnscheduled.map((st, i) => <AgendaRow key={st.id} st={st} i={i} len={allUnscheduled.length} />)}
                           </>
                         )}
+                        {futureDateGroups.map(({ date, items }, gi) => {
+                          const priorHasItems = allTomorrow.length > 0 || allWeek.length > 0 || allUnscheduled.length > 0
+                          return (
+                            <Fragment key={date}>
+                              {(priorHasItems || gi > 0) && (
+                                <div style={{ borderTop: `1px solid ${DIVIDER}`, margin: '10px 0 8px' }} />
+                              )}
+                              <GroupLabel color="#6B7A9F" label={formatFutureDate(date)} />
+                              {items.map((st, i) => <AgendaRow key={st.id} st={st} i={i} len={items.length} />)}
+                            </Fragment>
+                          )
+                        })}
                       </>
                     )
                   })()
