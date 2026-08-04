@@ -124,47 +124,64 @@ export default function QuickMemoPage() {
     window.close()
   }
 
-  // ── 슬랙 복사: level 3+ ol → ul 변환 후 HTML 클립보드 ─────────────────
-  function htmlForSlack(html: string): string {
+  // ── 슬랙 복사: HTML → plain text (번호+공백 들여쓰기) ────────────────
+  function htmlToSlackText(html: string): string {
     const doc = new DOMParser().parseFromString(html, 'text/html')
-    function convertDeepOls(node: Element, olDepth: number): void {
-      for (const child of Array.from(node.children)) {
-        if (child.tagName === 'OL') {
-          if (olDepth >= 1) {
-            const ul = doc.createElement('ul')
-            while (child.firstChild) ul.appendChild(child.firstChild)
-            child.replaceWith(ul)
-            convertDeepOls(ul, olDepth)
+    const lines: string[] = []
+
+    function getDirectText(li: Element): string {
+      let text = ''
+      for (const child of Array.from(li.childNodes)) {
+        const el = child as Element
+        if (child.nodeType === 3) {
+          text += child.textContent ?? ''
+        } else if (el.tagName !== 'OL' && el.tagName !== 'UL') {
+          text += el.textContent ?? ''
+        }
+      }
+      return text.trim()
+    }
+
+    function walkList(list: Element, depth: number) {
+      let num = 0
+      for (const li of Array.from(list.children)) {
+        if (li.tagName !== 'LI') continue
+        num++
+        const text = getDirectText(li)
+        if (text) {
+          if (depth === 0) {
+            lines.push(`${num}. ${text}`)
           } else {
-            convertDeepOls(child, olDepth + 1)
+            lines.push(`${'  '.repeat(depth - 1)}• ${text}`)
           }
-        } else {
-          convertDeepOls(child, olDepth)
+        }
+        for (const child of Array.from(li.children)) {
+          if (child.tagName === 'OL' || child.tagName === 'UL') {
+            walkList(child, depth + 1)
+          }
         }
       }
     }
-    convertDeepOls(doc.body, 0)
-    return doc.body.innerHTML
+
+    for (const child of Array.from(doc.body.children)) {
+      if (child.tagName === 'OL' || child.tagName === 'UL') {
+        walkList(child, 0)
+      } else {
+        const text = child.textContent?.trim()
+        if (text) lines.push(text)
+      }
+    }
+
+    return lines.join('\n')
   }
 
   async function handleCopyForSlack() {
     if (!title && !content) return
     const titleHtml = title ? `<p><strong>${title}</strong></p>` : ''
-    const slackHtml = htmlForSlack(titleHtml + (content || ''))
-    const plain = new DOMParser().parseFromString(
-      (title ? title + '\n' : '') + content,
-      'text/html'
-    ).body.textContent ?? ''
+    const slackText = htmlToSlackText(titleHtml + (content || ''))
     try {
-      await navigator.clipboard.write([
-        new ClipboardItem({
-          'text/html': new Blob([slackHtml], { type: 'text/html' }),
-          'text/plain': new Blob([plain], { type: 'text/plain' }),
-        }),
-      ])
-    } catch {
-      await navigator.clipboard.writeText(plain)
-    }
+      await navigator.clipboard.writeText(slackText)
+    } catch {}
     setSlackCopied(true)
     setTimeout(() => setSlackCopied(false), 1500)
   }
