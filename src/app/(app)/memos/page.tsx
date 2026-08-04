@@ -275,10 +275,10 @@ function EditModal({ memo, onSave, onAutoSave, onClose }: EditModalProps) {
       style={{ background: 'rgba(0,0,0,0.6)' }}
       onClick={onClose}>
       <div
-        className="backdrop-blur-xl rounded-3xl p-6 w-full max-w-sm md:max-w-4xl flex flex-col"
+        className="backdrop-blur-xl rounded-3xl p-6 w-full max-w-[97vw] md:max-w-5xl flex flex-col"
         style={{
-          height: 'min(96vh, 1100px)',
-          maxHeight: '96vh',
+          height: 'min(98vh, 1200px)',
+          maxHeight: '98vh',
           background: 'rgba(255,255,255,0.06)',
           border: '1px solid rgba(255,255,255,0.09)',
           boxShadow: '0 20px 40px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.07) inset',
@@ -305,7 +305,7 @@ function EditModal({ memo, onSave, onAutoSave, onClose }: EditModalProps) {
           className="w-full text-base font-semibold text-[#E2E8F0] pb-2 mb-3 focus:outline-none bg-transparent flex-shrink-0 placeholder:text-white/30"
           style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }} />
         {/* 내용 영역 — WYSIWYG */}
-        <div className="flex-1 min-h-0 overflow-y-auto rounded-2xl"
+        <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide rounded-2xl"
           style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
           <TiptapEditor
             dark
@@ -599,15 +599,21 @@ export default function MemosPage() {
             ))}
           </div>
           <input autoFocus value={newTitle} onChange={e => setNewTitle(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); inlineContentRef.current?.focus() } if (e.key === 'Escape') setShowAddForm(false) }}
+            onKeyDown={e => { if (e.key === 'Escape') setShowAddForm(false) }}
             placeholder="제목"
-            className="w-full text-sm font-semibold text-[#E2E8F0] focus:outline-none pb-2 mb-2 bg-transparent placeholder:text-white/30"
+            className="w-full text-sm font-semibold text-[#E2E8F0] focus:outline-none pb-2 mb-3 bg-transparent placeholder:text-white/30"
             style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }} />
-          <textarea ref={inlineContentRef} value={newContent} onChange={e => setNewContent(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleAddSave() }}
-            placeholder="내용 (선택, Ctrl+Enter 저장)" rows={7}
-            className="w-full text-xs focus:outline-none resize-y text-white/50 bg-transparent placeholder:text-white/30"
-            style={{ minHeight: 140 }} />
+          <div className="rounded-xl overflow-hidden scrollbar-hide"
+            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <TiptapEditor
+              dark
+              value={newContent}
+              onChange={setNewContent}
+              onSubmit={handleAddSave}
+              minHeight={220}
+              className="p-3"
+            />
+          </div>
           <div className="flex gap-2 justify-end mt-2">
             <button onClick={() => { try { localStorage.removeItem(QUICK_DRAFT_KEY) } catch {}; setNewTitle(''); setNewContent(''); setShowAddForm(false) }} className={`${pill} ${pOff}`}>취소</button>
             <button onClick={handleAddSave} className={`${pill} ${pOn}`}>저장</button>
