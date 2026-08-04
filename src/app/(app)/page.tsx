@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useMemo, Fragment } from 'react'
-import { CATEGORY_PALETTE, MEMO_TAG, colorKeyFromName } from '@/lib/categoryColors'
+import { CATEGORY_PALETTE, MEMO_TAG, colorKeyFromName, PART_COLOR } from '@/lib/categoryColors'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -1457,6 +1457,7 @@ export default function HomePage() {
                             onDragStart={e => { e.dataTransfer.setData('tl-extra', JSON.stringify({ id: `st_${st.id}`, title: st.title, subtitle: st.agenda_items?.title ?? '' })); e.dataTransfer.effectAllowed = 'copy' }}
                             style={{ ...rd(globalIdx, total) }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0' }}>
+                              <div style={{ width: 5, height: 5, borderRadius: 2, background: groupColor, flexShrink: 0, opacity: 0.85 }} />
                               <button
                                 onClick={() => completeSubTask(st.id)}
                                 style={{ width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${done ? '#38BE98' : 'rgba(255,255,255,0.18)'}`, background: done ? '#38BE98' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer', transition: 'all 200ms ease-out' }}
@@ -1467,7 +1468,6 @@ export default function HomePage() {
                                 <p style={{ fontSize: 14, fontWeight: done ? 400 : 500, color: done ? TEXT3 : TEXT1, textDecoration: done ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', transition: 'color 200ms' }}>{st.title}</p>
                                 {st.agenda_items && <p style={{ fontSize: 12, color: TEXT3, marginTop: 1 }}>{st.agenda_items.title}</p>}
                               </div>
-                              <div style={{ width: 6, height: 6, borderRadius: 2, background: groupColor, flexShrink: 0, opacity: 0.85 }} />
                             </div>
                           </ListRow>
                         )
@@ -1632,15 +1632,19 @@ export default function HomePage() {
                       />
                     )
                     // ── 공통 row helpers ──
-                    const dotColor = (tag: string | null | undefined) => tag === 'tomorrow' ? '#5E8FBF' : '#7A82D8'
+                    function taskPartColor(part: string | null | undefined): string {
+                      if (!part) return CATEGORY_PALETTE['neutral'].solid
+                      return CATEGORY_PALETTE[PART_COLOR[part] ?? colorKeyFromName(part)].solid
+                    }
                     function TaskRow({ t, i, len }: { t: TodayTodo; i: number; len: number }) {
+                      const dc = taskPartColor(t.tasks?.part)
                       return (
                         <ListRow
                           draggable
                           onDragStart={e => { e.dataTransfer.setData('tl-extra', JSON.stringify({ id: `todo_${t.id}`, title: t.title, subtitle: t.tasks?.short_name ?? t.tasks?.title ?? '' })); e.dataTransfer.effectAllowed = 'copy' }}
                           style={{ ...rd(i, len) }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, minHeight: 34 }}>
-                            <div style={{ width: 5, height: 5, borderRadius: 1.5, background: dotColor(t.schedule_tag), flexShrink: 0, opacity: 0.85 }} />
+                            <div style={{ width: 5, height: 5, borderRadius: 1.5, background: dc, flexShrink: 0, opacity: 0.85 }} />
                             <span style={{ fontSize: 13, fontWeight: 500, color: TEXT1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>{t.title}</span>
                             {t.tasks && <span style={{ fontSize: 10.5, color: TEXT3, flexShrink: 0, whiteSpace: 'nowrap', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.tasks.short_name ?? t.tasks.title}</span>}
                           </div>
