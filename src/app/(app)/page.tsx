@@ -625,10 +625,6 @@ export default function HomePage() {
   const [doneTasks,     setDoneTasks]     = useState<string[]>([])
   const [doneAgenda,    setDoneAgenda]    = useState<string[]>([])
   const [showJournal,   setShowJournal]   = useState(false)
-  const [memoOpen,      setMemoOpen]      = useState<Record<string, boolean>>({})
-  const [memoTexts,     setMemoTexts]     = useState<Record<string, string>>({})
-  const [memoSaving,    setMemoSaving]    = useState<Record<string, boolean>>({})
-  const [memoSaved,     setMemoSaved]     = useState<Record<string, boolean>>({})
   const [fMemoOpen,     setFMemoOpen]     = useState<Record<string, boolean>>({})
   const [fMemoTexts,    setFMemoTexts]    = useState<Record<string, string>>({})
   const [fMemoSaving,   setFMemoSaving]   = useState<Record<string, boolean>>({})
@@ -838,28 +834,6 @@ export default function HomePage() {
     await sb.current.from('agenda_sub_tasks').update({ target_date: date }).eq('id', id)
     setDatePickerStId(null)
     setHoveredStId(null)
-  }
-
-  async function saveMeetingMemo(meetingId: string) {
-    const text = (memoTexts[meetingId] ?? '').trim()
-    if (!text) return
-    setMemoSaving(p => ({ ...p, [meetingId]: true }))
-    const meeting = meetings.find(m => m.id === meetingId)
-    const existingNotes = (meeting?.notes ?? []) as NoteEntry[]
-    const newNote: NoteEntry = {
-      title: '사전 메모',
-      content: text,
-      created_at: new Date().toISOString(),
-      is_prep: true,
-    }
-    await sb.current.from('meetings').update({ notes: [...existingNotes, newNote] }).eq('id', meetingId)
-    setMeetings(prev => prev.map(m =>
-      m.id === meetingId ? { ...m, notes: [...(m.notes ?? []), newNote] } : m
-    ))
-    setMemoTexts(p => ({ ...p, [meetingId]: '' }))
-    setMemoSaving(p => ({ ...p, [meetingId]: false }))
-    setMemoSaved(p => ({ ...p, [meetingId]: true }))
-    setTimeout(() => setMemoSaved(p => ({ ...p, [meetingId]: false })), 2500)
   }
 
   async function saveFixedMeetingMemo(schedule: MeetingSchedule) {
@@ -1257,94 +1231,13 @@ export default function HomePage() {
             {/* 오늘 업무 */}
             <CardSection title="오늘 업무" link="/tasks" linkLabel="+ 추가" icon={<CheckSquare size={14} strokeWidth={2} style={{ color: '#38BE98' }} />}>
               {loading ? <div>{skel(4)}</div>
-                : todayTodos.length === 0 && todayAgendaItems.length === 0 && todayMeetings.length === 0 && todayFixedMeetingsVisible.length === 0
+                : todayTodos.length === 0 && todayAgendaItems.length === 0 && todayFixedMeetingsVisible.length === 0
                   ? <EmptyState
                       icon={<CheckSquare size={20} strokeWidth={1.5} />}
                       label="오늘 업무가 비어있어요."
                       sub="여유로운 하루거나, 추가해보세요."
                     />
                   : <>
-                      {/* ── 오늘 예정 회의 ── */}
-                      {todayMeetings.length > 0 && (
-                        <>
-                          {todayMeetings.map((m, i) => {
-                            const isOpen  = memoOpen[m.id]  ?? false
-                            const text    = memoTexts[m.id]  ?? ''
-                            const saving  = memoSaving[m.id] ?? false
-                            const saved   = memoSaved[m.id]  ?? false
-                            const prepNotes = (m.notes ?? []).filter((n: NoteEntry) => n.is_prep)
-                            const total   = todayMeetings.length + todayTodos.length + todayAgendaItems.length
-                            return (
-                              <div key={m.id} style={{ ...rd(i, total), paddingBottom: 2 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0 5px' }}>
-                                  <div style={{ width: 16, height: 16, borderRadius: 4, background: 'rgba(91,126,196,0.14)', border: '1px solid rgba(91,126,196,0.22)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                    <Clock size={9} strokeWidth={2.5} style={{ color: '#8DAEE6' }} />
-                                  </div>
-                                  <Link href={`/meetings/${m.id}`} style={{ flex: 1, minWidth: 0, textDecoration: 'none' }}>
-                                    <p style={{ fontSize: 14, fontWeight: 500, color: TEXT1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.title}</p>
-                                  </Link>
-                                  {saved ? (
-                                    <span style={{ fontSize: 10.5, color: '#38BE98', flexShrink: 0 }}>저장됨 ✓</span>
-                                  ) : (
-                                    <button
-                                      onClick={() => setMemoOpen(p => ({ ...p, [m.id]: !p[m.id] }))}
-                                      style={{ fontSize: 11, padding: '2px 8px', borderRadius: 5, border: `1px solid ${isOpen ? 'rgba(91,126,196,0.35)' : 'rgba(255,255,255,0.08)'}`, background: isOpen ? 'rgba(91,126,196,0.12)' : 'transparent', color: isOpen ? '#8DAEE6' : TEXT3, cursor: 'pointer', flexShrink: 0, transition: 'all 150ms', whiteSpace: 'nowrap' }}
-                                    >
-                                      {prepNotes.length > 0 ? `안건 ${prepNotes.length}` : '안건'}
-                                    </button>
-                                  )}
-                                </div>
-                                {/* 기존 사전메모 미리보기 */}
-                                {prepNotes.length > 0 && !isOpen && (
-                                  <div style={{ marginLeft: 26, marginBottom: 5 }}>
-                                    {prepNotes.slice(-3).map((n: NoteEntry, ni: number) => (
-                                      <p key={ni} style={{ fontSize: 11.5, color: TEXT3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.6 }}>· {n.content}</p>
-                                    ))}
-                                  </div>
-                                )}
-                                {/* 인라인 메모 입력 (열림 상태) */}
-                                {isOpen && (
-                                  <div style={{ marginLeft: 26, marginBottom: 7 }}>
-                                    {prepNotes.length > 0 && (
-                                      <div style={{ marginBottom: 6 }}>
-                                        {prepNotes.map((n: NoteEntry, ni: number) => (
-                                          <p key={ni} style={{ fontSize: 11.5, color: TEXT3, lineHeight: 1.6 }}>· {n.content}</p>
-                                        ))}
-                                      </div>
-                                    )}
-                                    <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
-                                      <textarea
-                                        autoFocus
-                                        value={text}
-                                        onChange={e => setMemoTexts(p => ({ ...p, [m.id]: e.target.value }))}
-                                        onKeyDown={e => {
-                                          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); saveMeetingMemo(m.id) }
-                                          if (e.key === 'Escape') setMemoOpen(p => ({ ...p, [m.id]: false }))
-                                        }}
-                                        placeholder="회의 안건 메모... (Ctrl+Enter 저장)"
-                                        rows={2}
-                                        style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 7, padding: '6px 9px', fontSize: 12.5, color: TEXT1, resize: 'none', outline: 'none', lineHeight: 1.55, fontFamily: 'inherit', transition: 'border-color 150ms' }}
-                                        onFocus={e => { (e.target as HTMLTextAreaElement).style.borderColor = 'rgba(91,126,196,0.40)' }}
-                                        onBlur={e => { (e.target as HTMLTextAreaElement).style.borderColor = 'rgba(255,255,255,0.09)' }}
-                                      />
-                                      <button
-                                        onClick={() => saveMeetingMemo(m.id)}
-                                        disabled={!text.trim() || saving}
-                                        style={{ fontSize: 11, padding: '5px 10px', borderRadius: 6, background: text.trim() ? 'rgba(91,126,196,0.18)' : 'rgba(255,255,255,0.04)', border: `1px solid ${text.trim() ? 'rgba(91,126,196,0.35)' : 'rgba(255,255,255,0.07)'}`, color: text.trim() ? '#8DAEE6' : TEXT3, cursor: text.trim() ? 'pointer' : 'default', flexShrink: 0, transition: 'all 150ms' }}
-                                      >
-                                        {saving ? '…' : '저장'}
-                                      </button>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            )
-                          })}
-                          {(todayTodos.length > 0 || todayAgendaItems.length > 0 || todayFixedMeetingsVisible.length > 0) && (
-                            <div style={{ borderTop: `1px solid ${DIVIDER}`, margin: '4px 0 6px' }} />
-                          )}
-                        </>
-                      )}
                       {/* ── 고정 회의 ── */}
                       {todayFixedMeetingsVisible.length > 0 && (
                         <>
