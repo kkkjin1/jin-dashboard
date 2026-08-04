@@ -66,17 +66,19 @@ interface WeekCompletedTask { id: string; title: string; part: string; type: str
 interface WeekMeeting { id: string; title: string; meeting_date: string; notePreview: string | null }
 interface WeekOneOnOne { id: string; session_date: string | null; member_id: string; member_name: string }
 interface CompletedAgendaItem { id: string; title: string; group_name: string; group_color: string; updated_at: string }
+interface CompletedSubTaskItem { id: string; title: string; group_name: string; group_color: string }
 
 interface PeriodSummary {
   activeTasks: WeekActiveTask[]
   completedTasks: WeekCompletedTask[]
   completedAgendaItems: CompletedAgendaItem[]
+  completedSubTaskItems: CompletedSubTaskItem[]
   meetings: WeekMeeting[]
   oneOnOnes: WeekOneOnOne[]
   loading: boolean
 }
 
-const EMPTY_SUMMARY: PeriodSummary = { activeTasks: [], completedTasks: [], completedAgendaItems: [], meetings: [], oneOnOnes: [], loading: false }
+const EMPTY_SUMMARY: PeriodSummary = { activeTasks: [], completedTasks: [], completedAgendaItems: [], completedSubTaskItems: [], meetings: [], oneOnOnes: [], loading: false }
 
 function SummaryGrid({ data }: { data: PeriodSummary }) {
   const fmt = (d: string) => d.slice(5).replace('-', '/')
@@ -84,6 +86,7 @@ function SummaryGrid({ data }: { data: PeriodSummary }) {
   const allCompleted = [
     ...data.completedTasks.map(t => ({ key: t.id, href: `/tasks/${t.id}`, primary: t.title || '제목 없음', secondary: t.part })),
     ...data.completedAgendaItems.map(a => ({ key: `a-${a.id}`, href: `/project/items/${a.id}`, primary: a.title || '제목 없음', secondary: a.group_name })),
+    ...data.completedSubTaskItems.map(st => ({ key: `st-${st.id}`, href: '/project', primary: st.title || '제목 없음', secondary: st.group_name })),
   ]
 
   const cards = [
@@ -227,8 +230,9 @@ export default function CompletedPage() {
       supabase.from('one_on_ones').select('id, session_date, member_id').gte('session_date', wsDate).lt('session_date', weDate).order('session_date'),
       supabase.from('members').select('id, name'),
       supabase.from('agenda_items').select('id, title, updated_at, agenda_groups(name, color)').eq('status', 'done').gte('updated_at', wsISO).lt('updated_at', weISO),
-    ]).then(async ([notesRes, completedRes, meetingsRes, oo1Res, mbRes, agendaRes]) => {
-      setWeekData(await buildPeriodSummary(notesRes, completedRes, meetingsRes, oo1Res, mbRes, agendaRes))
+      supabase.from('agenda_sub_tasks').select('id, title, agenda_items(title, agenda_groups(name, color))').eq('status', 'done').gte('updated_at', wsISO).lt('updated_at', weISO),
+    ]).then(async ([notesRes, completedRes, meetingsRes, oo1Res, mbRes, agendaRes, stRes]) => {
+      setWeekData(await buildPeriodSummary(notesRes, completedRes, meetingsRes, oo1Res, mbRes, agendaRes, stRes))
     })
   }, [quickPeriod, weekStart])
 
@@ -249,8 +253,9 @@ export default function CompletedPage() {
       supabase.from('one_on_ones').select('id, session_date, member_id').gte('session_date', wsDate).lt('session_date', weDate).order('session_date'),
       supabase.from('members').select('id, name'),
       supabase.from('agenda_items').select('id, title, updated_at, agenda_groups(name, color)').eq('status', 'done').gte('updated_at', wsISO).lt('updated_at', weISO),
-    ]).then(async ([notesRes, completedRes, meetingsRes, oo1Res, mbRes, agendaRes]) => {
-      setMonthData(await buildPeriodSummary(notesRes, completedRes, meetingsRes, oo1Res, mbRes, agendaRes))
+      supabase.from('agenda_sub_tasks').select('id, title, agenda_items(title, agenda_groups(name, color))').eq('status', 'done').gte('updated_at', wsISO).lt('updated_at', weISO),
+    ]).then(async ([notesRes, completedRes, meetingsRes, oo1Res, mbRes, agendaRes, stRes]) => {
+      setMonthData(await buildPeriodSummary(notesRes, completedRes, meetingsRes, oo1Res, mbRes, agendaRes, stRes))
     })
   }, [quickPeriod, selectedMonth])
 
@@ -662,11 +667,19 @@ async function buildPeriodSummary(
   oo1Res: { data: unknown[] | null },
   mbRes: { data: unknown[] | null },
   agendaRes?: { data: unknown[] | null },
+  stRes?: { data: unknown[] | null },
 ): Promise<PeriodSummary> {
   const supabase = createClient()
   const completedTasks = (completedRes.data ?? []) as WeekCompletedTask[]
   const completedAgendaItems: CompletedAgendaItem[] = ((agendaRes?.data ?? []) as { id: string; title: string; updated_at: string; agenda_groups: { name: string; color: string }[] | { name: string; color: string } | null }[])
     .map(a => { const g = Array.isArray(a.agenda_groups) ? a.agenda_groups[0] : a.agenda_groups; return { id: a.id, title: a.title, updated_at: a.updated_at, group_name: g?.name ?? '', group_color: g?.color ?? '#9CA3AF' } })
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const completedSubTaskItems: CompletedSubTaskItem[] = ((stRes?.data ?? []) as any[])
+    .map(st => {
+      const ai = Array.isArray(st.agenda_items) ? st.agenda_items[0] : st.agenda_items
+      const g = ai ? (Array.isArray(ai.agenda_groups) ? ai.agenda_groups[0] : ai.agenda_groups) : null
+      return { id: st.id, title: st.title, group_name: g?.name ?? '', group_color: g?.color ?? '#9CA3AF' }
+    })
   const meetings: WeekMeeting[] = ((meetingsRes.data ?? []) as { id: string; title: string; meeting_date: string; notes: { title: string; content: string }[] }[])
     .map(m => ({
       id: m.id, title: m.title, meeting_date: m.meeting_date,
@@ -686,5 +699,5 @@ async function buildPeriodSummary(
       .map(t => ({ ...t, noteCount: noteCountMap[t.id] ?? 0 }))
       .sort((a, b) => b.noteCount - a.noteCount)
   }
-  return { activeTasks, completedTasks, completedAgendaItems, meetings, oneOnOnes, loading: false }
+  return { activeTasks, completedTasks, completedAgendaItems, completedSubTaskItems, meetings, oneOnOnes, loading: false }
 }

@@ -10,6 +10,7 @@ import TiptapEditor from '@/components/TiptapEditor'
 interface Meeting { id: string; title: string; meeting_date: string }
 interface CompletedTask { id: string; title: string; part: string | null; type: string | null }
 interface CompletedAgendaItem { id: string; title: string; group_name: string; group_color: string }
+interface CompletedSubTask { id: string; title: string; agenda_item_title: string; group_name: string; group_color: string }
 interface DailyJournal { id: string; date: string; content: string }
 interface QuickMemo { id: string; title: string; tag: string | null; created_at: string }
 type Mode = 'weekly' | 'monthly'
@@ -292,6 +293,7 @@ export default function CompletedTestPage() {
   const [meetings, setMeetings] = useState<Meeting[]>([])
   const [completedTasks, setCompletedTasks] = useState<CompletedTask[]>([])
   const [completedAgenda, setCompletedAgenda] = useState<CompletedAgendaItem[]>([])
+  const [completedSubTasks, setCompletedSubTasks] = useState<CompletedSubTask[]>([])
   const [journals, setJournals] = useState<DailyJournal[]>([])
   const [quickMemos, setQuickMemos] = useState<QuickMemo[]>([])
 
@@ -330,20 +332,29 @@ export default function CompletedTestPage() {
 
   useEffect(() => {
     setLoading(true)
-    setMeetings([]); setCompletedTasks([]); setCompletedAgenda([]); setJournals([]); setQuickMemos([])
+    setMeetings([]); setCompletedTasks([]); setCompletedAgenda([]); setCompletedSubTasks([]); setJournals([]); setQuickMemos([])
     Promise.all([
       supabase.from('meetings').select('id, title, meeting_date').gte('meeting_date', wsDate).lt('meeting_date', weDate).order('meeting_date'),
       supabase.from('tasks').select('id, title, part, type').eq('status', '완료').gte('updated_at', wsISO).lt('updated_at', weISO),
       supabase.from('agenda_items').select('id, title, agenda_groups(name, color)').eq('status', 'done').gte('updated_at', wsISO).lt('updated_at', weISO),
+      supabase.from('agenda_sub_tasks').select('id, title, agenda_items(title, agenda_groups(name, color))').eq('status', 'done').gte('updated_at', wsISO).lt('updated_at', weISO),
       supabase.from('daily_journals').select('id, date, content').gte('date', wsDate).lt('date', weDate).order('date'),
       supabase.from('quick_memos').select('id, title, tag, created_at').gte('created_at', wsISO).lt('created_at', weISO).order('created_at', { ascending: false }),
-    ]).then(([mtgRes, taskRes, agendaRes, journalRes, memoRes]) => {
+    ]).then(([mtgRes, taskRes, agendaRes, stRes, journalRes, memoRes]) => {
       setMeetings((mtgRes.data ?? []) as Meeting[])
       setCompletedTasks((taskRes.data ?? []) as CompletedTask[])
       setCompletedAgenda(
         (agendaRes.data ?? []).map((a: { id: string; title: string; agenda_groups: { name: string; color: string }[] | { name: string; color: string } | null }) => {
           const g = Array.isArray(a.agenda_groups) ? a.agenda_groups[0] : a.agenda_groups
           return { id: a.id, title: a.title, group_name: g?.name ?? '', group_color: g?.color ?? '#9CA3AF' }
+        })
+      )
+      setCompletedSubTasks(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (stRes.data ?? []).map((st: any) => {
+          const ai = Array.isArray(st.agenda_items) ? st.agenda_items[0] : st.agenda_items
+          const g = ai ? (Array.isArray(ai.agenda_groups) ? ai.agenda_groups[0] : ai.agenda_groups) : null
+          return { id: st.id, title: st.title, agenda_item_title: ai?.title ?? '', group_name: g?.name ?? '', group_color: g?.color ?? '#9CA3AF' }
         })
       )
       setJournals((journalRes.data ?? []) as DailyJournal[])
@@ -406,7 +417,7 @@ export default function CompletedTestPage() {
   }
   function toggleSection(k: keyof typeof open) { setOpen(o => ({ ...o, [k]: !o[k] })) }
 
-  const allCompleted = [...completedAgenda, ...completedTasks]
+  const allCompleted = [...completedAgenda, ...completedSubTasks, ...completedTasks]
   const filledJournals = journals.filter(j => stripHtml(j.content ?? '').length > 2)
   const wBadge = mode === 'weekly' ? `W${isoWeekNum(weekStart)}` : `${parseInt(selectedMonth.split('-')[1])}월`
   const periodTitle = mode === 'weekly' ? fmtWeekTitle(weekStart) : fmtMonthTitle(selectedMonth)
@@ -498,6 +509,9 @@ export default function CompletedTestPage() {
                 <>
                   {completedAgenda.map(a => (
                     <CompletedItemRow key={`a_${a.id}`} typeLabel="안건" title={a.title ?? ''} tag="완료" tagBg="rgba(186,222,200,0.25)" tagColor="#7DC4A0" />
+                  ))}
+                  {completedSubTasks.map(st => (
+                    <CompletedItemRow key={`st_${st.id}`} typeLabel="상세" title={st.title ?? ''} tag={st.group_name || '상세task'} tagBg="rgba(91,143,191,0.18)" tagColor="#5E8FBF" />
                   ))}
                   {completedTasks.map(t => (
                     <CompletedItemRow key={`t_${t.id}`} typeLabel="업무" title={t.title ?? ''} tag={t.part ?? '업무'} tagBg="rgba(144,167,216,0.22)" tagColor="#90A7D8" />

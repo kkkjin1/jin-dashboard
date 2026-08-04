@@ -814,8 +814,18 @@ export default function HomePage() {
     })
   }, [subTasks, stSort])
 
-  function toggleTask(id: string) {
-    setDoneTasks(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])
+  async function toggleTask(id: string) {
+    // 체크 시만 완료 처리 (토글 아님 — 취소 불필요)
+    setDoneTasks(p => [...p, id])
+    await sb.current.from('task_todos').update({ done: true }).eq('id', id)
+    // 애니메이션 후 목록에서 제거
+    setTimeout(() => setTodayTodos(p => p.filter(t => t.id !== id)), 600)
+  }
+
+  async function completeSubTask(id: string) {
+    setDoneAgenda(p => [...p, id])
+    await sb.current.from('agenda_sub_tasks').update({ status: 'done' }).eq('id', id)
+    setTimeout(() => setSubTasks(p => p.filter(st => st.id !== id)), 600)
   }
 
   async function saveMeetingMemo(meetingId: string) {
@@ -1438,7 +1448,7 @@ export default function HomePage() {
                             style={{ ...rd(globalIdx, total) }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0' }}>
                               <button
-                                onClick={() => setDoneAgenda(p => p.includes(st.id) ? p.filter(x => x !== st.id) : [...p, st.id])}
+                                onClick={() => completeSubTask(st.id)}
                                 style={{ width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${done ? '#38BE98' : 'rgba(255,255,255,0.18)'}`, background: done ? '#38BE98' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer', transition: 'all 200ms ease-out' }}
                               >
                                 {done && <svg width="6" height="6" viewBox="0 0 8 8" fill="none"><path d="M1.5 4L3 5.5L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
