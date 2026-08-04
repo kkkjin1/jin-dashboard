@@ -160,6 +160,7 @@ function EntryModal({
   const [editing, setEditing] = useState(defaultEditing)
   const [val, setVal] = useState(entry.content)
   const [saving, setSaving] = useState(false)
+  const lastSavedRef = useRef(entry.content)
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -172,9 +173,24 @@ function EntryModal({
     return () => window.removeEventListener('keydown', onKey)
   }, [editing, entry.content, onClose])
 
+  // 자동저장 — 타이핑 멈추고 1.5초 후 조용히 저장 (창 전환/오탈출로 인한 유실 방지)
+  useEffect(() => {
+    if (!editing) return
+    if (val === lastSavedRef.current) return
+    const t = setTimeout(async () => {
+      const txt = val.replace(/<[^>]*>/g, '').trim()
+      if (txt) {
+        await onSave(val)
+        lastSavedRef.current = val
+      }
+    }, 1500)
+    return () => clearTimeout(t)
+  }, [val, editing, onSave])
+
   async function handleSave() {
     setSaving(true)
     await onSave(val)
+    lastSavedRef.current = val
     setSaving(false)
     setEditing(false)
   }
@@ -283,13 +299,28 @@ function MatrixCell({
   const [modalOpen, setModalOpen] = useState(false)
   const [modalEditMode, setModalEditMode] = useState(false)
   const wf = useWinFocused()
+  const lastSavedRef = useRef(entry?.content ?? '')
 
   async function save() {
     const txt = val.replace(/<[^>]*>/g, '').trim()
     if (!txt && entry) { await onDelete(entry.id); setEditing(false); return }
-    if (txt) await onSave(objectiveId, weekStart, val)
+    if (txt) { await onSave(objectiveId, weekStart, val); lastSavedRef.current = val }
     setEditing(false)
   }
+
+  // 자동저장 — 타이핑 멈추고 1.5초 후 조용히 저장 (창 전환/오탈출로 인한 유실 방지)
+  useEffect(() => {
+    if (!editing) return
+    if (val === lastSavedRef.current) return
+    const t = setTimeout(async () => {
+      const txt = val.replace(/<[^>]*>/g, '').trim()
+      if (txt) {
+        await onSave(objectiveId, weekStart, val)
+        lastSavedRef.current = val
+      }
+    }, 1500)
+    return () => clearTimeout(t)
+  }, [val, editing, objectiveId, weekStart, onSave])
 
   // ── 편집 모드 ───────────────────────────────────────────
   if (editing) return (

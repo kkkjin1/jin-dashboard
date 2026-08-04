@@ -78,13 +78,28 @@ function SubCell({ entry, subItemId, date, onSave, onDelete, large, isThisWeek }
   const cellH    = large ? 320 : 90
   const editMinH = large ? 320 : 120
   const winFocused = useWindowFocused()
+  const lastSavedRef = useRef(entry?.content ?? '')
 
   async function save() {
     const textOnly = val.replace(/<[^>]*>/g, '').trim()
     if (!textOnly && entry) { await onDelete(entry.id); setEditing(false); return }
-    if (textOnly) await onSave(subItemId, date, val)
+    if (textOnly) { await onSave(subItemId, date, val); lastSavedRef.current = val }
     setEditing(false)
   }
+
+  // 자동저장 — 타이핑 멈추고 1.5초 후 조용히 저장 (창 전환/오탈출로 인한 유실 방지)
+  useEffect(() => {
+    if (!editing) return
+    if (val === lastSavedRef.current) return
+    const t = setTimeout(async () => {
+      const textOnly = val.replace(/<[^>]*>/g, '').trim()
+      if (textOnly) {
+        await onSave(subItemId, date, val)
+        lastSavedRef.current = val
+      }
+    }, 1500)
+    return () => clearTimeout(t)
+  }, [val, editing, subItemId, date, onSave])
 
   if (editing) {
     return (

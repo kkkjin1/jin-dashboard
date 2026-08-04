@@ -36,6 +36,7 @@ export default function OneOnOneSessionPage() {
 
   const titleRef   = useRef<HTMLInputElement>(null)
   const saveTimer  = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const nextAppointmentSaveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const autoFocused = useRef(false)
 
   useEffect(() => {
@@ -105,6 +106,14 @@ export default function OneOnOneSessionPage() {
 
   async function saveNextAppointment() {
     await updateSession({ next_appointment: nextAppointment.trim() || null })
+  }
+
+  function handleNextAppointmentChange(v: string) {
+    setNextAppointment(v)
+    clearTimeout(nextAppointmentSaveTimer.current)
+    nextAppointmentSaveTimer.current = setTimeout(() => {
+      updateSession({ next_appointment: v.trim() || null })
+    }, 1500)
   }
 
   async function saveNextAppointmentDate(date: string) {
@@ -251,7 +260,7 @@ export default function OneOnOneSessionPage() {
                 )}
               </div>
               <textarea value={nextAppointment}
-                onChange={e => setNextAppointment(e.target.value)}
+                onChange={e => handleNextAppointmentChange(e.target.value)}
                 onBlur={saveNextAppointment}
                 placeholder="다음 1on1에서 챙길 것들을 입력하세요"
                 rows={3}

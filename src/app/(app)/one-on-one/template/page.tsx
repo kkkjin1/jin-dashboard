@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import dynamic from 'next/dynamic'
@@ -12,6 +12,9 @@ export default function OneOnOneTemplatePage() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const supabase = createClient()
+  const loaded = useRef(false)
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const insertInFlight = useRef(false)
 
   useEffect(() => {
     supabase.from('one_on_one_template').select('id, content').limit(1).single()
@@ -20,20 +23,36 @@ export default function OneOnOneTemplatePage() {
           setContent((data as { id: string; content: string }).content)
           setTemplateId((data as { id: string; content: string }).id)
         }
+        loaded.current = true
       })
   }, [])
 
-  async function handleSave() {
+  async function persist(html: string) {
+    if (insertInFlight.current) return
     setSaving(true)
     if (templateId) {
-      await supabase.from('one_on_one_template').update({ content }).eq('id', templateId)
+      await supabase.from('one_on_one_template').update({ content: html }).eq('id', templateId)
     } else {
-      const { data } = await supabase.from('one_on_one_template').insert({ content }).select('id').single()
+      insertInFlight.current = true
+      const { data } = await supabase.from('one_on_one_template').insert({ content: html }).select('id').single()
       if (data) setTemplateId((data as { id: string }).id)
+      insertInFlight.current = false
     }
     setSaving(false)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
+  }
+
+  async function handleSave() {
+    clearTimeout(saveTimer.current)
+    await persist(content)
+  }
+
+  function handleChange(html: string) {
+    setContent(html)
+    if (!loaded.current) return
+    clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(() => persist(html), 1500)
   }
 
   return (
@@ -54,7 +73,8 @@ export default function OneOnOneTemplatePage() {
       <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
         <TiptapEditor
           value={content}
-          onChange={setContent}
+          onChange={handleChange}
+          onSubmit={handleSave}
           minHeight={400}
         />
       </div>

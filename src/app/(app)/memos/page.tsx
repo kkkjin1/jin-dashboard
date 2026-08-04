@@ -32,6 +32,8 @@ const pill  = 'text-xs px-3.5 py-1.5 rounded-full border font-medium transition-
 const pOn  = 'bg-[#4C7FE0] text-white border-[#4C7FE0] shadow-sm'
 const pOff = 'bg-white/[0.06] backdrop-blur-xl border-white/[0.09] text-white/50 hover:bg-white/[0.1] hover:text-[#E2E8F0]'
 
+function inlineDraftKey(tag: MemoTag) { return `memo_inlineadd_draft_${tag}` }
+
 function memoTagStyle(tag: string) {
   const c = CATEGORY_PALETTE[MEMO_TAG[tag] ?? colorKeyFromName(tag)]
   return { background: c.bg, color: c.text, borderColor: c.border }
@@ -343,6 +345,52 @@ export default function MemosPage() {
   })
   const inlineContentRef = useRef<HTMLTextAreaElement>(null)
   const supabase = createClient()
+  const quickDraftTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const inlineDraftTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
+  const QUICK_DRAFT_KEY = 'memo_quickadd_draft'
+
+  function openAddForm() {
+    try {
+      const raw = localStorage.getItem(QUICK_DRAFT_KEY)
+      if (raw) {
+        const d = JSON.parse(raw) as { title: string; content: string; tag: MemoTag }
+        setNewTitle(d.title ?? ''); setNewContent(d.content ?? ''); setNewTag(d.tag ?? '업무관련')
+      }
+    } catch {}
+    setShowAddForm(true)
+  }
+
+  // 빠른 추가 폼 초안 로컬 백업
+  useEffect(() => {
+    if (!showAddForm) return
+    clearTimeout(quickDraftTimer.current)
+    quickDraftTimer.current = setTimeout(() => {
+      try { localStorage.setItem(QUICK_DRAFT_KEY, JSON.stringify({ title: newTitle, content: newContent, tag: newTag })) } catch {}
+    }, 500)
+    return () => clearTimeout(quickDraftTimer.current)
+  }, [newTitle, newContent, newTag, showAddForm])
+
+  function openInlineForm(tag: MemoTag) {
+    try {
+      const raw = localStorage.getItem(inlineDraftKey(tag))
+      if (raw) {
+        const d = JSON.parse(raw) as { title: string; content: string }
+        setInlineTitle(d.title ?? ''); setInlineContent(d.content ?? '')
+      }
+    } catch {}
+    setInlineTag(tag)
+  }
+
+  // 인라인 추가 폼 초안 로컬 백업
+  useEffect(() => {
+    if (!inlineTag) return
+    clearTimeout(inlineDraftTimer.current)
+    inlineDraftTimer.current = setTimeout(() => {
+      try { localStorage.setItem(inlineDraftKey(inlineTag), JSON.stringify({ title: inlineTitle, content: inlineContent })) } catch {}
+    }, 500)
+    return () => clearTimeout(inlineDraftTimer.current)
+  }, [inlineTitle, inlineContent, inlineTag])
 
   useEffect(() => {
     supabase.from('quick_memos').select('*').order('created_at', { ascending: false })
@@ -382,6 +430,7 @@ export default function MemosPage() {
       setMemos(prev => [newMemo, ...prev])
       setEditing(newMemo)
     }
+    try { localStorage.removeItem(QUICK_DRAFT_KEY) } catch {}
     setNewTitle(''); setNewContent(''); setShowAddForm(false)
   }
 
@@ -395,6 +444,7 @@ export default function MemosPage() {
       setMemos(prev => [newMemo, ...prev])
       setEditing(newMemo)
     }
+    try { localStorage.removeItem(inlineDraftKey(tag)) } catch {}
     setInlineTag(null); setInlineTitle(''); setInlineContent('')
   }
 
@@ -512,7 +562,7 @@ export default function MemosPage() {
           style={{ background: 'rgba(255,255,255,0.06)' }}>
           총 {memos.length}개
         </span>
-        <button onClick={() => setShowAddForm(v => !v)}
+        <button onClick={() => (showAddForm ? setShowAddForm(false) : openAddForm())}
           className="text-sm bg-[#4C7FE0]/40 text-[#A8C4F0] border border-[#4C7FE0]/50 px-4 py-2 rounded-full hover:bg-[#4C7FE0]/60 transition-colors">
           + 메모 추가
         </button>
@@ -541,7 +591,7 @@ export default function MemosPage() {
             placeholder="내용 (선택, Ctrl+Enter 저장)" rows={2}
             className="w-full text-xs focus:outline-none resize-none text-white/50 bg-transparent placeholder:text-white/30" />
           <div className="flex gap-2 justify-end mt-2">
-            <button onClick={() => setShowAddForm(false)} className={`${pill} ${pOff}`}>취소</button>
+            <button onClick={() => { try { localStorage.removeItem(QUICK_DRAFT_KEY) } catch {}; setNewTitle(''); setNewContent(''); setShowAddForm(false) }} className={`${pill} ${pOff}`}>취소</button>
             <button onClick={handleAddSave} className={`${pill} ${pOn}`}>저장</button>
           </div>
         </div>
@@ -635,7 +685,7 @@ export default function MemosPage() {
 
             {/* 인라인 추가 */}
             <InlineAddForm
-              inlineTag={inlineTag} setInlineTag={setInlineTag}
+              inlineTag={inlineTag} setInlineTag={setInlineTag} openInlineForm={openInlineForm}
               inlineTitle={inlineTitle} setInlineTitle={setInlineTitle}
               inlineContent={inlineContent} setInlineContent={setInlineContent}
               inlineContentRef={inlineContentRef} handleInlineSave={handleInlineSave}
@@ -757,8 +807,9 @@ function MemoInputRow({ tag, setTag, title, setTitle, content, setContent, date,
   )
 }
 
-function InlineAddForm({ inlineTag, setInlineTag, inlineTitle, setInlineTitle, inlineContent, setInlineContent, inlineContentRef, handleInlineSave, pill, pOn, pOff, ALL_TAGS }: {
+function InlineAddForm({ inlineTag, setInlineTag, openInlineForm, inlineTitle, setInlineTitle, inlineContent, setInlineContent, inlineContentRef, handleInlineSave, pill, pOn, pOff, ALL_TAGS }: {
   inlineTag: MemoTag | null; setInlineTag: (t: MemoTag | null) => void
+  openInlineForm: (t: MemoTag) => void
   inlineTitle: string; setInlineTitle: (v: string) => void
   inlineContent: string; setInlineContent: (v: string) => void
   inlineContentRef: React.RefObject<HTMLTextAreaElement | null>
@@ -766,6 +817,10 @@ function InlineAddForm({ inlineTag, setInlineTag, inlineTitle, setInlineTitle, i
   pill: string; pOn: string; pOff: string
   ALL_TAGS: MemoTag[]
 }) {
+  function cancel() {
+    if (inlineTag) { try { localStorage.removeItem(inlineDraftKey(inlineTag)) } catch {} }
+    setInlineTag(null); setInlineTitle(''); setInlineContent('')
+  }
   return inlineTag ? (
     <div className="backdrop-blur-xl rounded-3xl p-4"
       style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.09)', boxShadow: '0 4px 12px rgba(0,0,0,0.18)' }}>
@@ -779,7 +834,7 @@ function InlineAddForm({ inlineTag, setInlineTag, inlineTitle, setInlineTitle, i
         ))}
       </div>
       <input autoFocus value={inlineTitle} onChange={e => setInlineTitle(e.target.value)}
-        onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); inlineContentRef.current?.focus() } if (e.key === 'Escape') { setInlineTag(null); setInlineTitle(''); setInlineContent('') } }}
+        onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); inlineContentRef.current?.focus() } if (e.key === 'Escape') cancel() }}
         placeholder="제목"
         className="w-full text-sm font-semibold text-[#E2E8F0] focus:outline-none pb-1.5 mb-1.5 bg-transparent placeholder:text-white/30"
         style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }} />
@@ -788,12 +843,12 @@ function InlineAddForm({ inlineTag, setInlineTag, inlineTitle, setInlineTitle, i
         placeholder="내용 (선택)" rows={2}
         className="w-full text-xs focus:outline-none resize-none text-white/50 bg-transparent placeholder:text-white/30" />
       <div className="flex gap-1 justify-end mt-2">
-        <button onClick={() => { setInlineTag(null); setInlineTitle(''); setInlineContent('') }} className={`${pill} ${pOff} !text-[10px] !px-2.5 !py-1`}>취소</button>
+        <button onClick={cancel} className={`${pill} ${pOff} !text-[10px] !px-2.5 !py-1`}>취소</button>
         <button onClick={() => handleInlineSave(inlineTag!)} className={`${pill} ${pOn} !text-[10px] !px-2.5 !py-1`}>저장</button>
       </div>
     </div>
   ) : (
-    <button onClick={() => setInlineTag('업무관련')}
+    <button onClick={() => openInlineForm('업무관련')}
       className="w-full backdrop-blur-xl border border-dashed border-white/[0.09] rounded-3xl py-6 hover:bg-white/[0.06] hover:border-white/[0.15] transition-all text-white/[0.28] hover:text-white/50 text-xs font-medium">
       + 메모 추가
     </button>

@@ -83,7 +83,10 @@ export default function DecisionsPage() {
 
   const [profiles, setProfiles] = useState<Record<Persona, string>>({ CEO: '', CSO: '', '피플본부장': '', Jin: '' })
   const [profileOpen, setProfileOpen] = useState(false)
-  const profileSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const profileSaveTimers = useRef<Partial<Record<Persona, ReturnType<typeof setTimeout>>>>({})
+  const logDraftTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
+  function logDraftKey(persona: Persona) { return `decisions_log_draft_${persona}` }
 
   const [includeMeetings, setIncludeMeetings] = useState(false)
   const [meetings, setMeetings] = useState<Meeting[]>([])
@@ -131,8 +134,8 @@ export default function DecisionsPage() {
 
   function saveProfile(persona: Persona, text: string) {
     setProfiles(prev => ({ ...prev, [persona]: text }))
-    if (profileSaveTimer.current) clearTimeout(profileSaveTimer.current)
-    profileSaveTimer.current = setTimeout(() => {
+    if (profileSaveTimers.current[persona]) clearTimeout(profileSaveTimers.current[persona])
+    profileSaveTimers.current[persona] = setTimeout(() => {
       supabase.from('user_settings').upsert({
         key: `persona_profile_${persona}`,
         value: text,
@@ -140,6 +143,31 @@ export default function DecisionsPage() {
       })
     }, 800)
   }
+
+  function openAddLog() {
+    try {
+      const raw = localStorage.getItem(logDraftKey(activeTab))
+      if (raw) {
+        const d = JSON.parse(raw) as { date: string; title: string; content: string }
+        setNewDate(d.date ?? new Date().toISOString().slice(0, 10))
+        setNewTitle(d.title ?? '')
+        setNewContent(d.content ?? '')
+      }
+    } catch {}
+    setAddOpen(true)
+    setSaveError('')
+    setTimeout(() => titleRef.current?.focus(), 50)
+  }
+
+  // 새 기록 작성 초안 로컬 백업 — 저장 없이 탭 전환/이탈해도 다시 열면 복원됨
+  useEffect(() => {
+    if (!addOpen) return
+    clearTimeout(logDraftTimer.current)
+    logDraftTimer.current = setTimeout(() => {
+      try { localStorage.setItem(logDraftKey(activeTab), JSON.stringify({ date: newDate, title: newTitle, content: newContent })) } catch {}
+    }, 500)
+    return () => clearTimeout(logDraftTimer.current)
+  }, [newDate, newTitle, newContent, addOpen, activeTab])
 
   const tabLogs = useMemo(() => logs.filter(l => l.persona === activeTab), [logs, activeTab])
 
@@ -165,6 +193,7 @@ export default function DecisionsPage() {
       if (error) { setSaveError(error.message); return }
       if (data) {
         setLogs(prev => [data as Log, ...prev])
+        try { localStorage.removeItem(logDraftKey(activeTab)) } catch {}
         setNewTitle('')
         setNewContent('')
         setAddOpen(false)
@@ -319,7 +348,7 @@ export default function DecisionsPage() {
                   <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${PERSONA_COLORS[activeTab]}`}>{activeTab}</span>
                   <span className="text-xs text-[rgba(226,232,240,0.4)]">{PERSONA_META[activeTab].role} · {tabLogs.length}건</span>
                 </div>
-                <button onClick={() => { setAddOpen(v => !v); setSaveError(''); setTimeout(() => titleRef.current?.focus(), 50) }}
+                <button onClick={() => (addOpen ? setAddOpen(false) : openAddLog())}
                   className={addOpen ? `${pill} ${pOff}` : 'text-xs bg-[rgba(76,127,224,0.1)] text-[#4C7FE0] border border-[rgba(76,127,224,0.25)] px-4 py-1.5 rounded-full font-medium hover:bg-[rgba(76,127,224,0.18)] transition-colors'}>
                   {addOpen ? '취소' : '+ 기록 추가'}
                 </button>

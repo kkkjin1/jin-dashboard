@@ -353,11 +353,17 @@ export default function CompletedTestPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wsISO, weISO, wsDate, weDate])
 
+  const prevPeriodRef = useRef<{ key: string; type: string } | null>(null)
+
   useEffect(() => {
-    // 주차 이동 시 pending 저장 타이머 취소
-    if (goodRef.current) clearTimeout(goodRef.current)
-    if (badRef.current) clearTimeout(badRef.current)
-    if (nextRef.current) clearTimeout(nextRef.current)
+    // 주차 이동 시 pending 저장 타이머가 있으면 이전 period로 먼저 flush한 뒤 취소 (안 그러면 마지막 입력이 유실됨)
+    const prev = prevPeriodRef.current
+    if (prev) {
+      if (goodRef.current) { clearTimeout(goodRef.current); if (good != null) supabase.from('period_journals').upsert({ period_key: prev.key, period_type: prev.type, good }) }
+      if (badRef.current) { clearTimeout(badRef.current); if (bad != null) supabase.from('period_journals').upsert({ period_key: prev.key, period_type: prev.type, bad }) }
+      if (nextRef.current) { clearTimeout(nextRef.current); if (nextFocus != null) supabase.from('period_journals').upsert({ period_key: prev.key, period_type: prev.type, next_focus: nextFocus }) }
+    }
+    prevPeriodRef.current = { key: periodKey, type: mode === 'weekly' ? 'weekly' : 'monthly' }
     setGood(null); setBad(null); setNextFocus(null)
     setGoodSaved(false); setBadSaved(false); setNextSaved(false)
     supabase.from('period_journals').select('good, bad, next_focus').eq('period_key', periodKey).maybeSingle()

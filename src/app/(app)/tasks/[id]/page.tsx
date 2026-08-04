@@ -414,6 +414,24 @@ export default function TaskDetailPage() {
     setTodos(prev => prev.filter(t => t.id !== todoId))
   }
 
+  const retroDraftTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  // 회고 모달 자동저장 — 타이핑 멈추고 1.5초 후 초안을 task.retrospective에 저장 (완료 처리 전 취소/이탈해도 유실 방지)
+  useEffect(() => {
+    if (!showRetroModal) return
+    clearTimeout(retroDraftTimer.current)
+    retroDraftTimer.current = setTimeout(() => {
+      updateTask({
+        retrospective: {
+          good: retroGood.trim(),
+          bad: retroBad.trim(),
+          improvement: retroImprovement.trim(),
+        },
+      })
+    }, 1500)
+    return () => clearTimeout(retroDraftTimer.current)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [retroGood, retroBad, retroImprovement, showRetroModal])
+
   async function saveRetro(skip: boolean) {
     const updates: Partial<Task> = { status: '완료' }
     if (!skip) {
@@ -701,6 +719,9 @@ export default function TaskDetailPage() {
         <select value={task.status} onChange={e => {
           const newStatus = e.target.value as TaskStatus
           if (newStatus === '완료') {
+            setRetroGood(task.retrospective?.good ?? '')
+            setRetroBad(task.retrospective?.bad ?? '')
+            setRetroImprovement(task.retrospective?.improvement ?? '')
             setShowRetroModal(true)
           } else {
             updateTask({ status: newStatus })

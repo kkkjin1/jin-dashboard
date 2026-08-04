@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -288,6 +288,38 @@ function MyFeedbackView() {
   const [formMember, setFormMember] = useState('')
   const [formDate, setFormDate] = useState(new Date().toISOString().slice(0, 10))
   const [saving, setSaving] = useState(false)
+  const draftTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
+  function feedbackDraftKey(month: string) { return `feedback_draft_${month}` }
+  function loadFeedbackDraft(month: string): { content: string; member: string; date: string } | null {
+    try {
+      const raw = localStorage.getItem(feedbackDraftKey(month))
+      return raw ? JSON.parse(raw) : null
+    } catch { return null }
+  }
+  function clearFeedbackDraft(month: string) {
+    try { localStorage.removeItem(feedbackDraftKey(month)) } catch {}
+  }
+  function openAddForm(month: string) {
+    const draft = loadFeedbackDraft(month)
+    setAddingMonth(month)
+    setFormContent(draft?.content ?? '')
+    setFormMember(draft?.member ?? '')
+    setFormDate(draft?.date ?? new Date().toISOString().slice(0, 10))
+    setOpenMonths(p => new Set([...p, month]))
+  }
+
+  // 작성 중 초안 로컬 백업 — 저장 없이 이동/닫기 해도 폼을 다시 열면 복원됨
+  useEffect(() => {
+    if (!addingMonth) return
+    clearTimeout(draftTimer.current)
+    draftTimer.current = setTimeout(() => {
+      try {
+        localStorage.setItem(feedbackDraftKey(addingMonth), JSON.stringify({ content: formContent, member: formMember, date: formDate }))
+      } catch {}
+    }, 500)
+    return () => clearTimeout(draftTimer.current)
+  }, [formContent, formMember, formDate, addingMonth])
 
   useEffect(() => {
     Promise.all([
@@ -311,7 +343,7 @@ function MyFeedbackView() {
     if (!addingMonth || !stripHtml(formContent)) return; setSaving(true)
     const month = formDate.slice(0, 7)
     const { data, error } = await supabase.from('my_feedback').insert({ month, feedback_date: formDate, from_member: formMember.trim() || null, content: formContent, feedback_type: null }).select('id,month,content,feedback_type,feedback_date,from_member,created_at').single()
-    if (!error && data) { setFeedbacks(prev => [data as MyFeedback, ...prev]); setAddingMonth(null); setFormContent(''); setFormMember('') }
+    if (!error && data) { setFeedbacks(prev => [data as MyFeedback, ...prev]); clearFeedbackDraft(addingMonth); setAddingMonth(null); setFormContent(''); setFormMember('') }
     setSaving(false)
   }
 
@@ -330,7 +362,7 @@ function MyFeedbackView() {
           <span className="text-xs text-[rgba(226,232,240,0.4)] ml-auto">{filteredFeedbacks.length}건</span>
         </div>
         {addingMonth !== currentMonth() && (
-          <button onClick={() => { setAddingMonth(currentMonth()); setFormContent(''); setFormMember(''); setFormDate(new Date().toISOString().slice(0,10)); setOpenMonths(p => new Set([...p, currentMonth()])) }}
+          <button onClick={() => openAddForm(currentMonth())}
             className="text-xs bg-[rgba(255,255,255,0.06)] border border-dashed border-[rgba(255,255,255,0.09)] text-[rgba(226,232,240,0.5)] hover:text-[rgba(226,232,240,0.8)] rounded-2xl px-4 py-2.5 w-full transition-colors">
             + 피드백 추가 ({formatMonth(currentMonth())})
           </button>
@@ -348,7 +380,7 @@ function MyFeedbackView() {
                     <span className="text-xs text-[rgba(226,232,240,0.4)] bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] px-2 py-0.5 rounded-full">{items.length}건</span>
                     {idx === 0 && <span className="text-[10px] text-[#2D5A45] bg-[#BADEC8]/30 border border-[#BADEC8]/40 px-2 py-0.5 rounded-full">최신</span>}
                   </button>
-                  {!isAddingHere && <button onClick={() => { setAddingMonth(month); setFormContent(''); setFormMember(''); setFormDate(new Date().toISOString().slice(0,10)); setOpenMonths(p => new Set([...p, month])) }} className={`text-xs ${pOff} !text-[10px] !px-2.5 !py-1`}>+ 추가</button>}
+                  {!isAddingHere && <button onClick={() => openAddForm(month)} className={`text-xs ${pOff} !text-[10px] !px-2.5 !py-1`}>+ 추가</button>}
                 </div>
                 {isAddingHere && (
                   <div className="px-5 pb-5 border-t border-[rgba(255,255,255,0.09)]">
@@ -370,7 +402,7 @@ function MyFeedbackView() {
                         <TiptapEditor dark value={formContent} onChange={setFormContent} onSubmit={saveAdd} autoFocus minHeight={80} />
                       </div>
                       <div className="flex gap-2 justify-end">
-                        <button onClick={() => { setAddingMonth(null); setFormContent('') }} className={`${pill} ${pOff}`}>취소</button>
+                        <button onClick={() => { if (addingMonth) clearFeedbackDraft(addingMonth); setAddingMonth(null); setFormContent('') }} className={`${pill} ${pOff}`}>취소</button>
                         <button onClick={saveAdd} disabled={saving || !stripHtml(formContent)} className={`${pill} ${pOn} disabled:opacity-40`}>{saving ? '저장 중...' : '저장'}</button>
                       </div>
                     </div>
