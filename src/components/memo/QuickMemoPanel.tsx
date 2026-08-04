@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation'
 
 type BtnPos = { right: number; bottom: number }
 
+// 마지막으로 열린 팝업 참조 — 살아있으면 새 창은 blank로 열림
+let lastPopup: Window | null = null
+
 function openQuickMemo() {
   // sessionStorage로 cascade 카운트 유지 (페이지 새로고침 후에도 유지, 탭 닫으면 리셋)
   const n = (parseInt(sessionStorage.getItem('_qmc') ?? '0') + 1) % 20
@@ -12,9 +15,11 @@ function openQuickMemo() {
   const cascade = (n - 1) * 24
   const left = window.screenX + window.outerWidth - 480 - cascade
   const top  = window.screenY + 80 + cascade
-  // 항상 고유한 이름 → 기존 팝업을 navigate하지 않고 항상 새 팝업 오픈
-  window.open(
-    '/memo/quick',
+  // 기존 팝업이 살아있으면 새 창은 draft 복원 없이 blank로 열림
+  const isAlive = lastPopup !== null && !lastPopup.closed
+  const url = isAlive ? '/memo/quick?blank=1' : '/memo/quick'
+  lastPopup = window.open(
+    url,
     `qm_${Date.now()}`,
     `width=440,height=520,left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no,resizable=yes`,
   )
