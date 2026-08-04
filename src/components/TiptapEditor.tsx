@@ -225,10 +225,6 @@ export default function TiptapEditor({
     onSelectionChangeRef.current = onSelectionChange
   })
 
-  const stableOnUpdate = useCallback(({ editor }: { editor: NonNullable<ReturnType<typeof useEditor>> }) => {
-    onChangeRef.current(editor.getHTML())
-  }, [])
-
   const stableKeyDown = useCallback((_view: unknown, e: KeyboardEvent) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { onSubmitRef.current?.(); return true }
     if (e.key === 'Escape') { onEscapeRef.current?.(); return true }
@@ -284,18 +280,9 @@ export default function TiptapEditor({
     return false
   }, [])
 
-  const stableOnSelectionUpdate = useCallback(({ editor }: { editor: NonNullable<ReturnType<typeof useEditor>> }) => {
-    if (!onSelectionChangeRef.current) return
-    const { from, to } = editor.state.selection
-    const text = from !== to ? editor.state.doc.textBetween(from, to, ' ').trim() : ''
-    onSelectionChangeRef.current(text)
-  }, [])
-
   const editor = useEditor({
     extensions: EXTENSIONS,
     content: legacyToHtml(value),
-    onUpdate: stableOnUpdate,
-    onSelectionUpdate: stableOnSelectionUpdate,
     editorProps: {
       attributes: { class: `${dark ? 'tiptap-input-dark' : 'tiptap-input'} outline-none`, style: `min-height:${minHeight}px; padding:8px 0;` },
       handleKeyDown: stableKeyDown,
@@ -305,6 +292,25 @@ export default function TiptapEditor({
   })
 
   editorRef.current = editor
+
+  // useEditor options의 onUpdate/onSelectionUpdate는 Tiptap v3에서 신뢰성 없음.
+  // editor.on() 방식으로 등록해야 실제로 발화함.
+  useEffect(() => {
+    if (!editor) return
+    const handleUpdate = () => { onChangeRef.current(editor.getHTML()) }
+    const handleSelection = () => {
+      if (!onSelectionChangeRef.current) return
+      const { from, to } = editor.state.selection
+      const text = from !== to ? editor.state.doc.textBetween(from, to, ' ').trim() : ''
+      onSelectionChangeRef.current(text)
+    }
+    editor.on('update', handleUpdate)
+    editor.on('selectionUpdate', handleSelection)
+    return () => {
+      editor.off('update', handleUpdate)
+      editor.off('selectionUpdate', handleSelection)
+    }
+  }, [editor])
 
   useEffect(() => {
     if (autoFocus && editor) {
