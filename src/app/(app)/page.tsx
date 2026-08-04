@@ -1639,12 +1639,10 @@ export default function HomePage() {
                           draggable
                           onDragStart={e => { e.dataTransfer.setData('tl-extra', JSON.stringify({ id: `todo_${t.id}`, title: t.title, subtitle: t.tasks?.short_name ?? t.tasks?.title ?? '' })); e.dataTransfer.effectAllowed = 'copy' }}
                           style={{ ...rd(i, len) }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minHeight: 40 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minHeight: 34 }}>
                             <div style={{ width: 5, height: 5, borderRadius: 1.5, background: dotColor(t.schedule_tag), flexShrink: 0, opacity: 0.85 }} />
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <span style={{ fontSize: 13.5, fontWeight: 500, color: TEXT1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>{t.title}</span>
-                              {t.tasks && <span style={{ fontSize: 11, color: TEXT3 }}>{t.tasks.short_name ?? t.tasks.title}</span>}
-                            </div>
+                            <span style={{ fontSize: 13, fontWeight: 500, color: TEXT1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>{t.title}</span>
+                            {t.tasks && <span style={{ fontSize: 10.5, color: TEXT3, flexShrink: 0, whiteSpace: 'nowrap', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.tasks.short_name ?? t.tasks.title}</span>}
                           </div>
                         </ListRow>
                       )
@@ -1668,12 +1666,10 @@ export default function HomePage() {
                           onMouseEnter={() => setHoveredStId(st.id)}
                           onMouseLeave={() => { if (datePickerStId !== st.id) setHoveredStId(null) }}
                           style={{ ...rd(i, len) }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minHeight: 40 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minHeight: 34 }}>
                             <div style={{ width: 5, height: 5, borderRadius: 2, background: gc, flexShrink: 0, opacity: 0.85 }} />
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <span style={{ fontSize: 13.5, fontWeight: 500, color: TEXT1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>{st.title}</span>
-                              {st.agenda_items && <span style={{ fontSize: 11, color: TEXT3 }}>{st.agenda_items.title}</span>}
-                            </div>
+                            <span style={{ fontSize: 13, fontWeight: 500, color: TEXT1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>{st.title}</span>
+                            {!hovered && st.agenda_items && <span style={{ fontSize: 10.5, color: TEXT3, flexShrink: 0, whiteSpace: 'nowrap', maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis' }}>{st.agenda_items.title}</span>}
                             {hovered && !showPicker && (
                               <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
                                 <QuickBtn label="완료" color="#38BE98" onClick={() => completeSubTask(st.id)} />
