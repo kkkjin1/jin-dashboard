@@ -361,6 +361,7 @@ export default function MemosPage() {
     return { title: 150, content: 280, tag: 56, date: 36 }
   })
   const inlineContentRef = useRef<HTMLTextAreaElement>(null)
+  const newContentRef = useRef('')   // TiptapEditor onChange는 React 배칭 외부에서 호출될 수 있으므로 ref로 동기화
   const supabase = createClient()
   const quickDraftTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const inlineDraftTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -372,7 +373,8 @@ export default function MemosPage() {
       const raw = localStorage.getItem(QUICK_DRAFT_KEY)
       if (raw) {
         const d = JSON.parse(raw) as { title: string; content: string; tag: MemoTag }
-        setNewTitle(d.title ?? ''); setNewContent(d.content ?? ''); setNewTag(d.tag ?? '업무관련')
+        const restored = d.content ?? ''
+        setNewTitle(d.title ?? ''); setNewContent(restored); newContentRef.current = restored; setNewTag(d.tag ?? '업무관련')
       }
     } catch {}
     setShowAddForm(true)
@@ -439,12 +441,14 @@ export default function MemosPage() {
 
   async function handleAddSave() {
     if (!newTitle.trim()) { setShowAddForm(false); return }
-    const { data } = await supabase.from('quick_memos')
-      .insert({ title: newTitle.trim(), content: newContent, tag: newTag })
+    const content = newContentRef.current || newContent
+    const { data, error } = await supabase.from('quick_memos')
+      .insert({ title: newTitle.trim(), content, tag: newTag })
       .select().single()
-    if (data) setMemos(prev => [data as QuickMemo, ...prev])
+    if (error || !data) return   // 에러 시 폼 유지 (입력 내용 보존)
+    setMemos(prev => [data as QuickMemo, ...prev])
     try { localStorage.removeItem(QUICK_DRAFT_KEY) } catch {}
-    setNewTitle(''); setNewContent(''); setShowAddForm(false)
+    setNewTitle(''); setNewContent(''); newContentRef.current = ''; setShowAddForm(false)
   }
 
   async function handleInlineSave(tag: MemoTag) {
@@ -600,7 +604,7 @@ export default function MemosPage() {
             <TiptapEditor
               dark
               value={newContent}
-              onChange={setNewContent}
+              onChange={html => { newContentRef.current = html; setNewContent(html) }}
               onSubmit={handleAddSave}
               minHeight={220}
               className="p-3"
