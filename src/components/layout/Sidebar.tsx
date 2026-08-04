@@ -45,12 +45,6 @@ const NAV_SECTIONS = [
   },
 ]
 
-const KEY_ROUTES: Record<string, string> = {
-  '1': '/', '2': '/project', '3': '/tasks',
-  '4': '/meetings', '5': '/schedule', '6': '/memos',
-  '7': '/one-on-one', '8': '/learning', '9': '/decisions',
-}
-
 interface SidebarProps {
   collapsed: boolean
   onToggle: () => void
@@ -130,6 +124,9 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
         items: section.items.filter(item => !hiddenMenus.includes(item.href)),
       })).filter(section => section.items.length > 0)
 
+  const visibleItemsRef = useRef(visibleSections.flatMap(s => s.items))
+  useEffect(() => { visibleItemsRef.current = visibleSections.flatMap(s => s.items) }, [visibleSections])
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || e.isComposing) return
@@ -138,8 +135,11 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
       const tag = target.tagName.toLowerCase()
       if (['input', 'textarea', 'select'].includes(tag)) return
       if (target.getAttribute('contenteditable') === 'true') return
-      const route = KEY_ROUTES[e.key]
-      if (route) { e.preventDefault(); routerRef.current.push(route) }
+      const idx = parseInt(e.key) - 1
+      if (idx >= 0 && idx <= 8) {
+        const item = visibleItemsRef.current[idx]
+        if (item) { e.preventDefault(); routerRef.current.push(item.href) }
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)

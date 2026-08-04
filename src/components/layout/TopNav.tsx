@@ -28,12 +28,6 @@ const ALL_NAV = [
   { href: '/settings',    label: '설정',     key: '',  icon: Settings },
 ]
 
-const KEY_ROUTES: Record<string, string> = {
-  '1': '/', '2': '/project', '3': '/tasks',
-  '4': '/meetings', '5': '/schedule', '6': '/memos',
-  '7': '/one-on-one', '8': '/learning', '9': '/decisions',
-}
-
 const NAV_CONFIG_KEY = 'topnav_config_v1'
 const PRIMARY_COUNT = 6
 
@@ -99,6 +93,9 @@ export default function TopNav() {
   const primaryNav = visibleItems.slice(0, PRIMARY_COUNT)
   const secondaryNav = visibleItems.slice(PRIMARY_COUNT)
 
+  const visibleItemsRef = useRef(visibleItems)
+  useEffect(() => { visibleItemsRef.current = visibleItems }, [visibleItems])
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || e.isComposing) return
@@ -107,8 +104,11 @@ export default function TopNav() {
       const tag = target.tagName.toLowerCase()
       if (['input', 'textarea', 'select'].includes(tag)) return
       if (target.getAttribute('contenteditable') === 'true') return
-      const route = KEY_ROUTES[e.key]
-      if (route) { e.preventDefault(); routerRef.current.push(route) }
+      const idx = parseInt(e.key) - 1
+      if (idx >= 0 && idx <= 8) {
+        const item = visibleItemsRef.current[idx]
+        if (item) { e.preventDefault(); routerRef.current.push(item.href) }
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
