@@ -1651,17 +1651,8 @@ export default function HomePage() {
                             )}
                           </>
                         )}
-                        {allUnscheduled.length > 0 && (allTomorrow.length > 0 || allWeek.length > 0) && (
-                          <div style={{ borderTop: `1px solid ${DIVIDER}`, margin: '10px 0 8px' }} />
-                        )}
-                        {allUnscheduled.length > 0 && (
-                          <>
-                            <GroupLabel color="#C87840" label="미진행" />
-                            {allUnscheduled.map((st, i) => <AgendaRow key={st.id} st={st} i={i} len={allUnscheduled.length} />)}
-                          </>
-                        )}
                         {futureDateGroups.map(({ date, items }, gi) => {
-                          const priorHasItems = allTomorrow.length > 0 || allWeek.length > 0 || allUnscheduled.length > 0
+                          const priorHasItems = allTomorrow.length > 0 || allWeek.length > 0
                           return (
                             <Fragment key={date}>
                               {(priorHasItems || gi > 0) && (
@@ -1672,6 +1663,15 @@ export default function HomePage() {
                             </Fragment>
                           )
                         })}
+                        {allUnscheduled.length > 0 && (
+                          <>
+                            {(allTomorrow.length > 0 || allWeek.length > 0 || futureDateGroups.length > 0) && (
+                              <div style={{ borderTop: `1px solid ${DIVIDER}`, margin: '10px 0 8px' }} />
+                            )}
+                            <GroupLabel color="#C87840" label="미진행" />
+                            {allUnscheduled.map((st, i) => <AgendaRow key={st.id} st={st} i={i} len={allUnscheduled.length} />)}
+                          </>
+                        )}
                       </>
                     )
                   })()
