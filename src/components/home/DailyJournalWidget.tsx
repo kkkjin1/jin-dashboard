@@ -249,15 +249,34 @@ const TASK_STATUS_CLS: Record<string, string> = {
 }
 
 export function JournalFullscreenEditor({ selectedDate, current, yesterday, meetings, supabaseClient, onSaved, onClose }: EditorProps) {
-  const [sections, setSections] = useState<Record<SectionKey, string>>(() => parseSections(current?.content ?? ''))
-  const [lunch, setLunch] = useState(() => {
-    const m = (current?.content ?? '').match(/점심[:\s]+([^\n]+)/)
-    return m ? m[1].trim() : ''
+  const JOURNAL_DRAFT_KEY = `journal_editor_draft_${selectedDate}`
+
+  // localStorage draft 우선 복원, 없으면 Supabase 데이터
+  const [initData] = useState(() => {
+    const fallbackContent = current?.content ?? ''
+    const fallbackSections = parseSections(fallbackContent)
+    const fallbackDraft = serializeSections(fallbackSections) || fallbackContent
+    const extractMeal = (sec: Record<SectionKey, string>) => {
+      const meal = sec.meal
+      const l = meal.match(/점심[:\s]+([^\n]+)/); const d = meal.match(/저녁[:\s]+([^\n]+)/)
+      return { lunch: l ? l[1].trim() : '', dinner: d ? d[1].trim() : '' }
+    }
+    try {
+      const s = localStorage.getItem(`journal_editor_draft_${selectedDate}`)
+      if (s) {
+        const saved = JSON.parse(s) as { draft: string }
+        if (saved.draft) {
+          const sec = parseSections(saved.draft)
+          return { draft: saved.draft, sections: sec, ...extractMeal(sec) }
+        }
+      }
+    } catch {}
+    return { draft: fallbackDraft, sections: fallbackSections, ...extractMeal(fallbackSections) }
   })
-  const [dinner, setDinner] = useState(() => {
-    const m = (current?.content ?? '').match(/저녁[:\s]+([^\n]+)/)
-    return m ? m[1].trim() : ''
-  })
+
+  const [sections, setSections] = useState<Record<SectionKey, string>>(initData.sections)
+  const [lunch, setLunch] = useState(initData.lunch)
+  const [dinner, setDinner] = useState(initData.dinner)
 
   function updateSection(key: SectionKey, value: string) {
     setSections(prev => {
@@ -281,7 +300,7 @@ export function JournalFullscreenEditor({ selectedDate, current, yesterday, meet
     })
   }
 
-  const [draft, setDraft] = useState(() => serializeSections(parseSections(current?.content ?? '')) || (current?.content ?? ''))
+  const [draft, setDraft] = useState(initData.draft)
   const [linkedMeetingIds, setLinkedMeetingIds] = useState<string[]>(current?.linked_meeting_ids ?? [])
   const [tags, setTags] = useState<string[]>(current?.tags ?? [])
   const [tagInput, setTagInput] = useState('')
@@ -292,10 +311,21 @@ export function JournalFullscreenEditor({ selectedDate, current, yesterday, meet
   const [todayCtx, setTodayCtx] = useState<TodayCtx>({ memos: [], meetings: [], oneOnOnes: [], newTasks: [], taskNotes: [] })
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const meetingSearchRef = useRef<HTMLInputElement>(null)
+  const draftTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   useEffect(() => {
     setTimeout(() => textareaRef.current?.focus(), 80)
   }, [])
+
+  // 타이핑 500ms 후 localStorage draft 저장
+  useEffect(() => {
+    if (!draft.trim()) return
+    clearTimeout(draftTimer.current)
+    draftTimer.current = setTimeout(() => {
+      try { localStorage.setItem(JOURNAL_DRAFT_KEY, JSON.stringify({ draft })) } catch {}
+    }, 500)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft])
 
   useEffect(() => {
     const dayStart = selectedDate + 'T00:00:00'
@@ -369,11 +399,11 @@ export function JournalFullscreenEditor({ selectedDate, current, yesterday, meet
     if (current) {
       const { data, error } = await supabaseClient.from('daily_journals').update(payload).eq('id', current.id).select('*').single()
       if (error) { setSaveError(error.message); setSaving(false); return }
-      if (data) onSaved(data as DailyJournal)
+      if (data) { try { localStorage.removeItem(JOURNAL_DRAFT_KEY) } catch {}; onSaved(data as DailyJournal) }
     } else {
       const { data, error } = await supabaseClient.from('daily_journals').insert({ date: selectedDate, ...payload }).select('*').single()
       if (error) { setSaveError(error.message); setSaving(false); return }
-      if (data) onSaved(data as DailyJournal)
+      if (data) { try { localStorage.removeItem(JOURNAL_DRAFT_KEY) } catch {}; onSaved(data as DailyJournal) }
     }
     setSaving(false)
   }

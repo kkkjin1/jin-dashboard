@@ -234,13 +234,30 @@ function EditModal({ memo, onSave, onAutoSave, onClose }: EditModalProps) {
   const [autoSaveStatus, setAutoSaveStatus] = useState<'saving' | 'saved' | null>(null)
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const isFirstRender = useRef(true)
+  const pendingSaveDataRef = useRef<{ title: string; content: string; tag: MemoTag } | null>(null)
+  const onAutoSaveRef = useRef(onAutoSave)
+
+  useEffect(() => { onAutoSaveRef.current = onAutoSave }, [onAutoSave])
+
+  // unmount 시 pending 저장 즉시 flush
+  useEffect(() => {
+    return () => {
+      const d = pendingSaveDataRef.current
+      if (d && d.title.trim()) {
+        onAutoSaveRef.current(memo.id, d.title, d.content, d.tag)
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     if (isFirstRender.current) { isFirstRender.current = false; return }
     if (!title.trim()) return
     setAutoSaveStatus('saving')
     clearTimeout(autoSaveTimer.current)
+    pendingSaveDataRef.current = { title, content, tag }
     autoSaveTimer.current = setTimeout(async () => {
+      pendingSaveDataRef.current = null
       await onAutoSave(memo.id, title, content, tag)
       setAutoSaveStatus('saved')
       setTimeout(() => setAutoSaveStatus(null), 2000)
