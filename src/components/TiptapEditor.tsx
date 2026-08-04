@@ -25,51 +25,148 @@ function inlineToHtml(text: string): string {
   return s
 }
 
-const NUM_RE  = /^(\d+)\.\s*(.*)$/
-const KOR_RE  = /^([가나다라마바사아자차카타파하])\.\s*(.*)$/
-const PAR_RE  = /^(\d+)\)\s*(.*)$/
-const BULL_RE = /^[▪●■]\s*(.*)$/
-const SUBB_RE = /^[▫○□]\s*(.*)$/
+const NUM_RE  = /^(\d+)\.\s+(.*)$/
+const PAR_RE  = /^(\d+)\)\s+(.*)$/
+const KOR_RE  = /^([가나다라마바사아자차카타파하])[.)]\s*(.*)$/
+const BULL_RE = /^[-*▪●■]\s+(.*)$/
+const SUBB_RE = /^[▫○□]\s+(.*)$/
+
+type LegacyKind = 'ol1' | 'ol2' | 'ul3' | 'ul4' | 'h1' | 'h2' | 'h3' | 'quote' | 'blank' | 'text'
+interface LegacyLine { kind: LegacyKind; body: string }
 
 // Convert old custom markdown → HTML for Tiptap loading
+// Hierarchy: 1. → 1) / 가. → • → ○
 function legacyToHtml(text: string): string {
   if (!text) return '<p></p>'
   if (text.trimStart().startsWith('<')) return text
-  const lines = text.split('\n')
+
+  const parsed: LegacyLine[] = text.split('\n').map(raw => {
+    const t = raw.trimStart()
+    const num  = t.match(NUM_RE)
+    const par  = t.match(PAR_RE)
+    const kor  = t.match(KOR_RE)
+    const bull = t.match(BULL_RE)
+    const subb = t.match(SUBB_RE)
+    if (num)  return { kind: 'ol1',   body: num[2] }
+    if (par)  return { kind: 'ol2',   body: par[2] }
+    if (kor)  return { kind: 'ol2',   body: kor[2] }
+    if (bull) return { kind: 'ul3',   body: bull[1] }
+    if (subb) return { kind: 'ul4',   body: subb[1] }
+    if (t.startsWith('# '))   return { kind: 'h1',    body: t.slice(2) }
+    if (t.startsWith('## '))  return { kind: 'h2',    body: t.slice(3) }
+    if (t.startsWith('### ')) return { kind: 'h3',    body: t.slice(4) }
+    if (t.startsWith('> '))   return { kind: 'quote', body: t.slice(2) }
+    if (t === '')             return { kind: 'blank',  body: '' }
+    return { kind: 'text', body: t }
+  })
+
   let html = ''
-  let inOL = false
-  let inUL = false
+  let i = 0
 
-  const closeOL = () => { if (inOL) { html += '</ol>'; inOL = false } }
-  const closeUL = () => { if (inUL) { html += '</ul>'; inUL = false } }
+  while (i < parsed.length) {
+    const item = parsed[i]
 
-  for (const line of lines) {
-    const num  = line.match(NUM_RE)
-    const kor  = line.match(KOR_RE)
-    const par  = line.match(PAR_RE)
-    const bull = line.match(BULL_RE)
-    const subb = line.match(SUBB_RE)
-
-    if (num || kor || par) {
-      closeUL()
-      if (!inOL) { html += '<ol>'; inOL = true }
-      const body = (num?.[2] ?? kor?.[2] ?? par?.[2]) ?? ''
-      html += `<li>${inlineToHtml(body)}</li>`
-    } else if (bull || subb) {
-      closeOL()
-      if (!inUL) { html += '<ul>'; inUL = true }
-      html += `<li>${inlineToHtml((bull?.[1] ?? subb?.[1]) ?? '')}</li>`
-    } else {
-      closeOL(); closeUL()
-      if (line.startsWith('# '))   html += `<h1>${inlineToHtml(line.slice(2))}</h1>`
-      else if (line.startsWith('## '))  html += `<h2>${inlineToHtml(line.slice(3))}</h2>`
-      else if (line.startsWith('### ')) html += `<h3>${inlineToHtml(line.slice(4))}</h3>`
-      else if (line.startsWith('> '))   html += `<p><strong>${inlineToHtml(line.slice(2))}</strong></p>`
-      else if (line === '')              html += '<p></p>'
-      else                               html += `<p>${inlineToHtml(line)}</p>`
-    }
+    if (item.kind === 'ol1') {
+      html += '<ol>'
+      while (i < parsed.length && ['ol1', 'ol2', 'ul3', 'ul4'].includes(parsed[i].kind)) {
+        if (parsed[i].kind === 'ol1') {
+          html += `<li>${inlineToHtml(parsed[i].body)}`
+          i++
+          // Collect sub-items belonging to this ol1 item
+          if (i < parsed.length && parsed[i].kind === 'ol2') {
+            html += '<ol>'
+            while (i < parsed.length && parsed[i].kind === 'ol2') {
+              html += `<li>${inlineToHtml(parsed[i].body)}`
+              i++
+              if (i < parsed.length && parsed[i].kind === 'ul3') {
+                html += '<ul>'
+                while (i < parsed.length && (parsed[i].kind === 'ul3' || parsed[i].kind === 'ul4')) {
+                  if (parsed[i].kind === 'ul3') {
+                    html += `<li>${inlineToHtml(parsed[i].body)}`
+                    i++
+                    if (i < parsed.length && parsed[i].kind === 'ul4') {
+                      html += '<ul>'
+                      while (i < parsed.length && parsed[i].kind === 'ul4') {
+                        html += `<li>${inlineToHtml(parsed[i].body)}</li>`
+                        i++
+                      }
+                      html += '</ul>'
+                    }
+                    html += '</li>'
+                  } else { break }
+                }
+                html += '</ul>'
+              }
+              html += '</li>'
+            }
+            html += '</ol>'
+          } else if (i < parsed.length && parsed[i].kind === 'ul3') {
+            html += '<ul>'
+            while (i < parsed.length && (parsed[i].kind === 'ul3' || parsed[i].kind === 'ul4')) {
+              if (parsed[i].kind === 'ul3') {
+                html += `<li>${inlineToHtml(parsed[i].body)}`
+                i++
+                if (i < parsed.length && parsed[i].kind === 'ul4') {
+                  html += '<ul>'
+                  while (i < parsed.length && parsed[i].kind === 'ul4') {
+                    html += `<li>${inlineToHtml(parsed[i].body)}</li>`
+                    i++
+                  }
+                  html += '</ul>'
+                }
+                html += '</li>'
+              } else { break }
+            }
+            html += '</ul>'
+          }
+          html += '</li>'
+        } else {
+          // ol2/ul3/ul4 without preceding ol1 — treat as standalone within this ol
+          html += `<li>${inlineToHtml(parsed[i].body)}</li>`
+          i++
+        }
+      }
+      html += '</ol>'
+    } else if (item.kind === 'ol2') {
+      html += '<ol>'
+      while (i < parsed.length && parsed[i].kind === 'ol2') {
+        html += `<li>${inlineToHtml(parsed[i].body)}</li>`
+        i++
+      }
+      html += '</ol>'
+    } else if (item.kind === 'ul3') {
+      html += '<ul>'
+      while (i < parsed.length && (parsed[i].kind === 'ul3' || parsed[i].kind === 'ul4')) {
+        if (parsed[i].kind === 'ul3') {
+          html += `<li>${inlineToHtml(parsed[i].body)}`
+          i++
+          if (i < parsed.length && parsed[i].kind === 'ul4') {
+            html += '<ul>'
+            while (i < parsed.length && parsed[i].kind === 'ul4') {
+              html += `<li>${inlineToHtml(parsed[i].body)}</li>`
+              i++
+            }
+            html += '</ul>'
+          }
+          html += '</li>'
+        } else { break }
+      }
+      html += '</ul>'
+    } else if (item.kind === 'ul4') {
+      html += '<ul><ul>'
+      while (i < parsed.length && parsed[i].kind === 'ul4') {
+        html += `<li>${inlineToHtml(parsed[i].body)}</li>`
+        i++
+      }
+      html += '</ul></ul>'
+    } else if (item.kind === 'h1') { html += `<h1>${inlineToHtml(item.body)}</h1>`; i++
+    } else if (item.kind === 'h2') { html += `<h2>${inlineToHtml(item.body)}</h2>`; i++
+    } else if (item.kind === 'h3') { html += `<h3>${inlineToHtml(item.body)}</h3>`; i++
+    } else if (item.kind === 'quote') { html += `<p><strong>${inlineToHtml(item.body)}</strong></p>`; i++
+    } else if (item.kind === 'blank') { html += '<p></p>'; i++
+    } else { html += `<p>${inlineToHtml(item.body)}</p>`; i++ }
   }
-  closeOL(); closeUL()
+
   return html || '<p></p>'
 }
 
