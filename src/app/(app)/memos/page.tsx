@@ -440,13 +440,9 @@ export default function MemosPage() {
   async function handleAddSave() {
     if (!newTitle.trim()) { setShowAddForm(false); return }
     const { data } = await supabase.from('quick_memos')
-      .insert({ title: newTitle.trim(), content: newContent.trim(), tag: newTag })
+      .insert({ title: newTitle.trim(), content: newContent, tag: newTag })
       .select().single()
-    if (data) {
-      const newMemo = data as QuickMemo
-      setMemos(prev => [newMemo, ...prev])
-      setEditing(newMemo)
-    }
+    if (data) setMemos(prev => [data as QuickMemo, ...prev])
     try { localStorage.removeItem(QUICK_DRAFT_KEY) } catch {}
     setNewTitle(''); setNewContent(''); setShowAddForm(false)
   }
@@ -456,11 +452,7 @@ export default function MemosPage() {
     const { data } = await supabase.from('quick_memos')
       .insert({ title: inlineTitle.trim(), content: inlineContent.trim(), tag })
       .select().single()
-    if (data) {
-      const newMemo = data as QuickMemo
-      setMemos(prev => [newMemo, ...prev])
-      setEditing(newMemo)
-    }
+    if (data) setMemos(prev => [data as QuickMemo, ...prev])
     try { localStorage.removeItem(inlineDraftKey(tag)) } catch {}
     setInlineTag(null); setInlineTitle(''); setInlineContent('')
   }
