@@ -49,7 +49,6 @@ function loadConfig(): NavConfig {
 export default function TopNav() {
   const pathname = usePathname()
   const router = useRouter()
-  const routerRef = useRef(router)
   const [moreOpen, setMoreOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const moreRef = useRef<HTMLDivElement>(null)
@@ -57,7 +56,6 @@ export default function TopNav() {
   const [dragHref, setDragHref] = useState<string | null>(null)
   const [dragOverHref, setDragOverHref] = useState<string | null>(null)
 
-  useEffect(() => { routerRef.current = router }, [router])
   useEffect(() => { setNavConfig(loadConfig()) }, [])
 
   function saveConfig(cfg: NavConfig) {
@@ -93,26 +91,6 @@ export default function TopNav() {
   const primaryNav = visibleItems.slice(0, PRIMARY_COUNT)
   const secondaryNav = visibleItems.slice(PRIMARY_COUNT)
 
-  const visibleItemsRef = useRef(visibleItems)
-  useEffect(() => { visibleItemsRef.current = visibleItems }, [visibleItems])
-
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || e.isComposing) return
-      const target = e.target as HTMLElement | null
-      if (!target) return
-      const tag = target.tagName.toLowerCase()
-      if (['input', 'textarea', 'select'].includes(tag)) return
-      if (target.getAttribute('contenteditable') === 'true') return
-      const idx = parseInt(e.key) - 1
-      if (idx >= 0 && idx <= 8) {
-        const item = visibleItemsRef.current[idx]
-        if (item) { e.preventDefault(); routerRef.current.push(item.href) }
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [])
 
   useEffect(() => {
     function onClickOutside(e: MouseEvent) {
