@@ -17,10 +17,15 @@ const TAG_COLORS: Record<MemoTag, string> = {
 
 const DRAFT_KEY = 'quick_memo_draft'
 
-function readDraft() {
+function readDraft(myWindowName: string) {
   try {
     const s = localStorage.getItem(DRAFT_KEY)
-    if (s) return JSON.parse(s) as { title: string; content: string; tag: MemoTag }
+    if (s) {
+      const d = JSON.parse(s) as { title: string; content: string; tag: MemoTag; windowName?: string }
+      // 다른 창이 저장한 draft는 복원하지 않음
+      if (d.windowName && d.windowName !== myWindowName) return null
+      return d
+    }
   } catch {}
   return null
 }
@@ -57,7 +62,7 @@ export default function QuickMemoPage() {
   useEffect(() => {
     isHolder.current = true
     setIsHolderState(true)
-    const draft = readDraft()
+    const draft = readDraft(window.name)
     if (draft) {
       setTitle(draft.title ?? '')
       setContent(draft.content ?? '')
@@ -92,7 +97,7 @@ export default function QuickMemoPage() {
   const saveDraft = useCallback((t: string, c: string, tg: MemoTag) => {
     if (!isHolder.current) return
     if (t || c) {
-      localStorage.setItem(DRAFT_KEY, JSON.stringify({ title: t, content: c, tag: tg }))
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ title: t, content: c, tag: tg, windowName: window.name }))
       setAutoSaved(true)
       setTimeout(() => setAutoSaved(false), 1500)
     } else {
