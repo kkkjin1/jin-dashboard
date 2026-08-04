@@ -130,7 +130,7 @@ export default function QuickMemoPage() {
     function convertDeepOls(node: Element, olDepth: number): void {
       for (const child of Array.from(node.children)) {
         if (child.tagName === 'OL') {
-          if (olDepth >= 2) {
+          if (olDepth >= 1) {
             const ul = doc.createElement('ul')
             while (child.firstChild) ul.appendChild(child.firstChild)
             child.replaceWith(ul)
