@@ -355,6 +355,12 @@ html, body {
 .tiptap-input ol ol ol ol { list-style: none; padding-left: 1.1rem; }
 .tiptap-input ol ol ol ol > li { counter-increment: none; }
 .tiptap-input ol ol ol ol > li::before { content: "•"; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
+.tiptap-input ol ol ul { list-style: none; padding-left: 1.1rem; }
+.tiptap-input ol ol ul > li { counter-increment: none; }
+.tiptap-input ol ol ul > li::before { content: "•"; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
+.tiptap-input ol ol ul ul { list-style: none; padding-left: 1.1rem; }
+.tiptap-input ol ol ul ul > li { counter-increment: none; }
+.tiptap-input ol ol ul ul > li::before { content: "•"; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
 .tiptap-input li > p { margin: 0; min-height: auto; }
 .tiptap-input strong { font-weight: 700; }
 .tiptap-input u { text-decoration: underline; }
@@ -382,6 +388,12 @@ html, body {
 .note-html ol ol ol ol { list-style: none; padding-left: 1.1rem; }
 .note-html ol ol ol ol > li { counter-increment: none; }
 .note-html ol ol ol ol > li::before { content: "•"; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
+.note-html ol ol ul { list-style: none; padding-left: 1.1rem; }
+.note-html ol ol ul > li { counter-increment: none; }
+.note-html ol ol ul > li::before { content: "•"; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
+.note-html ol ol ul ul { list-style: none; padding-left: 1.1rem; }
+.note-html ol ol ul ul > li { counter-increment: none; }
+.note-html ol ol ul ul > li::before { content: "•"; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
 .note-html li > p { margin: 0; }
 .note-html strong { font-weight: 700; }
 .note-html u { text-decoration: underline; }
@@ -413,6 +425,12 @@ html, body {
 .tiptap-input-dark ol ol ol ol { list-style: none; padding-left: 1.1rem; }
 .tiptap-input-dark ol ol ol ol > li { counter-increment: none; }
 .tiptap-input-dark ol ol ol ol > li::before { content: "•"; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
+.tiptap-input-dark ol ol ul { list-style: none; padding-left: 1.1rem; }
+.tiptap-input-dark ol ol ul > li { counter-increment: none; }
+.tiptap-input-dark ol ol ul > li::before { content: "•"; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
+.tiptap-input-dark ol ol ul ul { list-style: none; padding-left: 1.1rem; }
+.tiptap-input-dark ol ol ul ul > li { counter-increment: none; }
+.tiptap-input-dark ol ol ul ul > li::before { content: "•"; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
 .tiptap-input-dark li > p { margin: 0; min-height: auto; }
 .tiptap-input-dark strong { font-weight: 700; }
 .tiptap-input-dark u { text-decoration: underline; }
@@ -441,6 +459,12 @@ html, body {
 .note-html-dark ol ol ol ol { list-style: none; padding-left: 1.1rem; }
 .note-html-dark ol ol ol ol > li { counter-increment: none; }
 .note-html-dark ol ol ol ol > li::before { content: "•"; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
+.note-html-dark ol ol ul { list-style: none; padding-left: 1.1rem; }
+.note-html-dark ol ol ul > li { counter-increment: none; }
+.note-html-dark ol ol ul > li::before { content: "•"; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
+.note-html-dark ol ol ul ul { list-style: none; padding-left: 1.1rem; }
+.note-html-dark ol ol ul ul > li { counter-increment: none; }
+.note-html-dark ol ol ul ul > li::before { content: "•"; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
 .note-html-dark li > p { margin: 0; }
 .note-html-dark strong { font-weight: 700; }
 .note-html-dark u { text-decoration: underline; }
@@ -470,6 +494,12 @@ html, body {
 .md-preview ol ol ol ol { list-style: none; padding-left: 1rem; }
 .md-preview ol ol ol ol > li { counter-increment: none; }
 .md-preview ol ol ol ol > li::before { content: "•"; left: -1rem; width: 0.8rem; text-align: center; font-size: 1.5em; line-height: 1.1; top: 0; }
+.md-preview ol ol ul { list-style: none; padding-left: 1rem; }
+.md-preview ol ol ul > li { counter-increment: none; }
+.md-preview ol ol ul > li::before { content: "•"; left: -1rem; width: 0.8rem; text-align: center; font-size: 1.5em; line-height: 1.1; top: 0; }
+.md-preview ol ol ul ul { list-style: none; padding-left: 1rem; }
+.md-preview ol ol ul ul > li { counter-increment: none; }
+.md-preview ol ol ul ul > li::before { content: "•"; left: -1rem; width: 0.8rem; text-align: center; font-size: 1.5em; line-height: 1.1; top: 0; }
 .md-preview li { margin: 0.08rem 0; line-height: 1.65; }
 .md-preview li > p { margin: 0; }
 .md-preview strong { font-weight: 700; }

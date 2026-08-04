@@ -79,45 +79,45 @@ function legacyToHtml(text: string): string {
               html += `<li>${inlineToHtml(parsed[i].body)}`
               i++
               if (i < parsed.length && parsed[i].kind === 'ul3') {
-                html += '<ol>'
+                html += '<ul>'
                 while (i < parsed.length && (parsed[i].kind === 'ul3' || parsed[i].kind === 'ul4')) {
                   if (parsed[i].kind === 'ul3') {
                     html += `<li>${inlineToHtml(parsed[i].body)}`
                     i++
                     if (i < parsed.length && parsed[i].kind === 'ul4') {
-                      html += '<ol>'
+                      html += '<ul>'
                       while (i < parsed.length && parsed[i].kind === 'ul4') {
                         html += `<li>${inlineToHtml(parsed[i].body)}</li>`
                         i++
                       }
-                      html += '</ol>'
+                      html += '</ul>'
                     }
                     html += '</li>'
                   } else { break }
                 }
-                html += '</ol>'
+                html += '</ul>'
               }
               html += '</li>'
             }
             html += '</ol>'
           } else if (i < parsed.length && parsed[i].kind === 'ul3') {
-            html += '<ol>'
+            html += '<ul>'
             while (i < parsed.length && (parsed[i].kind === 'ul3' || parsed[i].kind === 'ul4')) {
               if (parsed[i].kind === 'ul3') {
                 html += `<li>${inlineToHtml(parsed[i].body)}`
                 i++
                 if (i < parsed.length && parsed[i].kind === 'ul4') {
-                  html += '<ol>'
+                  html += '<ul>'
                   while (i < parsed.length && parsed[i].kind === 'ul4') {
                     html += `<li>${inlineToHtml(parsed[i].body)}</li>`
                     i++
                   }
-                  html += '</ol>'
+                  html += '</ul>'
                 }
                 html += '</li>'
               } else { break }
             }
-            html += '</ol>'
+            html += '</ul>'
           }
           html += '</li>'
         } else {
@@ -135,30 +135,30 @@ function legacyToHtml(text: string): string {
       }
       html += '</ol>'
     } else if (item.kind === 'ul3') {
-      html += '<ol>'
+      html += '<ul>'
       while (i < parsed.length && (parsed[i].kind === 'ul3' || parsed[i].kind === 'ul4')) {
         if (parsed[i].kind === 'ul3') {
           html += `<li>${inlineToHtml(parsed[i].body)}`
           i++
           if (i < parsed.length && parsed[i].kind === 'ul4') {
-            html += '<ol>'
+            html += '<ul>'
             while (i < parsed.length && parsed[i].kind === 'ul4') {
               html += `<li>${inlineToHtml(parsed[i].body)}</li>`
               i++
             }
-            html += '</ol>'
+            html += '</ul>'
           }
           html += '</li>'
         } else { break }
       }
-      html += '</ol>'
+      html += '</ul>'
     } else if (item.kind === 'ul4') {
-      html += '<ol><ol>'
+      html += '<ul>'
       while (i < parsed.length && parsed[i].kind === 'ul4') {
         html += `<li>${inlineToHtml(parsed[i].body)}</li>`
         i++
       }
-      html += '</ol></ol>'
+      html += '</ul>'
     } else if (item.kind === 'h1') { html += `<h1>${inlineToHtml(item.body)}</h1>`; i++
     } else if (item.kind === 'h2') { html += `<h2>${inlineToHtml(item.body)}</h2>`; i++
     } else if (item.kind === 'h3') { html += `<h3>${inlineToHtml(item.body)}</h3>`; i++
