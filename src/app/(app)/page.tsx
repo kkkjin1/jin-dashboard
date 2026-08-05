@@ -844,10 +844,10 @@ export default function HomePage() {
     setHoveredStId(null)
   }
 
-  async function saveFixedMeetingMemo(schedule: MeetingSchedule, date: string = today) {
-    const text = (fMemoTexts[schedule.id] ?? '').trim()
+  async function saveFixedMeetingMemo(schedule: MeetingSchedule, date: string = today, stateKey: string = schedule.id) {
+    const text = (fMemoTexts[stateKey] ?? '').trim()
     if (!text) return
-    setFMemoSaving(p => ({ ...p, [schedule.id]: true }))
+    setFMemoSaving(p => ({ ...p, [stateKey]: true }))
     const newNote: NoteEntry = { title: '사전 메모', content: text, created_at: new Date().toISOString(), is_prep: true }
     // 해당 날짜로 같은 제목의 회의가 이미 있으면 append, 없으면 새로 생성
     const existing = meetings.find(m => m.title === schedule.title && m.meeting_date?.startsWith(date))
@@ -859,10 +859,10 @@ export default function HomePage() {
       const { data } = await sb.current.from('meetings').insert({ title: schedule.title, meeting_date: date, notes: [newNote] }).select('*').single()
       if (data) setMeetings(prev => [...prev, data as Meeting])
     }
-    setFMemoTexts(p => ({ ...p, [schedule.id]: '' }))
-    setFMemoSaving(p => ({ ...p, [schedule.id]: false }))
-    setFMemoSaved(p => ({ ...p, [schedule.id]: true }))
-    setTimeout(() => setFMemoSaved(p => ({ ...p, [schedule.id]: false })), 2500)
+    setFMemoTexts(p => ({ ...p, [stateKey]: '' }))
+    setFMemoSaving(p => ({ ...p, [stateKey]: false }))
+    setFMemoSaved(p => ({ ...p, [stateKey]: true }))
+    setTimeout(() => setFMemoSaved(p => ({ ...p, [stateKey]: false })), 2500)
   }
 
   async function handleAddMeeting(title: string, startHour: number): Promise<string | null> {
@@ -1389,10 +1389,11 @@ export default function HomePage() {
                             <span style={{ fontSize: 10.5, fontWeight: 600, color: '#5E8FBF', letterSpacing: '0.01em' }}>내일</span>
                           </div>
                           {tomorrowFixedMeetingsVisible.map((s, i) => {
-                            const isOpen = fMemoOpen[s.id] ?? false
-                            const text   = fMemoTexts[s.id] ?? ''
-                            const saving = fMemoSaving[s.id] ?? false
-                            const saved  = fMemoSaved[s.id] ?? false
+                            const tmrKey = `tmr_${s.id}`
+                            const isOpen = fMemoOpen[tmrKey] ?? false
+                            const text   = fMemoTexts[tmrKey] ?? ''
+                            const saving = fMemoSaving[tmrKey] ?? false
+                            const saved  = fMemoSaved[tmrKey] ?? false
                             const linkedMeeting = meetings.find(m => m.title === s.title && m.meeting_date?.startsWith(tomorrowStr))
                             const prepNotes = ((linkedMeeting?.notes ?? []) as NoteEntry[]).filter(n => n.is_prep)
                             return (
@@ -1409,7 +1410,7 @@ export default function HomePage() {
                                     <span style={{ fontSize: 10.5, color: '#38BE98', flexShrink: 0 }}>저장됨 ✓</span>
                                   ) : (
                                     <button
-                                      onClick={() => setFMemoOpen(p => ({ ...p, [s.id]: !p[s.id] }))}
+                                      onClick={() => setFMemoOpen(p => ({ ...p, [tmrKey]: !p[tmrKey] }))}
                                       style={{ fontSize: 11, padding: '2px 8px', borderRadius: 5, border: `1px solid ${isOpen ? 'rgba(56,190,152,0.35)' : 'rgba(255,255,255,0.08)'}`, background: isOpen ? 'rgba(56,190,152,0.12)' : 'transparent', color: isOpen ? '#38BE98' : TEXT3, cursor: 'pointer', flexShrink: 0, transition: 'all 150ms', whiteSpace: 'nowrap' }}
                                     >
                                       {prepNotes.length > 0 ? `안건 ${prepNotes.length}` : '안건'}
@@ -1436,10 +1437,10 @@ export default function HomePage() {
                                       <textarea
                                         autoFocus
                                         value={text}
-                                        onChange={e => setFMemoTexts(p => ({ ...p, [s.id]: e.target.value }))}
+                                        onChange={e => setFMemoTexts(p => ({ ...p, [tmrKey]: e.target.value }))}
                                         onKeyDown={e => {
-                                          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); saveFixedMeetingMemo(s, tomorrowStr) }
-                                          if (e.key === 'Escape') setFMemoOpen(p => ({ ...p, [s.id]: false }))
+                                          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); saveFixedMeetingMemo(s, tomorrowStr, tmrKey) }
+                                          if (e.key === 'Escape') setFMemoOpen(p => ({ ...p, [tmrKey]: false }))
                                         }}
                                         placeholder="회의 안건 메모... (Ctrl+Enter 저장)"
                                         rows={2}
@@ -1448,7 +1449,7 @@ export default function HomePage() {
                                         onBlur={e => { (e.target as HTMLTextAreaElement).style.borderColor = 'rgba(255,255,255,0.09)' }}
                                       />
                                       <button
-                                        onClick={() => saveFixedMeetingMemo(s, tomorrowStr)}
+                                        onClick={() => saveFixedMeetingMemo(s, tomorrowStr, tmrKey)}
                                         disabled={!text.trim() || saving}
                                         style={{ fontSize: 11, padding: '5px 10px', borderRadius: 6, background: text.trim() ? 'rgba(56,190,152,0.18)' : 'rgba(255,255,255,0.04)', border: `1px solid ${text.trim() ? 'rgba(56,190,152,0.35)' : 'rgba(255,255,255,0.07)'}`, color: text.trim() ? '#38BE98' : TEXT3, cursor: text.trim() ? 'pointer' : 'default', flexShrink: 0, transition: 'all 150ms' }}
                                       >
