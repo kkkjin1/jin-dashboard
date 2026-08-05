@@ -844,19 +844,19 @@ export default function HomePage() {
     setHoveredStId(null)
   }
 
-  async function saveFixedMeetingMemo(schedule: MeetingSchedule) {
+  async function saveFixedMeetingMemo(schedule: MeetingSchedule, date: string = today) {
     const text = (fMemoTexts[schedule.id] ?? '').trim()
     if (!text) return
     setFMemoSaving(p => ({ ...p, [schedule.id]: true }))
     const newNote: NoteEntry = { title: '사전 메모', content: text, created_at: new Date().toISOString(), is_prep: true }
-    // 오늘 날짜로 같은 제목의 회의가 이미 있으면 append, 없으면 새로 생성
-    const existing = meetings.find(m => m.title === schedule.title && m.meeting_date?.startsWith(today))
+    // 해당 날짜로 같은 제목의 회의가 이미 있으면 append, 없으면 새로 생성
+    const existing = meetings.find(m => m.title === schedule.title && m.meeting_date?.startsWith(date))
     if (existing) {
       const existingNotes = (existing.notes ?? []) as NoteEntry[]
       await sb.current.from('meetings').update({ notes: [...existingNotes, newNote] }).eq('id', existing.id)
       setMeetings(prev => prev.map(m => m.id === existing.id ? { ...m, notes: [...(m.notes ?? []), newNote] } : m))
     } else {
-      const { data } = await sb.current.from('meetings').insert({ title: schedule.title, meeting_date: today, notes: [newNote] }).select('*').single()
+      const { data } = await sb.current.from('meetings').insert({ title: schedule.title, meeting_date: date, notes: [newNote] }).select('*').single()
       if (data) setMeetings(prev => [...prev, data as Meeting])
     }
     setFMemoTexts(p => ({ ...p, [schedule.id]: '' }))
@@ -1388,17 +1388,78 @@ export default function HomePage() {
                             <div style={{ width: 4, height: 4, borderRadius: '50%', background: '#5E8FBF' }} />
                             <span style={{ fontSize: 10.5, fontWeight: 600, color: '#5E8FBF', letterSpacing: '0.01em' }}>내일</span>
                           </div>
-                          {tomorrowFixedMeetingsVisible.map((s, i) => (
-                            <ListRow key={s.id} style={{ ...rd(i, tomorrowFixedMeetingsVisible.length), opacity: 0.7 }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0 5px' }}>
-                                <div style={{ width: 16, height: 16, borderRadius: 4, background: 'rgba(56,190,152,0.12)', border: '1px solid rgba(56,190,152,0.22)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                  <Repeat2 size={9} strokeWidth={2.5} style={{ color: '#38BE98' }} />
+                          {tomorrowFixedMeetingsVisible.map((s, i) => {
+                            const isOpen = fMemoOpen[s.id] ?? false
+                            const text   = fMemoTexts[s.id] ?? ''
+                            const saving = fMemoSaving[s.id] ?? false
+                            const saved  = fMemoSaved[s.id] ?? false
+                            const linkedMeeting = meetings.find(m => m.title === s.title && m.meeting_date?.startsWith(tomorrowStr))
+                            const prepNotes = ((linkedMeeting?.notes ?? []) as NoteEntry[]).filter(n => n.is_prep)
+                            return (
+                              <div key={s.id} style={{ ...rd(i, tomorrowFixedMeetingsVisible.length), paddingBottom: 2, opacity: 0.75 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0 5px' }}>
+                                  <div style={{ width: 16, height: 16, borderRadius: 4, background: 'rgba(56,190,152,0.12)', border: '1px solid rgba(56,190,152,0.22)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                    <Repeat2 size={9} strokeWidth={2.5} style={{ color: '#38BE98' }} />
+                                  </div>
+                                  <div style={{ flex: 1, minWidth: 0 }}>
+                                    <p style={{ fontSize: 14, fontWeight: 500, color: TEXT2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.title}</p>
+                                  </div>
+                                  <span style={{ fontSize: 11, color: TEXT3, flexShrink: 0, fontVariantNumeric: 'tabular-nums', marginRight: 6 }}>{s.time}</span>
+                                  {saved ? (
+                                    <span style={{ fontSize: 10.5, color: '#38BE98', flexShrink: 0 }}>저장됨 ✓</span>
+                                  ) : (
+                                    <button
+                                      onClick={() => setFMemoOpen(p => ({ ...p, [s.id]: !p[s.id] }))}
+                                      style={{ fontSize: 11, padding: '2px 8px', borderRadius: 5, border: `1px solid ${isOpen ? 'rgba(56,190,152,0.35)' : 'rgba(255,255,255,0.08)'}`, background: isOpen ? 'rgba(56,190,152,0.12)' : 'transparent', color: isOpen ? '#38BE98' : TEXT3, cursor: 'pointer', flexShrink: 0, transition: 'all 150ms', whiteSpace: 'nowrap' }}
+                                    >
+                                      {prepNotes.length > 0 ? `안건 ${prepNotes.length}` : '안건'}
+                                    </button>
+                                  )}
                                 </div>
-                                <p style={{ fontSize: 14, fontWeight: 500, color: TEXT2, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.title}</p>
-                                <span style={{ fontSize: 11, color: TEXT3, flexShrink: 0, fontVariantNumeric: 'tabular-nums', marginRight: 6 }}>{s.time}</span>
+                                {prepNotes.length > 0 && !isOpen && (
+                                  <div style={{ marginLeft: 26, marginBottom: 5 }}>
+                                    {prepNotes.slice(-3).map((n: NoteEntry, ni: number) => (
+                                      <p key={ni} style={{ fontSize: 11.5, color: TEXT3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.6 }}>· {n.content}</p>
+                                    ))}
+                                  </div>
+                                )}
+                                {isOpen && (
+                                  <div style={{ marginLeft: 26, marginBottom: 7 }}>
+                                    {prepNotes.length > 0 && (
+                                      <div style={{ marginBottom: 6 }}>
+                                        {prepNotes.map((n: NoteEntry, ni: number) => (
+                                          <p key={ni} style={{ fontSize: 11.5, color: TEXT3, lineHeight: 1.6 }}>· {n.content}</p>
+                                        ))}
+                                      </div>
+                                    )}
+                                    <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+                                      <textarea
+                                        autoFocus
+                                        value={text}
+                                        onChange={e => setFMemoTexts(p => ({ ...p, [s.id]: e.target.value }))}
+                                        onKeyDown={e => {
+                                          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); saveFixedMeetingMemo(s, tomorrowStr) }
+                                          if (e.key === 'Escape') setFMemoOpen(p => ({ ...p, [s.id]: false }))
+                                        }}
+                                        placeholder="회의 안건 메모... (Ctrl+Enter 저장)"
+                                        rows={2}
+                                        style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 7, padding: '6px 9px', fontSize: 12.5, color: TEXT1, resize: 'none', outline: 'none', lineHeight: 1.55, fontFamily: 'inherit', transition: 'border-color 150ms' }}
+                                        onFocus={e => { (e.target as HTMLTextAreaElement).style.borderColor = 'rgba(56,190,152,0.40)' }}
+                                        onBlur={e => { (e.target as HTMLTextAreaElement).style.borderColor = 'rgba(255,255,255,0.09)' }}
+                                      />
+                                      <button
+                                        onClick={() => saveFixedMeetingMemo(s, tomorrowStr)}
+                                        disabled={!text.trim() || saving}
+                                        style={{ fontSize: 11, padding: '5px 10px', borderRadius: 6, background: text.trim() ? 'rgba(56,190,152,0.18)' : 'rgba(255,255,255,0.04)', border: `1px solid ${text.trim() ? 'rgba(56,190,152,0.35)' : 'rgba(255,255,255,0.07)'}`, color: text.trim() ? '#38BE98' : TEXT3, cursor: text.trim() ? 'pointer' : 'default', flexShrink: 0, transition: 'all 150ms' }}
+                                      >
+                                        {saving ? '…' : '저장'}
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
                               </div>
-                            </ListRow>
-                          ))}
+                            )
+                          })}
                           {tomorrowFixedMeetingsVisible.length > 0 && tomorrowAgendaItems.length > 0 && (
                             <div style={{ borderTop: `1px solid ${DIVIDER}`, margin: '2px 0 4px' }} />
                           )}
