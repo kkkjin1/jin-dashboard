@@ -605,8 +605,8 @@ export default function MeetingDetailPage() {
 
           {/* 📌 사전 메모 (홈탭에서 연동된 경우) */}
           {meeting.notes.some(n => n.is_prep) && (
-            <div className="mb-4 bg-amber-50 border border-amber-200/60 rounded-xl p-4">
-              <p className="text-[11px] font-semibold text-amber-700 mb-2">📌 사전 메모</p>
+            <div className="mb-4 bg-[rgba(200,120,40,0.08)] border border-[rgba(200,120,40,0.2)] rounded-xl p-4">
+              <p className="text-[11px] font-semibold text-amber-400 mb-2">📌 사전 메모</p>
               {meeting.notes.filter(n => n.is_prep).map((n, i) => (
                 <div key={i}>
                   <p className="text-sm text-[rgba(226,232,240,0.8)] leading-relaxed whitespace-pre-wrap">{n.content}</p>
