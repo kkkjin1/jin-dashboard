@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import { fetchAllTasks, fetchMembers } from '@/lib/tasks'
 import { useUserSetting } from '@/hooks/useUserSetting'
 import { useOrgData } from '@/hooks/useOrgData'
-import type { Task, Member, TaskStatus, Meeting } from '@/types'
+import type { Task, Member, TaskStatus, Meeting, NoteEntry } from '@/types'
 import { CATEGORY_PALETTE, MEETING_CATEGORY, type CategoryColorKey, colorKeyFromName } from '@/lib/categoryColors'
 import { GlassSelect } from '@/components/ui/GlassSelect'
 
@@ -55,7 +55,7 @@ interface ScheduledOneOnOne {
 export default function SchedulePage() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [members, setMembers] = useState<Member[]>([])
-  const [meetings, setMeetings] = useState<Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>[]>([])
+  const [meetings, setMeetings] = useState<Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category' | 'notes'>[]>([])
   const [scheduledTodos, setScheduledTodos] = useState<ScheduledTodo[]>([])
   const [current, setCurrent] = useState(new Date())
   const [selectedDay, setSelectedDay] = useState<Date | null>(null)
@@ -134,6 +134,33 @@ export default function SchedulePage() {
     setEditingId(null)
   }
 
+  // 안건 사전 메모 상태 (key: `${scheduleId}_${dateStr}`)
+  const [fixedMemoOpen,   setFixedMemoOpen]   = useState<Record<string, boolean>>({})
+  const [fixedMemoText,   setFixedMemoText]   = useState<Record<string, string>>({})
+  const [fixedMemoSaving, setFixedMemoSaving] = useState<Record<string, boolean>>({})
+  const [fixedMemoSaved,  setFixedMemoSaved]  = useState<Record<string, boolean>>({})
+
+  async function saveScheduleFixedMemo(schedule: MeetingSchedule, dateStr: string) {
+    const key = `${schedule.id}_${dateStr}`
+    const text = (fixedMemoText[key] ?? '').trim()
+    if (!text) return
+    setFixedMemoSaving(p => ({ ...p, [key]: true }))
+    const newNote: NoteEntry = { title: '사전 메모', content: text, created_at: new Date().toISOString(), is_prep: true }
+    const existing = meetings.find(m => m.title === schedule.title && m.meeting_date?.startsWith(dateStr))
+    if (existing) {
+      const prev = (existing.notes ?? []) as NoteEntry[]
+      await supabase.from('meetings').update({ notes: [...prev, newNote] }).eq('id', existing.id)
+      setMeetings(ms => ms.map(m => m.id === existing.id ? { ...m, notes: [...(m.notes ?? []), newNote] } : m))
+    } else {
+      const { data } = await supabase.from('meetings').insert({ title: schedule.title, meeting_date: dateStr, notes: [newNote] }).select('id, title, meeting_date, category, notes').single()
+      if (data) setMeetings(ms => [...ms, data as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category' | 'notes'>])
+    }
+    setFixedMemoText(p => ({ ...p, [key]: '' }))
+    setFixedMemoSaving(p => ({ ...p, [key]: false }))
+    setFixedMemoSaved(p => ({ ...p, [key]: true }))
+    setTimeout(() => setFixedMemoSaved(p => ({ ...p, [key]: false })), 2500)
+  }
+
   function toggleEditDow(d: number) {
     setEditForm(prev => ({
       ...prev,
@@ -157,7 +184,7 @@ export default function SchedulePage() {
     Promise.all([
       fetchAllTasks(),
       fetchMembers(),
-      supabase.from('meetings').select('id, title, meeting_date, category').not('meeting_date', 'is', null),
+      supabase.from('meetings').select('id, title, meeting_date, category, notes').not('meeting_date', 'is', null),
       supabase.from('task_todos').select('*, tasks(id, title, short_name, part)').eq('done', false).limit(500),
       supabase.from('agenda_sub_tasks').select('id, title, target_date, agenda_items(id, title, agenda_groups(category))').not('target_date', 'is', null).neq('status', 'done'),
     ]).then(([t, m, { data: mtgs, error: mtgErr }, { data: allTodos, error: todosErr }, { data: subTaskData, error: stErr }]) => {
@@ -165,7 +192,7 @@ export default function SchedulePage() {
       if (todosErr) console.error('[schedule] todos error:', todosErr)
       if (stErr) console.error('[schedule] subtasks error:', stErr)
       setTasks(t); setMembers(m)
-      setMeetings((mtgs ?? []) as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>[])
+      setMeetings((mtgs ?? []) as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category' | 'notes'>[])
       // task_todos
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const todoItems: ScheduledTodo[] = (allTodos ?? [])
@@ -236,7 +263,7 @@ export default function SchedulePage() {
 
   useEffect(() => {
     function onMeetingCreated(e: Event) {
-      const m = (e as CustomEvent).detail as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>
+      const m = (e as CustomEvent).detail as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category' | 'notes'>
       if (m?.meeting_date) setMeetings(prev => [...prev, m])
     }
     window.addEventListener('quick-meeting-created', onMeetingCreated)
@@ -968,14 +995,66 @@ export default function SchedulePage() {
                   ))}
                   {selectedDayFixedMeetings
                     .filter(s => !selectedDayMeetings.some(m => m.title === s.title))
-                    .map(s => (
-                    <div key={`fixed-panel-${s.id}`}
-                      className="flex items-center gap-2 py-2 px-1 rounded-lg">
-                      <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: '#6EE7B7' }} />
-                      {s.time && <span className="text-[10px] font-mono text-emerald-400 flex-shrink-0">{s.time}</span>}
-                      <span className="text-[12px] text-[rgba(226,232,240,0.85)] truncate flex-1">{s.title}</span>
-                    </div>
-                  ))}
+                    .map(s => {
+                      const dateStr = format(selectedDay!, 'yyyy-MM-dd')
+                      const key = `${s.id}_${dateStr}`
+                      const isOpen = fixedMemoOpen[key] ?? false
+                      const text   = fixedMemoText[key] ?? ''
+                      const saving = fixedMemoSaving[key] ?? false
+                      const saved  = fixedMemoSaved[key] ?? false
+                      const linked = meetings.find(m => m.title === s.title && m.meeting_date?.startsWith(dateStr))
+                      const prepNotes = ((linked?.notes ?? []) as NoteEntry[]).filter(n => n.is_prep)
+                      return (
+                        <div key={`fixed-panel-${s.id}`} className="px-1 pb-1">
+                          <div className="flex items-center gap-2 py-2">
+                            <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: '#6EE7B7' }} />
+                            {s.time && <span className="text-[10px] font-mono text-emerald-400 flex-shrink-0">{s.time}</span>}
+                            <span className="text-[12px] text-[rgba(226,232,240,0.85)] truncate flex-1">{s.title}</span>
+                            {saved ? (
+                              <span className="text-[10px] text-emerald-400 flex-shrink-0">저장됨 ✓</span>
+                            ) : (
+                              <button
+                                onClick={() => setFixedMemoOpen(p => ({ ...p, [key]: !p[key] }))}
+                                className="text-[10px] px-2 py-0.5 rounded flex-shrink-0 transition-all"
+                                style={{ border: `1px solid ${isOpen ? 'rgba(56,190,152,0.35)' : 'rgba(255,255,255,0.1)'}`, background: isOpen ? 'rgba(56,190,152,0.12)' : 'transparent', color: isOpen ? '#6EE7B7' : 'rgba(226,232,240,0.4)' }}>
+                                {prepNotes.length > 0 ? `안건 ${prepNotes.length}` : '안건'}
+                              </button>
+                            )}
+                          </div>
+                          {prepNotes.length > 0 && !isOpen && (
+                            <div className="ml-5 mb-1.5 space-y-0.5">
+                              {prepNotes.slice(-3).map((n, ni) => (
+                                <p key={ni} className="text-[11px] text-[rgba(226,232,240,0.4)] truncate">· {n.content}</p>
+                              ))}
+                            </div>
+                          )}
+                          {isOpen && (
+                            <div className="ml-5 mb-2 flex gap-2">
+                              <textarea
+                                autoFocus
+                                value={text}
+                                onChange={e => setFixedMemoText(p => ({ ...p, [key]: e.target.value }))}
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); saveScheduleFixedMemo(s, dateStr) }
+                                  if (e.key === 'Escape') setFixedMemoOpen(p => ({ ...p, [key]: false }))
+                                }}
+                                placeholder="회의 안건 메모... (Ctrl+Enter)"
+                                rows={2}
+                                className="flex-1 text-[12px] bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.09)] rounded-lg px-2.5 py-1.5 text-[rgba(226,232,240,0.85)] resize-none outline-none placeholder:text-[rgba(226,232,240,0.25)]"
+                                style={{ fontFamily: 'inherit', lineHeight: 1.5 }}
+                              />
+                              <button
+                                onClick={() => saveScheduleFixedMemo(s, dateStr)}
+                                disabled={!text.trim() || saving}
+                                className="text-[11px] px-3 py-1 rounded-lg self-end transition-all"
+                                style={{ background: text.trim() ? 'rgba(56,190,152,0.16)' : 'rgba(255,255,255,0.04)', border: `1px solid ${text.trim() ? 'rgba(56,190,152,0.3)' : 'rgba(255,255,255,0.07)'}`, color: text.trim() ? '#6EE7B7' : 'rgba(226,232,240,0.3)', cursor: text.trim() ? 'pointer' : 'default' }}>
+                                {saving ? '…' : '저장'}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
                 </div>
               )}
             </div>
