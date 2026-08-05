@@ -897,7 +897,12 @@ export default function HomePage() {
   const tomorrowFixedMeetingsVisible = fixedSchedules
     .filter(s => s.is_recurring ? (s.days_of_week ?? []).includes(tomorrowDow) : s.date === tomorrowStr)
     .sort((a, b) => a.time.localeCompare(b.time))
-    .filter(s => !meetings.some(m => m.title === s.title && m.meeting_date?.startsWith(tomorrowStr)))
+    .filter(s => {
+      const linked = meetings.find(m => m.title === s.title && m.meeting_date?.startsWith(tomorrowStr))
+      if (!linked) return true
+      // prep-note 전용 레코드(사전 안건만 있는 경우)는 중복 취급하지 않음
+      return !((linked.notes ?? []) as NoteEntry[]).some(n => !n.is_prep)
+    })
 
   // agenda_sub_tasks → date-based derived lists
   const todayAgendaItems       = subTasks.filter(st => st.target_date === today)
