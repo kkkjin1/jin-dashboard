@@ -639,6 +639,7 @@ export default function HomePage() {
   const [stCols,        setStCols]        = useState<[number, number, number, number, number]>([56, 160, 72, 64, 100])
   const [stSort,        setStSort]        = useState<{ col: string; dir: 'asc' | 'desc' } | null>({ col: '업데이트', dir: 'desc' })
   const [stRowH,        setStRowH]        = useState(40)
+  const [isCompact,     setIsCompact]     = useState(false)
   const stScrollRef = useRef<HTMLDivElement>(null)
   const stColsRef = useRef(stCols)
   stColsRef.current = stCols   // always fresh — reads latest value at drag start
@@ -657,6 +658,13 @@ export default function HomePage() {
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 60_000)
     return () => clearInterval(id)
+  }, [])
+
+  useEffect(() => {
+    const check = () => setIsCompact(window.innerWidth < 1600)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
   }, [])
 
   useEffect(() => {
@@ -715,12 +723,12 @@ export default function HomePage() {
   useEffect(() => {
     const el = stScrollRef.current
     if (!el) return
-    const update = () => setStRowH(Math.floor(el.clientHeight / 8))
+    const update = () => setStRowH(Math.floor(el.clientHeight / (isCompact ? 6 : 8)))
     update()
     const ro = new ResizeObserver(update)
     ro.observe(el)
     return () => ro.disconnect()
-  }, [subTasks, loading])
+  }, [subTasks, loading, isCompact])
 
   function startStColResize(ci: number, startX: number) {
     const startWidths = stColsRef.current.slice() as [number, number, number, number, number]
@@ -885,6 +893,11 @@ export default function HomePage() {
   const fridayDate   = new Date(now); fridayDate.setDate(now.getDate() + (5 - now.getDay() + 7) % 7)
   const tomorrowStr  = `${tomorrowDate.getFullYear()}-${_pad(tomorrowDate.getMonth()+1)}-${_pad(tomorrowDate.getDate())}`
   const fridayStr    = `${fridayDate.getFullYear()}-${_pad(fridayDate.getMonth()+1)}-${_pad(fridayDate.getDate())}`
+  const tomorrowDow  = tomorrowDate.getDay()
+  const tomorrowFixedMeetingsVisible = fixedSchedules
+    .filter(s => s.is_recurring ? (s.days_of_week ?? []).includes(tomorrowDow) : s.date === tomorrowStr)
+    .sort((a, b) => a.time.localeCompare(b.time))
+    .filter(s => !meetings.some(m => m.title === s.title && m.meeting_date?.startsWith(tomorrowStr)))
 
   // agenda_sub_tasks → date-based derived lists
   const todayAgendaItems       = subTasks.filter(st => st.target_date === today)
@@ -1086,7 +1099,7 @@ export default function HomePage() {
           <DualLaneTimeline meetings={todayMeetings} todos={todayTodos} now={now} onAdd={handleAddMeeting} fixedMeetings={todayFixedMeetingsVisible} />
 
           {/* Rows 2 + 3 — 단일 3열 그리드, 열 정렬 보장 */}
-          <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gridTemplateRows: '1.15fr 0.85fr', columnGap: 12, rowGap: 14 }}>
+          <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gridTemplateRows: isCompact ? '0.9fr 1.1fr' : '1.15fr 0.85fr', columnGap: 12, rowGap: 14 }}>
 
           {/* Row 2 — display:contents로 자식들이 바깥 그리드 직접 참여 */}
           <div style={{ display: 'contents' }}>
@@ -1191,7 +1204,7 @@ export default function HomePage() {
                                 {/* 안건 */}
                                 <div style={{ textAlign: 'center', paddingLeft: 8 }}>
                                   {st.agenda_items ? (
-                                    <span style={{ fontSize: 11, fontWeight: 500, color: TEXT2, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    <span style={{ fontSize: isCompact ? 10 : 11, fontWeight: 500, color: TEXT2, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                       {st.agenda_items.title}
                                     </span>
                                   ) : <span style={{ color: TEXT3, fontSize: 10 }}>—</span>}
@@ -1199,23 +1212,23 @@ export default function HomePage() {
                                 {/* 상세TASK */}
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, paddingLeft: 10, overflow: 'hidden' }}>
                                   <div style={{ width: 5, height: 5, borderRadius: '50%', background: gc, flexShrink: 0, opacity: 0.9 }} />
-                                  <span style={{ fontSize: 13.5, fontWeight: 500, color: TEXT1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: '1 1 0', minWidth: 0 }}>{st.title}</span>
+                                  <span style={{ fontSize: isCompact ? 12 : 13.5, fontWeight: 500, color: TEXT1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: '1 1 0', minWidth: 0 }}>{st.title}</span>
                                 </div>
                                 {/* 업데이트 내용 */}
                                 <div style={{ paddingLeft: 10, overflow: 'hidden' }}>
-                                  <span style={{ fontSize: 11, color: TEXT3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>
+                                  <span style={{ fontSize: isCompact ? 10 : 11, color: TEXT3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>
                                     {latestNoteContent(st) || '—'}
                                   </span>
                                 </div>
                                 {/* 업데이트 */}
                                 <div style={{ textAlign: 'center' }}>
-                                  <span style={{ fontSize: 11, color: TEXT3, whiteSpace: 'nowrap' }}>
+                                  <span style={{ fontSize: isCompact ? 10 : 11, color: TEXT3, whiteSpace: 'nowrap' }}>
                                     {(() => { try { const d = latestNoteDate(st); return d ? format(parseISO(d), 'yyyy.MM.dd') : '—' } catch { return '—' } })()}
                                   </span>
                                 </div>
                                 {/* 마감 */}
                                 <div style={{ textAlign: 'center' }}>
-                                  <span style={{ fontSize: 11, color: TEXT3, whiteSpace: 'nowrap' }}>
+                                  <span style={{ fontSize: isCompact ? 10 : 11, color: TEXT3, whiteSpace: 'nowrap' }}>
                                     {fmtDate(st.target_date ?? st.due_date ?? '') || '—'}
                                   </span>
                                 </div>
@@ -1365,8 +1378,8 @@ export default function HomePage() {
                           </ListRow>
                         )
                       })}
-                      {/* ── 내일 상세task (체크박스 없음, dimmed, hover 시 날짜변경) ── */}
-                      {tomorrowAgendaItems.length > 0 && (
+                      {/* ── 내일 (고정회의 + 상세task, dimmed) ── */}
+                      {(tomorrowAgendaItems.length > 0 || tomorrowFixedMeetingsVisible.length > 0) && (
                         <>
                           {(todayTodos.length > 0 || todayAgendaItems.length > 0) && (
                             <div style={{ borderTop: `1px solid ${DIVIDER}`, margin: '4px 0 6px' }} />
@@ -1375,6 +1388,20 @@ export default function HomePage() {
                             <div style={{ width: 4, height: 4, borderRadius: '50%', background: '#5E8FBF' }} />
                             <span style={{ fontSize: 10.5, fontWeight: 600, color: '#5E8FBF', letterSpacing: '0.01em' }}>내일</span>
                           </div>
+                          {tomorrowFixedMeetingsVisible.map((s, i) => (
+                            <ListRow key={s.id} style={{ ...rd(i, tomorrowFixedMeetingsVisible.length), opacity: 0.7 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0 5px' }}>
+                                <div style={{ width: 16, height: 16, borderRadius: 4, background: 'rgba(56,190,152,0.12)', border: '1px solid rgba(56,190,152,0.22)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                  <Repeat2 size={9} strokeWidth={2.5} style={{ color: '#38BE98' }} />
+                                </div>
+                                <p style={{ fontSize: 14, fontWeight: 500, color: TEXT2, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.title}</p>
+                                <span style={{ fontSize: 11, color: TEXT3, flexShrink: 0, fontVariantNumeric: 'tabular-nums', marginRight: 6 }}>{s.time}</span>
+                              </div>
+                            </ListRow>
+                          ))}
+                          {tomorrowFixedMeetingsVisible.length > 0 && tomorrowAgendaItems.length > 0 && (
+                            <div style={{ borderTop: `1px solid ${DIVIDER}`, margin: '2px 0 4px' }} />
+                          )}
                           {tomorrowAgendaItems.map((st, i) => {
                             const gc = st.agenda_items?.agenda_groups?.color ?? TEXT3
                             const hovered = hoveredStId === st.id
@@ -1445,9 +1472,9 @@ export default function HomePage() {
                           onDragStart={e => { e.dataTransfer.setData('tl-extra', JSON.stringify({ id: `memo_${memo.id}`, title: memo.title, subtitle: memo.tag })); e.dataTransfer.effectAllowed = 'copy' }}
                           onClick={() => setMemoViewId(memo.id)}
                           style={{ ...rd(i, memos.length) }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '8px 0' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: isCompact ? '6px 0' : '8px 0' }}>
                             <div style={{ width: 6, height: 6, borderRadius: '50%', background: dotColor, flexShrink: 0, boxShadow: `0 0 5px ${dotColor}80` }} />
-                            <span style={{ fontSize: 13.5, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: TEXT1, fontWeight: 500 }}>{memo.title}</span>
+                            <span style={{ fontSize: isCompact ? 12 : 13.5, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: TEXT1, fontWeight: 500 }}>{memo.title}</span>
                             <span style={{ fontSize: 10.5, color: TEXT3, flexShrink: 0 }}>{fmtDate(memo.created_at)}</span>
                           </div>
                         </ListRow>
@@ -1471,9 +1498,9 @@ export default function HomePage() {
                           draggable
                           onDragStart={e => { e.dataTransfer.setData('tl-extra', JSON.stringify({ id: `meeting_${m.id}`, title: m.title, subtitle: fmtDate(m.meeting_date) })); e.dataTransfer.effectAllowed = 'copy' }}
                           style={{ ...rd(i, recentMeetings.length) }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '9px 0' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: isCompact ? '6px 0' : '9px 0' }}>
                             <div style={{ width: 6, height: 6, borderRadius: '50%', background: dots[i % 4], flexShrink: 0, boxShadow: `0 0 5px ${dots[i % 4]}80` }} />
-                            <span style={{ fontSize: 13.5, fontWeight: 500, color: TEXT1, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.title}</span>
+                            <span style={{ fontSize: isCompact ? 12 : 13.5, fontWeight: 500, color: TEXT1, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.title}</span>
                             <span style={{ fontSize: 10.5, color: TEXT3, flexShrink: 0, whiteSpace: 'nowrap' }}>{fmtDate(m.meeting_date)}</span>
                           </div>
                         </ListRow>
@@ -1536,9 +1563,9 @@ export default function HomePage() {
                           draggable
                           onDragStart={e => { e.dataTransfer.setData('tl-extra', JSON.stringify({ id: `todo_${t.id}`, title: t.title, subtitle: t.tasks?.short_name ?? t.tasks?.title ?? '' })); e.dataTransfer.effectAllowed = 'copy' }}
                           style={{ ...rd(i, len) }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minHeight: 34 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minHeight: isCompact ? 26 : 34 }}>
                             <div style={{ width: 5, height: 5, borderRadius: 1.5, background: dc, flexShrink: 0, opacity: 0.85 }} />
-                            <span style={{ fontSize: 13, fontWeight: 500, color: TEXT1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>{t.title}</span>
+                            <span style={{ fontSize: isCompact ? 12 : 13, fontWeight: 500, color: TEXT1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>{t.title}</span>
                             {t.tasks && <span style={{ fontSize: 10.5, color: TEXT3, flexShrink: 0, whiteSpace: 'nowrap', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.tasks.short_name ?? t.tasks.title}</span>}
                           </div>
                         </ListRow>
@@ -1563,9 +1590,9 @@ export default function HomePage() {
                           onMouseEnter={() => setHoveredStId(st.id)}
                           onMouseLeave={() => { if (datePickerStId !== st.id) setHoveredStId(null) }}
                           style={{ ...rd(i, len) }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minHeight: 34 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minHeight: isCompact ? 26 : 34 }}>
                             <div style={{ width: 5, height: 5, borderRadius: 2, background: gc, flexShrink: 0, opacity: 0.85 }} />
-                            <span style={{ fontSize: 13, fontWeight: 500, color: TEXT1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>{st.title}</span>
+                            <span style={{ fontSize: isCompact ? 12 : 13, fontWeight: 500, color: TEXT1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>{st.title}</span>
                             {!hovered && st.agenda_items && <span style={{ fontSize: 10.5, color: TEXT3, flexShrink: 0, whiteSpace: 'nowrap', maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis' }}>{st.agenda_items.title}</span>}
                             {hovered && !showPicker && (
                               <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
