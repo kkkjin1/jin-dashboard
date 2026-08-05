@@ -647,8 +647,7 @@ export default function HomePage() {
   const searchInputRef  = useRef<HTMLInputElement>(null)
 
   const [subTasks,      setSubTasks]      = useState<SubTaskWithContext[]>([])
-  const [todayTodos,    setTodayTodos]    = useState<TodayTodo[]>([])
-  const [weekTodos,     setWeekTodos]     = useState<TodayTodo[]>([])
+  const [allTaskTodos,  setAllTaskTodos]  = useState<TodayTodo[]>([])
   const [meetings,      setMeetings]      = useState<Meeting[]>([])
   const [memos,         setMemos]         = useState<QuickMemo[]>([])
   const [todayJournal,  setTodayJournal]  = useState<DailyJournal | null>(null)
@@ -673,20 +672,19 @@ export default function HomePage() {
       const today     = todayStr()
       const yesterday = yesterdayStr()
       const [
-        { data: stData }, { data: tdData }, { data: wkData },
+        { data: stData }, { data: taskTodoData },
         { data: mData },  { data: mmData }, { data: jData },
       ] = await Promise.all([
         sb.current.from('agenda_sub_tasks').select('*, agenda_items(id, title, agenda_groups(name, color, category)), sub_task_notes(created_at, edited_at, content)').eq('status', 'active').order('sort_order').limit(100),
-        sb.current.from('task_todos').select('*, tasks(id, title, short_name, part)').eq('schedule_tag', 'today').eq('done', false).order('sort_order').limit(15),
-        sb.current.from('task_todos').select('*, tasks(id, title, short_name, part)').in('schedule_tag', ['tomorrow', 'this_week']).eq('done', false).order('sort_order').limit(30),
+        // schedule_tag는 배정 시점의 스냅샷이라 자정이 지나도 갱신되지 않음 — target_date를 기준으로 오늘/금주 분류
+        sb.current.from('task_todos').select('*, tasks(id, title, short_name, part)').eq('done', false).order('sort_order').limit(60),
         sb.current.from('meetings').select('*').order('meeting_date', { ascending: false }).limit(20),
         sb.current.from('quick_memos').select('*').order('created_at', { ascending: false }).limit(100),
         sb.current.from('daily_journals').select('id, date, content, linked_task_ids, linked_meeting_ids, tags').in('date', [today, yesterday]),
       ])
 
       setSubTasks((stData ?? []) as SubTaskWithContext[])
-      setTodayTodos((tdData ?? []) as TodayTodo[])
-      setWeekTodos((wkData ?? []) as TodayTodo[])
+      setAllTaskTodos((taskTodoData ?? []) as TodayTodo[])
       setMeetings((mData ?? []) as Meeting[])
       setMemos((mmData ?? []) as QuickMemo[])
       const jList = (jData ?? []) as DailyJournal[]
@@ -829,7 +827,7 @@ export default function HomePage() {
     setDoneTasks(p => [...p, id])
     await sb.current.from('task_todos').update({ done: true }).eq('id', id)
     // 애니메이션 후 목록에서 제거
-    setTimeout(() => setTodayTodos(p => p.filter(t => t.id !== id)), 600)
+    setTimeout(() => setAllTaskTodos(p => p.filter(t => t.id !== id)), 600)
   }
 
   async function completeSubTask(id: string) {
@@ -912,10 +910,16 @@ export default function HomePage() {
   const unscheduledAgendaItems = subTasks.filter(st => !st.target_date)
   const futureAgendaItems      = subTasks.filter(st => st.target_date && st.target_date > fridayStr)
 
+  // task_todos → target_date 기준 분류 (schedule_tag는 배정 시점 스냅샷이라 자정 경과 후에도 안 바뀜 → 신뢰하지 않음)
+  const todayTodos = allTaskTodos.filter(t => t.target_date ? t.target_date === today : t.schedule_tag === 'today')
+  const weekTodos  = allTaskTodos.filter(t => t.target_date
+    ? t.target_date > today
+    : (t.schedule_tag === 'tomorrow' || t.schedule_tag === 'this_week'))
+
   const filteredWeek = weekFilter === 'all'
     ? weekTodos
     : weekFilter === 'week'
-      ? weekTodos.filter(t => t.schedule_tag === 'this_week')
+      ? weekTodos.filter(t => t.target_date ? t.target_date > tomorrowStr : t.schedule_tag === 'this_week')
       : []
   const meetingsForJournal = meetings.map(m => ({ id: m.id, title: m.title, meeting_date: m.meeting_date ?? undefined }))
 

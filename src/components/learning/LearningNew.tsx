@@ -70,9 +70,10 @@ export default function LearningNew() {
     const title = addTitle.trim()
     if (!title) { setAdding(false); return }
     const initTags = addTag && addTag !== '미분류' ? [addTag] : []
-    const { data } = await supabase.from('learning_resources')
-      .insert({ title, source: addSource.trim() || null, notes: [], tags: initTags })
+    const { data, error } = await supabase.from('learning_resources')
+      .insert({ title, source: addSource.trim(), notes: [], tags: initTags })
       .select().single()
+    if (error) { console.error('학습자료 추가 실패:', error.message); return }
     if (data) setResources(prev => [data as LearningResource, ...prev])
     setAdding(false); setAddTitle(''); setAddSource(''); setAddTag('')
   }
@@ -106,6 +107,7 @@ export default function LearningNew() {
 
   // ── 카테고리별 그룹 ────────────────────────────────────
   const allTags = [...customTags, '미분류']
+  const hasActiveFilter = search.trim() !== '' || statusFilter !== '전체' || mediaFilter !== '전체'
   const groups = useMemo(() => {
     const map = new Map<string, LearningResource[]>()
     allTags.forEach(t => map.set(t, []))
@@ -115,8 +117,10 @@ export default function LearningNew() {
       const key  = map.has(cat) ? cat : '미분류'
       map.get(key)!.push(r)
     })
-    return Array.from(map.entries()).filter(([, items]) => items.length > 0)
-  }, [filtered, customTags])
+    const entries = Array.from(map.entries())
+    // 필터/검색 중이 아니면 자료가 없는 카테고리도 구조 확인용으로 노출
+    return hasActiveFilter ? entries.filter(([, items]) => items.length > 0) : entries
+  }, [filtered, customTags, hasActiveFilter])
 
   return (
     <div className="h-full flex flex-col overflow-hidden" style={{ background: '#0F1319' }}>
@@ -184,7 +188,7 @@ export default function LearningNew() {
             <select
               value={addTag}
               onChange={e => setAddTag(e.target.value)}
-              className="text-[12px] px-3 py-1.5 rounded-lg focus:outline-none"
+              className="text-[12px] px-3 py-1.5 rounded-lg focus:outline-none [color-scheme:dark] [&>option]:bg-[#26282E]"
               style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.09)', color: 'rgba(226,232,240,0.7)' }}
             >
               <option value="">범주 선택</option>

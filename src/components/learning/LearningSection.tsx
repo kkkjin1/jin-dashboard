@@ -51,8 +51,6 @@ export default function LearningSection({ tag, allTags, resources, colWidths, on
   const visible = showAll ? resources : resources.slice(0, INIT_SHOW)
   const hasMore = resources.length > INIT_SHOW && !showAll
 
-  if (resources.length === 0) return null
-
   return (
     <div
       className="rounded-2xl overflow-hidden"
