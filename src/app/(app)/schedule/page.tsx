@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import { fetchAllTasks, fetchMembers } from '@/lib/tasks'
 import { useUserSetting } from '@/hooks/useUserSetting'
 import { useOrgData } from '@/hooks/useOrgData'
-import type { Task, Member, TaskStatus, Meeting } from '@/types'
+import type { Task, Member, TaskStatus, Meeting, NoteEntry } from '@/types'
 import { CATEGORY_PALETTE, MEETING_CATEGORY, type CategoryColorKey, colorKeyFromName } from '@/lib/categoryColors'
 import { GlassSelect } from '@/components/ui/GlassSelect'
 
@@ -19,9 +19,8 @@ interface MeetingSchedule {
   is_recurring: boolean
   days_of_week?: number[]
   date?: string
-  prep_note?: string
+  category?: string
   team_id?: string
-  date_notes?: Record<string, string[]>
 }
 
 const DOW_LABELS_SCHED = ['일', '월', '화', '수', '목', '금', '토']
@@ -70,7 +69,7 @@ export default function SchedulePage() {
   const [showAnalysis, setShowAnalysis] = useState(false)
   const [analysisPeriod, setAnalysisPeriod] = useState<'이번주' | '이번달' | '직전월'>('이번달')
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [editForm, setEditForm] = useState<{ title: string; time: string; is_recurring: boolean; days_of_week: number[]; date: string; team_id: string }>({ title: '', time: '09:00', is_recurring: true, days_of_week: [], date: todayStrSched(), team_id: '' })
+  const [editForm, setEditForm] = useState<{ title: string; time: string; is_recurring: boolean; days_of_week: number[]; date: string; category: string; team_id: string }>({ title: '', time: '09:00', is_recurring: true, days_of_week: [], date: todayStrSched(), category: '', team_id: '' })
   const [showRepeatModal, setShowRepeatModal] = useState(false)
   const [repeatTitle, setRepeatTitle] = useState('')
   const [repeatDay, setRepeatDay] = useState('15')
@@ -88,7 +87,7 @@ export default function SchedulePage() {
   // 고정 회의 관리
   const { value: schedules, save: saveSchedules } = useUserSetting<MeetingSchedule[]>('meeting_schedules', [])
   const [showMeetingForm, setShowMeetingForm] = useState(false)
-  const [meetForm, setMeetForm] = useState({ title: '', time: '09:00', is_recurring: true, days_of_week: [] as number[], date: todayStrSched(), team_id: '' })
+  const [meetForm, setMeetForm] = useState({ title: '', time: '09:00', is_recurring: true, days_of_week: [] as number[], date: todayStrSched(), category: '', team_id: '' })
 
   function addMeetingSchedule() {
     if (!meetForm.title.trim()) return
@@ -98,10 +97,11 @@ export default function SchedulePage() {
       time: meetForm.time,
       is_recurring: meetForm.is_recurring,
       ...(meetForm.is_recurring ? { days_of_week: meetForm.days_of_week } : { date: meetForm.date }),
+      ...(meetForm.category ? { category: meetForm.category } : {}),
       ...(meetForm.team_id ? { team_id: meetForm.team_id } : {}),
     }
     saveSchedules([...schedules, item])
-    setMeetForm({ title: '', time: '09:00', is_recurring: true, days_of_week: [], date: todayStrSched(), team_id: '' })
+    setMeetForm({ title: '', time: '09:00', is_recurring: true, days_of_week: [], date: todayStrSched(), category: '', team_id: '' })
     setShowMeetingForm(false)
   }
 
@@ -118,6 +118,7 @@ export default function SchedulePage() {
       is_recurring: s.is_recurring,
       days_of_week: s.days_of_week ?? [],
       date: s.date ?? todayStrSched(),
+      category: s.category ?? '',
       team_id: s.team_id ?? '',
     })
   }
@@ -129,6 +130,7 @@ export default function SchedulePage() {
       title: editForm.title.trim(),
       time: editForm.time,
       is_recurring: editForm.is_recurring,
+      category: editForm.category || undefined,
       team_id: editForm.team_id || undefined,
       ...(editForm.is_recurring ? { days_of_week: editForm.days_of_week, date: undefined } : { date: editForm.date, days_of_week: undefined }),
     }))
@@ -146,12 +148,17 @@ export default function SchedulePage() {
     const text = (fixedMemoText[key] ?? '').trim()
     if (!text) return
     setFixedMemoSaving(p => ({ ...p, [key]: true }))
-    const updated = schedules.map(s => {
-      if (s.id !== schedule.id) return s
-      const existing = s.date_notes ?? {}
-      return { ...s, date_notes: { ...existing, [dateStr]: [...(existing[dateStr] ?? []), text] } }
-    })
-    await saveSchedules(updated)
+    const newNote: NoteEntry = { title: '사전 메모', content: text, created_at: new Date().toISOString(), is_prep: true }
+    const category = schedule.category ?? '기타'
+    const existing = meetings.find(m => m.title === schedule.title && m.meeting_date?.startsWith(dateStr))
+    if (existing) {
+      const prev = (existing.notes ?? []) as NoteEntry[]
+      await supabase.from('meetings').update({ notes: [...prev, newNote] }).eq('id', existing.id)
+      setMeetings(ms => ms.map(m => m.id === existing.id ? { ...m, notes: [...(m.notes ?? []), newNote] } : m))
+    } else {
+      const { data } = await supabase.from('meetings').insert({ title: schedule.title, meeting_date: dateStr, category, notes: [newNote] }).select('id, title, meeting_date, category, notes').single()
+      if (data) setMeetings(ms => [...ms, data as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category' | 'notes'>])
+    }
     setFixedMemoText(p => ({ ...p, [key]: '' }))
     setFixedMemoSaving(p => ({ ...p, [key]: false }))
     setFixedMemoSaved(p => ({ ...p, [key]: true }))
@@ -790,6 +797,23 @@ export default function SchedulePage() {
                       className="text-xs border border-[rgba(255,255,255,0.09)] rounded px-1.5 py-0.5 focus:outline-none text-[rgba(226,232,240,0.7)] bg-[rgba(255,255,255,0.06)]"
                     />
                   )}
+                  <div className="space-y-1">
+                    <p className="text-[9px] text-[rgba(226,232,240,0.35)]">회의록 범주</p>
+                    <div className="flex flex-wrap gap-1">
+                      {Object.keys(MEETING_CATEGORY).map(cat => {
+                        const ck = MEETING_CATEGORY[cat]
+                        const p = CATEGORY_PALETTE[ck]
+                        const sel = meetForm.category === cat
+                        return (
+                          <button key={cat} type="button" onClick={() => setMeetForm(prev => ({ ...prev, category: sel ? '' : cat }))}
+                            style={{ background: sel ? p.bg : 'rgba(255,255,255,0.04)', border: `1px solid ${sel ? p.border : 'rgba(255,255,255,0.07)'}`, color: sel ? p.text : 'rgba(226,232,240,0.4)' }}
+                            className="text-[9px] px-2 py-0.5 rounded-full transition-all">
+                            {cat}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
                   {flatParts.length > 0 && (
                     <select
                       value={meetForm.team_id}
@@ -863,6 +887,23 @@ export default function SchedulePage() {
                               className="text-xs border border-[rgba(255,255,255,0.09)] rounded px-1.5 py-0.5 focus:outline-none text-[rgba(226,232,240,0.7)] bg-[rgba(255,255,255,0.06)]"
                             />
                           )}
+                          <div className="space-y-1">
+                            <p className="text-[9px] text-[rgba(226,232,240,0.35)]">회의록 범주</p>
+                            <div className="flex flex-wrap gap-1">
+                              {Object.keys(MEETING_CATEGORY).map(cat => {
+                                const ck = MEETING_CATEGORY[cat]
+                                const p2 = CATEGORY_PALETTE[ck]
+                                const sel = editForm.category === cat
+                                return (
+                                  <button key={cat} type="button" onClick={() => setEditForm(p => ({ ...p, category: sel ? '' : cat }))}
+                                    style={{ background: sel ? p2.bg : 'rgba(255,255,255,0.04)', border: `1px solid ${sel ? p2.border : 'rgba(255,255,255,0.07)'}`, color: sel ? p2.text : 'rgba(226,232,240,0.4)' }}
+                                    className="text-[9px] px-2 py-0.5 rounded-full transition-all">
+                                    {cat}
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          </div>
                           {flatParts.length > 0 && (
                             <select
                               value={editForm.team_id}
@@ -889,6 +930,11 @@ export default function SchedulePage() {
                       <div key={s.id} className="group flex items-center gap-2 px-1.5 py-1.5 rounded-lg hover:bg-[rgba(255,255,255,0.06)] transition-colors">
                         <span className="text-[11px] font-mono text-[rgba(226,232,240,0.4)] w-10 flex-shrink-0">{s.time}</span>
                         <span className="flex-1 text-[11px] text-[rgba(226,232,240,0.8)] truncate">{s.title}</span>
+                        {s.category && (() => {
+                          const ck = MEETING_CATEGORY[s.category] ?? colorKeyFromName(s.category)
+                          const cp = CATEGORY_PALETTE[ck]
+                          return <span className="text-[8px] px-1.5 py-0.5 rounded-full flex-shrink-0" style={{ background: cp.bg, color: cp.text, border: `1px solid ${cp.border}` }}>{s.category}</span>
+                        })()}
                         {s.team_id && (
                           <span className="text-[8px] px-1 py-0.5 rounded bg-emerald-900/40 text-emerald-400 flex-shrink-0">
                             {flatParts.find(fp => fp.id === s.team_id)?.label ?? s.team_id}
@@ -999,7 +1045,8 @@ export default function SchedulePage() {
                       const text   = fixedMemoText[key] ?? ''
                       const saving = fixedMemoSaving[key] ?? false
                       const saved  = fixedMemoSaved[key] ?? false
-                      const prepNotes = s.date_notes?.[dateStr] ?? []
+                      const linked = meetings.find(m => m.title === s.title && m.meeting_date?.startsWith(dateStr))
+                      const prepNotes = ((linked?.notes ?? []) as NoteEntry[]).filter(n => n.is_prep)
                       return (
                         <div key={`fixed-panel-${s.id}`} className="px-1 pb-1">
                           <div className="flex items-center gap-2 py-2">
@@ -1020,7 +1067,7 @@ export default function SchedulePage() {
                           {prepNotes.length > 0 && !isOpen && (
                             <div className="ml-5 mb-1.5 space-y-0.5">
                               {prepNotes.slice(-3).map((n, ni) => (
-                                <p key={ni} className="text-[11px] text-[rgba(226,232,240,0.4)] truncate">· {n}</p>
+                                <p key={ni} className="text-[11px] text-[rgba(226,232,240,0.4)] truncate">· {n.content}</p>
                               ))}
                             </div>
                           )}

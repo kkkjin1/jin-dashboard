@@ -12,11 +12,11 @@ interface MeetingSchedule {
   is_recurring: boolean
   days_of_week?: number[]
   date?: string
+  category?: string
   prep_note?: string
   prep_notes_by_date?: Record<string, string>
   linked_meeting_id?: string
   linked_meeting_ids_by_date?: Record<string, string>
-  preferred_category?: string  // 카테고리 기억
 }
 
 interface DbMeeting {
@@ -66,7 +66,7 @@ function getLinkedMeetingId(s: MeetingSchedule, date: string): string | undefine
   return s.is_recurring ? s.linked_meeting_ids_by_date?.[date] : s.linked_meeting_id
 }
 function applyLink(s: MeetingSchedule, date: string, meetingId: string | null, category?: string): MeetingSchedule {
-  const base = category ? { ...s, preferred_category: category } : { ...s }
+  const base = category ? { ...s, category: category } : { ...s }
   if (s.is_recurring) {
     const byDate = { ...(base.linked_meeting_ids_by_date ?? {}) }
     if (meetingId) byDate[date] = meetingId; else delete byDate[date]
@@ -111,7 +111,7 @@ export default function MeetingBriefWidget() {
   function openLinkPicker(scheduleId: string) {
     setLinkingId(scheduleId)
     const schedule = schedules.find(s => s.id === scheduleId)
-    setTempCategory(schedule?.preferred_category ?? '')
+    setTempCategory(schedule?.category ?? '')
     setPickerStep('category')
   }
 
@@ -119,8 +119,8 @@ export default function MeetingBriefWidget() {
     setPickerCategory(category)
     setPickerStep('list')
     setLoadingPicker(true)
-    // "다음 →" 확정 시 preferred_category 저장
-    save(schedules.map(s => s.id === scheduleId ? { ...s, preferred_category: category } : s))
+    // "다음 →" 확정 시 category 저장
+    save(schedules.map(s => s.id === scheduleId ? { ...s, category: category } : s))
     const supabase = createClient()
     const { data } = await supabase
       .from('meetings')
@@ -242,9 +242,9 @@ export default function MeetingBriefWidget() {
                     <span className="flex-shrink-0 text-[8px] text-gray-300">{(m.days_of_week ?? []).map(d => DOW_LABELS[d]).join('')}</span>
                   )}
                   {/* 카테고리 뱃지 */}
-                  {m.preferred_category && !linkedId && (
-                    <span className={`flex-shrink-0 text-[8px] px-1 py-0.5 rounded border ${CAT_COLORS[m.preferred_category] ?? 'bg-gray-50 text-gray-400 border-gray-200'}`}>
-                      {m.preferred_category}
+                  {m.category && !linkedId && (
+                    <span className={`flex-shrink-0 text-[8px] px-1 py-0.5 rounded border ${CAT_COLORS[m.category] ?? 'bg-gray-50 text-gray-400 border-gray-200'}`}>
+                      {m.category}
                     </span>
                   )}
                   {/* 연동 상태 */}
@@ -301,10 +301,10 @@ export default function MeetingBriefWidget() {
                           ))}
                         </div>
                         <div className="flex items-center justify-between mt-2">
-                          {m.preferred_category && (
+                          {m.category && (
                             <button
                               onClick={() => {
-                                save(schedules.map(s => s.id === m.id ? { ...s, preferred_category: undefined } : s))
+                                save(schedules.map(s => s.id === m.id ? { ...s, category: undefined } : s))
                                 closePicker()
                               }}
                               className="text-[9px] text-gray-400 hover:text-red-500 transition-colors">

@@ -21,7 +21,7 @@ interface MeetingSchedule {
   is_recurring: boolean
   days_of_week?: number[]
   date?: string
-  date_notes?: Record<string, string[]>  // dateStr -> 사전 메모 목록
+  category?: string
 }
 
 type TodayTodo = Omit<TaskTodo, 'tasks'> & {
@@ -849,12 +849,17 @@ export default function HomePage() {
     const text = (fMemoTexts[stateKey] ?? '').trim()
     if (!text) return
     setFMemoSaving(p => ({ ...p, [stateKey]: true }))
-    const updated = fixedSchedules.map(s => {
-      if (s.id !== schedule.id) return s
-      const existing = s.date_notes ?? {}
-      return { ...s, date_notes: { ...existing, [date]: [...(existing[date] ?? []), text] } }
-    })
-    await saveSchedules(updated)
+    const newNote: NoteEntry = { title: '사전 메모', content: text, created_at: new Date().toISOString(), is_prep: true }
+    const category = schedule.category ?? '기타'
+    const existing = meetings.find(m => m.title === schedule.title && m.meeting_date?.startsWith(date))
+    if (existing) {
+      const existingNotes = (existing.notes ?? []) as NoteEntry[]
+      await sb.current.from('meetings').update({ notes: [...existingNotes, newNote] }).eq('id', existing.id)
+      setMeetings(prev => prev.map(m => m.id === existing.id ? { ...m, notes: [...(m.notes ?? []), newNote] } : m))
+    } else {
+      const { data } = await sb.current.from('meetings').insert({ title: schedule.title, meeting_date: date, category, notes: [newNote] }).select('*').single()
+      if (data) setMeetings(prev => [...prev, data as Meeting])
+    }
     setFMemoTexts(p => ({ ...p, [stateKey]: '' }))
     setFMemoSaving(p => ({ ...p, [stateKey]: false }))
     setFMemoSaved(p => ({ ...p, [stateKey]: true }))
@@ -871,7 +876,7 @@ export default function HomePage() {
     return null
   }
 
-  const { value: fixedSchedules, save: saveSchedules } = useUserSetting<MeetingSchedule[]>('meeting_schedules', [])
+  const { value: fixedSchedules } = useUserSetting<MeetingSchedule[]>('meeting_schedules', [])
 
   const today          = todayStr()
   const todayMeetings  = meetings.filter(m => m.meeting_date?.startsWith(today))
@@ -893,7 +898,12 @@ export default function HomePage() {
   const tomorrowFixedMeetingsVisible = fixedSchedules
     .filter(s => s.is_recurring ? (s.days_of_week ?? []).includes(tomorrowDow) : s.date === tomorrowStr)
     .sort((a, b) => a.time.localeCompare(b.time))
-    .filter(s => !meetings.some(m => m.title === s.title && m.meeting_date?.startsWith(tomorrowStr)))
+    .filter(s => {
+      const linked = meetings.find(m => m.title === s.title && m.meeting_date?.startsWith(tomorrowStr))
+      if (!linked) return true
+      // 사전 메모만 있는 레코드는 중복 취급 안 함
+      return !((linked.notes ?? []) as NoteEntry[]).some(n => !n.is_prep)
+    })
 
   // agenda_sub_tasks → date-based derived lists
   const todayAgendaItems       = subTasks.filter(st => st.target_date === today)
@@ -1255,7 +1265,8 @@ export default function HomePage() {
                             const text   = fMemoTexts[s.id] ?? ''
                             const saving = fMemoSaving[s.id] ?? false
                             const saved  = fMemoSaved[s.id] ?? false
-                            const prepNotes = s.date_notes?.[today] ?? []
+                            const linkedMeeting = meetings.find(m => m.title === s.title && m.meeting_date?.startsWith(today))
+                            const prepNotes = ((linkedMeeting?.notes ?? []) as NoteEntry[]).filter(n => n.is_prep)
                             const total = todayFixedMeetingsVisible.length + todayTodos.length + todayAgendaItems.length
                             return (
                               <div key={s.id} style={{ ...rd(i, total), paddingBottom: 2 }}>
@@ -1280,8 +1291,8 @@ export default function HomePage() {
                                 </div>
                                 {prepNotes.length > 0 && !isOpen && (
                                   <div style={{ marginLeft: 26, marginBottom: 5 }}>
-                                    {prepNotes.slice(-3).map((n: string, ni: number) => (
-                                      <p key={ni} style={{ fontSize: 11.5, color: TEXT3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.6 }}>· {n}</p>
+                                    {prepNotes.slice(-3).map((n: NoteEntry, ni: number) => (
+                                      <p key={ni} style={{ fontSize: 11.5, color: TEXT3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.6 }}>· {n.content}</p>
                                     ))}
                                   </div>
                                 )}
@@ -1289,8 +1300,8 @@ export default function HomePage() {
                                   <div style={{ marginLeft: 26, marginBottom: 7 }}>
                                     {prepNotes.length > 0 && (
                                       <div style={{ marginBottom: 6 }}>
-                                        {prepNotes.map((n: string, ni: number) => (
-                                          <p key={ni} style={{ fontSize: 11.5, color: TEXT3, lineHeight: 1.6 }}>· {n}</p>
+                                        {prepNotes.map((n: NoteEntry, ni: number) => (
+                                          <p key={ni} style={{ fontSize: 11.5, color: TEXT3, lineHeight: 1.6 }}>· {n.content}</p>
                                         ))}
                                       </div>
                                     )}
@@ -1390,7 +1401,7 @@ export default function HomePage() {
                             const saving = fMemoSaving[tmrKey] ?? false
                             const saved  = fMemoSaved[tmrKey] ?? false
                             const linkedMeeting = meetings.find(m => m.title === s.title && m.meeting_date?.startsWith(tomorrowStr))
-                            const prepNotes = s.date_notes?.[tomorrowStr] ?? []
+                            const prepNotes = ((linkedMeeting?.notes ?? []) as NoteEntry[]).filter(n => n.is_prep)
                             return (
                               <div key={s.id} style={{ ...rd(i, tomorrowFixedMeetingsVisible.length), paddingBottom: 2, opacity: 0.75 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0 5px' }}>
@@ -1417,8 +1428,8 @@ export default function HomePage() {
                                 </div>
                                 {prepNotes.length > 0 && !isOpen && (
                                   <div style={{ marginLeft: 26, marginBottom: 5 }}>
-                                    {prepNotes.slice(-3).map((n: string, ni: number) => (
-                                      <p key={ni} style={{ fontSize: 11.5, color: TEXT3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.6 }}>· {n}</p>
+                                    {prepNotes.slice(-3).map((n: NoteEntry, ni: number) => (
+                                      <p key={ni} style={{ fontSize: 11.5, color: TEXT3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.6 }}>· {n.content}</p>
                                     ))}
                                   </div>
                                 )}
@@ -1426,8 +1437,8 @@ export default function HomePage() {
                                   <div style={{ marginLeft: 26, marginBottom: 7 }}>
                                     {prepNotes.length > 0 && (
                                       <div style={{ marginBottom: 6 }}>
-                                        {prepNotes.map((n: string, ni: number) => (
-                                          <p key={ni} style={{ fontSize: 11.5, color: TEXT3, lineHeight: 1.6 }}>· {n}</p>
+                                        {prepNotes.map((n: NoteEntry, ni: number) => (
+                                          <p key={ni} style={{ fontSize: 11.5, color: TEXT3, lineHeight: 1.6 }}>· {n.content}</p>
                                         ))}
                                       </div>
                                     )}
