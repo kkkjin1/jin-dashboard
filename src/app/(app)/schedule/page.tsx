@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import { fetchAllTasks, fetchMembers } from '@/lib/tasks'
 import { useUserSetting } from '@/hooks/useUserSetting'
 import { useOrgData } from '@/hooks/useOrgData'
-import type { Task, Member, TaskStatus, Meeting, NoteEntry } from '@/types'
+import type { Task, Member, TaskStatus, Meeting } from '@/types'
 import { CATEGORY_PALETTE, MEETING_CATEGORY, type CategoryColorKey, colorKeyFromName } from '@/lib/categoryColors'
 import { GlassSelect } from '@/components/ui/GlassSelect'
 
@@ -21,6 +21,7 @@ interface MeetingSchedule {
   date?: string
   prep_note?: string
   team_id?: string
+  date_notes?: Record<string, string[]>
 }
 
 const DOW_LABELS_SCHED = ['일', '월', '화', '수', '목', '금', '토']
@@ -145,16 +146,12 @@ export default function SchedulePage() {
     const text = (fixedMemoText[key] ?? '').trim()
     if (!text) return
     setFixedMemoSaving(p => ({ ...p, [key]: true }))
-    const newNote: NoteEntry = { title: '사전 메모', content: text, created_at: new Date().toISOString(), is_prep: true }
-    const existing = meetings.find(m => m.title === schedule.title && m.meeting_date?.startsWith(dateStr))
-    if (existing) {
-      const prev = (existing.notes ?? []) as NoteEntry[]
-      await supabase.from('meetings').update({ notes: [...prev, newNote] }).eq('id', existing.id)
-      setMeetings(ms => ms.map(m => m.id === existing.id ? { ...m, notes: [...(m.notes ?? []), newNote] } : m))
-    } else {
-      const { data } = await supabase.from('meetings').insert({ title: schedule.title, meeting_date: dateStr, notes: [newNote] }).select('id, title, meeting_date, category, notes').single()
-      if (data) setMeetings(ms => [...ms, data as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category' | 'notes'>])
-    }
+    const updated = schedules.map(s => {
+      if (s.id !== schedule.id) return s
+      const existing = s.date_notes ?? {}
+      return { ...s, date_notes: { ...existing, [dateStr]: [...(existing[dateStr] ?? []), text] } }
+    })
+    await saveSchedules(updated)
     setFixedMemoText(p => ({ ...p, [key]: '' }))
     setFixedMemoSaving(p => ({ ...p, [key]: false }))
     setFixedMemoSaved(p => ({ ...p, [key]: true }))
@@ -1002,8 +999,7 @@ export default function SchedulePage() {
                       const text   = fixedMemoText[key] ?? ''
                       const saving = fixedMemoSaving[key] ?? false
                       const saved  = fixedMemoSaved[key] ?? false
-                      const linked = meetings.find(m => m.title === s.title && m.meeting_date?.startsWith(dateStr))
-                      const prepNotes = ((linked?.notes ?? []) as NoteEntry[]).filter(n => n.is_prep)
+                      const prepNotes = s.date_notes?.[dateStr] ?? []
                       return (
                         <div key={`fixed-panel-${s.id}`} className="px-1 pb-1">
                           <div className="flex items-center gap-2 py-2">
@@ -1024,7 +1020,7 @@ export default function SchedulePage() {
                           {prepNotes.length > 0 && !isOpen && (
                             <div className="ml-5 mb-1.5 space-y-0.5">
                               {prepNotes.slice(-3).map((n, ni) => (
-                                <p key={ni} className="text-[11px] text-[rgba(226,232,240,0.4)] truncate">· {n.content}</p>
+                                <p key={ni} className="text-[11px] text-[rgba(226,232,240,0.4)] truncate">· {n}</p>
                               ))}
                             </div>
                           )}
