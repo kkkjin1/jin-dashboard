@@ -882,10 +882,8 @@ export default function HomePage() {
   const todayFixedMeetings = fixedSchedules
     .filter(s => s.is_recurring ? (s.days_of_week ?? []).includes(todayDow) : s.date === today)
     .sort((a, b) => a.time.localeCompare(b.time))
-  // 오늘 실제 meeting 레코드가 이미 존재하면 고정 회의 목록에서 제외 (중복 방지)
-  const todayFixedMeetingsVisible = todayFixedMeetings.filter(
-    s => !meetings.some(m => m.title === s.title && m.meeting_date?.startsWith(today))
-  )
+  // 오늘 실제 meeting 레코드가 있어도 오늘업무 카드에는 항상 표시 (기록 여부는 배지로 구분)
+  const todayFixedMeetingsVisible = todayFixedMeetings
   const recentMeetings = meetings.slice(0, 5)
   const _pad = (n: number) => String(n).padStart(2, '0')
   const tomorrowDate = new Date(now); tomorrowDate.setDate(now.getDate() + 1)
@@ -1271,16 +1269,20 @@ export default function HomePage() {
                             const saved  = fMemoSaved[s.id] ?? false
                             const linkedMeeting = meetings.find(m => m.title === s.title && m.meeting_date?.startsWith(today))
                             const prepNotes = ((linkedMeeting?.notes ?? []) as NoteEntry[]).filter(n => n.is_prep)
+                            const isLogged = !!linkedMeeting
                             const total = todayFixedMeetingsVisible.length + todayTodos.length + todayAgendaItems.length
                             return (
                               <div key={s.id} style={{ ...rd(i, total), paddingBottom: 2 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0 5px' }}>
-                                  <div style={{ width: 16, height: 16, borderRadius: 4, background: 'rgba(56,190,152,0.12)', border: '1px solid rgba(56,190,152,0.22)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                    <Repeat2 size={9} strokeWidth={2.5} style={{ color: '#38BE98' }} />
+                                  <div style={{ width: 16, height: 16, borderRadius: 4, background: isLogged ? 'rgba(107,122,159,0.12)' : 'rgba(56,190,152,0.12)', border: `1px solid ${isLogged ? 'rgba(107,122,159,0.22)' : 'rgba(56,190,152,0.22)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                    <Repeat2 size={9} strokeWidth={2.5} style={{ color: isLogged ? '#6B7A9F' : '#38BE98' }} />
                                   </div>
                                   <div style={{ flex: 1, minWidth: 0 }}>
                                     <p style={{ fontSize: 14, fontWeight: 500, color: TEXT1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.title}</p>
                                   </div>
+                                  {isLogged && (
+                                    <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 999, background: 'rgba(107,122,159,0.14)', color: '#8B98B8', flexShrink: 0, marginRight: 6, whiteSpace: 'nowrap' }}>기록됨</span>
+                                  )}
                                   <span style={{ fontSize: 11, color: TEXT3, flexShrink: 0, fontVariantNumeric: 'tabular-nums', marginRight: 6 }}>{s.time}</span>
                                   {saved ? (
                                     <span style={{ fontSize: 10.5, color: '#38BE98', flexShrink: 0 }}>저장됨 ✓</span>
