@@ -1253,6 +1253,7 @@ export default function HomePage() {
             <CardSection title="오늘 업무" link="/tasks" linkLabel="+ 추가" icon={<CheckSquare size={14} strokeWidth={2} style={{ color: '#38BE98' }} />}>
               {loading ? <div>{skel(4)}</div>
                 : todayTodos.length === 0 && todayAgendaItems.length === 0 && todayFixedMeetingsVisible.length === 0
+                    && tomorrowAgendaItems.length === 0 && tomorrowFixedMeetingsVisible.length === 0
                   ? <EmptyState
                       icon={<CheckSquare size={20} strokeWidth={1.5} />}
                       label="오늘 업무가 비어있어요."
