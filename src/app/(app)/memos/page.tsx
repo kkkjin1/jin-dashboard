@@ -361,6 +361,8 @@ export default function MemosPage() {
     return { title: 150, content: 280, tag: 56, date: 36 }
   })
   const inlineContentRef = useRef<HTMLTextAreaElement>(null)
+  const newTitleRef = useRef<HTMLInputElement>(null)
+  const inlineTitleRef = useRef<HTMLInputElement>(null)
   const supabase = createClient()
   const quickDraftTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const inlineDraftTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -438,7 +440,7 @@ export default function MemosPage() {
   }
 
   async function handleAddSave() {
-    if (!newTitle.trim()) { setShowAddForm(false); return }
+    if (!newTitle.trim()) { newTitleRef.current?.focus(); return }
     const { data, error } = await supabase.from('quick_memos')
       .insert({ title: newTitle.trim(), content: newContent, tag: newTag })
       .select().single()
@@ -449,7 +451,7 @@ export default function MemosPage() {
   }
 
   async function handleInlineSave(tag: MemoTag) {
-    if (!inlineTitle.trim()) { setInlineTag(null); setInlineTitle(''); setInlineContent(''); return }
+    if (!inlineTitle.trim()) { inlineTitleRef.current?.focus(); return }
     const { data } = await supabase.from('quick_memos')
       .insert({ title: inlineTitle.trim(), content: inlineContent.trim(), tag })
       .select().single()
@@ -591,9 +593,9 @@ export default function MemosPage() {
               </button>
             ))}
           </div>
-          <input autoFocus value={newTitle} onChange={e => setNewTitle(e.target.value)}
+          <input ref={newTitleRef} autoFocus value={newTitle} onChange={e => setNewTitle(e.target.value)}
             onKeyDown={e => { if (e.key === 'Escape') setShowAddForm(false) }}
-            placeholder="제목"
+            placeholder="제목 (필수)"
             className="w-full text-sm font-semibold text-[#E2E8F0] focus:outline-none pb-2 mb-3 bg-transparent placeholder:text-white/30"
             style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }} />
           <SmartTextarea
@@ -614,7 +616,7 @@ export default function MemosPage() {
           />
           <div className="flex gap-2 justify-end mt-2">
             <button onClick={() => { try { localStorage.removeItem(QUICK_DRAFT_KEY) } catch {}; setNewTitle(''); setNewContent(''); setShowAddForm(false) }} className={`${pill} ${pOff}`}>취소</button>
-            <button onClick={handleAddSave} className={`${pill} ${pOn}`}>저장</button>
+            <button onClick={handleAddSave} disabled={!newTitle.trim()} className={`${pill} ${pOn} disabled:opacity-40`}>저장</button>
           </div>
         </div>
       )}
@@ -710,7 +712,7 @@ export default function MemosPage() {
               inlineTag={inlineTag} setInlineTag={setInlineTag} openInlineForm={openInlineForm}
               inlineTitle={inlineTitle} setInlineTitle={setInlineTitle}
               inlineContent={inlineContent} setInlineContent={setInlineContent}
-              inlineContentRef={inlineContentRef} handleInlineSave={handleInlineSave}
+              inlineContentRef={inlineContentRef} inlineTitleRef={inlineTitleRef} handleInlineSave={handleInlineSave}
               pill={pill} pOn={pOn} pOff={pOff} ALL_TAGS={ALL_TAGS} />
           </div>
         ) : (
@@ -829,12 +831,13 @@ function MemoInputRow({ tag, setTag, title, setTitle, content, setContent, date,
   )
 }
 
-function InlineAddForm({ inlineTag, setInlineTag, openInlineForm, inlineTitle, setInlineTitle, inlineContent, setInlineContent, inlineContentRef, handleInlineSave, pill, pOn, pOff, ALL_TAGS }: {
+function InlineAddForm({ inlineTag, setInlineTag, openInlineForm, inlineTitle, setInlineTitle, inlineContent, setInlineContent, inlineContentRef, inlineTitleRef, handleInlineSave, pill, pOn, pOff, ALL_TAGS }: {
   inlineTag: MemoTag | null; setInlineTag: (t: MemoTag | null) => void
   openInlineForm: (t: MemoTag) => void
   inlineTitle: string; setInlineTitle: (v: string) => void
   inlineContent: string; setInlineContent: (v: string) => void
   inlineContentRef: React.RefObject<HTMLTextAreaElement | null>
+  inlineTitleRef: React.RefObject<HTMLInputElement | null>
   handleInlineSave: (tag: MemoTag) => void
   pill: string; pOn: string; pOff: string
   ALL_TAGS: MemoTag[]
@@ -855,9 +858,9 @@ function InlineAddForm({ inlineTag, setInlineTag, openInlineForm, inlineTitle, s
           </button>
         ))}
       </div>
-      <input autoFocus value={inlineTitle} onChange={e => setInlineTitle(e.target.value)}
+      <input ref={inlineTitleRef} autoFocus value={inlineTitle} onChange={e => setInlineTitle(e.target.value)}
         onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); inlineContentRef.current?.focus() } if (e.key === 'Escape') cancel() }}
-        placeholder="제목"
+        placeholder="제목 (필수)"
         className="w-full text-sm font-semibold text-[#E2E8F0] focus:outline-none pb-1.5 mb-1.5 bg-transparent placeholder:text-white/30"
         style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }} />
       <textarea ref={inlineContentRef} value={inlineContent} onChange={e => setInlineContent(e.target.value)}
@@ -866,7 +869,7 @@ function InlineAddForm({ inlineTag, setInlineTag, openInlineForm, inlineTitle, s
         className="w-full text-xs focus:outline-none resize-none text-white/50 bg-transparent placeholder:text-white/30" />
       <div className="flex gap-1 justify-end mt-2">
         <button onClick={cancel} className={`${pill} ${pOff} !text-[10px] !px-2.5 !py-1`}>취소</button>
-        <button onClick={() => handleInlineSave(inlineTag!)} className={`${pill} ${pOn} !text-[10px] !px-2.5 !py-1`}>저장</button>
+        <button onClick={() => handleInlineSave(inlineTag!)} disabled={!inlineTitle.trim()} className={`${pill} ${pOn} !text-[10px] !px-2.5 !py-1 disabled:opacity-40`}>저장</button>
       </div>
     </div>
   ) : (
