@@ -13,6 +13,13 @@ const ACH_COLOR: Record<AchievementType, string> = { '기획': '#6B8FB3', '운�
 type FilterType = '전체' | AchievementType
 const FILTER_TYPES: FilterType[] = ['전체', '기획', '운영', '개선']
 
+// 프로젝트 탭(AgendaMatrix)과 동일한 규칙: 코어/비즈/개인 카테고리는 고정 색을 쓰고,
+// 그 외(카테고리 없음)에만 그룹 개별 color를 fallback으로 사용
+const CAT_BORDER: Record<string, string> = { '코어': '#3B82F6', '비즈': '#F59E0B', '개인': '#10B981' }
+function groupColorOf(g: AgendaGroup): string {
+  return CAT_BORDER[g.category ?? ''] ?? g.color ?? '#9CA3AF'
+}
+
 type QuickPeriod = '주간' | '당월' | '분기' | '상반기' | '하반기' | '포트폴리오'
 const QUICK_PERIODS: QuickPeriod[] = ['주간', '당월', '분기', '상반기', '하반기', '포트폴리오']
 
@@ -301,11 +308,11 @@ export default function CompletedPage() {
           <div className="pb-6">
             {groups.map((g, idx) => {
               const groupRows = typeFilteredRows.filter(r => r.groupId === g.id)
-              const groupColor = g.color || '#9CA3AF'
+              const groupColor = groupColorOf(g)
               return (
                 <div key={g.id}
                   style={{ marginTop: idx === 0 ? 0 : 14, background: 'rgba(255,255,255,0.06)', border: '0.5px solid rgba(255,255,255,0.09)', borderRadius: 20, padding: '14px 24px', overflow: 'hidden' }}>
-                  {/* 헤더 배너 — 프로젝트 탭 그룹 색상 반영 */}
+                  {/* 헤더 배너 — 프로젝트 탭과 동일한 그룹 색상 규칙 */}
                   <div className="flex items-center justify-between" style={{ margin: '-14px -24px 0 -24px', padding: '19px', background: hexToRgba(groupColor, 0.16), borderTopLeftRadius: 20, borderTopRightRadius: 20 }}>
                     <div className="flex items-center">
                       <span style={{ width: 32, flexShrink: 0, fontSize: 13, opacity: 0.6, color: groupColor, userSelect: 'none', cursor: 'grab' }}>⠿</span>
@@ -320,6 +327,18 @@ export default function CompletedPage() {
                     </button>
                   </div>
 
+                  {/* 컬럼 라벨 서브행 — 본문 행과 동일한 좌우 패딩/컬럼 폭을 공유해 정렬선을 맞춤 */}
+                  {groupRows.length > 0 && (
+                    <div className="flex items-center" style={{ padding: '10px 16px 8px', borderBottom: '0.5px solid rgba(255,255,255,0.06)' }}>
+                      <span style={{ flex: 1, fontSize: 11, color: '#7d838d', fontWeight: 600 }}>업무명</span>
+                      <div className="flex items-center gap-2.5 flex-shrink-0">
+                        <span style={{ width: 42, textAlign: 'center', fontSize: 11, color: '#7d838d', fontWeight: 600 }}>출처</span>
+                        <span style={{ width: 78, textAlign: 'center', fontSize: 11, color: '#7d838d', fontWeight: 600 }}>분류</span>
+                        <span style={{ width: 16, flexShrink: 0 }} />
+                      </div>
+                    </div>
+                  )}
+
                   {/* 본문 행 */}
                   {groupRows.length === 0 ? (
                     <div style={{ padding: '22px 16px', textAlign: 'center', fontSize: 12, color: 'rgba(226,232,240,0.3)' }}>
@@ -327,8 +346,8 @@ export default function CompletedPage() {
                     </div>
                   ) : (
                     groupRows.map(row => (
-                      <div key={row.id} className="group/row flex items-center gap-2.5 transition-colors hover:bg-[rgba(255,255,255,0.03)]"
-                        style={{ padding: '12px 16px', borderBottom: '0.5px solid rgba(255,255,255,0.06)', borderLeft: `2.5px solid ${hexToRgba(groupColor, 0.35)}` }}>
+                      <div key={row.id} className="group/row flex items-center gap-2.5 transition-colors hover:bg-[rgba(255,255,255,0.04)]"
+                        style={{ padding: '11px 16px', borderBottom: '0.5px solid rgba(255,255,255,0.06)' }}>
                         {row.source === 'auto' ? (
                           <Link href={`/subtasks/${row.id}`}
                             style={{ flex: 1, fontSize: 13, color: '#E2E8F0', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
@@ -338,30 +357,33 @@ export default function CompletedPage() {
                         ) : (
                           <span style={{ flex: 1, fontSize: 13, color: '#E2E8F0', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.title}</span>
                         )}
-                        <span style={{
-                          fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 999, flexShrink: 0,
-                          background: row.source === 'auto' ? 'rgba(255,255,255,0.06)' : 'rgba(76,127,224,0.15)',
-                          color: row.source === 'auto' ? 'rgba(226,232,240,0.4)' : '#A8C4F0',
-                        }}>
-                          {row.source === 'auto' ? '자동' : '수기'}
-                        </span>
-                        <select value={row.achievementType ?? ''} onChange={e => updateRowType(row, (e.target.value || null) as AchievementType | null)}
-                          className="flex-shrink-0"
-                          style={{
-                            fontSize: 10, fontWeight: 600, padding: '3px 8px', borderRadius: 999, border: 'none', cursor: 'pointer', outline: 'none',
-                            background: row.achievementType ? `${ACH_COLOR[row.achievementType]}2A` : 'rgba(255,255,255,0.06)',
-                            color: row.achievementType ? ACH_COLOR[row.achievementType] : 'rgba(226,232,240,0.35)',
+                        <div className="flex items-center gap-2.5 flex-shrink-0">
+                          <span style={{
+                            width: 42, textAlign: 'center', fontSize: 10, fontWeight: 600, padding: '2px 0', borderRadius: 999,
+                            background: row.source === 'auto' ? 'rgba(255,255,255,0.06)' : 'rgba(76,127,224,0.15)',
+                            color: row.source === 'auto' ? 'rgba(226,232,240,0.4)' : '#A8C4F0',
                           }}>
-                          <option value="" style={{ background: '#1e2130', color: '#E2E8F0' }}>미분류</option>
-                          {ACH_TYPES.map(t => <option key={t} value={t} style={{ background: '#1e2130', color: '#E2E8F0' }}>{t}</option>)}
-                        </select>
-                        {row.source === 'manual' && (
-                          <button onClick={() => deleteManualAchievement(row.id)}
-                            className="flex-shrink-0 opacity-0 group-hover/row:opacity-100 transition-all"
-                            style={{ fontSize: 12, color: 'rgba(226,232,240,0.3)' }}>
-                            ×
-                          </button>
-                        )}
+                            {row.source === 'auto' ? '자동' : '수기'}
+                          </span>
+                          <select value={row.achievementType ?? ''} onChange={e => updateRowType(row, (e.target.value || null) as AchievementType | null)}
+                            style={{
+                              width: 78, fontSize: 10, fontWeight: 600, padding: '3px 4px', borderRadius: 999, border: 'none', cursor: 'pointer', outline: 'none', textAlign: 'center', textAlignLast: 'center',
+                              background: row.achievementType ? `${ACH_COLOR[row.achievementType]}2A` : 'rgba(255,255,255,0.06)',
+                              color: row.achievementType ? ACH_COLOR[row.achievementType] : 'rgba(226,232,240,0.35)',
+                            }}>
+                            <option value="" style={{ background: '#1e2130', color: '#E2E8F0' }}>미분류</option>
+                            {ACH_TYPES.map(t => <option key={t} value={t} style={{ background: '#1e2130', color: '#E2E8F0' }}>{t}</option>)}
+                          </select>
+                          <div style={{ width: 16, flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
+                            {row.source === 'manual' && (
+                              <button onClick={() => deleteManualAchievement(row.id)}
+                                className="opacity-0 group-hover/row:opacity-100 transition-all"
+                                style={{ fontSize: 12, color: 'rgba(226,232,240,0.3)' }}>
+                                ×
+                              </button>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     ))
                   )}
