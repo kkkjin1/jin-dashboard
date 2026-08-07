@@ -589,12 +589,10 @@ export default function CompletedPage() {
           {quickPeriod !== '주간' && quickPeriod !== '당월' && (
             <span className="text-sm text-[rgba(226,232,240,0.4)]">총 {filtered.length}건</span>
           )}
-          {quickPeriod !== '주간' && (
-            <button onClick={() => setShowAddModal(true)}
-              className="text-sm bg-[#4C7FE0]/40 text-[#A8C4F0] border border-[#4C7FE0]/50 px-4 py-2 rounded-full hover:bg-[#4C7FE0]/60 transition-colors">
-              + 직접 추가
-            </button>
-          )}
+          <button onClick={() => setShowAddModal(true)}
+            className="text-sm bg-[#4C7FE0]/40 text-[#A8C4F0] border border-[#4C7FE0]/50 px-4 py-2 rounded-full hover:bg-[#4C7FE0]/60 transition-colors">
+            + 직접 추가
+          </button>
         </div>
       </div>
 
