@@ -21,17 +21,8 @@ export async function proxy(request: NextRequest) {
     }
   )
 
-  const pathname = request.nextUrl.pathname
-
-  // 팀 공용 업무로그(/team-log)는 별도의 비밀번호 게이트로 보호되며 Supabase 로그인이 필요 없다.
-  // 이 두 경로 외에는 아래 로그인 리다이렉트 로직이 그대로 적용된다 — 다른 탭은 영향 없음.
-  const isTeamLogPublic = pathname === '/team-log' || pathname.startsWith('/api/team-log')
-  if (isTeamLogPublic) {
-    return supabaseResponse
-  }
-
   const { data: { user } } = await supabase.auth.getUser()
-  const isLoginPage = pathname === '/login'
+  const isLoginPage = request.nextUrl.pathname === '/login'
 
   if (!user && !isLoginPage) {
     return NextResponse.redirect(new URL('/login', request.url))
