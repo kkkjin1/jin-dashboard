@@ -257,6 +257,14 @@ function DualLaneTimeline({ meetings, todos, now, onAdd, fixedMeetings = [] }: {
 
   useEffect(() => {
     try {
+      const savedDate = localStorage.getItem('home_tl_date')
+      if (savedDate !== todayStr()) {
+        // 날짜가 바뀌면 어제 타임라인 배치는 버린다 (퀵메모/회의록 드래그 항목 포함)
+        ;['home_tl_pos', 'home_tl_dur', 'home_tl_task_pos', 'home_tl_task_dur', 'home_tl_extras', 'home_tl_extra_pos', 'home_tl_extra_dur']
+          .forEach(k => localStorage.removeItem(k))
+        localStorage.setItem('home_tl_date', todayStr())
+        return
+      }
       const mp = localStorage.getItem('home_tl_pos')
       const md = localStorage.getItem('home_tl_dur')
       const tp = localStorage.getItem('home_tl_task_pos')
@@ -274,13 +282,13 @@ function DualLaneTimeline({ meetings, todos, now, onAdd, fixedMeetings = [] }: {
     } catch {}
   }, [])
 
-  useEffect(() => { try { localStorage.setItem('home_tl_pos', JSON.stringify(mPos)) } catch {} }, [mPos])
-  useEffect(() => { try { localStorage.setItem('home_tl_dur', JSON.stringify(mDur)) } catch {} }, [mDur])
-  useEffect(() => { try { localStorage.setItem('home_tl_task_pos', JSON.stringify(tPos)) } catch {} }, [tPos])
-  useEffect(() => { try { localStorage.setItem('home_tl_task_dur', JSON.stringify(tDur)) } catch {} }, [tDur])
-  useEffect(() => { try { localStorage.setItem('home_tl_extras', JSON.stringify(extras)) } catch {} }, [extras])
-  useEffect(() => { try { localStorage.setItem('home_tl_extra_pos', JSON.stringify(extraPos)) } catch {} }, [extraPos])
-  useEffect(() => { try { localStorage.setItem('home_tl_extra_dur', JSON.stringify(extraDur)) } catch {} }, [extraDur])
+  useEffect(() => { try { localStorage.setItem('home_tl_pos', JSON.stringify(mPos)); localStorage.setItem('home_tl_date', todayStr()) } catch {} }, [mPos])
+  useEffect(() => { try { localStorage.setItem('home_tl_dur', JSON.stringify(mDur)); localStorage.setItem('home_tl_date', todayStr()) } catch {} }, [mDur])
+  useEffect(() => { try { localStorage.setItem('home_tl_task_pos', JSON.stringify(tPos)); localStorage.setItem('home_tl_date', todayStr()) } catch {} }, [tPos])
+  useEffect(() => { try { localStorage.setItem('home_tl_task_dur', JSON.stringify(tDur)); localStorage.setItem('home_tl_date', todayStr()) } catch {} }, [tDur])
+  useEffect(() => { try { localStorage.setItem('home_tl_extras', JSON.stringify(extras)); localStorage.setItem('home_tl_date', todayStr()) } catch {} }, [extras])
+  useEffect(() => { try { localStorage.setItem('home_tl_extra_pos', JSON.stringify(extraPos)); localStorage.setItem('home_tl_date', todayStr()) } catch {} }, [extraPos])
+  useEffect(() => { try { localStorage.setItem('home_tl_extra_dur', JSON.stringify(extraDur)); localStorage.setItem('home_tl_date', todayStr()) } catch {} }, [extraDur])
 
   const hW = cw > 0 ? cw / (H_END - H_START) : 0
 
