@@ -82,8 +82,9 @@ export interface QuickMemo {
 
 export interface ManualAchievement {
   id: string
+  group_id: string
   title: string
-  category: AchievementCategory
+  achievement_type: AchievementType | null
   content: string
   month: string // 'YYYY-MM'
   created_at: string
@@ -184,6 +185,8 @@ export interface AgendaUpdate {
   updated_at: string
 }
 
+export type AchievementType = '기획' | '운영' | '개선'
+
 export interface AgendaSubTask {
   id: string
   agenda_item_id: string
@@ -194,7 +197,9 @@ export interface AgendaSubTask {
   mid_date?: string | null
   due_date?: string | null
   target_date?: string | null
+  achievement_type?: AchievementType | null
   created_at: string
+  updated_at: string
 }
 
 export interface SubTaskNote {
