@@ -1,4 +1,5 @@
 import crypto from 'crypto'
+import { cookies } from 'next/headers'
 
 export const TEAM_LOG_COOKIE = 'team_log_auth'
 
@@ -15,4 +16,9 @@ export function isValidTeamLogToken(token: string | undefined) {
   const b = Buffer.from(expected)
   if (a.length !== b.length) return false
   return crypto.timingSafeEqual(a, b)
+}
+
+export async function isTeamLogRequestAuthorized() {
+  const cookieStore = await cookies()
+  return isValidTeamLogToken(cookieStore.get(TEAM_LOG_COOKIE)?.value)
 }

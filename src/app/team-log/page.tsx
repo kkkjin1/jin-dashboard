@@ -3,19 +3,34 @@
 // 이 페이지는 대시보드의 다른 탭(Sidebar/AppShell 등)을 전혀 import하지 않는다.
 // 팀원 4명이 비밀번호로만 접근하는 완전히 독립된 공용 화면 — 어떤 에러가 나도
 // 이 파일에 없는 코드(다른 탭)가 렌더링될 수 없다.
+// 구조는 '프로젝트' 탭의 그룹→항목→서브태스크 패턴을 따르되, 회의록 매트릭스와
+// 로드맵 뷰는 제외한 단순 버전이다.
 
 import { useEffect, useMemo, useState } from 'react'
 import { format, parseISO, isToday, isYesterday } from 'date-fns'
 import { ko } from 'date-fns/locale'
 
-type Entry = {
+type Subtask = {
   id: string
+  item_id: string
   author: string
   entry_type: '업무기록' | '보고일정'
   entry_date: string
   title: string
   content: string
+  sort_order: number
   created_at: string
+}
+type Item = { id: string; group_id: string; title: string; status: 'active' | 'hold' | 'done'; sort_order: number; subtasks: Subtask[] }
+type Group = { id: string; name: string; color: string; sort_order: number; items: Item[] }
+
+const GROUP_COLORS = ['#4C7FE0', '#F59E0B', '#10B981', '#EF4444', '#8B5CF6', '#EC4899', '#9CA3AF']
+const STATUS_LABEL: Record<Item['status'], string> = { active: '진행중', hold: '보류', done: '완료' }
+const STATUS_NEXT: Record<Item['status'], Item['status']> = { active: 'hold', hold: 'done', done: 'active' }
+const STATUS_STYLE: Record<Item['status'], string> = {
+  active: 'bg-[#4C7FE0]/10 text-[#4C7FE0]',
+  hold: 'bg-amber-100 text-amber-600',
+  done: 'bg-gray-100 text-gray-400',
 }
 
 function todayStr() {
@@ -38,31 +53,30 @@ export default function TeamLogPage() {
   const [authError, setAuthError] = useState('')
   const [authLoading, setAuthLoading] = useState(false)
 
-  const [entries, setEntries] = useState<Entry[]>([])
+  const [groups, setGroups] = useState<Group[]>([])
   const [loadError, setLoadError] = useState('')
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set())
 
   const [author, setAuthor] = useState('')
-  const [entryType, setEntryType] = useState<'업무기록' | '보고일정'>('업무기록')
-  const [entryDate, setEntryDate] = useState(todayStr())
-  const [title, setTitle] = useState('')
-  const [content, setContent] = useState('')
-  const [submitting, setSubmitting] = useState(false)
+  const [newGroupName, setNewGroupName] = useState('')
+  const [newItemTitle, setNewItemTitle] = useState<Record<string, string>>({})
+  const [subForm, setSubForm] = useState<Record<string, { type: '업무기록' | '보고일정'; date: string; title: string; content: string }>>({})
 
   const [filterAuthor, setFilterAuthor] = useState('전체')
   const [filterType, setFilterType] = useState<'전체' | '업무기록' | '보고일정'>('전체')
 
   useEffect(() => {
     try { const a = localStorage.getItem('team_log_author'); if (a) setAuthor(a) } catch {}
-    loadEntries()
+    loadTree()
   }, [])
 
-  async function loadEntries() {
+  async function loadTree() {
     try {
-      const res = await fetch('/api/team-log/entries')
+      const res = await fetch('/api/team-log/tree')
       if (res.status === 401) { setAuthorized(false); return }
       const json = await res.json()
       if (!json.ok) { setLoadError(json.error ?? '불러오기 실패'); setAuthorized(true); return }
-      setEntries(json.entries)
+      setGroups(json.groups)
       setAuthorized(true)
     } catch {
       setLoadError('네트워크 오류')
@@ -76,11 +90,9 @@ export default function TeamLogPage() {
     setAuthError('')
     try {
       const res = await fetch('/api/team-log/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ passcode }),
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ passcode }),
       })
-      if (res.ok) { setPasscode(''); await loadEntries() }
+      if (res.ok) { setPasscode(''); await loadTree() }
       else setAuthError('비밀번호가 올바르지 않습니다.')
     } catch {
       setAuthError('네트워크 오류가 발생했습니다.')
@@ -89,58 +101,91 @@ export default function TeamLogPage() {
     }
   }
 
-  async function handleAddEntry(e: React.FormEvent) {
+  async function handleAddGroup(e: React.FormEvent) {
     e.preventDefault()
-    if (!author.trim() || !title.trim()) return
-    setSubmitting(true)
-    try {
-      const res = await fetch('/api/team-log/entries', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ author: author.trim(), entry_type: entryType, entry_date: entryDate, title: title.trim(), content }),
-      })
-      if (res.status === 401) { setAuthorized(false); return }
-      const json = await res.json()
-      if (json.ok) {
-        try { localStorage.setItem('team_log_author', author.trim()) } catch {}
-        setEntries(prev => [json.entry, ...prev])
-        setTitle('')
-        setContent('')
-      }
-    } finally {
-      setSubmitting(false)
+    if (!newGroupName.trim()) return
+    const color = GROUP_COLORS[groups.length % GROUP_COLORS.length]
+    const res = await fetch('/api/team-log/groups', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: newGroupName.trim(), color }),
+    })
+    if (res.status === 401) { setAuthorized(false); return }
+    const json = await res.json()
+    if (json.ok) { setGroups(prev => [...prev, json.group]); setNewGroupName('') }
+  }
+
+  async function handleAddItem(groupId: string, e: React.FormEvent) {
+    e.preventDefault()
+    const title = (newItemTitle[groupId] ?? '').trim()
+    if (!title) return
+    const res = await fetch('/api/team-log/items', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ group_id: groupId, title }),
+    })
+    if (res.status === 401) { setAuthorized(false); return }
+    const json = await res.json()
+    if (json.ok) {
+      setGroups(prev => prev.map(g => g.id === groupId ? { ...g, items: [...g.items, json.item] } : g))
+      setNewItemTitle(prev => ({ ...prev, [groupId]: '' }))
     }
   }
 
-  const authors = useMemo(() => {
-    const set = new Set(entries.map(e => e.author))
-    return ['전체', ...Array.from(set)]
-  }, [entries])
+  async function cycleStatus(item: Item) {
+    const next = STATUS_NEXT[item.status]
+    const res = await fetch('/api/team-log/items', {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: item.id, status: next }),
+    })
+    if (res.status === 401) { setAuthorized(false); return }
+    const json = await res.json()
+    if (json.ok) {
+      setGroups(prev => prev.map(g => ({ ...g, items: g.items.map(i => i.id === item.id ? { ...i, status: next } : i) })))
+    }
+  }
 
-  const filtered = useMemo(() => {
-    return entries.filter(e =>
-      (filterAuthor === '전체' || e.author === filterAuthor) &&
-      (filterType === '전체' || e.entry_type === filterType)
-    )
-  }, [entries, filterAuthor, filterType])
+  function toggleExpand(itemId: string) {
+    setExpandedItems(prev => {
+      const next = new Set(prev)
+      if (next.has(itemId)) next.delete(itemId); else next.add(itemId)
+      return next
+    })
+  }
+
+  async function handleAddSubtask(item: Item, e: React.FormEvent) {
+    e.preventDefault()
+    const form = subForm[item.id] ?? { type: '업무기록' as const, date: todayStr(), title: '', content: '' }
+    if (!author.trim() || !form.title.trim()) return
+    const res = await fetch('/api/team-log/subtasks', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ item_id: item.id, author: author.trim(), entry_type: form.type, entry_date: form.date, title: form.title.trim(), content: form.content }),
+    })
+    if (res.status === 401) { setAuthorized(false); return }
+    const json = await res.json()
+    if (json.ok) {
+      try { localStorage.setItem('team_log_author', author.trim()) } catch {}
+      setGroups(prev => prev.map(g => ({
+        ...g,
+        items: g.items.map(i => i.id === item.id ? { ...i, subtasks: [...i.subtasks, json.subtask] } : i),
+      })))
+      setSubForm(prev => ({ ...prev, [item.id]: { type: '업무기록', date: todayStr(), title: '', content: '' } }))
+    }
+  }
+
+  const allSubtasks = useMemo(
+    () => groups.flatMap(g => g.items.flatMap(i => i.subtasks.map(s => ({ ...s, groupName: g.name, itemTitle: i.title })))),
+    [groups]
+  )
+
+  const authors = useMemo(() => ['전체', ...Array.from(new Set(allSubtasks.map(s => s.author)))], [allSubtasks])
 
   const upcomingReports = useMemo(() => {
     const today = todayStr()
-    return entries
-      .filter(e => e.entry_type === '보고일정' && e.entry_date >= today)
+    return allSubtasks
+      .filter(s => s.entry_type === '보고일정' && s.entry_date >= today)
       .sort((a, b) => a.entry_date.localeCompare(b.entry_date))
       .slice(0, 5)
-  }, [entries])
+  }, [allSubtasks])
 
-  const grouped = useMemo(() => {
-    const map = new Map<string, Entry[]>()
-    for (const e of filtered) {
-      const arr = map.get(e.entry_date) ?? []
-      arr.push(e)
-      map.set(e.entry_date, arr)
-    }
-    return Array.from(map.entries()).sort((a, b) => b[0].localeCompare(a[0]))
-  }, [filtered])
+  function matchesFilter(s: Subtask) {
+    return (filterAuthor === '전체' || s.author === filterAuthor) && (filterType === '전체' || s.entry_type === filterType)
+  }
 
   if (authorized === null) {
     return <div className="min-h-screen flex items-center justify-center bg-[#F4F7F5] text-sm text-gray-400">불러오는 중...</div>
@@ -153,20 +198,13 @@ export default function TeamLogPage() {
           <p className="font-semibold text-gray-900 text-sm mb-1">공통업무 로그</p>
           <p className="text-xs text-gray-400 mb-6">팀에서 공유받은 비밀번호를 입력하세요.</p>
           <input
-            type="password"
-            value={passcode}
-            onChange={e => setPasscode(e.target.value)}
+            type="password" value={passcode} onChange={e => setPasscode(e.target.value)}
             className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#4C7FE0]/30 focus:border-[#4C7FE0] bg-white placeholder-gray-300"
-            placeholder="비밀번호"
-            autoFocus
-            required
+            placeholder="비밀번호" autoFocus required
           />
           {authError && <p className="text-xs text-red-500 bg-red-50 rounded-lg px-3 py-2 mt-3">{authError}</p>}
-          <button
-            type="submit"
-            disabled={authLoading}
-            className="w-full bg-[#4C7FE0] hover:bg-[#3A6CC8] text-white rounded-lg py-2.5 text-sm font-medium transition-colors disabled:opacity-50 mt-4"
-          >
+          <button type="submit" disabled={authLoading}
+            className="w-full bg-[#4C7FE0] hover:bg-[#3A6CC8] text-white rounded-lg py-2.5 text-sm font-medium transition-colors disabled:opacity-50 mt-4">
             {authLoading ? '확인 중...' : '입장'}
           </button>
         </form>
@@ -179,7 +217,7 @@ export default function TeamLogPage() {
       <div className="max-w-2xl mx-auto space-y-5">
         <div>
           <p className="font-semibold text-gray-900 text-base">공통업무 로그</p>
-          <p className="text-xs text-gray-400 mt-0.5">팀 공용 · 업무기록 · 타임라인 · 보고일정 · 아카이빙</p>
+          <p className="text-xs text-gray-400 mt-0.5">팀 공용 · 그룹 · 항목 · 업무기록/보고일정 · 아카이빙</p>
         </div>
 
         {loadError && <p className="text-xs text-red-500 bg-red-50 rounded-lg px-3 py-2">{loadError}</p>}
@@ -188,79 +226,26 @@ export default function TeamLogPage() {
           <div className="bg-white rounded-2xl border border-stone-100 shadow-sm p-4">
             <p className="text-xs font-semibold text-gray-500 mb-2">다가오는 보고일정</p>
             <ul className="space-y-1.5">
-              {upcomingReports.map(e => (
-                <li key={e.id} className="flex items-center gap-2 text-sm">
-                  <span className="text-[11px] font-medium text-[#4C7FE0] bg-[#4C7FE0]/10 rounded-full px-2 py-0.5 flex-shrink-0">{fmtDay(e.entry_date)}</span>
-                  <span className="text-gray-800 truncate">{e.title}</span>
-                  <span className="text-[11px] text-gray-400 flex-shrink-0">{e.author}</span>
+              {upcomingReports.map(s => (
+                <li key={s.id} className="flex items-center gap-2 text-sm">
+                  <span className="text-[11px] font-medium text-[#4C7FE0] bg-[#4C7FE0]/10 rounded-full px-2 py-0.5 flex-shrink-0">{fmtDay(s.entry_date)}</span>
+                  <span className="text-gray-800 truncate">{s.title}</span>
+                  <span className="text-[11px] text-gray-400 flex-shrink-0">{s.author} · {s.itemTitle}</span>
                 </li>
               ))}
             </ul>
           </div>
         )}
 
-        <form onSubmit={handleAddEntry} className="bg-white rounded-2xl border border-stone-100 shadow-sm p-4 space-y-3">
-          <p className="text-xs font-semibold text-gray-500">기록 추가</p>
-          <div className="flex gap-2">
-            <input
-              value={author}
-              onChange={e => setAuthor(e.target.value)}
-              placeholder="이름"
-              required
-              className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4C7FE0]/30 focus:border-[#4C7FE0]"
-            />
-            <select
-              value={entryType}
-              onChange={e => setEntryType(e.target.value as '업무기록' | '보고일정')}
-              className="border border-gray-200 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4C7FE0]/30"
-            >
-              <option value="업무기록">업무기록</option>
-              <option value="보고일정">보고일정</option>
-            </select>
-            <input
-              type="date"
-              value={entryDate}
-              onChange={e => setEntryDate(e.target.value)}
-              required
-              className="border border-gray-200 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4C7FE0]/30"
-            />
-          </div>
-          <input
-            value={title}
-            onChange={e => setTitle(e.target.value)}
-            placeholder="제목"
-            required
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4C7FE0]/30 focus:border-[#4C7FE0]"
-          />
-          <textarea
-            value={content}
-            onChange={e => setContent(e.target.value)}
-            placeholder="내용 (선택)"
-            rows={2}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4C7FE0]/30 focus:border-[#4C7FE0] resize-none"
-          />
-          <button
-            type="submit"
-            disabled={submitting}
-            className="bg-[#4C7FE0] hover:bg-[#3A6CC8] text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50"
-          >
-            {submitting ? '추가 중...' : '기록 추가'}
-          </button>
-        </form>
-
         <div className="flex items-center gap-2">
-          <select
-            value={filterAuthor}
-            onChange={e => setFilterAuthor(e.target.value)}
-            className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs bg-white"
-          >
+          <input
+            value={author} onChange={e => setAuthor(e.target.value)} placeholder="내 이름"
+            className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs bg-white w-28"
+          />
+          <select value={filterAuthor} onChange={e => setFilterAuthor(e.target.value)} className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs bg-white">
             {authors.map(a => <option key={a} value={a}>{a}</option>)}
           </select>
-          <select
-            value={filterType}
-            onChange={e => setFilterType(e.target.value as '전체' | '업무기록' | '보고일정')}
-            className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs bg-white"
-          >
+          <select value={filterType} onChange={e => setFilterType(e.target.value as '전체' | '업무기록' | '보고일정')} className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs bg-white">
             <option value="전체">전체 유형</option>
             <option value="업무기록">업무기록</option>
             <option value="보고일정">보고일정</option>
@@ -268,29 +253,106 @@ export default function TeamLogPage() {
         </div>
 
         <div className="space-y-4">
-          {grouped.length === 0 && (
-            <p className="text-xs text-gray-400 text-center py-8">아직 기록이 없습니다.</p>
-          )}
-          {grouped.map(([date, list]) => (
-            <div key={date}>
-              <p className="text-[11px] font-semibold text-gray-400 mb-1.5">{fmtDay(date)}</p>
-              <div className="space-y-1.5">
-                {list.map(e => (
-                  <div key={e.id} className="bg-white rounded-xl border border-stone-100 shadow-sm p-3">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className={`text-[10.5px] font-medium px-2 py-0.5 rounded-full ${e.entry_type === '보고일정' ? 'bg-[#4C7FE0]/10 text-[#4C7FE0]' : 'bg-gray-100 text-gray-500'}`}>
-                        {e.entry_type}
-                      </span>
-                      <span className="text-[11px] text-gray-400">{e.author}</span>
+          {groups.map(g => (
+            <div key={g.id} className="bg-white rounded-2xl border border-stone-100 shadow-sm overflow-hidden">
+              <div className="flex items-center gap-2 px-4 py-3 border-b border-stone-100">
+                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: g.color }} />
+                <p className="text-sm font-semibold text-gray-800">{g.name}</p>
+              </div>
+
+              <div className="divide-y divide-stone-100">
+                {g.items.map(item => {
+                  const expanded = expandedItems.has(item.id)
+                  const visibleSubtasks = item.subtasks.filter(matchesFilter)
+                  const form = subForm[item.id] ?? { type: '업무기록' as const, date: todayStr(), title: '', content: '' }
+                  return (
+                    <div key={item.id} className="px-4 py-2.5">
+                      <div className="flex items-center gap-2 cursor-pointer" onClick={() => toggleExpand(item.id)}>
+                        <button
+                          onClick={e => { e.stopPropagation(); cycleStatus(item) }}
+                          className={`text-[10.5px] font-medium px-2 py-0.5 rounded-full flex-shrink-0 ${STATUS_STYLE[item.status]}`}
+                        >
+                          {STATUS_LABEL[item.status]}
+                        </button>
+                        <p className="text-sm text-gray-800 flex-1 truncate">{item.title}</p>
+                        <span className="text-[11px] text-gray-400 flex-shrink-0">{item.subtasks.length}건</span>
+                      </div>
+
+                      {expanded && (
+                        <div className="mt-2.5 ml-1 space-y-2 border-l-2 border-stone-100 pl-3">
+                          {visibleSubtasks.length === 0 && (
+                            <p className="text-[11px] text-gray-400 py-1">기록이 없습니다.</p>
+                          )}
+                          {visibleSubtasks.map(s => (
+                            <div key={s.id} className="bg-[#F9FAFB] rounded-lg p-2.5">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${s.entry_type === '보고일정' ? 'bg-[#4C7FE0]/10 text-[#4C7FE0]' : 'bg-gray-200 text-gray-500'}`}>
+                                  {s.entry_type}
+                                </span>
+                                <span className="text-[10.5px] text-gray-400">{s.author}</span>
+                                <span className="text-[10.5px] text-gray-400">{fmtDay(s.entry_date)}</span>
+                              </div>
+                              <p className="text-[13px] text-gray-800 font-medium">{s.title}</p>
+                              {s.content && <p className="text-[12px] text-gray-500 mt-0.5 whitespace-pre-wrap">{s.content}</p>}
+                            </div>
+                          ))}
+
+                          <form onSubmit={e => handleAddSubtask(item, e)} className="space-y-1.5 pt-1">
+                            <div className="flex gap-1.5">
+                              <select
+                                value={form.type}
+                                onChange={e => setSubForm(prev => ({ ...prev, [item.id]: { ...form, type: e.target.value as '업무기록' | '보고일정' } }))}
+                                className="border border-gray-200 rounded-lg px-1.5 py-1 text-[11px]"
+                              >
+                                <option value="업무기록">업무기록</option>
+                                <option value="보고일정">보고일정</option>
+                              </select>
+                              <input
+                                type="date" value={form.date}
+                                onChange={e => setSubForm(prev => ({ ...prev, [item.id]: { ...form, date: e.target.value } }))}
+                                className="border border-gray-200 rounded-lg px-1.5 py-1 text-[11px]"
+                              />
+                            </div>
+                            <input
+                              value={form.title} placeholder="제목"
+                              onChange={e => setSubForm(prev => ({ ...prev, [item.id]: { ...form, title: e.target.value } }))}
+                              className="w-full border border-gray-200 rounded-lg px-2 py-1 text-[12px]"
+                            />
+                            <textarea
+                              value={form.content} placeholder="내용 (선택)" rows={2}
+                              onChange={e => setSubForm(prev => ({ ...prev, [item.id]: { ...form, content: e.target.value } }))}
+                              className="w-full border border-gray-200 rounded-lg px-2 py-1 text-[12px] resize-none"
+                            />
+                            <button type="submit" className="text-[11px] font-medium text-white bg-[#4C7FE0] hover:bg-[#3A6CC8] rounded-lg px-3 py-1.5">
+                              기록 추가
+                            </button>
+                          </form>
+                        </div>
+                      )}
                     </div>
-                    <p className="text-sm text-gray-800 font-medium">{e.title}</p>
-                    {e.content && <p className="text-xs text-gray-500 mt-0.5 whitespace-pre-wrap">{e.content}</p>}
-                  </div>
-                ))}
+                  )
+                })}
+
+                <form onSubmit={e => handleAddItem(g.id, e)} className="flex gap-1.5 px-4 py-2.5">
+                  <input
+                    value={newItemTitle[g.id] ?? ''} placeholder="+ 항목 추가"
+                    onChange={e => setNewItemTitle(prev => ({ ...prev, [g.id]: e.target.value }))}
+                    className="flex-1 border border-gray-200 rounded-lg px-2.5 py-1.5 text-[12.5px]"
+                  />
+                  <button type="submit" className="text-[11.5px] font-medium text-[#4C7FE0] px-2">추가</button>
+                </form>
               </div>
             </div>
           ))}
         </div>
+
+        <form onSubmit={handleAddGroup} className="bg-white rounded-2xl border border-stone-100 shadow-sm p-4 flex gap-2">
+          <input
+            value={newGroupName} onChange={e => setNewGroupName(e.target.value)} placeholder="+ 그룹 추가 (예: 채용, 평가보상)"
+            className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm"
+          />
+          <button type="submit" className="bg-[#4C7FE0] hover:bg-[#3A6CC8] text-white rounded-lg px-4 py-2 text-sm font-medium">추가</button>
+        </form>
       </div>
     </div>
   )
