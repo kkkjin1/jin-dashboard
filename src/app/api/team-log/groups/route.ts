@@ -21,3 +21,37 @@ export async function POST(request: NextRequest) {
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true, group: { ...data, items: [] } })
 }
+
+export async function PATCH(request: NextRequest) {
+  if (!(await isTeamLogRequestAuthorized())) return NextResponse.json({ ok: false }, { status: 401 })
+
+  const body = await request.json().catch(() => null)
+  const id = typeof body?.id === 'string' ? body.id : ''
+  const name = typeof body?.name === 'string' ? body.name.trim().slice(0, 40) : ''
+  if (!id || !name) return NextResponse.json({ ok: false, error: 'invalid payload' }, { status: 400 })
+
+  const supabase = createServiceClient()
+  const { data, error } = await supabase
+    .from('team_log_groups')
+    .update({ name })
+    .eq('id', id)
+    .select('id, name, color, sort_order')
+    .single()
+
+  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
+  return NextResponse.json({ ok: true, group: data })
+}
+
+export async function DELETE(request: NextRequest) {
+  if (!(await isTeamLogRequestAuthorized())) return NextResponse.json({ ok: false }, { status: 401 })
+
+  const body = await request.json().catch(() => null)
+  const id = typeof body?.id === 'string' ? body.id : ''
+  if (!id) return NextResponse.json({ ok: false, error: 'invalid payload' }, { status: 400 })
+
+  const supabase = createServiceClient()
+  const { error } = await supabase.from('team_log_groups').delete().eq('id', id)
+
+  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
+  return NextResponse.json({ ok: true })
+}

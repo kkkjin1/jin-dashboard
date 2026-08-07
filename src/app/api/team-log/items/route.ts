@@ -32,17 +32,42 @@ export async function PATCH(request: NextRequest) {
 
   const body = await request.json().catch(() => null)
   const id = typeof body?.id === 'string' ? body.id : ''
-  const status = body?.status
-  if (!id || !STATUSES.includes(status)) return NextResponse.json({ ok: false, error: 'invalid payload' }, { status: 400 })
+  if (!id) return NextResponse.json({ ok: false, error: 'invalid payload' }, { status: 400 })
+
+  const update: Record<string, string> = {}
+  if (body.status !== undefined) {
+    if (!STATUSES.includes(body.status)) return NextResponse.json({ ok: false, error: 'invalid status' }, { status: 400 })
+    update.status = body.status
+  }
+  if (body.title !== undefined) {
+    const title = typeof body.title === 'string' ? body.title.trim().slice(0, 200) : ''
+    if (!title) return NextResponse.json({ ok: false, error: 'invalid title' }, { status: 400 })
+    update.title = title
+  }
+  if (Object.keys(update).length === 0) return NextResponse.json({ ok: false, error: 'no fields' }, { status: 400 })
 
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('team_log_items')
-    .update({ status })
+    .update(update)
     .eq('id', id)
     .select('id, group_id, title, status, sort_order')
     .single()
 
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true, item: data })
+}
+
+export async function DELETE(request: NextRequest) {
+  if (!(await isTeamLogRequestAuthorized())) return NextResponse.json({ ok: false }, { status: 401 })
+
+  const body = await request.json().catch(() => null)
+  const id = typeof body?.id === 'string' ? body.id : ''
+  if (!id) return NextResponse.json({ ok: false, error: 'invalid payload' }, { status: 400 })
+
+  const supabase = createServiceClient()
+  const { error } = await supabase.from('team_log_items').delete().eq('id', id)
+
+  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
+  return NextResponse.json({ ok: true })
 }
