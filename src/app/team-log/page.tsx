@@ -26,7 +26,9 @@ type SubForm = { type: '업무기록' | '보고일정'; date: string; title: str
 type Note = { id: string; author: string; content: string; sort_order: number; created_at: string }
 type Meeting = { id: string; title: string; meeting_date: string; attendees: string; content: string; created_at: string }
 type MeetingForm = { title: string; date: string; attendees: string; content: string }
-type Section = 'life' | 'work' | 'meetings'
+type ScheduleEvent = { id: string; title: string; event_date: string; note: string; source_type: 'item' | 'subtask' | 'meeting' | null; source_id: string | null; created_at: string }
+type EventForm = { title: string; date: string; note: string }
+type Section = 'life' | 'work' | 'meetings' | 'schedule'
 
 const GROUP_COLORS = ['#4C7FE0', '#F59E0B', '#10B981', '#EF4444', '#8B5CF6', '#EC4899', '#9CA3AF']
 const STATUS_LABEL: Record<Item['status'], string> = { active: '진행중', hold: '보류', done: '완료' }
@@ -38,6 +40,8 @@ const STATUS_STYLE: Record<Item['status'], string> = {
 }
 const EMPTY_SUB_FORM: SubForm = { type: '업무기록', date: '', title: '', content: '' }
 const EMPTY_MEETING_FORM: MeetingForm = { title: '', date: '', attendees: '', content: '' }
+const EMPTY_EVENT_FORM: EventForm = { title: '', date: '', note: '' }
+const SOURCE_LABEL: Record<'item' | 'subtask' | 'meeting', string> = { item: '업무', subtask: '업무기록', meeting: '회의록' }
 
 function todayStr() {
   const d = new Date()
@@ -90,10 +94,27 @@ export default function TeamLogPage() {
   const [editingMeetingId, setEditingMeetingId] = useState<string | null>(null)
   const [editMeetingForm, setEditMeetingForm] = useState<MeetingForm>(EMPTY_MEETING_FORM)
 
+  // ── 일정 ──────────────────────────────────────────────────────────────
+  const [events, setEvents] = useState<ScheduleEvent[]>([])
+  const [eventForm, setEventForm] = useState<EventForm>({ ...EMPTY_EVENT_FORM, date: todayStr() })
+  const [editingEventId, setEditingEventId] = useState<string | null>(null)
+  const [editEventForm, setEditEventForm] = useState<EventForm>(EMPTY_EVENT_FORM)
+  const [showPastEvents, setShowPastEvents] = useState(false)
+
+  // ── 업무/회의록 → 일정 연동 (호버 후 S 단축키, 또는 📅 버튼) ──────────
+  const [hoveredKey, setHoveredKey] = useState<string | null>(null)
+  const [flash, setFlash] = useState('')
+
   useEffect(() => {
     try { const a = localStorage.getItem('team_log_author'); if (a) setAuthor(a) } catch {}
     loadAll()
   }, [])
+
+  useEffect(() => {
+    if (!flash) return
+    const t = setTimeout(() => setFlash(''), 2200)
+    return () => clearTimeout(t)
+  }, [flash])
 
   async function loadAll() {
     try {
@@ -104,11 +125,15 @@ export default function TeamLogPage() {
       setGroups(json.groups)
       setAuthorized(true)
 
-      const [notesRes, meetingsRes] = await Promise.all([fetch('/api/team-log/notes'), fetch('/api/team-log/meetings')])
+      const [notesRes, meetingsRes, scheduleRes] = await Promise.all([
+        fetch('/api/team-log/notes'), fetch('/api/team-log/meetings'), fetch('/api/team-log/schedule'),
+      ])
       const notesJson = await notesRes.json()
       const meetingsJson = await meetingsRes.json()
+      const scheduleJson = await scheduleRes.json()
       if (notesJson.ok) setNotes(notesJson.notes)
       if (meetingsJson.ok) setMeetings(meetingsJson.meetings)
+      if (scheduleJson.ok) setEvents(scheduleJson.events)
     } catch {
       setLoadError('네트워크 오류')
       setAuthorized(false)
@@ -357,6 +382,59 @@ export default function TeamLogPage() {
     if (json.ok) setMeetings(prev => prev.filter(x => x.id !== m.id))
   }
 
+  // ── 일정 ──────────────────────────────────────────────────────────────
+  async function addToSchedule(title: string, date: string, sourceType: 'item' | 'subtask' | 'meeting', sourceId: string) {
+    const res = await fetch('/api/team-log/schedule', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, event_date: date, source_type: sourceType, source_id: sourceId }),
+    })
+    if (unauthorizedGuard(res)) return
+    const json = await res.json()
+    if (json.ok) {
+      setEvents(prev => [...prev, json.event].sort((a, b) => a.event_date.localeCompare(b.event_date)))
+      setFlash(`"${title}" 일정에 추가됨`)
+    }
+  }
+
+  async function handleAddEvent(e: React.FormEvent) {
+    e.preventDefault()
+    if (!eventForm.title.trim() || !eventForm.date) return
+    const res = await fetch('/api/team-log/schedule', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: eventForm.title.trim(), event_date: eventForm.date, note: eventForm.note }),
+    })
+    if (unauthorizedGuard(res)) return
+    const json = await res.json()
+    if (json.ok) {
+      setEvents(prev => [...prev, json.event].sort((a, b) => a.event_date.localeCompare(b.event_date)))
+      setEventForm({ ...EMPTY_EVENT_FORM, date: todayStr() })
+    }
+  }
+
+  function startEditEvent(ev: ScheduleEvent) { setEditingEventId(ev.id); setEditEventForm({ title: ev.title, date: ev.event_date, note: ev.note }) }
+
+  async function saveEditEvent(id: string) {
+    if (!editEventForm.title.trim() || !editEventForm.date) { setEditingEventId(null); return }
+    const res = await fetch('/api/team-log/schedule', {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, title: editEventForm.title.trim(), event_date: editEventForm.date, note: editEventForm.note }),
+    })
+    setEditingEventId(null)
+    if (unauthorizedGuard(res)) return
+    const json = await res.json()
+    if (json.ok) setEvents(prev => prev.map(ev => ev.id === id ? json.event : ev).sort((a, b) => a.event_date.localeCompare(b.event_date)))
+  }
+
+  async function deleteEvent(ev: ScheduleEvent) {
+    if (!confirm(`"${ev.title}" 일정을 삭제할까요?`)) return
+    const res = await fetch('/api/team-log/schedule', {
+      method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: ev.id }),
+    })
+    if (unauthorizedGuard(res)) return
+    const json = await res.json()
+    if (json.ok) setEvents(prev => prev.filter(x => x.id !== ev.id))
+  }
+
   // ── 파생 데이터 ───────────────────────────────────────────────────────
   const allSubtasks = useMemo(
     () => groups.flatMap(g => g.items.flatMap(i => i.subtasks.map(s => ({ ...s, groupName: g.name, itemTitle: i.title })))),
@@ -371,10 +449,35 @@ export default function TeamLogPage() {
       .slice(0, 5)
   }, [allSubtasks])
   const visibleGroups = activeGroupId ? groups.filter(g => g.id === activeGroupId) : groups
+  const todayS = todayStr()
+  const upcomingEvents = useMemo(() => events.filter(ev => ev.event_date >= todayS), [events, todayS])
+  const pastEvents = useMemo(() => events.filter(ev => ev.event_date < todayS).sort((a, b) => b.event_date.localeCompare(a.event_date)), [events, todayS])
 
   function matchesFilter(s: Subtask) {
     return (filterAuthor === '전체' || s.author === filterAuthor) && (filterType === '전체' || s.entry_type === filterType)
   }
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key.toLowerCase() !== 's' || !hoveredKey) return
+      const active = document.activeElement as HTMLElement | null
+      if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) return
+      e.preventDefault()
+      const [type, id] = hoveredKey.split(':')
+      if (type === 'item') {
+        const item = groups.flatMap(g => g.items).find(i => i.id === id)
+        if (item) addToSchedule(item.title, todayStr(), 'item', item.id)
+      } else if (type === 'subtask') {
+        const s = allSubtasks.find(s => s.id === id)
+        if (s) addToSchedule(s.title, s.entry_date, 'subtask', s.id)
+      } else if (type === 'meeting') {
+        const m = meetings.find(m => m.id === id)
+        if (m) addToSchedule(m.title, m.meeting_date, 'meeting', m.id)
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [hoveredKey, groups, meetings, allSubtasks])
 
   if (authorized === null) {
     return <div className="min-h-screen flex items-center justify-center bg-[#F4F7F5] text-sm text-gray-400">불러오는 중...</div>
@@ -401,7 +504,8 @@ export default function TeamLogPage() {
     )
   }
 
-  const SECTION_LABEL: Record<Section, string> = { life: '일상', work: '업무', meetings: '회의록' }
+  const SECTION_LABEL: Record<Section, string> = { life: '일상', work: '업무', meetings: '회의록', schedule: '일정' }
+  const SECTIONS: Section[] = ['life', 'work', 'meetings', 'schedule']
 
   return (
     <div className="min-h-screen bg-[#F4F7F5] flex">
@@ -409,7 +513,7 @@ export default function TeamLogPage() {
       <aside className="hidden sm:flex flex-col w-56 flex-shrink-0 bg-white border-r border-stone-100 min-h-screen p-4">
         <p className="font-semibold text-gray-900 text-sm mb-4 px-1">공통업무 로그</p>
         <nav className="space-y-0.5">
-          {(['life', 'work', 'meetings'] as Section[]).map(s => (
+          {SECTIONS.map(s => (
             <div key={s}>
               <button
                 onClick={() => setSection(s)}
@@ -446,7 +550,7 @@ export default function TeamLogPage() {
         <div className="max-w-2xl mx-auto space-y-5">
           {/* 모바일 상단 섹션 탭 */}
           <div className="sm:hidden -mt-2 mb-2 flex gap-1.5 overflow-x-auto pb-1">
-            {(['life', 'work', 'meetings'] as Section[]).map(s => (
+            {SECTIONS.map(s => (
               <button key={s} onClick={() => setSection(s)} className={`flex-shrink-0 text-xs px-3 py-1.5 rounded-full ${section === s ? 'bg-[#4C7FE0] text-white' : 'bg-white text-gray-500 border border-gray-200'}`}>{SECTION_LABEL[s]}</button>
             ))}
           </div>
@@ -547,7 +651,11 @@ export default function TeamLogPage() {
                         const visibleSubtasks = item.subtasks.filter(matchesFilter)
                         const form = subForm[item.id] ?? { ...EMPTY_SUB_FORM, date: todayStr() }
                         return (
-                          <div key={item.id} className="px-4 py-2.5">
+                          <div
+                            key={item.id} className="px-4 py-2.5"
+                            onMouseEnter={() => setHoveredKey(`item:${item.id}`)}
+                            onMouseLeave={() => setHoveredKey(null)}
+                          >
                             <div className="flex items-center gap-2 cursor-pointer group" onClick={() => toggleExpand(item.id)}>
                               <span className={`text-gray-300 text-[10px] transition-transform flex-shrink-0 ${expanded ? 'rotate-90' : ''}`}>▶</span>
                               <button onClick={e => { e.stopPropagation(); cycleStatus(item) }} className={`text-[10.5px] font-medium px-2 py-0.5 rounded-full flex-shrink-0 ${STATUS_STYLE[item.status]}`}>
@@ -565,6 +673,11 @@ export default function TeamLogPage() {
                                 <p className="text-sm text-gray-800 flex-1 truncate">{item.title}</p>
                               )}
                               <span className="text-[11px] text-gray-400 flex-shrink-0">{item.subtasks.length}건</span>
+                              <button
+                                onClick={e => { e.stopPropagation(); addToSchedule(item.title, todayStr(), 'item', item.id) }}
+                                title="일정에 추가 (호버 후 S)"
+                                className="text-[11px] text-gray-300 hover:text-[#4C7FE0] opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                              >📅</button>
                               <button onClick={e => startEditItem(item, e)} className="text-[11px] text-gray-300 hover:text-[#4C7FE0] opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">수정</button>
                               <button onClick={e => deleteItem(item, e)} className="text-[11px] text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">삭제</button>
                             </div>
@@ -590,12 +703,17 @@ export default function TeamLogPage() {
                                       </div>
                                     </div>
                                   ) : (
-                                    <div key={s.id} className="bg-[#F9FAFB] rounded-lg p-2.5 group">
+                                    <div
+                                      key={s.id} className="bg-[#F9FAFB] rounded-lg p-2.5 group"
+                                      onMouseEnter={() => setHoveredKey(`subtask:${s.id}`)}
+                                      onMouseLeave={() => setHoveredKey(null)}
+                                    >
                                       <div className="flex items-center gap-2 mb-1">
                                         <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${s.entry_type === '보고일정' ? 'bg-[#4C7FE0]/10 text-[#4C7FE0]' : 'bg-gray-200 text-gray-500'}`}>{s.entry_type}</span>
                                         <span className="text-[10.5px] text-gray-400">{s.author}</span>
                                         <span className="text-[10.5px] text-gray-400">{fmtDay(s.entry_date)}</span>
-                                        <button onClick={() => startEditSubtask(s)} className="text-[10.5px] text-gray-300 hover:text-[#4C7FE0] opacity-0 group-hover:opacity-100 transition-opacity ml-auto">수정</button>
+                                        <button onClick={() => addToSchedule(s.title, s.entry_date, 'subtask', s.id)} title="일정에 추가 (호버 후 S)" className="text-[10.5px] text-gray-300 hover:text-[#4C7FE0] opacity-0 group-hover:opacity-100 transition-opacity ml-auto">📅</button>
+                                        <button onClick={() => startEditSubtask(s)} className="text-[10.5px] text-gray-300 hover:text-[#4C7FE0] opacity-0 group-hover:opacity-100 transition-opacity">수정</button>
                                         <button onClick={() => deleteSubtask(s)} className="text-[10.5px] text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">삭제</button>
                                       </div>
                                       <p className="text-[13px] text-gray-800 font-medium">{s.title}</p>
@@ -670,11 +788,16 @@ export default function TeamLogPage() {
                       </div>
                     </div>
                   ) : (
-                    <div key={m.id} className="bg-white rounded-2xl border border-stone-100 shadow-sm p-4 group">
+                    <div
+                      key={m.id} className="bg-white rounded-2xl border border-stone-100 shadow-sm p-4 group"
+                      onMouseEnter={() => setHoveredKey(`meeting:${m.id}`)}
+                      onMouseLeave={() => setHoveredKey(null)}
+                    >
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-[11px] font-medium text-[#4C7FE0] bg-[#4C7FE0]/10 rounded-full px-2 py-0.5">{fmtDay(m.meeting_date)}</span>
                         {m.attendees && <span className="text-[11px] text-gray-400">{m.attendees}</span>}
-                        <button onClick={() => startEditMeeting(m)} className="text-[11px] text-gray-300 hover:text-[#4C7FE0] opacity-0 group-hover:opacity-100 transition-opacity ml-auto">수정</button>
+                        <button onClick={() => addToSchedule(m.title, m.meeting_date, 'meeting', m.id)} title="일정에 추가 (호버 후 S)" className="text-[11px] text-gray-300 hover:text-[#4C7FE0] opacity-0 group-hover:opacity-100 transition-opacity ml-auto">📅</button>
+                        <button onClick={() => startEditMeeting(m)} className="text-[11px] text-gray-300 hover:text-[#4C7FE0] opacity-0 group-hover:opacity-100 transition-opacity">수정</button>
                         <button onClick={() => deleteMeeting(m)} className="text-[11px] text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">삭제</button>
                       </div>
                       <p className="text-sm text-gray-800 font-medium">{m.title}</p>
@@ -685,8 +808,79 @@ export default function TeamLogPage() {
               </div>
             </>
           )}
+
+          {/* ══ 일정 ══ */}
+          {section === 'schedule' && (
+            <>
+              <form onSubmit={handleAddEvent} className="bg-white rounded-2xl border border-stone-100 shadow-sm p-4 space-y-2">
+                <div className="flex gap-2">
+                  <input value={eventForm.title} onChange={e => setEventForm(prev => ({ ...prev, title: e.target.value }))} placeholder="일정 제목" required className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                  <input type="date" value={eventForm.date} onChange={e => setEventForm(prev => ({ ...prev, date: e.target.value }))} required className="border border-gray-200 rounded-lg px-2 py-2 text-sm" />
+                </div>
+                <input value={eventForm.note} onChange={e => setEventForm(prev => ({ ...prev, note: e.target.value }))} placeholder="메모 (선택)" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                <button type="submit" className="bg-[#4C7FE0] hover:bg-[#3A6CC8] text-white rounded-lg px-4 py-2 text-sm font-medium">일정 추가</button>
+              </form>
+
+              <div className="space-y-2">
+                {upcomingEvents.length === 0 && <p className="text-xs text-gray-400 text-center py-4">다가오는 일정이 없습니다.</p>}
+                {upcomingEvents.map(ev => (
+                  editingEventId === ev.id ? (
+                    <div key={ev.id} className="bg-white rounded-xl border border-stone-100 shadow-sm p-3 space-y-1.5">
+                      <div className="flex gap-2">
+                        <input value={editEventForm.title} onChange={e => setEditEventForm(prev => ({ ...prev, title: e.target.value }))} className="flex-1 border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm" />
+                        <input type="date" value={editEventForm.date} onChange={e => setEditEventForm(prev => ({ ...prev, date: e.target.value }))} className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm" />
+                      </div>
+                      <input value={editEventForm.note} onChange={e => setEditEventForm(prev => ({ ...prev, note: e.target.value }))} className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm" />
+                      <div className="flex gap-1.5">
+                        <button onClick={() => saveEditEvent(ev.id)} className="text-[12px] font-medium text-white bg-[#4C7FE0] hover:bg-[#3A6CC8] rounded-lg px-3 py-1.5">저장</button>
+                        <button onClick={() => setEditingEventId(null)} className="text-[12px] font-medium text-gray-500 px-3 py-1.5">취소</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div key={ev.id} className="bg-white rounded-xl border border-stone-100 shadow-sm p-3 flex items-center gap-2 group">
+                      <span className="text-[11px] font-medium text-[#4C7FE0] bg-[#4C7FE0]/10 rounded-full px-2 py-0.5 flex-shrink-0">{fmtDay(ev.event_date)}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-gray-800 truncate">{ev.title}</p>
+                        {ev.note && <p className="text-[11.5px] text-gray-400 truncate">{ev.note}</p>}
+                      </div>
+                      {ev.source_type && <span className="text-[10px] text-gray-300 flex-shrink-0">{SOURCE_LABEL[ev.source_type]}</span>}
+                      <button onClick={() => startEditEvent(ev)} className="text-[11px] text-gray-300 hover:text-[#4C7FE0] opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">수정</button>
+                      <button onClick={() => deleteEvent(ev)} className="text-[11px] text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">삭제</button>
+                    </div>
+                  )
+                ))}
+              </div>
+
+              {pastEvents.length > 0 && (
+                <div>
+                  <button onClick={() => setShowPastEvents(p => !p)} className="text-[11.5px] text-gray-400 hover:text-gray-600">
+                    {showPastEvents ? '▾' : '▸'} 지난 일정 {pastEvents.length}건
+                  </button>
+                  {showPastEvents && (
+                    <div className="space-y-2 mt-2">
+                      {pastEvents.map(ev => (
+                        <div key={ev.id} className="bg-white rounded-xl border border-stone-100 shadow-sm p-3 flex items-center gap-2 opacity-60 group">
+                          <span className="text-[11px] font-medium text-gray-400 bg-gray-100 rounded-full px-2 py-0.5 flex-shrink-0">{fmtDay(ev.event_date)}</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm text-gray-600 truncate">{ev.title}</p>
+                          </div>
+                          <button onClick={() => deleteEvent(ev)} className="text-[11px] text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">삭제</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
         </div>
       </main>
+
+      {flash && (
+        <div className="fixed bottom-5 right-5 bg-gray-900 text-white text-[12.5px] px-4 py-2.5 rounded-lg shadow-lg z-50">
+          {flash}
+        </div>
+      )}
     </div>
   )
 }
