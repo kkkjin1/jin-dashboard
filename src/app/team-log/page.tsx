@@ -128,24 +128,21 @@ export default function TeamLogPage() {
 
   async function loadAll() {
     try {
-      const res = await fetch('/api/team-log/tree')
-      if (res.status === 401) { setAuthorized(false); return }
-      const json = await res.json()
-      if (!json.ok) { setLoadError(json.error ?? '불러오기 실패'); setAuthorized(true); return }
-      setGroups(json.groups)
-      setAuthorized(true)
-
-      const [notesRes, meetingsRes, scheduleRes, membersRes] = await Promise.all([
-        fetch('/api/team-log/notes'), fetch('/api/team-log/meetings'), fetch('/api/team-log/schedule'), fetch('/api/team-log/members'),
+      const [treeRes, notesRes, meetingsRes, scheduleRes, membersRes] = await Promise.all([
+        fetch('/api/team-log/tree'), fetch('/api/team-log/notes'), fetch('/api/team-log/meetings'),
+        fetch('/api/team-log/schedule'), fetch('/api/team-log/members'),
       ])
-      const notesJson = await notesRes.json()
-      const meetingsJson = await meetingsRes.json()
-      const scheduleJson = await scheduleRes.json()
-      const membersJson = await membersRes.json()
+      if (treeRes.status === 401) { setAuthorized(false); return }
+      const [treeJson, notesJson, meetingsJson, scheduleJson, membersJson] = await Promise.all([
+        treeRes.json(), notesRes.json(), meetingsRes.json(), scheduleRes.json(), membersRes.json(),
+      ])
+      if (!treeJson.ok) { setLoadError(treeJson.error ?? '불러오기 실패'); setAuthorized(true); return }
+      setGroups(treeJson.groups)
       if (notesJson.ok) setNotes(notesJson.notes)
       if (meetingsJson.ok) setMeetings(meetingsJson.meetings)
       if (scheduleJson.ok) setEvents(scheduleJson.events)
       if (membersJson.ok) setMembers(membersJson.members)
+      setAuthorized(true)
     } catch {
       setLoadError('네트워크 오류')
       setAuthorized(false)
@@ -265,13 +262,18 @@ export default function TeamLogPage() {
   }
 
   async function cycleStatus(item: Item) {
-    const next = STATUS_NEXT[item.status]
+    const prevStatus = item.status
+    const next = STATUS_NEXT[prevStatus]
+    // 낙관적 업데이트: 서버 응답 기다리지 않고 먼저 화면을 바꾸고, 실패하면 되돌린다.
+    setGroups(prev => prev.map(g => ({ ...g, items: g.items.map(i => i.id === item.id ? { ...i, status: next } : i) })))
     const res = await fetch('/api/team-log/items', {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: item.id, status: next }),
     })
     if (unauthorizedGuard(res)) return
     const json = await res.json()
-    if (json.ok) setGroups(prev => prev.map(g => ({ ...g, items: g.items.map(i => i.id === item.id ? { ...i, status: next } : i) })))
+    if (!json.ok) {
+      setGroups(prev => prev.map(g => ({ ...g, items: g.items.map(i => i.id === item.id ? { ...i, status: prevStatus } : i) })))
+    }
   }
 
   function startEditItem(item: Item, e: React.MouseEvent) { e.stopPropagation(); setEditingItemId(item.id); setEditItemTitle(item.title) }
