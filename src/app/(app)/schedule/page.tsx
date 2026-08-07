@@ -17,10 +17,118 @@ interface MeetingSchedule {
   title: string
   time: string
   is_recurring: boolean
-  days_of_week?: number[]
-  date?: string
+  recur_type?: 'weekly' | 'monthly'  // 반복일 때: 매주(요일) / 매월(일). 없으면 'weekly'로 취급 (하위호환)
+  days_of_week?: number[]            // recur_type 'weekly'
+  day_of_month?: number              // recur_type 'monthly' (1~31, 해당 월 말일 초과시 clamp)
+  start_date?: string                // 반복 시작 시점 (그 달의 1일). 없으면 제한 없음 (하위호환)
+  repeat_until?: string              // 반복 종료 시점. 없으면 무한
+  date?: string                      // 반복 아닐 때 (단발성) 날짜
   category?: string
   team_id?: string
+}
+
+interface RecurrenceFormValue {
+  is_recurring: boolean
+  recur_type: 'weekly' | 'monthly'
+  days_of_week: number[]
+  day_of_month: number
+  start_date: string
+  repeat_until: string | null
+  date: string
+}
+
+function RecurrenceFields({ value, onChange }: { value: RecurrenceFormValue; onChange: (patch: Partial<RecurrenceFormValue>) => void }) {
+  const [customMonths, setCustomMonths] = useState('3')
+
+  function shiftStartMonth(delta: number) {
+    const d = parseISO(value.start_date)
+    const next = new Date(d.getFullYear(), d.getMonth() + delta, 1)
+    onChange({ start_date: format(next, 'yyyy-MM-dd') })
+  }
+  function applyDuration(months: number | null) {
+    if (months === null) { onChange({ repeat_until: null }); return }
+    const start = parseISO(value.start_date)
+    const until = new Date(start.getFullYear(), start.getMonth() + months, 0)
+    onChange({ repeat_until: format(until, 'yyyy-MM-dd') })
+  }
+
+  if (!value.is_recurring) {
+    return (
+      <input
+        type="date"
+        value={value.date}
+        onChange={e => onChange({ date: e.target.value })}
+        className="text-xs border border-[rgba(255,255,255,0.09)] rounded px-1.5 py-0.5 focus:outline-none text-[rgba(226,232,240,0.7)] bg-[rgba(255,255,255,0.06)]"
+      />
+    )
+  }
+
+  const pillOff = 'bg-[rgba(255,255,255,0.04)] border-[rgba(255,255,255,0.07)] text-[rgba(226,232,240,0.5)] hover:bg-[rgba(255,255,255,0.08)]'
+  const pillOn  = 'bg-[rgba(76,127,224,0.15)] border-[rgba(76,127,224,0.3)] text-[#9DBEF5]'
+
+  return (
+    <div className="space-y-2">
+      <div className="flex gap-1">
+        {(['weekly', 'monthly'] as const).map(t => (
+          <button key={t} type="button" onClick={() => onChange({ recur_type: t })}
+            className={`text-[9px] px-2 py-0.5 rounded-full font-medium transition-colors ${
+              value.recur_type === t ? 'bg-[#4C7FE0] text-white' : 'bg-[rgba(255,255,255,0.06)] text-[rgba(226,232,240,0.4)] hover:bg-[rgba(255,255,255,0.08)]'
+            }`}>
+            {t === 'weekly' ? '매주' : '매월'}
+          </button>
+        ))}
+      </div>
+
+      {value.recur_type === 'monthly' ? (
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-[rgba(226,232,240,0.5)]">매월</span>
+          <input type="number" min={1} max={31} value={value.day_of_month}
+            onChange={e => onChange({ day_of_month: Math.max(1, Math.min(31, parseInt(e.target.value) || 1)) })}
+            className="w-12 text-xs border border-[rgba(255,255,255,0.09)] rounded px-1.5 py-0.5 focus:outline-none text-center text-[rgba(226,232,240,0.7)] bg-[rgba(255,255,255,0.06)]" />
+          <span className="text-xs text-[rgba(226,232,240,0.5)]">일</span>
+        </div>
+      ) : (
+        <div className="flex gap-1">
+          {DOW_LABELS_SCHED.map((label, d) => (
+            <button key={d} type="button"
+              onClick={() => onChange({
+                days_of_week: value.days_of_week.includes(d)
+                  ? value.days_of_week.filter(x => x !== d)
+                  : [...value.days_of_week, d],
+              })}
+              className={`text-[9px] w-6 h-6 rounded-full font-medium transition-colors ${
+                value.days_of_week.includes(d) ? 'bg-[#4C7FE0] text-white' : 'bg-[rgba(255,255,255,0.06)] text-[rgba(226,232,240,0.4)] hover:bg-[rgba(255,255,255,0.08)]'
+              }`}>
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="flex items-center gap-1.5">
+        <span className="text-[9px] text-[rgba(226,232,240,0.35)] whitespace-nowrap">시작</span>
+        <button type="button" onClick={() => shiftStartMonth(-1)} className="text-[10px] text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.8)] px-1">◀</button>
+        <span className="text-[11px] text-[rgba(226,232,240,0.7)] flex-1 text-center">{format(parseISO(value.start_date), 'yyyy년 M월')}</span>
+        <button type="button" onClick={() => shiftStartMonth(1)} className="text-[10px] text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.8)] px-1">▶</button>
+      </div>
+
+      <div className="flex items-center gap-1 flex-wrap">
+        <span className="text-[9px] text-[rgba(226,232,240,0.35)] w-full">종료</span>
+        <button type="button" onClick={() => applyDuration(1)} className={`text-[9px] px-2 py-0.5 rounded-full border transition-all ${pillOff}`}>1개월</button>
+        <button type="button" onClick={() => applyDuration(2)} className={`text-[9px] px-2 py-0.5 rounded-full border transition-all ${pillOff}`}>2개월</button>
+        <div className="flex items-center gap-0.5">
+          <input type="number" min={1} value={customMonths} onChange={e => setCustomMonths(e.target.value.replace(/\D/g, ''))}
+            className="w-9 text-[9px] border border-[rgba(255,255,255,0.09)] rounded px-1 py-0.5 focus:outline-none text-center text-[rgba(226,232,240,0.7)] bg-[rgba(255,255,255,0.06)]" />
+          <button type="button" onClick={() => applyDuration(Math.max(1, parseInt(customMonths) || 1))}
+            className={`text-[9px] px-2 py-0.5 rounded-full border transition-all ${pillOff}`}>개월</button>
+        </div>
+        <button type="button" onClick={() => applyDuration(null)}
+          className={`text-[9px] px-2 py-0.5 rounded-full border transition-all ${value.repeat_until === null ? pillOn : pillOff}`}>
+          무한
+        </button>
+      </div>
+    </div>
+  )
 }
 
 const DOW_LABELS_SCHED = ['일', '월', '화', '수', '목', '금', '토']
@@ -28,6 +136,34 @@ const DOW_LABELS_SCHED = ['일', '월', '화', '수', '목', '금', '토']
 function todayStrSched(): string {
   const d = new Date()
   return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-')
+}
+
+function startOfThisMonthStr(): string {
+  const d = new Date()
+  return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), '01'].join('-')
+}
+
+interface MeetFormShape {
+  title: string
+  time: string
+  is_recurring: boolean
+  recur_type: 'weekly' | 'monthly'
+  days_of_week: number[]
+  day_of_month: number
+  start_date: string
+  repeat_until: string | null
+  date: string
+  category: string
+  team_id: string
+}
+
+function defaultMeetForm(): MeetFormShape {
+  return {
+    title: '', time: '09:00', is_recurring: true,
+    recur_type: 'weekly', days_of_week: [], day_of_month: 1,
+    start_date: startOfThisMonthStr(), repeat_until: null,
+    date: todayStrSched(), category: '', team_id: '',
+  }
 }
 
 const STATUSES: TaskStatus[] = ['진행필요', '진행중', '완료']
@@ -69,12 +205,7 @@ export default function SchedulePage() {
   const [showAnalysis, setShowAnalysis] = useState(false)
   const [analysisPeriod, setAnalysisPeriod] = useState<'이번주' | '이번달' | '직전월'>('이번달')
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [editForm, setEditForm] = useState<{ title: string; time: string; is_recurring: boolean; days_of_week: number[]; date: string; category: string; team_id: string }>({ title: '', time: '09:00', is_recurring: true, days_of_week: [], date: todayStrSched(), category: '', team_id: '' })
-  const [showRepeatModal, setShowRepeatModal] = useState(false)
-  const [repeatTitle, setRepeatTitle] = useState('')
-  const [repeatDay, setRepeatDay] = useState('15')
-  const [repeatMonthCount, setRepeatMonthCount] = useState('3')
-  const [repeatCategory, setRepeatCategory] = useState('')
+  const [editForm, setEditForm] = useState<MeetFormShape>(defaultMeetForm())
   const [dragItemId, setDragItemId] = useState<string | null>(null)
   const [dragOverId, setDragOverId] = useState<string | null>(null)
   const [dayOrder, setDayOrder] = useState<Record<string, string[]>>({})
@@ -89,21 +220,32 @@ export default function SchedulePage() {
   // 고정 회의 관리
   const { value: schedules, save: saveSchedules } = useUserSetting<MeetingSchedule[]>('meeting_schedules', [])
   const [showMeetingForm, setShowMeetingForm] = useState(false)
-  const [meetForm, setMeetForm] = useState({ title: '', time: '09:00', is_recurring: true, days_of_week: [] as number[], date: todayStrSched(), category: '', team_id: '' })
+  const [meetForm, setMeetForm] = useState<MeetFormShape>(defaultMeetForm())
+
+  function buildScheduleFromForm(id: string, form: MeetFormShape): MeetingSchedule {
+    return {
+      id,
+      title: form.title.trim(),
+      time: form.time,
+      is_recurring: form.is_recurring,
+      ...(form.is_recurring
+        ? {
+            recur_type: form.recur_type,
+            ...(form.recur_type === 'monthly' ? { day_of_month: form.day_of_month } : { days_of_week: form.days_of_week }),
+            start_date: form.start_date,
+            ...(form.repeat_until ? { repeat_until: form.repeat_until } : {}),
+          }
+        : { date: form.date }),
+      ...(form.category ? { category: form.category } : {}),
+      ...(form.team_id ? { team_id: form.team_id } : {}),
+    }
+  }
 
   function addMeetingSchedule() {
     if (!meetForm.title.trim()) return
-    const item: MeetingSchedule = {
-      id: Date.now().toString(),
-      title: meetForm.title.trim(),
-      time: meetForm.time,
-      is_recurring: meetForm.is_recurring,
-      ...(meetForm.is_recurring ? { days_of_week: meetForm.days_of_week } : { date: meetForm.date }),
-      ...(meetForm.category ? { category: meetForm.category } : {}),
-      ...(meetForm.team_id ? { team_id: meetForm.team_id } : {}),
-    }
+    const item = buildScheduleFromForm(Date.now().toString(), meetForm)
     saveSchedules([...schedules, item])
-    setMeetForm({ title: '', time: '09:00', is_recurring: true, days_of_week: [], date: todayStrSched(), category: '', team_id: '' })
+    setMeetForm(defaultMeetForm())
     setShowMeetingForm(false)
   }
 
@@ -118,7 +260,11 @@ export default function SchedulePage() {
       title: s.title,
       time: s.time,
       is_recurring: s.is_recurring,
+      recur_type: s.recur_type ?? 'weekly',
       days_of_week: s.days_of_week ?? [],
+      day_of_month: s.day_of_month ?? 1,
+      start_date: s.start_date ?? startOfThisMonthStr(),
+      repeat_until: s.repeat_until ?? null,
       date: s.date ?? todayStrSched(),
       category: s.category ?? '',
       team_id: s.team_id ?? '',
@@ -127,15 +273,8 @@ export default function SchedulePage() {
 
   function saveEdit() {
     if (!editingId || !editForm.title.trim()) return
-    saveSchedules(schedules.map(s => s.id !== editingId ? s : {
-      ...s,
-      title: editForm.title.trim(),
-      time: editForm.time,
-      is_recurring: editForm.is_recurring,
-      category: editForm.category || undefined,
-      team_id: editForm.team_id || undefined,
-      ...(editForm.is_recurring ? { days_of_week: editForm.days_of_week, date: undefined } : { date: editForm.date, days_of_week: undefined }),
-    }))
+    const updated = buildScheduleFromForm(editingId, editForm)
+    saveSchedules(schedules.map(s => s.id !== editingId ? s : updated))
     setEditingId(null)
   }
 
@@ -180,23 +319,6 @@ export default function SchedulePage() {
     }
   }
 
-  function toggleEditDow(d: number) {
-    setEditForm(prev => ({
-      ...prev,
-      days_of_week: prev.days_of_week.includes(d)
-        ? prev.days_of_week.filter(x => x !== d)
-        : [...prev.days_of_week, d],
-    }))
-  }
-
-  function toggleMeetDow(d: number) {
-    setMeetForm(prev => ({
-      ...prev,
-      days_of_week: prev.days_of_week.includes(d)
-        ? prev.days_of_week.filter(x => x !== d)
-        : [...prev.days_of_week, d],
-    }))
-  }
   const supabase = createClient()
 
   function loadData() {
@@ -381,7 +503,15 @@ export default function SchedulePage() {
     const dateStr = format(day, 'yyyy-MM-dd')
     return schedules.filter(s => {
       if (partFilter !== '전체' && s.team_id && s.team_id !== partFilter) return false
-      return s.is_recurring ? (s.days_of_week ?? []).includes(dow) : s.date === dateStr
+      if (!s.is_recurring) return s.date === dateStr
+      if (s.start_date && dateStr < s.start_date) return false
+      if (s.repeat_until && dateStr > s.repeat_until) return false
+      if (s.recur_type === 'monthly') {
+        const dim = getDaysInMonth(day)
+        const dom = Math.min(s.day_of_month ?? 1, dim)
+        return day.getDate() === dom
+      }
+      return (s.days_of_week ?? []).includes(dow)
     }).sort((a, b) => a.time.localeCompare(b.time))
   }
 
@@ -467,36 +597,6 @@ export default function SchedulePage() {
     const meetingHours = meetingCount * 1
     const focusHours = Math.max(0, totalHours - meetingHours)
     return { workDays, meetingCount, taskDeadlines, totalHours, meetingHours, focusHours }
-  }
-
-  async function handleCreateRepeating() {
-    if (!repeatTitle.trim()) return
-    const title = repeatTitle.trim()
-    const day = Math.max(1, Math.min(31, parseInt(repeatDay) || 15))
-    const count = parseInt(repeatMonthCount) || 3
-    const today = new Date()
-    const category = repeatCategory || null
-
-    // 이미 같은 제목으로 만들어둔 회의록이 있으면 팀(범주)을 한꺼번에 매칭
-    const existingSame = meetings.filter(m => m.title === title)
-    if (category && existingSame.some(m => m.category !== category)) {
-      await supabase.from('meetings').update({ category }).eq('title', title)
-      setMeetings(prev => prev.map(m => m.title === title ? { ...m, category } : m))
-    }
-
-    const existingDates = new Set(existingSame.map(m => m.meeting_date))
-    const newMeetings: typeof meetings = []
-    for (let i = 0; i < count; i++) {
-      const month = new Date(today.getFullYear(), today.getMonth() + i, 1)
-      const actualDay = Math.min(day, getDaysInMonth(month))
-      const dateStr = `${month.getFullYear()}-${String(month.getMonth()+1).padStart(2,'0')}-${String(actualDay).padStart(2,'0')}`
-      if (existingDates.has(dateStr)) continue // 이미 생성된 달은 건너뛰기 (중복 방지)
-      const { data } = await supabase.from('meetings').insert({ title, meeting_date: dateStr, category, notes: [] }).select('id, title, meeting_date, category').single()
-      if (data) newMeetings.push(data as typeof meetings[0])
-    }
-    setMeetings(prev => [...prev, ...newMeetings])
-    setRepeatTitle(''); setRepeatDay('15'); setRepeatMonthCount('3'); setRepeatCategory('')
-    setShowRepeatModal(false)
   }
 
   const prevMonthNav = subMonths(current, 1)
@@ -653,10 +753,6 @@ export default function SchedulePage() {
           activeWhenFilled
         />
 
-        <button onClick={() => setShowRepeatModal(true)}
-          className={`${pillBase} ${pillInactive} ml-auto`}>
-          ↺ 반복 추가
-        </button>
       </div>
 
       {/* 메인 그리드 */}
@@ -806,30 +902,12 @@ export default function SchedulePage() {
                       반복
                     </label>
                   </div>
-                  {meetForm.is_recurring ? (
-                    <div className="flex gap-1">
-                      {DOW_LABELS_SCHED.map((label, d) => (
-                        <button key={d} type="button" onClick={() => toggleMeetDow(d)}
-                          className={`text-[9px] w-6 h-6 rounded-full font-medium transition-colors ${
-                            meetForm.days_of_week.includes(d) ? 'bg-[#4C7FE0] text-white' : 'bg-[rgba(255,255,255,0.06)] text-[rgba(226,232,240,0.4)] hover:bg-[rgba(255,255,255,0.08)]'
-                          }`}>
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                  ) : (
-                    <input
-                      type="date"
-                      value={meetForm.date}
-                      onChange={e => setMeetForm(p => ({ ...p, date: e.target.value }))}
-                      className="text-xs border border-[rgba(255,255,255,0.09)] rounded px-1.5 py-0.5 focus:outline-none text-[rgba(226,232,240,0.7)] bg-[rgba(255,255,255,0.06)]"
-                    />
-                  )}
+                  <RecurrenceFields value={meetForm} onChange={patch => setMeetForm(p => ({ ...p, ...patch }))} />
                   <div className="space-y-1">
                     <p className="text-[9px] text-[rgba(226,232,240,0.35)]">회의록 범주</p>
                     <div className="flex flex-wrap gap-1">
-                      {Object.keys(MEETING_CATEGORY).map(cat => {
-                        const ck = MEETING_CATEGORY[cat]
+                      {meetingCategories.map(cat => {
+                        const ck = MEETING_CATEGORY[cat] ?? colorKeyFromName(cat)
                         const p = CATEGORY_PALETTE[ck]
                         const sel = meetForm.category === cat
                         return (
@@ -896,30 +974,12 @@ export default function SchedulePage() {
                               반복
                             </label>
                           </div>
-                          {editForm.is_recurring ? (
-                            <div className="flex gap-1">
-                              {DOW_LABELS_SCHED.map((label, d) => (
-                                <button key={d} type="button" onClick={() => toggleEditDow(d)}
-                                  className={`text-[9px] w-6 h-6 rounded-full font-medium transition-colors ${
-                                    editForm.days_of_week.includes(d) ? 'bg-[#4C7FE0] text-white' : 'bg-[rgba(255,255,255,0.06)] text-[rgba(226,232,240,0.4)] hover:bg-[rgba(255,255,255,0.08)]'
-                                  }`}>
-                                  {label}
-                                </button>
-                              ))}
-                            </div>
-                          ) : (
-                            <input
-                              type="date"
-                              value={editForm.date}
-                              onChange={e => setEditForm(p => ({ ...p, date: e.target.value }))}
-                              className="text-xs border border-[rgba(255,255,255,0.09)] rounded px-1.5 py-0.5 focus:outline-none text-[rgba(226,232,240,0.7)] bg-[rgba(255,255,255,0.06)]"
-                            />
-                          )}
+                          <RecurrenceFields value={editForm} onChange={patch => setEditForm(p => ({ ...p, ...patch }))} />
                           <div className="space-y-1">
                             <p className="text-[9px] text-[rgba(226,232,240,0.35)]">회의록 범주</p>
                             <div className="flex flex-wrap gap-1">
-                              {Object.keys(MEETING_CATEGORY).map(cat => {
-                                const ck = MEETING_CATEGORY[cat]
+                              {meetingCategories.map(cat => {
+                                const ck = MEETING_CATEGORY[cat] ?? colorKeyFromName(cat)
                                 const p2 = CATEGORY_PALETTE[ck]
                                 const sel = editForm.category === cat
                                 return (
@@ -969,9 +1029,12 @@ export default function SchedulePage() {
                           </span>
                         )}
                         <span className="text-[8px] text-[rgba(226,232,240,0.3)] flex-shrink-0">
-                          {s.is_recurring
-                            ? (s.days_of_week ?? []).map(d => DOW_LABELS_SCHED[d]).join('')
-                            : s.date}
+                          {!s.is_recurring
+                            ? s.date
+                            : s.recur_type === 'monthly'
+                              ? `매월 ${s.day_of_month ?? 1}일`
+                              : (s.days_of_week ?? []).map(d => DOW_LABELS_SCHED[d]).join('')}
+                          {s.is_recurring && s.repeat_until && ` (~${s.repeat_until.slice(5)})`}
                         </span>
                         <button
                           onClick={() => startEdit(s)}
@@ -1138,74 +1201,6 @@ export default function SchedulePage() {
         </div>
       </div>
 
-      {showRepeatModal && (() => {
-        const existingForTitle = meetings.filter(m => m.title === repeatTitle.trim())
-        const distinctTitles = [...new Set(meetings.map(m => m.title))]
-        return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 backdrop-blur-sm" onClick={() => setShowRepeatModal(false)}>
-          <div className="bg-[rgba(255,255,255,0.06)] backdrop-blur-xl rounded-3xl shadow-2xl border border-[rgba(255,255,255,0.09)] p-6 w-80" onClick={e => e.stopPropagation()}>
-            <h3 className="font-semibold text-[rgba(226,232,240,0.9)] mb-4">반복 일정 추가</h3>
-            <div className="space-y-3">
-              <input value={repeatTitle} list="repeat-title-suggestions"
-                onChange={e => {
-                  const v = e.target.value
-                  setRepeatTitle(v)
-                  if (!repeatCategory) {
-                    const match = meetings.find(m => m.title === v.trim() && m.category)
-                    if (match?.category) setRepeatCategory(match.category)
-                  }
-                }}
-                placeholder="일정 제목" className="w-full text-sm border border-[rgba(255,255,255,0.09)] rounded-2xl px-3 py-2 focus:outline-none bg-[rgba(255,255,255,0.06)]" />
-              <datalist id="repeat-title-suggestions">
-                {distinctTitles.map(t => <option key={t} value={t} />)}
-              </datalist>
-              {existingForTitle.length > 0 && (
-                <p className="text-[10px] text-[rgba(226,232,240,0.4)]">
-                  이미 {existingForTitle.length}개 존재 · 팀을 바꾸면 기존 회의록에도 일괄 적용됩니다
-                </p>
-              )}
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-[rgba(226,232,240,0.5)] whitespace-nowrap">매월</span>
-                <input value={repeatDay} onChange={e => setRepeatDay(e.target.value.replace(/\D/g, ''))}
-                  placeholder="15" className="w-16 text-sm border border-[rgba(255,255,255,0.09)] rounded-2xl px-3 py-2 focus:outline-none text-center bg-[rgba(255,255,255,0.06)]" />
-                <span className="text-xs text-[rgba(226,232,240,0.5)]">일</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-[rgba(226,232,240,0.5)] whitespace-nowrap">이번달부터</span>
-                <select value={repeatMonthCount} onChange={e => setRepeatMonthCount(e.target.value)}
-                  className="flex-1 text-sm border border-[rgba(255,255,255,0.09)] rounded-2xl px-3 py-2 focus:outline-none bg-[rgba(255,255,255,0.06)] [&>option]:bg-[#26282E] [&>option]:text-[rgba(226,232,240,0.8)]">
-                  {[1,2,3,4,5,6].map(n => <option key={n} value={n}>{n}개월</option>)}
-                </select>
-              </div>
-              <div className="space-y-1">
-                <p className="text-[9px] text-[rgba(226,232,240,0.35)]">팀 / 범주</p>
-                <div className="flex flex-wrap gap-1">
-                  {meetingCategories.map(cat => {
-                    const ck = MEETING_CATEGORY[cat] ?? colorKeyFromName(cat)
-                    const p = CATEGORY_PALETTE[ck]
-                    const sel = repeatCategory === cat
-                    return (
-                      <button key={cat} type="button" onClick={() => setRepeatCategory(sel ? '' : cat)}
-                        style={{ background: sel ? p.bg : 'rgba(255,255,255,0.04)', border: `1px solid ${sel ? p.border : 'rgba(255,255,255,0.07)'}`, color: sel ? p.text : 'rgba(226,232,240,0.4)' }}
-                        className="text-[9px] px-2 py-0.5 rounded-full transition-all">
-                        {cat}
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 mt-5">
-              <button onClick={() => setShowRepeatModal(false)} className="text-xs text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)] px-3 py-1.5">취소</button>
-              <button onClick={handleCreateRepeating} disabled={!repeatTitle.trim()}
-                className="text-xs bg-[rgba(76,127,224,0.1)] text-[#4C7FE0] border border-[rgba(76,127,224,0.25)] px-4 py-1.5 rounded-full hover:bg-[rgba(76,127,224,0.18)] disabled:opacity-30">
-                {existingForTitle.length > 0 ? '적용' : `${repeatMonthCount}개 일정 생성`}
-              </button>
-            </div>
-          </div>
-        </div>
-        )
-      })()}
     </div>
   )
 }

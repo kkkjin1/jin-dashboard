@@ -12,7 +12,11 @@ interface MeetingSchedule {
   title: string
   time: string
   is_recurring: boolean
+  recur_type?: 'weekly' | 'monthly'
   days_of_week?: number[]
+  day_of_month?: number
+  start_date?: string
+  repeat_until?: string
   date?: string
   category?: string
   prep_note?: string
@@ -50,10 +54,23 @@ function dateLabel(target: string, today: string): string {
   const d = new Date(target + 'T00:00:00')
   return `${d.getMonth() + 1}/${d.getDate()}(${DOW_LABELS[d.getDay()]})`
 }
+function daysInMonth(d: Date): number {
+  return new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()
+}
 function getMeetingsForDate(schedules: MeetingSchedule[], date: string): MeetingSchedule[] {
-  const dow = new Date(date + 'T00:00:00').getDay()
+  const d = new Date(date + 'T00:00:00')
+  const dow = d.getDay()
   return schedules
-    .filter(s => s.is_recurring ? (s.days_of_week ?? []).includes(dow) : s.date === date)
+    .filter(s => {
+      if (!s.is_recurring) return s.date === date
+      if (s.start_date && date < s.start_date) return false
+      if (s.repeat_until && date > s.repeat_until) return false
+      if (s.recur_type === 'monthly') {
+        const dom = Math.min(s.day_of_month ?? 1, daysInMonth(d))
+        return d.getDate() === dom
+      }
+      return (s.days_of_week ?? []).includes(dow)
+    })
     .sort((a, b) => a.time.localeCompare(b.time))
 }
 function getNoteForDate(m: MeetingSchedule, dateStr: string, today: string): string {
