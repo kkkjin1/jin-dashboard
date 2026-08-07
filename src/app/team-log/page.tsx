@@ -5,7 +5,7 @@
 // 이 파일에 없는 코드(다른 탭)가 렌더링될 수 없다.
 // 좌측 메뉴로 일상(자유메모)/업무(그룹→항목→서브태스크)/회의록 3개 섹션을 오간다.
 
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { format, parseISO, isToday, isYesterday } from 'date-fns'
 import { ko } from 'date-fns/locale'
 
@@ -26,8 +26,12 @@ type SubForm = { type: '업무기록' | '보고일정'; date: string; title: str
 type Note = { id: string; author: string; content: string; sort_order: number; created_at: string }
 type Meeting = { id: string; title: string; meeting_date: string; attendees: string; content: string; created_at: string }
 type MeetingForm = { title: string; date: string; attendees: string; content: string }
-type ScheduleEvent = { id: string; title: string; event_date: string; note: string; source_type: 'item' | 'subtask' | 'meeting' | null; source_id: string | null; created_at: string }
-type EventForm = { title: string; date: string; note: string }
+type ScheduleEvent = {
+  id: string; title: string; event_date: string; note: string; assignee: string; tag: string | null
+  source_type: 'item' | 'subtask' | 'meeting' | null; source_id: string | null; created_at: string
+}
+type Member = { id: string; name: string; sort_order: number }
+type EventDraft = { id: string | null; title: string; date: string; assignee: string; tag: string; note: string }
 type Section = 'life' | 'work' | 'meetings' | 'schedule'
 
 const GROUP_COLORS = ['#4C7FE0', '#F59E0B', '#10B981', '#EF4444', '#8B5CF6', '#EC4899', '#9CA3AF']
@@ -40,12 +44,15 @@ const STATUS_STYLE: Record<Item['status'], string> = {
 }
 const EMPTY_SUB_FORM: SubForm = { type: '업무기록', date: '', title: '', content: '' }
 const EMPTY_MEETING_FORM: MeetingForm = { title: '', date: '', attendees: '', content: '' }
-const EMPTY_EVENT_FORM: EventForm = { title: '', date: '', note: '' }
-const SOURCE_LABEL: Record<'item' | 'subtask' | 'meeting', string> = { item: '업무', subtask: '업무기록', meeting: '회의록' }
+const BASE_TAGS = ['중간보고', '최종보고']
+const WEEKDAYS = ['월', '화', '수', '목', '금']
+
+function dateStr(d: Date) {
+  return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-')
+}
 
 function todayStr() {
-  const d = new Date()
-  return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-')
+  return dateStr(new Date())
 }
 
 function fmtDay(s: string) {
@@ -96,10 +103,13 @@ export default function TeamLogPage() {
 
   // ── 일정 ──────────────────────────────────────────────────────────────
   const [events, setEvents] = useState<ScheduleEvent[]>([])
-  const [eventForm, setEventForm] = useState<EventForm>({ ...EMPTY_EVENT_FORM, date: todayStr() })
-  const [editingEventId, setEditingEventId] = useState<string | null>(null)
-  const [editEventForm, setEditEventForm] = useState<EventForm>(EMPTY_EVENT_FORM)
-  const [showPastEvents, setShowPastEvents] = useState(false)
+  const [members, setMembers] = useState<Member[]>([])
+  const [newMemberName, setNewMemberName] = useState('')
+  const now = new Date()
+  const [calYear, setCalYear] = useState(now.getFullYear())
+  const [calMonthNum, setCalMonthNum] = useState(now.getMonth() + 1)
+  const [activeTags, setActiveTags] = useState<Set<string>>(new Set())
+  const [draft, setDraft] = useState<EventDraft | null>(null)
 
   // ── 업무/회의록 → 일정 연동 (호버 후 S 단축키, 또는 📅 버튼) ──────────
   const [hoveredKey, setHoveredKey] = useState<string | null>(null)
@@ -125,15 +135,17 @@ export default function TeamLogPage() {
       setGroups(json.groups)
       setAuthorized(true)
 
-      const [notesRes, meetingsRes, scheduleRes] = await Promise.all([
-        fetch('/api/team-log/notes'), fetch('/api/team-log/meetings'), fetch('/api/team-log/schedule'),
+      const [notesRes, meetingsRes, scheduleRes, membersRes] = await Promise.all([
+        fetch('/api/team-log/notes'), fetch('/api/team-log/meetings'), fetch('/api/team-log/schedule'), fetch('/api/team-log/members'),
       ])
       const notesJson = await notesRes.json()
       const meetingsJson = await meetingsRes.json()
       const scheduleJson = await scheduleRes.json()
+      const membersJson = await membersRes.json()
       if (notesJson.ok) setNotes(notesJson.notes)
       if (meetingsJson.ok) setMeetings(meetingsJson.meetings)
       if (scheduleJson.ok) setEvents(scheduleJson.events)
+      if (membersJson.ok) setMembers(membersJson.members)
     } catch {
       setLoadError('네트워크 오류')
       setAuthorized(false)
@@ -383,56 +395,80 @@ export default function TeamLogPage() {
   }
 
   // ── 일정 ──────────────────────────────────────────────────────────────
-  async function addToSchedule(title: string, date: string, sourceType: 'item' | 'subtask' | 'meeting', sourceId: string) {
+  async function addToSchedule(title: string, date: string, sourceType: 'item' | 'subtask' | 'meeting', sourceId: string, assignee?: string) {
     const res = await fetch('/api/team-log/schedule', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, event_date: date, source_type: sourceType, source_id: sourceId }),
+      body: JSON.stringify({ title, event_date: date, assignee: assignee ?? author.trim(), source_type: sourceType, source_id: sourceId }),
     })
     if (unauthorizedGuard(res)) return
     const json = await res.json()
     if (json.ok) {
-      setEvents(prev => [...prev, json.event].sort((a, b) => a.event_date.localeCompare(b.event_date)))
+      setEvents(prev => [...prev, json.event])
       setFlash(`"${title}" 일정에 추가됨`)
     }
   }
 
-  async function handleAddEvent(e: React.FormEvent) {
-    e.preventDefault()
-    if (!eventForm.title.trim() || !eventForm.date) return
-    const res = await fetch('/api/team-log/schedule', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: eventForm.title.trim(), event_date: eventForm.date, note: eventForm.note }),
-    })
-    if (unauthorizedGuard(res)) return
-    const json = await res.json()
-    if (json.ok) {
-      setEvents(prev => [...prev, json.event].sort((a, b) => a.event_date.localeCompare(b.event_date)))
-      setEventForm({ ...EMPTY_EVENT_FORM, date: todayStr() })
+  async function saveDraft() {
+    if (!draft || !draft.title.trim() || !draft.date || !draft.assignee) return
+    const payload = { title: draft.title.trim(), event_date: draft.date, assignee: draft.assignee, tag: draft.tag.trim() || null, note: draft.note }
+    if (draft.id) {
+      const res = await fetch('/api/team-log/schedule', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: draft.id, ...payload }),
+      })
+      if (unauthorizedGuard(res)) return
+      const json = await res.json()
+      if (json.ok) setEvents(prev => prev.map(ev => ev.id === draft.id ? json.event : ev))
+    } else {
+      const res = await fetch('/api/team-log/schedule', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+      })
+      if (unauthorizedGuard(res)) return
+      const json = await res.json()
+      if (json.ok) setEvents(prev => [...prev, json.event])
     }
+    setDraft(null)
   }
 
-  function startEditEvent(ev: ScheduleEvent) { setEditingEventId(ev.id); setEditEventForm({ title: ev.title, date: ev.event_date, note: ev.note }) }
-
-  async function saveEditEvent(id: string) {
-    if (!editEventForm.title.trim() || !editEventForm.date) { setEditingEventId(null); return }
+  async function deleteDraftEvent(id: string) {
+    if (!confirm('이 일정을 삭제할까요?')) return
     const res = await fetch('/api/team-log/schedule', {
-      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, title: editEventForm.title.trim(), event_date: editEventForm.date, note: editEventForm.note }),
-    })
-    setEditingEventId(null)
-    if (unauthorizedGuard(res)) return
-    const json = await res.json()
-    if (json.ok) setEvents(prev => prev.map(ev => ev.id === id ? json.event : ev).sort((a, b) => a.event_date.localeCompare(b.event_date)))
-  }
-
-  async function deleteEvent(ev: ScheduleEvent) {
-    if (!confirm(`"${ev.title}" 일정을 삭제할까요?`)) return
-    const res = await fetch('/api/team-log/schedule', {
-      method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: ev.id }),
+      method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }),
     })
     if (unauthorizedGuard(res)) return
     const json = await res.json()
-    if (json.ok) setEvents(prev => prev.filter(x => x.id !== ev.id))
+    if (json.ok) { setEvents(prev => prev.filter(x => x.id !== id)); setDraft(null) }
+  }
+
+  async function addMember(e: React.FormEvent) {
+    e.preventDefault()
+    if (!newMemberName.trim()) return
+    const res = await fetch('/api/team-log/members', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: newMemberName.trim() }),
+    })
+    if (unauthorizedGuard(res)) return
+    const json = await res.json()
+    if (json.ok) { setMembers(prev => [...prev, json.member]); setNewMemberName('') }
+  }
+
+  async function removeMember(m: Member) {
+    if (!confirm(`"${m.name}" 팀원을 목록에서 제거할까요? (기존 일정은 남아있습니다)`)) return
+    const res = await fetch('/api/team-log/members', {
+      method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: m.id }),
+    })
+    if (unauthorizedGuard(res)) return
+    const json = await res.json()
+    if (json.ok) setMembers(prev => prev.filter(x => x.id !== m.id))
+  }
+
+  function prevMonth() { setCalMonthNum(m => { if (m === 1) { setCalYear(y => y - 1); return 12 } return m - 1 }) }
+  function nextMonth() { setCalMonthNum(m => { if (m === 12) { setCalYear(y => y + 1); return 1 } return m + 1 }) }
+  function gotoToday() { const d = new Date(); setCalYear(d.getFullYear()); setCalMonthNum(d.getMonth() + 1) }
+  function toggleTag(tag: string) {
+    setActiveTags(prev => {
+      const next = new Set(prev)
+      if (next.has(tag)) next.delete(tag); else next.add(tag)
+      return next
+    })
   }
 
   // ── 파생 데이터 ───────────────────────────────────────────────────────
@@ -449,9 +485,43 @@ export default function TeamLogPage() {
       .slice(0, 5)
   }, [allSubtasks])
   const visibleGroups = activeGroupId ? groups.filter(g => g.id === activeGroupId) : groups
-  const todayS = todayStr()
-  const upcomingEvents = useMemo(() => events.filter(ev => ev.event_date >= todayS), [events, todayS])
-  const pastEvents = useMemo(() => events.filter(ev => ev.event_date < todayS).sort((a, b) => b.event_date.localeCompare(a.event_date)), [events, todayS])
+
+  const monthWeeks = useMemo(() => {
+    const first = new Date(calYear, calMonthNum - 1, 1)
+    const last = new Date(calYear, calMonthNum, 0)
+    const dow = (first.getDay() + 6) % 7 // 월=0
+    const weekStart = new Date(first)
+    weekStart.setDate(first.getDate() - dow)
+    const weeks: Date[][] = []
+    for (let w = 0; w < 6; w++) {
+      const monday = new Date(weekStart)
+      monday.setDate(weekStart.getDate() + w * 7)
+      if (monday > last) break
+      const week: Date[] = []
+      for (let i = 0; i < 5; i++) {
+        const d = new Date(monday)
+        d.setDate(monday.getDate() + i)
+        week.push(d)
+      }
+      weeks.push(week)
+    }
+    return weeks
+  }, [calYear, calMonthNum])
+
+  const allTags = useMemo(() => {
+    const found = events.map(ev => ev.tag).filter((t): t is string => !!t)
+    return Array.from(new Set([...BASE_TAGS, ...found]))
+  }, [events])
+
+  const filteredEvents = useMemo(
+    () => activeTags.size === 0 ? events : events.filter(ev => ev.tag && activeTags.has(ev.tag)),
+    [events, activeTags]
+  )
+
+  const unassignedEvents = useMemo(
+    () => filteredEvents.filter(ev => !members.some(m => m.name === ev.assignee)),
+    [filteredEvents, members]
+  )
 
   function matchesFilter(s: Subtask) {
     return (filterAuthor === '전체' || s.author === filterAuthor) && (filterType === '전체' || s.entry_type === filterType)
@@ -469,7 +539,7 @@ export default function TeamLogPage() {
         if (item) addToSchedule(item.title, todayStr(), 'item', item.id)
       } else if (type === 'subtask') {
         const s = allSubtasks.find(s => s.id === id)
-        if (s) addToSchedule(s.title, s.entry_date, 'subtask', s.id)
+        if (s) addToSchedule(s.title, s.entry_date, 'subtask', s.id, s.author)
       } else if (type === 'meeting') {
         const m = meetings.find(m => m.id === id)
         if (m) addToSchedule(m.title, m.meeting_date, 'meeting', m.id)
@@ -547,7 +617,7 @@ export default function TeamLogPage() {
       </aside>
 
       <main className="flex-1 min-w-0 px-4 py-8">
-        <div className="max-w-2xl mx-auto space-y-5">
+        <div className={`mx-auto space-y-5 ${section === 'schedule' ? 'max-w-4xl' : 'max-w-2xl'}`}>
           {/* 모바일 상단 섹션 탭 */}
           <div className="sm:hidden -mt-2 mb-2 flex gap-1.5 overflow-x-auto pb-1">
             {SECTIONS.map(s => (
@@ -712,7 +782,7 @@ export default function TeamLogPage() {
                                         <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${s.entry_type === '보고일정' ? 'bg-[#4C7FE0]/10 text-[#4C7FE0]' : 'bg-gray-200 text-gray-500'}`}>{s.entry_type}</span>
                                         <span className="text-[10.5px] text-gray-400">{s.author}</span>
                                         <span className="text-[10.5px] text-gray-400">{fmtDay(s.entry_date)}</span>
-                                        <button onClick={() => addToSchedule(s.title, s.entry_date, 'subtask', s.id)} title="일정에 추가 (호버 후 S)" className="text-[10.5px] text-gray-300 hover:text-[#4C7FE0] opacity-0 group-hover:opacity-100 transition-opacity ml-auto">📅</button>
+                                        <button onClick={() => addToSchedule(s.title, s.entry_date, 'subtask', s.id, s.author)} title="일정에 추가 (호버 후 S)" className="text-[10.5px] text-gray-300 hover:text-[#4C7FE0] opacity-0 group-hover:opacity-100 transition-opacity ml-auto">📅</button>
                                         <button onClick={() => startEditSubtask(s)} className="text-[10.5px] text-gray-300 hover:text-[#4C7FE0] opacity-0 group-hover:opacity-100 transition-opacity">수정</button>
                                         <button onClick={() => deleteSubtask(s)} className="text-[10.5px] text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">삭제</button>
                                       </div>
@@ -811,70 +881,149 @@ export default function TeamLogPage() {
 
           {/* ══ 일정 ══ */}
           {section === 'schedule' && (
-            <>
-              <form onSubmit={handleAddEvent} className="bg-white rounded-2xl border border-stone-100 shadow-sm p-4 space-y-2">
-                <div className="flex gap-2">
-                  <input value={eventForm.title} onChange={e => setEventForm(prev => ({ ...prev, title: e.target.value }))} placeholder="일정 제목" required className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm" />
-                  <input type="date" value={eventForm.date} onChange={e => setEventForm(prev => ({ ...prev, date: e.target.value }))} required className="border border-gray-200 rounded-lg px-2 py-2 text-sm" />
+            <div className="max-w-none">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <button onClick={prevMonth} className="text-gray-400 hover:text-gray-600 px-1.5">◀</button>
+                  <p className="text-sm font-semibold text-gray-800 w-24 text-center">{calYear}년 {calMonthNum}월</p>
+                  <button onClick={nextMonth} className="text-gray-400 hover:text-gray-600 px-1.5">▶</button>
+                  <button onClick={gotoToday} className="text-[11px] text-gray-400 hover:text-[#4C7FE0] ml-1">오늘</button>
                 </div>
-                <input value={eventForm.note} onChange={e => setEventForm(prev => ({ ...prev, note: e.target.value }))} placeholder="메모 (선택)" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
-                <button type="submit" className="bg-[#4C7FE0] hover:bg-[#3A6CC8] text-white rounded-lg px-4 py-2 text-sm font-medium">일정 추가</button>
-              </form>
-
-              <div className="space-y-2">
-                {upcomingEvents.length === 0 && <p className="text-xs text-gray-400 text-center py-4">다가오는 일정이 없습니다.</p>}
-                {upcomingEvents.map(ev => (
-                  editingEventId === ev.id ? (
-                    <div key={ev.id} className="bg-white rounded-xl border border-stone-100 shadow-sm p-3 space-y-1.5">
-                      <div className="flex gap-2">
-                        <input value={editEventForm.title} onChange={e => setEditEventForm(prev => ({ ...prev, title: e.target.value }))} className="flex-1 border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm" />
-                        <input type="date" value={editEventForm.date} onChange={e => setEditEventForm(prev => ({ ...prev, date: e.target.value }))} className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm" />
-                      </div>
-                      <input value={editEventForm.note} onChange={e => setEditEventForm(prev => ({ ...prev, note: e.target.value }))} className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm" />
-                      <div className="flex gap-1.5">
-                        <button onClick={() => saveEditEvent(ev.id)} className="text-[12px] font-medium text-white bg-[#4C7FE0] hover:bg-[#3A6CC8] rounded-lg px-3 py-1.5">저장</button>
-                        <button onClick={() => setEditingEventId(null)} className="text-[12px] font-medium text-gray-500 px-3 py-1.5">취소</button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div key={ev.id} className="bg-white rounded-xl border border-stone-100 shadow-sm p-3 flex items-center gap-2 group">
-                      <span className="text-[11px] font-medium text-[#4C7FE0] bg-[#4C7FE0]/10 rounded-full px-2 py-0.5 flex-shrink-0">{fmtDay(ev.event_date)}</span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-gray-800 truncate">{ev.title}</p>
-                        {ev.note && <p className="text-[11.5px] text-gray-400 truncate">{ev.note}</p>}
-                      </div>
-                      {ev.source_type && <span className="text-[10px] text-gray-300 flex-shrink-0">{SOURCE_LABEL[ev.source_type]}</span>}
-                      <button onClick={() => startEditEvent(ev)} className="text-[11px] text-gray-300 hover:text-[#4C7FE0] opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">수정</button>
-                      <button onClick={() => deleteEvent(ev)} className="text-[11px] text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">삭제</button>
-                    </div>
-                  )
-                ))}
               </div>
 
-              {pastEvents.length > 0 && (
-                <div>
-                  <button onClick={() => setShowPastEvents(p => !p)} className="text-[11.5px] text-gray-400 hover:text-gray-600">
-                    {showPastEvents ? '▾' : '▸'} 지난 일정 {pastEvents.length}건
+              <div className="flex items-center gap-1.5 flex-wrap mb-3">
+                {allTags.map(tag => (
+                  <button
+                    key={tag} onClick={() => toggleTag(tag)}
+                    className={`text-[11px] px-2.5 py-1 rounded-full transition-colors ${activeTags.has(tag) ? 'bg-[#4C7FE0] text-white' : 'bg-white text-gray-500 border border-gray-200'}`}
+                  >
+                    {tag}
                   </button>
-                  {showPastEvents && (
-                    <div className="space-y-2 mt-2">
-                      {pastEvents.map(ev => (
-                        <div key={ev.id} className="bg-white rounded-xl border border-stone-100 shadow-sm p-3 flex items-center gap-2 opacity-60 group">
-                          <span className="text-[11px] font-medium text-gray-400 bg-gray-100 rounded-full px-2 py-0.5 flex-shrink-0">{fmtDay(ev.event_date)}</span>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm text-gray-600 truncate">{ev.title}</p>
-                          </div>
-                          <button onClick={() => deleteEvent(ev)} className="text-[11px] text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">삭제</button>
+                ))}
+                {activeTags.size > 0 && (
+                  <button onClick={() => setActiveTags(new Set())} className="text-[11px] text-gray-400 hover:text-gray-600 px-1">전체보기</button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-1.5 flex-wrap mb-4">
+                {members.map(m => (
+                  <span key={m.id} className="text-[11px] text-gray-600 bg-white border border-gray-200 rounded-full px-2.5 py-1 flex items-center gap-1.5">
+                    {m.name}
+                    <button onClick={() => removeMember(m)} className="text-gray-300 hover:text-red-500">✕</button>
+                  </span>
+                ))}
+                <form onSubmit={addMember} className="flex items-center">
+                  <input
+                    value={newMemberName} onChange={e => setNewMemberName(e.target.value)} placeholder="+ 팀원 추가"
+                    className="text-[11px] border border-dashed border-gray-300 rounded-full px-2.5 py-1 w-24 focus:outline-none focus:border-[#4C7FE0]"
+                  />
+                </form>
+              </div>
+
+              {members.length === 0 ? (
+                <p className="text-xs text-gray-400 bg-white rounded-xl border border-stone-100 p-4 text-center">팀원을 먼저 추가하면 주차별 표가 만들어집니다.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <div className="min-w-[560px] space-y-3">
+                    {monthWeeks.map((week, wi) => (
+                      <div key={wi} className="bg-white rounded-2xl border border-stone-100 shadow-sm overflow-hidden">
+                        <div className="grid" style={{ gridTemplateColumns: '72px repeat(5, 1fr)' }}>
+                          <div className="px-2 py-1.5 text-[10px] text-gray-300 border-b border-r border-stone-100 flex items-center">{wi + 1}주차</div>
+                          {week.map(d => {
+                            const inMonth = d.getMonth() + 1 === calMonthNum
+                            return (
+                              <div key={d.toISOString()} className={`px-2 py-1.5 text-center text-[11px] font-medium border-b border-r border-stone-100 last:border-r-0 ${inMonth ? 'text-gray-600' : 'text-gray-300'}`}>
+                                {WEEKDAYS[(d.getDay() + 6) % 7]} {d.getDate()}
+                              </div>
+                            )
+                          })}
+
+                          {members.map(mem => (
+                            <Fragment key={mem.id}>
+                              <div className="px-2 py-1.5 text-[11.5px] font-medium text-gray-600 border-r border-stone-50 flex items-center truncate">{mem.name}</div>
+                              {week.map(d => {
+                                const ds = dateStr(d)
+                                const cellEvents = filteredEvents.filter(ev => ev.assignee === mem.name && ev.event_date === ds)
+                                return (
+                                  <div
+                                    key={ds}
+                                    onClick={() => setDraft({ id: null, title: '', date: ds, assignee: mem.name, tag: '', note: '' })}
+                                    className="min-h-[44px] px-1 py-1 border-r border-b border-stone-50 last:border-r-0 cursor-pointer hover:bg-gray-50 space-y-0.5"
+                                  >
+                                    {cellEvents.map(ev => (
+                                      <div
+                                        key={ev.id}
+                                        onClick={e => { e.stopPropagation(); setDraft({ id: ev.id, title: ev.title, date: ev.event_date, assignee: ev.assignee, tag: ev.tag ?? '', note: ev.note }) }}
+                                        className="text-[10px] bg-[#4C7FE0]/10 text-[#4C7FE0] rounded px-1 py-0.5 truncate"
+                                      >
+                                        {ev.tag && <span className="font-semibold">[{ev.tag}] </span>}{ev.title}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )
+                              })}
+                            </Fragment>
+                          ))}
                         </div>
-                      ))}
-                    </div>
-                  )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
-            </>
+
+              {unassignedEvents.length > 0 && (
+                <div className="mt-4">
+                  <p className="text-[11px] text-gray-400 mb-1.5">담당자 미배정 일정 {unassignedEvents.length}건 (클릭해서 담당자 지정)</p>
+                  <div className="space-y-1.5">
+                    {unassignedEvents.map(ev => (
+                      <div
+                        key={ev.id}
+                        onClick={() => setDraft({ id: ev.id, title: ev.title, date: ev.event_date, assignee: ev.assignee, tag: ev.tag ?? '', note: ev.note })}
+                        className="bg-white rounded-lg border border-stone-100 shadow-sm px-3 py-2 text-[12px] text-gray-600 cursor-pointer hover:bg-gray-50"
+                      >
+                        {fmtDay(ev.event_date)} · {ev.title} {ev.assignee && <span className="text-gray-400">({ev.assignee})</span>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           )}
         </div>
       </main>
+
+      {draft && (
+        <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-50 px-4" onClick={() => setDraft(null)}>
+          <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl shadow-lg p-5 w-full max-w-sm space-y-2.5">
+            <p className="text-sm font-semibold text-gray-800">{draft.id ? '일정 수정' : '일정 추가'}</p>
+            <input
+              value={draft.title} onChange={e => setDraft(d => d && { ...d, title: e.target.value })}
+              placeholder="제목" autoFocus className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+            />
+            <div className="flex gap-2">
+              <input type="date" value={draft.date} onChange={e => setDraft(d => d && { ...d, date: e.target.value })} className="border border-gray-200 rounded-lg px-2 py-2 text-sm" />
+              <select value={draft.assignee} onChange={e => setDraft(d => d && { ...d, assignee: e.target.value })} className="flex-1 border border-gray-200 rounded-lg px-2 py-2 text-sm">
+                {members.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
+                {!members.some(m => m.name === draft.assignee) && draft.assignee && <option value={draft.assignee}>{draft.assignee} (미등록)</option>}
+              </select>
+            </div>
+            <input
+              value={draft.tag} onChange={e => setDraft(d => d && { ...d, tag: e.target.value })} list="tag-suggestions"
+              placeholder="태그 (예: 중간보고)" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+            />
+            <datalist id="tag-suggestions">{allTags.map(t => <option key={t} value={t} />)}</datalist>
+            <textarea
+              value={draft.note} onChange={e => setDraft(d => d && { ...d, note: e.target.value })}
+              placeholder="메모 (선택)" rows={2} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none"
+            />
+            <div className="flex gap-1.5 pt-1">
+              <button onClick={saveDraft} className="text-[12.5px] font-medium text-white bg-[#4C7FE0] hover:bg-[#3A6CC8] rounded-lg px-3 py-1.5">저장</button>
+              {draft.id && <button onClick={() => deleteDraftEvent(draft.id!)} className="text-[12.5px] font-medium text-red-500 px-3 py-1.5">삭제</button>}
+              <button onClick={() => setDraft(null)} className="text-[12.5px] font-medium text-gray-500 px-3 py-1.5">취소</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {flash && (
         <div className="fixed bottom-5 right-5 bg-gray-900 text-white text-[12.5px] px-4 py-2.5 rounded-lg shadow-lg z-50">
