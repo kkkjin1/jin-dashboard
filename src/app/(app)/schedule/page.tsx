@@ -9,7 +9,7 @@ import { fetchAllTasks, fetchMembers } from '@/lib/tasks'
 import { useUserSetting } from '@/hooks/useUserSetting'
 import { useOrgData } from '@/hooks/useOrgData'
 import type { Task, Member, TaskStatus, Meeting, NoteEntry } from '@/types'
-import { CATEGORY_PALETTE, MEETING_CATEGORY, type CategoryColorKey, colorKeyFromName } from '@/lib/categoryColors'
+import { CATEGORY_PALETTE, MEETING_CATEGORY, FIXED_MEETING_TAGS, type CategoryColorKey, colorKeyFromName } from '@/lib/categoryColors'
 import { GlassSelect } from '@/components/ui/GlassSelect'
 
 interface MeetingSchedule {
@@ -74,6 +74,7 @@ export default function SchedulePage() {
   const [repeatTitle, setRepeatTitle] = useState('')
   const [repeatDay, setRepeatDay] = useState('15')
   const [repeatMonthCount, setRepeatMonthCount] = useState('3')
+  const [repeatCategory, setRepeatCategory] = useState('')
   const [dragItemId, setDragItemId] = useState<string | null>(null)
   const [dragOverId, setDragOverId] = useState<string | null>(null)
   const [dayOrder, setDayOrder] = useState<Record<string, string[]>>({})
@@ -82,7 +83,8 @@ export default function SchedulePage() {
   // 예정 1on1 (next_appointment_date 기준)
   const [scheduledOneOnOnes, setScheduledOneOnOnes] = useState<ScheduledOneOnOne[]>([])
   const router = useRouter()
-  const { flatParts } = useOrgData()
+  const { org, flatParts } = useOrgData()
+  const meetingCategories = [...org.map(t => t.name), ...FIXED_MEETING_TAGS]
 
   // 고정 회의 관리
   const { value: schedules, save: saveSchedules } = useUserSetting<MeetingSchedule[]>('meeting_schedules', [])
@@ -469,19 +471,31 @@ export default function SchedulePage() {
 
   async function handleCreateRepeating() {
     if (!repeatTitle.trim()) return
+    const title = repeatTitle.trim()
     const day = Math.max(1, Math.min(31, parseInt(repeatDay) || 15))
     const count = parseInt(repeatMonthCount) || 3
     const today = new Date()
+    const category = repeatCategory || null
+
+    // 이미 같은 제목으로 만들어둔 회의록이 있으면 팀(범주)을 한꺼번에 매칭
+    const existingSame = meetings.filter(m => m.title === title)
+    if (category && existingSame.some(m => m.category !== category)) {
+      await supabase.from('meetings').update({ category }).eq('title', title)
+      setMeetings(prev => prev.map(m => m.title === title ? { ...m, category } : m))
+    }
+
+    const existingDates = new Set(existingSame.map(m => m.meeting_date))
     const newMeetings: typeof meetings = []
     for (let i = 0; i < count; i++) {
       const month = new Date(today.getFullYear(), today.getMonth() + i, 1)
       const actualDay = Math.min(day, getDaysInMonth(month))
       const dateStr = `${month.getFullYear()}-${String(month.getMonth()+1).padStart(2,'0')}-${String(actualDay).padStart(2,'0')}`
-      const { data } = await supabase.from('meetings').insert({ title: repeatTitle.trim(), meeting_date: dateStr, notes: [] }).select('id, title, meeting_date, category').single()
+      if (existingDates.has(dateStr)) continue // 이미 생성된 달은 건너뛰기 (중복 방지)
+      const { data } = await supabase.from('meetings').insert({ title, meeting_date: dateStr, category, notes: [] }).select('id, title, meeting_date, category').single()
       if (data) newMeetings.push(data as typeof meetings[0])
     }
     setMeetings(prev => [...prev, ...newMeetings])
-    setRepeatTitle(''); setRepeatDay('15'); setRepeatMonthCount('3')
+    setRepeatTitle(''); setRepeatDay('15'); setRepeatMonthCount('3'); setRepeatCategory('')
     setShowRepeatModal(false)
   }
 
@@ -1124,13 +1138,32 @@ export default function SchedulePage() {
         </div>
       </div>
 
-      {showRepeatModal && (
+      {showRepeatModal && (() => {
+        const existingForTitle = meetings.filter(m => m.title === repeatTitle.trim())
+        const distinctTitles = [...new Set(meetings.map(m => m.title))]
+        return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 backdrop-blur-sm" onClick={() => setShowRepeatModal(false)}>
           <div className="bg-[rgba(255,255,255,0.06)] backdrop-blur-xl rounded-3xl shadow-2xl border border-[rgba(255,255,255,0.09)] p-6 w-80" onClick={e => e.stopPropagation()}>
             <h3 className="font-semibold text-[rgba(226,232,240,0.9)] mb-4">반복 일정 추가</h3>
             <div className="space-y-3">
-              <input value={repeatTitle} onChange={e => setRepeatTitle(e.target.value)}
+              <input value={repeatTitle} list="repeat-title-suggestions"
+                onChange={e => {
+                  const v = e.target.value
+                  setRepeatTitle(v)
+                  if (!repeatCategory) {
+                    const match = meetings.find(m => m.title === v.trim() && m.category)
+                    if (match?.category) setRepeatCategory(match.category)
+                  }
+                }}
                 placeholder="일정 제목" className="w-full text-sm border border-[rgba(255,255,255,0.09)] rounded-2xl px-3 py-2 focus:outline-none bg-[rgba(255,255,255,0.06)]" />
+              <datalist id="repeat-title-suggestions">
+                {distinctTitles.map(t => <option key={t} value={t} />)}
+              </datalist>
+              {existingForTitle.length > 0 && (
+                <p className="text-[10px] text-[rgba(226,232,240,0.4)]">
+                  이미 {existingForTitle.length}개 존재 · 팀을 바꾸면 기존 회의록에도 일괄 적용됩니다
+                </p>
+              )}
               <div className="flex items-center gap-2">
                 <span className="text-xs text-[rgba(226,232,240,0.5)] whitespace-nowrap">매월</span>
                 <input value={repeatDay} onChange={e => setRepeatDay(e.target.value.replace(/\D/g, ''))}
@@ -1144,17 +1177,35 @@ export default function SchedulePage() {
                   {[1,2,3,4,5,6].map(n => <option key={n} value={n}>{n}개월</option>)}
                 </select>
               </div>
+              <div className="space-y-1">
+                <p className="text-[9px] text-[rgba(226,232,240,0.35)]">팀 / 범주</p>
+                <div className="flex flex-wrap gap-1">
+                  {meetingCategories.map(cat => {
+                    const ck = MEETING_CATEGORY[cat] ?? colorKeyFromName(cat)
+                    const p = CATEGORY_PALETTE[ck]
+                    const sel = repeatCategory === cat
+                    return (
+                      <button key={cat} type="button" onClick={() => setRepeatCategory(sel ? '' : cat)}
+                        style={{ background: sel ? p.bg : 'rgba(255,255,255,0.04)', border: `1px solid ${sel ? p.border : 'rgba(255,255,255,0.07)'}`, color: sel ? p.text : 'rgba(226,232,240,0.4)' }}
+                        className="text-[9px] px-2 py-0.5 rounded-full transition-all">
+                        {cat}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
             </div>
             <div className="flex justify-end gap-2 mt-5">
               <button onClick={() => setShowRepeatModal(false)} className="text-xs text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)] px-3 py-1.5">취소</button>
               <button onClick={handleCreateRepeating} disabled={!repeatTitle.trim()}
                 className="text-xs bg-[rgba(76,127,224,0.1)] text-[#4C7FE0] border border-[rgba(76,127,224,0.25)] px-4 py-1.5 rounded-full hover:bg-[rgba(76,127,224,0.18)] disabled:opacity-30">
-                {repeatMonthCount}개 일정 생성
+                {existingForTitle.length > 0 ? '적용' : `${repeatMonthCount}개 일정 생성`}
               </button>
             </div>
           </div>
         </div>
-      )}
+        )
+      })()}
     </div>
   )
 }
