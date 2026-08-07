@@ -154,7 +154,6 @@ interface MeetFormShape {
   repeat_until: string | null
   date: string
   category: string
-  team_id: string
 }
 
 function defaultMeetForm(): MeetFormShape {
@@ -162,7 +161,7 @@ function defaultMeetForm(): MeetFormShape {
     title: '', time: '09:00', is_recurring: true,
     recur_type: 'weekly', days_of_week: [], day_of_month: 1,
     start_date: startOfThisMonthStr(), repeat_until: null,
-    date: todayStrSched(), category: '', team_id: '',
+    date: todayStrSched(), category: '',
   }
 }
 
@@ -223,6 +222,8 @@ export default function SchedulePage() {
   const [meetForm, setMeetForm] = useState<MeetFormShape>(defaultMeetForm())
 
   function buildScheduleFromForm(id: string, form: MeetFormShape): MeetingSchedule {
+    // 팀/파트는 별도 선택 없이 범주가 실제 팀명과 같으면 자동으로 매칭 (일정 탭 상단 파트필터용)
+    const matchedTeamId = org.find(t => t.name === form.category)?.id
     return {
       id,
       title: form.title.trim(),
@@ -237,7 +238,7 @@ export default function SchedulePage() {
           }
         : { date: form.date }),
       ...(form.category ? { category: form.category } : {}),
-      ...(form.team_id ? { team_id: form.team_id } : {}),
+      ...(matchedTeamId ? { team_id: matchedTeamId } : {}),
     }
   }
 
@@ -267,7 +268,6 @@ export default function SchedulePage() {
       repeat_until: s.repeat_until ?? null,
       date: s.date ?? todayStrSched(),
       category: s.category ?? '',
-      team_id: s.team_id ?? '',
     })
   }
 
@@ -920,17 +920,6 @@ export default function SchedulePage() {
                       })}
                     </div>
                   </div>
-                  {flatParts.length > 0 && (
-                    <select
-                      value={meetForm.team_id}
-                      onChange={e => setMeetForm(p => ({ ...p, team_id: e.target.value }))}
-                      className="w-full text-xs border border-[rgba(255,255,255,0.09)] rounded px-1.5 py-0.5 focus:outline-none text-[rgba(226,232,240,0.7)] bg-[rgba(255,255,255,0.06)] [&>option]:bg-[#26282E]">
-                      <option value="">팀/파트 선택 (선택사항)</option>
-                      {flatParts.map(fp => (
-                        <option key={fp.id} value={fp.id}>{fp.label}</option>
-                      ))}
-                    </select>
-                  )}
                   <div className="flex justify-end gap-1.5 pt-1">
                     <button onClick={() => setShowMeetingForm(false)}
                       className="text-[10px] text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)]">취소</button>
@@ -992,17 +981,6 @@ export default function SchedulePage() {
                               })}
                             </div>
                           </div>
-                          {flatParts.length > 0 && (
-                            <select
-                              value={editForm.team_id}
-                              onChange={e => setEditForm(p => ({ ...p, team_id: e.target.value }))}
-                              className="w-full text-xs border border-[rgba(255,255,255,0.09)] rounded px-1.5 py-0.5 focus:outline-none text-[rgba(226,232,240,0.7)] bg-[rgba(255,255,255,0.06)] [&>option]:bg-[#26282E]">
-                              <option value="">팀/파트 없음</option>
-                              {flatParts.map(fp => (
-                                <option key={fp.id} value={fp.id}>{fp.label}</option>
-                              ))}
-                            </select>
-                          )}
                           <div className="flex justify-end gap-1.5 pt-0.5">
                             <button onClick={() => setEditingId(null)}
                               className="text-[10px] text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)]">취소</button>
@@ -1023,11 +1001,6 @@ export default function SchedulePage() {
                           const cp = CATEGORY_PALETTE[ck]
                           return <span className="text-[8px] px-1.5 py-0.5 rounded-full flex-shrink-0" style={{ background: cp.bg, color: cp.text, border: `1px solid ${cp.border}` }}>{s.category}</span>
                         })()}
-                        {s.team_id && (
-                          <span className="text-[8px] px-1 py-0.5 rounded bg-emerald-900/40 text-emerald-400 flex-shrink-0">
-                            {flatParts.find(fp => fp.id === s.team_id)?.label ?? s.team_id}
-                          </span>
-                        )}
                         <span className="text-[8px] text-[rgba(226,232,240,0.3)] flex-shrink-0">
                           {!s.is_recurring
                             ? s.date
