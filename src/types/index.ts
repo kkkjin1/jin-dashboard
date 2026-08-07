@@ -62,6 +62,8 @@ export interface Attachment {
   agenda_item_id?: string | null
   meeting_id?: string | null
   sub_task_id?: string | null
+  annual_goal_item_id?: string | null
+  annual_goal_task_id?: string | null
   name: string
   type: AttachmentType
   url: string
@@ -193,4 +195,73 @@ export interface SubTaskNote {
   content: string
   created_at: string
   edited_at?: string | null
+}
+
+// ── 연간목표 ────────────────────────────────────────────────────
+
+export type AnnualGoalCategory =
+  | '1. 인재 확보' | '2. 검증과 정렬' | '3. 유지와 보상' | '4. 지속가능성' | '5. 확장 기반'
+export type AnnualGoalStatus = 'active' | 'hold' | 'done'
+export type MaturityLevel = 1 | 2 | 3
+export type Track = 'A' | 'B' | 'C'
+export type ImportanceLevel = '상' | '중' | '하'
+export type AgreedPriority = '1순위' | '2순위' | '유예'
+
+export interface AnnualGoalItem {
+  id: string
+  category: AnnualGoalCategory
+  title: string
+  color: string
+  sort_order: number
+  is_open: boolean
+  roadmap_start_date?: string | null
+  roadmap_end_date?: string | null
+  target_deadline?: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface AnnualGoalTask {
+  id: string
+  item_id: string
+  title: string
+  status: AnnualGoalStatus
+  description?: string | null
+  maturity_level?: MaturityLevel | null
+  maturity_rationale?: string | null
+  track?: Track | null
+  hr_importance?: ImportanceLevel | null
+  hr_urgency?: ImportanceLevel | null
+  suggested_period?: string | null
+  hrm_function?: string | null
+  notes?: string | null
+  exec_importance?: ImportanceLevel | null
+  agreed_priority?: AgreedPriority | null
+  roadmap_start_date?: string | null
+  roadmap_end_date?: string | null
+  roadmap_rank?: number | null
+  assignee_id?: string | null
+  mid_date?: string | null
+  due_date?: string | null
+  target_date?: string | null
+  sort_order: number
+  hidden: boolean
+  created_at: string
+  updated_at: string
+  annual_goal_items?: AnnualGoalItem
+}
+
+export interface AnnualGoalTaskNote {
+  id: string
+  task_id: string
+  title?: string | null
+  content: string
+  created_at: string
+  edited_at?: string | null
+}
+
+export interface AnnualGoalCategoryLabel {
+  category_key: string
+  name: string
+  updated_at: string
 }

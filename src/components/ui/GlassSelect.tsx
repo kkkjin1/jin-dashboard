@@ -16,6 +16,8 @@ interface GlassSelectProps {
   variant?: 'pill' | 'inline'
   activeWhenFilled?: boolean
   className?: string
+  /** inline 변형 전용 — 지정 시 작은 점 대신 이니셜이 든 원형 아바타로 표시 (px 크기) */
+  avatarSize?: number
 }
 
 export function GlassSelect({
@@ -26,6 +28,7 @@ export function GlassSelect({
   variant = 'inline',
   activeWhenFilled = false,
   className = '',
+  avatarSize,
 }: GlassSelectProps) {
   const [open, setOpen] = useState(false)
   const [pos, setPos] = useState({ top: 0, left: 0, width: 0 })
@@ -151,7 +154,11 @@ export function GlassSelect({
           style={{ color: selectedColor ?? 'rgba(226,232,240,0.28)' }}
           onClick={toggle}
         >
-          {selectedColor && (
+          {selectedColor && avatarSize ? (
+            <span style={{ background: selectedColor, width: avatarSize, height: avatarSize, borderRadius: '50%', color: 'white', fontSize: Math.max(8, avatarSize * 0.45), fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, lineHeight: 1 }}>
+              {(selected?.label ?? '').trim().charAt(0).toUpperCase()}
+            </span>
+          ) : selectedColor && (
             <span style={{ background: selectedColor }}
               className="w-1.5 h-1.5 rounded-full flex-shrink-0" />
           )}

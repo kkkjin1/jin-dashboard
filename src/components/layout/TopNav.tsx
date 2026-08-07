@@ -8,12 +8,13 @@ import {
   Home, ClipboardList, Trophy, MessageSquare, CalendarDays,
   StickyNote, Users, BookOpen, Brain, NotebookPen, Settings,
   ChevronDown, LogOut, MoreHorizontal, Archive, LayoutGrid,
-  GripVertical, Eye, EyeOff, X, Target,
+  GripVertical, Eye, EyeOff, X, Target, Compass,
 } from 'lucide-react'
 
 const ALL_NAV = [
   { href: '/',            label: '홈',       key: '1', icon: Home },
   { href: '/project',     label: '프로젝트',  key: '2', icon: LayoutGrid },
+  { href: '/annual-goals', label: '연간목표', key: '',  icon: Compass },
   { href: '/tasks',       label: '업무',     key: '3', icon: ClipboardList },
   { href: '/completed',   label: '완료',     key: '',  icon: Trophy },
   { href: '/meetings',    label: '회의록',   key: '4', icon: MessageSquare },
