@@ -10,6 +10,7 @@ import { format, parseISO, differenceInDays } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import dynamic from 'next/dynamic'
 import MarkdownContent from '@/components/MarkdownContent'
+import { useOrgData } from '@/hooks/useOrgData'
 const TiptapEditor = dynamic(() => import('@/components/TiptapEditor'), { ssr: false })
 
 function stripHtml(html: string): string {
@@ -22,9 +23,6 @@ const FEEDBACK_TYPE_STYLE: Record<FeedbackType, string> = {
   요청: 'bg-[#90A7D8]/30 text-[#1E3A6B] border-[#90A7D8]/45',
 }
 const ANALYSIS_TYPES: FeedbackType[] = ['긍정', '부정', '요청']
-
-interface OrgPart { id: string; name: string }
-interface OrgTeam { id: string; name: string; parts: OrgPart[] }
 
 type Period = '이번 주' | '이번 달' | '3개월' | '전체'
 const PERIODS: Period[] = ['이번 주', '이번 달', '3개월', '전체']
@@ -452,7 +450,7 @@ export default function OneOnOnePage() {
   const [sessions, setSessions]         = useState<OneOnOne[]>([])
   const [memberRoles, setMemberRoles]   = useState<Record<string, string>>({})
   const [view, setView]                 = useState<'team' | 'my-feedback'>('team')
-  const [org, setOrg]                   = useState<OrgTeam[]>([])
+  const { org } = useOrgData()
   const [selectedTeamId, setSelectedTeamId] = useState<string>('__all')
   const [archiveOpen, setArchiveOpen]   = useState(false)
   const router = useRouter()
@@ -472,14 +470,6 @@ export default function OneOnOnePage() {
       for (const r of (roleData ?? []) as { id: string; role: string }[]) { if (r.role) roles[r.id] = r.role }
       setMemberRoles(roles)
     })
-
-    const storedOrg = localStorage.getItem('dashboard_org')
-    if (storedOrg) { try { setOrg(JSON.parse(storedOrg)) } catch {} }
-
-    supabase.from('user_preferences').select('value').eq('key', 'org').single()
-      .then(({ data }) => {
-        if (data?.value) { setOrg(data.value as OrgTeam[]); localStorage.setItem('dashboard_org', JSON.stringify(data.value)) }
-      })
   }, [])
 
   async function createSession(memberId: string) {
@@ -489,11 +479,7 @@ export default function OneOnOnePage() {
 
   const grouped = useMemo(() => {
     if (org.length === 0) {
-      return [
-        { label: '팀장', teamId: '팀장', list: members.filter(m => m.part === '팀장') },
-        { label: '코어파트', teamId: '코어', list: members.filter(m => m.part === '코어') },
-        { label: '비즈파트', teamId: '비즈', list: members.filter(m => m.part === '비즈') },
-      ].filter(g => g.list.length > 0)
+      return members.length > 0 ? [{ label: '미배정', teamId: '__unassigned', list: members }] : []
     }
     const groups = org.map(team => ({
       label: team.name,

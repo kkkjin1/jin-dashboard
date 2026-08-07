@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { format, parseISO } from 'date-fns'
@@ -10,17 +10,16 @@ import { generateMeetingMd, downloadMd } from '@/lib/markdown'
 import dynamic from 'next/dynamic'
 import MarkdownContent from '@/components/MarkdownContent'
 import TextSelectionCapture from '@/components/TextSelectionCapture'
+import { useOrgData } from '@/hooks/useOrgData'
+import { MEETING_CATEGORY, CATEGORY_PALETTE, colorKeyFromName, FIXED_MEETING_TAGS } from '@/lib/categoryColors'
 const FullscreenNoteEditor = dynamic(() => import('@/components/FullscreenNoteEditor'), { ssr: false })
 const TiptapEditor = dynamic(() => import('@/components/TiptapEditor'), { ssr: false })
 
-const CATEGORIES = ['코어', '비즈', '경영진', '본부장', '타팀', '목표관리'] as const
-const CATEGORY_COLORS: Record<string, string> = {
-  '코어': 'bg-[#EFF6FF] text-[#10B981] border-[#10B981]/20',
-  '비즈': 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  '경영진': 'bg-red-50 text-red-700 border-red-200',
-  '본부장': 'bg-purple-50 text-purple-700 border-purple-200',
-  '타팀': 'bg-[rgba(255,255,255,0.06)] text-[rgba(226,232,240,0.7)] border-[rgba(255,255,255,0.09)]',
-  '목표관리': 'bg-indigo-50 text-indigo-600 border-indigo-200',
+// 카테고리 색상: 팀명은 조직 설정에서 동적으로 오므로 이름 해시로 안정된 색을 배정
+function categoryStyle(cat: string): { background: string; color: string; borderColor: string } {
+  const key = MEETING_CATEGORY[cat] ?? colorKeyFromName(cat)
+  const p = CATEGORY_PALETTE[key]
+  return { background: p.bg, color: p.text, borderColor: p.border }
 }
 
 function defaultNoteTitle(): string {
@@ -256,6 +255,8 @@ export default function MeetingDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const supabase = createClient()
+  const { org } = useOrgData()
+  const categories = useMemo(() => [...org.map(t => t.name), ...FIXED_MEETING_TAGS], [org])
 
   const [meeting, setMeeting] = useState<Meeting | null>(null)
   const [titleInput, setTitleInput] = useState('')
@@ -589,7 +590,7 @@ export default function MeetingDetailPage() {
               <label className="text-xs text-[rgba(226,232,240,0.4)] block mb-1">구분</label>
               <div className="flex gap-1.5 items-center">
                 {meeting.category && (
-                  <span className={`text-xs px-2.5 py-1 rounded border ${CATEGORY_COLORS[meeting.category] ?? ''}`}>
+                  <span className="text-xs px-2.5 py-1 rounded border" style={categoryStyle(meeting.category)}>
                     {meeting.category}
                   </span>
                 )}
@@ -597,7 +598,7 @@ export default function MeetingDetailPage() {
                   onChange={e => updateMeeting({ category: e.target.value || null })}
                   className="text-sm border border-[rgba(255,255,255,0.09)] rounded-lg px-3 py-1.5 focus:outline-none bg-[rgba(255,255,255,0.06)] text-[rgba(226,232,240,0.7)] [&>option]:bg-[#26282E] [&>option]:text-[rgba(226,232,240,0.8)]">
                   <option value="">구분 없음</option>
-                  {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  {categories.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
             </div>

@@ -34,11 +34,9 @@ type SubTaskWithContext = AgendaSubTask & {
 }
 type TLExtra = { id: string; title: string; subtitle?: string }
 
-// ── Category Colors (고정) ─────────────────────────────────────────────────
+// ── Category Colors (고정 태그만; 팀명은 조직 설정에서 동적으로 옴) ──────────
 const CATEGORY_COLOR: Record<string, string> = {
   '개인': '#83D5B6',
-  '코어': '#9DBEF5',
-  '비즈': '#B0A8E8',
 }
 
 // ── Design Tokens ──────────────────────────────────────────────────────────
@@ -74,10 +72,10 @@ function fmtDate(s: string | null | undefined) {
   if (!s) return ''
   try { return format(parseISO(s), 'M.d (E)', { locale: ko }) } catch { return s }
 }
-function tagCls(part: string) {
-  return part === '비즈'
-    ? 'text-[11px] font-medium px-2 py-0.5 rounded-full bg-[rgba(249,115,22,0.12)] text-[rgba(253,186,116,0.85)]'
-    : 'text-[11px] font-medium px-2 py-0.5 rounded-full bg-[rgba(91,126,196,0.12)] text-[rgba(147,197,253,0.85)]'
+function tagStyle(part: string): React.CSSProperties {
+  const key = PART_COLOR[part] ?? colorKeyFromName(part)
+  const p = CATEGORY_PALETTE[key]
+  return { background: p.bg, color: p.text }
 }
 function localDateStr(d: Date) {
   return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-')
@@ -966,7 +964,7 @@ export default function HomePage() {
                         <p className="text-[13px] font-medium" style={{ color: done ? TEXT3 : TEXT1, textDecoration: done ? 'line-through' : 'none' }}>{t.title}</p>
                         {t.tasks && <p className="text-[11px]" style={{ color: TEXT2 }}>{t.tasks.short_name ?? t.tasks.title}</p>}
                       </div>
-                      {t.tasks && <span className={tagCls(t.tasks.part)}>{t.tasks.part}</span>}
+                      {t.tasks && <span className="text-[11px] font-medium px-2 py-0.5 rounded-full" style={tagStyle(t.tasks.part)}>{t.tasks.part}</span>}
                     </div>
                   )
                 })
@@ -1368,7 +1366,7 @@ export default function HomePage() {
                                 <p style={{ fontSize: 14, fontWeight: done ? 400 : 500, color: done ? TEXT3 : TEXT1, textDecoration: done ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', transition: 'color 200ms' }}>{t.title}</p>
                                 {t.tasks && <p style={{ fontSize: 12, color: TEXT3, marginTop: 1 }}>{t.tasks.short_name ?? t.tasks.title}</p>}
                               </div>
-                              {t.tasks && <span className={tagCls(t.tasks.part)}>{t.tasks.part}</span>}
+                              {t.tasks && <span className="text-[11px] font-medium px-2 py-0.5 rounded-full" style={tagStyle(t.tasks.part)}>{t.tasks.part}</span>}
                             </div>
                           </ListRow>
                         )

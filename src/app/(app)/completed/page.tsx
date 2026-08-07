@@ -7,17 +7,17 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Calendar, ChevronLeft, ChevronRight, CheckSquare, Lightbulb, Settings, TrendingUp } from 'lucide-react'
 import type { AgendaGroup, AgendaSubTask, ManualAchievement, AchievementType } from '@/types'
+import { colorKeyFromName, CATEGORY_PALETTE } from '@/lib/categoryColors'
 
 const ACH_TYPES: AchievementType[] = ['기획', '운영', '개선']
 const ACH_COLOR: Record<AchievementType, string> = { '기획': '#6B8FB3', '운영': '#7BAE94', '개선': '#D9A484' }
 type FilterType = '전체' | AchievementType
 const FILTER_TYPES: FilterType[] = ['전체', '기획', '운영', '개선']
 
-// 프로젝트 탭(AgendaMatrix)과 동일한 규칙: 코어/비즈/개인 카테고리는 고정 색을 쓰고,
-// 그 외(카테고리 없음)에만 그룹 개별 color를 fallback으로 사용
-const CAT_BORDER: Record<string, string> = { '코어': '#3B82F6', '비즈': '#F59E0B', '개인': '#10B981' }
+// 프로젝트 탭(AgendaMatrix)과 동일한 규칙: 카테고리가 있으면 이름 해시로 안정된 색을,
+// 카테고리 없음에만 그룹 개별 color를 fallback으로 사용
 function groupColorOf(g: AgendaGroup): string {
-  return CAT_BORDER[g.category ?? ''] ?? g.color ?? '#9CA3AF'
+  return g.category ? CATEGORY_PALETTE[colorKeyFromName(g.category)].solid : (g.color ?? '#9CA3AF')
 }
 
 type QuickPeriod = '주간' | '당월' | '분기' | '상반기' | '하반기' | '포트폴리오'

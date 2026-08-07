@@ -10,11 +10,6 @@ const STATUS_COLORS: Record<string, string> = {
   '완료': 'bg-green-50 text-green-600',
 }
 
-const PART_COLORS: Record<string, string> = {
-  '코어': 'text-emerald-500',
-  '비즈': 'text-emerald-500',
-}
-
 function ddayColor(d: number): string {
   if (d === 0) return 'bg-red-100 text-red-700 font-bold'
   if (d <= 2) return 'bg-orange-100 text-orange-600'
@@ -89,7 +84,7 @@ export default function TaskColumn({ title, count, tasks, accentColor = 'bg-red-
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-gray-800 truncate">{task.title}</p>
                         <div className="flex items-center gap-1 mt-0.5">
-                          <span className={`text-xs ${PART_COLORS[task.part]}`}>{task.part}</span>
+                          <span className="text-xs text-emerald-500">{task.part}</span>
                           <span className="text-gray-300 text-xs">·</span>
                           <span className="text-xs text-gray-400">{task.type}</span>
                         </div>

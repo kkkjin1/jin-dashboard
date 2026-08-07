@@ -59,6 +59,10 @@ export default function SettingsPage() {
   const [org, setOrg] = useState<OrgTeam[]>([])
   const [newTeamName, setNewTeamName] = useState('')
   const [newPartInputs, setNewPartInputs] = useState<Record<string, string>>({})
+  const [editingTeamNameId, setEditingTeamNameId] = useState<string | null>(null)
+  const [teamNameInput, setTeamNameInput] = useState('')
+  const [editingPartNameId, setEditingPartNameId] = useState<string | null>(null)
+  const [partNameInput, setPartNameInput] = useState('')
 
   // 팀원 추가
   const [newName, setNewName] = useState('')
@@ -171,6 +175,23 @@ export default function SettingsPage() {
       : t
     ))
     setNewPartInputs(prev => ({ ...prev, [teamId]: '' }))
+  }
+
+  function renameTeam(teamId: string) {
+    const name = teamNameInput.trim()
+    if (!name) { setEditingTeamNameId(null); return }
+    saveOrg(org.map(t => t.id === teamId ? { ...t, name } : t))
+    setEditingTeamNameId(null)
+  }
+
+  function renamePart(teamId: string, partId: string) {
+    const name = partNameInput.trim()
+    if (!name) { setEditingPartNameId(null); return }
+    saveOrg(org.map(t => t.id === teamId
+      ? { ...t, parts: t.parts.map(p => p.id === partId ? { ...p, name } : p) }
+      : t
+    ))
+    setEditingPartNameId(null)
   }
 
   function deletePart(teamId: string, partId: string) {
@@ -370,8 +391,24 @@ export default function SettingsPage() {
             return (
               <div key={team.id} style={card}>
                 {/* 팀 헤더 */}
-                <div className="flex items-center gap-2 px-4 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                  <span className="text-sm font-semibold flex-1" style={{ color: '#E2E8F0' }}>{team.name}</span>
+                <div className="flex items-center gap-2 px-4 py-3 group" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                  {editingTeamNameId === team.id ? (
+                    <input
+                      value={teamNameInput}
+                      onChange={e => setTeamNameInput(e.target.value)}
+                      autoFocus
+                      onKeyDown={e => { if (e.key === 'Enter') renameTeam(team.id); if (e.key === 'Escape') setEditingTeamNameId(null) }}
+                      onBlur={() => renameTeam(team.id)}
+                      style={{ ...inp, flex: 1, padding: '4px 8px', fontSize: 13, fontWeight: 600 }} />
+                  ) : (
+                    <button
+                      onClick={() => { setEditingTeamNameId(team.id); setTeamNameInput(team.name) }}
+                      className="text-sm font-semibold flex-1 text-left"
+                      style={{ color: '#E2E8F0' }}
+                      title="클릭해서 팀명 변경">
+                      {team.name}
+                    </button>
+                  )}
                   <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: 'rgba(76,127,224,0.12)', color: '#A8C4F0', border: '1px solid rgba(76,127,224,0.2)' }}>
                     {teamMemberCount}명
                   </span>
@@ -453,10 +490,24 @@ export default function SettingsPage() {
                     <div className="flex flex-wrap gap-1.5 py-1">
                       {team.parts.map(part => {
                         const cnt = members.filter(m => m.part === part.id).length
+                        const partKey = `${team.id}_${part.id}`
                         return (
                           <div key={part.id} className="flex items-center gap-1 pl-2.5 pr-1.5 py-1 rounded-lg"
                             style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
-                            <span className="text-xs" style={{ color: '#E2E8F0' }}>{part.name}</span>
+                            {editingPartNameId === partKey ? (
+                              <input
+                                value={partNameInput}
+                                onChange={e => setPartNameInput(e.target.value)}
+                                autoFocus
+                                onKeyDown={e => { if (e.key === 'Enter') renamePart(team.id, part.id); if (e.key === 'Escape') setEditingPartNameId(null) }}
+                                onBlur={() => renamePart(team.id, part.id)}
+                                style={{ ...inp, padding: '2px 6px', fontSize: 12, width: 80 }} />
+                            ) : (
+                              <button onClick={() => { setEditingPartNameId(partKey); setPartNameInput(part.name) }}
+                                className="text-xs" style={{ color: '#E2E8F0' }} title="클릭해서 파트명 변경">
+                                {part.name}
+                              </button>
+                            )}
                             <span className="text-[9px] px-1 rounded-full" style={{ color: '#A8C4F0', background: 'rgba(76,127,224,0.12)' }}>{cnt}</span>
                             <button onClick={() => deletePart(team.id, part.id)}
                               className="text-[10px] ml-0.5 hover:text-red-400 transition-colors"

@@ -12,8 +12,12 @@ export type ParsedTags = {
   part?: import('@/types').Part
 }
 
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 // 날짜 태그 파싱: [중간공유 MM/DD], [최종보고 MM/DD], [시작 MM/DD]
-// 확장 태그: [담당자 이름], [유형 기획|개선|운영], [상태 진행필요|진행중|완료], [파트 코어|비즈]
+// 확장 태그: [담당자 이름], [유형 기획|개선|운영], [상태 진행필요|진행중|완료], [파트 팀명]
 export function parseDateTags(content: string): { mid_date?: string; end_date?: string; start_date?: string } {
   const year = new Date().getFullYear()
   const result: { mid_date?: string; end_date?: string; start_date?: string } = {}
@@ -30,7 +34,7 @@ export function parseDateTags(content: string): { mid_date?: string; end_date?: 
   return result
 }
 
-export function parseTags(content: string): ParsedTags {
+export function parseTags(content: string, validParts: string[] = []): ParsedTags {
   const year = new Date().getFullYear()
   const result: ParsedTags = {}
 
@@ -52,8 +56,10 @@ export function parseTags(content: string): ParsedTags {
   const statusMatch = content.match(/\[상태\s+(진행필요|진행중|완료)\]/)
   if (statusMatch) result.status = statusMatch[1] as import('@/types').TaskStatus
 
-  const partMatch = content.match(/\[파트\s+(코어|비즈)\]/)
-  if (partMatch) result.part = partMatch[1] as import('@/types').Part
+  if (validParts.length > 0) {
+    const partMatch = content.match(new RegExp(`\\[파트\\s+(${validParts.map(escapeRegExp).join('|')})\\]`))
+    if (partMatch) result.part = partMatch[1] as import('@/types').Part
+  }
 
   return result
 }

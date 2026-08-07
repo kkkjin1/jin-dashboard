@@ -149,7 +149,7 @@ export type AgendaItemStatus = 'active' | 'hold' | 'done'
 
 export interface AgendaGroup {
   id: string
-  category: string          // meetings.category 와 동일 (코어, 비즈 등)
+  category: string          // meetings.category 와 동일 (팀명 또는 고정 태그)
   name: string              // 평가/보상, 노무 등
   color: string
   sort_order: number

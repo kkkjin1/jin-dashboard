@@ -7,20 +7,17 @@ import type { AgendaGroup, AgendaItem, AgendaSubTask, Attachment, Member } from 
 import TiptapEditor from '@/components/TiptapEditor'
 import { GlassSelect } from '@/components/ui/GlassSelect'
 import { DateCellPicker } from '@/components/ui/MiniDatePicker'
+import { CATEGORY_PALETTE, colorKeyFromName } from '@/lib/categoryColors'
 
 // ── 상수 ────────────────────────────────────────────────────────────
 const STATUS_COLOR: Record<string, string> = { active: '#3B82F6', hold: '#6366F1', done: '#10B981' }
 const STATUS_LABEL: Record<string, string> = { active: '진행필요', hold: '진행중', done: '진행완료' }
 const GROUP_COLORS = ['#3B82F6','#F59E0B','#10B981','#EF4444','#8B5CF6','#EC4899','#9CA3AF']
-const MATRIX_CATS = ['코어', '비즈', '개인']
-const CAT_CLS: Record<string, string> = {
-  '코어':  'bg-[rgba(59,130,246,0.15)] text-blue-300 border-[rgba(59,130,246,0.3)]',
-  '비즈':  'bg-[rgba(245,158,11,0.15)] text-amber-300 border-[rgba(245,158,11,0.3)]',
-  '개인':  'bg-[rgba(16,185,129,0.15)] text-emerald-300 border-[rgba(16,185,129,0.3)]',
+
+// 카테고리(팀명 등)별 색상은 고정 목록이 아니라 이름 해시로 안정 배정 — 팀명이 바뀌어도 코드 수정 불필요
+function catPalette(cat: string) {
+  return CATEGORY_PALETTE[colorKeyFromName(cat)]
 }
-const CAT_BG: Record<string, string>     = { '코어': 'rgba(59,130,246,0.09)',  '비즈': 'rgba(245,158,11,0.09)',  '개인': 'rgba(16,185,129,0.09)' }
-const CAT_BORDER: Record<string, string> = { '코어': '#3B82F6',                '비즈': '#F59E0B',                '개인': '#10B981' }
-const CAT_DOT: Record<string, string>    = { '코어': '#3B82F6',                '비즈': '#F59E0B',                '개인': '#10B981' }
 
 const MEMBER_COLORS = ['#3B82F6','#10B981','#8B5CF6','#F59E0B','#EC4899','#06B6D4','#EF4444','#84CC16','#F97316','#A78BFA']
 
@@ -62,7 +59,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
   const [addingGroup, setAddingGroup] = useState(false)
   const [newGName,    setNewGName]    = useState('')
   const [newGColor,   setNewGColor]   = useState(GROUP_COLORS[0])
-  const [newGCat,     setNewGCat]     = useState<string>(MATRIX_CATS[0])
+  const [newGCat,     setNewGCat]     = useState<string>(allCats[0])
   const [addingItem,  setAddingItem]  = useState<string | null>(null)
   const [newITitle,   setNewITitle]   = useState('')
 
@@ -167,7 +164,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
   }
 
   // ── CRUD ─────────────────────────────────────────────────────────
-  function openAddGroup() { setNewGCat(isAll ? MATRIX_CATS[0] : category); setNewGName(''); setNewGColor(GROUP_COLORS[0]); setAddingGroup(true) }
+  function openAddGroup() { setNewGCat(isAll ? allCats[0] : category); setNewGName(''); setNewGColor(GROUP_COLORS[0]); setAddingGroup(true) }
   async function addGroup() {
     const name = newGName.trim(); if (!name) { setAddingGroup(false); return }
     const { data } = await supabase.from('agenda_groups').insert({ category: newGCat, name, color: newGColor, sort_order: groups.length, is_open: true }).select().single()
@@ -342,7 +339,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
   if (loading) return <div className="flex items-center justify-center h-32 text-sm text-gray-400 animate-pulse">불러오는 중…</div>
 
   // ── 공통 상수 (모든 뷰에서 사용) ─────────────────────────────────
-  const catColor  = CAT_BORDER[category] ?? '#4C7FE0'
+  const catColor  = category === '전체' ? '#4C7FE0' : catPalette(category).solid
   const W_ROAD    = 68
   const MONTH_KO  = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월']
   const curYM     = todayStr.slice(0, 7)
@@ -366,7 +363,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
     </div>
   )
 
-  // ── 목록 모드 (전체/코어/비즈 공통) ─────────────────────────────
+  // ── 목록 모드 (전체/팀별 공통) ─────────────────────────────
   if (viewMode === 'list') {
     return (
       <>
@@ -379,7 +376,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
               const doneGroupItems = groupItems.filter(i => i.status === 'done')
               const visibleGroupItems = showDoneGroups.has(group.id) ? groupItems : groupItems.filter(i => i.status !== 'done')
               const isOpen = openGroups.has(group.id)
-              const groupBg = draggingGroupId === group.id ? 'rgba(0,0,0,0.08)' : dragOverGroupId === group.id ? hexToRgba(group.color, 0.22) : (CAT_BG[group.category ?? ''] ?? hexToRgba(group.color, 0.09))
+              const groupBg = draggingGroupId === group.id ? 'rgba(0,0,0,0.08)' : dragOverGroupId === group.id ? hexToRgba(group.color, 0.22) : (group.category ? catPalette(group.category).bg : hexToRgba(group.color, 0.09))
 
               return (
                 <div
@@ -436,10 +433,17 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                         <span style={{ fontSize: 13, fontWeight: 700, color: S.t1 }}>{group.name}</span>
                         <span style={{ fontSize: 11, color: S.t3, background: 'rgba(255,255,255,0.1)', padding: '1px 7px', borderRadius: 99 }}>{groupItems.length}</span>
                         <div className="hidden md:flex gap-1 ml-2" onClick={e => e.stopPropagation()}>
-                          {MATRIX_CATS.map(c => (
-                            <button key={c} onClick={() => updateGroupCat(group.id, c)}
-                              className={`text-[11px] px-2.5 py-0.5 rounded-full border font-semibold transition-all ${group.category === c ? CAT_CLS[c] : 'bg-[rgba(255,255,255,0.04)] text-[rgba(226,232,240,0.4)] border-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.2)]'}`}>{c}</button>
-                          ))}
+                          {allCats.map(c => {
+                            const active = group.category === c
+                            const p = catPalette(c)
+                            return (
+                              <button key={c} onClick={() => updateGroupCat(group.id, c)}
+                                className="text-[11px] px-2.5 py-0.5 rounded-full border font-semibold transition-all"
+                                style={active
+                                  ? { background: p.bg, color: p.text, borderColor: p.border }
+                                  : { background: 'rgba(255,255,255,0.04)', color: 'rgba(226,232,240,0.4)', borderColor: 'rgba(255,255,255,0.08)' }}>{c}</button>
+                            )
+                          })}
                         </div>
                         <div className="ml-auto flex items-center gap-1.5 opacity-0 group-hover/grow:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
                           <button onClick={() => { setEditingGroupId(group.id); setEditGName(group.name); setEditGColor(group.color) }} className="text-[10px] text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)] px-1">수정</button>
@@ -477,7 +481,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                   {isOpen && visibleGroupItems.map(item => {
                     const itemSubTasks = subTasks.filter(st => st.agenda_item_id === item.id).sort((a, b) => a.sort_order - b.sort_order)
                     const isItemExpanded = expandedItems.has(item.id)
-                    const activeColor = item.status === 'active' ? (CAT_BORDER[group.category ?? ''] ?? group.color) : STATUS_COLOR[item.status]
+                    const activeColor = item.status === 'active' ? (group.category ? catPalette(group.category).solid : group.color) : STATUS_COLOR[item.status]
                     return (
                       <Fragment key={item.id}>
                         <div
@@ -583,7 +587,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                                   onClick={e => e.stopPropagation()}
                                   style={{ cursor: 'grab', color: S.t3, fontSize: 12, userSelect: 'none', flexShrink: 0, lineHeight: 1 }}>⠿</span>
                                 <button onClick={e => { e.stopPropagation(); cycleSubTaskStatus(st) }}
-                                  style={{ width: 14, height: 14, borderRadius: 3, flexShrink: 0, border: `1.5px solid ${st.status === 'done' ? '#10B981' : st.status === 'hold' ? '#6366F1' : (CAT_BORDER[group.category ?? ''] ?? group.color)}`, background: st.status === 'done' ? '#10B981' : st.status === 'hold' ? 'rgba(99,102,241,0.2)' : 'transparent', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
+                                  style={{ width: 14, height: 14, borderRadius: 3, flexShrink: 0, border: `1.5px solid ${st.status === 'done' ? '#10B981' : st.status === 'hold' ? '#6366F1' : (group.category ? catPalette(group.category).solid : group.color)}`, background: st.status === 'done' ? '#10B981' : st.status === 'hold' ? 'rgba(99,102,241,0.2)' : 'transparent', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
                                   {st.status === 'done' && <span style={{ color: 'white', fontSize: 9, fontWeight: 800, lineHeight: 1 }}>✓</span>}
                                   {st.status === 'hold' && <span style={{ color: '#6366F1', fontSize: 7, lineHeight: 1 }}>▶</span>}
                                 </button>
@@ -727,10 +731,17 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                     className="border border-[rgba(255,255,255,0.15)] rounded-lg px-3 py-1.5 text-sm focus:outline-none w-40 bg-transparent text-[#E2E8F0]" />
                   {isAll && (
                     <div className="flex gap-1">
-                      {MATRIX_CATS.map(c => (
-                        <button key={c} type="button" onClick={() => setNewGCat(c)}
-                          className={`text-xs px-2.5 py-1 rounded-full border font-semibold transition-all ${newGCat === c ? CAT_CLS[c] : 'bg-[rgba(255,255,255,0.04)] text-[rgba(226,232,240,0.4)] border-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.2)]'}`}>{c}</button>
-                      ))}
+                      {allCats.map(c => {
+                        const active = newGCat === c
+                        const p = catPalette(c)
+                        return (
+                          <button key={c} type="button" onClick={() => setNewGCat(c)}
+                            className="text-xs px-2.5 py-1 rounded-full border font-semibold transition-all"
+                            style={active
+                              ? { background: p.bg, color: p.text, borderColor: p.border }
+                              : { background: 'rgba(255,255,255,0.04)', color: 'rgba(226,232,240,0.4)', borderColor: 'rgba(255,255,255,0.08)' }}>{c}</button>
+                        )
+                      })}
                     </div>
                   )}
                   <div className="flex gap-1.5">
@@ -827,7 +838,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
 
     const getItemGroupColor = (item: AgendaItem) => {
       const g = groups.find(gr => gr.id === item.group_id)
-      return CAT_BORDER[g?.category ?? ''] ?? g?.color ?? '#4C7FE0'
+      return g?.category ? catPalette(g.category).solid : (g?.color ?? '#4C7FE0')
     }
 
     // ── 공통: 테이블 헤더 ──
@@ -1037,13 +1048,13 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                   const doneGroupItems = groupItems.filter(i => i.status === 'done')
                   const visibleItems = showDoneGroups.has(group.id) ? groupItems : groupItems.filter(i => i.status !== 'done')
                   const isGOpen = openGroups.has(group.id)
-                  const gColor = CAT_BORDER[group.category ?? ''] ?? group.color
+                  const gColor = group.category ? catPalette(group.category).solid : group.color
                   // 같은 범주 내 순서에 따라 배경 밝기 교차
                   const sameCatGroups = [...groups].filter(g => g.category === group.category).sort((a,b) => a.sort_order - b.sort_order)
                   const groupIdxInCat = sameCatGroups.findIndex(g => g.id === group.id)
                   const gBgAlpha = groupIdxInCat % 2 === 0 ? 0.10 : 0.04
-                  const gBg = CAT_BORDER[group.category ?? '']
-                    ? hexToRgba(CAT_BORDER[group.category ?? ''], gBgAlpha)
+                  const gBg = group.category
+                    ? hexToRgba(catPalette(group.category).solid, gBgAlpha)
                     : hexToRgba(group.color, gBgAlpha)
                   // 범주 기간 바: 수동 설정된 기간 우선, 없으면 세부task 날짜 범위
                   const groupPd = parsePd(group.roadmap_period)
@@ -1212,8 +1223,8 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                 const doneGroupItems = groupItems.filter(i => i.status === 'done')
                 const visibleItems = showDoneGroups.has(group.id) ? groupItems : groupItems.filter(i => i.status !== 'done')
                 const isOpen = openGroups.has(group.id)
-                const gColor = CAT_BORDER[group.category ?? ''] ?? group.color
-                const gBg = CAT_BG[group.category ?? ''] ?? hexToRgba(group.color, 0.07)
+                const gColor = group.category ? catPalette(group.category).solid : group.color
+                const gBg = group.category ? catPalette(group.category).bg : hexToRgba(group.color, 0.07)
                 return (
                   <Fragment key={group.id}>
                     <tr>

@@ -7,9 +7,10 @@ import { createClient } from '@/lib/supabase/client'
 import { fetchAllTasks, fetchMembers, formatDate } from '@/lib/tasks'
 import { generateTasksContextMd, downloadMd } from '@/lib/markdown'
 import { TaskPageSkeleton } from '@/components/ui/Skeleton'
+import { useOrgData } from '@/hooks/useOrgData'
+import { FIXED_PART_TAGS } from '@/lib/categoryColors'
 import type { Task, Member, TaskStatus, TaskType } from '@/types'
 
-const DEFAULT_PARTS = ['코어', '비즈', '개인']
 const PARTS_KEY = 'jin_dashboard_parts'
 const TYPES: TaskType[] = ['기획', '개선', '운영']
 const STATUSES: TaskStatus[] = ['진행필요', '진행중', '완료']
@@ -60,7 +61,8 @@ export default function TasksPage() {
   const [pickerFocusMonth, setPickerFocusMonth] = useState(new Date().getMonth() + 1)
 
   // 팀(파트) 관리
-  const [customParts, setCustomParts] = useState<string[]>(DEFAULT_PARTS)
+  const { org } = useOrgData()
+  const [customParts, setCustomParts] = useState<string[]>([])
   const [partsEditOpen, setPartsEditOpen] = useState(false)
   const [newPartName, setNewPartName] = useState('')
   const [editingPart, setEditingPart] = useState<string | null>(null)
@@ -83,13 +85,14 @@ export default function TasksPage() {
   const supabase = createClient()
   const router = useRouter()
 
-  // localStorage에서 팀 목록 복원
+  // localStorage에서 팀 목록 복원. 저장된 게 없으면 조직 설정의 팀명으로 시드.
   useEffect(() => {
     try {
       const saved = localStorage.getItem(PARTS_KEY)
-      if (saved) setCustomParts(JSON.parse(saved))
+      if (saved) { setCustomParts(JSON.parse(saved)); return }
     } catch {}
-  }, [])
+    if (org.length > 0) setCustomParts([...org.map(t => t.name), ...FIXED_PART_TAGS])
+  }, [org])
 
   useEffect(() => {
     Promise.all([fetchAllTasks(), fetchMembers()]).then(([t, m]) => {

@@ -12,11 +12,18 @@ export const CATEGORY_PALETTE = {
 
 export type CategoryColorKey = keyof typeof CATEGORY_PALETTE;
 
-// 이름→색 매핑 (이름이 바뀌면 여기만 수정)
+// 이름→색 매핑. 팀명은 조직 설정(useOrgData)에서 동적으로 오므로 여기 넣지 않음 —
+// 매칭 안 되는 이름은 colorKeyFromName()이 해시로 안정된 색을 배정함.
 export const MEETING_CATEGORY: Record<string, CategoryColorKey> = {
-  '코어': 'blue', '비즈': 'purple', '경영진': 'teal', '타팀': 'amber',
+  '경영진': 'teal', '타팀': 'amber',
   '본부장': 'pink', '목표관리': 'green', '개인': 'cyan', '기타': 'neutral',
 };
+
+// 회의 카테고리 선택지 중 실제 팀이 아닌 고정 태그 (조직 개편과 무관하게 유지)
+export const FIXED_MEETING_TAGS = ['경영진', '타팀', '본부장', '목표관리', '개인', '기타'];
+
+// 업무/팀원 파트 선택지 중 실제 팀이 아닌 고정 태그
+export const FIXED_PART_TAGS = ['개인', '팀장'];
 
 export const ARCHIVE_CATEGORY: Record<string, CategoryColorKey> = {
   'HR': 'blue', '경제': 'teal', '리더십': 'lilac', '평가보상': 'amber',
@@ -28,7 +35,7 @@ export const MEMO_TAG: Record<string, CategoryColorKey> = {
 };
 
 export const PART_COLOR: Record<string, CategoryColorKey> = {
-  '코어': 'teal', '비즈': 'blue', '팀장': 'neutral', '기본': 'neutral',
+  '팀장': 'neutral', '기본': 'neutral',
 };
 
 export const TEAM_COLOR: Record<string, CategoryColorKey> = {

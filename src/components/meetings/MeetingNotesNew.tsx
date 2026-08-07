@@ -9,7 +9,8 @@ import { CATEGORY_PALETTE, MEETING_CATEGORY, colorKeyFromName } from '@/lib/cate
 import SearchToolbar, { type SortOrder, type DateSelection } from './SearchToolbar'
 import MeetingSection from './MeetingSection'
 
-const DEFAULT_CATS = ['코어', '비즈', '개인', '경영진', '기타']
+// 팀명(코어/비즈 등)은 하드코딩하지 않음 — DB에 실제로 쓰인 category 값이 아래 useEffect에서 자동으로 추가됨.
+const DEFAULT_CATS = ['개인', '경영진', '기타']
 
 function catDot(cat: string): string {
   const key = MEETING_CATEGORY[cat] ?? colorKeyFromName(cat)

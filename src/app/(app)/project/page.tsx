@@ -1,24 +1,28 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import AgendaMatrix from '@/components/meetings/AgendaMatrix'
+import { useOrgData } from '@/hooks/useOrgData'
 
-const DISPLAY_CATS = ['전체', '코어회의록', '비즈회의록', '개인']
-const CAT_VALUE: Record<string, string> = {
-  '전체': '전체',
-  '코어회의록': '코어',
-  '비즈회의록': '비즈',
-  '개인': '개인',
-}
-const ALL_CATS_VALUES = ['코어', '비즈', '개인']
 const SESSION_KEY = 'project-tab'
 
 export default function ProjectPage() {
+  const { org } = useOrgData()
+  // 팀명은 조직 설정에서 동적으로 옴 + '개인'은 고정 탭
+  const teamNames = useMemo(() => org.map(t => t.name), [org])
+  const allCatsValues = useMemo(() => [...teamNames, '개인'], [teamNames])
+  const displayCats = useMemo(() => ['전체', ...teamNames.map(n => `${n}회의록`), '개인'], [teamNames])
+  const catValue: Record<string, string> = useMemo(() => {
+    const m: Record<string, string> = { '전체': '전체', '개인': '개인' }
+    teamNames.forEach(n => { m[`${n}회의록`] = n })
+    return m
+  }, [teamNames])
+
   const [cat, setCat] = useState('전체')
 
   useEffect(() => {
     const saved = sessionStorage.getItem(SESSION_KEY)
-    if (saved && DISPLAY_CATS.includes(saved)) setCat(saved)
+    if (saved) setCat(saved)
   }, [])
 
   function selectCat(c: string) {
@@ -26,7 +30,7 @@ export default function ProjectPage() {
     sessionStorage.setItem(SESSION_KEY, c)
   }
 
-  const catValue = CAT_VALUE[cat]
+  const resolvedCatValue = catValue[cat] ?? '전체'
 
   return (
     <div className="flex flex-col h-full min-h-0 pt-4 md:pt-6 px-0" style={{ background: '#0F1319', minHeight: '100%' }}>
@@ -34,7 +38,7 @@ export default function ProjectPage() {
       <div className="flex-shrink-0 flex items-center gap-3 mb-5 px-4 md:px-6 overflow-x-auto scrollbar-hide">
         <h1 className="text-lg font-bold whitespace-nowrap flex-shrink-0" style={{ color: '#E2E8F0' }}>프로젝트</h1>
         <div className="flex items-center gap-1.5 flex-shrink-0">
-          {DISPLAY_CATS.map(c => (
+          {displayCats.map(c => (
             <button key={c} onClick={() => selectCat(c)}
               className="text-xs px-3.5 py-1.5 rounded-full font-semibold transition-all whitespace-nowrap"
               style={cat === c ? {
@@ -67,7 +71,7 @@ export default function ProjectPage() {
 
       {/* 매트릭스 — px 없이 전체 너비 */}
       <div className="flex-1 min-h-0 flex flex-col">
-        <AgendaMatrix key={catValue} category={catValue} allCats={ALL_CATS_VALUES} />
+        <AgendaMatrix key={resolvedCatValue} category={resolvedCatValue} allCats={allCatsValues} />
       </div>
     </div>
   )

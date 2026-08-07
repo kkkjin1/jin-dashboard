@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { format, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
+import { useOrgData } from '@/hooks/useOrgData'
 
 interface QuickMemo {
   id: string
@@ -35,6 +36,7 @@ interface LinkPopup {
 }
 
 export default function TodayTodoWidget() {
+  const { org } = useOrgData()
   const [todos, setTodos] = useState<QuickMemo[]>([])
   const [done, setDone] = useState<QuickMemo[]>([])
   const [loading, setLoading] = useState(true)
@@ -131,7 +133,7 @@ export default function TodayTodoWidget() {
     if (!skipConfirm && !confirm('업무로 이동하시겠습니까?')) return
     const { data } = await supabase
       .from('tasks')
-      .insert({ title: memo.title, part: '코어', type: '기획', status: '진행필요' })
+      .insert({ title: memo.title, part: org[0]?.name ?? '개인', type: '기획', status: '진행필요' })
       .select('id')
       .single()
     if (data) {

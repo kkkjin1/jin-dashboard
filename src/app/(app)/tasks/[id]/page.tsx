@@ -1,10 +1,12 @@
 ﻿'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { fetchMembers, parseTags, formatDate } from '@/lib/tasks'
+import { useOrgData } from '@/hooks/useOrgData'
+import { FIXED_PART_TAGS } from '@/lib/categoryColors'
 import type { Task, Member, Note, Attachment, TaskStatus, Part, TaskType, Meeting, TaskTodo, ScheduleTag } from '@/types'
 import { format, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
@@ -195,6 +197,8 @@ export default function TaskDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const supabase = createClient()
+  const { org } = useOrgData()
+  const partOptions = useMemo(() => [...org.map(t => t.name), ...FIXED_PART_TAGS], [org])
 
   const [task, setTask] = useState<Task | null>(null)
   const [members, setMembers] = useState<Member[]>([])
@@ -449,7 +453,7 @@ export default function TaskDetailPage() {
 
   async function saveNote() {
     if (!noteInput.replace(/<[^>]*>/g, '').trim()) return
-    const parsed = parseTags(noteInput.replace(/<[^>]*>/g, ''))
+    const parsed = parseTags(noteInput.replace(/<[^>]*>/g, ''), partOptions)
     const taskUpdates: Partial<Task> = {}
     if (parsed.mid_date) taskUpdates.mid_date = parsed.mid_date
     if (parsed.end_date) taskUpdates.end_date = parsed.end_date
@@ -741,8 +745,7 @@ export default function TaskDetailPage() {
 
         <select value={task.part} onChange={e => updateTask({ part: e.target.value as Part })}
           className="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none bg-white text-gray-600">
-          <option value="코어">코어</option>
-          <option value="비즈">비즈</option>
+          {partOptions.map(p => <option key={p} value={p}>{p}</option>)}
         </select>
 
         <select value={task.type} onChange={e => updateTask({ type: e.target.value as TaskType })}
@@ -788,7 +791,7 @@ export default function TaskDetailPage() {
           />
           <div className="text-[11px] text-gray-200 mt-2 leading-relaxed select-none pointer-events-none">
             날짜: [중간공유 6/20] · [최종보고 7/10] · [시작 6/1]<br />
-            확장: [담당자 김다슬] · [유형 기획] · [상태 진행중] · [파트 코어]
+            확장: [담당자 김다슬] · [유형 기획] · [상태 진행중] · [파트 {partOptions[0] ?? '개인'}]
           </div>
           <div className="flex justify-end mt-2">
             <button onClick={saveNote} disabled={!noteInput.replace(/<[^>]*>/g, '').trim()}

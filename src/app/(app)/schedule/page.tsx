@@ -165,6 +165,19 @@ export default function SchedulePage() {
     setTimeout(() => setFixedMemoSaved(p => ({ ...p, [key]: false })), 2500)
   }
 
+  // 고정회의(반복일정) 클릭 → 그날의 회의록으로 이동. 없으면 새로 만들어서 이동.
+  async function goToFixedMeeting(schedule: MeetingSchedule, dateStr: string) {
+    const existing = meetings.find(m => m.title === schedule.title && m.meeting_date?.startsWith(dateStr))
+    if (existing) { router.push(`/meetings/${existing.id}`); return }
+    const category = schedule.category ?? '기타'
+    const { data } = await supabase.from('meetings').insert({ title: schedule.title, meeting_date: dateStr, category, notes: [] }).select('id, title, meeting_date, category, notes').single()
+    if (data) {
+      const created = data as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category' | 'notes'>
+      setMeetings(ms => [...ms, created])
+      router.push(`/meetings/${created.id}`)
+    }
+  }
+
   function toggleEditDow(d: number) {
     setEditForm(prev => ({
       ...prev,
@@ -548,11 +561,12 @@ export default function SchedulePage() {
             } else if (item.type === 'fixed') {
               const { s } = item
               return (
-                <div key={`fixed-${s.id}-${idx}`}
-                  className="w-full text-left rounded-lg px-1.5 py-0.5 truncate text-[11px] leading-tight bg-emerald-900/40 text-emerald-300 border border-emerald-700/40"
-                  title={`고정회의 | ${s.title} ${s.time}`}>
+                <button key={`fixed-${s.id}-${idx}`}
+                  onClick={e => { e.stopPropagation(); goToFixedMeeting(s, format(day, 'yyyy-MM-dd')) }}
+                  className="w-full text-left rounded-lg px-1.5 py-0.5 truncate text-[11px] leading-tight hover:opacity-80 bg-emerald-900/40 text-emerald-300 border border-emerald-700/40"
+                  title={`고정회의 | ${s.title} ${s.time} (클릭하면 회의록으로 이동)`}>
                   <span className="opacity-60 mr-0.5">↺</span>{s.time} {s.title}
-                </div>
+                </button>
               )
             } else {
               const { o } = item
@@ -1052,7 +1066,12 @@ export default function SchedulePage() {
                           <div className="flex items-center gap-2 py-2">
                             <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: '#6EE7B7' }} />
                             {s.time && <span className="text-[10px] font-mono text-emerald-400 flex-shrink-0">{s.time}</span>}
-                            <span className="text-[12px] text-[rgba(226,232,240,0.85)] truncate flex-1">{s.title}</span>
+                            <span
+                              onClick={() => goToFixedMeeting(s, dateStr)}
+                              className="text-[12px] text-[rgba(226,232,240,0.85)] truncate flex-1 cursor-pointer hover:underline"
+                              title="클릭하면 회의록으로 이동">
+                              {s.title}
+                            </span>
                             {saved ? (
                               <span className="text-[10px] text-emerald-400 flex-shrink-0">저장됨 ✓</span>
                             ) : (

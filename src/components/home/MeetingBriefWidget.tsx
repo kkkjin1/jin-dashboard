@@ -1,9 +1,11 @@
 'use client'
 
 import Link from 'next/link'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useUserSetting } from '@/hooks/useUserSetting'
+import { useOrgData } from '@/hooks/useOrgData'
 import { createClient } from '@/lib/supabase/client'
+import { MEETING_CATEGORY, CATEGORY_PALETTE, colorKeyFromName, FIXED_MEETING_TAGS } from '@/lib/categoryColors'
 
 interface MeetingSchedule {
   id: string
@@ -27,16 +29,12 @@ interface DbMeeting {
 }
 
 const DOW_LABELS = ['일', '월', '화', '수', '목', '금', '토']
-const CATEGORIES = ['코어', '비즈', '경영진', '본부장', '타팀', '목표관리'] as const
-type Category = typeof CATEGORIES[number]
 
-const CAT_COLORS: Record<string, string> = {
-  '코어':   'bg-emerald-50 text-emerald-700 border-emerald-200',
-  '비즈':   'bg-blue-50 text-blue-700 border-blue-200',
-  '경영진': 'bg-red-50 text-red-700 border-red-200',
-  '본부장': 'bg-purple-50 text-purple-700 border-purple-200',
-  '타팀':   'bg-gray-100 text-gray-600 border-gray-200',
-  '목표관리':'bg-indigo-50 text-indigo-600 border-indigo-200',
+// 팀명은 조직 설정에서 동적으로 오므로 이름 해시로 안정된 색을 배정
+function categoryStyle(cat: string): { background: string; color: string; borderColor: string } {
+  const key = MEETING_CATEGORY[cat] ?? colorKeyFromName(cat)
+  const p = CATEGORY_PALETTE[key]
+  return { background: p.bg, color: p.text, borderColor: p.border }
 }
 
 function toDateStr(d: Date): string {
@@ -81,6 +79,8 @@ type PickerStep = 'category' | 'list'
 
 export default function MeetingBriefWidget() {
   const { value: schedules, save } = useUserSetting<MeetingSchedule[]>('meeting_schedules', [])
+  const { org } = useOrgData()
+  const categories = useMemo(() => [...org.map(t => t.name), ...FIXED_MEETING_TAGS], [org])
   const today = toDateStr(new Date())
   const [selectedDate, setSelectedDate] = useState(today)
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
@@ -243,7 +243,7 @@ export default function MeetingBriefWidget() {
                   )}
                   {/* 카테고리 뱃지 */}
                   {m.category && !linkedId && (
-                    <span className={`flex-shrink-0 text-[8px] px-1 py-0.5 rounded border ${CAT_COLORS[m.category] ?? 'bg-gray-50 text-gray-400 border-gray-200'}`}>
+                    <span className="flex-shrink-0 text-[8px] px-1 py-0.5 rounded border" style={categoryStyle(m.category)}>
                       {m.category}
                     </span>
                   )}
@@ -292,10 +292,11 @@ export default function MeetingBriefWidget() {
                       <div className="p-2.5">
                         <p className="text-[9px] text-gray-400 mb-2">어느 범주의 회의록과 연동할까요?</p>
                         <div className="flex flex-wrap gap-1">
-                          {CATEGORIES.map(cat => (
+                          {categories.map(cat => (
                             <button key={cat}
                               onClick={() => setTempCategory(prev => prev === cat ? '' : cat)}
-                              className={`text-[10px] px-2 py-1 rounded-full border transition-all hover:scale-105 ${CAT_COLORS[cat]} ${tempCategory === cat ? 'ring-2 ring-offset-1 ring-gray-400 scale-105' : ''}`}>
+                              className={`text-[10px] px-2 py-1 rounded-full border transition-all hover:scale-105 ${tempCategory === cat ? 'ring-2 ring-offset-1 ring-gray-400 scale-105' : ''}`}
+                              style={categoryStyle(cat)}>
                               {cat}
                             </button>
                           ))}
