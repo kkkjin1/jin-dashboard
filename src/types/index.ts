@@ -80,6 +80,15 @@ export interface QuickMemo {
   created_at: string
 }
 
+export interface ManualAchievement {
+  id: string
+  title: string
+  category: AchievementCategory
+  content: string
+  month: string // 'YYYY-MM'
+  created_at: string
+}
+
 export interface NoteEntry {
   title: string
   summary?: string   // 핵심문구 1문장 요약

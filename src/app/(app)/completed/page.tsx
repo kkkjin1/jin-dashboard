@@ -7,16 +7,43 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { fetchAllTasks } from '@/lib/tasks'
 import TiptapEditor from '@/components/TiptapEditor'
-import type { Task, AchievementCategory } from '@/types'
+import { CATEGORY_PALETTE, type CategoryColorKey } from '@/lib/categoryColors'
+import type { Task, AchievementCategory, ManualAchievement } from '@/types'
 
-const COLUMNS: { key: AchievementCategory | null; label: string; dot: string; accent: string }[] = [
-  { key: null,     label: '미분류', dot: 'bg-gray-300',     accent: 'border-[rgba(255,255,255,0.09)]' },
-  { key: '성과',   label: '성과',   dot: 'bg-[#BADEC8]',   accent: 'border-[#BADEC8]/40' },
-  { key: '개선',   label: '개선',   dot: 'bg-[#F3E482]',   accent: 'border-[#F3E482]/40' },
-  { key: '리소스', label: '리소스', dot: 'bg-[#90A7D8]',   accent: 'border-[#90A7D8]/40' },
-  { key: '수명',   label: '수명',   dot: 'bg-[#BFE4B5]',   accent: 'border-[#BFE4B5]/40' },
-  { key: '기타',   label: '기타',   dot: 'bg-gray-300',     accent: 'border-[rgba(255,255,255,0.09)]' },
+const CATEGORY_COLOR_KEY: Record<AchievementCategory, CategoryColorKey> = {
+  '성과':   'green',
+  '개선':   'amber',
+  '리소스': 'blue',
+  '수명':   'teal',
+  '기타':   'neutral',
+}
+
+function categoryStyle(key: AchievementCategory | null) {
+  if (!key) return CATEGORY_PALETTE.neutral
+  return CATEGORY_PALETTE[CATEGORY_COLOR_KEY[key]]
+}
+
+const COLUMNS: { key: AchievementCategory | null; label: string }[] = [
+  { key: null,     label: '미분류' },
+  { key: '성과',   label: '성과' },
+  { key: '개선',   label: '개선' },
+  { key: '리소스', label: '리소스' },
+  { key: '수명',   label: '수명' },
+  { key: '기타',   label: '기타' },
 ]
+
+const ADD_CATEGORIES: AchievementCategory[] = ['성과', '개선', '리소스', '수명', '기타']
+
+interface KanbanCard {
+  id: string
+  title: string
+  category: AchievementCategory | null
+  part?: string
+  type?: string
+  month: string | null
+  manual: boolean
+  content?: string
+}
 
 function getTaskMonth(task: Task): string | null {
   if ((task.work_months ?? []).length > 0) return (task.work_months ?? []).at(-1)!
@@ -171,9 +198,11 @@ function SummaryGrid({ data }: { data: PeriodSummary }) {
 export default function CompletedPage() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [agendaItems, setAgendaItems] = useState<CompletedAgendaItem[]>([])
+  const [manualItems, setManualItems] = useState<ManualAchievement[]>([])
   const [quickPeriod, setQuickPeriod] = useState<QuickPeriod>('주간')
-  const [draggedId, setDraggedId] = useState<string | null>(null)
+  const [dragged, setDragged] = useState<{ id: string; manual: boolean } | null>(null)
   const [dragOverCol, setDragOverCol] = useState<string | null>(null)
+  const [showAddModal, setShowAddModal] = useState(false)
 
   const nowYM = useMemo(() => {
     const now = new Date()
@@ -212,7 +241,27 @@ export default function CompletedPage() {
           return { id: a.id, title: a.title, updated_at: a.updated_at, group_name: g?.name ?? '', group_color: g?.color ?? '#9CA3AF' }
         }))
       })
+    supabase
+      .from('manual_achievements')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .then(({ data }) => setManualItems((data ?? []) as ManualAchievement[]))
   }, [])
+
+  async function addManualAchievement(input: { title: string; category: AchievementCategory; month: string; content: string }) {
+    const { data, error } = await supabase.from('manual_achievements')
+      .insert({ title: input.title.trim(), category: input.category, month: input.month, content: input.content.trim() })
+      .select().single()
+    if (error || !data) return
+    setManualItems(prev => [data as ManualAchievement, ...prev])
+    setShowAddModal(false)
+  }
+
+  async function deleteManualAchievement(id: string) {
+    if (!confirm('직접 추가한 성과를 삭제하시겠습니까?')) return
+    await supabase.from('manual_achievements').delete().eq('id', id)
+    setManualItems(prev => prev.filter(m => m.id !== id))
+  }
 
   useEffect(() => {
     if (quickPeriod !== '주간') return
@@ -309,6 +358,16 @@ export default function CompletedPage() {
     return agendaItems
   }, [agendaItems, fromMonth, toMonth])
 
+  const filteredManual = useMemo(() => {
+    if (fromMonth && toMonth) return manualItems.filter(m => m.month >= fromMonth && m.month <= toMonth)
+    return manualItems
+  }, [manualItems, fromMonth, toMonth])
+
+  const kanbanCards: KanbanCard[] = useMemo(() => [
+    ...filtered.map((t): KanbanCard => ({ id: t.id, title: t.title, part: t.part, type: t.type, month: getTaskMonth(t), manual: false, category: t.achievement_category ?? null })),
+    ...filteredManual.map((m): KanbanCard => ({ id: m.id, title: m.title, month: m.month, manual: true, content: m.content, category: m.category })),
+  ], [filtered, filteredManual])
+
   function selectQuick(p: QuickPeriod) {
     setQuickPeriod(p)
     if (p === '주간') { setFromMonth(''); setToMonth(''); return }
@@ -318,18 +377,26 @@ export default function CompletedPage() {
   }
 
   async function handleDrop(category: AchievementCategory | null) {
-    if (!draggedId) return
-    await supabase.from('tasks').update({ achievement_category: category }).eq('id', draggedId)
-    setTasks(prev => prev.map(t => t.id === draggedId ? { ...t, achievement_category: category } : t))
-    setDraggedId(null); setDragOverCol(null)
+    if (!dragged) return
+    const { id, manual } = dragged
+    if (manual) {
+      if (!category) { setDragged(null); setDragOverCol(null); return }
+      await supabase.from('manual_achievements').update({ category }).eq('id', id)
+      setManualItems(prev => prev.map(m => m.id === id ? { ...m, category } : m))
+    } else {
+      await supabase.from('tasks').update({ achievement_category: category }).eq('id', id)
+      setTasks(prev => prev.map(t => t.id === id ? { ...t, achievement_category: category } : t))
+    }
+    setDragged(null); setDragOverCol(null)
   }
 
-  function getColTasks(key: AchievementCategory | null) {
-    return filtered.filter(t => (t.achievement_category ?? null) === key)
+  function getColCards(key: AchievementCategory | null) {
+    return kanbanCards.filter(c => c.category === key)
   }
 
-  const achieveCount = filtered.filter(t => t.achievement_category === '성과').length
-  const improveCount = filtered.filter(t => t.achievement_category === '개선').length
+  const totalCount = filtered.length + filteredManual.length
+  const achieveCount = kanbanCards.filter(c => c.category === '성과').length
+  const improveCount = kanbanCards.filter(c => c.category === '개선').length
   const retroCount = filtered.filter(t => t.retrospective?.good || t.retrospective?.bad || t.retrospective?.improvement).length
 
   function shiftWeek(delta: number) {
@@ -351,19 +418,19 @@ export default function CompletedPage() {
       <>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           {[
-            { label: '총 완료', value: filtered.length, unit: '건', bg: 'bg-[rgba(255,255,255,0.06)] border-[rgba(255,255,255,0.09)]', numCls: 'text-[rgba(226,232,240,0.9)]' },
-            { label: '성과', value: achieveCount, unit: '건', bg: 'bg-[#BADEC8]/25 border-[#BADEC8]/40', numCls: 'text-[#2D5A45]' },
-            { label: '개선', value: improveCount, unit: '건', bg: 'bg-[#F3E482]/25 border-[#F3E482]/45', numCls: 'text-[#5A4A10]' },
+            { label: '총 완료', value: totalCount, unit: '건', style: { background: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.09)', color: 'rgba(226,232,240,0.9)' } },
+            { label: '성과', value: achieveCount, unit: '건', style: { background: categoryStyle('성과').bg, borderColor: categoryStyle('성과').border, color: categoryStyle('성과').text } },
+            { label: '개선', value: improveCount, unit: '건', style: { background: categoryStyle('개선').bg, borderColor: categoryStyle('개선').border, color: categoryStyle('개선').text } },
             {
               label: '회고 작성', unit: filtered.length > 0 ? `${Math.round(retroCount / filtered.length * 100)}%` : '—',
-              value: retroCount, bg: 'bg-[#90A7D8]/18 border-[#90A7D8]/30', numCls: 'text-[#1E3A6B]',
+              value: retroCount, style: { background: categoryStyle('리소스').bg, borderColor: categoryStyle('리소스').border, color: categoryStyle('리소스').text },
             },
           ].map(card => (
-            <div key={card.label} className={`backdrop-blur-xl border rounded-3xl p-5 ${card.bg}`}>
-              <p className={`text-xs font-medium mb-3 opacity-60 ${card.numCls}`}>{card.label}</p>
+            <div key={card.label} className="backdrop-blur-xl border rounded-3xl p-5" style={card.style}>
+              <p className="text-xs font-medium mb-3 opacity-70">{card.label}</p>
               <div className="flex items-baseline gap-1.5">
-                <span className={`text-5xl font-bold leading-none ${card.numCls}`}>{card.value}</span>
-                <span className={`text-sm font-medium opacity-60 ${card.numCls}`}>{card.unit}</span>
+                <span className="text-5xl font-bold leading-none">{card.value}</span>
+                <span className="text-sm font-medium opacity-70">{card.unit}</span>
               </div>
             </div>
           ))}
@@ -371,40 +438,61 @@ export default function CompletedPage() {
 
         <div className="flex gap-4 overflow-x-auto pb-4 mb-8 scrollbar-hide">
           {COLUMNS.map(col => {
-            const colTasks = getColTasks(col.key)
+            const colCards = getColCards(col.key)
             const colKey = col.key ?? '__null__'
+            const st = categoryStyle(col.key)
             return (
               <div key={colKey}
                 onDragOver={e => { e.preventDefault(); setDragOverCol(colKey) }}
                 onDragLeave={() => setDragOverCol(null)}
                 onDrop={() => handleDrop(col.key)}
-                className={`flex-shrink-0 w-52 bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border rounded-3xl p-4 transition-all ${col.accent} ${dragOverCol === colKey ? 'scale-[1.02] bg-[rgba(255,255,255,0.06)]' : ''}`}>
+                className="flex-shrink-0 w-56 bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border rounded-3xl p-4 transition-all"
+                style={{ borderColor: dragOverCol === colKey ? st.border : 'rgba(255,255,255,0.09)', transform: dragOverCol === colKey ? 'scale(1.02)' : undefined }}>
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
-                    <span className={`w-2 h-2 rounded-full ${col.dot}`} />
+                    <span className="w-2 h-2 rounded-full" style={{ background: st.solid }} />
                     <h3 className="text-sm font-bold text-[rgba(226,232,240,0.8)]">{col.label}</h3>
                   </div>
-                  <span className="text-xs text-[rgba(226,232,240,0.4)] bg-[rgba(255,255,255,0.06)] px-1.5 py-0.5 rounded-full">{colTasks.length}</span>
+                  <span className="text-xs text-[rgba(226,232,240,0.4)] bg-[rgba(255,255,255,0.06)] px-1.5 py-0.5 rounded-full">{colCards.length}</span>
                 </div>
                 <div className="space-y-2 max-h-80 overflow-y-auto scrollbar-hide">
-                  {colTasks.map(task => (
-                    <div key={task.id} draggable
-                      onDragStart={() => setDraggedId(task.id)}
-                      onDragEnd={() => { setDraggedId(null); setDragOverCol(null) }}
-                      className={`bg-[rgba(255,255,255,0.06)] rounded-2xl border border-[rgba(255,255,255,0.09)] p-3 cursor-grab active:cursor-grabbing hover:bg-[rgba(255,255,255,0.06)] transition-all ${draggedId === task.id ? 'opacity-40 scale-95' : ''}`}>
-                      <Link href={`/tasks/${task.id}`} onClick={e => e.stopPropagation()}>
-                        <p className="text-xs font-semibold text-[rgba(226,232,240,0.9)] leading-snug mb-2">
-                          {task.title || <span className="text-[rgba(226,232,240,0.3)] italic">제목 없음</span>}
+                  {colCards.map(card => (
+                    <div key={card.id} draggable
+                      onDragStart={() => setDragged({ id: card.id, manual: card.manual })}
+                      onDragEnd={() => { setDragged(null); setDragOverCol(null) }}
+                      className={`group/card relative bg-[rgba(255,255,255,0.06)] rounded-2xl border border-[rgba(255,255,255,0.09)] p-3 cursor-grab active:cursor-grabbing hover:border-[rgba(255,255,255,0.18)] transition-all ${dragged?.id === card.id ? 'opacity-40 scale-95' : ''}`}>
+                      {card.manual ? (
+                        <p className="text-xs font-semibold text-[rgba(226,232,240,0.9)] leading-snug mb-2 pr-4">
+                          {card.title || <span className="text-[rgba(226,232,240,0.3)] italic">제목 없음</span>}
                         </p>
-                      </Link>
+                      ) : (
+                        <Link href={`/tasks/${card.id}`} onClick={e => e.stopPropagation()}>
+                          <p className="text-xs font-semibold text-[rgba(226,232,240,0.9)] leading-snug mb-2">
+                            {card.title || <span className="text-[rgba(226,232,240,0.3)] italic">제목 없음</span>}
+                          </p>
+                        </Link>
+                      )}
+                      {card.content && <p className="text-[10px] text-[rgba(226,232,240,0.45)] leading-relaxed mb-2 line-clamp-2">{card.content}</p>}
                       <div className="flex items-center gap-1 flex-wrap">
-                        <span className="text-[10px] text-[rgba(226,232,240,0.4)] bg-[rgba(255,255,255,0.06)] px-1.5 py-0.5 rounded-full">{task.type}</span>
-                        <span className="text-[10px] text-[rgba(226,232,240,0.4)] bg-[rgba(255,255,255,0.06)] px-1.5 py-0.5 rounded-full">{task.part}</span>
-                        {getTaskMonth(task) && <span className="text-[10px] text-[rgba(226,232,240,0.3)]">{formatYM(getTaskMonth(task)!)}</span>}
+                        {card.manual ? (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: st.bg, color: st.text }}>직접입력</span>
+                        ) : (
+                          <>
+                            <span className="text-[10px] text-[rgba(226,232,240,0.4)] bg-[rgba(255,255,255,0.06)] px-1.5 py-0.5 rounded-full">{card.type}</span>
+                            <span className="text-[10px] text-[rgba(226,232,240,0.4)] bg-[rgba(255,255,255,0.06)] px-1.5 py-0.5 rounded-full">{card.part}</span>
+                          </>
+                        )}
+                        {card.month && <span className="text-[10px] text-[rgba(226,232,240,0.3)]">{formatYM(card.month)}</span>}
                       </div>
+                      {card.manual && (
+                        <button onClick={() => deleteManualAchievement(card.id)}
+                          className="absolute top-2.5 right-2.5 text-[10px] text-[rgba(226,232,240,0.25)] opacity-0 group-hover/card:opacity-100 hover:text-red-400 transition-all">
+                          ×
+                        </button>
+                      )}
                     </div>
                   ))}
-                  {colTasks.length === 0 && (
+                  {colCards.length === 0 && (
                     <p className="text-xs text-[rgba(226,232,240,0.3)] text-center py-6 border border-dashed border-[rgba(255,255,255,0.09)] rounded-2xl">드롭</p>
                   )}
                 </div>
@@ -484,13 +572,30 @@ export default function CompletedPage() {
     )
   }
 
+  const defaultAddMonth = quickPeriod === '당월' ? selectedMonth : nowYM
+
   return (
     <div className="h-full flex flex-col overflow-hidden font-sans">
+      {showAddModal && (
+        <AddAchievementModal
+          defaultMonth={defaultAddMonth}
+          onSave={addManualAchievement}
+          onClose={() => setShowAddModal(false)}
+        />
+      )}
       <div className="flex-shrink-0 pt-6 pb-4 flex items-center justify-between">
         <h1 className="text-xl font-bold text-[#E2E8F0]">완료 성과</h1>
-        {quickPeriod !== '주간' && quickPeriod !== '당월' && (
-          <span className="text-sm text-[rgba(226,232,240,0.4)]">총 {filtered.length}건</span>
-        )}
+        <div className="flex items-center gap-3">
+          {quickPeriod !== '주간' && quickPeriod !== '당월' && (
+            <span className="text-sm text-[rgba(226,232,240,0.4)]">총 {filtered.length}건</span>
+          )}
+          {quickPeriod !== '주간' && (
+            <button onClick={() => setShowAddModal(true)}
+              className="text-sm bg-[#4C7FE0]/40 text-[#A8C4F0] border border-[#4C7FE0]/50 px-4 py-2 rounded-full hover:bg-[#4C7FE0]/60 transition-colors">
+              + 직접 추가
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="flex-shrink-0 flex items-center gap-1.5 flex-wrap mb-5">
@@ -539,6 +644,10 @@ export default function CompletedPage() {
               <span className="text-sm font-semibold text-[rgba(226,232,240,0.8)]">{formatYM(selectedMonth)}</span>
               <button onClick={() => shiftMonth(1)}
                 className="text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.8)] px-3 py-1.5 rounded-full bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border border-[rgba(255,255,255,0.09)] hover:bg-[rgba(255,255,255,0.06)] transition-all text-sm">→</button>
+              <input type="month" value={selectedMonth}
+                onChange={e => { const v = e.target.value; if (v) { setSelectedMonth(v); setFromMonth(v); setToMonth(v) } }}
+                className="text-xs text-[rgba(226,232,240,0.6)] bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border border-[rgba(255,255,255,0.09)] rounded-full px-3 py-1.5 ml-1 focus:outline-none focus:border-[rgba(76,127,224,0.5)] transition-colors"
+                style={{ colorScheme: 'dark' }} />
             </div>
             <SummaryGrid data={monthData} />
             {monthJournal !== null && (
@@ -608,7 +717,35 @@ export default function CompletedPage() {
                 </div>
               </div>
             )}
-            {agendaItems.length === 0 && tasks.length === 0 && (
+            {manualItems.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <h2 className="text-sm font-bold text-[rgba(226,232,240,0.9)]">직접 추가한 성과</h2>
+                  <span className="text-xs text-[rgba(226,232,240,0.4)]">{manualItems.length}건</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {manualItems.map(m => {
+                    const st = categoryStyle(m.category)
+                    return (
+                      <div key={m.id}
+                        className="group/card relative bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border border-[rgba(255,255,255,0.09)] rounded-3xl p-5 flex flex-col gap-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="text-sm font-semibold text-[rgba(226,232,240,0.9)] leading-snug pr-4">{m.title}</span>
+                          <span className="text-[10px] flex-shrink-0 px-2 py-0.5 rounded-full" style={{ background: st.bg, color: st.text }}>{m.category}</span>
+                        </div>
+                        {m.content && <p className="text-xs text-[rgba(226,232,240,0.5)] leading-relaxed">{m.content}</p>}
+                        <span className="text-[10px] text-[rgba(226,232,240,0.3)]">{formatYM(m.month)} · 직접입력</span>
+                        <button onClick={() => deleteManualAchievement(m.id)}
+                          className="absolute top-3 right-3 text-xs text-[rgba(226,232,240,0.25)] opacity-0 group-hover/card:opacity-100 hover:text-red-400 transition-all">
+                          ×
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+            {agendaItems.length === 0 && tasks.length === 0 && manualItems.length === 0 && (
               <p className="text-sm text-[rgba(226,232,240,0.3)] text-center py-12">완료된 안건/업무가 없습니다</p>
             )}
             <div className="flex justify-end">
@@ -620,6 +757,90 @@ export default function CompletedPage() {
           </div>
         )}
 
+      </div>
+    </div>
+  )
+}
+
+function AddAchievementModal({
+  defaultMonth, onSave, onClose,
+}: {
+  defaultMonth: string
+  onSave: (input: { title: string; category: AchievementCategory; month: string; content: string }) => void
+  onClose: () => void
+}) {
+  const [title, setTitle] = useState('')
+  const [category, setCategory] = useState<AchievementCategory>('성과')
+  const [month, setMonth] = useState(defaultMonth)
+  const [content, setContent] = useState('')
+  const titleRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  function handleSave() {
+    if (!title.trim()) { titleRef.current?.focus(); return }
+    onSave({ title, category, month, content })
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm p-4"
+      style={{ background: 'rgba(0,0,0,0.6)' }}
+      onClick={onClose}>
+      <div
+        className="backdrop-blur-xl rounded-3xl p-6 w-full max-w-md flex flex-col gap-4"
+        style={{ background: 'rgba(30,33,42,0.95)', border: '1px solid rgba(255,255,255,0.09)', boxShadow: '0 20px 40px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.07) inset' }}
+        onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-bold text-[rgba(226,232,240,0.9)]">성과 직접 추가</h2>
+          <button onClick={onClose} className="text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.8)] text-lg leading-none transition-colors">×</button>
+        </div>
+
+        <div className="flex gap-1.5 flex-wrap">
+          {ADD_CATEGORIES.map(c => {
+            const st = categoryStyle(c)
+            const on = category === c
+            return (
+              <button key={c} onClick={() => setCategory(c)}
+                className="text-xs px-3 py-1.5 rounded-full border font-medium transition-all"
+                style={on
+                  ? { background: st.solid, color: st.on, borderColor: st.solid }
+                  : { background: st.bg, color: st.text, borderColor: st.border, opacity: 0.6 }}>
+                {c}
+              </button>
+            )
+          })}
+        </div>
+
+        <input ref={titleRef} autoFocus value={title} onChange={e => setTitle(e.target.value)}
+          onKeyDown={e => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') handleSave() }}
+          placeholder="제목 (필수)"
+          className="w-full text-sm font-semibold text-[#E2E8F0] focus:outline-none pb-2 bg-transparent placeholder:text-white/30"
+          style={{ borderBottom: '1px solid rgba(255,255,255,0.09)' }} />
+
+        <textarea value={content} onChange={e => setContent(e.target.value)}
+          placeholder="설명 (선택)" rows={3}
+          className="w-full text-sm text-[#E2E8F0] bg-transparent focus:outline-none resize-none placeholder:text-white/25 p-3 rounded-xl"
+          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }} />
+
+        <div className="flex items-center justify-between">
+          <input type="month" value={month} onChange={e => setMonth(e.target.value)}
+            className="text-xs text-[rgba(226,232,240,0.7)] bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] rounded-full px-3 py-1.5 focus:outline-none"
+            style={{ colorScheme: 'dark' }} />
+          <div className="flex gap-2">
+            <button onClick={onClose}
+              className="text-xs px-4 py-2 rounded-full border bg-[rgba(255,255,255,0.06)] border-[rgba(255,255,255,0.09)] text-[rgba(226,232,240,0.5)] hover:bg-[rgba(255,255,255,0.1)] transition-all">
+              취소
+            </button>
+            <button onClick={handleSave} disabled={!title.trim()}
+              className="text-xs px-4 py-2 rounded-full border bg-[#4C7FE0] border-[#4C7FE0] text-white shadow-sm disabled:opacity-40 transition-all">
+              추가
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   )
