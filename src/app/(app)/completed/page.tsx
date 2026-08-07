@@ -32,6 +32,15 @@ interface SubTaskWithGroup extends AgendaSubTask {
 
 interface PeriodRange { start: Date; end: Date; label: string }
 
+function hexToRgba(hex: string, alpha: number): string {
+  const h = hex.replace('#', '')
+  const r = parseInt(h.slice(0, 2), 16)
+  const g = parseInt(h.slice(2, 4), 16)
+  const b = parseInt(h.slice(4, 6), 16)
+  if (Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) return `rgba(156,163,175,${alpha})`
+  return `rgba(${r},${g},${b},${alpha})`
+}
+
 function pad2(n: number) { return String(n).padStart(2, '0') }
 function ym(d: Date) { return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}` }
 function formatYM(d: Date) { return `${d.getFullYear()}년 ${d.getMonth() + 1}월` }
@@ -292,19 +301,21 @@ export default function CompletedPage() {
           <div className="pb-6">
             {groups.map((g, idx) => {
               const groupRows = typeFilteredRows.filter(r => r.groupId === g.id)
+              const groupColor = g.color || '#9CA3AF'
               return (
                 <div key={g.id}
                   style={{ marginTop: idx === 0 ? 0 : 14, background: 'rgba(255,255,255,0.06)', border: '0.5px solid rgba(255,255,255,0.09)', borderRadius: 20, padding: '14px 24px', overflow: 'hidden' }}>
-                  {/* 헤더 배너 */}
-                  <div className="flex items-center justify-between" style={{ margin: '-14px -24px 0 -24px', padding: '19px', background: 'rgba(255,255,255,0.04)', borderTopLeftRadius: 20, borderTopRightRadius: 20 }}>
+                  {/* 헤더 배너 — 프로젝트 탭 그룹 색상 반영 */}
+                  <div className="flex items-center justify-between" style={{ margin: '-14px -24px 0 -24px', padding: '19px', background: hexToRgba(groupColor, 0.16), borderTopLeftRadius: 20, borderTopRightRadius: 20 }}>
                     <div className="flex items-center">
-                      <span style={{ width: 32, flexShrink: 0, fontSize: 13, opacity: 0.55, color: 'rgba(226,232,240,0.7)', userSelect: 'none', cursor: 'grab' }}>⠿</span>
+                      <span style={{ width: 32, flexShrink: 0, fontSize: 13, opacity: 0.6, color: groupColor, userSelect: 'none', cursor: 'grab' }}>⠿</span>
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: groupColor, flexShrink: 0, marginRight: 8 }} />
                       <span style={{ fontSize: 13, fontWeight: 800, color: '#E2E8F0' }}>{g.name}</span>
-                      <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 600, color: 'rgba(226,232,240,0.4)' }}>{groupRows.length}건 완료</span>
+                      <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 600, color: hexToRgba(groupColor, 0.85) }}>{groupRows.length}건 완료</span>
                     </div>
                     <button onClick={() => setAddModalGroup(g)}
                       className="transition-colors"
-                      style={{ fontSize: 12, fontWeight: 600, padding: '5px 14px', borderRadius: 999, background: 'rgba(76,127,224,0.18)', color: '#A8C4F0', border: '1px solid rgba(76,127,224,0.32)' }}>
+                      style={{ fontSize: 12, fontWeight: 600, padding: '5px 14px', borderRadius: 999, background: hexToRgba(groupColor, 0.22), color: '#E2E8F0', border: `1px solid ${hexToRgba(groupColor, 0.45)}` }}>
                       + 성과 추가
                     </button>
                   </div>
@@ -316,7 +327,8 @@ export default function CompletedPage() {
                     </div>
                   ) : (
                     groupRows.map(row => (
-                      <div key={row.id} className="group/row flex items-center gap-2.5" style={{ padding: '12px 16px', borderBottom: '0.5px solid rgba(255,255,255,0.06)' }}>
+                      <div key={row.id} className="group/row flex items-center gap-2.5 transition-colors hover:bg-[rgba(255,255,255,0.03)]"
+                        style={{ padding: '12px 16px', borderBottom: '0.5px solid rgba(255,255,255,0.06)', borderLeft: `2.5px solid ${hexToRgba(groupColor, 0.35)}` }}>
                         {row.source === 'auto' ? (
                           <Link href={`/subtasks/${row.id}`}
                             style={{ flex: 1, fontSize: 13, color: '#E2E8F0', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
@@ -399,7 +411,10 @@ function AddAchievementModal({
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-sm font-bold text-[rgba(226,232,240,0.9)]">성과 직접 추가</h2>
-            <p className="text-xs text-[rgba(226,232,240,0.4)] mt-0.5">{group.name}</p>
+            <p className="text-xs mt-0.5 flex items-center gap-1.5" style={{ color: 'rgba(226,232,240,0.5)' }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: group.color || '#9CA3AF', flexShrink: 0 }} />
+              {group.name}
+            </p>
           </div>
           <button onClick={onClose} className="text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.8)] text-lg leading-none transition-colors">×</button>
         </div>
