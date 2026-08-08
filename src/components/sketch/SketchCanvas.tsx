@@ -4,16 +4,16 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import {
   ReactFlow, ReactFlowProvider, Background, BackgroundVariant, Controls, MiniMap,
-  Handle, Position, MarkerType,
+  Handle, Position, MarkerType, BaseEdge, getStraightPath, useInternalNode,
   useNodesState, useEdgesState, useReactFlow,
-  type Node, type NodeProps, type NodeTypes, type OnNodeDrag, type Edge, type OnConnect,
+  type Node, type NodeProps, type NodeTypes, type OnNodeDrag, type Edge, type EdgeTypes, type EdgeProps, type OnConnect,
+  type InternalNode,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { createClient } from '@/lib/supabase/client'
 import { CATEGORY_PALETTE, type CategoryColorKey } from '@/lib/categoryColors'
-import { ArrowLeft, Plus } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, GripVertical } from 'lucide-react'
 import type { SketchBoard, SketchCard, SketchEdge } from '@/types'
-import SketchCardModal from './SketchCardModal'
 
 const COLOR_KEYS = Object.keys(CATEGORY_PALETTE) as CategoryColorKey[]
 const DEFAULT_WIDTH = 220
@@ -24,17 +24,67 @@ const EDGE_STYLE = { stroke: EDGE_COLOR, strokeWidth: 1.5 }
 const EDGE_MARKER = { type: MarkerType.ArrowClosed, color: EDGE_COLOR, width: 16, height: 16 }
 
 function edgeFromRow(row: SketchEdge): Edge {
-  return { id: row.id, source: row.source_card_id, target: row.target_card_id, markerEnd: EDGE_MARKER, style: EDGE_STYLE }
+  return { id: row.id, source: row.source_card_id, target: row.target_card_id, type: 'floating', markerEnd: EDGE_MARKER, style: EDGE_STYLE }
 }
 
-export type CardData = { content: string; color: CategoryColorKey }
-export type CardNode = Node<CardData, 'sticky'>
+// ── 카드 위치가 바뀌어도 항상 두 카드 경계를 잇는 직선으로 다시 그려지는 edge ──
+// (기본 bezier edge는 핸들 방향이 고정이라 카드를 재배치해도 곡선이 그대로 남는 문제가 있음)
+function getNodeIntersection(intersectionNode: InternalNode, targetNode: InternalNode) {
+  const w = (intersectionNode.measured.width ?? DEFAULT_WIDTH) / 2
+  const h = (intersectionNode.measured.height ?? DEFAULT_HEIGHT) / 2
+  const pos = intersectionNode.internals.positionAbsolute
+  const targetPos = targetNode.internals.positionAbsolute
+  const targetW = (targetNode.measured.width ?? DEFAULT_WIDTH) / 2
+  const targetH = (targetNode.measured.height ?? DEFAULT_HEIGHT) / 2
 
-function StickyCardNode({ data }: NodeProps<CardNode>) {
+  const x2 = pos.x + w
+  const y2 = pos.y + h
+  const x1 = targetPos.x + targetW
+  const y1 = targetPos.y + targetH
+
+  const xx1 = (x1 - x2) / (2 * w) - (y1 - y2) / (2 * h)
+  const yy1 = (x1 - x2) / (2 * w) + (y1 - y2) / (2 * h)
+  const a = 1 / (Math.abs(xx1) + Math.abs(yy1) || 1)
+  const xx3 = a * xx1
+  const yy3 = a * yy1
+  return { x: w * (xx3 + yy3) + x2, y: h * (-xx3 + yy3) + y2 }
+}
+
+function FloatingEdge({ id, source, target, markerEnd, style }: EdgeProps) {
+  const sourceNode = useInternalNode(source)
+  const targetNode = useInternalNode(target)
+  if (!sourceNode || !targetNode) return null
+  const s = getNodeIntersection(sourceNode, targetNode)
+  const t = getNodeIntersection(targetNode, sourceNode)
+  const [path] = getStraightPath({ sourceX: s.x, sourceY: s.y, targetX: t.x, targetY: t.y })
+  return <BaseEdge id={id} path={path} markerEnd={markerEnd} style={style} />
+}
+
+const edgeTypes: EdgeTypes = { floating: FloatingEdge }
+
+type CardData = {
+  content: string
+  color: CategoryColorKey
+  onContentChange: (id: string, content: string) => void
+  onColorChange: (id: string, color: CategoryColorKey) => void
+  onDelete: (id: string) => void
+}
+type CardNode = Node<CardData, 'sticky'>
+
+function StickyCardNode({ id, data }: NodeProps<CardNode>) {
+  const [text, setText] = useState(data.content)
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const palette = CATEGORY_PALETTE[data.color]
+
+  function handleChange(value: string) {
+    setText(value)
+    clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(() => data.onContentChange(id, value), 500)
+  }
+
   return (
     <div
-      className="group relative h-full w-full flex rounded-xl overflow-hidden shadow-lg cursor-pointer"
+      className="group relative h-full w-full flex flex-col rounded-xl overflow-hidden shadow-lg"
       style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)' }}
     >
       <Handle type="target" position={Position.Left}
@@ -43,11 +93,37 @@ function StickyCardNode({ data }: NodeProps<CardNode>) {
       <Handle type="source" position={Position.Right}
         className="opacity-0 group-hover:opacity-100 transition-opacity"
         style={{ width: 10, height: 10, background: palette.solid, border: '2px solid rgba(255,255,255,0.7)' }} />
-      <div className="w-[3px] flex-shrink-0" style={{ background: palette.solid }} />
-      <div className="flex-1 min-w-0 p-2.5 text-[13px] leading-snug whitespace-pre-wrap overflow-hidden">
-        {data.content
-          ? <span style={{ color: '#E2E8F0' }}>{data.content}</span>
-          : <span style={{ color: 'rgba(226,232,240,0.35)' }}>생각을 적어보세요…</span>}
+
+      {/* 상단 컨트롤 (호버 시 노출) */}
+      <div className="flex items-center gap-1 px-2 pt-1.5 pb-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+        {COLOR_KEYS.map(key => (
+          <button
+            key={key}
+            className="nodrag nopan w-2.5 h-2.5 rounded-full flex-shrink-0 transition-transform hover:scale-125"
+            style={{ background: CATEGORY_PALETTE[key].solid, outline: key === data.color ? `1.5px solid ${CATEGORY_PALETTE[key].text}` : 'none', outlineOffset: 1.5 }}
+            onClick={() => data.onColorChange(id, key)}
+          />
+        ))}
+        <button
+          className="nodrag nopan ml-auto opacity-50 hover:opacity-100 hover:text-red-400 transition-all flex-shrink-0"
+          onClick={() => data.onDelete(id)}
+        >
+          <Trash2 size={12} />
+        </button>
+      </div>
+
+      {/* 본문: 왼쪽 절반 = 이동, 오른쪽 절반 = 편집 */}
+      <div className="flex-1 min-h-0 flex px-2 pb-2 gap-1.5">
+        <div className="w-1/2 flex-shrink-0 flex items-center justify-center rounded-lg cursor-grab active:cursor-grabbing transition-colors hover:bg-white/[0.04]">
+          <GripVertical size={14} className="opacity-0 group-hover:opacity-40 transition-opacity" style={{ color: palette.solid }} />
+        </div>
+        <textarea
+          className="nodrag nopan w-1/2 flex-shrink-0 bg-transparent resize-none focus:outline-none text-[12.5px] leading-snug placeholder:opacity-40"
+          style={{ color: '#E2E8F0' }}
+          value={text}
+          onChange={e => handleChange(e.target.value)}
+          placeholder="생각을…"
+        />
       </div>
     </div>
   )
@@ -55,13 +131,13 @@ function StickyCardNode({ data }: NodeProps<CardNode>) {
 
 const nodeTypes: NodeTypes = { sticky: StickyCardNode }
 
-function cardToNode(card: SketchCard): CardNode {
+function cardToNode(card: SketchCard, handlers: Omit<CardData, 'content' | 'color'>): CardNode {
   return {
     id: card.id,
     type: 'sticky',
     position: { x: card.position_x, y: card.position_y },
     style: { width: card.width, height: card.height },
-    data: { content: card.content, color: card.color as CategoryColorKey },
+    data: { content: card.content, color: card.color as CategoryColorKey, ...handlers },
   }
 }
 
@@ -81,7 +157,6 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
   const [loading, setLoading] = useState(true)
   const [nodes, setNodes, onNodesChange] = useNodesState<CardNode>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
-  const [editingId, setEditingId] = useState<string | null>(null)
   const [hoverTargetId, setHoverTargetId] = useState<string | null>(null)
 
   const nodesRef = useRef(nodes)
@@ -92,7 +167,6 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
 
   const handleContentChange = useCallback((id: string, content: string) => {
     supabase.from('sketch_cards').update({ content }).eq('id', id)
-    setNodes(prev => prev.map(n => n.id === id ? { ...n, data: { ...n.data, content } } : n))
   }, [])
 
   const handleColorChange = useCallback((id: string, color: CategoryColorKey) => {
@@ -105,6 +179,8 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
     setNodes(prev => prev.filter(n => n.id !== id))
     setEdges(prev => prev.filter(e => e.source !== id && e.target !== id))
   }, [])
+
+  const handlers = { onContentChange: handleContentChange, onColorChange: handleColorChange, onDelete: handleDelete }
 
   const createConnection = useCallback((sourceId: string, targetId: string) => {
     supabase.from('sketch_edges')
@@ -138,7 +214,7 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
     ]).then(([boardRes, cardsRes, edgesRes]) => {
       if (boardRes.data) { setBoard(boardRes.data as SketchBoard); setNameInput(boardRes.data.name) }
       const cards = (cardsRes.data ?? []) as SketchCard[]
-      setNodes(cards.map(cardToNode))
+      setNodes(cards.map(c => cardToNode(c, handlers)))
       setEdges(((edgesRes.data ?? []) as SketchEdge[]).map(edgeFromRow))
       setLoading(false)
     })
@@ -153,7 +229,7 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
       .insert({ board_id: boardId, content: '', color, position_x, position_y, width: DEFAULT_WIDTH, height: DEFAULT_HEIGHT })
       .select().single()
     if (error || !data) { console.error('카드 생성 실패:', error?.message); return }
-    setNodes(prev => [...prev, cardToNode(data as SketchCard)])
+    setNodes(prev => [...prev, cardToNode(data as SketchCard, handlers)])
   }
 
   function handlePaneDoubleClick(e: React.MouseEvent) {
@@ -243,8 +319,6 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
     )
   }
 
-  const editingCard = editingId ? nodes.find(n => n.id === editingId) ?? null : null
-
   return (
     <div className="h-full flex flex-col overflow-hidden">
       {/* 헤더 */}
@@ -290,7 +364,7 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
           onEdgesDelete={handleEdgesDelete}
           deleteKeyCode={['Backspace', 'Delete']}
           nodeTypes={nodeTypes}
-          onNodeClick={(_e, node) => setEditingId(node.id)}
+          edgeTypes={edgeTypes}
           onNodeDragStart={handleNodeDragStart}
           onNodeDrag={handleNodeDrag}
           onNodeDragStop={handleNodeDragStop}
@@ -313,22 +387,8 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
       <p className="text-center text-[11px] pt-2 flex-shrink-0" style={{ color: 'rgba(226,232,240,0.28)' }}>
         {nodes.length === 0
           ? <>더블클릭 또는 <span className="font-mono">N</span> 키로 카드를 만드세요</>
-          : <>카드를 클릭해 편집하고, 다른 카드 위에 겹쳐서 놓으면 연결됩니다</>}
+          : <>카드 왼쪽은 이동, 오른쪽은 바로 입력 · 겹쳐 놓으면 연결</>}
       </p>
-
-      {editingCard && (
-        <SketchCardModal
-          card={editingCard}
-          allCards={nodes.filter(n => n.id !== editingCard.id)}
-          connectedEdges={edges.filter(e => e.source === editingCard.id || e.target === editingCard.id)}
-          onContentChange={handleContentChange}
-          onColorChange={handleColorChange}
-          onDelete={id => { handleDelete(id); setEditingId(null) }}
-          onAddConnection={targetId => createConnection(editingCard.id, targetId)}
-          onRemoveConnection={removeConnection}
-          onClose={() => setEditingId(null)}
-        />
-      )}
     </div>
   )
 }
