@@ -9,6 +9,8 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [resetSent, setResetSent] = useState(false)
+  const [resetLoading, setResetLoading] = useState(false)
   const router = useRouter()
 
   async function handleLogin(e: React.FormEvent) {
@@ -24,6 +26,19 @@ export default function LoginPage() {
       router.refresh()
     }
     setLoading(false)
+  }
+
+  async function handleForgotPassword() {
+    if (!email.trim()) { setError('비밀번호를 재설정하려면 이메일을 먼저 입력해주세요.'); return }
+    setError('')
+    setResetLoading(true)
+    const supabase = createClient()
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/reset-password`,
+    })
+    setResetLoading(false)
+    if (error) { setError('재설정 메일 발송에 실패했습니다: ' + error.message); return }
+    setResetSent(true)
   }
 
   return (
@@ -59,8 +74,9 @@ export default function LoginPage() {
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="block text-xs font-medium text-gray-500">비밀번호</label>
-              <button type="button" className="text-[11px] text-gray-400 hover:text-[#4C7FE0] transition-colors">
-                비밀번호를 잊으셨나요?
+              <button type="button" onClick={handleForgotPassword} disabled={resetLoading}
+                className="text-[11px] text-gray-400 hover:text-[#4C7FE0] transition-colors disabled:opacity-50">
+                {resetLoading ? '전송 중...' : '비밀번호를 잊으셨나요?'}
               </button>
             </div>
             <input
@@ -76,6 +92,11 @@ export default function LoginPage() {
           {error && (
             <p className="text-xs text-red-500 bg-red-50 rounded-lg px-3 py-2">{error}</p>
           )}
+          {resetSent && !error && (
+            <p className="text-xs text-emerald-600 bg-emerald-50 rounded-lg px-3 py-2">
+              재설정 메일을 보냈습니다. 메일함을 확인해주세요.
+            </p>
+          )}
 
           {/* 로그인 버튼 */}
           <button
@@ -86,14 +107,6 @@ export default function LoginPage() {
             {loading ? '로그인 중...' : '로그인'}
           </button>
         </form>
-
-        {/* 하단 헬퍼 */}
-        <p className="text-center text-xs text-gray-400 mt-6">
-          아직 계정이 없으신가요?{' '}
-          <button type="button" className="text-[#4C7FE0] font-medium hover:underline">
-            가입하기
-          </button>
-        </p>
       </div>
     </div>
   )
