@@ -4,19 +4,21 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import {
   ReactFlow, ReactFlowProvider, Background, BackgroundVariant, Controls, MiniMap,
-  Handle, Position, MarkerType, addEdge,
+  Handle, Position, MarkerType,
   useNodesState, useEdgesState, useReactFlow,
   type Node, type NodeProps, type NodeTypes, type OnNodeDrag, type Edge, type OnConnect,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { createClient } from '@/lib/supabase/client'
 import { CATEGORY_PALETTE, type CategoryColorKey } from '@/lib/categoryColors'
-import { ArrowLeft, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, Plus } from 'lucide-react'
 import type { SketchBoard, SketchCard, SketchEdge } from '@/types'
+import SketchCardModal from './SketchCardModal'
 
 const COLOR_KEYS = Object.keys(CATEGORY_PALETTE) as CategoryColorKey[]
 const DEFAULT_WIDTH = 220
 const DEFAULT_HEIGHT = 140
+const OVERLAP_RATIO = 0.5 // 드래그한 카드 면적의 이 비율 이상 겹치면 연결
 const EDGE_COLOR = 'rgba(157,190,245,0.55)'
 const EDGE_STYLE = { stroke: EDGE_COLOR, strokeWidth: 1.5 }
 const EDGE_MARKER = { type: MarkerType.ArrowClosed, color: EDGE_COLOR, width: 16, height: 16 }
@@ -25,75 +27,48 @@ function edgeFromRow(row: SketchEdge): Edge {
   return { id: row.id, source: row.source_card_id, target: row.target_card_id, markerEnd: EDGE_MARKER, style: EDGE_STYLE }
 }
 
-type CardData = {
-  content: string
-  color: CategoryColorKey
-  onContentChange: (id: string, content: string) => void
-  onColorChange: (id: string, color: CategoryColorKey) => void
-  onDelete: (id: string) => void
-}
-type CardNode = Node<CardData, 'sticky'>
+export type CardData = { content: string; color: CategoryColorKey }
+export type CardNode = Node<CardData, 'sticky'>
 
-function StickyCardNode({ id, data }: NodeProps<CardNode>) {
-  const [text, setText] = useState(data.content)
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+function StickyCardNode({ data }: NodeProps<CardNode>) {
   const palette = CATEGORY_PALETTE[data.color]
-
-  function handleChange(value: string) {
-    setText(value)
-    clearTimeout(saveTimer.current)
-    saveTimer.current = setTimeout(() => data.onContentChange(id, value), 500)
-  }
-
   return (
     <div
-      className="group relative h-full w-full flex flex-col rounded-2xl p-2.5 shadow-lg"
-      style={{ background: palette.bg, border: `1px solid ${palette.border}`, backdropFilter: 'blur(6px)' }}
+      className="group relative h-full w-full flex rounded-xl overflow-hidden shadow-lg cursor-pointer"
+      style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)' }}
     >
       <Handle type="target" position={Position.Left}
         className="opacity-0 group-hover:opacity-100 transition-opacity"
-        style={{ width: 10, height: 10, background: palette.solid, border: `2px solid ${palette.text}` }} />
+        style={{ width: 10, height: 10, background: palette.solid, border: '2px solid rgba(255,255,255,0.7)' }} />
       <Handle type="source" position={Position.Right}
         className="opacity-0 group-hover:opacity-100 transition-opacity"
-        style={{ width: 10, height: 10, background: palette.solid, border: `2px solid ${palette.text}` }} />
-      <div className="flex items-center gap-1 mb-1.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-        {COLOR_KEYS.map(key => (
-          <button
-            key={key}
-            className="nodrag nopan w-2.5 h-2.5 rounded-full flex-shrink-0 transition-transform hover:scale-125"
-            style={{ background: CATEGORY_PALETTE[key].solid, outline: key === data.color ? `1.5px solid ${CATEGORY_PALETTE[key].text}` : 'none', outlineOffset: 1.5 }}
-            onClick={() => data.onColorChange(id, key)}
-          />
-        ))}
-        <button
-          className="nodrag nopan ml-auto hover:text-red-400 transition-colors flex-shrink-0"
-          style={{ color: palette.text }}
-          onClick={() => data.onDelete(id)}
-        >
-          <Trash2 size={12} />
-        </button>
+        style={{ width: 10, height: 10, background: palette.solid, border: '2px solid rgba(255,255,255,0.7)' }} />
+      <div className="w-[3px] flex-shrink-0" style={{ background: palette.solid }} />
+      <div className="flex-1 min-w-0 p-2.5 text-[13px] leading-snug whitespace-pre-wrap overflow-hidden">
+        {data.content
+          ? <span style={{ color: '#E2E8F0' }}>{data.content}</span>
+          : <span style={{ color: 'rgba(226,232,240,0.35)' }}>생각을 적어보세요…</span>}
       </div>
-      <textarea
-        className="nodrag nopan flex-1 min-h-0 w-full bg-transparent resize-none focus:outline-none text-[13px] leading-snug placeholder:opacity-40"
-        style={{ color: palette.text }}
-        value={text}
-        onChange={e => handleChange(e.target.value)}
-        placeholder="생각을 적어보세요…"
-      />
     </div>
   )
 }
 
 const nodeTypes: NodeTypes = { sticky: StickyCardNode }
 
-function cardToNode(card: SketchCard, handlers: Omit<CardData, 'content' | 'color'>): CardNode {
+function cardToNode(card: SketchCard): CardNode {
   return {
     id: card.id,
     type: 'sticky',
     position: { x: card.position_x, y: card.position_y },
     style: { width: card.width, height: card.height },
-    data: { content: card.content, color: card.color as CategoryColorKey, ...handlers },
+    data: { content: card.content, color: card.color as CategoryColorKey },
   }
+}
+
+function rectsOverlapArea(ax: number, ay: number, aw: number, ah: number, bx: number, by: number, bw: number, bh: number) {
+  const w = Math.max(0, Math.min(ax + aw, bx + bw) - Math.max(ax, bx))
+  const h = Math.max(0, Math.min(ay + ah, by + bh) - Math.max(ay, by))
+  return w * h
 }
 
 function SketchCanvasInner({ boardId }: { boardId: string }) {
@@ -106,9 +81,18 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
   const [loading, setLoading] = useState(true)
   const [nodes, setNodes, onNodesChange] = useNodesState<CardNode>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [hoverTargetId, setHoverTargetId] = useState<string | null>(null)
+
+  const nodesRef = useRef(nodes)
+  useEffect(() => { nodesRef.current = nodes }, [nodes])
+  const hoverTargetIdRef = useRef<string | null>(null)
+  useEffect(() => { hoverTargetIdRef.current = hoverTargetId }, [hoverTargetId])
+  const dragStartPosRef = useRef<{ x: number; y: number } | null>(null)
 
   const handleContentChange = useCallback((id: string, content: string) => {
     supabase.from('sketch_cards').update({ content }).eq('id', id)
+    setNodes(prev => prev.map(n => n.id === id ? { ...n, data: { ...n.data, content } } : n))
   }, [])
 
   const handleColorChange = useCallback((id: string, color: CategoryColorKey) => {
@@ -122,23 +106,29 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
     setEdges(prev => prev.filter(e => e.source !== id && e.target !== id))
   }, [])
 
-  const onConnect: OnConnect = useCallback((connection) => {
-    if (!connection.source || !connection.target || connection.source === connection.target) return
+  const createConnection = useCallback((sourceId: string, targetId: string) => {
     supabase.from('sketch_edges')
-      .insert({ board_id: boardId, source_card_id: connection.source, target_card_id: connection.target })
+      .insert({ board_id: boardId, source_card_id: sourceId, target_card_id: targetId })
       .select().single()
       .then(({ data, error }) => {
         if (error || !data) { console.error('연결 생성 실패:', error?.message); return }
-        setEdges(eds => addEdge({ ...connection, id: (data as SketchEdge).id, markerEnd: EDGE_MARKER, style: EDGE_STYLE }, eds))
+        setEdges(eds => [...eds, edgeFromRow(data as SketchEdge)])
       })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [boardId])
 
-  const handleEdgesDelete = useCallback((deleted: Edge[]) => {
-    deleted.forEach(e => { supabase.from('sketch_edges').delete().eq('id', e.id) })
+  const removeConnection = useCallback((edgeId: string) => {
+    supabase.from('sketch_edges').delete().eq('id', edgeId)
+    setEdges(prev => prev.filter(e => e.id !== edgeId))
   }, [])
 
-  const handlers = { onContentChange: handleContentChange, onColorChange: handleColorChange, onDelete: handleDelete }
+  const onConnect: OnConnect = useCallback((connection) => {
+    if (!connection.source || !connection.target || connection.source === connection.target) return
+    createConnection(connection.source, connection.target)
+  }, [createConnection])
+
+  const handleEdgesDelete = useCallback((deleted: Edge[]) => {
+    deleted.forEach(e => removeConnection(e.id))
+  }, [removeConnection])
 
   useEffect(() => {
     Promise.all([
@@ -148,7 +138,7 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
     ]).then(([boardRes, cardsRes, edgesRes]) => {
       if (boardRes.data) { setBoard(boardRes.data as SketchBoard); setNameInput(boardRes.data.name) }
       const cards = (cardsRes.data ?? []) as SketchCard[]
-      setNodes(cards.map(c => cardToNode(c, handlers)))
+      setNodes(cards.map(cardToNode))
       setEdges(((edgesRes.data ?? []) as SketchEdge[]).map(edgeFromRow))
       setLoading(false)
     })
@@ -163,7 +153,7 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
       .insert({ board_id: boardId, content: '', color, position_x, position_y, width: DEFAULT_WIDTH, height: DEFAULT_HEIGHT })
       .select().single()
     if (error || !data) { console.error('카드 생성 실패:', error?.message); return }
-    setNodes(prev => [...prev, cardToNode(data as SketchCard, handlers)])
+    setNodes(prev => [...prev, cardToNode(data as SketchCard)])
   }
 
   function handlePaneDoubleClick(e: React.MouseEvent) {
@@ -197,10 +187,38 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
-  const handleNodeDragStop: OnNodeDrag<CardNode> = useCallback((_e, node) => {
-    supabase.from('sketch_cards').update({ position_x: node.position.x, position_y: node.position.y }).eq('id', node.id)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // 드래그 중인 카드와 절반 이상 겹치는 다른 카드를 찾음 (전부 고정 크기라 상수로 계산)
+  function findOverlapTarget(draggedId: string, pos: { x: number; y: number }) {
+    const area = DEFAULT_WIDTH * DEFAULT_HEIGHT
+    for (const n of nodesRef.current) {
+      if (n.id === draggedId) continue
+      const overlap = rectsOverlapArea(pos.x, pos.y, DEFAULT_WIDTH, DEFAULT_HEIGHT, n.position.x, n.position.y, DEFAULT_WIDTH, DEFAULT_HEIGHT)
+      if (overlap >= area * OVERLAP_RATIO) return n.id
+    }
+    return null
+  }
+
+  const handleNodeDragStart: OnNodeDrag<CardNode> = useCallback((_e, node) => {
+    dragStartPosRef.current = { x: node.position.x, y: node.position.y }
   }, [])
+
+  const handleNodeDrag: OnNodeDrag<CardNode> = useCallback((_e, node) => {
+    const target = findOverlapTarget(node.id, node.position)
+    if (target !== hoverTargetIdRef.current) setHoverTargetId(target)
+  }, [])
+
+  const handleNodeDragStop: OnNodeDrag<CardNode> = useCallback((_e, node) => {
+    const target = findOverlapTarget(node.id, node.position)
+    setHoverTargetId(null)
+    if (target) {
+      createConnection(node.id, target)
+      const original = dragStartPosRef.current
+      if (original) setNodes(prev => prev.map(n => n.id === node.id ? { ...n, position: original } : n))
+    } else {
+      supabase.from('sketch_cards').update({ position_x: node.position.x, position_y: node.position.y }).eq('id', node.id)
+    }
+    dragStartPosRef.current = null
+  }, [createConnection])
 
   async function saveBoardName() {
     const name = nameInput.trim()
@@ -224,6 +242,8 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
       </div>
     )
   }
+
+  const editingCard = editingId ? nodes.find(n => n.id === editingId) ?? null : null
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
@@ -255,9 +275,12 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
       </div>
 
       {/* 캔버스 */}
-      <div ref={wrapperRef} className="flex-1 min-h-0 rounded-2xl overflow-hidden"
+      <div ref={wrapperRef} className="flex-1 min-h-0 rounded-2xl overflow-hidden relative"
         style={{ border: '1px solid rgba(255,255,255,0.08)' }}
         onDoubleClick={handlePaneDoubleClick}>
+        {hoverTargetId && (
+          <style>{`.react-flow__node[data-id="${hoverTargetId}"] > div { box-shadow: 0 0 0 2px ${EDGE_COLOR}, 0 0 18px 3px ${EDGE_COLOR}; }`}</style>
+        )}
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -267,6 +290,9 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
           onEdgesDelete={handleEdgesDelete}
           deleteKeyCode={['Backspace', 'Delete']}
           nodeTypes={nodeTypes}
+          onNodeClick={(_e, node) => setEditingId(node.id)}
+          onNodeDragStart={handleNodeDragStart}
+          onNodeDrag={handleNodeDrag}
           onNodeDragStop={handleNodeDragStop}
           colorMode="dark"
           fitView
@@ -287,8 +313,22 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
       <p className="text-center text-[11px] pt-2 flex-shrink-0" style={{ color: 'rgba(226,232,240,0.28)' }}>
         {nodes.length === 0
           ? <>더블클릭 또는 <span className="font-mono">N</span> 키로 카드를 만드세요</>
-          : <>카드에 마우스를 올리면 좌우 점을 드래그해 서로 연결할 수 있어요</>}
+          : <>카드를 클릭해 편집하고, 다른 카드 위에 겹쳐서 놓으면 연결됩니다</>}
       </p>
+
+      {editingCard && (
+        <SketchCardModal
+          card={editingCard}
+          allCards={nodes.filter(n => n.id !== editingCard.id)}
+          connectedEdges={edges.filter(e => e.source === editingCard.id || e.target === editingCard.id)}
+          onContentChange={handleContentChange}
+          onColorChange={handleColorChange}
+          onDelete={id => { handleDelete(id); setEditingId(null) }}
+          onAddConnection={targetId => createConnection(editingCard.id, targetId)}
+          onRemoveConnection={removeConnection}
+          onClose={() => setEditingId(null)}
+        />
+      )}
     </div>
   )
 }
