@@ -18,8 +18,8 @@ import type { SketchBoard, SketchCard, SketchEdge } from '@/types'
 const COLOR_KEYS = Object.keys(CATEGORY_PALETTE) as CategoryColorKey[]
 const DEFAULT_WIDTH = 220
 const DEFAULT_HEIGHT = 140
-const CONNECT_OVERLAP_RATIO = 0.75 // 드래그한 카드 면적의 이 비율 이상 겹쳐야 새로 연결 (카드를 그냥 나란히 붙이는 정리와 구분)
-const DISCONNECT_OVERLAP_RATIO = 0.85 // 이미 연결된 카드는 이 정도로 거의 완전히 겹쳐야 연결 해제
+const CONNECT_OVERLAP_RATIO = 0.6 // 드래그한 카드 면적의 이 비율 이상 겹쳐야 새로 연결 (카드를 그냥 나란히 붙이는 정리와 구분)
+const DISCONNECT_OVERLAP_RATIO = 0.7 // 이미 연결된 카드는 이보다 조금 더 겹쳐야 연결 해제. (0.85는 마우스로 맞추기엔 너무 빡빡했음 — 같은 크기 카드 기준 좌우 17px, 상하 11px 오차 안에 들어와야 했음)
 const EDGE_COLOR = 'rgba(157,190,245,0.55)'
 const EDGE_STYLE = { stroke: EDGE_COLOR, strokeWidth: 1.5 }
 const EDGE_MARKER = { type: MarkerType.ArrowClosed, color: EDGE_COLOR, width: 16, height: 16 }
