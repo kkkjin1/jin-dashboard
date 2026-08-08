@@ -155,13 +155,20 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
   const { screenToFlowPosition } = useReactFlow()
   const wrapperRef = useRef<HTMLDivElement>(null)
 
-  // 마지막으로 보던 확대/축소·위치 — 있으면 새로고침해도 그 상태 그대로 열림
-  const [initialViewport] = useState<{ x: number; y: number; zoom: number } | null>(() => {
+  // 마지막으로 보던 확대/축소·위치 — 있으면 새로고침해도 그 상태 그대로 열림.
+  // localStorage는 서버에는 없으므로 useState 초기값이 아니라 mount 이후 effect에서 읽어야 함
+  // (그렇지 않으면 서버 렌더 시점엔 항상 null이라 fitView로 고정돼버리고, 클라이언트에서
+  //  값을 다시 읽어도 defaultViewport는 최초 마운트 이후엔 반영되지 않아 무용지물이 됨)
+  const [initialViewport, setInitialViewport] = useState<{ x: number; y: number; zoom: number } | null>(null)
+  const [viewportReady, setViewportReady] = useState(false)
+
+  useEffect(() => {
     try {
       const raw = localStorage.getItem(viewportKey(boardId))
-      return raw ? JSON.parse(raw) : null
-    } catch { return null }
-  })
+      if (raw) setInitialViewport(JSON.parse(raw))
+    } catch {}
+    setViewportReady(true)
+  }, [boardId])
 
   function handleMoveEnd(_e: unknown, viewport: { x: number; y: number; zoom: number }) {
     try { localStorage.setItem(viewportKey(boardId), JSON.stringify(viewport)) } catch {}
@@ -174,6 +181,11 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
   const [hoverTargetId, setHoverTargetId] = useState<string | null>(null)
   const [hoverWillDisconnect, setHoverWillDisconnect] = useState(false)
+  const [isDragging, setIsDragging] = useState(false)
+  const [hoveringTrash, setHoveringTrash] = useState(false)
+  const trashRef = useRef<HTMLDivElement>(null)
+  const hoveringTrashRef = useRef(false)
+  useEffect(() => { hoveringTrashRef.current = hoveringTrash }, [hoveringTrash])
 
   const nodesRef = useRef(nodes)
   useEffect(() => { nodesRef.current = nodes }, [nodes])
@@ -298,23 +310,50 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
     return null
   }
 
+  function eventClientPoint(e: MouseEvent | TouchEvent): { x: number; y: number } | null {
+    if ('clientX' in e) return { x: e.clientX, y: e.clientY }
+    if ('touches' in e && e.touches[0]) return { x: e.touches[0].clientX, y: e.touches[0].clientY }
+    return null
+  }
+
+  function isOverTrash(e: MouseEvent | TouchEvent): boolean {
+    const p = eventClientPoint(e)
+    const rect = trashRef.current?.getBoundingClientRect()
+    if (!p || !rect) return false
+    return p.x >= rect.left && p.x <= rect.right && p.y >= rect.top && p.y <= rect.bottom
+  }
+
   const handleNodeDragStart: OnNodeDrag<CardNode> = useCallback((_e, node) => {
     dragStartPosRef.current = { x: node.position.x, y: node.position.y }
+    setIsDragging(true)
   }, [])
 
-  const handleNodeDrag: OnNodeDrag<CardNode> = useCallback((_e, node) => {
+  const handleNodeDrag: OnNodeDrag<CardNode> = useCallback((e, node) => {
+    const overTrash = isOverTrash(e)
+    if (overTrash !== hoveringTrashRef.current) setHoveringTrash(overTrash)
+    if (overTrash) {
+      if (hoverTargetIdRef.current !== null) setHoverTargetId(null)
+      return
+    }
     const target = findOverlapTarget(node.id, node.position)
     if (target?.id !== hoverTargetIdRef.current) setHoverTargetId(target?.id ?? null)
     setHoverWillDisconnect(target?.disconnect ?? false)
   }, [])
 
-  const handleNodeDragStop: OnNodeDrag<CardNode> = useCallback((_e, node) => {
-    const target = findOverlapTarget(node.id, node.position)
+  const handleNodeDragStop: OnNodeDrag<CardNode> = useCallback((e, node) => {
+    setIsDragging(false)
     setHoverTargetId(null)
+    if (hoveringTrashRef.current) {
+      setHoveringTrash(false)
+      dragStartPosRef.current = null
+      handleDelete(node.id)
+      return
+    }
+    const target = findOverlapTarget(node.id, node.position)
     if (target) {
       if (target.disconnect) {
-        const existing = edgesRef.current.find(e =>
-          (e.source === node.id && e.target === target.id) || (e.source === target.id && e.target === node.id))
+        const existing = edgesRef.current.find(e2 =>
+          (e2.source === node.id && e2.target === target.id) || (e2.source === target.id && e2.target === node.id))
         if (existing) removeConnection(existing.id)
       } else {
         createConnection(node.id, target.id)
@@ -325,7 +364,7 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
       supabase.from('sketch_cards').update({ position_x: node.position.x, position_y: node.position.y }).eq('id', node.id)
     }
     dragStartPosRef.current = null
-  }, [createConnection, removeConnection])
+  }, [createConnection, removeConnection, handleDelete])
 
   async function saveBoardName() {
     const name = nameInput.trim()
@@ -387,40 +426,55 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
           const c = hoverWillDisconnect ? 'rgba(248,113,113,0.7)' : EDGE_COLOR
           return <style>{`.react-flow__node[data-id="${hoverTargetId}"] > div { box-shadow: 0 0 0 2px ${c}, 0 0 18px 3px ${c}; }`}</style>
         })()}
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          onConnect={onConnect}
-          onEdgesDelete={handleEdgesDelete}
-          deleteKeyCode={['Backspace', 'Delete']}
-          nodeTypes={nodeTypes}
-          edgeTypes={edgeTypes}
-          onNodeDragStart={handleNodeDragStart}
-          onNodeDrag={handleNodeDrag}
-          onNodeDragStop={handleNodeDragStop}
-          onMoveEnd={handleMoveEnd}
-          colorMode="dark"
-          {...(initialViewport ? { defaultViewport: initialViewport } : { fitView: true })}
-          minZoom={0.2}
-          maxZoom={2}
-          proOptions={{ hideAttribution: true }}
-        >
-          <Background variant={BackgroundVariant.Dots} gap={22} size={1.4} color="rgba(255,255,255,0.14)" style={{ background: '#0F1319' }} />
-          <Controls showInteractive={false} />
-          <MiniMap
-            pannable zoomable
-            maskColor="rgba(15,19,25,0.6)"
-            style={{ background: '#161B24', border: '1px solid rgba(255,255,255,0.09)' }}
-            nodeColor={n => CATEGORY_PALETTE[(n.data as CardData).color]?.solid ?? '#6B9BE0'}
-          />
-        </ReactFlow>
+        {viewportReady && (
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onConnect={onConnect}
+            onEdgesDelete={handleEdgesDelete}
+            deleteKeyCode={['Backspace', 'Delete']}
+            nodeTypes={nodeTypes}
+            edgeTypes={edgeTypes}
+            onNodeDragStart={handleNodeDragStart}
+            onNodeDrag={handleNodeDrag}
+            onNodeDragStop={handleNodeDragStop}
+            onMoveEnd={handleMoveEnd}
+            colorMode="dark"
+            {...(initialViewport ? { defaultViewport: initialViewport } : { fitView: true })}
+            minZoom={0.2}
+            maxZoom={2}
+            proOptions={{ hideAttribution: true }}
+          >
+            <Background variant={BackgroundVariant.Dots} gap={22} size={1.4} color="rgba(255,255,255,0.14)" style={{ background: '#0F1319' }} />
+            <Controls showInteractive={false} />
+            <MiniMap
+              pannable zoomable
+              maskColor="rgba(15,19,25,0.6)"
+              style={{ background: '#161B24', border: '1px solid rgba(255,255,255,0.09)' }}
+              nodeColor={n => CATEGORY_PALETTE[(n.data as CardData).color]?.solid ?? '#6B9BE0'}
+            />
+          </ReactFlow>
+        )}
+        {isDragging && (
+          <div ref={trashRef}
+            className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center justify-center rounded-full transition-all"
+            style={{
+              width: hoveringTrash ? 56 : 46,
+              height: hoveringTrash ? 56 : 46,
+              background: hoveringTrash ? 'rgba(248,113,113,0.9)' : 'rgba(22,27,36,0.9)',
+              border: `1px solid ${hoveringTrash ? 'rgba(248,113,113,1)' : 'rgba(255,255,255,0.15)'}`,
+              boxShadow: hoveringTrash ? '0 0 24px rgba(248,113,113,0.5)' : '0 4px 12px rgba(0,0,0,0.3)',
+            }}>
+            <Trash2 size={hoveringTrash ? 22 : 18} color={hoveringTrash ? '#fff' : 'rgba(226,232,240,0.6)'} />
+          </div>
+        )}
       </div>
       <p className="text-center text-[11px] pt-2 flex-shrink-0" style={{ color: 'rgba(226,232,240,0.28)' }}>
         {nodes.length === 0
           ? <>더블클릭 또는 <span className="font-mono">N</span> 키로 카드를 만드세요</>
-          : <>카드 왼쪽은 이동, 오른쪽은 바로 입력 · 겹쳐 놓으면 연결</>}
+          : <>카드 왼쪽은 이동, 오른쪽은 바로 입력 · 겹쳐 놓으면 연결 · 드래그 중 하단 휴지통에 놓으면 삭제</>}
       </p>
     </div>
   )
