@@ -119,7 +119,7 @@ function StickyCardNode({ id, data }: NodeProps<CardNode>) {
           style={{ color: '#E2E8F0', padding: '0 2px' }}
           value={text}
           onChange={e => handleChange(e.target.value)}
-          placeholder="생각을 적어보세요…"
+          placeholder=""
         />
         <div className="absolute inset-y-0 left-0 w-1/2 flex items-center justify-center cursor-grab active:cursor-grabbing">
           <GripVertical size={14} className="opacity-0 group-hover:opacity-40 transition-opacity pointer-events-none" style={{ color: palette.solid }} />
