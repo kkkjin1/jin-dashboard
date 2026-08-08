@@ -4,18 +4,26 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import {
   ReactFlow, ReactFlowProvider, Background, BackgroundVariant, Controls, MiniMap,
-  useNodesState, useReactFlow,
-  type Node, type NodeProps, type NodeTypes, type OnNodeDrag,
+  Handle, Position, MarkerType, addEdge,
+  useNodesState, useEdgesState, useReactFlow,
+  type Node, type NodeProps, type NodeTypes, type OnNodeDrag, type Edge, type OnConnect,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { createClient } from '@/lib/supabase/client'
 import { CATEGORY_PALETTE, type CategoryColorKey } from '@/lib/categoryColors'
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react'
-import type { SketchBoard, SketchCard } from '@/types'
+import type { SketchBoard, SketchCard, SketchEdge } from '@/types'
 
 const COLOR_KEYS = Object.keys(CATEGORY_PALETTE) as CategoryColorKey[]
 const DEFAULT_WIDTH = 220
 const DEFAULT_HEIGHT = 140
+const EDGE_COLOR = 'rgba(157,190,245,0.55)'
+const EDGE_STYLE = { stroke: EDGE_COLOR, strokeWidth: 1.5 }
+const EDGE_MARKER = { type: MarkerType.ArrowClosed, color: EDGE_COLOR, width: 16, height: 16 }
+
+function edgeFromRow(row: SketchEdge): Edge {
+  return { id: row.id, source: row.source_card_id, target: row.target_card_id, markerEnd: EDGE_MARKER, style: EDGE_STYLE }
+}
 
 type CardData = {
   content: string
@@ -39,10 +47,16 @@ function StickyCardNode({ id, data }: NodeProps<CardNode>) {
 
   return (
     <div
-      className="h-full w-full flex flex-col rounded-2xl p-2.5 shadow-lg"
+      className="group relative h-full w-full flex flex-col rounded-2xl p-2.5 shadow-lg"
       style={{ background: palette.bg, border: `1px solid ${palette.border}`, backdropFilter: 'blur(6px)' }}
     >
-      <div className="flex items-center gap-1 mb-1.5 flex-shrink-0">
+      <Handle type="target" position={Position.Left}
+        className="opacity-0 group-hover:opacity-100 transition-opacity"
+        style={{ width: 10, height: 10, background: palette.solid, border: `2px solid ${palette.text}` }} />
+      <Handle type="source" position={Position.Right}
+        className="opacity-0 group-hover:opacity-100 transition-opacity"
+        style={{ width: 10, height: 10, background: palette.solid, border: `2px solid ${palette.text}` }} />
+      <div className="flex items-center gap-1 mb-1.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
         {COLOR_KEYS.map(key => (
           <button
             key={key}
@@ -52,7 +66,7 @@ function StickyCardNode({ id, data }: NodeProps<CardNode>) {
           />
         ))}
         <button
-          className="nodrag nopan ml-auto opacity-40 hover:opacity-100 hover:text-red-400 transition-all flex-shrink-0"
+          className="nodrag nopan ml-auto hover:text-red-400 transition-colors flex-shrink-0"
           style={{ color: palette.text }}
           onClick={() => data.onDelete(id)}
         >
@@ -91,6 +105,7 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
   const [nameInput, setNameInput] = useState('')
   const [loading, setLoading] = useState(true)
   const [nodes, setNodes, onNodesChange] = useNodesState<CardNode>([])
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
 
   const handleContentChange = useCallback((id: string, content: string) => {
     supabase.from('sketch_cards').update({ content }).eq('id', id)
@@ -104,6 +119,23 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
   const handleDelete = useCallback(async (id: string) => {
     await supabase.from('sketch_cards').delete().eq('id', id)
     setNodes(prev => prev.filter(n => n.id !== id))
+    setEdges(prev => prev.filter(e => e.source !== id && e.target !== id))
+  }, [])
+
+  const onConnect: OnConnect = useCallback((connection) => {
+    if (!connection.source || !connection.target || connection.source === connection.target) return
+    supabase.from('sketch_edges')
+      .insert({ board_id: boardId, source_card_id: connection.source, target_card_id: connection.target })
+      .select().single()
+      .then(({ data, error }) => {
+        if (error || !data) { console.error('연결 생성 실패:', error?.message); return }
+        setEdges(eds => addEdge({ ...connection, id: (data as SketchEdge).id, markerEnd: EDGE_MARKER, style: EDGE_STYLE }, eds))
+      })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [boardId])
+
+  const handleEdgesDelete = useCallback((deleted: Edge[]) => {
+    deleted.forEach(e => { supabase.from('sketch_edges').delete().eq('id', e.id) })
   }, [])
 
   const handlers = { onContentChange: handleContentChange, onColorChange: handleColorChange, onDelete: handleDelete }
@@ -112,10 +144,12 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
     Promise.all([
       supabase.from('sketch_boards').select('*').eq('id', boardId).single(),
       supabase.from('sketch_cards').select('*').eq('board_id', boardId).order('created_at'),
-    ]).then(([boardRes, cardsRes]) => {
+      supabase.from('sketch_edges').select('*').eq('board_id', boardId),
+    ]).then(([boardRes, cardsRes, edgesRes]) => {
       if (boardRes.data) { setBoard(boardRes.data as SketchBoard); setNameInput(boardRes.data.name) }
       const cards = (cardsRes.data ?? []) as SketchCard[]
       setNodes(cards.map(c => cardToNode(c, handlers)))
+      setEdges(((edgesRes.data ?? []) as SketchEdge[]).map(edgeFromRow))
       setLoading(false)
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -144,6 +178,24 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
     const pos = screenToFlowPosition({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 })
     createCard(pos.x, pos.y)
   }
+
+  // 'N' 단축키 — 입력 중(텍스트/보드명 편집)이 아닐 때만 새 카드 생성
+  const handleAddButtonClickRef = useRef(handleAddButtonClick)
+  useEffect(() => { handleAddButtonClickRef.current = handleAddButtonClick })
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || e.isComposing) return
+      const target = e.target as HTMLElement | null
+      if (!target) return
+      const tag = target.tagName.toLowerCase()
+      if (['input', 'textarea', 'select'].includes(tag)) return
+      if (target.getAttribute('contenteditable') === 'true') return
+      if (e.key.toLowerCase() === 'n') { e.preventDefault(); handleAddButtonClickRef.current() }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   const handleNodeDragStop: OnNodeDrag<CardNode> = useCallback((_e, node) => {
     supabase.from('sketch_cards').update({ position_x: node.position.x, position_y: node.position.y }).eq('id', node.id)
@@ -198,6 +250,7 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
           style={{ background: 'rgba(76,127,224,0.18)', border: '1px solid rgba(76,127,224,0.35)', color: '#9DBEF5' }}
         >
           <Plus size={13} /> 새 카드
+          <span className="text-[10px] font-mono opacity-50">N</span>
         </button>
       </div>
 
@@ -207,7 +260,12 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
         onDoubleClick={handlePaneDoubleClick}>
         <ReactFlow
           nodes={nodes}
+          edges={edges}
           onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onConnect={onConnect}
+          onEdgesDelete={handleEdgesDelete}
+          deleteKeyCode={['Backspace', 'Delete']}
           nodeTypes={nodeTypes}
           onNodeDragStop={handleNodeDragStop}
           colorMode="dark"
@@ -226,11 +284,11 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
           />
         </ReactFlow>
       </div>
-      {nodes.length === 0 && (
-        <p className="text-center text-[11.5px] pt-2 flex-shrink-0" style={{ color: 'rgba(226,232,240,0.28)' }}>
-          빈 캔버스를 더블클릭하거나 &lsquo;+ 새 카드&rsquo;를 눌러 시작하세요
-        </p>
-      )}
+      <p className="text-center text-[11px] pt-2 flex-shrink-0" style={{ color: 'rgba(226,232,240,0.28)' }}>
+        {nodes.length === 0
+          ? <>더블클릭 또는 <span className="font-mono">N</span> 키로 카드를 만드세요</>
+          : <>카드에 마우스를 올리면 좌우 점을 드래그해 서로 연결할 수 있어요</>}
+      </p>
     </div>
   )
 }

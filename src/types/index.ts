@@ -301,3 +301,11 @@ export interface SketchCard {
   created_at: string
   updated_at: string
 }
+
+export interface SketchEdge {
+  id: string
+  board_id: string
+  source_card_id: string
+  target_card_id: string
+  created_at: string
+}
