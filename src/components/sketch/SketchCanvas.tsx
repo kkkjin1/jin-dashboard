@@ -18,8 +18,8 @@ import type { SketchBoard, SketchCard, SketchEdge } from '@/types'
 const COLOR_KEYS = Object.keys(CATEGORY_PALETTE) as CategoryColorKey[]
 const DEFAULT_WIDTH = 220
 const DEFAULT_HEIGHT = 140
-const CONNECT_OVERLAP_RATIO = 0.5 // 드래그한 카드 면적의 이 비율 이상 겹치면 새로 연결
-const DISCONNECT_OVERLAP_RATIO = 0.85 // 이미 연결된 카드는 이 정도로 거의 완전히 겹쳐야 연결 해제 (정리하려고 옆에 붙이는 것과 구분)
+const CONNECT_OVERLAP_RATIO = 0.75 // 드래그한 카드 면적의 이 비율 이상 겹쳐야 새로 연결 (카드를 그냥 나란히 붙이는 정리와 구분)
+const DISCONNECT_OVERLAP_RATIO = 0.85 // 이미 연결된 카드는 이 정도로 거의 완전히 겹쳐야 연결 해제
 const EDGE_COLOR = 'rgba(157,190,245,0.55)'
 const EDGE_STYLE = { stroke: EDGE_COLOR, strokeWidth: 1.5 }
 const EDGE_MARKER = { type: MarkerType.ArrowClosed, color: EDGE_COLOR, width: 16, height: 16 }
@@ -193,14 +193,15 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
   useEffect(() => { edgesRef.current = edges }, [edges])
   const hoverTargetIdRef = useRef<string | null>(null)
   useEffect(() => { hoverTargetIdRef.current = hoverTargetId }, [hoverTargetId])
-  const dragStartPosRef = useRef<{ x: number; y: number } | null>(null)
 
   const handleContentChange = useCallback((id: string, content: string) => {
     supabase.from('sketch_cards').update({ content }).eq('id', id)
+      .then(({ error }) => { if (error) console.error('카드 내용 저장 실패:', error.message) })
   }, [])
 
   const handleColorChange = useCallback((id: string, color: CategoryColorKey) => {
     supabase.from('sketch_cards').update({ color }).eq('id', id)
+      .then(({ error }) => { if (error) console.error('카드 색상 저장 실패:', error.message) })
     setNodes(prev => prev.map(n => n.id === id ? { ...n, data: { ...n.data, color } } : n))
   }, [])
 
@@ -323,8 +324,7 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
     return p.x >= rect.left && p.x <= rect.right && p.y >= rect.top && p.y <= rect.bottom
   }
 
-  const handleNodeDragStart: OnNodeDrag<CardNode> = useCallback((_e, node) => {
-    dragStartPosRef.current = { x: node.position.x, y: node.position.y }
+  const handleNodeDragStart: OnNodeDrag<CardNode> = useCallback((_e, _node) => {
     setIsDragging(true)
   }, [])
 
@@ -340,15 +340,22 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
     setHoverWillDisconnect(target?.disconnect ?? false)
   }, [])
 
+  // 드래그가 끝나면 겹침 여부와 상관없이 위치는 항상 그 자리에 저장한다.
+  // (이전엔 겹쳐서 연결/해제가 발동하면 카드를 원래 자리로 되돌렸는데,
+  //  카드를 서로 가깝게 붙여서 정리하려는 평범한 드래그도 쉽게 50% 겹침을
+  //  넘겨버려서 "정리해도 새로고침하면 다시 가운데로 리셋"되는 것처럼 보였음.
+  //  이제 위치 저장과 연결/해제는 완전히 별개로 처리한다.)
   const handleNodeDragStop: OnNodeDrag<CardNode> = useCallback((e, node) => {
     setIsDragging(false)
     setHoverTargetId(null)
     if (hoveringTrashRef.current) {
       setHoveringTrash(false)
-      dragStartPosRef.current = null
       handleDelete(node.id)
       return
     }
+    supabase.from('sketch_cards').update({ position_x: node.position.x, position_y: node.position.y }).eq('id', node.id)
+      .then(({ error }) => { if (error) console.error('카드 위치 저장 실패:', error.message) })
+
     const target = findOverlapTarget(node.id, node.position)
     if (target) {
       if (target.disconnect) {
@@ -358,12 +365,7 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
       } else {
         createConnection(node.id, target.id)
       }
-      const original = dragStartPosRef.current
-      if (original) setNodes(prev => prev.map(n => n.id === node.id ? { ...n, position: original } : n))
-    } else {
-      supabase.from('sketch_cards').update({ position_x: node.position.x, position_y: node.position.y }).eq('id', node.id)
     }
-    dragStartPosRef.current = null
   }, [createConnection, removeConnection, handleDelete])
 
   async function saveBoardName() {
