@@ -279,3 +279,25 @@ export interface AnnualGoalCategoryLabel {
   name: string
   updated_at: string
 }
+
+// ── 생각스케치 ────────────────────────────────────────────────────
+
+export interface SketchBoard {
+  id: string
+  name: string
+  created_at: string
+  updated_at: string
+}
+
+export interface SketchCard {
+  id: string
+  board_id: string
+  content: string
+  color: string
+  position_x: number
+  position_y: number
+  width: number
+  height: number
+  created_at: string
+  updated_at: string
+}

@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import {
   Home, ClipboardList, Trophy, MessageSquare, CalendarDays,
   StickyNote, Users, BookOpen, Settings, Brain, ChevronLeft, ChevronRight,
-  NotebookPen, LayoutGrid, Target, Archive, LogOut, Compass,
+  NotebookPen, LayoutGrid, Target, Archive, LogOut, Compass, PenTool,
 } from 'lucide-react'
 
 // ─── 고정 섹션 그룹 ──────────────────────────────────────────────────────────
@@ -32,6 +32,7 @@ const NAV_SECTIONS = [
       { href: '/schedule',   label: '일정',     key: '5', icon: CalendarDays },
       { href: '/memos',      label: '메모',     key: '6', icon: StickyNote },
       { href: '/one-on-one', label: '1on1',     key: '7', icon: Users },
+      { href: '/sketch',     label: '생각스케치', key: '',  icon: PenTool },
     ],
   },
   {
