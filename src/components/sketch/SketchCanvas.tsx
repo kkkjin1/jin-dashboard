@@ -147,10 +147,24 @@ function rectsOverlapArea(ax: number, ay: number, aw: number, ah: number, bx: nu
   return w * h
 }
 
+function viewportKey(boardId: string) { return `sketch_viewport_${boardId}` }
+
 function SketchCanvasInner({ boardId }: { boardId: string }) {
   const supabase = createClient()
   const { screenToFlowPosition } = useReactFlow()
   const wrapperRef = useRef<HTMLDivElement>(null)
+
+  // 마지막으로 보던 확대/축소·위치 — 있으면 새로고침해도 그 상태 그대로 열림
+  const [initialViewport] = useState<{ x: number; y: number; zoom: number } | null>(() => {
+    try {
+      const raw = localStorage.getItem(viewportKey(boardId))
+      return raw ? JSON.parse(raw) : null
+    } catch { return null }
+  })
+
+  function handleMoveEnd(_e: unknown, viewport: { x: number; y: number; zoom: number }) {
+    try { localStorage.setItem(viewportKey(boardId), JSON.stringify(viewport)) } catch {}
+  }
 
   const [board, setBoard] = useState<SketchBoard | null>(null)
   const [nameInput, setNameInput] = useState('')
@@ -161,6 +175,8 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
 
   const nodesRef = useRef(nodes)
   useEffect(() => { nodesRef.current = nodes }, [nodes])
+  const edgesRef = useRef(edges)
+  useEffect(() => { edgesRef.current = edges }, [edges])
   const hoverTargetIdRef = useRef<string | null>(null)
   useEffect(() => { hoverTargetIdRef.current = hoverTargetId }, [hoverTargetId])
   const dragStartPosRef = useRef<{ x: number; y: number } | null>(null)
@@ -287,14 +303,18 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
     const target = findOverlapTarget(node.id, node.position)
     setHoverTargetId(null)
     if (target) {
-      createConnection(node.id, target)
+      // 이미 연결된 카드끼리 다시 겹치면 연결 취소, 아니면 새로 연결 (토글)
+      const existing = edgesRef.current.find(e =>
+        (e.source === node.id && e.target === target) || (e.source === target && e.target === node.id))
+      if (existing) removeConnection(existing.id)
+      else createConnection(node.id, target)
       const original = dragStartPosRef.current
       if (original) setNodes(prev => prev.map(n => n.id === node.id ? { ...n, position: original } : n))
     } else {
       supabase.from('sketch_cards').update({ position_x: node.position.x, position_y: node.position.y }).eq('id', node.id)
     }
     dragStartPosRef.current = null
-  }, [createConnection])
+  }, [createConnection, removeConnection])
 
   async function saveBoardName() {
     const name = nameInput.trim()
@@ -368,8 +388,9 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
           onNodeDragStart={handleNodeDragStart}
           onNodeDrag={handleNodeDrag}
           onNodeDragStop={handleNodeDragStop}
+          onMoveEnd={handleMoveEnd}
           colorMode="dark"
-          fitView
+          {...(initialViewport ? { defaultViewport: initialViewport } : { fitView: true })}
           minZoom={0.2}
           maxZoom={2}
           proOptions={{ hideAttribution: true }}
