@@ -112,18 +112,18 @@ function StickyCardNode({ id, data }: NodeProps<CardNode>) {
         </button>
       </div>
 
-      {/* 본문: 왼쪽 절반 = 이동, 오른쪽 절반 = 편집 */}
-      <div className="flex-1 min-h-0 flex px-2 pb-2 gap-1.5">
-        <div className="w-1/2 flex-shrink-0 flex items-center justify-center rounded-lg cursor-grab active:cursor-grabbing transition-colors hover:bg-white/[0.04]">
-          <GripVertical size={14} className="opacity-0 group-hover:opacity-40 transition-opacity" style={{ color: palette.solid }} />
-        </div>
+      {/* 본문: 텍스트는 카드 전체 폭 사용, 왼쪽 절반 위에만 드래그 전용 투명 오버레이를 얹음 */}
+      <div className="flex-1 min-h-0 relative px-2 pb-2">
         <textarea
-          className="nodrag nopan w-1/2 flex-shrink-0 bg-transparent resize-none focus:outline-none text-[12.5px] leading-snug placeholder:opacity-40"
-          style={{ color: '#E2E8F0' }}
+          className="nodrag nopan absolute inset-0 w-full h-full bg-transparent resize-none focus:outline-none text-[12.5px] leading-snug placeholder:opacity-40"
+          style={{ color: '#E2E8F0', padding: '0 2px' }}
           value={text}
           onChange={e => handleChange(e.target.value)}
-          placeholder="생각을…"
+          placeholder="생각을 적어보세요…"
         />
+        <div className="absolute inset-y-0 left-0 w-1/2 flex items-center justify-center cursor-grab active:cursor-grabbing">
+          <GripVertical size={14} className="opacity-0 group-hover:opacity-40 transition-opacity pointer-events-none" style={{ color: palette.solid }} />
+        </div>
       </div>
     </div>
   )
