@@ -18,7 +18,8 @@ import type { SketchBoard, SketchCard, SketchEdge } from '@/types'
 const COLOR_KEYS = Object.keys(CATEGORY_PALETTE) as CategoryColorKey[]
 const DEFAULT_WIDTH = 220
 const DEFAULT_HEIGHT = 140
-const OVERLAP_RATIO = 0.5 // 드래그한 카드 면적의 이 비율 이상 겹치면 연결
+const CONNECT_OVERLAP_RATIO = 0.5 // 드래그한 카드 면적의 이 비율 이상 겹치면 새로 연결
+const DISCONNECT_OVERLAP_RATIO = 0.85 // 이미 연결된 카드는 이 정도로 거의 완전히 겹쳐야 연결 해제 (정리하려고 옆에 붙이는 것과 구분)
 const EDGE_COLOR = 'rgba(157,190,245,0.55)'
 const EDGE_STYLE = { stroke: EDGE_COLOR, strokeWidth: 1.5 }
 const EDGE_MARKER = { type: MarkerType.ArrowClosed, color: EDGE_COLOR, width: 16, height: 16 }
@@ -172,6 +173,7 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
   const [nodes, setNodes, onNodesChange] = useNodesState<CardNode>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
   const [hoverTargetId, setHoverTargetId] = useState<string | null>(null)
+  const [hoverWillDisconnect, setHoverWillDisconnect] = useState(false)
 
   const nodesRef = useRef(nodes)
   useEffect(() => { nodesRef.current = nodes }, [nodes])
@@ -279,13 +281,19 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
-  // 드래그 중인 카드와 절반 이상 겹치는 다른 카드를 찾음 (전부 고정 크기라 상수로 계산)
-  function findOverlapTarget(draggedId: string, pos: { x: number; y: number }) {
+  // 드래그 중인 카드와 겹치는 다른 카드를 찾음 (전부 고정 크기라 상수로 계산).
+  // 이미 연결된 카드는 훨씬 많이 겹쳐야만 "해제 대상"으로 인식 —
+  // 그래야 연결된 카드끼리 그냥 옆에 나란히 정리할 때 실수로 연결이 풀리지 않음
+  function findOverlapTarget(draggedId: string, pos: { x: number; y: number }): { id: string; disconnect: boolean } | null {
     const area = DEFAULT_WIDTH * DEFAULT_HEIGHT
     for (const n of nodesRef.current) {
       if (n.id === draggedId) continue
       const overlap = rectsOverlapArea(pos.x, pos.y, DEFAULT_WIDTH, DEFAULT_HEIGHT, n.position.x, n.position.y, DEFAULT_WIDTH, DEFAULT_HEIGHT)
-      if (overlap >= area * OVERLAP_RATIO) return n.id
+      const ratio = overlap / area
+      const connected = edgesRef.current.some(e =>
+        (e.source === draggedId && e.target === n.id) || (e.source === n.id && e.target === draggedId))
+      if (connected) { if (ratio >= DISCONNECT_OVERLAP_RATIO) return { id: n.id, disconnect: true } }
+      else if (ratio >= CONNECT_OVERLAP_RATIO) return { id: n.id, disconnect: false }
     }
     return null
   }
@@ -296,18 +304,21 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
 
   const handleNodeDrag: OnNodeDrag<CardNode> = useCallback((_e, node) => {
     const target = findOverlapTarget(node.id, node.position)
-    if (target !== hoverTargetIdRef.current) setHoverTargetId(target)
+    if (target?.id !== hoverTargetIdRef.current) setHoverTargetId(target?.id ?? null)
+    setHoverWillDisconnect(target?.disconnect ?? false)
   }, [])
 
   const handleNodeDragStop: OnNodeDrag<CardNode> = useCallback((_e, node) => {
     const target = findOverlapTarget(node.id, node.position)
     setHoverTargetId(null)
     if (target) {
-      // 이미 연결된 카드끼리 다시 겹치면 연결 취소, 아니면 새로 연결 (토글)
-      const existing = edgesRef.current.find(e =>
-        (e.source === node.id && e.target === target) || (e.source === target && e.target === node.id))
-      if (existing) removeConnection(existing.id)
-      else createConnection(node.id, target)
+      if (target.disconnect) {
+        const existing = edgesRef.current.find(e =>
+          (e.source === node.id && e.target === target.id) || (e.source === target.id && e.target === node.id))
+        if (existing) removeConnection(existing.id)
+      } else {
+        createConnection(node.id, target.id)
+      }
       const original = dragStartPosRef.current
       if (original) setNodes(prev => prev.map(n => n.id === node.id ? { ...n, position: original } : n))
     } else {
@@ -372,9 +383,10 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
       <div ref={wrapperRef} className="flex-1 min-h-0 rounded-2xl overflow-hidden relative"
         style={{ border: '1px solid rgba(255,255,255,0.08)' }}
         onDoubleClick={handlePaneDoubleClick}>
-        {hoverTargetId && (
-          <style>{`.react-flow__node[data-id="${hoverTargetId}"] > div { box-shadow: 0 0 0 2px ${EDGE_COLOR}, 0 0 18px 3px ${EDGE_COLOR}; }`}</style>
-        )}
+        {hoverTargetId && (() => {
+          const c = hoverWillDisconnect ? 'rgba(248,113,113,0.7)' : EDGE_COLOR
+          return <style>{`.react-flow__node[data-id="${hoverTargetId}"] > div { box-shadow: 0 0 0 2px ${c}, 0 0 18px 3px ${c}; }`}</style>
+        })()}
         <ReactFlow
           nodes={nodes}
           edges={edges}
