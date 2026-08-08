@@ -253,28 +253,28 @@ export default function TopNav() {
           <div className="w-6 h-6 bg-[#4C7FE0] rounded-md flex items-center justify-center">
             <span className="text-[10px] font-bold text-white">인</span>
           </div>
-          <span className="text-sm font-semibold text-stone-800">인사기획 워크</span>
+          <span className="text-sm font-semibold" style={{ color: '#E2E8F0' }}>인사기획 워크</span>
         </div>
       </header>
 
       {/* ── 모바일 하단 네비 ── */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-[60] bg-white border-t border-stone-200"
-        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-[60]"
+        style={{ background: '#161B24', borderTop: '1px solid rgba(255,255,255,0.07)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <div className="flex overflow-x-auto scrollbar-hide">
           {visibleItems.slice(0, 9).map(item => {
             const isActive = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)
             return (
               <Link key={item.href} href={item.href}
-                className={`flex flex-col items-center gap-0.5 px-3 py-2.5 min-w-[3.5rem] flex-shrink-0 transition-colors ${
-                  isActive ? 'text-stone-900' : 'text-stone-400'
-                }`}>
+                className="flex flex-col items-center gap-0.5 px-3 py-2.5 min-w-[3.5rem] flex-shrink-0 transition-colors"
+                style={{ color: isActive ? '#9DBEF5' : '#7B8397' }}>
                 <item.icon size={18} strokeWidth={1.5} />
                 <span className="text-[9px] whitespace-nowrap">{item.label}</span>
               </Link>
             )
           })}
           <button onClick={handleLogout}
-            className="flex flex-col items-center gap-0.5 px-3 py-2.5 min-w-[3.5rem] flex-shrink-0 text-stone-400 transition-colors">
+            className="flex flex-col items-center gap-0.5 px-3 py-2.5 min-w-[3.5rem] flex-shrink-0 transition-colors"
+            style={{ color: '#7B8397' }}>
             <LogOut size={18} strokeWidth={1.5} />
             <span className="text-[9px] whitespace-nowrap">로그아웃</span>
           </button>
