@@ -24,8 +24,11 @@ export default function MobileMemoSheet() {
   const supabase = createClient()
 
   useEffect(() => {
-    // 모바일(768px 미만)에서만 표시
-    if (window.innerWidth < 768) {
+    // 실제 모바일 기기에서만 표시. 너비만 보면 창을 좁게 띄운 데스크톱 브라우저도
+    // 모바일로 오인해 이 시트가 튀어나왔음 — 터치 기기 여부(pointer: coarse)도 같이 확인
+    const isNarrow = window.innerWidth < 768
+    const isTouch = window.matchMedia('(pointer: coarse)').matches
+    if (isNarrow && isTouch) {
       setVisible(true)
       setTimeout(() => titleRef.current?.focus(), 300)
     }
