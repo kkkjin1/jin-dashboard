@@ -333,11 +333,8 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
     return p.x >= rect.left && p.x <= rect.right && p.y >= rect.top && p.y <= rect.bottom
   }
 
-  const dragStartPositionRef = useRef<{ x: number; y: number } | null>(null)
-
-  const handleNodeDragStart: OnNodeDrag<CardNode> = useCallback((_e, node) => {
+  const handleNodeDragStart: OnNodeDrag<CardNode> = useCallback(() => {
     setIsDragging(true)
-    dragStartPositionRef.current = { x: node.position.x, y: node.position.y }
   }, [])
 
   const handleNodeDrag: OnNodeDrag<CardNode> = useCallback((e, node) => {
@@ -376,27 +373,18 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
       handleDelete(node.id)
       return
     }
-    // drop한 최종 위치 기준으로만 판단 — fallback 없음
+    // 위치는 항상 drop된 자리로 저장 — 조건 없음
+    supabase.from('sketch_cards').update({ position_x: node.position.x, position_y: node.position.y }).eq('id', node.id)
+      .then(({ error }) => { if (error) console.error('카드 위치 저장 실패:', error.message) })
+    // connect/disconnect는 위치와 무관하게 별도 처리
     const target = findOverlapTarget(node.id, node.position)
-    if (target) {
-      // connect/disconnect 발생 시 원위치 복원
-      const origin = dragStartPositionRef.current
-      if (origin) {
-        setNodes(prev => prev.map(n => n.id === node.id ? { ...n, position: origin } : n))
-        supabase.from('sketch_cards').update({ position_x: origin.x, position_y: origin.y }).eq('id', node.id)
-          .then(({ error }) => { if (error) console.error('카드 위치 복원 실패:', error.message) })
-      }
-      if (target.disconnect) {
-        const existing = edgesRef.current.find(e2 =>
-          (e2.source === node.id && e2.target === target.id) || (e2.source === target.id && e2.target === node.id))
-        if (existing) removeConnection(existing.id)
-      } else {
-        createConnection(node.id, target.id)
-      }
+    if (!target) return
+    if (target.disconnect) {
+      const existing = edgesRef.current.find(e2 =>
+        (e2.source === node.id && e2.target === target.id) || (e2.source === target.id && e2.target === node.id))
+      if (existing) removeConnection(existing.id)
     } else {
-      // 단순 이동 — 새 위치 저장
-      supabase.from('sketch_cards').update({ position_x: node.position.x, position_y: node.position.y }).eq('id', node.id)
-        .then(({ error }) => { if (error) console.error('카드 위치 저장 실패:', error.message) })
+      createConnection(node.id, target.id)
     }
   }, [createConnection, removeConnection, handleDelete])
 
