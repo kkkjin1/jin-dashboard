@@ -377,7 +377,13 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
       handleDelete(node.id)
       return
     }
-    if (targetId) {
+    // drop 위치 기준으로 재확인 → 드래그 중 지나쳤던 카드에 의한 오발동 방지
+    const verified = findOverlapTarget(node.id, node.position)
+    // findOverlapTarget이 미세한 위치 차이로 null을 반환할 경우 ref 값으로 fallback
+    const effectiveTargetId = verified?.id ?? (verified === null && targetId ? targetId : null)
+    const effectiveWillDisconnect = verified ? verified.disconnect : willDisconnect
+
+    if (effectiveTargetId) {
       // connect/disconnect 발생 시 카드를 원위치로 복원
       const origin = dragStartPositionRef.current
       if (origin) {
@@ -385,15 +391,15 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
         supabase.from('sketch_cards').update({ position_x: origin.x, position_y: origin.y }).eq('id', node.id)
           .then(({ error }) => { if (error) console.error('카드 위치 복원 실패:', error.message) })
       }
-      if (willDisconnect) {
+      if (effectiveWillDisconnect) {
         const existing = edgesRef.current.find(e2 =>
-          (e2.source === node.id && e2.target === targetId) || (e2.source === targetId && e2.target === node.id))
+          (e2.source === node.id && e2.target === effectiveTargetId) || (e2.source === effectiveTargetId && e2.target === node.id))
         if (existing) removeConnection(existing.id)
       } else {
-        createConnection(node.id, targetId)
+        createConnection(node.id, effectiveTargetId)
       }
     } else {
-      // 연결/해제 없이 단순 이동 시에만 새 위치 저장
+      // 단순 이동 시 새 위치 저장
       supabase.from('sketch_cards').update({ position_x: node.position.x, position_y: node.position.y }).eq('id', node.id)
         .then(({ error }) => { if (error) console.error('카드 위치 저장 실패:', error.message) })
     }
