@@ -374,8 +374,11 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
       return
     }
     // 위치는 항상 drop된 자리로 저장 — 조건 없음
+    console.log('[dragStop] id:', node.id, 'pos:', node.position.x, node.position.y)
     supabase.from('sketch_cards').update({ position_x: node.position.x, position_y: node.position.y }).eq('id', node.id)
-      .then(({ error }) => { if (error) console.error('카드 위치 저장 실패:', error.message) })
+      .then(({ data, error }) => {
+        console.log('[dragStop] saved:', node.position.x, node.position.y, '| error:', error?.message ?? 'none', '| data:', data)
+      })
     // connect/disconnect는 위치와 무관하게 별도 처리
     const target = findOverlapTarget(node.id, node.position)
     if (!target) return
