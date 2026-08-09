@@ -19,7 +19,7 @@ const COLOR_KEYS = Object.keys(CATEGORY_PALETTE) as CategoryColorKey[]
 const DEFAULT_WIDTH = 220
 const DEFAULT_HEIGHT = 140
 const CONNECT_OVERLAP_RATIO = 0.6 // 드래그한 카드 면적의 이 비율 이상 겹쳐야 새로 연결 (카드를 그냥 나란히 붙이는 정리와 구분)
-const DISCONNECT_OVERLAP_RATIO = 0.7 // 이미 연결된 카드는 이보다 조금 더 겹쳐야 연결 해제. (0.85는 마우스로 맞추기엔 너무 빡빡했음 — 같은 크기 카드 기준 좌우 17px, 상하 11px 오차 안에 들어와야 했음)
+const DISCONNECT_OVERLAP_RATIO = 0.55 // 이미 연결된 카드에 이 비율 이상 겹치면 연결 해제
 const EDGE_COLOR = 'rgba(157,190,245,0.55)'
 const EDGE_STYLE = { stroke: EDGE_COLOR, strokeWidth: 1.5 }
 const EDGE_MARKER = { type: MarkerType.ArrowClosed, color: EDGE_COLOR, width: 16, height: 16 }
@@ -299,14 +299,23 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
   // 그래야 연결된 카드끼리 그냥 옆에 나란히 정리할 때 실수로 연결이 풀리지 않음
   function findOverlapTarget(draggedId: string, pos: { x: number; y: number }): { id: string; disconnect: boolean } | null {
     const area = DEFAULT_WIDTH * DEFAULT_HEIGHT
+    // disconnect 후보 먼저 확인 — 연결된 카드와 충분히 겹치면 해제
     for (const n of nodesRef.current) {
       if (n.id === draggedId) continue
-      const overlap = rectsOverlapArea(pos.x, pos.y, DEFAULT_WIDTH, DEFAULT_HEIGHT, n.position.x, n.position.y, DEFAULT_WIDTH, DEFAULT_HEIGHT)
-      const ratio = overlap / area
       const connected = edgesRef.current.some(e =>
         (e.source === draggedId && e.target === n.id) || (e.source === n.id && e.target === draggedId))
-      if (connected) { if (ratio >= DISCONNECT_OVERLAP_RATIO) return { id: n.id, disconnect: true } }
-      else if (ratio >= CONNECT_OVERLAP_RATIO) return { id: n.id, disconnect: false }
+      if (!connected) continue
+      const overlap = rectsOverlapArea(pos.x, pos.y, DEFAULT_WIDTH, DEFAULT_HEIGHT, n.position.x, n.position.y, DEFAULT_WIDTH, DEFAULT_HEIGHT)
+      if (overlap / area >= DISCONNECT_OVERLAP_RATIO) return { id: n.id, disconnect: true }
+    }
+    // connect 후보 확인 — 연결 안 된 카드와 충분히 겹치면 연결
+    for (const n of nodesRef.current) {
+      if (n.id === draggedId) continue
+      const connected = edgesRef.current.some(e =>
+        (e.source === draggedId && e.target === n.id) || (e.source === n.id && e.target === draggedId))
+      if (connected) continue
+      const overlap = rectsOverlapArea(pos.x, pos.y, DEFAULT_WIDTH, DEFAULT_HEIGHT, n.position.x, n.position.y, DEFAULT_WIDTH, DEFAULT_HEIGHT)
+      if (overlap / area >= CONNECT_OVERLAP_RATIO) return { id: n.id, disconnect: false }
     }
     return null
   }
