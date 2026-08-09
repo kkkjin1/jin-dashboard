@@ -368,38 +368,33 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
   //  이제 위치 저장과 연결/해제는 완전히 별개로 처리한다.)
   const handleNodeDragStop: OnNodeDrag<CardNode> = useCallback((e, node) => {
     setIsDragging(false)
-    // dragStop 시점에 ref에서 먼저 읽고 나서 state 초기화
-    const targetId = hoverTargetIdRef.current
-    const willDisconnect = hoverWillDisconnectRef.current
+    hoverTargetIdRef.current = null
+    hoverWillDisconnectRef.current = false
     setHoverTargetId(null)
     if (hoveringTrashRef.current) {
       setHoveringTrash(false)
       handleDelete(node.id)
       return
     }
-    // drop 위치 기준으로 재확인 → 드래그 중 지나쳤던 카드에 의한 오발동 방지
-    const verified = findOverlapTarget(node.id, node.position)
-    // findOverlapTarget이 미세한 위치 차이로 null을 반환할 경우 ref 값으로 fallback
-    const effectiveTargetId = verified?.id ?? (verified === null && targetId ? targetId : null)
-    const effectiveWillDisconnect = verified ? verified.disconnect : willDisconnect
-
-    if (effectiveTargetId) {
-      // connect/disconnect 발생 시 카드를 원위치로 복원
+    // drop한 최종 위치 기준으로만 판단 — fallback 없음
+    const target = findOverlapTarget(node.id, node.position)
+    if (target) {
+      // connect/disconnect 발생 시 원위치 복원
       const origin = dragStartPositionRef.current
       if (origin) {
         setNodes(prev => prev.map(n => n.id === node.id ? { ...n, position: origin } : n))
         supabase.from('sketch_cards').update({ position_x: origin.x, position_y: origin.y }).eq('id', node.id)
           .then(({ error }) => { if (error) console.error('카드 위치 복원 실패:', error.message) })
       }
-      if (effectiveWillDisconnect) {
+      if (target.disconnect) {
         const existing = edgesRef.current.find(e2 =>
-          (e2.source === node.id && e2.target === effectiveTargetId) || (e2.source === effectiveTargetId && e2.target === node.id))
+          (e2.source === node.id && e2.target === target.id) || (e2.source === target.id && e2.target === node.id))
         if (existing) removeConnection(existing.id)
       } else {
-        createConnection(node.id, effectiveTargetId)
+        createConnection(node.id, target.id)
       }
     } else {
-      // 단순 이동 시 새 위치 저장
+      // 단순 이동 — 새 위치 저장
       supabase.from('sketch_cards').update({ position_x: node.position.x, position_y: node.position.y }).eq('id', node.id)
         .then(({ error }) => { if (error) console.error('카드 위치 저장 실패:', error.message) })
     }
