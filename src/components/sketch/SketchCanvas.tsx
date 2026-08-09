@@ -238,17 +238,20 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
 
   const handlers = { onContentChange: handleContentChange, onColorChange: handleColorChange, onDelete: handleDelete }
 
-  // React Flow가 onNodeDragStop 직후 onNodesChange({ dragging:false, position:dragEnd })를
-  // 발사해서 외부 state를 drag-end 위치로 덮어씀.
-  // connect 발생 시 pendingOriginRef에 원위치가 설정되어 있으면
-  // 그 이벤트를 인터셉트해서 drag-end 대신 origin을 적용 → DB와 화면이 항상 같은 값.
+  // [진단용] customOnNodesChange: pendingOriginRef 인터셉트 방식의 타이밍 문제를 로그로 확인
+  // → onNodesChange가 onNodeDragStop보다 먼저 발사되면 pendingOriginRef가 아직 null이어서 인터셉트 불가
   const customOnNodesChange = useCallback((changes: NodeChange<CardNode>[]) => {
+    const hasPositionEnd = changes.some(c => c.type === 'position' && (c as { dragging?: boolean }).dragging === false)
+    if (hasPositionEnd) {
+      console.log('[customOnNodesChange] dragging:false 수신, pendingOriginRef:', pendingOriginRef.current)
+    }
     if (!pendingOriginRef.current) { onNodesChange(changes); return }
     const { nodeId, origin } = pendingOriginRef.current
     let intercepted = false
     const patched = changes.map(c => {
-      if (c.type === 'position' && c.id === nodeId && c.dragging === false) {
+      if (c.type === 'position' && c.id === nodeId && (c as { dragging?: boolean }).dragging === false) {
         intercepted = true
+        console.log('[customOnNodesChange] 인터셉트 성공 — origin 적용:', origin)
         return { ...c, position: origin, positionAbsolute: origin }
       }
       return c
@@ -379,6 +382,7 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
   const handleNodeDragStart: OnNodeDrag<CardNode> = useCallback((_e, node) => {
     setIsDragging(true)
     dragStartPositionRef.current = { x: node.position.x, y: node.position.y }
+    console.log('[DragStart] origin saved:', dragStartPositionRef.current)
   }, [])
 
   // hoverTargetIdRef·hoverWillDisconnectRef는 동기적으로 업데이트하여
@@ -422,16 +426,23 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
     const overlap = detectOverlap(node.id, node.position, nodesRef.current, edgesRef.current)
 
     // 4a. connect: origin 위치로 복귀
-    //   - pendingOriginRef를 설정해두면 customOnNodesChange가 React Flow의
-    //     onNodesChange(dragging:false) 이벤트를 인터셉트해서 drag-end 대신 origin 적용
+    //   - pendingOriginRef 인터셉트 방식은 onNodesChange 발사 타이밍에 따라 실패할 수 있음
+    //   - setTimeout(0)으로 React Flow의 모든 drag-end 상태 업데이트가 끝난 뒤 setNodes 강제 적용
     //   - DB도 origin으로 저장 → 화면과 DB가 항상 같은 값을 가리킴
     if (overlap && !overlap.disconnect) {
       const origin = dragStartPositionRef.current
+      const capturedId = node.id
+      console.log('[DragStop] connect 감지 — origin:', origin, '/ dropPos:', { x: node.position.x, y: node.position.y })
       if (origin) {
-        pendingOriginRef.current = { nodeId: node.id, origin }
-        savePosition(node.id, origin)
+        pendingOriginRef.current = { nodeId: capturedId, origin }  // 인터셉트도 병행(진단용)
+        savePosition(capturedId, origin)
+        setTimeout(() => {
+          console.log('[DragStop] setTimeout(0) — setNodes로 origin 적용:', origin)
+          setNodes(nds => nds.map(n => n.id === capturedId ? { ...n, position: origin } : n))
+          pendingOriginRef.current = null
+        }, 0)
       }
-      handleConnect(node.id, overlap.id)
+      handleConnect(capturedId, overlap.id)
       return
     }
 
@@ -442,7 +453,7 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
         (e.source === node.id && e.target === overlap.id) || (e.source === overlap.id && e.target === node.id))
       if (existing) handleDisconnect(existing)
     }
-  }, [savePosition, handleConnect, handleDisconnect, handleDelete])
+  }, [savePosition, handleConnect, handleDisconnect, handleDelete, setNodes])
 
   async function saveBoardName() {
     const name = nameInput.trim()
