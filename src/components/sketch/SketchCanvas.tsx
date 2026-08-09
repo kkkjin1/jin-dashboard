@@ -446,13 +446,30 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
       return
     }
 
-    // 4b. disconnect 또는 단순 이동: drag-end 위치 그대로 저장
-    savePosition(node.id, node.position)
+    // 4b. disconnect: 연결 해제 + origin 복귀 (connect와 동일한 타이밍 처리)
+    //   - pendingOriginRef는 connect 진단 전용이므로 disconnect에서는 건드리지 않음
+    //     → ref 공유로 인한 덮어쓰기 위험 없음 (드래그 1회 = connect or disconnect 중 하나)
     if (overlap?.disconnect) {
+      const origin = dragStartPositionRef.current
+      const capturedId = node.id
+      console.log('[DragStop] disconnect 감지 — origin:', origin, '/ dropPos:', { x: node.position.x, y: node.position.y })
       const existing = edgesRef.current.find(e =>
-        (e.source === node.id && e.target === overlap.id) || (e.source === overlap.id && e.target === node.id))
+        (e.source === capturedId && e.target === overlap.id) || (e.source === overlap.id && e.target === capturedId))
       if (existing) handleDisconnect(existing)
+      if (origin) {
+        savePosition(capturedId, origin)
+        setTimeout(() => {
+          console.log('[DragStop] setTimeout(0) — disconnect origin 적용:', origin)
+          setNodes(nds => nds.map(n => n.id === capturedId ? { ...n, position: origin } : n))
+        }, 0)
+      } else {
+        savePosition(capturedId, node.position)
+      }
+      return
     }
+
+    // 4c. 단순 이동: drag-end 위치 그대로 저장
+    savePosition(node.id, node.position)
   }, [savePosition, handleConnect, handleDisconnect, handleDelete, setNodes])
 
   async function saveBoardName() {
