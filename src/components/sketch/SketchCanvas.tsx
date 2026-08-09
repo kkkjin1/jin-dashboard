@@ -7,7 +7,7 @@ import {
   Handle, Position, MarkerType, BaseEdge, getStraightPath, useInternalNode,
   useNodesState, useEdgesState, useReactFlow,
   type Node, type NodeProps, type NodeTypes, type OnNodeDrag, type Edge, type EdgeTypes, type EdgeProps, type OnConnect,
-  type InternalNode,
+  type InternalNode, type NodeChange,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { createClient } from '@/lib/supabase/client'
@@ -214,6 +214,10 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
   const edgesRef = useRef(edges)
   useEffect(() => { edgesRef.current = edges }, [edges])
   const hoverTargetIdRef = useRef<string | null>(null)
+  const dragStartPositionRef = useRef<{ x: number; y: number } | null>(null)
+  // connect 발생 시 React Flow의 onNodesChange(dragging:false) 자동 덮어쓰기를
+  // 인터셉트해서 drag-end 위치 대신 origin을 적용하기 위한 플래그
+  const pendingOriginRef = useRef<{ nodeId: string; origin: { x: number; y: number } } | null>(null)
 
   const handleContentChange = useCallback((id: string, content: string) => {
     supabase.from('sketch_cards').update({ content }).eq('id', id)
@@ -234,7 +238,26 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
 
   const handlers = { onContentChange: handleContentChange, onColorChange: handleColorChange, onDelete: handleDelete }
 
-  // ── 위치 저장: drag-end 위치를 항상 그대로 저장, origin 복원 없음 ──────────
+  // React Flow가 onNodeDragStop 직후 onNodesChange({ dragging:false, position:dragEnd })를
+  // 발사해서 외부 state를 drag-end 위치로 덮어씀.
+  // connect 발생 시 pendingOriginRef에 원위치가 설정되어 있으면
+  // 그 이벤트를 인터셉트해서 drag-end 대신 origin을 적용 → DB와 화면이 항상 같은 값.
+  const customOnNodesChange = useCallback((changes: NodeChange<CardNode>[]) => {
+    if (!pendingOriginRef.current) { onNodesChange(changes); return }
+    const { nodeId, origin } = pendingOriginRef.current
+    let intercepted = false
+    const patched = changes.map(c => {
+      if (c.type === 'position' && c.id === nodeId && c.dragging === false) {
+        intercepted = true
+        return { ...c, position: origin, positionAbsolute: origin }
+      }
+      return c
+    })
+    if (intercepted) pendingOriginRef.current = null
+    onNodesChange(patched)
+  }, [onNodesChange])
+
+  // ── 위치 저장: 주어진 position을 DB에 저장 ────────────────────────────────
   const savePosition = useCallback((nodeId: string, position: { x: number; y: number }) => {
     supabase.from('sketch_cards')
       .update({ position_x: position.x, position_y: position.y })
@@ -353,8 +376,9 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
     return p.x >= rect.left && p.x <= rect.right && p.y >= rect.top && p.y <= rect.bottom
   }
 
-  const handleNodeDragStart: OnNodeDrag<CardNode> = useCallback(() => {
+  const handleNodeDragStart: OnNodeDrag<CardNode> = useCallback((_e, node) => {
     setIsDragging(true)
+    dragStartPositionRef.current = { x: node.position.x, y: node.position.y }
   }, [])
 
   // hoverTargetIdRef·hoverWillDisconnectRef는 동기적으로 업데이트하여
@@ -379,7 +403,7 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
     if (newDisconnect !== hoverWillDisconnect) setHoverWillDisconnect(newDisconnect)
   }, [hoverTargetId, hoverWillDisconnect])
 
-  // dragStop은 4개 함수를 순서대로 호출하는 역할만 담당
+  // dragStop: 겹침 판정 결과에 따라 위치 저장 + connect/disconnect 처리
   const handleNodeDragStop: OnNodeDrag<CardNode> = useCallback((e, node) => {
     // 1. drag 상태 정리
     setIsDragging(false)
@@ -394,19 +418,29 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
       return
     }
 
-    // 3. 위치 저장 (항상, 연결 여부와 무관)
-    savePosition(node.id, node.position)
-
-    // 4. 겹침 판정 → 연결 또는 해제
+    // 3. 겹침 판정
     const overlap = detectOverlap(node.id, node.position, nodesRef.current, edgesRef.current)
-    if (!overlap) return
 
-    if (overlap.disconnect) {
+    // 4a. connect: origin 위치로 복귀
+    //   - pendingOriginRef를 설정해두면 customOnNodesChange가 React Flow의
+    //     onNodesChange(dragging:false) 이벤트를 인터셉트해서 drag-end 대신 origin 적용
+    //   - DB도 origin으로 저장 → 화면과 DB가 항상 같은 값을 가리킴
+    if (overlap && !overlap.disconnect) {
+      const origin = dragStartPositionRef.current
+      if (origin) {
+        pendingOriginRef.current = { nodeId: node.id, origin }
+        savePosition(node.id, origin)
+      }
+      handleConnect(node.id, overlap.id)
+      return
+    }
+
+    // 4b. disconnect 또는 단순 이동: drag-end 위치 그대로 저장
+    savePosition(node.id, node.position)
+    if (overlap?.disconnect) {
       const existing = edgesRef.current.find(e =>
         (e.source === node.id && e.target === overlap.id) || (e.source === overlap.id && e.target === node.id))
       if (existing) handleDisconnect(existing)
-    } else {
-      handleConnect(node.id, overlap.id)
     }
   }, [savePosition, handleConnect, handleDisconnect, handleDelete])
 
@@ -472,7 +506,7 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
           <ReactFlow
             nodes={nodes}
             edges={edges}
-            onNodesChange={onNodesChange}
+            onNodesChange={customOnNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
             onEdgesDelete={handleEdgesDelete}
