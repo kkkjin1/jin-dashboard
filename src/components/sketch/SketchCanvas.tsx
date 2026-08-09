@@ -181,6 +181,8 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
   const [hoverTargetId, setHoverTargetId] = useState<string | null>(null)
   const [hoverWillDisconnect, setHoverWillDisconnect] = useState(false)
+  const hoverWillDisconnectRef = useRef(false)
+  useEffect(() => { hoverWillDisconnectRef.current = hoverWillDisconnect }, [hoverWillDisconnect])
   const [isDragging, setIsDragging] = useState(false)
   const [hoveringTrash, setHoveringTrash] = useState(false)
   const trashRef = useRef<HTMLDivElement>(null)
@@ -356,6 +358,9 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
   //  이제 위치 저장과 연결/해제는 완전히 별개로 처리한다.)
   const handleNodeDragStop: OnNodeDrag<CardNode> = useCallback((e, node) => {
     setIsDragging(false)
+    // dragStop 시점에 ref에서 먼저 읽고 나서 state 초기화
+    const targetId = hoverTargetIdRef.current
+    const willDisconnect = hoverWillDisconnectRef.current
     setHoverTargetId(null)
     if (hoveringTrashRef.current) {
       setHoveringTrash(false)
@@ -365,14 +370,13 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
     supabase.from('sketch_cards').update({ position_x: node.position.x, position_y: node.position.y }).eq('id', node.id)
       .then(({ error }) => { if (error) console.error('카드 위치 저장 실패:', error.message) })
 
-    const target = findOverlapTarget(node.id, node.position)
-    if (target) {
-      if (target.disconnect) {
+    if (targetId) {
+      if (willDisconnect) {
         const existing = edgesRef.current.find(e2 =>
-          (e2.source === node.id && e2.target === target.id) || (e2.source === target.id && e2.target === node.id))
+          (e2.source === node.id && e2.target === targetId) || (e2.source === targetId && e2.target === node.id))
         if (existing) removeConnection(existing.id)
       } else {
-        createConnection(node.id, target.id)
+        createConnection(node.id, targetId)
       }
     }
   }, [createConnection, removeConnection, handleDelete])
