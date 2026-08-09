@@ -182,7 +182,6 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
   const [hoverTargetId, setHoverTargetId] = useState<string | null>(null)
   const [hoverWillDisconnect, setHoverWillDisconnect] = useState(false)
   const hoverWillDisconnectRef = useRef(false)
-  useEffect(() => { hoverWillDisconnectRef.current = hoverWillDisconnect }, [hoverWillDisconnect])
   const [isDragging, setIsDragging] = useState(false)
   const [hoveringTrash, setHoveringTrash] = useState(false)
   const trashRef = useRef<HTMLDivElement>(null)
@@ -194,7 +193,6 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
   const edgesRef = useRef(edges)
   useEffect(() => { edgesRef.current = edges }, [edges])
   const hoverTargetIdRef = useRef<string | null>(null)
-  useEffect(() => { hoverTargetIdRef.current = hoverTargetId }, [hoverTargetId])
 
   const handleContentChange = useCallback((id: string, content: string) => {
     supabase.from('sketch_cards').update({ content }).eq('id', id)
@@ -343,13 +341,22 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
     const overTrash = isOverTrash(e)
     if (overTrash !== hoveringTrashRef.current) setHoveringTrash(overTrash)
     if (overTrash) {
-      if (hoverTargetIdRef.current !== null) setHoverTargetId(null)
+      if (hoverTargetIdRef.current !== null) {
+        hoverTargetIdRef.current = null
+        hoverWillDisconnectRef.current = false
+        setHoverTargetId(null)
+      }
       return
     }
     const target = findOverlapTarget(node.id, node.position)
-    if (target?.id !== hoverTargetIdRef.current) setHoverTargetId(target?.id ?? null)
-    setHoverWillDisconnect(target?.disconnect ?? false)
-  }, [])
+    const newId = target?.id ?? null
+    const newDisconnect = target?.disconnect ?? false
+    // ref를 동기적으로 바로 업데이트 (dragStop에서 effect 없이 즉시 읽기 위해)
+    hoverTargetIdRef.current = newId
+    hoverWillDisconnectRef.current = newDisconnect
+    if (newId !== hoverTargetId) setHoverTargetId(newId)
+    if (newDisconnect !== hoverWillDisconnect) setHoverWillDisconnect(newDisconnect)
+  }, [hoverTargetId, hoverWillDisconnect])
 
   // 드래그가 끝나면 겹침 여부와 상관없이 위치는 항상 그 자리에 저장한다.
   // (이전엔 겹쳐서 연결/해제가 발동하면 카드를 원래 자리로 되돌렸는데,
