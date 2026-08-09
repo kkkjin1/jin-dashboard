@@ -224,8 +224,9 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
   }, [boardId])
 
   const removeConnection = useCallback((edgeId: string) => {
-    supabase.from('sketch_edges').delete().eq('id', edgeId)
     setEdges(prev => prev.filter(e => e.id !== edgeId))
+    supabase.from('sketch_edges').delete().eq('id', edgeId)
+      .then(({ error }) => { if (error) console.error('연결 해제 실패:', error.message) })
   }, [])
 
   const onConnect: OnConnect = useCallback((connection) => {
@@ -374,11 +375,8 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
       return
     }
     // 위치는 항상 drop된 자리로 저장 — 조건 없음
-    console.log('[dragStop] id:', node.id, 'pos:', node.position.x, node.position.y)
     supabase.from('sketch_cards').update({ position_x: node.position.x, position_y: node.position.y }).eq('id', node.id)
-      .then(({ data, error }) => {
-        console.log('[dragStop] saved:', node.position.x, node.position.y, '| error:', error?.message ?? 'none', '| data:', data)
-      })
+      .then(({ error }) => { if (error) console.error('카드 위치 저장 실패:', error.message) })
     // connect/disconnect는 위치와 무관하게 별도 처리
     const target = findOverlapTarget(node.id, node.position)
     if (!target) return
