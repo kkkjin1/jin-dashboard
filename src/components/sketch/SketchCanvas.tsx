@@ -333,8 +333,11 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
     return p.x >= rect.left && p.x <= rect.right && p.y >= rect.top && p.y <= rect.bottom
   }
 
-  const handleNodeDragStart: OnNodeDrag<CardNode> = useCallback((_e, _node) => {
+  const dragStartPositionRef = useRef<{ x: number; y: number } | null>(null)
+
+  const handleNodeDragStart: OnNodeDrag<CardNode> = useCallback((_e, node) => {
     setIsDragging(true)
+    dragStartPositionRef.current = { x: node.position.x, y: node.position.y }
   }, [])
 
   const handleNodeDrag: OnNodeDrag<CardNode> = useCallback((e, node) => {
@@ -374,10 +377,14 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
       handleDelete(node.id)
       return
     }
-    supabase.from('sketch_cards').update({ position_x: node.position.x, position_y: node.position.y }).eq('id', node.id)
-      .then(({ error }) => { if (error) console.error('카드 위치 저장 실패:', error.message) })
-
     if (targetId) {
+      // connect/disconnect 발생 시 카드를 원위치로 복원
+      const origin = dragStartPositionRef.current
+      if (origin) {
+        setNodes(prev => prev.map(n => n.id === node.id ? { ...n, position: origin } : n))
+        supabase.from('sketch_cards').update({ position_x: origin.x, position_y: origin.y }).eq('id', node.id)
+          .then(({ error }) => { if (error) console.error('카드 위치 복원 실패:', error.message) })
+      }
       if (willDisconnect) {
         const existing = edgesRef.current.find(e2 =>
           (e2.source === node.id && e2.target === targetId) || (e2.source === targetId && e2.target === node.id))
@@ -385,6 +392,10 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
       } else {
         createConnection(node.id, targetId)
       }
+    } else {
+      // 연결/해제 없이 단순 이동 시에만 새 위치 저장
+      supabase.from('sketch_cards').update({ position_x: node.position.x, position_y: node.position.y }).eq('id', node.id)
+        .then(({ error }) => { if (error) console.error('카드 위치 저장 실패:', error.message) })
     }
   }, [createConnection, removeConnection, handleDelete])
 
