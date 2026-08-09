@@ -16,18 +16,35 @@ export default function ResetPasswordPage() {
 
   useEffect(() => {
     const supabase = createClient()
+
+    // onAuthStateChange가 PASSWORD_RECOVERY 이벤트를 감지하면 세션 확정
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) {
+        setHasSession(true)
+        setChecking(false)
+      }
+    })
+
+    // PKCE 방식(?code=)과 기존 세션 둘 다 처리
     async function init() {
-      // PKCE 방식이면 URL에 ?code=가 붙어서 오고, 예전 방식이면 #access_token=이 붙어서 옴.
-      // 둘 다 대응: code가 있으면 세션으로 교환하고, 없으면 클라이언트가 자동 처리한 세션을 확인.
       const code = new URLSearchParams(window.location.search).get('code')
       if (code) {
-        await supabase.auth.exchangeCodeForSession(code)
+        const { error } = await supabase.auth.exchangeCodeForSession(code)
+        if (error) {
+          setChecking(false)
+          return
+        }
+        // exchangeCodeForSession 성공 시 onAuthStateChange가 처리함
+        return
       }
+      // code 없으면 기존 세션 확인 (이미 로그인된 경우)
       const { data: { session } } = await supabase.auth.getSession()
       setHasSession(!!session)
       setChecking(false)
     }
     init()
+
+    return () => subscription.unsubscribe()
   }, [])
 
   async function handleSubmit(e: React.FormEvent) {
