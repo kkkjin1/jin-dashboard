@@ -16,35 +16,39 @@ export default function ResetPasswordPage() {
 
   useEffect(() => {
     const supabase = createClient()
+    let resolved = false
 
-    // onAuthStateChange가 PASSWORD_RECOVERY 이벤트를 감지하면 세션 확정
+    function resolve(session: boolean) {
+      if (resolved) return
+      resolved = true
+      setHasSession(session)
+      setChecking(false)
+    }
+
+    // INITIAL_SESSION: 해시(#access_token=)로 들어온 세션을 클라이언트가 자동 처리할 때 발생
+    // PASSWORD_RECOVERY: recovery 타입 세션일 때
+    // SIGNED_IN: 그 외 로그인된 상태
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) {
-        setHasSession(true)
-        setChecking(false)
+      if (event === 'INITIAL_SESSION') {
+        resolve(!!session)
+      } else if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') {
+        resolve(!!session)
       }
     })
 
-    // PKCE 방식(?code=)과 기존 세션 둘 다 처리
-    async function init() {
-      const code = new URLSearchParams(window.location.search).get('code')
-      if (code) {
-        const { error } = await supabase.auth.exchangeCodeForSession(code)
-        if (error) {
-          setChecking(false)
-          return
-        }
-        // exchangeCodeForSession 성공 시 onAuthStateChange가 처리함
-        return
-      }
-      // code 없으면 기존 세션 확인 (이미 로그인된 경우)
-      const { data: { session } } = await supabase.auth.getSession()
-      setHasSession(!!session)
-      setChecking(false)
+    // PKCE 방식(?code=)인 경우 직접 교환
+    const code = new URLSearchParams(window.location.search).get('code')
+    if (code) {
+      supabase.auth.exchangeCodeForSession(code).catch(() => resolve(false))
     }
-    init()
 
-    return () => subscription.unsubscribe()
+    // 2초 안에 이벤트 없으면 타임아웃으로 판단
+    const timer = setTimeout(() => resolve(false), 2000)
+
+    return () => {
+      subscription.unsubscribe()
+      clearTimeout(timer)
+    }
   }, [])
 
   async function handleSubmit(e: React.FormEvent) {
