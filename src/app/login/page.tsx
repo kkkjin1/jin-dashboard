@@ -105,13 +105,6 @@ export default function LoginPage() {
           </button>
         </form>
 
-        {/* 하단 헬퍼 */}
-        <p className="text-center text-xs text-gray-400 mt-6">
-          아직 계정이 없으신가요?{' '}
-          <button type="button" className="text-[#4C7FE0] font-medium hover:underline">
-            가입하기
-          </button>
-        </p>
       </div>
     </div>
   )
