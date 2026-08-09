@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -85,17 +85,14 @@ export default function LoginPage() {
               onChange={e => setPassword(e.target.value)}
               className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#4C7FE0]/30 focus:border-[#4C7FE0] bg-white placeholder-gray-300 transition-colors"
               placeholder="••••••••"
-              required
             />
           </div>
 
+          {resetSent && (
+            <p className="text-xs text-blue-600 bg-blue-50 rounded-lg px-3 py-2">재설정 메일을 보냈습니다. 받은편지함을 확인해주세요.</p>
+          )}
           {error && (
             <p className="text-xs text-red-500 bg-red-50 rounded-lg px-3 py-2">{error}</p>
-          )}
-          {resetSent && !error && (
-            <p className="text-xs text-emerald-600 bg-emerald-50 rounded-lg px-3 py-2">
-              재설정 메일을 보냈습니다. 메일함을 확인해주세요.
-            </p>
           )}
 
           {/* 로그인 버튼 */}
@@ -107,6 +104,14 @@ export default function LoginPage() {
             {loading ? '로그인 중...' : '로그인'}
           </button>
         </form>
+
+        {/* 하단 헬퍼 */}
+        <p className="text-center text-xs text-gray-400 mt-6">
+          아직 계정이 없으신가요?{' '}
+          <button type="button" className="text-[#4C7FE0] font-medium hover:underline">
+            가입하기
+          </button>
+        </p>
       </div>
     </div>
   )
