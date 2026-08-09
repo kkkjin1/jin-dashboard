@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import {
   ReactFlow, ReactFlowProvider, Background, BackgroundVariant, Controls, MiniMap,
@@ -12,23 +12,27 @@ import {
 import '@xyflow/react/dist/style.css'
 import { createClient } from '@/lib/supabase/client'
 import { CATEGORY_PALETTE, type CategoryColorKey } from '@/lib/categoryColors'
-import { ArrowLeft, Plus, Trash2, GripVertical } from 'lucide-react'
-import type { SketchBoard, SketchCard, SketchEdge } from '@/types'
+import { ArrowLeft, Plus, Trash2, GripVertical, Frame } from 'lucide-react'
+import type { SketchBoard, SketchCard, SketchEdge, SketchFrame } from '@/types'
+import { FrameNodeComponent, type FrameData, type FrameNodeType } from './FrameNode'
 
+// ── 상수 ──────────────────────────────────────────────────────────────────────
 const COLOR_KEYS = Object.keys(CATEGORY_PALETTE) as CategoryColorKey[]
 const DEFAULT_WIDTH = 220
 const DEFAULT_HEIGHT = 140
 const CONNECT_OVERLAP_RATIO = 0.6
 const DISCONNECT_OVERLAP_RATIO = 0.55
+const FRAME_PADDING = 24
+const TITLE_BAR_H = 28
 const EDGE_COLOR = 'rgba(157,190,245,0.55)'
 const EDGE_STYLE = { stroke: EDGE_COLOR, strokeWidth: 1.5 }
 const EDGE_MARKER = { type: MarkerType.ArrowClosed, color: EDGE_COLOR, width: 16, height: 16 }
 
+// ── Edge helpers ───────────────────────────────────────────────────────────────
 function edgeFromRow(row: SketchEdge): Edge {
   return { id: row.id, source: row.source_card_id, target: row.target_card_id, type: 'floating', markerEnd: EDGE_MARKER, style: EDGE_STYLE }
 }
 
-// 카드 위치가 바뀌어도 항상 두 카드 경계를 잇는 직선으로 다시 그려지는 edge
 function getNodeIntersection(intersectionNode: InternalNode, targetNode: InternalNode) {
   const w = (intersectionNode.measured.width ?? DEFAULT_WIDTH) / 2
   const h = (intersectionNode.measured.height ?? DEFAULT_HEIGHT) / 2
@@ -36,17 +40,12 @@ function getNodeIntersection(intersectionNode: InternalNode, targetNode: Interna
   const targetPos = targetNode.internals.positionAbsolute
   const targetW = (targetNode.measured.width ?? DEFAULT_WIDTH) / 2
   const targetH = (targetNode.measured.height ?? DEFAULT_HEIGHT) / 2
-
-  const x2 = pos.x + w
-  const y2 = pos.y + h
-  const x1 = targetPos.x + targetW
-  const y1 = targetPos.y + targetH
-
+  const x2 = pos.x + w, y2 = pos.y + h
+  const x1 = targetPos.x + targetW, y1 = targetPos.y + targetH
   const xx1 = (x1 - x2) / (2 * w) - (y1 - y2) / (2 * h)
   const yy1 = (x1 - x2) / (2 * w) + (y1 - y2) / (2 * h)
   const a = 1 / (Math.abs(xx1) + Math.abs(yy1) || 1)
-  const xx3 = a * xx1
-  const yy3 = a * yy1
+  const xx3 = a * xx1, yy3 = a * yy1
   return { x: w * (xx3 + yy3) + x2, y: h * (-xx3 + yy3) + y2 }
 }
 
@@ -62,6 +61,7 @@ function FloatingEdge({ id, source, target, markerEnd, style }: EdgeProps) {
 
 const edgeTypes: EdgeTypes = { floating: FloatingEdge }
 
+// ── CardNode ──────────────────────────────────────────────────────────────────
 type CardData = {
   content: string
   color: CategoryColorKey
@@ -127,34 +127,21 @@ function StickyCardNode({ id, data }: NodeProps<CardNode>) {
   )
 }
 
-const nodeTypes: NodeTypes = { sticky: StickyCardNode }
-
-function cardToNode(card: SketchCard, handlers: Omit<CardData, 'content' | 'color'>): CardNode {
-  return {
-    id: card.id,
-    type: 'sticky',
-    position: { x: card.position_x, y: card.position_y },
-    style: { width: card.width, height: card.height },
-    data: { content: card.content, color: card.color as CategoryColorKey, ...handlers },
-  }
-}
-
+// ── 겹침 판정 (프레임 없는 자유 카드끼리만) ────────────────────────────────────
 function rectsOverlapArea(ax: number, ay: number, aw: number, ah: number, bx: number, by: number, bw: number, bh: number) {
   const w = Math.max(0, Math.min(ax + aw, bx + bw) - Math.max(ax, bx))
   const h = Math.max(0, Math.min(ay + ah, by + bh) - Math.max(ay, by))
   return w * h
 }
 
-// 순수 함수 — state/ref 접근 없음, 부작용 없음
-// disconnect 패스를 먼저 실행해야 연결된 카드끼리의 겹침이 connect로 오판되지 않음
 function detectOverlap(
   draggedId: string,
   pos: { x: number; y: number },
-  allNodes: CardNode[],
+  freeCards: CardNode[],
   currentEdges: Edge[],
 ): { id: string; disconnect: boolean } | null {
   const area = DEFAULT_WIDTH * DEFAULT_HEIGHT
-  for (const n of allNodes) {
+  for (const n of freeCards) {
     if (n.id === draggedId) continue
     const connected = currentEdges.some(e =>
       (e.source === draggedId && e.target === n.id) || (e.source === n.id && e.target === draggedId))
@@ -162,7 +149,7 @@ function detectOverlap(
     const overlap = rectsOverlapArea(pos.x, pos.y, DEFAULT_WIDTH, DEFAULT_HEIGHT, n.position.x, n.position.y, DEFAULT_WIDTH, DEFAULT_HEIGHT)
     if (overlap / area >= DISCONNECT_OVERLAP_RATIO) return { id: n.id, disconnect: true }
   }
-  for (const n of allNodes) {
+  for (const n of freeCards) {
     if (n.id === draggedId) continue
     const connected = currentEdges.some(e =>
       (e.source === draggedId && e.target === n.id) || (e.source === n.id && e.target === draggedId))
@@ -173,8 +160,46 @@ function detectOverlap(
   return null
 }
 
+// ── 뷰포트 저장 ────────────────────────────────────────────────────────────────
 function viewportKey(boardId: string) { return `sketch_viewport_${boardId}` }
 
+// ── Node 빌더 ──────────────────────────────────────────────────────────────────
+function cardToNode(card: SketchCard, handlers: Omit<CardData, 'content' | 'color'>): CardNode {
+  const node: CardNode = {
+    id: card.id,
+    type: 'sticky',
+    position: { x: card.position_x, y: card.position_y },
+    style: { width: card.width, height: card.height },
+    data: { content: card.content, color: card.color as CategoryColorKey, ...handlers },
+    zIndex: 10,
+  }
+  if (card.frame_id) {
+    node.parentId = card.frame_id
+    node.extent = 'parent'
+  }
+  return node
+}
+
+function frameToNode(frame: SketchFrame, handlers: Omit<FrameData, 'title' | 'collapsed' | 'frameWidth' | 'frameHeight'>): FrameNodeType {
+  const h = frame.collapsed ? 1 : frame.height
+  return {
+    id: frame.id,
+    type: 'frame',
+    position: { x: frame.position_x, y: frame.position_y },
+    style: { width: frame.width, height: h },
+    data: {
+      title: frame.title,
+      collapsed: frame.collapsed,
+      frameWidth: frame.width,
+      frameHeight: frame.height,
+      ...handlers,
+    },
+    zIndex: 0,
+    selectable: true,
+  }
+}
+
+// ── 메인 컴포넌트 ──────────────────────────────────────────────────────────────
 function SketchCanvasInner({ boardId }: { boardId: string }) {
   const supabase = createClient()
   const { screenToFlowPosition } = useReactFlow()
@@ -198,8 +223,9 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
   const [board, setBoard] = useState<SketchBoard | null>(null)
   const [nameInput, setNameInput] = useState('')
   const [loading, setLoading] = useState(true)
-  const [nodes, setNodes, onNodesChange] = useNodesState<CardNode>([])
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
+  const [frames, setFrames] = useState<SketchFrame[]>([])
   const [hoverTargetId, setHoverTargetId] = useState<string | null>(null)
   const [hoverWillDisconnect, setHoverWillDisconnect] = useState(false)
   const hoverWillDisconnectRef = useRef(false)
@@ -209,16 +235,22 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
   const hoveringTrashRef = useRef(false)
   useEffect(() => { hoveringTrashRef.current = hoveringTrash }, [hoveringTrash])
 
-  const nodesRef = useRef(nodes)
+  // 프레임 생성 모드
+  const [isCreatingFrame, setIsCreatingFrame] = useState(false)
+  const [selectionRect, setSelectionRect] = useState<{ left: number; top: number; width: number; height: number } | null>(null)
+  const frameMouseStartRef = useRef<{ flowPos: { x: number; y: number }; clientPos: { x: number; y: number } } | null>(null)
+
+  const nodesRef = useRef<Node[]>([])
   useEffect(() => { nodesRef.current = nodes }, [nodes])
-  const edgesRef = useRef(edges)
+  const edgesRef = useRef<Edge[]>([])
   useEffect(() => { edgesRef.current = edges }, [edges])
+  const framesRef = useRef<SketchFrame[]>([])
+  useEffect(() => { framesRef.current = frames }, [frames])
   const hoverTargetIdRef = useRef<string | null>(null)
   const dragStartPositionRef = useRef<{ x: number; y: number } | null>(null)
-  // connect 발생 시 React Flow의 onNodesChange(dragging:false) 자동 덮어쓰기를
-  // 인터셉트해서 drag-end 위치 대신 origin을 적용하기 위한 플래그
   const pendingOriginRef = useRef<{ nodeId: string; origin: { x: number; y: number } } | null>(null)
 
+  // ── 카드 handlers ─────────────────────────────────────────────────────────
   const handleContentChange = useCallback((id: string, content: string) => {
     supabase.from('sketch_cards').update({ content }).eq('id', id)
       .then(({ error }) => { if (error) console.error('카드 내용 저장 실패:', error.message) })
@@ -236,104 +268,188 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
     setEdges(prev => prev.filter(e => e.source !== id && e.target !== id))
   }, [])
 
-  const handlers = { onContentChange: handleContentChange, onColorChange: handleColorChange, onDelete: handleDelete }
+  const cardHandlers = useMemo(() => ({
+    onContentChange: handleContentChange,
+    onColorChange: handleColorChange,
+    onDelete: handleDelete,
+  }), [handleContentChange, handleColorChange, handleDelete])
 
-  // [진단용] customOnNodesChange: pendingOriginRef 인터셉트 방식의 타이밍 문제를 로그로 확인
-  // → onNodesChange가 onNodeDragStop보다 먼저 발사되면 pendingOriginRef가 아직 null이어서 인터셉트 불가
-  const customOnNodesChange = useCallback((changes: NodeChange<CardNode>[]) => {
-    const hasPositionEnd = changes.some(c => c.type === 'position' && (c as { dragging?: boolean }).dragging === false)
-    if (hasPositionEnd) {
-      console.log('[customOnNodesChange] dragging:false 수신, pendingOriginRef:', pendingOriginRef.current)
+  // ── 프레임 handlers ───────────────────────────────────────────────────────
+  const handleFrameTitleChange = useCallback((frameId: string, title: string) => {
+    setFrames(prev => prev.map(f => f.id === frameId ? { ...f, title } : f))
+    setNodes(prev => prev.map(n => n.id === frameId ? { ...n, data: { ...n.data, title } } : n))
+    supabase.from('sketch_frames').update({ title }).eq('id', frameId)
+      .then(({ error }) => { if (error) console.error('프레임 제목 저장 실패:', error.message) })
+  }, [])
+
+  const handleFrameCollapseToggle = useCallback((frameId: string) => {
+    const frame = framesRef.current.find(f => f.id === frameId)
+    if (!frame) return
+    const next = !frame.collapsed
+    setFrames(prev => prev.map(f => f.id === frameId ? { ...f, collapsed: next } : f))
+    setNodes(prev => prev.map(n => {
+      if (n.id === frameId) return { ...n, style: { ...n.style, height: next ? 1 : frame.height }, data: { ...n.data, collapsed: next } }
+      if (n.parentId === frameId) return { ...n, hidden: next }
+      return n
+    }))
+    supabase.from('sketch_frames').update({ collapsed: next }).eq('id', frameId)
+      .then(({ error }) => {
+        if (error) {
+          setFrames(prev => prev.map(f => f.id === frameId ? { ...f, collapsed: !next } : f))
+          setNodes(prev => prev.map(n => {
+            if (n.id === frameId) return { ...n, style: { ...n.style, height: !next ? 1 : frame.height }, data: { ...n.data, collapsed: !next } }
+            if (n.parentId === frameId) return { ...n, hidden: !next }
+            return n
+          }))
+          alert('접기/펼치기에 실패했습니다.')
+        }
+      })
+  }, [])
+
+  const handleFrameDelete = useCallback(async (frameId: string) => {
+    // 자식 카드들을 자유 카드로 전환 (절대좌표 복원)
+    const frame = framesRef.current.find(f => f.id === frameId)
+    const children = nodesRef.current.filter(n => n.parentId === frameId)
+    if (frame && children.length > 0) {
+      setNodes(prev => prev.map(n => {
+        if (n.parentId !== frameId) return n
+        return { ...n, parentId: undefined, extent: undefined, position: { x: frame.position_x + n.position.x, y: frame.position_y + n.position.y } }
+      }))
+      await Promise.all(children.map(c =>
+        supabase.from('sketch_cards').update({
+          frame_id: null,
+          position_x: frame.position_x + c.position.x,
+          position_y: frame.position_y + c.position.y,
+        }).eq('id', c.id).then(({ error }) => {
+          if (error) console.error('카드 frame_id 해제 실패:', error.message)
+        })
+      ))
     }
-    if (!pendingOriginRef.current) { onNodesChange(changes); return }
-    const { nodeId, origin } = pendingOriginRef.current
-    let intercepted = false
-    const patched = changes.map(c => {
-      if (c.type === 'position' && c.id === nodeId && (c as { dragging?: boolean }).dragging === false) {
-        intercepted = true
-        console.log('[customOnNodesChange] 인터셉트 성공 — origin 적용:', origin)
-        return { ...c, position: origin, positionAbsolute: origin }
-      }
-      return c
-    })
-    if (intercepted) pendingOriginRef.current = null
-    onNodesChange(patched)
-  }, [onNodesChange])
+    const { error } = await supabase.from('sketch_frames').delete().eq('id', frameId)
+    if (error) { alert('프레임 삭제에 실패했습니다.'); return }
+    setFrames(prev => prev.filter(f => f.id !== frameId))
+    setNodes(prev => prev.filter(n => n.id !== frameId))
+  }, [])
 
-  // ── 위치 저장: 주어진 position을 DB에 저장 ────────────────────────────────
+  const frameHandlers = useMemo(() => ({
+    onTitleChange: handleFrameTitleChange,
+    onCollapseToggle: handleFrameCollapseToggle,
+    onDelete: handleFrameDelete,
+  }), [handleFrameTitleChange, handleFrameCollapseToggle, handleFrameDelete])
+
+  // ── 카드↔프레임 소속 관리 ─────────────────────────────────────────────────
+  const addCardToFrame = useCallback((cardId: string, frame: SketchFrame, absPos: { x: number; y: number }) => {
+    const relX = absPos.x - frame.position_x
+    const relY = absPos.y - frame.position_y
+    setNodes(prev => prev.map(n => n.id !== cardId ? n : { ...n, parentId: frame.id, extent: 'parent' as const, position: { x: relX, y: relY } }))
+    supabase.from('sketch_cards').update({ frame_id: frame.id, position_x: relX, position_y: relY }).eq('id', cardId)
+      .then(({ error }) => {
+        if (error) {
+          setNodes(prev => prev.map(n => n.id !== cardId ? n : { ...n, parentId: undefined, extent: undefined, position: absPos }))
+          alert('카드를 프레임에 추가하는 데 실패했습니다.')
+        }
+      })
+  }, [])
+
+  const removeCardFromFrame = useCallback((cardId: string, absPos: { x: number; y: number }) => {
+    setNodes(prev => prev.map(n => n.id !== cardId ? n : { ...n, parentId: undefined, extent: undefined, position: absPos }))
+    supabase.from('sketch_cards').update({ frame_id: null, position_x: absPos.x, position_y: absPos.y }).eq('id', cardId)
+      .then(({ error }) => {
+        if (error) {
+          console.error('카드 프레임 해제 실패:', error.message)
+          alert('카드를 프레임에서 제거하는 데 실패했습니다.')
+        }
+      })
+  }, [])
+
+  // ── 위치/연결 ─────────────────────────────────────────────────────────────
   const savePosition = useCallback((nodeId: string, position: { x: number; y: number }) => {
-    supabase.from('sketch_cards')
-      .update({ position_x: position.x, position_y: position.y })
-      .eq('id', nodeId)
+    supabase.from('sketch_cards').update({ position_x: position.x, position_y: position.y }).eq('id', nodeId)
       .then(({ error }) => { if (error) console.error('카드 위치 저장 실패:', error.message) })
   }, [])
 
-  // ── 연결 생성: DB 확인 후 setEdges (낙관적 업데이트 없음 — id가 DB에서 발급되므로) ──
   const handleConnect = useCallback((sourceId: string, targetId: string) => {
     supabase.from('sketch_edges')
       .insert({ board_id: boardId, source_card_id: sourceId, target_card_id: targetId })
       .select().single()
       .then(({ data, error }) => {
-        if (error || !data) {
-          console.error('연결 생성 실패:', error?.message)
-          alert('연결 생성에 실패했습니다. 다시 시도해주세요.')
-          return
-        }
+        if (error || !data) { alert('연결 생성에 실패했습니다.'); return }
         setEdges(eds => [...eds, edgeFromRow(data as SketchEdge)])
       })
   }, [boardId])
 
-  // ── 연결 해제: 낙관적 삭제 → DB 실패 시 롤백 + alert ────────────────────────
   const handleDisconnect = useCallback((edge: Edge) => {
-    // a) 즉시 UI 반영
     setEdges(prev => prev.filter(e => e.id !== edge.id))
-    // b) DB 삭제
     supabase.from('sketch_edges').delete().eq('id', edge.id)
       .then(({ error }) => {
         if (error) {
-          // c) 실패 시 롤백
           setEdges(prev => [...prev, edge])
-          console.error('연결 해제 실패:', error.message)
-          alert('연결 해제에 실패했습니다. 다시 시도해주세요.')
+          alert('연결 해제에 실패했습니다.')
         }
       })
   }, [])
+
+  const handleEdgesDelete = useCallback((deleted: Edge[]) => {
+    deleted.forEach(edge => handleDisconnect(edge))
+  }, [handleDisconnect])
 
   const onConnect: OnConnect = useCallback((connection) => {
     if (!connection.source || !connection.target || connection.source === connection.target) return
     handleConnect(connection.source, connection.target)
   }, [handleConnect])
 
-  // handleEdgesDelete는 React Flow가 edge를 이미 제거한 뒤 호출하므로
-  // edge 객체를 직접 넘겨 롤백 시 복원할 수 있도록 함
-  const handleEdgesDelete = useCallback((deleted: Edge[]) => {
-    deleted.forEach(edge => handleDisconnect(edge))
-  }, [handleDisconnect])
+  // ── customOnNodesChange (진단 + intercept) ────────────────────────────────
+  const customOnNodesChange = useCallback((changes: NodeChange<Node>[]) => {
+    const hasPositionEnd = changes.some(c => c.type === 'position' && (c as { dragging?: boolean }).dragging === false)
+    if (hasPositionEnd && pendingOriginRef.current) {
+      const { nodeId, origin } = pendingOriginRef.current
+      let intercepted = false
+      const patched = changes.map(c => {
+        if (c.type === 'position' && c.id === nodeId && (c as { dragging?: boolean }).dragging === false) {
+          intercepted = true
+          return { ...c, position: origin, positionAbsolute: origin }
+        }
+        return c
+      })
+      if (intercepted) pendingOriginRef.current = null
+      onNodesChange(patched)
+      return
+    }
+    onNodesChange(changes)
+  }, [onNodesChange])
 
+  // ── 데이터 로딩 ───────────────────────────────────────────────────────────
   useEffect(() => {
     Promise.all([
       supabase.from('sketch_boards').select('*').eq('id', boardId).single(),
       supabase.from('sketch_cards').select('*').eq('board_id', boardId).order('created_at'),
       supabase.from('sketch_edges').select('*').eq('board_id', boardId),
-    ]).then(([boardRes, cardsRes, edgesRes]) => {
+      supabase.from('sketch_frames').select('*').eq('board_id', boardId),
+    ]).then(([boardRes, cardsRes, edgesRes, framesRes]) => {
       if (boardRes.data) { setBoard(boardRes.data as SketchBoard); setNameInput(boardRes.data.name) }
+      const loadedFrames = (framesRes.data ?? []) as SketchFrame[]
+      setFrames(loadedFrames)
       const cards = (cardsRes.data ?? []) as SketchCard[]
-      setNodes(cards.map(c => cardToNode(c, handlers)))
+      const frameNodes = loadedFrames.map(f => frameToNode(f, frameHandlers))
+      const cardNodes = cards.map(c => cardToNode(c, cardHandlers))
+      // 프레임 노드를 앞에 두어 카드 아래에 렌더링
+      setNodes([...frameNodes, ...cardNodes])
       setEdges(((edgesRes.data ?? []) as SketchEdge[]).map(edgeFromRow))
       setLoading(false)
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [boardId])
 
+  // ── 카드 생성 ─────────────────────────────────────────────────────────────
   async function createCard(x: number, y: number) {
-    const color = COLOR_KEYS[nodes.length % COLOR_KEYS.length]
+    const color = COLOR_KEYS[nodes.filter(n => n.type === 'sticky').length % COLOR_KEYS.length]
     const position_x = x - DEFAULT_WIDTH / 2
     const position_y = y - DEFAULT_HEIGHT / 2
     const { data, error } = await supabase.from('sketch_cards')
       .insert({ board_id: boardId, content: '', color, position_x, position_y, width: DEFAULT_WIDTH, height: DEFAULT_HEIGHT })
       .select().single()
     if (error || !data) { console.error('카드 생성 실패:', error?.message); return }
-    setNodes(prev => [...prev, cardToNode(data as SketchCard, handlers)])
+    setNodes(prev => [...prev, cardToNode(data as SketchCard, cardHandlers)])
   }
 
   function handlePaneDoubleClick(e: React.MouseEvent) {
@@ -361,17 +477,112 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
       if (['input', 'textarea', 'select'].includes(tag)) return
       if (target.getAttribute('contenteditable') === 'true') return
       if (e.key.toLowerCase() === 'n') { e.preventDefault(); handleAddButtonClickRef.current() }
+      if (e.key.toLowerCase() === 'f') { e.preventDefault(); setIsCreatingFrame(v => !v) }
+      if (e.key === 'Escape') setIsCreatingFrame(false)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
+  // ── 프레임 생성 (드래그 선택 → 프레임) ────────────────────────────────────
+  function handleFrameOverlayMouseDown(e: React.MouseEvent) {
+    const containerRect = wrapperRef.current?.getBoundingClientRect()
+    if (!containerRect) return
+    const flowPos = screenToFlowPosition({ x: e.clientX, y: e.clientY })
+    const clientPos = { x: e.clientX - containerRect.left, y: e.clientY - containerRect.top }
+    frameMouseStartRef.current = { flowPos, clientPos }
+    setSelectionRect({ left: clientPos.x, top: clientPos.y, width: 0, height: 0 })
+  }
+
+  function handleFrameOverlayMouseMove(e: React.MouseEvent) {
+    if (!frameMouseStartRef.current) return
+    const containerRect = wrapperRef.current?.getBoundingClientRect()
+    if (!containerRect) return
+    const cur = { x: e.clientX - containerRect.left, y: e.clientY - containerRect.top }
+    const start = frameMouseStartRef.current.clientPos
+    setSelectionRect({
+      left: Math.min(start.x, cur.x),
+      top: Math.min(start.y, cur.y),
+      width: Math.abs(cur.x - start.x),
+      height: Math.abs(cur.y - start.y),
+    })
+  }
+
+  function handleFrameOverlayMouseUp(e: React.MouseEvent) {
+    if (!frameMouseStartRef.current) return
+    const flowEnd = screenToFlowPosition({ x: e.clientX, y: e.clientY })
+    const flowStart = frameMouseStartRef.current.flowPos
+    frameMouseStartRef.current = null
+    setSelectionRect(null)
+    setIsCreatingFrame(false)
+
+    const rawX = Math.min(flowStart.x, flowEnd.x)
+    const rawY = Math.min(flowStart.y, flowEnd.y)
+    const rawW = Math.abs(flowEnd.x - flowStart.x)
+    const rawH = Math.abs(flowEnd.y - flowStart.y)
+    if (rawW < 40 || rawH < 40) return
+
+    // 선택 영역 안에 있는 자유 카드 찾기
+    const selectedCards = nodesRef.current.filter(n => {
+      if (n.type !== 'sticky' || n.parentId) return false
+      return rectsOverlapArea(rawX, rawY, rawW, rawH, n.position.x, n.position.y, DEFAULT_WIDTH, DEFAULT_HEIGHT) > 0
+    })
+
+    // 프레임 bounding box 계산
+    let frameX: number, frameY: number, frameW: number, frameH: number
+    if (selectedCards.length > 0) {
+      const minX = Math.min(...selectedCards.map(n => n.position.x)) - FRAME_PADDING
+      const minY = Math.min(...selectedCards.map(n => n.position.y)) - FRAME_PADDING - TITLE_BAR_H
+      const maxX = Math.max(...selectedCards.map(n => n.position.x + DEFAULT_WIDTH)) + FRAME_PADDING
+      const maxY = Math.max(...selectedCards.map(n => n.position.y + DEFAULT_HEIGHT)) + FRAME_PADDING
+      frameX = minX; frameY = minY; frameW = maxX - minX; frameH = maxY - minY
+    } else {
+      frameX = rawX - FRAME_PADDING; frameY = rawY - FRAME_PADDING - TITLE_BAR_H
+      frameW = rawW + FRAME_PADDING * 2; frameH = rawH + FRAME_PADDING * 2 + TITLE_BAR_H
+    }
+
+    doCreateFrame(frameX, frameY, frameW, frameH, selectedCards)
+  }
+
+  async function doCreateFrame(
+    frameX: number, frameY: number, frameW: number, frameH: number, selectedCards: Node[]
+  ) {
+    const { data: fData, error: fErr } = await supabase.from('sketch_frames')
+      .insert({ board_id: boardId, title: '제목 없는 프레임', position_x: frameX, position_y: frameY, width: frameW, height: frameH })
+      .select().single()
+    if (fErr || !fData) { alert('프레임 생성에 실패했습니다.'); return }
+    const frame = fData as SketchFrame
+    setFrames(prev => [...prev, frame])
+
+    // 선택된 카드들을 프레임 자식으로 전환
+    const updatedCards: Node[] = []
+    for (const cardNode of selectedCards) {
+      const relX = cardNode.position.x - frameX
+      const relY = cardNode.position.y - frameY
+      const { error } = await supabase.from('sketch_cards')
+        .update({ frame_id: frame.id, position_x: relX, position_y: relY })
+        .eq('id', cardNode.id)
+      if (error) { console.error('카드 frame_id 설정 실패:', error.message); continue }
+      updatedCards.push({ ...cardNode, parentId: frame.id, extent: 'parent' as const, position: { x: relX, y: relY } })
+    }
+
+    const newFrameNode = frameToNode(frame, frameHandlers)
+    const updatedIds = new Set(updatedCards.map(n => n.id))
+    setNodes(prev => {
+      const rest = prev.map(n => updatedIds.has(n.id) ? (updatedCards.find(u => u.id === n.id) ?? n) : n)
+      // 프레임 노드는 맨 앞 (카드보다 낮은 zIndex)
+      const frames = rest.filter(n => n.type === 'frame')
+      const cards = rest.filter(n => n.type !== 'frame')
+      return [newFrameNode, ...frames, ...cards]
+    })
+  }
+
+  // ── Drag helpers ──────────────────────────────────────────────────────────
   function eventClientPoint(e: MouseEvent | TouchEvent): { x: number; y: number } | null {
     if ('clientX' in e) return { x: e.clientX, y: e.clientY }
     if ('touches' in e && e.touches[0]) return { x: e.touches[0].clientX, y: e.touches[0].clientY }
     return null
   }
-
   function isOverTrash(e: MouseEvent | TouchEvent): boolean {
     const p = eventClientPoint(e)
     const rect = trashRef.current?.getBoundingClientRect()
@@ -379,65 +590,91 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
     return p.x >= rect.left && p.x <= rect.right && p.y >= rect.top && p.y <= rect.bottom
   }
 
-  const handleNodeDragStart: OnNodeDrag<CardNode> = useCallback((_e, node) => {
+  // ── Drag handlers ─────────────────────────────────────────────────────────
+  const handleNodeDragStart: OnNodeDrag<Node> = useCallback((_e, node) => {
+    if (node.type === 'frame') return
     setIsDragging(true)
     dragStartPositionRef.current = { x: node.position.x, y: node.position.y }
-    console.log('[DragStart] origin saved:', dragStartPositionRef.current)
   }, [])
 
-  // hoverTargetIdRef·hoverWillDisconnectRef는 동기적으로 업데이트하여
-  // dragStop 시점에 ref가 항상 최신 drag 상태를 참조하도록 보장
-  const handleNodeDrag: OnNodeDrag<CardNode> = useCallback((e, node) => {
-    const overTrash = isOverTrash(e)
+  const handleNodeDrag: OnNodeDrag<Node> = useCallback((e, node) => {
+    if (node.type === 'frame') return
+    const overTrash = isOverTrash(e as unknown as MouseEvent)
     if (overTrash !== hoveringTrashRef.current) setHoveringTrash(overTrash)
     if (overTrash) {
-      if (hoverTargetIdRef.current !== null) {
-        hoverTargetIdRef.current = null
-        hoverWillDisconnectRef.current = false
-        setHoverTargetId(null)
-      }
+      if (hoverTargetIdRef.current !== null) { hoverTargetIdRef.current = null; hoverWillDisconnectRef.current = false; setHoverTargetId(null) }
       return
     }
-    const target = detectOverlap(node.id, node.position, nodesRef.current, edgesRef.current)
-    const newId = target?.id ?? null
-    const newDisconnect = target?.disconnect ?? false
+    // 자유 카드만 hover 판정 (프레임 소속 카드는 건너뜀)
+    if (node.parentId) { hoverTargetIdRef.current = null; setHoverTargetId(null); return }
+    const freeCards = nodesRef.current.filter(n => n.type === 'sticky' && !n.parentId) as CardNode[]
+    const overlap = detectOverlap(node.id, node.position, freeCards, edgesRef.current)
+    const newId = overlap?.id ?? null
+    const newDisconnect = overlap?.disconnect ?? false
     hoverTargetIdRef.current = newId
     hoverWillDisconnectRef.current = newDisconnect
     if (newId !== hoverTargetId) setHoverTargetId(newId)
     if (newDisconnect !== hoverWillDisconnect) setHoverWillDisconnect(newDisconnect)
   }, [hoverTargetId, hoverWillDisconnect])
 
-  // dragStop: 겹침 판정 결과에 따라 위치 저장 + connect/disconnect 처리
-  const handleNodeDragStop: OnNodeDrag<CardNode> = useCallback((e, node) => {
-    // 1. drag 상태 정리
+  const handleNodeDragStop: OnNodeDrag<Node> = useCallback((_e, node) => {
+    // ── 프레임 드래그: 위치만 저장 ──────────────────────────────────────────
+    if (node.type === 'frame') {
+      const f = framesRef.current.find(fr => fr.id === node.id)
+      if (!f) return
+      setFrames(prev => prev.map(fr => fr.id === node.id ? { ...fr, position_x: node.position.x, position_y: node.position.y } : fr))
+      supabase.from('sketch_frames').update({ position_x: node.position.x, position_y: node.position.y }).eq('id', node.id)
+        .then(({ error }) => { if (error) console.error('프레임 위치 저장 실패:', error.message) })
+      return
+    }
+
+    // ── 카드 드래그 공통 정리 ─────────────────────────────────────────────
     setIsDragging(false)
     hoverTargetIdRef.current = null
     hoverWillDisconnectRef.current = false
     setHoverTargetId(null)
 
-    // 2. 휴지통 드롭 처리
-    if (hoveringTrashRef.current) {
-      setHoveringTrash(false)
-      handleDelete(node.id)
+    if (hoveringTrashRef.current) { setHoveringTrash(false); handleDelete(node.id); return }
+
+    // ── 프레임 소속 카드: 프레임 이탈 여부 확인 ──────────────────────────
+    if (node.parentId) {
+      const frame = framesRef.current.find(f => f.id === node.parentId)
+      if (!frame) return
+      // node.position 은 프레임 상대좌표
+      const cardCenterX = node.position.x + DEFAULT_WIDTH / 2
+      const cardCenterY = node.position.y + DEFAULT_HEIGHT / 2
+      const isOutside = cardCenterX < 0 || cardCenterX > frame.width || cardCenterY < 0 || cardCenterY > frame.height
+      if (isOutside) {
+        const absPos = { x: frame.position_x + node.position.x, y: frame.position_y + node.position.y }
+        removeCardFromFrame(node.id, absPos)
+      } else {
+        savePosition(node.id, node.position)
+      }
       return
     }
 
-    // 3. 겹침 판정
-    const overlap = detectOverlap(node.id, node.position, nodesRef.current, edgesRef.current)
+    // ── 자유 카드: 프레임 진입 여부 확인 ──────────────────────────────────
+    const targetFrame = framesRef.current.find(frame => {
+      if (frame.collapsed) return false
+      const relX = node.position.x - frame.position_x
+      const relY = node.position.y - frame.position_y
+      const centerX = relX + DEFAULT_WIDTH / 2
+      const centerY = relY + DEFAULT_HEIGHT / 2
+      return centerX > 0 && centerX < frame.width && centerY > 0 && centerY < frame.height
+    })
+    if (targetFrame) { addCardToFrame(node.id, targetFrame, node.position); return }
 
-    // 4a. connect: origin 위치로 복귀
-    //   - pendingOriginRef 인터셉트 방식은 onNodesChange 발사 타이밍에 따라 실패할 수 있음
-    //   - setTimeout(0)으로 React Flow의 모든 drag-end 상태 업데이트가 끝난 뒤 setNodes 강제 적용
-    //   - DB도 origin으로 저장 → 화면과 DB가 항상 같은 값을 가리킴
+    // ── 자유 카드: connect / disconnect / 단순 이동 ────────────────────────
+    const freeCards = nodesRef.current.filter(n => n.type === 'sticky' && !n.parentId) as CardNode[]
+    const overlap = detectOverlap(node.id, node.position, freeCards, edgesRef.current)
+
     if (overlap && !overlap.disconnect) {
       const origin = dragStartPositionRef.current
       const capturedId = node.id
-      console.log('[DragStop] connect 감지 — origin:', origin, '/ dropPos:', { x: node.position.x, y: node.position.y })
       if (origin) {
-        pendingOriginRef.current = { nodeId: capturedId, origin }  // 인터셉트도 병행(진단용)
+        pendingOriginRef.current = { nodeId: capturedId, origin }
         savePosition(capturedId, origin)
         setTimeout(() => {
-          console.log('[DragStop] setTimeout(0) — setNodes로 origin 적용:', origin)
           setNodes(nds => nds.map(n => n.id === capturedId ? { ...n, position: origin } : n))
           pendingOriginRef.current = null
         }, 0)
@@ -446,32 +683,33 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
       return
     }
 
-    // 4b. disconnect: 연결 해제 + origin 복귀 (connect와 동일한 타이밍 처리)
-    //   - pendingOriginRef는 connect 진단 전용이므로 disconnect에서는 건드리지 않음
-    //     → ref 공유로 인한 덮어쓰기 위험 없음 (드래그 1회 = connect or disconnect 중 하나)
     if (overlap?.disconnect) {
       const origin = dragStartPositionRef.current
       const capturedId = node.id
-      console.log('[DragStop] disconnect 감지 — origin:', origin, '/ dropPos:', { x: node.position.x, y: node.position.y })
       const existing = edgesRef.current.find(e =>
         (e.source === capturedId && e.target === overlap.id) || (e.source === overlap.id && e.target === capturedId))
       if (existing) handleDisconnect(existing)
       if (origin) {
         savePosition(capturedId, origin)
         setTimeout(() => {
-          console.log('[DragStop] setTimeout(0) — disconnect origin 적용:', origin)
           setNodes(nds => nds.map(n => n.id === capturedId ? { ...n, position: origin } : n))
         }, 0)
       } else {
-        savePosition(capturedId, node.position)
+        savePosition(node.id, node.position)
       }
       return
     }
 
-    // 4c. 단순 이동: drag-end 위치 그대로 저장
     savePosition(node.id, node.position)
-  }, [savePosition, handleConnect, handleDisconnect, handleDelete, setNodes])
+  }, [savePosition, handleConnect, handleDisconnect, handleDelete, addCardToFrame, removeCardFromFrame, setNodes])
 
+  // ── nodeTypes ─────────────────────────────────────────────────────────────
+  const nodeTypes: NodeTypes = useMemo(() => ({
+    sticky: StickyCardNode,
+    frame: FrameNodeComponent,
+  }), [])
+
+  // ── Board name ─────────────────────────────────────────────────────────────
   async function saveBoardName() {
     const name = nameInput.trim()
     if (!name || !board || name === board.name) { setNameInput(board?.name ?? ''); return }
@@ -479,24 +717,23 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
     setBoard(prev => prev ? { ...prev, name } : prev)
   }
 
-  if (loading) {
-    return <div className="h-full flex items-center justify-center text-[13px]" style={{ color: 'rgba(226,232,240,0.35)' }}>불러오는 중…</div>
-  }
+  if (loading) return <div className="h-full flex items-center justify-center text-[13px]" style={{ color: 'rgba(226,232,240,0.35)' }}>불러오는 중…</div>
 
-  if (!board) {
-    return (
-      <div className="h-full flex flex-col items-center justify-center gap-3">
-        <p className="text-[13px]" style={{ color: 'rgba(226,232,240,0.35)' }}>보드를 찾을 수 없습니다</p>
-        <Link href="/sketch" className="text-[12px] px-4 py-1.5 rounded-full transition-colors"
-          style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(226,232,240,0.5)' }}>
-          목록으로
-        </Link>
-      </div>
-    )
-  }
+  if (!board) return (
+    <div className="h-full flex flex-col items-center justify-center gap-3">
+      <p className="text-[13px]" style={{ color: 'rgba(226,232,240,0.35)' }}>보드를 찾을 수 없습니다</p>
+      <Link href="/sketch" className="text-[12px] px-4 py-1.5 rounded-full transition-colors"
+        style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(226,232,240,0.5)' }}>
+        목록으로
+      </Link>
+    </div>
+  )
+
+  const cardCount = nodes.filter(n => n.type === 'sticky').length
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
+      {/* 툴바 */}
       <div className="flex-shrink-0 flex items-center gap-3 pt-6 pb-3">
         <Link href="/sketch" className="p-1.5 rounded-lg transition-colors flex-shrink-0"
           style={{ color: 'rgba(226,232,240,0.5)' }}
@@ -512,10 +749,26 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
           className="text-[18px] font-bold bg-transparent focus:outline-none min-w-0"
           style={{ color: '#E2E8F0' }}
         />
-        <span className="text-[11px] flex-shrink-0" style={{ color: 'rgba(226,232,240,0.3)' }}>카드 {nodes.length}개</span>
+        <span className="text-[11px] flex-shrink-0" style={{ color: 'rgba(226,232,240,0.3)' }}>카드 {cardCount}개</span>
+
+        {/* 프레임 생성 버튼 */}
+        <button
+          onClick={() => setIsCreatingFrame(v => !v)}
+          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-[12.5px] font-medium transition-colors flex-shrink-0"
+          style={{
+            background: isCreatingFrame ? 'rgba(76,127,224,0.35)' : 'rgba(255,255,255,0.05)',
+            border: `1px solid ${isCreatingFrame ? 'rgba(76,127,224,0.6)' : 'rgba(255,255,255,0.1)'}`,
+            color: isCreatingFrame ? '#9DBEF5' : 'rgba(226,232,240,0.5)',
+          }}
+          title="프레임 생성 모드 (F)"
+        >
+          <Frame size={13} /> 프레임
+          <span className="text-[10px] font-mono opacity-50">F</span>
+        </button>
+
         <button
           onClick={handleAddButtonClick}
-          className="ml-auto flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-[12.5px] font-medium transition-colors flex-shrink-0"
+          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-[12.5px] font-medium transition-colors flex-shrink-0"
           style={{ background: 'rgba(76,127,224,0.18)', border: '1px solid rgba(76,127,224,0.35)', color: '#9DBEF5' }}
         >
           <Plus size={13} /> 새 카드
@@ -523,13 +776,18 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
         </button>
       </div>
 
-      <div ref={wrapperRef} className="flex-1 min-h-0 rounded-2xl overflow-hidden relative"
+      {/* 캔버스 */}
+      <div
+        ref={wrapperRef}
+        className="flex-1 min-h-0 rounded-2xl overflow-hidden relative"
         style={{ border: '1px solid rgba(255,255,255,0.08)' }}
-        onDoubleClick={handlePaneDoubleClick}>
+        onDoubleClick={!isCreatingFrame ? handlePaneDoubleClick : undefined}
+      >
         {hoverTargetId && (() => {
           const c = hoverWillDisconnect ? 'rgba(248,113,113,0.7)' : EDGE_COLOR
           return <style>{`.react-flow__node[data-id="${hoverTargetId}"] > div { box-shadow: 0 0 0 2px ${c}, 0 0 18px 3px ${c}; }`}</style>
         })()}
+
         {viewportReady && (
           <ReactFlow
             nodes={nodes}
@@ -545,6 +803,7 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
             onNodeDrag={handleNodeDrag}
             onNodeDragStop={handleNodeDragStop}
             onMoveEnd={handleMoveEnd}
+            panOnDrag={!isCreatingFrame}
             colorMode="dark"
             {...(initialViewport ? { defaultViewport: initialViewport } : { fitView: true })}
             minZoom={0.2}
@@ -557,16 +816,40 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
               pannable zoomable
               maskColor="rgba(15,19,25,0.6)"
               style={{ background: '#161B24', border: '1px solid rgba(255,255,255,0.09)' }}
-              nodeColor={n => CATEGORY_PALETTE[(n.data as CardData).color]?.solid ?? '#6B9BE0'}
+              nodeColor={n => CATEGORY_PALETTE[(n.data as CardData)?.color]?.solid ?? '#6B9BE0'}
             />
           </ReactFlow>
         )}
+
+        {/* 프레임 생성 오버레이 */}
+        {isCreatingFrame && (
+          <div
+            className="absolute inset-0"
+            style={{ cursor: 'crosshair', zIndex: 50 }}
+            onMouseDown={handleFrameOverlayMouseDown}
+            onMouseMove={handleFrameOverlayMouseMove}
+            onMouseUp={handleFrameOverlayMouseUp}
+          />
+        )}
+        {selectionRect && (
+          <div
+            className="absolute pointer-events-none"
+            style={{
+              left: selectionRect.left, top: selectionRect.top,
+              width: selectionRect.width, height: selectionRect.height,
+              border: '1.5px dashed rgba(76,127,224,0.7)',
+              background: 'rgba(76,127,224,0.08)',
+              borderRadius: 8, zIndex: 51,
+            }}
+          />
+        )}
+
+        {/* 드래그 중 휴지통 */}
         {isDragging && (
           <div ref={trashRef}
             className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center justify-center rounded-full transition-all"
             style={{
-              width: hoveringTrash ? 56 : 46,
-              height: hoveringTrash ? 56 : 46,
+              width: hoveringTrash ? 56 : 46, height: hoveringTrash ? 56 : 46,
               background: hoveringTrash ? 'rgba(248,113,113,0.9)' : 'rgba(22,27,36,0.9)',
               border: `1px solid ${hoveringTrash ? 'rgba(248,113,113,1)' : 'rgba(255,255,255,0.15)'}`,
               boxShadow: hoveringTrash ? '0 0 24px rgba(248,113,113,0.5)' : '0 4px 12px rgba(0,0,0,0.3)',
@@ -575,10 +858,13 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
           </div>
         )}
       </div>
+
       <p className="text-center text-[11px] pt-2 flex-shrink-0" style={{ color: 'rgba(226,232,240,0.28)' }}>
-        {nodes.length === 0
-          ? <>더블클릭 또는 <span className="font-mono">N</span> 키로 카드를 만드세요</>
-          : <>카드 왼쪽은 이동, 오른쪽은 바로 입력 · 겹쳐 놓으면 연결 · 드래그 중 하단 휴지통에 놓으면 삭제</>}
+        {isCreatingFrame
+          ? <>드래그해서 프레임 영역을 그리세요 · <span className="font-mono">Esc</span>로 취소</>
+          : cardCount === 0
+            ? <>더블클릭 또는 <span className="font-mono">N</span> 키로 카드를 만드세요</>
+            : <>카드 왼쪽은 이동, 오른쪽은 바로 입력 · 겹쳐 놓으면 연결 · <span className="font-mono">F</span>로 프레임 생성</>}
       </p>
     </div>
   )

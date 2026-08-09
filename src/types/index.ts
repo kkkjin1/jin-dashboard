@@ -298,6 +298,7 @@ export interface SketchCard {
   position_y: number
   width: number
   height: number
+  frame_id: string | null
   created_at: string
   updated_at: string
 }
@@ -308,4 +309,17 @@ export interface SketchEdge {
   source_card_id: string
   target_card_id: string
   created_at: string
+}
+
+export interface SketchFrame {
+  id: string
+  board_id: string
+  title: string
+  position_x: number
+  position_y: number
+  width: number
+  height: number
+  collapsed: boolean
+  created_at: string
+  updated_at: string
 }
