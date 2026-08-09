@@ -18,8 +18,8 @@ import type { SketchBoard, SketchCard, SketchEdge } from '@/types'
 const COLOR_KEYS = Object.keys(CATEGORY_PALETTE) as CategoryColorKey[]
 const DEFAULT_WIDTH = 220
 const DEFAULT_HEIGHT = 140
-const CONNECT_OVERLAP_RATIO = 0.6 // 드래그한 카드 면적의 이 비율 이상 겹쳐야 새로 연결 (카드를 그냥 나란히 붙이는 정리와 구분)
-const DISCONNECT_OVERLAP_RATIO = 0.55 // 이미 연결된 카드에 이 비율 이상 겹치면 연결 해제
+const CONNECT_OVERLAP_RATIO = 0.6
+const DISCONNECT_OVERLAP_RATIO = 0.55
 const EDGE_COLOR = 'rgba(157,190,245,0.55)'
 const EDGE_STYLE = { stroke: EDGE_COLOR, strokeWidth: 1.5 }
 const EDGE_MARKER = { type: MarkerType.ArrowClosed, color: EDGE_COLOR, width: 16, height: 16 }
@@ -28,8 +28,7 @@ function edgeFromRow(row: SketchEdge): Edge {
   return { id: row.id, source: row.source_card_id, target: row.target_card_id, type: 'floating', markerEnd: EDGE_MARKER, style: EDGE_STYLE }
 }
 
-// ── 카드 위치가 바뀌어도 항상 두 카드 경계를 잇는 직선으로 다시 그려지는 edge ──
-// (기본 bezier edge는 핸들 방향이 고정이라 카드를 재배치해도 곡선이 그대로 남는 문제가 있음)
+// 카드 위치가 바뀌어도 항상 두 카드 경계를 잇는 직선으로 다시 그려지는 edge
 function getNodeIntersection(intersectionNode: InternalNode, targetNode: InternalNode) {
   const w = (intersectionNode.measured.width ?? DEFAULT_WIDTH) / 2
   const h = (intersectionNode.measured.height ?? DEFAULT_HEIGHT) / 2
@@ -95,7 +94,6 @@ function StickyCardNode({ id, data }: NodeProps<CardNode>) {
         className="opacity-0 group-hover:opacity-100 transition-opacity"
         style={{ width: 10, height: 10, background: palette.solid, border: '2px solid rgba(255,255,255,0.7)' }} />
 
-      {/* 상단 컨트롤 (호버 시 노출) */}
       <div className="flex items-center gap-1 px-2 pt-1.5 pb-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
         {COLOR_KEYS.map(key => (
           <button
@@ -113,7 +111,6 @@ function StickyCardNode({ id, data }: NodeProps<CardNode>) {
         </button>
       </div>
 
-      {/* 본문: 텍스트는 카드 전체 폭 사용, 왼쪽 절반 위에만 드래그 전용 투명 오버레이를 얹음 */}
       <div className="flex-1 min-h-0 relative px-2 pb-2">
         <textarea
           className="nodrag nopan absolute inset-0 w-full h-full bg-transparent resize-none focus:outline-none text-[12.5px] leading-snug placeholder:opacity-40"
@@ -148,6 +145,34 @@ function rectsOverlapArea(ax: number, ay: number, aw: number, ah: number, bx: nu
   return w * h
 }
 
+// 순수 함수 — state/ref 접근 없음, 부작용 없음
+// disconnect 패스를 먼저 실행해야 연결된 카드끼리의 겹침이 connect로 오판되지 않음
+function detectOverlap(
+  draggedId: string,
+  pos: { x: number; y: number },
+  allNodes: CardNode[],
+  currentEdges: Edge[],
+): { id: string; disconnect: boolean } | null {
+  const area = DEFAULT_WIDTH * DEFAULT_HEIGHT
+  for (const n of allNodes) {
+    if (n.id === draggedId) continue
+    const connected = currentEdges.some(e =>
+      (e.source === draggedId && e.target === n.id) || (e.source === n.id && e.target === draggedId))
+    if (!connected) continue
+    const overlap = rectsOverlapArea(pos.x, pos.y, DEFAULT_WIDTH, DEFAULT_HEIGHT, n.position.x, n.position.y, DEFAULT_WIDTH, DEFAULT_HEIGHT)
+    if (overlap / area >= DISCONNECT_OVERLAP_RATIO) return { id: n.id, disconnect: true }
+  }
+  for (const n of allNodes) {
+    if (n.id === draggedId) continue
+    const connected = currentEdges.some(e =>
+      (e.source === draggedId && e.target === n.id) || (e.source === n.id && e.target === draggedId))
+    if (connected) continue
+    const overlap = rectsOverlapArea(pos.x, pos.y, DEFAULT_WIDTH, DEFAULT_HEIGHT, n.position.x, n.position.y, DEFAULT_WIDTH, DEFAULT_HEIGHT)
+    if (overlap / area >= CONNECT_OVERLAP_RATIO) return { id: n.id, disconnect: false }
+  }
+  return null
+}
+
 function viewportKey(boardId: string) { return `sketch_viewport_${boardId}` }
 
 function SketchCanvasInner({ boardId }: { boardId: string }) {
@@ -155,10 +180,6 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
   const { screenToFlowPosition } = useReactFlow()
   const wrapperRef = useRef<HTMLDivElement>(null)
 
-  // 마지막으로 보던 확대/축소·위치 — 있으면 새로고침해도 그 상태 그대로 열림.
-  // localStorage는 서버에는 없으므로 useState 초기값이 아니라 mount 이후 effect에서 읽어야 함
-  // (그렇지 않으면 서버 렌더 시점엔 항상 null이라 fitView로 고정돼버리고, 클라이언트에서
-  //  값을 다시 읽어도 defaultViewport는 최초 마운트 이후엔 반영되지 않아 무용지물이 됨)
   const [initialViewport, setInitialViewport] = useState<{ x: number; y: number; zoom: number } | null>(null)
   const [viewportReady, setViewportReady] = useState(false)
 
@@ -213,30 +234,55 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
 
   const handlers = { onContentChange: handleContentChange, onColorChange: handleColorChange, onDelete: handleDelete }
 
-  const createConnection = useCallback((sourceId: string, targetId: string) => {
+  // ── 위치 저장: drag-end 위치를 항상 그대로 저장, origin 복원 없음 ──────────
+  const savePosition = useCallback((nodeId: string, position: { x: number; y: number }) => {
+    supabase.from('sketch_cards')
+      .update({ position_x: position.x, position_y: position.y })
+      .eq('id', nodeId)
+      .then(({ error }) => { if (error) console.error('카드 위치 저장 실패:', error.message) })
+  }, [])
+
+  // ── 연결 생성: DB 확인 후 setEdges (낙관적 업데이트 없음 — id가 DB에서 발급되므로) ──
+  const handleConnect = useCallback((sourceId: string, targetId: string) => {
     supabase.from('sketch_edges')
       .insert({ board_id: boardId, source_card_id: sourceId, target_card_id: targetId })
       .select().single()
       .then(({ data, error }) => {
-        if (error || !data) { console.error('연결 생성 실패:', error?.message); return }
+        if (error || !data) {
+          console.error('연결 생성 실패:', error?.message)
+          alert('연결 생성에 실패했습니다. 다시 시도해주세요.')
+          return
+        }
         setEdges(eds => [...eds, edgeFromRow(data as SketchEdge)])
       })
   }, [boardId])
 
-  const removeConnection = useCallback((edgeId: string) => {
-    setEdges(prev => prev.filter(e => e.id !== edgeId))
-    supabase.from('sketch_edges').delete().eq('id', edgeId)
-      .then(({ error }) => { if (error) console.error('연결 해제 실패:', error.message) })
+  // ── 연결 해제: 낙관적 삭제 → DB 실패 시 롤백 + alert ────────────────────────
+  const handleDisconnect = useCallback((edge: Edge) => {
+    // a) 즉시 UI 반영
+    setEdges(prev => prev.filter(e => e.id !== edge.id))
+    // b) DB 삭제
+    supabase.from('sketch_edges').delete().eq('id', edge.id)
+      .then(({ error }) => {
+        if (error) {
+          // c) 실패 시 롤백
+          setEdges(prev => [...prev, edge])
+          console.error('연결 해제 실패:', error.message)
+          alert('연결 해제에 실패했습니다. 다시 시도해주세요.')
+        }
+      })
   }, [])
 
   const onConnect: OnConnect = useCallback((connection) => {
     if (!connection.source || !connection.target || connection.source === connection.target) return
-    createConnection(connection.source, connection.target)
-  }, [createConnection])
+    handleConnect(connection.source, connection.target)
+  }, [handleConnect])
 
+  // handleEdgesDelete는 React Flow가 edge를 이미 제거한 뒤 호출하므로
+  // edge 객체를 직접 넘겨 롤백 시 복원할 수 있도록 함
   const handleEdgesDelete = useCallback((deleted: Edge[]) => {
-    deleted.forEach(e => removeConnection(e.id))
-  }, [removeConnection])
+    deleted.forEach(edge => handleDisconnect(edge))
+  }, [handleDisconnect])
 
   useEffect(() => {
     Promise.all([
@@ -277,7 +323,6 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
     createCard(pos.x, pos.y)
   }
 
-  // 'N' 단축키 — 입력 중(텍스트/보드명 편집)이 아닐 때만 새 카드 생성
   const handleAddButtonClickRef = useRef(handleAddButtonClick)
   useEffect(() => { handleAddButtonClickRef.current = handleAddButtonClick })
 
@@ -294,32 +339,6 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
-
-  // 드래그 중인 카드와 겹치는 다른 카드를 찾음 (전부 고정 크기라 상수로 계산).
-  // 이미 연결된 카드는 훨씬 많이 겹쳐야만 "해제 대상"으로 인식 —
-  // 그래야 연결된 카드끼리 그냥 옆에 나란히 정리할 때 실수로 연결이 풀리지 않음
-  function findOverlapTarget(draggedId: string, pos: { x: number; y: number }): { id: string; disconnect: boolean } | null {
-    const area = DEFAULT_WIDTH * DEFAULT_HEIGHT
-    // disconnect 후보 먼저 확인 — 연결된 카드와 충분히 겹치면 해제
-    for (const n of nodesRef.current) {
-      if (n.id === draggedId) continue
-      const connected = edgesRef.current.some(e =>
-        (e.source === draggedId && e.target === n.id) || (e.source === n.id && e.target === draggedId))
-      if (!connected) continue
-      const overlap = rectsOverlapArea(pos.x, pos.y, DEFAULT_WIDTH, DEFAULT_HEIGHT, n.position.x, n.position.y, DEFAULT_WIDTH, DEFAULT_HEIGHT)
-      if (overlap / area >= DISCONNECT_OVERLAP_RATIO) return { id: n.id, disconnect: true }
-    }
-    // connect 후보 확인 — 연결 안 된 카드와 충분히 겹치면 연결
-    for (const n of nodesRef.current) {
-      if (n.id === draggedId) continue
-      const connected = edgesRef.current.some(e =>
-        (e.source === draggedId && e.target === n.id) || (e.source === n.id && e.target === draggedId))
-      if (connected) continue
-      const overlap = rectsOverlapArea(pos.x, pos.y, DEFAULT_WIDTH, DEFAULT_HEIGHT, n.position.x, n.position.y, DEFAULT_WIDTH, DEFAULT_HEIGHT)
-      if (overlap / area >= CONNECT_OVERLAP_RATIO) return { id: n.id, disconnect: false }
-    }
-    return null
-  }
 
   function eventClientPoint(e: MouseEvent | TouchEvent): { x: number; y: number } | null {
     if ('clientX' in e) return { x: e.clientX, y: e.clientY }
@@ -338,6 +357,8 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
     setIsDragging(true)
   }, [])
 
+  // hoverTargetIdRef·hoverWillDisconnectRef는 동기적으로 업데이트하여
+  // dragStop 시점에 ref가 항상 최신 drag 상태를 참조하도록 보장
   const handleNodeDrag: OnNodeDrag<CardNode> = useCallback((e, node) => {
     const overTrash = isOverTrash(e)
     if (overTrash !== hoveringTrashRef.current) setHoveringTrash(overTrash)
@@ -349,45 +370,45 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
       }
       return
     }
-    const target = findOverlapTarget(node.id, node.position)
+    const target = detectOverlap(node.id, node.position, nodesRef.current, edgesRef.current)
     const newId = target?.id ?? null
     const newDisconnect = target?.disconnect ?? false
-    // ref를 동기적으로 바로 업데이트 (dragStop에서 effect 없이 즉시 읽기 위해)
     hoverTargetIdRef.current = newId
     hoverWillDisconnectRef.current = newDisconnect
     if (newId !== hoverTargetId) setHoverTargetId(newId)
     if (newDisconnect !== hoverWillDisconnect) setHoverWillDisconnect(newDisconnect)
   }, [hoverTargetId, hoverWillDisconnect])
 
-  // 드래그가 끝나면 겹침 여부와 상관없이 위치는 항상 그 자리에 저장한다.
-  // (이전엔 겹쳐서 연결/해제가 발동하면 카드를 원래 자리로 되돌렸는데,
-  //  카드를 서로 가깝게 붙여서 정리하려는 평범한 드래그도 쉽게 50% 겹침을
-  //  넘겨버려서 "정리해도 새로고침하면 다시 가운데로 리셋"되는 것처럼 보였음.
-  //  이제 위치 저장과 연결/해제는 완전히 별개로 처리한다.)
+  // dragStop은 4개 함수를 순서대로 호출하는 역할만 담당
   const handleNodeDragStop: OnNodeDrag<CardNode> = useCallback((e, node) => {
+    // 1. drag 상태 정리
     setIsDragging(false)
     hoverTargetIdRef.current = null
     hoverWillDisconnectRef.current = false
     setHoverTargetId(null)
+
+    // 2. 휴지통 드롭 처리
     if (hoveringTrashRef.current) {
       setHoveringTrash(false)
       handleDelete(node.id)
       return
     }
-    // 위치는 항상 drop된 자리로 저장 — 조건 없음
-    supabase.from('sketch_cards').update({ position_x: node.position.x, position_y: node.position.y }).eq('id', node.id)
-      .then(({ error }) => { if (error) console.error('카드 위치 저장 실패:', error.message) })
-    // connect/disconnect는 위치와 무관하게 별도 처리
-    const target = findOverlapTarget(node.id, node.position)
-    if (!target) return
-    if (target.disconnect) {
-      const existing = edgesRef.current.find(e2 =>
-        (e2.source === node.id && e2.target === target.id) || (e2.source === target.id && e2.target === node.id))
-      if (existing) removeConnection(existing.id)
+
+    // 3. 위치 저장 (항상, 연결 여부와 무관)
+    savePosition(node.id, node.position)
+
+    // 4. 겹침 판정 → 연결 또는 해제
+    const overlap = detectOverlap(node.id, node.position, nodesRef.current, edgesRef.current)
+    if (!overlap) return
+
+    if (overlap.disconnect) {
+      const existing = edgesRef.current.find(e =>
+        (e.source === node.id && e.target === overlap.id) || (e.source === overlap.id && e.target === node.id))
+      if (existing) handleDisconnect(existing)
     } else {
-      createConnection(node.id, target.id)
+      handleConnect(node.id, overlap.id)
     }
-  }, [createConnection, removeConnection, handleDelete])
+  }, [savePosition, handleConnect, handleDisconnect, handleDelete])
 
   async function saveBoardName() {
     const name = nameInput.trim()
@@ -414,7 +435,6 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
-      {/* 헤더 */}
       <div className="flex-shrink-0 flex items-center gap-3 pt-6 pb-3">
         <Link href="/sketch" className="p-1.5 rounded-lg transition-colors flex-shrink-0"
           style={{ color: 'rgba(226,232,240,0.5)' }}
@@ -441,7 +461,6 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
         </button>
       </div>
 
-      {/* 캔버스 */}
       <div ref={wrapperRef} className="flex-1 min-h-0 rounded-2xl overflow-hidden relative"
         style={{ border: '1px solid rgba(255,255,255,0.08)' }}
         onDoubleClick={handlePaneDoubleClick}>
