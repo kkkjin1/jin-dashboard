@@ -98,6 +98,10 @@ export default function LearningNew() {
     return hasActiveFilter ? entries.filter(([, items]) => items.length > 0) : entries
   }, [filtered, customTags, hasActiveFilter])
 
+  // 2행 기준 필요한 열 수 — 열 너비를 fr로 줘서 창 크기에 맞춰 카드가 같이 줄어들게 함
+  // (고정 px였을 때는 창을 좁혀도 카드 너비가 그대로라 매번 가로 스크롤이 필요했음)
+  const gridCols = Math.max(1, Math.ceil(groups.length / 2))
+
   return (
     <div className="h-full flex flex-col overflow-hidden" style={{ background: '#0F1319' }}>
 
@@ -219,7 +223,11 @@ export default function LearningNew() {
         ) : (
           <div
             className="grid gap-3 pb-3 h-full"
-            style={{ gridTemplateRows: 'repeat(2, min-content)', gridAutoFlow: 'column', gridAutoColumns: '260px' }}
+            style={{
+              gridTemplateRows: 'repeat(2, min-content)',
+              gridTemplateColumns: `repeat(${gridCols}, minmax(500px, 1fr))`,
+              gridAutoFlow: 'column',
+            }}
           >
             {groups.map(([tag, items]) => (
               <LearningSection
