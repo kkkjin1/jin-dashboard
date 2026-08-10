@@ -1,8 +1,7 @@
 'use client'
 
-import { ChevronRight, FileText } from 'lucide-react'
+import { FileText } from 'lucide-react'
 import type { LearningResource } from '@/types'
-import type { ColWidths } from './colWidths'
 
 type Status = 'todo' | 'doing' | 'done'
 
@@ -22,85 +21,50 @@ export function getStatus(tags: string[]): Status {
 
 interface Props {
   resource: LearningResource
-  colWidths: ColWidths
   onNavigate: () => void
   onCycleStatus: () => void
 }
 
-export default function LearningRow({ resource, colWidths, onNavigate, onCycleStatus }: Props) {
+export default function LearningRow({ resource, onNavigate, onCycleStatus }: Props) {
   const status     = getStatus(resource.tags ?? [])
   const mediaEmoji = MEDIA_EMOJI[resource.media_type ?? ''] ?? '📌'
   const noteCount  = resource.notes?.length ?? 0
-  const source     = resource.source ?? ''
-  const sourceDisplay = source.replace(/^https?:\/\/(www\.)?/, '').split('/')[0]
 
   return (
     <div
-      className="group flex items-center cursor-pointer transition-colors"
-      style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', padding: '10px 16px' }}
+      className="group flex items-center gap-2 cursor-pointer transition-colors"
+      style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', padding: '9px 12px', height: 42, boxSizing: 'border-box' }}
       onClick={onNavigate}
       onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.03)')}
       onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
     >
       {/* 미디어 */}
-      <span className="text-[15px] flex-shrink-0 text-center select-none mr-2" style={{ width: 24 }}>{mediaEmoji}</span>
+      <span className="text-[13px] flex-shrink-0 select-none">{mediaEmoji}</span>
 
       {/* 제목 */}
       <span
-        className="text-[13px] font-medium truncate flex-shrink-0"
-        style={{ width: colWidths.title, color: '#E2E8F0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+        className="text-[12.5px] font-medium truncate flex-1 min-w-0"
+        style={{ color: '#E2E8F0' }}
       >
         {resource.title || '제목 없음'}
       </span>
 
-      {/* 핸들 공간 */}
-      <span style={{ width: 10, flexShrink: 0 }} />
-
-      {/* 출처 */}
-      <span style={{ width: colWidths.source, flexShrink: 0, overflow: 'hidden' }}>
-        {sourceDisplay && (
-          <a
-            href={source.startsWith('http') ? source : `https://${source}`}
-            target="_blank" rel="noopener noreferrer"
-            onClick={e => e.stopPropagation()}
-            className="text-[11px] truncate block transition-colors hover:underline"
-            style={{ color: 'rgba(226,232,240,0.3)' }}
-            onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = '#7EB3FF')}
-            onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = 'rgba(226,232,240,0.3)')}
-          >
-            {sourceDisplay}
-          </a>
-        )}
-      </span>
-
-      {/* 핸들 공간 */}
-      <span style={{ width: 10, flexShrink: 0 }} />
+      {/* 노트 수 */}
+      {noteCount > 0 && (
+        <span className="flex items-center gap-0.5 flex-shrink-0" style={{ color: 'rgba(226,232,240,0.3)' }}>
+          <FileText size={10} />
+          <span className="text-[10px]">{noteCount}</span>
+        </span>
+      )}
 
       {/* 상태 */}
-      <span style={{ width: colWidths.status, flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
-        <button
-          onClick={e => { e.stopPropagation(); onCycleStatus() }}
-          className="text-[10px] px-2 py-0.5 rounded-full transition-all"
-          style={STATUS_STYLE[status]}
-        >
-          {STATUS_LABEL[status]}
-        </button>
-      </span>
-
-      {/* 노트 수 */}
-      <span style={{ width: 44, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 3 }}>
-        {noteCount > 0 && (
-          <>
-            <FileText size={11} style={{ color: 'rgba(226,232,240,0.3)' }} />
-            <span className="text-[11px]" style={{ color: 'rgba(226,232,240,0.3)' }}>{noteCount}</span>
-          </>
-        )}
-      </span>
-
-      {/* 화살표 */}
-      <span className="opacity-0 group-hover:opacity-100 transition-opacity" style={{ width: 20, display: 'flex', justifyContent: 'flex-end', flexShrink: 0 }}>
-        <ChevronRight size={13} style={{ color: 'rgba(226,232,240,0.3)' }} />
-      </span>
+      <button
+        onClick={e => { e.stopPropagation(); onCycleStatus() }}
+        className="text-[9.5px] px-1.5 py-0.5 rounded-full transition-all flex-shrink-0"
+        style={STATUS_STYLE[status]}
+      >
+        {STATUS_LABEL[status]}
+      </button>
     </div>
   )
 }

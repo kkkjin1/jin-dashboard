@@ -8,7 +8,6 @@ import { useUserSetting } from '@/hooks/useUserSetting'
 import LearningSearchToolbar, { type StatusFilter, type MediaFilter } from './LearningSearchToolbar'
 import LearningSection from './LearningSection'
 import { getStatus } from './LearningRow'
-import { type ColWidths, loadColWidths, saveColWidths } from './colWidths'
 
 const DEFAULT_TAGS = ['HR', '경제', '리더십', '평가보상', '데이터', '조직문화', '기획']
 
@@ -21,12 +20,8 @@ export default function LearningNew() {
 
   const [resources, setResources] = useState<LearningResource[]>([])
   const [loading,   setLoading]   = useState(true)
-  const [colWidths, setColWidths] = useState<ColWidths>(() => {
-    if (typeof window === 'undefined') return { title: 280, source: 140, status: 64 }
-    return loadColWidths()
-  })
 
-  const { value: customTags } = useUserSetting<string[]>('learning_custom_tags', DEFAULT_TAGS)
+  const { value: customTags, save: saveCustomTags } = useUserSetting<string[]>('learning_custom_tags', DEFAULT_TAGS)
   const { value: siteShortcuts } = useUserSetting<SiteShortcut[]>('learning_site_shortcuts', [])
 
   // 필터 상태
@@ -41,29 +36,10 @@ export default function LearningNew() {
   const [addTag,    setAddTag]    = useState('')
 
   useEffect(() => {
+    // 최신순(created_at 내림차순) — 각 범주 카드 안에서도 이 순서 그대로 유지됨
     supabase.from('learning_resources').select('*').order('created_at', { ascending: false })
       .then(({ data }) => { setResources((data ?? []) as LearningResource[]); setLoading(false) })
   }, [])
-
-  // ── 컬럼 리사이즈 ─────────────────────────────────────
-  function startResize(col: keyof ColWidths, e: React.MouseEvent) {
-    e.preventDefault()
-    const startX    = e.clientX
-    const startW    = colWidths[col]
-    const MIN_W     = col === 'status' ? 52 : 80
-    const MAX_W     = col === 'title' ? 600 : col === 'source' ? 400 : 140
-
-    function onMove(ev: MouseEvent) {
-      const next = Math.min(MAX_W, Math.max(MIN_W, startW + ev.clientX - startX))
-      setColWidths(prev => { const w = { ...prev, [col]: next }; saveColWidths(w); return w })
-    }
-    function onUp() {
-      document.removeEventListener('mousemove', onMove)
-      document.removeEventListener('mouseup', onUp)
-    }
-    document.addEventListener('mousemove', onMove)
-    document.addEventListener('mouseup', onUp)
-  }
 
   // ── CRUD (기존과 동일) ──────────────────────────────────
   async function handleAdd() {
@@ -212,20 +188,21 @@ export default function LearningNew() {
         </div>
       )}
 
-      {/* 검색 툴바 */}
+      {/* 검색 툴바 + 범주 관리 */}
       <LearningSearchToolbar
         search={search}             setSearch={setSearch}
         statusFilter={statusFilter} setStatusFilter={setStatusFilter}
         mediaFilter={mediaFilter}   setMediaFilter={setMediaFilter}
+        customTags={customTags}     setCustomTags={saveCustomTags}
         total={filtered.length}
       />
 
-      {/* 본문 */}
-      <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
+      {/* 본문 — 2행 x N열 그리드 (열은 자동 계산, 넘치면 가로 스크롤) */}
+      <div className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden scrollbar-hide">
         {loading ? (
-          <div className="space-y-3 pb-6">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="h-36 rounded-2xl animate-pulse" style={{ background: 'rgba(255,255,255,0.04)' }} />
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pb-6">
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="h-56 rounded-2xl animate-pulse" style={{ background: 'rgba(255,255,255,0.04)' }} />
             ))}
           </div>
         ) : groups.length === 0 ? (
@@ -240,15 +217,16 @@ export default function LearningNew() {
             </button>
           </div>
         ) : (
-          <div className="space-y-3 pb-8">
+          <div
+            className="grid gap-3 pb-3 h-full"
+            style={{ gridTemplateRows: 'repeat(2, min-content)', gridAutoFlow: 'column', gridAutoColumns: '260px' }}
+          >
             {groups.map(([tag, items]) => (
               <LearningSection
                 key={tag}
                 tag={tag}
                 allTags={allTags}
                 resources={items}
-                colWidths={colWidths}
-                onResizeCol={startResize}
                 onNavigate={id => router.push(`/learning/${id}`)}
                 onCycleStatus={cycleStatus}
               />
