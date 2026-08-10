@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
+import { Users, TrendingUp, Compass, Award, Database, Building2, ClipboardList, FolderOpen, Tag, type LucideIcon } from 'lucide-react'
 import type { LearningResource } from '@/types'
 import LearningRow from './LearningRow'
 
@@ -12,6 +13,22 @@ const TAG_COLORS = [
 function tagColor(tag: string, allTags: string[]): string {
   const idx = allTags.indexOf(tag)
   return TAG_COLORS[idx % TAG_COLORS.length] ?? '#4C7FE0'
+}
+
+// 범주명과 어울리는 아이콘 매핑. 매칭 없는 커스텀 범주는 기본 Tag 아이콘.
+const TAG_ICONS: Record<string, LucideIcon> = {
+  'HR': Users,
+  '경제': TrendingUp,
+  '리더십': Compass,
+  '평가보상': Award,
+  '데이터': Database,
+  '조직문화': Building2,
+  '기획': ClipboardList,
+  '미분류': FolderOpen,
+}
+
+function tagIcon(tag: string): LucideIcon {
+  return TAG_ICONS[tag] ?? Tag
 }
 
 const ROW_H = 42
@@ -28,6 +45,7 @@ interface Props {
 
 export default function LearningSection({ tag, allTags, resources, onNavigate, onCycleStatus, onRenameTag }: Props) {
   const dot = tagColor(tag, allTags)
+  const Icon = tagIcon(tag)
   const editable = tag !== '미분류'
 
   const [editing, setEditing] = useState(false)
@@ -58,7 +76,7 @@ export default function LearningSection({ tag, allTags, resources, onNavigate, o
         className="flex items-center gap-2 px-3.5 flex-shrink-0"
         style={{ height: 44, borderBottom: '1px solid rgba(255,255,255,0.06)' }}
       >
-        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: dot }} />
+        <Icon size={14} className="flex-shrink-0" style={{ color: dot }} />
         {editing ? (
           <input
             ref={inputRef}
