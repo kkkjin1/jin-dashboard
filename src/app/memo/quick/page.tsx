@@ -294,7 +294,7 @@ export default function QuickMemoPage() {
       )}
 
       {/* 본문 */}
-      <div className="flex-1 min-h-0 mb-2 overflow-y-auto border border-[rgba(255,255,255,0.08)] rounded-lg px-3 py-2"
+      <div className="flex-1 min-h-0 mb-2 overflow-y-auto scrollbar-hide border border-[rgba(255,255,255,0.08)] rounded-lg px-3 py-2"
         style={{ background: '#1A1C1F' }}>
         <TiptapEditor
           key={editorKey}
@@ -344,7 +344,7 @@ export default function QuickMemoPage() {
             <button type="button" onClick={() => setShowPicker(false)}
               className="text-[13px] leading-none" style={{ color: '#5B6270' }}>×</button>
           </div>
-          <div className="max-h-[140px] overflow-y-auto py-1">
+          <div className="max-h-[140px] overflow-y-auto scrollbar-hide py-1">
             {pickerLoading ? (
               <div className="text-[11px] px-3 py-3 text-center" style={{ color: '#5B6270' }}>로딩 중...</div>
             ) : pickerStep === 'group' ? (
