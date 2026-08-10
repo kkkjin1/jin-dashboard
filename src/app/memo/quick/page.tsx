@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import TiptapEditor from '@/components/TiptapEditor'
+import { openQuickMemo } from '@/lib/quickMemo'
 import type { MemoTag } from '@/types'
 
 const TAGS: MemoTag[] = ['업무관련', '회의관련', '아이디어', '공지']
@@ -114,6 +115,15 @@ export default function QuickMemoPage() {
       if (e.key === 'Escape') {
         if (showPicker) { setShowPicker(false); return }
         window.close()
+        return
+      }
+      // 팝업 안에서도 Ctrl+3으로 새 빠른 메모 팝업을 하나 더 열 수 있게.
+      // 팝업은 열리자마자 제목 입력창에 자동으로 포커스가 가 있는 경우가 많아서,
+      // 메인 앱과 달리 input/textarea 포커스 여부와 상관없이 항상 동작하게 둔다.
+      if ((e.ctrlKey || e.metaKey) && e.key === '3') {
+        if (e.repeat) return
+        e.preventDefault()
+        openQuickMemo()
       }
     }
     window.addEventListener('keydown', onKey)
