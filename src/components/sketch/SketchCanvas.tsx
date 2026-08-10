@@ -127,7 +127,20 @@ function StickyCardNode({ id, data }: NodeProps<CardNode>) {
   )
 }
 
-// ── 겹침 판정 (프레임 없는 자유 카드끼리만) ────────────────────────────────────
+// ── 겹침 판정 (프레임 소속 여부와 무관하게 절대좌표 기준으로 비교) ────────────────
+// 프레임 소속 카드의 position은 프레임 기준 상대좌표라, 자유 카드의 절대좌표와
+// 그대로 비교하면 안 됨. 비교 전에 항상 이 함수로 절대좌표로 변환해야 한다.
+function toAbsolutePosition(
+  pos: { x: number; y: number },
+  parentId: string | undefined,
+  frames: SketchFrame[],
+): { x: number; y: number } {
+  if (!parentId) return pos
+  const frame = frames.find(f => f.id === parentId)
+  if (!frame) return pos
+  return { x: frame.position_x + pos.x, y: frame.position_y + pos.y }
+}
+
 function rectsOverlapArea(ax: number, ay: number, aw: number, ah: number, bx: number, by: number, bw: number, bh: number) {
   const w = Math.max(0, Math.min(ax + aw, bx + bw) - Math.max(ax, bx))
   const h = Math.max(0, Math.min(ay + ah, by + bh) - Math.max(ay, by))
@@ -136,12 +149,12 @@ function rectsOverlapArea(ax: number, ay: number, aw: number, ah: number, bx: nu
 
 function detectOverlap(
   draggedId: string,
-  pos: { x: number; y: number },
-  freeCards: CardNode[],
+  pos: { x: number; y: number }, // 절대좌표
+  candidates: { id: string; position: { x: number; y: number } }[], // 절대좌표로 이미 변환된 후보
   currentEdges: Edge[],
 ): { id: string; disconnect: boolean } | null {
   const area = DEFAULT_WIDTH * DEFAULT_HEIGHT
-  for (const n of freeCards) {
+  for (const n of candidates) {
     if (n.id === draggedId) continue
     const connected = currentEdges.some(e =>
       (e.source === draggedId && e.target === n.id) || (e.source === n.id && e.target === draggedId))
@@ -149,7 +162,7 @@ function detectOverlap(
     const overlap = rectsOverlapArea(pos.x, pos.y, DEFAULT_WIDTH, DEFAULT_HEIGHT, n.position.x, n.position.y, DEFAULT_WIDTH, DEFAULT_HEIGHT)
     if (overlap / area >= DISCONNECT_OVERLAP_RATIO) return { id: n.id, disconnect: true }
   }
-  for (const n of freeCards) {
+  for (const n of candidates) {
     if (n.id === draggedId) continue
     const connected = currentEdges.some(e =>
       (e.source === draggedId && e.target === n.id) || (e.source === n.id && e.target === draggedId))
@@ -605,10 +618,12 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
       if (hoverTargetIdRef.current !== null) { hoverTargetIdRef.current = null; hoverWillDisconnectRef.current = false; setHoverTargetId(null) }
       return
     }
-    // 자유 카드만 hover 판정 (프레임 소속 카드는 건너뜀)
-    if (node.parentId) { hoverTargetIdRef.current = null; setHoverTargetId(null); return }
-    const freeCards = nodesRef.current.filter(n => n.type === 'sticky' && !n.parentId) as CardNode[]
-    const overlap = detectOverlap(node.id, node.position, freeCards, edgesRef.current)
+    // 프레임 소속 여부와 무관하게 절대좌표로 변환해서 비교 (같은 프레임 안의
+    // 카드끼리도, 자유 카드끼리도 겹침으로 연결/해제가 가능해야 함)
+    const draggedAbsPos = toAbsolutePosition(node.position, node.parentId, framesRef.current)
+    const candidates = (nodesRef.current.filter(n => n.type === 'sticky' && n.id !== node.id) as CardNode[])
+      .map(n => ({ id: n.id, position: toAbsolutePosition(n.position, n.parentId, framesRef.current) }))
+    const overlap = detectOverlap(node.id, draggedAbsPos, candidates, edgesRef.current)
     const newId = overlap?.id ?? null
     const newDisconnect = overlap?.disconnect ?? false
     hoverTargetIdRef.current = newId
@@ -636,37 +651,12 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
 
     if (hoveringTrashRef.current) { setHoveringTrash(false); handleDelete(node.id); return }
 
-    // ── 프레임 소속 카드: 프레임 이탈 여부 확인 ──────────────────────────
-    if (node.parentId) {
-      const frame = framesRef.current.find(f => f.id === node.parentId)
-      if (!frame) return
-      // node.position 은 프레임 상대좌표
-      const cardCenterX = node.position.x + DEFAULT_WIDTH / 2
-      const cardCenterY = node.position.y + DEFAULT_HEIGHT / 2
-      const isOutside = cardCenterX < 0 || cardCenterX > frame.width || cardCenterY < 0 || cardCenterY > frame.height
-      if (isOutside) {
-        const absPos = { x: frame.position_x + node.position.x, y: frame.position_y + node.position.y }
-        removeCardFromFrame(node.id, absPos)
-      } else {
-        savePosition(node.id, node.position)
-      }
-      return
-    }
-
-    // ── 자유 카드: 프레임 진입 여부 확인 ──────────────────────────────────
-    const targetFrame = framesRef.current.find(frame => {
-      if (frame.collapsed) return false
-      const relX = node.position.x - frame.position_x
-      const relY = node.position.y - frame.position_y
-      const centerX = relX + DEFAULT_WIDTH / 2
-      const centerY = relY + DEFAULT_HEIGHT / 2
-      return centerX > 0 && centerX < frame.width && centerY > 0 && centerY < frame.height
-    })
-    if (targetFrame) { addCardToFrame(node.id, targetFrame, node.position); return }
-
-    // ── 자유 카드: connect / disconnect / 단순 이동 ────────────────────────
-    const freeCards = nodesRef.current.filter(n => n.type === 'sticky' && !n.parentId) as CardNode[]
-    const overlap = detectOverlap(node.id, node.position, freeCards, edgesRef.current)
+    // ── connect / disconnect: 프레임 소속 여부와 무관하게 절대좌표로 판정 ──────
+    // (같은 프레임 안의 카드끼리도 겹쳐서 연결/해제할 수 있어야 함)
+    const draggedAbsPos = toAbsolutePosition(node.position, node.parentId, framesRef.current)
+    const candidates = (nodesRef.current.filter(n => n.type === 'sticky' && n.id !== node.id) as CardNode[])
+      .map(n => ({ id: n.id, position: toAbsolutePosition(n.position, n.parentId, framesRef.current) }))
+    const overlap = detectOverlap(node.id, draggedAbsPos, candidates, edgesRef.current)
 
     if (overlap && !overlap.disconnect) {
       const origin = dragStartPositionRef.current
@@ -699,6 +689,34 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
       }
       return
     }
+
+    // ── 프레임 소속 카드: 프레임 이탈 여부 확인 ──────────────────────────
+    if (node.parentId) {
+      const frame = framesRef.current.find(f => f.id === node.parentId)
+      if (!frame) return
+      // node.position 은 프레임 상대좌표
+      const cardCenterX = node.position.x + DEFAULT_WIDTH / 2
+      const cardCenterY = node.position.y + DEFAULT_HEIGHT / 2
+      const isOutside = cardCenterX < 0 || cardCenterX > frame.width || cardCenterY < 0 || cardCenterY > frame.height
+      if (isOutside) {
+        const absPos = { x: frame.position_x + node.position.x, y: frame.position_y + node.position.y }
+        removeCardFromFrame(node.id, absPos)
+      } else {
+        savePosition(node.id, node.position)
+      }
+      return
+    }
+
+    // ── 자유 카드: 프레임 진입 여부 확인 ──────────────────────────────────
+    const targetFrame = framesRef.current.find(frame => {
+      if (frame.collapsed) return false
+      const relX = node.position.x - frame.position_x
+      const relY = node.position.y - frame.position_y
+      const centerX = relX + DEFAULT_WIDTH / 2
+      const centerY = relY + DEFAULT_HEIGHT / 2
+      return centerX > 0 && centerX < frame.width && centerY > 0 && centerY < frame.height
+    })
+    if (targetFrame) { addCardToFrame(node.id, targetFrame, node.position); return }
 
     savePosition(node.id, node.position)
   }, [savePosition, handleConnect, handleDisconnect, handleDelete, addCardToFrame, removeCardFromFrame, setNodes])
