@@ -201,6 +201,13 @@ interface TodayCtx {
   oneOnOnes: { id: string; memberId: string; memberName?: string }[]
   newTasks: { id: string; title: string; status: string; agendaItemTitle?: string }[]
   taskNotes: { id: string; content: string; title?: string | null; subTaskTitle?: string; agendaItemTitle?: string }[]
+  scheduleItems: { id: string; title: string; start_hour: number }[]
+}
+
+function hourToStr(h: number) {
+  const hr = Math.floor(h)
+  const mn = Math.round((h - hr) * 60)
+  return `${String(hr).padStart(2, '0')}:${String(mn).padStart(2, '0')}`
 }
 
 const TASK_STATUS_LABEL: Record<string, string> = { active: '진행중', hold: '보류', done: '완료' }
@@ -308,7 +315,7 @@ export function JournalFullscreenEditor({ selectedDate, current, yesterday, meet
   const [showMeetingPicker, setShowMeetingPicker] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
-  const [todayCtx, setTodayCtx] = useState<TodayCtx>({ memos: [], meetings: [], oneOnOnes: [], newTasks: [], taskNotes: [] })
+  const [todayCtx, setTodayCtx] = useState<TodayCtx>({ memos: [], meetings: [], oneOnOnes: [], newTasks: [], taskNotes: [], scheduleItems: [] })
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const meetingSearchRef = useRef<HTMLInputElement>(null)
   const draftTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -346,8 +353,12 @@ export function JournalFullscreenEditor({ selectedDate, current, yesterday, meet
         .select('agenda_item_id')
         .gte('created_at', dayStart)
         .lte('created_at', dayEnd),
+      supabaseClient.from('schedule_items')
+        .select('id, title, start_hour')
+        .eq('item_date', selectedDate)
+        .order('start_hour'),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ]).then(([memoRes, mtgRes, oonRes, newTaskRes, notesRes, agendaUpdateRes]: any[]) => {
+    ]).then(([memoRes, mtgRes, oonRes, newTaskRes, notesRes, agendaUpdateRes, scheduleRes]: any[]) => {
       const meetingItemIds = new Set((agendaUpdateRes.data ?? []).map((u: any) => u.agenda_item_id))
       setTodayCtx({
         memos: memoRes.data ?? [],
@@ -366,6 +377,7 @@ export function JournalFullscreenEditor({ selectedDate, current, yesterday, meet
           subTaskTitle: n.agenda_sub_tasks?.title,
           agendaItemTitle: n.agenda_sub_tasks?.agenda_items?.title,
         })),
+        scheduleItems: scheduleRes.data ?? [],
       })
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -427,7 +439,7 @@ export function JournalFullscreenEditor({ selectedDate, current, yesterday, meet
   ).slice(0, 8)
 
   const dateLabel = formatDateLabel(selectedDate)
-  const totalActivity = todayCtx.memos.length + todayCtx.meetings.length + todayCtx.oneOnOnes.length + todayCtx.newTasks.length + todayCtx.taskNotes.length
+  const totalActivity = todayCtx.memos.length + todayCtx.meetings.length + todayCtx.oneOnOnes.length + todayCtx.newTasks.length + todayCtx.taskNotes.length + todayCtx.scheduleItems.length
 
   const D = {
     bg:      '#0F1319',
@@ -640,6 +652,17 @@ export function JournalFullscreenEditor({ selectedDate, current, yesterday, meet
               )}
             </div>
             <div className="flex-1 overflow-y-auto scrollbar-hide" style={{ borderTop: `1px solid ${D.divider}` }}>
+
+              {/* 일정 (홈 타임라인 "일정 추가"로 만든 업무 블록) */}
+              <div className="px-4 py-3" style={{ borderBottom: `1px solid ${D.divider}` }}>
+                <p className="text-[10px] font-semibold tracking-wider mb-2" style={{ color: D.t3 }}>📅 일정</p>
+                {todayCtx.scheduleItems.length > 0 ? todayCtx.scheduleItems.map(s => (
+                  <div key={s.id} className="flex items-baseline gap-1.5 mb-1.5">
+                    <span className="text-[11px] flex-shrink-0 tabular-nums" style={{ color: D.t3 }}>{hourToStr(s.start_hour)}</span>
+                    <span className="text-[13px] truncate" style={{ color: D.t1 }}>{s.title}</span>
+                  </div>
+                )) : <p className="text-[12px]" style={{ color: D.t3 }}>—</p>}
+              </div>
 
               {/* 회의록 */}
               <div className="px-4 py-3" style={{ borderBottom: `1px solid ${D.divider}` }}>
