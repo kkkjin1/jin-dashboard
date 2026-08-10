@@ -96,11 +96,14 @@ export default function SearchToolbar({
   const [addValue, setAddValue] = useState('')
   const [hoveredTeam, setHoveredTeam] = useState<string | null>(null)
 
+  // 시작일 클릭 후 종료일을 기다리는 상태 — 임의 구간을 직접 지정할 수 있게 함
+  const [rangeStart, setRangeStart] = useState<string | null>(null)
+
   const dragIndexRef = useRef<number | null>(null)
 
   useEffect(() => {
     function onDown(e: MouseEvent) {
-      if (calRef.current && !calRef.current.contains(e.target as Node)) setCalOpen(false)
+      if (calRef.current && !calRef.current.contains(e.target as Node)) { setCalOpen(false); setRangeStart(null) }
       if (sortRef.current && !sortRef.current.contains(e.target as Node)) setSortOpen(false)
     }
     document.addEventListener('mousedown', onDown)
@@ -119,16 +122,32 @@ export default function SearchToolbar({
 
   function calDayClick(day: number) {
     const dateStr = format(new Date(year, month, day), 'yyyy-MM-dd')
-    const label = format(new Date(year, month, day), 'M월 d일', { locale: ko })
+
+    // 이미 시작일을 찍어둔 상태면 이번 클릭을 종료일로 확정 (구간 직접 지정)
+    if (rangeStart) {
+      const from = rangeStart <= dateStr ? rangeStart : dateStr
+      const to   = rangeStart <= dateStr ? dateStr : rangeStart
+      const label = from === to
+        ? format(new Date(from + 'T00:00:00'), 'M월 d일', { locale: ko })
+        : `${format(new Date(from + 'T00:00:00'), 'M/d')} - ${format(new Date(to + 'T00:00:00'), 'M/d')}`
+      setDateSelection({ from, to, label })
+      setRangeStart(null)
+      setCalOpen(false)
+      return
+    }
+
+    // 이미 선택된 단일 날짜를 다시 클릭하면 해제
     if (dateSelection?.from === dateStr && dateSelection?.to === dateStr) {
       setDateSelection(null)
-    } else {
-      setDateSelection({ from: dateStr, to: dateStr, label })
+      return
     }
-    setCalOpen(false)
+
+    // 시작일 지정 — 종료일을 고를 때까지 창을 열어둔다
+    setRangeStart(dateStr)
   }
 
   function selectPeriod(label: string) {
+    setRangeStart(null)
     if (dateSelection?.label === label) {
       setDateSelection(null)
     } else {
@@ -217,7 +236,7 @@ export default function SearchToolbar({
         {/* 달력 피커 */}
         <div ref={calRef} style={{ position: 'relative' }}>
           <button
-            onClick={() => setCalOpen(v => !v)}
+            onClick={() => { setCalOpen(v => !v); setRangeStart(null) }}
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl flex-shrink-0 transition-colors"
             style={{
               background: hasDate ? 'rgba(76,127,224,0.12)' : 'rgba(255,255,255,0.06)',
@@ -243,7 +262,7 @@ export default function SearchToolbar({
                 <div className="flex flex-col gap-1" style={{ minWidth: 88 }}>
                   <p className="text-[10px] mb-1" style={{ color: 'rgba(226,232,240,0.3)' }}>기간 선택</p>
                   <button
-                    onClick={() => { setDateSelection(null); setCalOpen(false) }}
+                    onClick={() => { setDateSelection(null); setRangeStart(null); setCalOpen(false) }}
                     className="text-left text-[12px] px-3 py-1.5 rounded-lg transition-colors"
                     style={{
                       background: !dateSelection ? 'rgba(76,127,224,0.15)' : 'transparent',
@@ -276,7 +295,11 @@ export default function SearchToolbar({
 
                 {/* 오른쪽: 달력 */}
                 <div className="flex-1">
-                  <p className="text-[10px] mb-2" style={{ color: 'rgba(226,232,240,0.3)' }}>날짜 선택</p>
+                  <p className="text-[10px] mb-2" style={{ color: rangeStart ? '#7EB3FF' : 'rgba(226,232,240,0.3)' }}>
+                    {rangeStart
+                      ? `시작일 ${format(new Date(rangeStart + 'T00:00:00'), 'M/d', { locale: ko })} 선택됨 — 종료일을 클릭하세요`
+                      : '날짜 선택 (클릭 두 번으로 구간 지정 가능)'}
+                  </p>
                   {/* 월 네비게이션 */}
                   <div className="flex items-center justify-between mb-2">
                     <button
@@ -314,8 +337,11 @@ export default function SearchToolbar({
                     {calCells.map((day, i) => {
                       if (!day) return <div key={i} />
                       const dateStr = format(new Date(year, month, day), 'yyyy-MM-dd')
-                      const isSelected = dateSelection?.from === dateStr && dateSelection?.to === dateStr
+                      const isRangeStart = rangeStart === dateStr
+                      const isSingleSelected = !rangeStart && dateSelection?.from === dateStr && dateSelection?.to === dateStr
+                      const isInRange = !rangeStart && !!dateSelection && dateSelection.from !== dateSelection.to && dateStr >= dateSelection.from && dateStr <= dateSelection.to
                       const isToday = dateStr === format(new Date(), 'yyyy-MM-dd')
+                      const filled = isSingleSelected || isRangeStart
                       return (
                         <button
                           key={i}
@@ -323,12 +349,13 @@ export default function SearchToolbar({
                           className="flex items-center justify-center text-[11px] rounded-full transition-colors"
                           style={{
                             width: 28, height: 28,
-                            background: isSelected ? '#4C7FE0' : isToday ? 'rgba(76,127,224,0.18)' : 'transparent',
-                            color: isSelected ? '#fff' : isToday ? '#7EB3FF' : 'rgba(226,232,240,0.65)',
-                            fontWeight: isSelected || isToday ? 500 : 400,
+                            background: filled ? '#4C7FE0' : isInRange ? 'rgba(76,127,224,0.22)' : isToday ? 'rgba(76,127,224,0.18)' : 'transparent',
+                            color: filled ? '#fff' : isInRange ? '#7EB3FF' : isToday ? '#7EB3FF' : 'rgba(226,232,240,0.65)',
+                            fontWeight: filled || isToday ? 500 : 400,
+                            boxShadow: isRangeStart ? '0 0 0 2px rgba(76,127,224,0.5)' : 'none',
                           }}
-                          onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = 'rgba(255,255,255,0.07)' }}
-                          onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = isToday ? 'rgba(76,127,224,0.18)' : 'transparent' }}
+                          onMouseEnter={e => { if (!filled) e.currentTarget.style.background = 'rgba(255,255,255,0.07)' }}
+                          onMouseLeave={e => { if (!filled) e.currentTarget.style.background = isInRange ? 'rgba(76,127,224,0.22)' : isToday ? 'rgba(76,127,224,0.18)' : 'transparent' }}
                         >
                           {day}
                         </button>
