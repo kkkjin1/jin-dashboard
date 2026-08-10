@@ -323,3 +323,15 @@ export interface SketchFrame {
   created_at: string
   updated_at: string
 }
+
+// ── 홈 타임라인 업무 일정 ────────────────────────────────────────────────────
+
+export interface ScheduleItem {
+  id: string
+  title: string
+  item_date: string
+  start_hour: number
+  duration_hours: number
+  created_at: string
+  updated_at: string
+}

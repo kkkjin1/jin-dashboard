@@ -6,8 +6,8 @@ import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Search, Plus, FileText, Clock, NotebookPen, Layers, CheckSquare, CalendarDays, StickyNote, Repeat2 } from 'lucide-react'
-import type { TaskTodo, Meeting, QuickMemo, AgendaSubTask, NoteEntry } from '@/types'
+import { Search, Plus, FileText, Clock, NotebookPen, Layers, CheckSquare, CalendarDays, StickyNote, Repeat2, X } from 'lucide-react'
+import type { TaskTodo, Meeting, QuickMemo, AgendaSubTask, NoteEntry, ScheduleItem } from '@/types'
 import { JournalFullscreenEditor, type DailyJournal } from '@/components/home/DailyJournalWidget'
 import { useUserSetting } from '@/hooks/useUserSetting'
 import { format, parseISO } from 'date-fns'
@@ -218,11 +218,15 @@ function KpiChip({ dot, label, onClick }: { dot: string; label: string; onClick?
 }
 
 // ── DualLaneTimeline ───────────────────────────────────────────────────────
-function DualLaneTimeline({ meetings, todos, now, onAdd, fixedMeetings = [] }: {
+function DualLaneTimeline({ meetings, todos, scheduleItems, now, onAddMeeting, onAddScheduleItem, onRemoveScheduleItem, onUpdateScheduleItemPosition, fixedMeetings = [] }: {
   meetings: Meeting[]
   todos: TodayTodo[]
+  scheduleItems: ScheduleItem[]
   now: Date
-  onAdd: (title: string, startHour: number) => Promise<string | null>
+  onAddMeeting: (title: string, startHour: number) => Promise<string | null>
+  onAddScheduleItem: (title: string, startHour: number) => Promise<void>
+  onRemoveScheduleItem: (id: string) => void
+  onUpdateScheduleItemPosition: (id: string, startHour: number, durationHours: number) => void
   fixedMeetings?: MeetingSchedule[]
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -244,6 +248,92 @@ function DualLaneTimeline({ meetings, todos, now, onAdd, fixedMeetings = [] }: {
   const mResizeRef = useRef<{ id: string; startX: number; startDur: number } | null>(null)
   const tDragRef   = useRef<{ id: string; startX: number; startHour: number } | null>(null)
   const tResizeRef = useRef<{ id: string; startX: number; startDur: number } | null>(null)
+
+  // ── 일정 추가 팝오버 ─────────────────────────────────────────────────────
+  const [addOpen, setAddOpen] = useState(false)
+  const [addLane, setAddLane] = useState<'meeting' | 'work'>('meeting')
+  const [addTitle, setAddTitle] = useState('')
+  const addRef = useRef<HTMLDivElement>(null)
+  const addInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (!addOpen) return
+    function onClickOutside(e: MouseEvent) {
+      if (addRef.current && !addRef.current.contains(e.target as Node)) setAddOpen(false)
+    }
+    document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [addOpen])
+
+  useEffect(() => { if (addOpen) setTimeout(() => addInputRef.current?.focus(), 30) }, [addOpen])
+
+  async function handleAddSubmit() {
+    const title = addTitle.trim()
+    if (!title) return
+    const startHour = Math.min(H_END - 1, Math.max(H_START, Math.round(now.getHours())))
+    if (addLane === 'meeting') await onAddMeeting(title, startHour)
+    else await onAddScheduleItem(title, startHour)
+    setAddTitle('')
+    setAddOpen(false)
+  }
+
+  // ── 업무 일정(schedule_items) — 위치/기간은 로컬에서 즉시 반영, 드래그가
+  //    끝났을 때만 부모로 올려 DB에 저장 (todos/meetings와 같은 패턴) ──────
+  const [siPos, setSiPos] = useState<Record<string, number>>({})
+  const [siDur, setSiDur] = useState<Record<string, number>>({})
+  const siDragRef   = useRef<{ id: string; startX: number; startHour: number } | null>(null)
+  const siResizeRef = useRef<{ id: string; startX: number; startDur: number } | null>(null)
+
+  useEffect(() => {
+    setSiPos(prev => {
+      const next = { ...prev }
+      scheduleItems.forEach(s => { if (!(s.id in next)) next[s.id] = s.start_hour })
+      return next
+    })
+    setSiDur(prev => {
+      const next = { ...prev }
+      scheduleItems.forEach(s => { if (!(s.id in next)) next[s.id] = s.duration_hours })
+      return next
+    })
+  }, [scheduleItems])
+
+  function onSiDragStart(id: string, startX: number) {
+    const startHour = siPos[id] ?? H_START
+    const fixedDur = siDur[id] ?? 1
+    let latestHour = startHour
+    siDragRef.current = { id, startX, startHour }
+    function onMove(e: MouseEvent) {
+      if (!siDragRef.current || hW === 0) return
+      const newH = Math.max(H_START, Math.min(H_END - fixedDur, siDragRef.current.startHour + (e.clientX - siDragRef.current.startX) / hW))
+      latestHour = newH
+      setSiPos(p => ({ ...p, [id]: newH }))
+    }
+    function onUp() {
+      siDragRef.current = null
+      window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp)
+      onUpdateScheduleItemPosition(id, latestHour, fixedDur)
+    }
+    window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp)
+  }
+
+  function onSiResizeStart(id: string, startX: number) {
+    const fixedHour = siPos[id] ?? H_START
+    const startDur = siDur[id] ?? 1
+    let latestDur = startDur
+    siResizeRef.current = { id, startX, startDur }
+    function onMove(e: MouseEvent) {
+      if (!siResizeRef.current || hW === 0) return
+      const newD = Math.max(0.25, Math.min(H_END - fixedHour, siResizeRef.current.startDur + (e.clientX - siResizeRef.current.startX) / hW))
+      latestDur = newD
+      setSiDur(p => ({ ...p, [id]: newD }))
+    }
+    function onUp() {
+      siResizeRef.current = null
+      window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp)
+      onUpdateScheduleItemPosition(id, fixedHour, latestDur)
+    }
+    window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp)
+  }
 
   // ── Extras (외부에서 드래그된 항목) ────────────────────────────────────
   const [extras,   setExtras]   = useState<TLExtra[]>([])
@@ -430,14 +520,53 @@ function DualLaneTimeline({ meetings, todos, now, onAdd, fixedMeetings = [] }: {
             <span style={{ fontSize: 11, color: '#8DAEE6', fontWeight: 600, letterSpacing: '-0.01em' }}>{format(now, 'M월 d일 (eee)', { locale: ko })}</span>
           </div>
         </div>
-        <button
-          style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', borderRadius: 8, border: '1px solid rgba(91,126,196,0.35)', background: 'rgba(91,126,196,0.10)', color: '#8DAEE6', fontSize: 11.5, fontWeight: 500, cursor: 'pointer', transition: 'all 150ms ease' }}
-          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(91,126,196,0.18)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(91,126,196,0.5)' }}
-          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(91,126,196,0.10)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(91,126,196,0.35)' }}
-        >
-          <Plus size={11} />
-          일정 추가
-        </button>
+        <div ref={addRef} style={{ position: 'relative' }}>
+          <button
+            onClick={() => setAddOpen(p => !p)}
+            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', borderRadius: 8, border: '1px solid rgba(91,126,196,0.35)', background: 'rgba(91,126,196,0.10)', color: '#8DAEE6', fontSize: 11.5, fontWeight: 500, cursor: 'pointer', transition: 'all 150ms ease' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(91,126,196,0.18)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(91,126,196,0.5)' }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(91,126,196,0.10)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(91,126,196,0.35)' }}
+          >
+            <Plus size={11} />
+            일정 추가
+          </button>
+
+          {addOpen && (
+            <div style={{
+              position: 'absolute', top: '100%', right: 0, marginTop: 8, zIndex: 30,
+              width: 240, padding: 12, borderRadius: 12,
+              background: '#1C2129', border: '1px solid rgba(255,255,255,0.10)',
+              boxShadow: '0 12px 32px rgba(0,0,0,0.4)',
+            }}>
+              <div style={{ display: 'flex', gap: 6, marginBottom: 9 }}>
+                {(['meeting', 'work'] as const).map(lane => (
+                  <button key={lane} onClick={() => setAddLane(lane)}
+                    style={{
+                      flex: 1, padding: '5px 0', borderRadius: 7, fontSize: 11.5, fontWeight: 600, cursor: 'pointer',
+                      border: `1px solid ${addLane === lane ? 'rgba(91,126,196,0.55)' : 'rgba(255,255,255,0.10)'}`,
+                      background: addLane === lane ? 'rgba(91,126,196,0.22)' : 'rgba(255,255,255,0.04)',
+                      color: addLane === lane ? '#8DAEE6' : TEXT3,
+                      transition: 'all 120ms ease',
+                    }}>
+                    {lane === 'meeting' ? '회의' : '업무'}
+                  </button>
+                ))}
+              </div>
+              <input
+                ref={addInputRef}
+                value={addTitle}
+                onChange={e => setAddTitle(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleAddSubmit()
+                  if (e.key === 'Escape') setAddOpen(false)
+                }}
+                placeholder={addLane === 'meeting' ? '회의 제목 입력 후 Enter' : '업무 제목 입력 후 Enter'}
+                style={{ width: '100%', fontSize: 12.5, color: TEXT1, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 7, padding: '7px 9px', outline: 'none' }}
+              />
+              <p style={{ fontSize: 10, color: TEXT3, marginTop: 6 }}>현재 시각 근처에 추가되고, 이후 드래그로 옮길 수 있어요.</p>
+            </div>
+          )}
+        </div>
       </div>
 
       <div ref={containerRef}
@@ -609,6 +738,30 @@ function DualLaneTimeline({ meetings, todos, now, onAdd, fixedMeetings = [] }: {
           )
         })}
 
+        {/* ── Lane 2: 업무 일정 (schedule_items, "일정 추가"로 만든 항목) ── */}
+        {scheduleItems.map((s, i) => {
+          const hour = siPos[s.id] ?? s.start_hour
+          const dur  = siDur[s.id] ?? s.duration_hours
+          const { x, w } = cardGeom(hour, dur)
+          const col = EV_COLS[(i + 4) % EV_COLS.length]
+          return (
+            <div key={s.id}
+              onMouseDown={e => { e.preventDefault(); onSiDragStart(s.id, e.clientX) }}
+              style={{ position: 'absolute', left: x, width: w, top: TL_LANE2_TOP, height: TL_LANE_H, borderRadius: 8, cursor: 'grab', background: col.bg, border: `1px solid ${col.bd}`, padding: '5px 10px', display: 'flex', flexDirection: 'column', justifyContent: 'center', overflow: 'hidden', userSelect: 'none', zIndex: 6 }}>
+              <span style={{ fontSize: 9.5, fontWeight: 600, color: 'rgba(255,255,255,0.50)', lineHeight: 1, marginBottom: 3 }}>{hourToStr(hour)}</span>
+              <span style={{ fontSize: 11.5, fontWeight: 500, color: 'rgba(255,255,255,0.88)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }}>{s.title}</span>
+              <div onMouseDown={e => { e.stopPropagation(); e.preventDefault(); onSiResizeStart(s.id, e.clientX) }}
+                style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 8, cursor: 'ew-resize' }} />
+              <button
+                onMouseDown={e => e.stopPropagation()}
+                onClick={e => { e.stopPropagation(); onRemoveScheduleItem(s.id) }}
+                style={{ position: 'absolute', right: 12, top: 5, width: 14, height: 14, background: 'rgba(255,255,255,0.14)', border: 'none', borderRadius: '50%', color: 'rgba(255,255,255,0.7)', cursor: 'pointer', fontSize: 9, lineHeight: 1, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <X size={9} />
+              </button>
+            </div>
+          )
+        })}
+
         {/* Overflow indicators per lane */}
         {mHasOverflow && cw > 0 && (
           <div style={{ position: 'absolute', right: -18, top: TL_LANE1_TOP + TL_LANE_H / 2 - 10, pointerEvents: 'none' }}>
@@ -656,6 +809,7 @@ export default function HomePage() {
   const [allTaskTodos,  setAllTaskTodos]  = useState<TodayTodo[]>([])
   const [meetings,      setMeetings]      = useState<Meeting[]>([])
   const [memos,         setMemos]         = useState<QuickMemo[]>([])
+  const [scheduleItems, setScheduleItems] = useState<ScheduleItem[]>([])
   const [todayJournal,  setTodayJournal]  = useState<DailyJournal | null>(null)
   const [yesterJournal, setYesterJournal] = useState<DailyJournal | null>(null)
   const [loading,       setLoading]       = useState(true)
@@ -679,7 +833,7 @@ export default function HomePage() {
       const yesterday = yesterdayStr()
       const [
         { data: stData }, { data: taskTodoData },
-        { data: mData },  { data: mmData }, { data: jData },
+        { data: mData },  { data: mmData }, { data: jData }, { data: siData },
       ] = await Promise.all([
         sb.current.from('agenda_sub_tasks').select('*, agenda_items(id, title, agenda_groups(name, color, category)), sub_task_notes(created_at, edited_at, content)').eq('status', 'active').order('sort_order').limit(100),
         // schedule_tag는 배정 시점의 스냅샷이라 자정이 지나도 갱신되지 않음 — target_date를 기준으로 오늘/금주 분류
@@ -687,6 +841,7 @@ export default function HomePage() {
         sb.current.from('meetings').select('*').order('meeting_date', { ascending: false }).limit(20),
         sb.current.from('quick_memos').select('*').order('created_at', { ascending: false }).limit(100),
         sb.current.from('daily_journals').select('id, date, content, linked_task_ids, linked_meeting_ids, tags').in('date', [today, yesterday]),
+        sb.current.from('schedule_items').select('*').eq('item_date', today),
       ])
 
       setSubTasks((stData ?? []) as SubTaskWithContext[])
@@ -696,6 +851,7 @@ export default function HomePage() {
       const jList = (jData ?? []) as DailyJournal[]
       setTodayJournal(jList.find(j => j.date === today) ?? null)
       setYesterJournal(jList.find(j => j.date === yesterday) ?? null)
+      setScheduleItems((siData ?? []) as ScheduleItem[])
       setLoading(false)
     }
     load()
@@ -878,6 +1034,29 @@ export default function HomePage() {
       return data.id
     }
     return null
+  }
+
+  // 세부task/안건에 종속시키기 어려운 "오늘 이 시간에 할 업무"용 가벼운 일정 —
+  // schedule_items 전용 테이블에 저장 (퀵메모와 분리해 퀵메모가 방대해지는 것을 방지)
+  async function handleAddScheduleItem(title: string, startHour: number): Promise<void> {
+    const today = todayStr()
+    const { data, error } = await sb.current.from('schedule_items')
+      .insert({ title, item_date: today, start_hour: startHour, duration_hours: 1 })
+      .select('*').single()
+    if (error) { console.error('일정 추가 실패:', error.message); return }
+    if (data) setScheduleItems(p => [...p, data as ScheduleItem])
+  }
+
+  function handleRemoveScheduleItem(id: string) {
+    setScheduleItems(p => p.filter(s => s.id !== id))
+    sb.current.from('schedule_items').delete().eq('id', id)
+      .then(({ error }) => { if (error) console.error('일정 삭제 실패:', error.message) })
+  }
+
+  function handleUpdateScheduleItemPosition(id: string, startHour: number, durationHours: number) {
+    setScheduleItems(p => p.map(s => s.id === id ? { ...s, start_hour: startHour, duration_hours: durationHours } : s))
+    sb.current.from('schedule_items').update({ start_hour: startHour, duration_hours: durationHours }).eq('id', id)
+      .then(({ error }) => { if (error) console.error('일정 위치 저장 실패:', error.message) })
   }
 
   const { value: fixedSchedules } = useUserSetting<MeetingSchedule[]>('meeting_schedules', [])
@@ -1110,7 +1289,14 @@ export default function HomePage() {
           </div>
 
           {/* Row 1: Dual-lane timeline — full width */}
-          <DualLaneTimeline meetings={todayMeetings} todos={todayTodos} now={now} onAdd={handleAddMeeting} fixedMeetings={todayFixedMeetingsVisible} />
+          <DualLaneTimeline
+            meetings={todayMeetings} todos={todayTodos} scheduleItems={scheduleItems} now={now}
+            onAddMeeting={handleAddMeeting}
+            onAddScheduleItem={handleAddScheduleItem}
+            onRemoveScheduleItem={handleRemoveScheduleItem}
+            onUpdateScheduleItemPosition={handleUpdateScheduleItemPosition}
+            fixedMeetings={todayFixedMeetingsVisible}
+          />
 
           {/* Rows 2 + 3 — 단일 3열 그리드, 열 정렬 보장 */}
           <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gridTemplateRows: isCompact ? '0.9fr 1.1fr' : '1.15fr 0.85fr', columnGap: 12, rowGap: 14 }}>
