@@ -344,11 +344,29 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
     setNodes(prev => prev.filter(n => n.id !== frameId))
   }, [])
 
+  // NodeResizer가 크기 조절이 끝났을 때 한 번만 호출 — 드래그 중 실시간 위치/크기는
+  // React Flow 자체 changes 파이프라인이 처리하므로 여기선 최종값만 우리 상태(frames)와
+  // DB에 반영하면 된다. data.frameWidth/frameHeight는 FrameNode의 라벨 최대폭 계산에
+  // 쓰이는 별도 사본이라 함께 갱신해줘야 함.
+  const handleFrameResize = useCallback((frameId: string, box: { x: number; y: number; width: number; height: number }) => {
+    setFrames(prev => prev.map(f => f.id === frameId
+      ? { ...f, position_x: box.x, position_y: box.y, width: box.width, height: box.height }
+      : f))
+    setNodes(prev => prev.map(n => n.id === frameId
+      ? { ...n, data: { ...n.data, frameWidth: box.width, frameHeight: box.height } }
+      : n))
+    supabase.from('sketch_frames')
+      .update({ position_x: box.x, position_y: box.y, width: box.width, height: box.height })
+      .eq('id', frameId)
+      .then(({ error }) => { if (error) console.error('프레임 크기 저장 실패:', error.message) })
+  }, [])
+
   const frameHandlers = useMemo(() => ({
     onTitleChange: handleFrameTitleChange,
     onCollapseToggle: handleFrameCollapseToggle,
     onDelete: handleFrameDelete,
-  }), [handleFrameTitleChange, handleFrameCollapseToggle, handleFrameDelete])
+    onResize: handleFrameResize,
+  }), [handleFrameTitleChange, handleFrameCollapseToggle, handleFrameDelete, handleFrameResize])
 
   // ── 카드↔프레임 소속 관리 ─────────────────────────────────────────────────
   const addCardToFrame = useCallback((cardId: string, frame: SketchFrame, absPos: { x: number; y: number }) => {

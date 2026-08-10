@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import { NodeResizer } from '@xyflow/react'
 import type { NodeProps } from '@xyflow/react'
 import type { Node } from '@xyflow/react'
 import { ChevronRight, ChevronDown, Trash2 } from 'lucide-react'
@@ -13,6 +14,7 @@ export type FrameData = {
   onTitleChange: (id: string, title: string) => void
   onCollapseToggle: (id: string) => void
   onDelete: (id: string) => void
+  onResize: (id: string, box: { x: number; y: number; width: number; height: number }) => void
 }
 
 export type FrameNodeType = Node<FrameData, 'frame'>
@@ -49,6 +51,19 @@ export function FrameNodeComponent({ id, data, selected }: NodeProps<FrameNodeTy
         boxSizing: 'border-box',
       }}
     >
+      {/* 크기 조절 핸들 — 선택된 상태에서만 노출. 접힌 프레임은 높이가 강제로
+          1px이라 조절이 무의미하므로 제외. */}
+      <NodeResizer
+        nodeId={id}
+        isVisible={!!selected && !data.collapsed}
+        minWidth={240}
+        minHeight={140}
+        color="#4C7FE0"
+        handleStyle={{ width: 9, height: 9, borderRadius: 3, background: '#4C7FE0', border: '1.5px solid rgba(255,255,255,0.85)' }}
+        lineStyle={{ borderColor: 'rgba(76,127,224,0.55)' }}
+        onResizeEnd={(_event, params) => data.onResize(id, params)}
+      />
+
       {/* 이름표 — 프레임 안쪽 좌상단, 평소엔 흐리게, 마우스 올리면 진하게.
           프레임 몸통 자체가 드래그 핸들이라 이 라벨이 커져도 이동에는 영향 없음. */}
       <div
