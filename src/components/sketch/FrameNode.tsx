@@ -17,11 +17,6 @@ export type FrameData = {
 
 export type FrameNodeType = Node<FrameData, 'frame'>
 
-// 프레임 위에 얹히는 이름표(칩)가 차지하는 공간. 칩은 내용 길이만큼만 넓어지는
-// 고정 크기라, 프레임이 커지거나 작아져도 이름표 자체는 항상 같은 두께로 보인다
-// (전체 폭을 채우는 바 방식은 프레임이 커질수록 상대적으로 얇아 보이는 문제가 있었음).
-const TITLE_BAR_H = 30
-
 export function FrameNodeComponent({ id, data, selected }: NodeProps<FrameNodeType>) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(data.title)
@@ -54,35 +49,30 @@ export function FrameNodeComponent({ id, data, selected }: NodeProps<FrameNodeTy
         boxSizing: 'border-box',
       }}
     >
-      {/* 이름표 칩 — 프레임 테두리 위, 내용 길이만큼만 넓어짐. 프레임 몸통 자체가
-          드래그 핸들이라 이 칩이 없어도 프레임 이동은 그대로 된다. */}
+      {/* 이름표 — 프레임 안쪽 좌상단, 평소엔 흐리게, 마우스 올리면 진하게.
+          프레임 몸통 자체가 드래그 핸들이라 이 라벨이 커져도 이동에는 영향 없음. */}
       <div
-        className="absolute inline-flex items-center gap-1 px-2 py-1 rounded-full"
-        style={{
-          top: -TITLE_BAR_H,
-          left: 10,
-          background: 'rgba(22,27,36,0.9)',
-          border: `1px solid ${borderColor}`,
-          backdropFilter: 'blur(4px)',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
-        }}
+        className={`absolute inline-flex items-center gap-3 transition-opacity duration-150 ${
+          editing ? 'opacity-100' : 'opacity-30 hover:opacity-100'
+        }`}
+        style={{ top: 18, left: 20, right: 20, maxWidth: data.frameWidth - 40 }}
       >
         <button
-          className="nodrag nopan flex-shrink-0 opacity-60 hover:opacity-100 transition-opacity"
+          className="nodrag nopan flex-shrink-0 transition-opacity hover:opacity-70"
           onMouseDown={e => e.stopPropagation()}
           onClick={() => data.onCollapseToggle(id)}
           title={data.collapsed ? '펼치기' : '접기'}
         >
           {data.collapsed
-            ? <ChevronRight size={12} style={{ color: '#9DBEF5' }} />
-            : <ChevronDown size={12} style={{ color: '#9DBEF5' }} />}
+            ? <ChevronRight size={22} style={{ color: '#9DBEF5' }} />
+            : <ChevronDown size={22} style={{ color: '#9DBEF5' }} />}
         </button>
 
         {editing ? (
           <input
             ref={inputRef}
-            className="nodrag nopan bg-transparent focus:outline-none text-[11px] font-medium"
-            style={{ color: '#E2E8F0', width: `${Math.max(4, draft.length + 1)}ch` }}
+            className="nodrag nopan bg-transparent focus:outline-none font-semibold"
+            style={{ color: '#E2E8F0', fontSize: 56, lineHeight: 1.1, width: `${Math.max(4, draft.length + 1)}ch` }}
             value={draft}
             onChange={e => setDraft(e.target.value)}
             onBlur={commit}
@@ -93,8 +83,8 @@ export function FrameNodeComponent({ id, data, selected }: NodeProps<FrameNodeTy
           />
         ) : (
           <span
-            className="nodrag nopan max-w-[220px] text-[11px] font-medium truncate cursor-text select-none"
-            style={{ color: 'rgba(226,232,240,0.65)' }}
+            className="nodrag nopan truncate cursor-text select-none font-semibold"
+            style={{ color: '#E2E8F0', fontSize: 56, lineHeight: 1.1 }}
             onClick={startEdit}
             title="클릭해서 제목 수정"
           >
@@ -103,13 +93,13 @@ export function FrameNodeComponent({ id, data, selected }: NodeProps<FrameNodeTy
         )}
 
         <button
-          className="nodrag nopan flex-shrink-0 opacity-30 hover:opacity-80 hover:text-red-400 transition-all"
-          style={{ color: 'rgba(226,232,240,0.7)' }}
+          className="nodrag nopan flex-shrink-0 transition-opacity hover:opacity-70 hover:text-red-400"
+          style={{ color: '#E2E8F0' }}
           onMouseDown={e => e.stopPropagation()}
           onClick={() => data.onDelete(id)}
           title="프레임 삭제"
         >
-          <Trash2 size={11} />
+          <Trash2 size={22} />
         </button>
       </div>
     </div>

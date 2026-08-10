@@ -23,7 +23,7 @@ const DEFAULT_HEIGHT = 140
 const CONNECT_OVERLAP_RATIO = 0.6
 const DISCONNECT_OVERLAP_RATIO = 0.55
 const FRAME_PADDING = 24
-const TITLE_BAR_H = 30 // FrameNode.tsx의 TITLE_BAR_H와 반드시 같은 값 유지
+const FRAME_LABEL_SPACE = 100 // 프레임 안쪽 좌상단 대형 라벨(FrameNode.tsx)이 첫 카드와 겹치지 않도록 새 프레임 생성 시 위쪽에 확보하는 여유 공간
 const EDGE_COLOR = 'rgba(157,190,245,0.55)'
 const EDGE_STYLE = { stroke: EDGE_COLOR, strokeWidth: 1.5 }
 const EDGE_MARKER = { type: MarkerType.ArrowClosed, color: EDGE_COLOR, width: 16, height: 16 }
@@ -532,13 +532,13 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
     let frameX: number, frameY: number, frameW: number, frameH: number
     if (selectedCards.length > 0) {
       const minX = Math.min(...selectedCards.map(n => n.position.x)) - FRAME_PADDING
-      const minY = Math.min(...selectedCards.map(n => n.position.y)) - FRAME_PADDING - TITLE_BAR_H
+      const minY = Math.min(...selectedCards.map(n => n.position.y)) - FRAME_PADDING - FRAME_LABEL_SPACE
       const maxX = Math.max(...selectedCards.map(n => n.position.x + DEFAULT_WIDTH)) + FRAME_PADDING
       const maxY = Math.max(...selectedCards.map(n => n.position.y + DEFAULT_HEIGHT)) + FRAME_PADDING
       frameX = minX; frameY = minY; frameW = maxX - minX; frameH = maxY - minY
     } else {
-      frameX = rawX - FRAME_PADDING; frameY = rawY - FRAME_PADDING - TITLE_BAR_H
-      frameW = rawW + FRAME_PADDING * 2; frameH = rawH + FRAME_PADDING * 2 + TITLE_BAR_H
+      frameX = rawX - FRAME_PADDING; frameY = rawY - FRAME_PADDING - FRAME_LABEL_SPACE
+      frameW = rawW + FRAME_PADDING * 2; frameH = rawH + FRAME_PADDING * 2 + FRAME_LABEL_SPACE
     }
 
     doCreateFrame(frameX, frameY, frameW, frameH, selectedCards)
