@@ -98,9 +98,11 @@ export default function LearningNew() {
     return hasActiveFilter ? entries.filter(([, items]) => items.length > 0) : entries
   }, [filtered, customTags, hasActiveFilter])
 
-  // 2행 기준 필요한 열 수 — 열 너비를 fr로 줘서 창 크기에 맞춰 카드가 같이 줄어들게 함
-  // (고정 px였을 때는 창을 좁혀도 카드 너비가 그대로라 매번 가로 스크롤이 필요했음)
-  const gridCols = Math.max(1, Math.ceil(groups.length / 2))
+  function renameTag(oldTag: string, newTag: string) {
+    const name = newTag.trim()
+    if (!name || name === oldTag || customTags.includes(name)) return
+    saveCustomTags(customTags.map(t => t === oldTag ? name : t))
+  }
 
   return (
     <div className="h-full flex flex-col overflow-hidden" style={{ background: '#0F1319' }}>
@@ -201,8 +203,8 @@ export default function LearningNew() {
         total={filtered.length}
       />
 
-      {/* 본문 — 2행 x N열 그리드 (열은 자동 계산, 넘치면 가로 스크롤) */}
-      <div className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden scrollbar-hide">
+      {/* 본문 — 한 행에 최대 4칸, 넘치면 다음 행으로 (가로 스크롤 없음) */}
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar-hide">
         {loading ? (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pb-6">
             {[1, 2, 3, 4].map(i => (
@@ -222,12 +224,8 @@ export default function LearningNew() {
           </div>
         ) : (
           <div
-            className="grid gap-3 pb-3 h-full"
-            style={{
-              gridTemplateRows: 'repeat(2, min-content)',
-              gridTemplateColumns: `repeat(${gridCols}, minmax(500px, 1fr))`,
-              gridAutoFlow: 'column',
-            }}
+            className="grid gap-3 pb-3"
+            style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(500px, 1fr))', maxWidth: 'calc(4 * 500px + 3 * 12px)' }}
           >
             {groups.map(([tag, items]) => (
               <LearningSection
@@ -237,6 +235,7 @@ export default function LearningNew() {
                 resources={items}
                 onNavigate={id => router.push(`/learning/${id}`)}
                 onCycleStatus={cycleStatus}
+                onRenameTag={renameTag}
               />
             ))}
           </div>

@@ -158,7 +158,6 @@ export default function LearningSearchToolbar({
 
       {/* 범주 관리 pills — 드래그로 순서 변경(그리드 배치 순서), 더블클릭 이름변경, 호버 시 삭제 */}
       <div className="flex items-center gap-1.5 flex-wrap pt-2.5" style={{ borderTop: '1px solid rgba(255,255,255,0.05)', marginTop: 4 }}>
-        <span className="text-[10px] flex-shrink-0" style={{ color: 'rgba(226,232,240,0.3)' }}>범주</span>
         {customTags.map((tag, index) => (
           <div
             key={tag}
