@@ -16,14 +16,44 @@ const TAG_COLORS: Record<MemoTag, string> = {
   '완료':     'bg-[rgba(91,98,112,0.15)] text-[#7B8290] border-[rgba(91,98,112,0.3)]',
 }
 
-const DRAFT_KEY = 'quick_memo_draft'
+// 팝업마다 고유 id(qid)로 각자 독립된 슬롯에 저장 — 여러 창을 동시에 열어놔도
+// 서로 덮어쓰지 않고, 크래시가 나도 열려 있던 창 수만큼 각자 복구 가능하다.
+const DRAFTS_KEY = 'quick_memo_drafts'
 
-function readDraft() {
+type DraftEntry = { title: string; content: string; tag: MemoTag; updatedAt: number }
+type DraftMap = Record<string, DraftEntry>
+
+function readDrafts(): DraftMap {
   try {
-    const s = localStorage.getItem(DRAFT_KEY)
-    if (s) return JSON.parse(s) as { title: string; content: string; tag: MemoTag }
+    const s = localStorage.getItem(DRAFTS_KEY)
+    if (s) return JSON.parse(s) as DraftMap
   } catch {}
-  return null
+  return {}
+}
+
+function writeDraftEntry(qid: string, entry: DraftEntry) {
+  const all = readDrafts()
+  all[qid] = entry
+  try { localStorage.setItem(DRAFTS_KEY, JSON.stringify(all)) } catch {}
+}
+
+function removeDraftEntry(qid: string) {
+  const all = readDrafts()
+  delete all[qid]
+  try { localStorage.setItem(DRAFTS_KEY, JSON.stringify(all)) } catch {}
+}
+
+function stripHtml(html: string): string {
+  return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+function timeAgo(ts: number): string {
+  const min = Math.max(0, Math.round((Date.now() - ts) / 60000))
+  if (min < 1) return '방금 전'
+  if (min < 60) return `${min}분 전`
+  const hr = Math.round(min / 60)
+  if (hr < 24) return `${hr}시간 전`
+  return `${Math.round(hr / 24)}일 전`
 }
 
 function parseMeetingDate(text: string): string | null {
@@ -52,23 +82,52 @@ export default function QuickMemoPage() {
 
   const titleRef  = useRef<HTMLInputElement>(null)
   const isHolder  = useRef(false)  // 슬롯 소유 여부 (saveDraft 등에서 사용)
+  const qidRef    = useRef('')     // 이 창이 쓰는 draft 슬롯 id — orphan 선택 대기 중엔 빈 문자열
   const supabase  = createClient()
 
-  // ── 클라이언트 마운트: draft 복원 ────────────────────────────────────────
+  // 크래시 등으로 이전에 정리되지 못한 draft가 여러 개 남아있을 때 고르게 하는 화면
+  const [orphans, setOrphans] = useState<(DraftEntry & { id: string })[]>([])
+
+  // ── 클라이언트 마운트: draft 복원 (여러 개 남아있으면 고르게 함) ─────────
   useEffect(() => {
     isHolder.current = true
     setIsHolderState(true)
-    // ?blank=1 이면 기존 창이 살아있는 상태에서 열린 새 창 — draft 복원 생략
-    const skipDraft = new URLSearchParams(window.location.search).get('blank') === '1'
-    const draft = skipDraft ? null : readDraft()
-    if (draft) {
-      setTitle(draft.title ?? '')
-      setContent(draft.content ?? '')
-      setTag(draft.tag ?? '업무관련')
+    // ?blank=1 이면 기존 창이 살아있는 상태에서 열린 새 창 — 항상 새 슬롯으로 시작
+    const isCascaded = new URLSearchParams(window.location.search).get('blank') === '1'
+    if (isCascaded) {
+      qidRef.current = crypto.randomUUID()
+      return
+    }
+    const drafts = readDrafts()
+    const ids = Object.keys(drafts)
+    if (ids.length === 0) {
+      qidRef.current = crypto.randomUUID()
+    } else if (ids.length === 1) {
+      const id = ids[0]
+      qidRef.current = id
+      const d = drafts[id]
+      setTitle(d.title ?? ''); setContent(d.content ?? ''); setTag(d.tag ?? '업무관련')
       setEditorKey(k => k + 1)
+    } else {
+      // 2개 이상 남아있음 — 사용자가 고를 때까지 qid 미확정
+      setOrphans(ids.map(id => ({ id, ...drafts[id] })).sort((a, b) => b.updatedAt - a.updatedAt))
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  function pickOrphan(o: DraftEntry & { id: string }) {
+    qidRef.current = o.id
+    setTitle(o.title); setContent(o.content); setTag(o.tag)
+    setEditorKey(k => k + 1)
+    setOrphans([])
+    setTimeout(() => titleRef.current?.focus(), 30)
+  }
+
+  function startFreshIgnoringOrphans() {
+    qidRef.current = crypto.randomUUID()
+    setOrphans([])
+    setTimeout(() => titleRef.current?.focus(), 30)
+  }
 
   // ── 세부task 연동 ─────────────────────────────────────────────────────────
   const [selText,        setSelText]        = useState('')
@@ -91,15 +150,15 @@ export default function QuickMemoPage() {
     if (!text) setShowPicker(false)
   }, [])
 
-  // ── 자동저장 ── holder만 공유 슬롯에 씀 ────────────────────────────────────
+  // ── 자동저장 ── 이 창 고유 슬롯(qid)에만 씀, 다른 창과 절대 안 겹침 ─────────
   const saveDraft = useCallback((t: string, c: string, tg: MemoTag) => {
-    if (!isHolder.current) return
+    if (!isHolder.current || !qidRef.current) return
     if (t || c) {
-      localStorage.setItem(DRAFT_KEY, JSON.stringify({ title: t, content: c, tag: tg }))
+      writeDraftEntry(qidRef.current, { title: t, content: c, tag: tg, updatedAt: Date.now() })
       setAutoSaved(true)
       setTimeout(() => setAutoSaved(false), 1500)
     } else {
-      localStorage.removeItem(DRAFT_KEY)
+      removeDraftEntry(qidRef.current)
     }
   }, [])
 
@@ -132,7 +191,7 @@ export default function QuickMemoPage() {
 
   // ── 초기화 후 닫기: draft 제거 → 다음 열기 시 빈 창 ────────────────────
   function handleDiscardAndClose() {
-    localStorage.removeItem(DRAFT_KEY)
+    if (qidRef.current) removeDraftEntry(qidRef.current)
     window.close()
   }
 
@@ -239,7 +298,7 @@ export default function QuickMemoPage() {
       if (window.opener) window.opener.dispatchEvent(new CustomEvent('quick-memo-saved'))
       setSavedMsg('저장됨!')
     }
-    localStorage.removeItem(DRAFT_KEY)
+    if (qidRef.current) removeDraftEntry(qidRef.current)
     setSaving(false)
     setTitle(''); setContent(''); setTag('업무관련')
     setEditorKey(k => k + 1)
@@ -248,7 +307,42 @@ export default function QuickMemoPage() {
 
   const hasDraftContent = !!(title || content)
 
-  return (
+  // 정리 안 된 draft가 2개 이상 남아있으면 — 어느 걸 이 창에서 이어쓸지 먼저 고르게 함
+  return orphans.length > 0 ? (
+    <div className="h-screen flex flex-col p-5" style={{ background: '#161B24', colorScheme: 'dark', boxSizing: 'border-box' }}>
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="font-semibold text-[#E5E7EB] text-sm tracking-wide">복구 가능한 메모 {orphans.length}개</h3>
+        <button onClick={() => window.close()}
+          className="text-[#5B6270] hover:text-[#E5E7EB] text-lg leading-none transition-colors w-6 h-6 flex items-center justify-center rounded hover:bg-[rgba(255,255,255,0.08)]">
+          ×
+        </button>
+      </div>
+      <p className="text-xs mb-3" style={{ color: '#5B6270' }}>
+        정상적으로 닫히지 않은 창이 여러 개 있어요. 이 창에서 이어서 작성할 메모를 골라주세요.
+      </p>
+      <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide flex flex-col gap-2">
+        {orphans.map(o => (
+          <button key={o.id} onClick={() => pickOrphan(o)}
+            className="text-left rounded-lg px-3 py-2.5 transition-colors"
+            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.08)')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
+          >
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <span className="text-sm font-medium truncate" style={{ color: '#E5E7EB' }}>{o.title || '(제목 없음)'}</span>
+              <span className="text-[10px] flex-shrink-0" style={{ color: '#5B6270' }}>{timeAgo(o.updatedAt)}</span>
+            </div>
+            <p className="text-xs truncate" style={{ color: '#9CA3AF' }}>{stripHtml(o.content) || '(내용 없음)'}</p>
+          </button>
+        ))}
+      </div>
+      <button onClick={startFreshIgnoringOrphans}
+        className="mt-3 text-xs py-2 rounded-lg transition-colors text-center"
+        style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: '#9CA3AF' }}>
+        새 메모로 시작 (나머지는 남겨둠)
+      </button>
+    </div>
+  ) : (
     <div className="h-screen flex flex-col p-5" style={{ background: '#161B24', colorScheme: 'dark', boxSizing: 'border-box' }}>
       {/* 헤더 */}
       <div className="flex items-center justify-between mb-4">
@@ -438,3 +532,4 @@ export default function QuickMemoPage() {
     </div>
   )
 }
+
