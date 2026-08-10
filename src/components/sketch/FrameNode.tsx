@@ -17,7 +17,7 @@ export type FrameData = {
 
 export type FrameNodeType = Node<FrameData, 'frame'>
 
-const TITLE_BAR_H = 28
+const TITLE_BAR_H = 36
 
 export function FrameNodeComponent({ id, data, selected }: NodeProps<FrameNodeType>) {
   const [editing, setEditing] = useState(false)
@@ -92,7 +92,8 @@ export function FrameNodeComponent({ id, data, selected }: NodeProps<FrameNodeTy
           <span
             className="nodrag nopan flex-1 text-[11px] font-medium truncate cursor-text select-none"
             style={{ color: 'rgba(226,232,240,0.65)' }}
-            onDoubleClick={startEdit}
+            onClick={startEdit}
+            title="클릭해서 제목 수정"
           >
             {data.title}
           </span>
