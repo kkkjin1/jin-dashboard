@@ -17,7 +17,10 @@ export type FrameData = {
 
 export type FrameNodeType = Node<FrameData, 'frame'>
 
-const TITLE_BAR_H = 36
+// 프레임 위에 얹히는 이름표(칩)가 차지하는 공간. 칩은 내용 길이만큼만 넓어지는
+// 고정 크기라, 프레임이 커지거나 작아져도 이름표 자체는 항상 같은 두께로 보인다
+// (전체 폭을 채우는 바 방식은 프레임이 커질수록 상대적으로 얇아 보이는 문제가 있었음).
+const TITLE_BAR_H = 30
 
 export function FrameNodeComponent({ id, data, selected }: NodeProps<FrameNodeType>) {
   const [editing, setEditing] = useState(false)
@@ -51,17 +54,17 @@ export function FrameNodeComponent({ id, data, selected }: NodeProps<FrameNodeTy
         boxSizing: 'border-box',
       }}
     >
-      {/* Title bar — drag handle for the whole frame */}
+      {/* 이름표 칩 — 프레임 테두리 위, 내용 길이만큼만 넓어짐. 프레임 몸통 자체가
+          드래그 핸들이라 이 칩이 없어도 프레임 이동은 그대로 된다. */}
       <div
-        className="absolute left-0 right-0 flex items-center gap-1 px-2"
+        className="absolute inline-flex items-center gap-1 px-2 py-1 rounded-full"
         style={{
           top: -TITLE_BAR_H,
-          height: TITLE_BAR_H,
-          background: 'rgba(22,27,36,0.85)',
+          left: 10,
+          background: 'rgba(22,27,36,0.9)',
           border: `1px solid ${borderColor}`,
-          borderBottom: 'none',
-          borderRadius: '8px 8px 0 0',
           backdropFilter: 'blur(4px)',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
         }}
       >
         <button
@@ -78,8 +81,8 @@ export function FrameNodeComponent({ id, data, selected }: NodeProps<FrameNodeTy
         {editing ? (
           <input
             ref={inputRef}
-            className="nodrag nopan flex-1 bg-transparent focus:outline-none text-[11px] font-medium min-w-0"
-            style={{ color: '#E2E8F0' }}
+            className="nodrag nopan bg-transparent focus:outline-none text-[11px] font-medium"
+            style={{ color: '#E2E8F0', width: `${Math.max(4, draft.length + 1)}ch` }}
             value={draft}
             onChange={e => setDraft(e.target.value)}
             onBlur={commit}
@@ -90,7 +93,7 @@ export function FrameNodeComponent({ id, data, selected }: NodeProps<FrameNodeTy
           />
         ) : (
           <span
-            className="nodrag nopan flex-1 text-[11px] font-medium truncate cursor-text select-none"
+            className="nodrag nopan max-w-[220px] text-[11px] font-medium truncate cursor-text select-none"
             style={{ color: 'rgba(226,232,240,0.65)' }}
             onClick={startEdit}
             title="클릭해서 제목 수정"
