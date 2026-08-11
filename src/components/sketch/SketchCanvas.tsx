@@ -86,6 +86,9 @@ function StickyCardNode({ id, data, selected }: NodeProps<CardNode>) {
   const editorRef = useRef<HTMLDivElement>(null)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const palette = CATEGORY_PALETTE[data.color]
+  // 편집 중(포커스)에는 왼쪽 절반 드래그 오버레이가 마우스 이벤트를 가로채면 안 됨 —
+  // 그래야 텍스트 선택 드래그가 카드 왼쪽으로 넘어가도 끊기지 않는다.
+  const [isEditing, setIsEditing] = useState(false)
 
   // 최초 1회만 innerHTML 세팅 — 이후엔 DOM이 진실 소스라 React가 다시 덮어쓰면
   // (매 렌더마다) 커서 위치가 튀어버림
@@ -160,10 +163,14 @@ function StickyCardNode({ id, data, selected }: NodeProps<CardNode>) {
           suppressContentEditableWarning
           onInput={handleInput}
           onKeyDown={handleKeyDown}
+          onFocus={() => setIsEditing(true)}
+          onBlur={() => setIsEditing(false)}
           className="nodrag nopan scrollbar-hide absolute inset-0 w-full h-full overflow-y-auto bg-transparent focus:outline-none text-[12.5px] leading-snug"
           style={{ color: BASE_TEXT, padding: '4px 10px 4px 16px', whiteSpace: 'pre-wrap', overflowWrap: 'break-word' }}
         />
-        <div className="absolute inset-y-0 left-0 w-1/2 flex items-center justify-center cursor-grab active:cursor-grabbing">
+        <div
+          className={`absolute inset-y-0 left-0 w-1/2 flex items-center justify-center cursor-grab active:cursor-grabbing ${isEditing ? 'pointer-events-none' : ''}`}
+        >
           <GripVertical size={14} className="opacity-0 group-hover:opacity-40 transition-opacity pointer-events-none" style={{ color: palette.solid }} />
         </div>
       </div>
