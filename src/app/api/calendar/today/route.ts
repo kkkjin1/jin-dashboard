@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 // 새 패키지 의존성 없이 fetch만으로 구현 (googleapis 등 무거운 SDK 불필요)
+// Edge 런타임 — Node 서버리스 함수보다 콜드스타트가 짧음 (여기선 fetch/URL/Intl만 쓰므로 호환)
+export const runtime = 'edge'
 
 interface TokenCache { accessToken: string; expiresAt: number }
 let cache: TokenCache | null = null
