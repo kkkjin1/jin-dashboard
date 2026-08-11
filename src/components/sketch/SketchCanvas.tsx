@@ -113,21 +113,22 @@ function StickyCardNode({ id, data, selected }: NodeProps<CardNode>) {
   }
 
   return (
-    <div
-      className="group relative h-full w-full flex flex-col rounded-xl overflow-hidden shadow-lg"
-      style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)' }}
-    >
+    <>
+      {/* 카드 본체가 overflow-hidden이라 그 안에 두면 리사이즈 핸들이 잘려서 안 보임 —
+          그래서 형제 레벨에 둔다. 연결선(테두리)은 안 보이게 하고 핸들만 노출. */}
       <NodeResizer
         nodeId={id}
         isVisible={!!selected}
         minWidth={160}
         minHeight={100}
-        color={palette.solid}
-        handleStyle={{ width: 8, height: 8, borderRadius: 2, background: palette.solid, border: '1.5px solid rgba(255,255,255,0.85)' }}
-        lineStyle={{ borderColor: 'rgba(255,255,255,0.2)' }}
+        lineStyle={{ borderColor: 'transparent' }}
+        handleStyle={{ width: 9, height: 9, borderRadius: 2, background: palette.solid, border: '1.5px solid rgba(255,255,255,0.85)' }}
         onResizeEnd={(_event, params) => data.onResize(id, params)}
       />
-
+      <div
+        className="group relative h-full w-full flex flex-col rounded-xl overflow-hidden shadow-lg"
+        style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)' }}
+      >
       <Handle type="target" position={Position.Left}
         className="opacity-0 group-hover:opacity-100 transition-opacity"
         style={{ width: 10, height: 10, background: palette.solid, border: '2px solid rgba(255,255,255,0.7)' }} />
@@ -160,13 +161,14 @@ function StickyCardNode({ id, data, selected }: NodeProps<CardNode>) {
           onInput={handleInput}
           onKeyDown={handleKeyDown}
           className="nodrag nopan scrollbar-hide absolute inset-0 w-full h-full overflow-y-auto bg-transparent focus:outline-none text-[12.5px] leading-snug"
-          style={{ color: BASE_TEXT, padding: '4px 8px', whiteSpace: 'pre-wrap', overflowWrap: 'break-word' }}
+          style={{ color: BASE_TEXT, padding: '4px 10px 4px 16px', whiteSpace: 'pre-wrap', overflowWrap: 'break-word' }}
         />
         <div className="absolute inset-y-0 left-0 w-1/2 flex items-center justify-center cursor-grab active:cursor-grabbing">
           <GripVertical size={14} className="opacity-0 group-hover:opacity-40 transition-opacity pointer-events-none" style={{ color: palette.solid }} />
         </div>
       </div>
-    </div>
+      </div>
+    </>
   )
 }
 
