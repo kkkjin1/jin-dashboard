@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Search, Plus, FileText, Clock, NotebookPen, Layers, CheckSquare, CalendarDays, StickyNote, Repeat2, X } from 'lucide-react'
 import type { TaskTodo, Meeting, QuickMemo, AgendaSubTask, NoteEntry, ScheduleItem } from '@/types'
+import type { GoogleCalendarEvent } from '@/app/api/calendar/today/route'
 import { JournalFullscreenEditor, type DailyJournal } from '@/components/home/DailyJournalWidget'
 import { useUserSetting } from '@/hooks/useUserSetting'
 import { format, parseISO } from 'date-fns'
@@ -218,12 +219,12 @@ function KpiChip({ dot, label, onClick }: { dot: string; label: string; onClick?
 }
 
 // ── DualLaneTimeline ───────────────────────────────────────────────────────
-function DualLaneTimeline({ meetings, todos, scheduleItems, now, onAddMeeting, onAddScheduleItem, onRemoveScheduleItem, onUpdateScheduleItemPosition, fixedMeetings = [] }: {
+function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, onAddScheduleItem, onRemoveScheduleItem, onUpdateScheduleItemPosition, fixedMeetings = [] }: {
   meetings: Meeting[]
   todos: TodayTodo[]
   scheduleItems: ScheduleItem[]
+  googleEvents: GoogleCalendarEvent[]
   now: Date
-  onAddMeeting: (title: string, startHour: number) => Promise<string | null>
   onAddScheduleItem: (title: string, startHour: number) => Promise<void>
   onRemoveScheduleItem: (id: string) => void
   onUpdateScheduleItemPosition: (id: string, startHour: number, durationHours: number) => void
@@ -249,9 +250,8 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, now, onAddMeeting, o
   const tDragRef   = useRef<{ id: string; startX: number; startHour: number } | null>(null)
   const tResizeRef = useRef<{ id: string; startX: number; startDur: number } | null>(null)
 
-  // ── 일정 추가 팝오버 ─────────────────────────────────────────────────────
+  // ── 일정 추가 팝오버 (회의는 구글캘린더 연동으로 대체 — 업무만 수기 추가) ──
   const [addOpen, setAddOpen] = useState(false)
-  const [addLane, setAddLane] = useState<'meeting' | 'work'>('meeting')
   const [addTitle, setAddTitle] = useState('')
   const addRef = useRef<HTMLDivElement>(null)
   const addInputRef = useRef<HTMLInputElement>(null)
@@ -271,8 +271,7 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, now, onAddMeeting, o
     const title = addTitle.trim()
     if (!title) return
     const startHour = Math.min(H_END - 1, Math.max(H_START, Math.round(now.getHours())))
-    if (addLane === 'meeting') await onAddMeeting(title, startHour)
-    else await onAddScheduleItem(title, startHour)
+    await onAddScheduleItem(title, startHour)
     setAddTitle('')
     setAddOpen(false)
   }
@@ -528,7 +527,7 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, now, onAddMeeting, o
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(91,126,196,0.10)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(91,126,196,0.35)' }}
           >
             <Plus size={11} />
-            일정 추가
+            업무 추가
           </button>
 
           {addOpen && (
@@ -538,20 +537,6 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, now, onAddMeeting, o
               background: '#1C2129', border: '1px solid rgba(255,255,255,0.10)',
               boxShadow: '0 12px 32px rgba(0,0,0,0.4)',
             }}>
-              <div style={{ display: 'flex', gap: 6, marginBottom: 9 }}>
-                {(['meeting', 'work'] as const).map(lane => (
-                  <button key={lane} onClick={() => setAddLane(lane)}
-                    style={{
-                      flex: 1, padding: '5px 0', borderRadius: 7, fontSize: 11.5, fontWeight: 600, cursor: 'pointer',
-                      border: `1px solid ${addLane === lane ? 'rgba(91,126,196,0.55)' : 'rgba(255,255,255,0.10)'}`,
-                      background: addLane === lane ? 'rgba(91,126,196,0.22)' : 'rgba(255,255,255,0.04)',
-                      color: addLane === lane ? '#8DAEE6' : TEXT3,
-                      transition: 'all 120ms ease',
-                    }}>
-                    {lane === 'meeting' ? '회의' : '업무'}
-                  </button>
-                ))}
-              </div>
               <input
                 ref={addInputRef}
                 value={addTitle}
@@ -560,7 +545,7 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, now, onAddMeeting, o
                   if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleAddSubmit()
                   if (e.key === 'Escape') setAddOpen(false)
                 }}
-                placeholder={addLane === 'meeting' ? '회의 제목 입력 후 Enter' : '업무 제목 입력 후 Enter'}
+                placeholder="업무 제목 입력 후 Enter"
                 style={{ width: '100%', fontSize: 12.5, color: TEXT1, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 7, padding: '7px 9px', outline: 'none' }}
               />
               <p style={{ fontSize: 10, color: TEXT3, marginTop: 6 }}>현재 시각 근처에 추가되고, 이후 드래그로 옮길 수 있어요.</p>
@@ -680,6 +665,30 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, now, onAddMeeting, o
                 style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 8, cursor: 'ew-resize' }} />
             </div>
           )
+        })}
+
+        {/* ── Lane 1: 구글캘린더 (읽기전용 — 드래그/추가 불가, 구글캘린더가 원본) ── */}
+        {googleEvents.map(ev => {
+          const { x, w } = cardGeom(ev.start_hour, ev.duration_hours)
+          const card = (
+            <div
+              style={{
+                position: 'absolute', left: x, width: w,
+                top: TL_LANE1_TOP, height: TL_LANE_H,
+                borderRadius: 8, cursor: ev.htmlLink ? 'pointer' : 'default',
+                background: 'rgba(66,133,244,0.16)',
+                border: '1px solid rgba(66,133,244,0.4)',
+                padding: '5px 10px',
+                display: 'flex', flexDirection: 'column', justifyContent: 'center',
+                overflow: 'hidden', userSelect: 'none', zIndex: 5,
+              }}>
+              <span style={{ fontSize: 9.5, fontWeight: 600, color: 'rgba(255,255,255,0.50)', lineHeight: 1, marginBottom: 3 }}>{ev.allDay ? '종일' : hourToStr(ev.start_hour)}</span>
+              <span style={{ fontSize: 11.5, fontWeight: 500, color: 'rgba(255,255,255,0.88)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }}>📅 {ev.title}</span>
+            </div>
+          )
+          return ev.htmlLink
+            ? <a key={ev.id} href={ev.htmlLink} target="_blank" rel="noreferrer">{card}</a>
+            : <Fragment key={ev.id}>{card}</Fragment>
         })}
 
         {/* ── Lane 2: task todos ── */}
@@ -857,6 +866,14 @@ export default function HomePage() {
     load()
   }, [])
 
+  const [googleEvents, setGoogleEvents] = useState<GoogleCalendarEvent[]>([])
+  useEffect(() => {
+    fetch('/api/calendar/today')
+      .then(res => res.json())
+      .then(data => setGoogleEvents(data.events ?? []))
+      .catch(() => {})
+  }, [])
+
   // Ctrl+K
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -1024,16 +1041,6 @@ export default function HomePage() {
     setFMemoSaving(p => ({ ...p, [stateKey]: false }))
     setFMemoSaved(p => ({ ...p, [stateKey]: true }))
     setTimeout(() => setFMemoSaved(p => ({ ...p, [stateKey]: false })), 2500)
-  }
-
-  async function handleAddMeeting(title: string, startHour: number): Promise<string | null> {
-    const today = todayStr()
-    const { data } = await sb.current.from('meetings').insert({ title, meeting_date: today }).select('id').single()
-    if (data) {
-      setMeetings(p => [...p, { id: data.id, title, meeting_date: today } as Meeting])
-      return data.id
-    }
-    return null
   }
 
   // 세부task/안건에 종속시키기 어려운 "오늘 이 시간에 할 업무"용 가벼운 일정 —
@@ -1268,7 +1275,7 @@ export default function HomePage() {
               <p style={{ fontSize: 13, color: TEXT2, marginTop: 4, letterSpacing: '-0.01em' }}>오늘도 집중해서 멋진 하루 보내세요.</p>
               {!loading && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 8 }}>
-                  <KpiChip dot="#5B7EC4" label={`오늘 일정 ${todayMeetings.length}건`} />
+                  <KpiChip dot="#5B7EC4" label={`오늘 일정 ${todayMeetings.length + googleEvents.length}건`} />
                   <KpiChip dot="#7878D8" label={`오늘 업무 ${todayTodos.length}건`} />
                   <KpiChip dot="#38BE98" label={`진행중 과업 ${subTasks.length}건`} />
                   <KpiChip dot={todayJournal ? '#38BE98' : '#C86868'} label={todayJournal ? '회고 작성완료' : '회고 미작성'} onClick={() => setShowJournal(true)} />
@@ -1290,8 +1297,7 @@ export default function HomePage() {
 
           {/* Row 1: Dual-lane timeline — full width */}
           <DualLaneTimeline
-            meetings={todayMeetings} todos={todayTodos} scheduleItems={scheduleItems} now={now}
-            onAddMeeting={handleAddMeeting}
+            meetings={todayMeetings} todos={todayTodos} scheduleItems={scheduleItems} googleEvents={googleEvents} now={now}
             onAddScheduleItem={handleAddScheduleItem}
             onRemoveScheduleItem={handleRemoveScheduleItem}
             onUpdateScheduleItemPosition={handleUpdateScheduleItemPosition}
