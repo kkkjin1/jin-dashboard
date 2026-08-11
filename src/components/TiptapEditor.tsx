@@ -6,6 +6,7 @@ import StarterKit from '@tiptap/starter-kit'
 import { Color, TextStyle } from '@tiptap/extension-text-style'
 import Highlight from '@tiptap/extension-highlight'
 import Image from '@tiptap/extension-image'
+import { ArrowShortcuts } from '@/lib/arrowShortcuts'
 
 const COLOR_MAP: Record<string, string> = {
   red: '#EF4444', blue: '#3B82F6', green: '#22C55E',
@@ -193,6 +194,7 @@ const EXTENSIONS = [
   Color,
   Highlight.configure({ multicolor: true }),
   Image.configure({ allowBase64: true }),
+  ArrowShortcuts,
 ]
 
 interface Props {

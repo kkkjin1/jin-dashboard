@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useRef, useEffect, useMemo, Fragment } from 'react'
-import { CATEGORY_PALETTE, MEMO_TAG, colorKeyFromName, PART_COLOR } from '@/lib/categoryColors'
+import { CATEGORY_PALETTE, MEMO_TAG, MEETING_CATEGORY, FIXED_MEETING_TAGS, colorKeyFromName, PART_COLOR } from '@/lib/categoryColors'
+import { useOrgData } from '@/hooks/useOrgData'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -219,7 +220,7 @@ function KpiChip({ dot, label, onClick }: { dot: string; label: string; onClick?
 }
 
 // ── DualLaneTimeline ───────────────────────────────────────────────────────
-function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, onAddScheduleItem, onRemoveScheduleItem, onUpdateScheduleItemPosition, fixedMeetings = [] }: {
+function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, onAddScheduleItem, onRemoveScheduleItem, onUpdateScheduleItemPosition, onSelectGoogleEvent, fixedMeetings = [] }: {
   meetings: Meeting[]
   todos: TodayTodo[]
   scheduleItems: ScheduleItem[]
@@ -228,6 +229,7 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, o
   onAddScheduleItem: (title: string, startHour: number) => Promise<void>
   onRemoveScheduleItem: (id: string) => void
   onUpdateScheduleItemPosition: (id: string, startHour: number, durationHours: number) => void
+  onSelectGoogleEvent: (ev: GoogleCalendarEvent) => void
   fixedMeetings?: MeetingSchedule[]
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -667,15 +669,16 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, o
           )
         })}
 
-        {/* ── Lane 1: 구글캘린더 (읽기전용 — 드래그/추가 불가, 구글캘린더가 원본) ── */}
+        {/* ── Lane 1: 구글캘린더 (읽기전용 — 드래그/추가 불가, 클릭 시 회의록 생성/이동) ── */}
         {googleEvents.map(ev => {
           const { x, w } = cardGeom(ev.start_hour, ev.duration_hours)
-          const card = (
-            <div
+          return (
+            <div key={ev.id}
+              onClick={() => onSelectGoogleEvent(ev)}
               style={{
                 position: 'absolute', left: x, width: w,
                 top: TL_LANE1_TOP, height: TL_LANE_H,
-                borderRadius: 8, cursor: ev.htmlLink ? 'pointer' : 'default',
+                borderRadius: 8, cursor: 'pointer',
                 background: 'rgba(66,133,244,0.16)',
                 border: '1px solid rgba(66,133,244,0.4)',
                 padding: '5px 10px',
@@ -686,9 +689,6 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, o
               <span style={{ fontSize: 11.5, fontWeight: 500, color: 'rgba(255,255,255,0.88)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }}>📅 {ev.title}</span>
             </div>
           )
-          return ev.htmlLink
-            ? <a key={ev.id} href={ev.htmlLink} target="_blank" rel="noreferrer">{card}</a>
-            : <Fragment key={ev.id}>{card}</Fragment>
         })}
 
         {/* ── Lane 2: task todos ── */}
@@ -822,7 +822,10 @@ export default function HomePage() {
   const [todayJournal,  setTodayJournal]  = useState<DailyJournal | null>(null)
   const [yesterJournal, setYesterJournal] = useState<DailyJournal | null>(null)
   const [loading,       setLoading]       = useState(true)
+  const [gcalPicker,    setGcalPicker]    = useState<GoogleCalendarEvent | null>(null)
   const sb = useRef(createClient())
+  const { org } = useOrgData()
+  const meetingCategories = useMemo(() => [...org.map(t => t.name), ...FIXED_MEETING_TAGS], [org])
 
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 60_000)
@@ -1058,6 +1061,25 @@ export default function HomePage() {
     setScheduleItems(p => p.filter(s => s.id !== id))
     sb.current.from('schedule_items').delete().eq('id', id)
       .then(({ error }) => { if (error) console.error('일정 삭제 실패:', error.message) })
+  }
+
+  // 구글캘린더 이벤트 클릭 — 이미 연동된 회의록 있으면 바로 이동, 없으면 범주 선택 후 생성
+  function handleSelectGoogleEvent(ev: GoogleCalendarEvent) {
+    const existing = todayMeetings.find(m => m.title === ev.title)
+    if (existing) { router.push(`/meetings/${existing.id}`); return }
+    setGcalPicker(ev)
+  }
+
+  async function createMeetingFromGoogleEvent(category: string) {
+    if (!gcalPicker) return
+    const ev = gcalPicker
+    const today = todayStr()
+    const { data, error } = await sb.current.from('meetings')
+      .insert({ title: ev.title, meeting_date: today, category }).select('id').single()
+    setGcalPicker(null)
+    if (error || !data) { console.error('회의록 생성 실패:', error?.message); return }
+    setMeetings(p => [...p, { id: data.id, title: ev.title, meeting_date: today, category } as Meeting])
+    router.push(`/meetings/${data.id}`)
   }
 
   function handleUpdateScheduleItemPosition(id: string, startHour: number, durationHours: number) {
@@ -1301,6 +1323,7 @@ export default function HomePage() {
             onAddScheduleItem={handleAddScheduleItem}
             onRemoveScheduleItem={handleRemoveScheduleItem}
             onUpdateScheduleItemPosition={handleUpdateScheduleItemPosition}
+            onSelectGoogleEvent={handleSelectGoogleEvent}
             fixedMeetings={todayFixedMeetingsVisible}
           />
 
@@ -2006,6 +2029,36 @@ export default function HomePage() {
             </div>
           )
         })(),
+        document.body
+      )}
+
+      {/* 구글캘린더 회의 → 회의록 생성 (범주 선택) */}
+      {gcalPicker && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-6"
+          style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)' }}
+          onClick={() => setGcalPicker(null)}>
+          <div style={{ width: '100%', maxWidth: 380, background: '#1A1D25', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, boxShadow: '0 32px 80px rgba(0,0,0,0.5)', padding: 20 }}
+            onClick={e => e.stopPropagation()}>
+            <p style={{ fontSize: 13, fontWeight: 600, color: TEXT1, marginBottom: 4 }}>📅 {gcalPicker.title}</p>
+            <p style={{ fontSize: 11.5, color: TEXT3, marginBottom: 14 }}>회의록을 어느 범주에 만들까요?</p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {meetingCategories.map(cat => {
+                const key = MEETING_CATEGORY[cat] ?? colorKeyFromName(cat)
+                const p = CATEGORY_PALETTE[key]
+                return (
+                  <button key={cat} onClick={() => createMeetingFromGoogleEvent(cat)}
+                    style={{ fontSize: 12, padding: '6px 12px', borderRadius: 8, cursor: 'pointer', background: p.bg, color: p.text, border: `1px solid ${p.border}` }}>
+                    {cat}
+                  </button>
+                )
+              })}
+            </div>
+            <button onClick={() => setGcalPicker(null)}
+              style={{ marginTop: 14, fontSize: 11.5, color: TEXT3, background: 'none', border: 'none', cursor: 'pointer' }}>
+              취소
+            </button>
+          </div>
+        </div>,
         document.body
       )}
 

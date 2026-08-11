@@ -1,5 +1,6 @@
 ﻿import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import ArrowShortcutsProvider from "@/components/ArrowShortcutsProvider";
 
 export const metadata: Metadata = {
   title: "인사기획 워크",
@@ -34,6 +35,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/static/pretendard.css" />
       </head>
       <body className="bg-[#F1F5F9] text-gray-900 antialiased font-sans" suppressHydrationWarning>
+        <ArrowShortcutsProvider />
         {children}
       </body>
     </html>
