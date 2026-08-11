@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import {
   ReactFlow, ReactFlowProvider, Background, BackgroundVariant, Controls, MiniMap,
-  Handle, Position, MarkerType, BaseEdge, getStraightPath, useInternalNode,
+  Handle, Position, MarkerType, BaseEdge, getStraightPath, useInternalNode, NodeResizer,
   useNodesState, useEdgesState, useReactFlow,
   type Node, type NodeProps, type NodeTypes, type OnNodeDrag, type Edge, type EdgeTypes, type EdgeProps, type OnConnect,
   type InternalNode, type NodeChange,
@@ -68,18 +68,48 @@ type CardData = {
   onContentChange: (id: string, content: string) => void
   onColorChange: (id: string, color: CategoryColorKey) => void
   onDelete: (id: string) => void
+  onResize: (id: string, box: { x: number; y: number; width: number; height: number }) => void
 }
 type CardNode = Node<CardData, 'sticky'>
 
-function StickyCardNode({ id, data }: NodeProps<CardNode>) {
-  const [text, setText] = useState(data.content)
+// 예전 저장분은 순수 텍스트라 그대로 HTML로 꽂으면 <, &, > 가 깨짐 — 우리가 저장한
+// 적 있는(빨간펜 span 등 태그 포함) 콘텐츠만 HTML로 신뢰하고, 그 외엔 escape 처리
+function toDisplayHtml(content: string): string {
+  if (/<(span|br|div)[\s/>]/i.test(content)) return content
+  return content.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
+const RED = '#EF4444'
+const BASE_TEXT = '#E2E8F0'
+
+function StickyCardNode({ id, data, selected }: NodeProps<CardNode>) {
+  const editorRef = useRef<HTMLDivElement>(null)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const palette = CATEGORY_PALETTE[data.color]
 
-  function handleChange(value: string) {
-    setText(value)
+  // 최초 1회만 innerHTML 세팅 — 이후엔 DOM이 진실 소스라 React가 다시 덮어쓰면
+  // (매 렌더마다) 커서 위치가 튀어버림
+  useEffect(() => {
+    if (editorRef.current) editorRef.current.innerHTML = toDisplayHtml(data.content)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  function handleInput(e: React.FormEvent<HTMLDivElement>) {
+    const html = e.currentTarget.innerHTML
     clearTimeout(saveTimer.current)
-    saveTimer.current = setTimeout(() => data.onContentChange(id, value), 500)
+    saveTimer.current = setTimeout(() => data.onContentChange(id, html), 500)
+  }
+
+  // 다른 서식은 없어도 "빨간펜"(Alt+1) 만은 지원 — 선택 영역 있으면 그 부분만, 없으면 전체 토글
+  function toggleRedPen() {
+    document.execCommand('styleWithCSS', false, 'true')
+    const current = document.queryCommandValue('foreColor')
+    const isRed = current === 'rgb(239, 68, 68)' || current.toLowerCase() === RED.toLowerCase()
+    document.execCommand('foreColor', false, isRed ? BASE_TEXT : RED)
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (e.altKey && e.key === '1') { e.preventDefault(); toggleRedPen() }
   }
 
   return (
@@ -87,6 +117,17 @@ function StickyCardNode({ id, data }: NodeProps<CardNode>) {
       className="group relative h-full w-full flex flex-col rounded-xl overflow-hidden shadow-lg"
       style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)' }}
     >
+      <NodeResizer
+        nodeId={id}
+        isVisible={!!selected}
+        minWidth={160}
+        minHeight={100}
+        color={palette.solid}
+        handleStyle={{ width: 8, height: 8, borderRadius: 2, background: palette.solid, border: '1.5px solid rgba(255,255,255,0.85)' }}
+        lineStyle={{ borderColor: 'rgba(255,255,255,0.2)' }}
+        onResizeEnd={(_event, params) => data.onResize(id, params)}
+      />
+
       <Handle type="target" position={Position.Left}
         className="opacity-0 group-hover:opacity-100 transition-opacity"
         style={{ width: 10, height: 10, background: palette.solid, border: '2px solid rgba(255,255,255,0.7)' }} />
@@ -112,12 +153,14 @@ function StickyCardNode({ id, data }: NodeProps<CardNode>) {
       </div>
 
       <div className="flex-1 min-h-0 relative px-2 pb-2">
-        <textarea
-          className="nodrag nopan absolute inset-0 w-full h-full bg-transparent resize-none focus:outline-none text-[12.5px] leading-snug placeholder:opacity-40"
-          style={{ color: '#E2E8F0', padding: '0 2px' }}
-          value={text}
-          onChange={e => handleChange(e.target.value)}
-          placeholder=""
+        <div
+          ref={editorRef}
+          contentEditable
+          suppressContentEditableWarning
+          onInput={handleInput}
+          onKeyDown={handleKeyDown}
+          className="nodrag nopan scrollbar-hide absolute inset-0 w-full h-full overflow-y-auto bg-transparent focus:outline-none text-[12.5px] leading-snug"
+          style={{ color: BASE_TEXT, padding: '4px 8px', whiteSpace: 'pre-wrap', overflowWrap: 'break-word' }}
         />
         <div className="absolute inset-y-0 left-0 w-1/2 flex items-center justify-center cursor-grab active:cursor-grabbing">
           <GripVertical size={14} className="opacity-0 group-hover:opacity-40 transition-opacity pointer-events-none" style={{ color: palette.solid }} />
@@ -150,16 +193,17 @@ function rectsOverlapArea(ax: number, ay: number, aw: number, ah: number, bx: nu
 function detectOverlap(
   draggedId: string,
   pos: { x: number; y: number }, // 절대좌표
-  candidates: { id: string; position: { x: number; y: number } }[], // 절대좌표로 이미 변환된 후보
+  draggedSize: { width: number; height: number },
+  candidates: { id: string; position: { x: number; y: number }; size: { width: number; height: number } }[], // 절대좌표로 이미 변환된 후보
   currentEdges: Edge[],
 ): { id: string; disconnect: boolean } | null {
-  const area = DEFAULT_WIDTH * DEFAULT_HEIGHT
   for (const n of candidates) {
     if (n.id === draggedId) continue
     const connected = currentEdges.some(e =>
       (e.source === draggedId && e.target === n.id) || (e.source === n.id && e.target === draggedId))
     if (!connected) continue
-    const overlap = rectsOverlapArea(pos.x, pos.y, DEFAULT_WIDTH, DEFAULT_HEIGHT, n.position.x, n.position.y, DEFAULT_WIDTH, DEFAULT_HEIGHT)
+    const area = Math.min(draggedSize.width * draggedSize.height, n.size.width * n.size.height)
+    const overlap = rectsOverlapArea(pos.x, pos.y, draggedSize.width, draggedSize.height, n.position.x, n.position.y, n.size.width, n.size.height)
     if (overlap / area >= DISCONNECT_OVERLAP_RATIO) return { id: n.id, disconnect: true }
   }
   for (const n of candidates) {
@@ -167,10 +211,18 @@ function detectOverlap(
     const connected = currentEdges.some(e =>
       (e.source === draggedId && e.target === n.id) || (e.source === n.id && e.target === draggedId))
     if (connected) continue
-    const overlap = rectsOverlapArea(pos.x, pos.y, DEFAULT_WIDTH, DEFAULT_HEIGHT, n.position.x, n.position.y, DEFAULT_WIDTH, DEFAULT_HEIGHT)
+    const area = Math.min(draggedSize.width * draggedSize.height, n.size.width * n.size.height)
+    const overlap = rectsOverlapArea(pos.x, pos.y, draggedSize.width, draggedSize.height, n.position.x, n.position.y, n.size.width, n.size.height)
     if (overlap / area >= CONNECT_OVERLAP_RATIO) return { id: n.id, disconnect: false }
   }
   return null
+}
+
+function nodeSize(n: Node): { width: number; height: number } {
+  return {
+    width: n.measured?.width ?? DEFAULT_WIDTH,
+    height: n.measured?.height ?? DEFAULT_HEIGHT,
+  }
 }
 
 // ── 뷰포트 저장 ────────────────────────────────────────────────────────────────
@@ -281,11 +333,22 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
     setEdges(prev => prev.filter(e => e.source !== id && e.target !== id))
   }, [])
 
+  const handleCardResize = useCallback((id: string, box: { x: number; y: number; width: number; height: number }) => {
+    setNodes(prev => prev.map(n => n.id === id
+      ? { ...n, position: { x: box.x, y: box.y }, style: { ...n.style, width: box.width, height: box.height } }
+      : n))
+    supabase.from('sketch_cards')
+      .update({ position_x: box.x, position_y: box.y, width: box.width, height: box.height })
+      .eq('id', id)
+      .then(({ error }) => { if (error) console.error('카드 크기 저장 실패:', error.message) })
+  }, [])
+
   const cardHandlers = useMemo(() => ({
     onContentChange: handleContentChange,
     onColorChange: handleColorChange,
     onDelete: handleDelete,
-  }), [handleContentChange, handleColorChange, handleDelete])
+    onResize: handleCardResize,
+  }), [handleContentChange, handleColorChange, handleDelete, handleCardResize])
 
   // ── 프레임 handlers ───────────────────────────────────────────────────────
   const handleFrameTitleChange = useCallback((frameId: string, title: string) => {
@@ -640,8 +703,8 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
     // 카드끼리도, 자유 카드끼리도 겹침으로 연결/해제가 가능해야 함)
     const draggedAbsPos = toAbsolutePosition(node.position, node.parentId, framesRef.current)
     const candidates = (nodesRef.current.filter(n => n.type === 'sticky' && n.id !== node.id) as CardNode[])
-      .map(n => ({ id: n.id, position: toAbsolutePosition(n.position, n.parentId, framesRef.current) }))
-    const overlap = detectOverlap(node.id, draggedAbsPos, candidates, edgesRef.current)
+      .map(n => ({ id: n.id, position: toAbsolutePosition(n.position, n.parentId, framesRef.current), size: nodeSize(n) }))
+    const overlap = detectOverlap(node.id, draggedAbsPos, nodeSize(node), candidates, edgesRef.current)
     const newId = overlap?.id ?? null
     const newDisconnect = overlap?.disconnect ?? false
     hoverTargetIdRef.current = newId
@@ -673,8 +736,8 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
     // (같은 프레임 안의 카드끼리도 겹쳐서 연결/해제할 수 있어야 함)
     const draggedAbsPos = toAbsolutePosition(node.position, node.parentId, framesRef.current)
     const candidates = (nodesRef.current.filter(n => n.type === 'sticky' && n.id !== node.id) as CardNode[])
-      .map(n => ({ id: n.id, position: toAbsolutePosition(n.position, n.parentId, framesRef.current) }))
-    const overlap = detectOverlap(node.id, draggedAbsPos, candidates, edgesRef.current)
+      .map(n => ({ id: n.id, position: toAbsolutePosition(n.position, n.parentId, framesRef.current), size: nodeSize(n) }))
+    const overlap = detectOverlap(node.id, draggedAbsPos, nodeSize(node), candidates, edgesRef.current)
 
     if (overlap && !overlap.disconnect) {
       const origin = dragStartPositionRef.current

@@ -193,9 +193,8 @@ const TL_TIME_H    = 16
 const TL_LANE_H    = 40
 const TL_LANE_GAP  = 5
 const TL_LANE1_TOP = 22                                      // 구글캘린더 lane top
-const TL_LANE2_TOP = TL_LANE1_TOP + TL_LANE_H + TL_LANE_GAP  // 회의 lane top
-const TL_LANE3_TOP = TL_LANE2_TOP + TL_LANE_H + TL_LANE_GAP  // 업무 lane top
-const TL_CARD_H    = TL_LANE3_TOP + TL_LANE_H + 10       // total height ≈ 162
+const TL_LANE2_TOP = TL_LANE1_TOP + TL_LANE_H + TL_LANE_GAP  // 일정(회의)+업무추가 lane top
+const TL_CARD_H    = TL_LANE2_TOP + TL_LANE_H + 10       // total height ≈ 117
 
 // Single-lane vivid event palette
 const EV_COLS = [
@@ -613,7 +612,6 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
         {/* Lane track backgrounds */}
         {cw > 0 && <div style={{ position: 'absolute', left: 0, right: 0, top: TL_LANE1_TOP, height: TL_LANE_H, borderRadius: 5, background: 'rgba(255,255,255,0.018)', pointerEvents: 'none' }} />}
         {cw > 0 && <div style={{ position: 'absolute', left: 0, right: 0, top: TL_LANE2_TOP, height: TL_LANE_H, borderRadius: 5, background: 'rgba(255,255,255,0.018)', pointerEvents: 'none' }} />}
-        {cw > 0 && <div style={{ position: 'absolute', left: 0, right: 0, top: TL_LANE3_TOP, height: TL_LANE_H, borderRadius: 5, background: 'rgba(255,255,255,0.018)', pointerEvents: 'none' }} />}
 
         {/* Past overlay */}
         {inRange && cw > 0 && (
@@ -726,7 +724,7 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
           )
         })}
 
-        {/* ── Lane 3: task todos ── */}
+        {/* ── Lane 2: task todos ── */}
         {todos.map((t, i) => {
           const hour = tPos[t.id] ?? (H_START + i * 1.5)
           const dur  = tDur[t.id] ?? 1
@@ -737,7 +735,7 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
               onMouseDown={e => { e.preventDefault(); onTDragStart(t.id, e.clientX) }}
               style={{
                 position: 'absolute', left: x, width: w,
-                top: TL_LANE3_TOP, height: TL_LANE_H,
+                top: TL_LANE2_TOP, height: TL_LANE_H,
                 borderRadius: 8, cursor: 'grab',
                 background: col.bg,
                 border: `1px solid ${col.bd}`,
@@ -758,7 +756,7 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
           <div style={{ position: 'absolute', left: dropIndicatorX, top: TL_TIME_H, bottom: 0, width: 2, background: 'rgba(76,127,224,0.7)', pointerEvents: 'none', zIndex: 20, boxShadow: '0 0 8px rgba(76,127,224,0.4)' }} />
         )}
 
-        {/* ── Lane 3: extras (외부 드래그 항목) ── */}
+        {/* ── Lane 2: extras (외부 드래그 항목) ── */}
         {extras.map((ex, i) => {
           const hour = extraPos[ex.id] ?? (H_START + (todos.length + i) * 1.2)
           const dur  = extraDur[ex.id] ?? 1
@@ -766,7 +764,7 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
           return (
             <div key={ex.id}
               onMouseDown={e => { e.preventDefault(); onExDragStart(ex.id, e.clientX) }}
-              style={{ position: 'absolute', left: x, width: w, top: TL_LANE3_TOP, height: TL_LANE_H, borderRadius: 8, cursor: 'grab', background: 'rgba(40,98,130,0.62)', border: '1px solid rgba(70,148,200,0.22)', padding: '5px 10px', display: 'flex', flexDirection: 'column', justifyContent: 'center', overflow: 'hidden', userSelect: 'none', zIndex: 6 }}>
+              style={{ position: 'absolute', left: x, width: w, top: TL_LANE2_TOP, height: TL_LANE_H, borderRadius: 8, cursor: 'grab', background: 'rgba(40,98,130,0.62)', border: '1px solid rgba(70,148,200,0.22)', padding: '5px 10px', display: 'flex', flexDirection: 'column', justifyContent: 'center', overflow: 'hidden', userSelect: 'none', zIndex: 6 }}>
               <span style={{ fontSize: 9.5, fontWeight: 600, color: 'rgba(255,255,255,0.50)', lineHeight: 1, marginBottom: 3 }}>{hourToStr(hour)}</span>
               <span style={{ fontSize: 11.5, fontWeight: 500, color: 'rgba(255,255,255,0.88)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }}>{ex.title}</span>
               {ex.subtitle && <span style={{ fontSize: 9.5, color: 'rgba(255,255,255,0.40)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }}>{ex.subtitle}</span>}
@@ -782,7 +780,7 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
           )
         })}
 
-        {/* ── Lane 3: 업무 일정 (schedule_items, "일정 추가"로 만든 항목) ── */}
+        {/* ── Lane 2: 업무 일정 (schedule_items, "일정 추가"로 만든 항목) ── */}
         {scheduleItems.map((s, i) => {
           const hour = siPos[s.id] ?? s.start_hour
           const dur  = siDur[s.id] ?? s.duration_hours
@@ -791,7 +789,7 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
           return (
             <div key={s.id}
               onMouseDown={e => { e.preventDefault(); onSiDragStart(s.id, e.clientX) }}
-              style={{ position: 'absolute', left: x, width: w, top: TL_LANE3_TOP, height: TL_LANE_H, borderRadius: 8, cursor: 'grab', background: col.bg, border: `1px solid ${col.bd}`, padding: '5px 10px', display: 'flex', flexDirection: 'column', justifyContent: 'center', overflow: 'hidden', userSelect: 'none', zIndex: 6 }}>
+              style={{ position: 'absolute', left: x, width: w, top: TL_LANE2_TOP, height: TL_LANE_H, borderRadius: 8, cursor: 'grab', background: col.bg, border: `1px solid ${col.bd}`, padding: '5px 10px', display: 'flex', flexDirection: 'column', justifyContent: 'center', overflow: 'hidden', userSelect: 'none', zIndex: 6 }}>
               <span style={{ fontSize: 9.5, fontWeight: 600, color: 'rgba(255,255,255,0.50)', lineHeight: 1, marginBottom: 3 }}>{hourToStr(hour)}</span>
               <span style={{ fontSize: 11.5, fontWeight: 500, color: 'rgba(255,255,255,0.88)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }}>{s.title}</span>
               <div onMouseDown={e => { e.stopPropagation(); e.preventDefault(); onSiResizeStart(s.id, e.clientX) }}
@@ -813,7 +811,7 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
           </div>
         )}
         {tHasOverflow && cw > 0 && (
-          <div style={{ position: 'absolute', right: -18, top: TL_LANE3_TOP + TL_LANE_H / 2 - 10, pointerEvents: 'none' }}>
+          <div style={{ position: 'absolute', right: -18, top: TL_LANE2_TOP + TL_LANE_H / 2 - 10, pointerEvents: 'none' }}>
             <span style={{ fontSize: 18, color: TEXT2, opacity: 0.55 }}>›</span>
           </div>
         )}
