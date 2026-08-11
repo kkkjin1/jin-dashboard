@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 
 // 새 패키지 의존성 없이 fetch만으로 구현 (googleapis 등 무거운 SDK 불필요)
 
@@ -52,7 +52,9 @@ export interface GoogleCalendarEvent {
 
 const H_START = 9, H_END = 21
 
-export async function GET() {
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+
+export async function GET(req: NextRequest) {
   let accessToken: string
   try {
     accessToken = await getAccessToken()
@@ -62,7 +64,8 @@ export async function GET() {
     return NextResponse.json({ events: [], connected: false, error: msg })
   }
 
-  const dateStr = todayInSeoul()
+  const requestedDate = req.nextUrl.searchParams.get('date')
+  const dateStr = requestedDate && DATE_RE.test(requestedDate) ? requestedDate : todayInSeoul()
   const timeMin = `${dateStr}T00:00:00+09:00`
   const timeMax = `${dateStr}T23:59:59+09:00`
   const calendarId = process.env.GOOGLE_CALENDAR_ID || 'primary'

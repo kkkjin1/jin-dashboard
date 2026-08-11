@@ -84,6 +84,15 @@ function localDateStr(d: Date) {
 }
 function todayStr()     { return localDateStr(new Date()) }
 function yesterdayStr() { const d = new Date(); d.setDate(d.getDate() - 1); return localDateStr(d) }
+function shiftDateStr(dateStr: string, days: number) {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const dt = new Date(y, m - 1, d); dt.setDate(dt.getDate() + days)
+  return localDateStr(dt)
+}
+function dowOfDateStr(dateStr: string) {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  return new Date(y, m - 1, d).getDay()
+}
 
 // ── Empty State ────────────────────────────────────────────────────────────
 function EmptyState({ icon, label, sub }: { icon: React.ReactNode; label: string; sub?: string }) {
@@ -220,12 +229,17 @@ function KpiChip({ dot, label, onClick }: { dot: string; label: string; onClick?
 }
 
 // ── DualLaneTimeline ───────────────────────────────────────────────────────
-function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, onAddScheduleItem, onRemoveScheduleItem, onUpdateScheduleItemPosition, onSelectGoogleEvent, fixedMeetings = [] }: {
+function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, selectedDate, isToday, onNavigateDate, onJumpToday, onPickDate, onAddScheduleItem, onRemoveScheduleItem, onUpdateScheduleItemPosition, onSelectGoogleEvent, fixedMeetings = [] }: {
   meetings: Meeting[]
   todos: TodayTodo[]
   scheduleItems: ScheduleItem[]
   googleEvents: GoogleCalendarEvent[]
   now: Date
+  selectedDate: string
+  isToday: boolean
+  onNavigateDate: (dir: -1 | 1) => void
+  onJumpToday: () => void
+  onPickDate: (date: string) => void
   onAddScheduleItem: (title: string, startHour: number) => Promise<void>
   onRemoveScheduleItem: (id: string) => void
   onUpdateScheduleItemPosition: (id: string, startHour: number, durationHours: number) => void
@@ -233,6 +247,7 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, o
   fixedMeetings?: MeetingSchedule[]
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const dateInputRef = useRef<HTMLInputElement>(null)
   const [cw, setCw] = useState(0)
 
   useEffect(() => {
@@ -497,7 +512,7 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, o
   }
 
   const curH    = now.getHours() + now.getMinutes() / 60
-  const inRange = curH >= H_START && curH <= H_END
+  const inRange = isToday && curH >= H_START && curH <= H_END
   const curX    = hW > 0 ? Math.max(0, Math.min(cw, (curH - H_START) * hW)) : 0
   const hours   = Array.from({ length: H_END - H_START + 1 }, (_, i) => H_START + i)
 
@@ -516,10 +531,28 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, o
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <span style={{ display: 'flex', alignItems: 'center' }}><Clock size={14} strokeWidth={2} style={{ color: '#E05252' }} /></span>
           <span style={{ fontSize: 13, fontWeight: 600, color: TEXT1, letterSpacing: '-0.01em' }}>오늘의 타임라인</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, background: 'rgba(91,126,196,0.12)', border: '1px solid rgba(91,126,196,0.26)' }}>
-            <CalendarDays size={10} strokeWidth={2} style={{ color: '#8DAEE6' }} />
-            <span style={{ fontSize: 11, color: '#8DAEE6', fontWeight: 600, letterSpacing: '-0.01em' }}>{format(now, 'M월 d일 (eee)', { locale: ko })}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 2, padding: '3px 6px', borderRadius: 6, background: 'rgba(91,126,196,0.12)', border: '1px solid rgba(91,126,196,0.26)' }}>
+            <button onClick={() => onNavigateDate(-1)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8DAEE6', fontSize: 11, padding: '0 3px', lineHeight: 1 }}>‹</button>
+            <span onClick={() => dateInputRef.current?.showPicker?.()}
+              style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', padding: '0 3px' }}>
+              <CalendarDays size={10} strokeWidth={2} style={{ color: '#8DAEE6' }} />
+              <span style={{ fontSize: 11, color: '#8DAEE6', fontWeight: 600, letterSpacing: '-0.01em', whiteSpace: 'nowrap' }}>
+                {isToday ? '오늘' : format(parseISO(selectedDate), 'M월 d일 (eee)', { locale: ko })}
+              </span>
+            </span>
+            <input ref={dateInputRef} type="date" value={selectedDate}
+              onChange={e => { if (e.target.value) onPickDate(e.target.value) }}
+              className="sr-only" />
+            <button onClick={() => onNavigateDate(1)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8DAEE6', fontSize: 11, padding: '0 3px', lineHeight: 1 }}>›</button>
           </div>
+          {!isToday && (
+            <button onClick={onJumpToday}
+              style={{ fontSize: 10.5, color: TEXT3, background: 'none', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, padding: '3px 8px', cursor: 'pointer' }}>
+              오늘로
+            </button>
+          )}
         </div>
         <div ref={addRef} style={{ position: 'relative' }}>
           <button
@@ -845,7 +878,7 @@ export default function HomePage() {
       const yesterday = yesterdayStr()
       const [
         { data: stData }, { data: taskTodoData },
-        { data: mData },  { data: mmData }, { data: jData }, { data: siData },
+        { data: mData },  { data: mmData }, { data: jData },
       ] = await Promise.all([
         sb.current.from('agenda_sub_tasks').select('*, agenda_items(id, title, agenda_groups(name, color, category)), sub_task_notes(created_at, edited_at, content)').eq('status', 'active').order('sort_order').limit(100),
         // schedule_tag는 배정 시점의 스냅샷이라 자정이 지나도 갱신되지 않음 — target_date를 기준으로 오늘/금주 분류
@@ -853,7 +886,6 @@ export default function HomePage() {
         sb.current.from('meetings').select('*').order('meeting_date', { ascending: false }).limit(20),
         sb.current.from('quick_memos').select('*').order('created_at', { ascending: false }).limit(100),
         sb.current.from('daily_journals').select('id, date, content, linked_task_ids, linked_meeting_ids, tags').in('date', [today, yesterday]),
-        sb.current.from('schedule_items').select('*').eq('item_date', today),
       ])
 
       setSubTasks((stData ?? []) as SubTaskWithContext[])
@@ -863,19 +895,28 @@ export default function HomePage() {
       const jList = (jData ?? []) as DailyJournal[]
       setTodayJournal(jList.find(j => j.date === today) ?? null)
       setYesterJournal(jList.find(j => j.date === yesterday) ?? null)
-      setScheduleItems((siData ?? []) as ScheduleItem[])
       setLoading(false)
     }
     load()
   }, [])
 
+  // 오늘의 타임라인 — 조회 중인 날짜(오늘 외 전후 이동 가능)에 종속된 데이터
+  const [timelineDate, setTimelineDate] = useState(todayStr())
+  useEffect(() => {
+    sb.current.from('schedule_items').select('*').eq('item_date', timelineDate)
+      .then(({ data, error }) => {
+        if (error) { console.error('일정 조회 실패:', error.message); return }
+        setScheduleItems((data ?? []) as ScheduleItem[])
+      })
+  }, [timelineDate])
+
   const [googleEvents, setGoogleEvents] = useState<GoogleCalendarEvent[]>([])
   useEffect(() => {
-    fetch('/api/calendar/today')
+    fetch(`/api/calendar/today?date=${timelineDate}`)
       .then(res => res.json())
       .then(data => setGoogleEvents(data.events ?? []))
       .catch(() => {})
-  }, [])
+  }, [timelineDate])
 
   // Ctrl+K
   useEffect(() => {
@@ -1049,9 +1090,8 @@ export default function HomePage() {
   // 세부task/안건에 종속시키기 어려운 "오늘 이 시간에 할 업무"용 가벼운 일정 —
   // schedule_items 전용 테이블에 저장 (퀵메모와 분리해 퀵메모가 방대해지는 것을 방지)
   async function handleAddScheduleItem(title: string, startHour: number): Promise<void> {
-    const today = todayStr()
     const { data, error } = await sb.current.from('schedule_items')
-      .insert({ title, item_date: today, start_hour: startHour, duration_hours: 1 })
+      .insert({ title, item_date: timelineDate, start_hour: startHour, duration_hours: 1 })
       .select('*').single()
     if (error) { console.error('일정 추가 실패:', error.message); return }
     if (data) setScheduleItems(p => [...p, data as ScheduleItem])
@@ -1065,7 +1105,7 @@ export default function HomePage() {
 
   // 구글캘린더 이벤트 클릭 — 이미 연동된 회의록 있으면 바로 이동, 없으면 범주 선택 후 생성
   function handleSelectGoogleEvent(ev: GoogleCalendarEvent) {
-    const existing = todayMeetings.find(m => m.title === ev.title)
+    const existing = meetings.find(m => m.meeting_date?.startsWith(timelineDate) && m.title === ev.title)
     if (existing) { router.push(`/meetings/${existing.id}`); return }
     setGcalPicker(ev)
   }
@@ -1073,12 +1113,11 @@ export default function HomePage() {
   async function createMeetingFromGoogleEvent(category: string) {
     if (!gcalPicker) return
     const ev = gcalPicker
-    const today = todayStr()
     const { data, error } = await sb.current.from('meetings')
-      .insert({ title: ev.title, meeting_date: today, category }).select('id').single()
+      .insert({ title: ev.title, meeting_date: timelineDate, category }).select('id').single()
     setGcalPicker(null)
     if (error || !data) { console.error('회의록 생성 실패:', error?.message); return }
-    setMeetings(p => [...p, { id: data.id, title: ev.title, meeting_date: today, category } as Meeting])
+    setMeetings(p => [...p, { id: data.id, title: ev.title, meeting_date: timelineDate, category } as Meeting])
     router.push(`/meetings/${data.id}`)
   }
 
@@ -1098,6 +1137,14 @@ export default function HomePage() {
     .sort((a, b) => a.time.localeCompare(b.time))
   // 오늘 실제 meeting 레코드가 있어도 오늘업무 카드에는 항상 표시 (기록 여부는 배지로 구분)
   const todayFixedMeetingsVisible = todayFixedMeetings
+
+  // 오늘의 타임라인 — timelineDate 기준 파생 데이터 (today와 다를 수 있음)
+  const isTimelineToday   = timelineDate === today
+  const timelineMeetings  = meetings.filter(m => m.meeting_date?.startsWith(timelineDate))
+  const timelineDow       = dowOfDateStr(timelineDate)
+  const timelineFixedMeetings = fixedSchedules
+    .filter(s => s.is_recurring ? (s.days_of_week ?? []).includes(timelineDow) : s.date === timelineDate)
+    .sort((a, b) => a.time.localeCompare(b.time))
   const recentMeetings = meetings.slice(0, 5)
   const _pad = (n: number) => String(n).padStart(2, '0')
   const tomorrowDate = new Date(now); tomorrowDate.setDate(now.getDate() + 1)
@@ -1124,6 +1171,7 @@ export default function HomePage() {
 
   // task_todos → target_date 기준 분류 (schedule_tag는 배정 시점 스냅샷이라 자정 경과 후에도 안 바뀜 → 신뢰하지 않음)
   const todayTodos = allTaskTodos.filter(t => t.target_date ? t.target_date === today : t.schedule_tag === 'today')
+  const timelineTodos = isTimelineToday ? todayTodos : allTaskTodos.filter(t => t.target_date === timelineDate)
   const weekTodos  = allTaskTodos.filter(t => t.target_date
     ? t.target_date > today
     : (t.schedule_tag === 'tomorrow' || t.schedule_tag === 'this_week'))
@@ -1297,7 +1345,7 @@ export default function HomePage() {
               <p style={{ fontSize: 13, color: TEXT2, marginTop: 4, letterSpacing: '-0.01em' }}>오늘도 집중해서 멋진 하루 보내세요.</p>
               {!loading && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 8 }}>
-                  <KpiChip dot="#5B7EC4" label={`오늘 일정 ${todayMeetings.length + googleEvents.length}건`} />
+                  <KpiChip dot="#5B7EC4" label={`오늘 일정 ${todayMeetings.length + (isTimelineToday ? googleEvents.length : 0)}건`} />
                   <KpiChip dot="#7878D8" label={`오늘 업무 ${todayTodos.length}건`} />
                   <KpiChip dot="#38BE98" label={`진행중 과업 ${subTasks.length}건`} />
                   <KpiChip dot={todayJournal ? '#38BE98' : '#C86868'} label={todayJournal ? '회고 작성완료' : '회고 미작성'} onClick={() => setShowJournal(true)} />
@@ -1319,12 +1367,16 @@ export default function HomePage() {
 
           {/* Row 1: Dual-lane timeline — full width */}
           <DualLaneTimeline
-            meetings={todayMeetings} todos={todayTodos} scheduleItems={scheduleItems} googleEvents={googleEvents} now={now}
+            meetings={timelineMeetings} todos={timelineTodos} scheduleItems={scheduleItems} googleEvents={googleEvents} now={now}
+            selectedDate={timelineDate} isToday={isTimelineToday}
+            onNavigateDate={dir => setTimelineDate(d => shiftDateStr(d, dir))}
+            onJumpToday={() => setTimelineDate(todayStr())}
+            onPickDate={setTimelineDate}
             onAddScheduleItem={handleAddScheduleItem}
             onRemoveScheduleItem={handleRemoveScheduleItem}
             onUpdateScheduleItemPosition={handleUpdateScheduleItemPosition}
             onSelectGoogleEvent={handleSelectGoogleEvent}
-            fixedMeetings={todayFixedMeetingsVisible}
+            fixedMeetings={timelineFixedMeetings}
           />
 
           {/* Rows 2 + 3 — 단일 3열 그리드, 열 정렬 보장 */}
