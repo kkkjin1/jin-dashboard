@@ -7,7 +7,8 @@ import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Search, Plus, FileText, Clock, NotebookPen, Layers, CheckSquare, CalendarDays, StickyNote, Repeat2, X, Mail } from 'lucide-react'
+import { Search, Plus, FileText, Clock, NotebookPen, Layers, CheckSquare, CalendarDays, StickyNote, Repeat2, X } from 'lucide-react'
+import ShortcutIcons from '@/components/ShortcutIcons'
 import type { TaskTodo, Meeting, QuickMemo, AgendaSubTask, NoteEntry, ScheduleItem } from '@/types'
 import type { GoogleCalendarEvent } from '@/app/api/calendar/today/route'
 import { JournalFullscreenEditor, type DailyJournal } from '@/components/home/DailyJournalWidget'
@@ -225,57 +226,6 @@ function KpiChip({ dot, label, onClick }: { dot: string; label: string; onClick?
       <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.72)', fontWeight: 500, whiteSpace: 'nowrap' }}>{label}</span>
       {onClick && <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)', lineHeight: 1, marginLeft: -2 }}>+</span>}
     </div>
-  )
-}
-
-// ── Shortcut icons (홈 우측상단 바로가기) ─────────────────────────────────
-function ShortcutButton({ href, label, color, tint, children }: {
-  href: string; label: string; color: string; tint?: boolean; children: React.ReactNode
-}) {
-  const [h, setH] = useState(false)
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      onMouseEnter={() => setH(true)}
-      onMouseLeave={() => setH(false)}
-      style={{
-        position: 'relative',
-        width: 30, height: 30, borderRadius: 9,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        color,
-        background: tint ? (h ? 'rgba(91,126,196,0.18)' : 'rgba(91,126,196,0.10)') : (h ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.04)'),
-        border: `1px solid ${tint ? (h ? 'rgba(91,126,196,0.5)' : 'rgba(91,126,196,0.35)') : (h ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.08)')}`,
-        transform: h ? 'translateY(-1px)' : 'none',
-        transition: 'all 150ms ease',
-        textDecoration: 'none',
-        flexShrink: 0,
-        overflow: 'hidden',
-      }}
-    >
-      {children}
-      {h && (
-        <span style={{
-          position: 'absolute', top: '100%', marginTop: 7, left: '50%', transform: 'translateX(-50%)',
-          fontSize: 10.5, fontWeight: 500, color: TEXT2, background: '#1C2129',
-          border: '1px solid rgba(255,255,255,0.08)', padding: '3px 8px', borderRadius: 6,
-          whiteSpace: 'nowrap', zIndex: 5, pointerEvents: 'none',
-        }}>
-          {label}
-        </span>
-      )}
-    </a>
-  )
-}
-
-function ShortcutGlyph({ letter }: { letter: string }) {
-  const small = letter.length > 1
-  return (
-    <svg viewBox="0 0 24 24" width={15} height={15} fill="none" stroke="currentColor" strokeWidth={1.6}>
-      <rect x="3.5" y="3.5" width="17" height="17" rx="4" />
-      <text x="12" y={small ? 15.5 : 16} textAnchor="middle" fontSize={small ? 8.5 : 11} fontWeight={800} fill="currentColor" stroke="none" fontFamily="Georgia, serif">{letter}</text>
-    </svg>
   )
 }
 
@@ -1419,24 +1369,7 @@ export default function HomePage() {
             {/* 바로가기 + 검색바 — flex-end로 칩 행 높이에 맞춤 */}
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8, flexShrink: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, position: 'relative', zIndex: 2 }}>
-                <ShortcutButton href="https://hrm-ashy.vercel.app/" label="HRM 대시보드" color="#8DAEE6" tint>
-                  <img src="/icons/hrm-icon.png" alt="HRM" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8 }} />
-                </ShortcutButton>
-                <ShortcutButton href="https://mail.google.com/mail/u/0/" label="Gmail" color="#E0574A">
-                  <Mail size={15} strokeWidth={1.8} />
-                </ShortcutButton>
-                <ShortcutButton href="https://calendar.google.com/calendar/u/0/r" label="구글 캘린더" color="#4C8DF0">
-                  <CalendarDays size={15} strokeWidth={1.8} />
-                </ShortcutButton>
-                <ShortcutButton href="https://app.notion.com/p/egnis/1de08b93608a80d897c8fb9c68e94828" label="Notion" color="#ECECEA">
-                  <ShortcutGlyph letter="N" />
-                </ShortcutButton>
-                <ShortcutButton href="https://erp.egnis.kr" label="ERP10" color="#D9A054">
-                  <ShortcutGlyph letter="10" />
-                </ShortcutButton>
-                <ShortcutButton href="https://www.docswave.com/app" label="닥스웨이브" color="#9B8FE0">
-                  <ShortcutGlyph letter="D" />
-                </ShortcutButton>
+                <ShortcutIcons />
               </div>
               <div
                 onClick={() => setSearchOpen(true)}

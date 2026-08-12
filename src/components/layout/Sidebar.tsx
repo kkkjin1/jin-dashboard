@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import ShortcutIcons from '@/components/ShortcutIcons'
 import {
   Home, ClipboardList, Trophy, MessageSquare, CalendarDays,
   StickyNote, Users, BookOpen, Settings, Brain, ChevronLeft, ChevronRight,
@@ -243,6 +244,12 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
       {/* ── 하단 ── */}
       <div className="flex-shrink-0 border-t border-[rgba(255,255,255,0.07)] p-2">
+        <div
+          className={`flex flex-wrap gap-1.5 pb-2 mb-2 border-b border-[rgba(255,255,255,0.07)] ${collapsed ? 'flex-col items-center' : 'items-center px-1'}`}
+          style={{ position: 'relative', zIndex: 2 }}
+        >
+          <ShortcutIcons size={collapsed ? 24 : 26} tooltipSide={collapsed ? 'right' : 'top'} />
+        </div>
         {collapsed ? (
           <button onClick={handleLogout} title="로그아웃"
             className="w-full flex justify-center p-2 rounded-lg text-[#7B8397] hover:bg-[rgba(255,255,255,0.05)] hover:text-[rgba(255,255,255,0.6)] transition-colors">
