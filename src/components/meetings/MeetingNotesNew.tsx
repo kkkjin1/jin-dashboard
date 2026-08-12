@@ -123,12 +123,15 @@ export default function MeetingNotesNew() {
   // 팀별 그룹
   const groups = useMemo(() => {
     const nonEtc = catOrder.filter(c => c !== '기타')
+    // 검색/기간/팀 필터가 하나도 안 걸려있을 때만 빈 범주(회의록 0건)도 목록에 보여준다.
+    // 필터가 걸려있는데 빈 범주까지 다 보이면 "필터링됐다"는 느낌이 사라지기 때문.
+    const showEmptyCats = teamFilter === '전체' && !search.trim() && !dateSelection
     const result = catOrder
       .map(cat => {
         const items = cat === '기타'
           ? filtered.filter(m => !m.category || m.category === '기타' || !nonEtc.includes(m.category ?? ''))
           : filtered.filter(m => m.category === cat)
-        if (items.length === 0) return null
+        if (items.length === 0 && !showEmptyCats) return null
         return { cat, items }
       })
       .filter(Boolean) as { cat: string; items: Meeting[] }[]
@@ -136,10 +139,10 @@ export default function MeetingNotesNew() {
     // catOrder에 없는 범주도 표시
     const assignedIds = new Set(result.flatMap(g => g.items.map(m => m.id)))
     const leftovers = filtered.filter(m => !assignedIds.has(m.id))
-    if (leftovers.length > 0) result.push({ cat: '기타', items: leftovers })
+    if (leftovers.length > 0 && !result.some(g => g.cat === '기타')) result.push({ cat: '기타', items: leftovers })
 
     return result
-  }, [filtered, catOrder])
+  }, [filtered, catOrder, teamFilter, search, dateSelection])
 
   return (
     <div className="h-full flex flex-col overflow-hidden" style={{ background: '#0F1319' }}>
