@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
+import OrderedList from '@tiptap/extension-ordered-list'
+import { mergeAttributes } from '@tiptap/core'
 import { Color, TextStyle } from '@tiptap/extension-text-style'
 import Highlight from '@tiptap/extension-highlight'
 import Image from '@tiptap/extension-image'
@@ -187,9 +189,27 @@ const HIGHLIGHTS = [
   { hex: '#FBCFE8', label: '핑크' },
 ]
 
+// list-style:none + CSS counter로 4단계(1. → 1) → • → ○) 넘버링을 직접 그리다 보니
+// counter-reset이 항상 0에서 시작해서, "2."를 입력해 만든 ol의 start="2"가 화면엔
+// 반영 안 되고 무조건 1부터 보이는 문제가 있었다 — start를 --ol-start CSS 변수로도
+// 내보내서 globals.css의 counter-reset이 그 값에서 이어가도록 한다.
+const CustomOrderedList = OrderedList.extend({
+  renderHTML({ HTMLAttributes }) {
+    const { start, type, ...rest } = HTMLAttributes
+    const attrs = mergeAttributes(this.options.HTMLAttributes, rest)
+    if (start !== 1) {
+      attrs.start = start
+      attrs.style = `--ol-start:${start - 1}`
+    }
+    if (type && type !== '1') attrs.type = type
+    return ['ol', attrs, 0]
+  },
+})
+
 // 모듈 레벨 상수 — 렌더마다 새 참조 생성 방지 (Tiptap v3에서 extensions 참조 변경 시 refreshEditorInstance 호출됨)
 const EXTENSIONS = [
-  StarterKit,  // StarterKit v3에 Underline 포함
+  StarterKit.configure({ orderedList: false }),  // StarterKit v3에 Underline 포함
+  CustomOrderedList,
   TextStyle,
   Color,
   Highlight.configure({ multicolor: true }),
