@@ -252,6 +252,12 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
     const { error } = await supabase.from('agenda_items').update({ group_id: newGroupId }).eq('id', itemId)
     if (error) { setDndErr(`범주 이동 실패: ${error.message}`); setTimeout(() => setDndErr(''), 4000) }
   }
+  async function moveSubTaskToItem(stId: string, newItemId: string) {
+    const newSortOrder = subTasks.filter(s => s.agenda_item_id === newItemId).length
+    setSubTasks(p => p.map(s => s.id === stId ? { ...s, agenda_item_id: newItemId, sort_order: newSortOrder } : s))
+    const { error } = await supabase.from('agenda_sub_tasks').update({ agenda_item_id: newItemId, sort_order: newSortOrder }).eq('id', stId)
+    if (error) { setDndErr(`task 이동 실패: ${error.message}`); setTimeout(() => setDndErr(''), 4000) }
+  }
   async function reorderGroup(dragId: string, targetId: string) {
     const sortedG = [...groups].sort((a, b) => a.sort_order - b.sort_order)
     const dragIdx = sortedG.findIndex(g => g.id === dragId)
@@ -488,20 +494,31 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                           className="group/irow flex hover:bg-[rgba(255,255,255,0.03)] transition-colors"
                           style={{ borderBottom: isItemExpanded ? 'none' : '1px solid rgba(255,255,255,0.05)', opacity: draggingItemId === item.id ? 0.35 : 1, borderTop: dragOverItemId === item.id ? '2px solid #3B82F6' : undefined, cursor: 'pointer' }}
                           onDragOver={e => {
-                            if (!_dragItemId) return
-                            e.preventDefault(); e.dataTransfer.dropEffect = 'move'
-                            const di = items.find(i => i.id === _dragItemId)
-                            if (di?.group_id === group.id) { setDragOverItemId(item.id); setDragOverGroupId(null) }
-                            else { setDragOverGroupId(group.id); setDragOverItemId(null) }
+                            if (_dragItemId) {
+                              e.preventDefault(); e.dataTransfer.dropEffect = 'move'
+                              const di = items.find(i => i.id === _dragItemId)
+                              if (di?.group_id === group.id) { setDragOverItemId(item.id); setDragOverGroupId(null) }
+                              else { setDragOverGroupId(group.id); setDragOverItemId(null) }
+                            } else if (_dragSTId) {
+                              e.preventDefault(); e.dataTransfer.dropEffect = 'move'
+                              setDragOverItemId(item.id); setDragOverGroupId(null)
+                            }
                           }}
                           onDrop={e => {
                             e.preventDefault()
-                            const dragId = _dragItemId; _dragItemId = null
-                            if (dragId && dragId !== item.id) {
-                              const di = items.find(i => i.id === dragId)
-                              if (di) { if (di.group_id !== group.id) moveItemToGroup(dragId, group.id); else reorderItem(dragId, item.id) }
+                            if (_dragItemId) {
+                              const dragId = _dragItemId; _dragItemId = null
+                              if (dragId !== item.id) {
+                                const di = items.find(i => i.id === dragId)
+                                if (di) { if (di.group_id !== group.id) moveItemToGroup(dragId, group.id); else reorderItem(dragId, item.id) }
+                              }
+                              setDraggingItemId(null); setDragOverGroupId(null); setDragOverItemId(null)
+                            } else if (_dragSTId) {
+                              const dragId = _dragSTId; _dragSTId = null
+                              const ds = subTasks.find(s => s.id === dragId)
+                              if (ds && ds.agenda_item_id !== item.id) moveSubTaskToItem(dragId, item.id)
+                              setDraggingSTId(null); setDragOverItemId(null)
                             }
-                            setDraggingItemId(null); setDragOverGroupId(null); setDragOverItemId(null)
                           }}
                           onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverItemId(null) }}
                           onClick={() => toggleExpandedItem(item.id)}
@@ -574,7 +591,15 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                             className="group/strow flex hover:bg-[rgba(59,130,246,0.04)] transition-colors"
                             style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', background: 'rgba(255,255,255,0.025)', opacity: draggingSTId === st.id ? 0.35 : 1, borderTop: dragOverSTId === st.id ? '2px solid #3B82F6' : undefined, cursor: 'pointer' }}
                             onDragOver={e => { if (!_dragSTId) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverSTId(st.id) }}
-                            onDrop={e => { e.preventDefault(); const dragId = _dragSTId; _dragSTId = null; if (dragId && dragId !== st.id) reorderSubTask(dragId, st.id); setDraggingSTId(null); setDragOverSTId(null) }}
+                            onDrop={e => {
+                              e.preventDefault()
+                              const dragId = _dragSTId; _dragSTId = null
+                              if (dragId && dragId !== st.id) {
+                                const ds = subTasks.find(s => s.id === dragId)
+                                if (ds) { if (ds.agenda_item_id !== st.agenda_item_id) moveSubTaskToItem(dragId, st.agenda_item_id); else reorderSubTask(dragId, st.id) }
+                              }
+                              setDraggingSTId(null); setDragOverSTId(null)
+                            }}
                             onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverSTId(null) }}
                             onClick={() => router.push(`/project/items/${item.id}?focus=${st.id}`)}
                             onMouseEnter={() => router.prefetch(`/project/items/${item.id}`)}
