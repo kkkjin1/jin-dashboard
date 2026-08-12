@@ -256,7 +256,19 @@ export default function MeetingDetailPage() {
   const router = useRouter()
   const supabase = createClient()
   const { org } = useOrgData()
-  const categories = useMemo(() => [...org.map(t => t.name), ...FIXED_MEETING_TAGS], [org])
+  // 회의록 탭 목록 필터에서 사용자가 직접 만든 범주(localStorage, meetings_cat_order)도
+  // '구분' 선택지에 포함 — 안 그러면 필터엔 있는데 여기선 고를 수 없는 값이 생긴다.
+  const [localCatOrder, setLocalCatOrder] = useState<string[]>([])
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('meetings_cat_order')
+      if (saved) setLocalCatOrder(JSON.parse(saved) as string[])
+    } catch {}
+  }, [])
+  const categories = useMemo(
+    () => [...new Set([...org.map(t => t.name), ...FIXED_MEETING_TAGS, ...localCatOrder])],
+    [org, localCatOrder],
+  )
 
   const [meeting, setMeeting] = useState<Meeting | null>(null)
   const [titleInput, setTitleInput] = useState('')
