@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import TiptapEditor from '@/components/TiptapEditor'
-import { openQuickMemo } from '@/lib/quickMemo'
+import { openQuickMemo, registerQuickMemoHeartbeat } from '@/lib/quickMemo'
 import type { MemoTag } from '@/types'
 
 const TAGS: MemoTag[] = ['업무관련', '회의관련', '아이디어', '공지']
@@ -167,6 +167,7 @@ export default function QuickMemoPage() {
   useEffect(() => {
     document.title = '빠른 메모'
     setTimeout(() => titleRef.current?.focus(), 80)
+    return registerQuickMemoHeartbeat()
   }, [])
 
   useEffect(() => {
