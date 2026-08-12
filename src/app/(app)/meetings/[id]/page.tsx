@@ -596,7 +596,8 @@ export default function MeetingDetailPage() {
               <label className="text-xs text-[rgba(226,232,240,0.4)] block mb-1">회의 날짜</label>
               <input type="date" value={meeting.meeting_date ?? ''}
                 onChange={e => updateMeeting({ meeting_date: e.target.value || null })}
-                className="text-sm border border-[rgba(255,255,255,0.09)] rounded-lg px-3 py-1.5 focus:outline-none" />
+                style={{ colorScheme: 'dark' }}
+                className="text-sm border border-[rgba(255,255,255,0.09)] rounded-lg px-3 py-1.5 focus:outline-none bg-[rgba(255,255,255,0.06)] text-[rgba(226,232,240,0.7)]" />
             </div>
             <div>
               <label className="text-xs text-[rgba(226,232,240,0.4)] block mb-1">구분</label>
