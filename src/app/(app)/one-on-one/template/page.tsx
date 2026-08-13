@@ -70,7 +70,7 @@ export default function OneOnOneTemplatePage() {
 
       <p className="text-xs text-gray-400 mb-4">새 1on1 세션 시작 시 '템플릿 적용'을 선택하면 이 내용이 첫 노트로 들어갑니다.</p>
 
-      <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-100 overflow-hidden px-4 py-3">
         <TiptapEditor
           value={content}
           onChange={handleChange}

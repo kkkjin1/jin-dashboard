@@ -396,7 +396,7 @@ function MyFeedbackView() {
                           </select>
                         </div>
                       </div>
-                      <div className="bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] rounded-2xl overflow-hidden">
+                      <div className="bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] rounded-2xl overflow-hidden px-3 py-2">
                         <TiptapEditor dark value={formContent} onChange={setFormContent} onSubmit={saveAdd} autoFocus minHeight={80} />
                       </div>
                       <div className="flex gap-2 justify-end">

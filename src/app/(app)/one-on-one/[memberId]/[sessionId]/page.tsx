@@ -211,13 +211,15 @@ export default function OneOnOneSessionPage() {
             <div style={{ padding: '10px 20px 8px', borderBottom: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontSize: 11, fontWeight: 600, color: T3, letterSpacing: '0.04em', textTransform: 'uppercase' }}>기록</span>
             </div>
-            <TiptapEditor
-              dark
-              value={contentInput}
-              onChange={handleContentChange}
-              autoFocus={false}
-              minHeight={300}
-            />
+            <div style={{ padding: '0 20px 16px' }}>
+              <TiptapEditor
+                dark
+                value={contentInput}
+                onChange={handleContentChange}
+                autoFocus={false}
+                minHeight={300}
+              />
+            </div>
           </div>
 
           {/* 구 노트 데이터 */}
