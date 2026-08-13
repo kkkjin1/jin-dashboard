@@ -1179,11 +1179,13 @@ export default function HomePage() {
 
   // 오늘의 타임라인 — timelineDate 기준 파생 데이터 (today와 다를 수 있음)
   const isTimelineToday   = timelineDate === today
-  const timelineMeetings  = meetings.filter(m => m.meeting_date?.startsWith(timelineDate))
   const timelineDow       = dowOfDateStr(timelineDate)
   const timelineFixedMeetings = fixedSchedules
     .filter(s => s.is_recurring ? (s.days_of_week ?? []).includes(timelineDow) : s.date === timelineDate)
     .sort((a, b) => a.time.localeCompare(b.time))
+  // 고정회의가 기록되면(사전메모 저장 등) 같은 제목의 meeting 레코드가 생겨 Lane 2에 중복 박스로 겹쳐 보이므로 제외
+  const timelineFixedTitles = new Set(timelineFixedMeetings.map(s => s.title))
+  const timelineMeetings  = meetings.filter(m => m.meeting_date?.startsWith(timelineDate) && !timelineFixedTitles.has(m.title))
   const recentMeetings = meetings.slice(0, 5)
   const _pad = (n: number) => String(n).padStart(2, '0')
   const tomorrowDate = new Date(now); tomorrowDate.setDate(now.getDate() + 1)
