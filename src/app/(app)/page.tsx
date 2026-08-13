@@ -250,6 +250,7 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
   const containerRef = useRef<HTMLDivElement>(null)
   const dateInputRef = useRef<HTMLInputElement>(null)
   const [cw, setCw] = useState(0)
+  const [gTooltip, setGTooltip] = useState<{ ev: GoogleCalendarEvent; x: number; y: number } | null>(null)
 
   useEffect(() => {
     if (!containerRef.current) return
@@ -709,6 +710,11 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
           return (
             <div key={ev.id}
               onClick={() => onSelectGoogleEvent(ev)}
+              onMouseEnter={e => {
+                const r = e.currentTarget.getBoundingClientRect()
+                setGTooltip({ ev, x: r.left + r.width / 2, y: r.top })
+              }}
+              onMouseLeave={() => setGTooltip(t => (t?.ev.id === ev.id ? null : t))}
               style={{
                 position: 'absolute', left: x, width: w,
                 top: TL_LANE1_TOP, height: TL_LANE_H,
@@ -724,6 +730,25 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
             </div>
           )
         })}
+
+        {/* ── 구글캘린더 hover 미리보기 (박스가 짧아 텍스트가 잘려도 전체 내용 확인 가능) ── */}
+        {gTooltip && (
+          <div style={{
+            position: 'fixed', left: gTooltip.x, top: gTooltip.y - 8,
+            transform: 'translate(-50%, -100%)',
+            maxWidth: 260, padding: '8px 12px', borderRadius: 10,
+            background: '#1C2129', border: '1px solid rgba(66,133,244,0.35)',
+            boxShadow: '0 12px 32px rgba(0,0,0,0.45)',
+            pointerEvents: 'none', zIndex: 9999,
+          }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: '#8AB4F8', marginBottom: 3 }}>
+              📅 {gTooltip.ev.allDay ? '종일' : `${hourToStr(gTooltip.ev.start_hour)} – ${hourToStr(gTooltip.ev.start_hour + gTooltip.ev.duration_hours)}`}
+            </div>
+            <div style={{ fontSize: 12.5, fontWeight: 500, color: TEXT1, whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: 1.4 }}>
+              {gTooltip.ev.title}
+            </div>
+          </div>
+        )}
 
         {/* ── Lane 2: task todos ── */}
         {todos.map((t, i) => {
@@ -1567,12 +1592,15 @@ export default function HomePage() {
                             return (
                               <div key={s.id} style={{ ...rd(i, total), paddingBottom: 2 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0 5px' }}>
-                                  <div style={{ width: 16, height: 16, borderRadius: 4, background: isLogged ? 'rgba(107,122,159,0.12)' : 'rgba(56,190,152,0.12)', border: `1px solid ${isLogged ? 'rgba(107,122,159,0.22)' : 'rgba(56,190,152,0.22)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                    <Repeat2 size={9} strokeWidth={2.5} style={{ color: isLogged ? '#6B7A9F' : '#38BE98' }} />
-                                  </div>
-                                  <div style={{ flex: 1, minWidth: 0 }}>
-                                    <p style={{ fontSize: 14, fontWeight: 500, color: TEXT1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.title}</p>
-                                  </div>
+                                  <Link
+                                    href={linkedMeeting ? `/meetings/${linkedMeeting.id}` : '/meetings'}
+                                    style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0, textDecoration: 'none' }}
+                                  >
+                                    <div style={{ width: 16, height: 16, borderRadius: 4, background: isLogged ? 'rgba(107,122,159,0.12)' : 'rgba(56,190,152,0.12)', border: `1px solid ${isLogged ? 'rgba(107,122,159,0.22)' : 'rgba(56,190,152,0.22)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                      <Repeat2 size={9} strokeWidth={2.5} style={{ color: isLogged ? '#6B7A9F' : '#38BE98' }} />
+                                    </div>
+                                    <p style={{ fontSize: 14, fontWeight: 500, color: TEXT1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>{s.title}</p>
+                                  </Link>
                                   {isLogged && (
                                     <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 999, background: 'rgba(107,122,159,0.14)', color: '#8B98B8', flexShrink: 0, marginRight: 6, whiteSpace: 'nowrap' }}>기록됨</span>
                                   )}
