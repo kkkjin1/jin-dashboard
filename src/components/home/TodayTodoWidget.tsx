@@ -12,7 +12,7 @@ interface QuickMemo {
   id: string
   title: string
   content: string
-  tag: string
+  tag: string[]
   created_at: string
 }
 
@@ -53,11 +53,11 @@ export default function TodayTodoWidget() {
     const { data } = await supabase
       .from('quick_memos')
       .select('id, title, content, tag, created_at')
-      .in('tag', ['업무관련', '완료'])
+      .overlaps('tag', ['업무관련', '완료'])
       .order('created_at', { ascending: false })
     const all = (data ?? []) as QuickMemo[]
-    setTodos(all.filter(m => m.tag === '업무관련'))
-    setDone(all.filter(m => m.tag === '완료'))
+    setTodos(all.filter(m => m.tag.includes('업무관련')))
+    setDone(all.filter(m => m.tag.includes('완료')))
     setLoading(false)
   }
 
@@ -86,7 +86,7 @@ export default function TodayTodoWidget() {
 
   async function completeMemo(id: string) {
     const { data, error } = await supabase
-      .from('quick_memos').update({ tag: '완료' }).eq('id', id).select('id')
+      .from('quick_memos').update({ tag: ['완료'] }).eq('id', id).select('id')
     if (error || !data?.length) {
       showToast(error ? `완료 처리 실패: ${error.message}` : '저장 실패 — Supabase 권한 설정을 확인하세요')
       await loadMemos()
@@ -94,12 +94,12 @@ export default function TodayTodoWidget() {
     }
     const memo = todos.find(m => m.id === id)
     setTodos(prev => prev.filter(m => m.id !== id))
-    if (memo) setDone(prev => [{ ...memo, tag: '완료' }, ...prev])
+    if (memo) setDone(prev => [{ ...memo, tag: ['완료'] }, ...prev])
   }
 
   async function undoMemo(id: string) {
     const { data, error } = await supabase
-      .from('quick_memos').update({ tag: '업무관련' }).eq('id', id).select('id')
+      .from('quick_memos').update({ tag: ['업무관련'] }).eq('id', id).select('id')
     if (error || !data?.length) {
       showToast(error ? `되돌리기 실패: ${error.message}` : '저장 실패 — Supabase 권한 설정을 확인하세요')
       await loadMemos()
@@ -107,7 +107,7 @@ export default function TodayTodoWidget() {
     }
     const memo = done.find(m => m.id === id)
     setDone(prev => prev.filter(m => m.id !== id))
-    if (memo) setTodos(prev => [{ ...memo, tag: '업무관련' }, ...prev])
+    if (memo) setTodos(prev => [{ ...memo, tag: ['업무관련'] }, ...prev])
     setSelectedDone(prev => { const s = new Set(prev); s.delete(id); return s })
   }
 
@@ -205,8 +205,8 @@ export default function TodayTodoWidget() {
     ))
 
     // 메모 완료 처리
-    await supabase.from('quick_memos').update({ tag: '완료' }).eq('id', memo.id)
-    const completedMemo = { ...memo, tag: '완료' }
+    await supabase.from('quick_memos').update({ tag: ['완료'] }).eq('id', memo.id)
+    const completedMemo = { ...memo, tag: ['완료'] }
     setTodos(prev => prev.filter(m => m.id !== memo.id))
     setDone(prev => [completedMemo, ...prev])
     setLinkPopup(null)

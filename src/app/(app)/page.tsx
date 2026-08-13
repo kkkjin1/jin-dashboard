@@ -1865,11 +1865,12 @@ export default function HomePage() {
                       sub="Ctrl+3으로 빠르게 추가하세요."
                     />
                   : memos.map((memo, i) => {
-                      const dotColor = CATEGORY_PALETTE[MEMO_TAG[memo.tag] ?? colorKeyFromName(memo.tag)].solid
+                      const primaryTag = memo.tag[0] ?? '기타'
+                      const dotColor = CATEGORY_PALETTE[MEMO_TAG[primaryTag] ?? colorKeyFromName(primaryTag)].solid
                       return (
                         <ListRow key={memo.id}
                           draggable
-                          onDragStart={e => { e.dataTransfer.setData('tl-extra', JSON.stringify({ id: `memo_${memo.id}`, title: memo.title, subtitle: memo.tag })); e.dataTransfer.effectAllowed = 'copy' }}
+                          onDragStart={e => { e.dataTransfer.setData('tl-extra', JSON.stringify({ id: `memo_${memo.id}`, title: memo.title, subtitle: primaryTag })); e.dataTransfer.effectAllowed = 'copy' }}
                           onClick={() => setMemoViewId(memo.id)}
                           style={{ ...rd(i, memos.length) }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: isCompact ? '6px 0' : '8px 0' }}>
@@ -2095,7 +2096,8 @@ export default function HomePage() {
         (() => {
           const mv = memos.find(m => m.id === memoViewId)
           if (!mv) return null
-          const dotColor = CATEGORY_PALETTE[MEMO_TAG[mv.tag] ?? colorKeyFromName(mv.tag)].solid
+          const mvPrimaryTag = mv.tag[0] ?? '기타'
+          const dotColor = CATEGORY_PALETTE[MEMO_TAG[mvPrimaryTag] ?? colorKeyFromName(mvPrimaryTag)].solid
           return (
             <div className="fixed inset-0 z-[70] flex items-center justify-center p-6"
               style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)' }}

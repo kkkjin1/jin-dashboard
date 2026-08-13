@@ -694,7 +694,11 @@ export function JournalFullscreenEditor({ selectedDate, current, yesterday, meet
                 {todayCtx.memos.length > 0 ? todayCtx.memos.map(m => (
                   <div key={m.id} className="flex items-baseline gap-1.5 mb-1.5">
                     <span className="text-[13px] truncate" style={{ color: D.t1 }}>· {m.title}</span>
-                    {m.tag && <span className="text-[11px] flex-shrink-0" style={{ color: D.t3 }}>{m.tag}</span>}
+                    {m.tag && (Array.isArray(m.tag) ? m.tag.length > 0 : true) && (
+                      <span className="text-[11px] flex-shrink-0" style={{ color: D.t3 }}>
+                        {Array.isArray(m.tag) ? m.tag.join(', ') : m.tag}
+                      </span>
+                    )}
                   </div>
                 )) : <p className="text-[12px]" style={{ color: D.t3 }}>—</p>}
               </div>

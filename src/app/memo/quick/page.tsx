@@ -295,7 +295,7 @@ export default function QuickMemoPage() {
         window.opener.dispatchEvent(new CustomEvent('quick-meeting-created', { detail: newMeeting }))
       setSavedMsg('📅 일정에 추가됨!')
     } else {
-      await supabase.from('quick_memos').insert({ title: title.trim(), content, tag })
+      await supabase.from('quick_memos').insert({ title: title.trim(), content, tag: [tag] })
       if (window.opener) window.opener.dispatchEvent(new CustomEvent('quick-memo-saved'))
       setSavedMsg('저장됨!')
     }

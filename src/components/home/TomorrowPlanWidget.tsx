@@ -43,7 +43,7 @@ export default function TomorrowPlanWidget({ selectedDate, journalContent }: Pro
     const supabase = createClient()
     const { error } = await supabase
       .from('quick_memos')
-      .insert({ title: trimmed, content: '', tag: '업무관련' })
+      .insert({ title: trimmed, content: '', tag: ['업무관련'] })
     setSaving(false)
     if (error) {
       console.error('TomorrowPlanWidget insert error:', error)

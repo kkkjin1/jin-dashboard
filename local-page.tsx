@@ -1007,7 +1007,7 @@ export default function HomePage() {
                       sub="Ctrl+3으로 빠르게 추가하세요."
                     />
                   : memos.map((memo, i) => {
-                      const dotColor = MEMO_TAG_COL[memo.tag] ?? dots[i % 4]
+                      const dotColor = MEMO_TAG_COL[memo.tag[0]] ?? dots[i % 4]
                       return (
                         <ListRow key={memo.id} onClick={() => { localStorage.setItem('memos_open_id', memo.id); router.push('/memos') }}
                           style={{ ...rd(i, memos.length) }}>

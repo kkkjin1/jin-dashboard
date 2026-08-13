@@ -103,7 +103,7 @@ export default function TextSelectionCapture({ sourceName, sourceType }: Props) 
     if (!float || !title.trim()) return
     setSaving(true)
     const content = `[${sourceType}: ${sourceName}]\n\n${float.text}`
-    await supabase.from('quick_memos').insert({ title: title.trim(), content, tag })
+    await supabase.from('quick_memos').insert({ title: title.trim(), content, tag: [tag] })
     setSaving(false)
     setMode('saved-memo')
     window.getSelection()?.removeAllRanges()

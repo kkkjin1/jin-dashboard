@@ -12,7 +12,7 @@ interface CompletedTask { id: string; title: string; part: string | null; type: 
 interface CompletedAgendaItem { id: string; title: string; group_name: string; group_color: string }
 interface CompletedSubTask { id: string; title: string; agenda_item_title: string; group_name: string; group_color: string }
 interface DailyJournal { id: string; date: string; content: string }
-interface QuickMemo { id: string; title: string; tag: string | null; created_at: string }
+interface QuickMemo { id: string; title: string; tag: string[] | null; created_at: string }
 type Mode = 'weekly' | 'monthly'
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -232,12 +232,13 @@ function JournalRow({ date, title, preview }: { date: string; title: string; pre
     </div>
   )
 }
-function MemoRow({ title, date, tag }: { title: string; date: string; tag: string | null }) {
+function MemoRow({ title, date, tag }: { title: string; date: string; tag: string[] | null }) {
+  const tagLabel = tag && tag.length > 0 ? tag.join(', ') : null
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderBottom: `1px solid ${S.rowBorder}` }}>
       <span style={{ flex: 1, fontSize: 12.5, color: S.t2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</span>
       <span style={{ fontSize: 11, color: S.t4, flexShrink: 0 }}>{date}</span>
-      {tag && <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 20, background: 'rgba(167,139,250,0.18)', color: 'rgba(167,139,250,0.8)', flexShrink: 0 }}>{tag}</span>}
+      {tagLabel && <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 20, background: 'rgba(167,139,250,0.18)', color: 'rgba(167,139,250,0.8)', flexShrink: 0 }}>{tagLabel}</span>}
     </div>
   )
 }

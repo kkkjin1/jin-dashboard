@@ -70,13 +70,14 @@ export interface Attachment {
   created_at: string
 }
 
-export type MemoTag = '업무관련' | '회의관련' | '아이디어' | '공지' | '완료'
+// 메모 카테고리 — /memos 페이지에서 사용자가 자유롭게 추가/삭제할 수 있어 고정 리터럴 유니언이 아닌 문자열
+export type MemoTag = string
 
 export interface QuickMemo {
   id: string
   title: string
   content: string
-  tag: MemoTag
+  tag: MemoTag[]
   created_at: string
 }
 

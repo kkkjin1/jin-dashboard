@@ -172,7 +172,7 @@ export default function GlobalSearch() {
                       <div className="py-2 px-2 hover:bg-gray-50 rounded-lg flex items-center gap-2">
                         <span className="text-xs text-gray-400">📝</span>
                         <span className="text-sm text-gray-800 truncate">{m.title || '제목 없음'}</span>
-                        <span className="text-[10px] text-gray-300 ml-auto flex-shrink-0">{m.tag}</span>
+                        <span className="text-[10px] text-gray-300 ml-auto flex-shrink-0">{m.tag.join(', ')}</span>
                       </div>
                     </Link>
                   ))}

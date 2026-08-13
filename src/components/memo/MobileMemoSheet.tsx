@@ -39,7 +39,7 @@ export default function MobileMemoSheet() {
     setSaving(true)
     await supabase
       .from('quick_memos')
-      .insert({ title: title.trim(), content: content.trim(), tag })
+      .insert({ title: title.trim(), content: content.trim(), tag: [tag] })
     setSaving(false)
     setSaved(true)
     setTimeout(() => setVisible(false), 800)
