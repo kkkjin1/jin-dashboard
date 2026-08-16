@@ -1,7 +1,9 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { getDevPilotClient } from '@/lib/supabase/devPilotClient'
+import { useAutosave, clearAutosaveBuffer } from '@/hooks/useAutosave'
 import TiptapEditor from '@/components/TiptapEditor'
 import { openQuickMemo, registerQuickMemoHeartbeat } from '@/lib/quickMemo'
 import type { MemoTag } from '@/types'
@@ -43,6 +45,30 @@ function removeDraftEntry(qid: string) {
   try { localStorage.setItem(DRAFTS_KEY, JSON.stringify(all)) } catch {}
 }
 
+// 저장 성공 직후에도 draft를 바로 지우지 않고 일정 기간 보관 — "성공한 것처럼 보였지만
+// 실제로는 반영이 안 된" 경우(RLS, 네트워크 등)에도 최소한의 안전망이 남도록 함.
+// (실패가 확인된 경우엔 handleSave에서 애초에 이 archive로 넘기지 않고 draft를 그대로 유지함)
+const ARCHIVE_KEY = 'quick_memo_archive'
+const ARCHIVE_RETENTION_MS = 3 * 24 * 60 * 60 * 1000 // 3일
+const ARCHIVE_MAX = 50
+
+type ArchiveEntry = { title: string; content: string; tag: MemoTag; savedAt: number }
+
+function readArchive(): ArchiveEntry[] {
+  try {
+    const s = localStorage.getItem(ARCHIVE_KEY)
+    if (s) return JSON.parse(s) as ArchiveEntry[]
+  } catch {}
+  return []
+}
+
+function appendToArchive(entry: ArchiveEntry) {
+  const now = Date.now()
+  const pruned = readArchive().filter(e => now - e.savedAt < ARCHIVE_RETENTION_MS)
+  const next = [entry, ...pruned].slice(0, ARCHIVE_MAX)
+  try { localStorage.setItem(ARCHIVE_KEY, JSON.stringify(next)) } catch {}
+}
+
 function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
 }
@@ -74,6 +100,7 @@ export default function QuickMemoPage() {
   const [tag,          setTag]          = useState<MemoTag>('업무관련')
   const [saving,       setSaving]       = useState(false)
   const [savedMsg,     setSavedMsg]     = useState('')
+  const [saveError,    setSaveError]    = useState('')
   const [autoSaved,    setAutoSaved]    = useState(false)
   const [slackCopied,  setSlackCopied]  = useState(false)
   const [editorKey,    setEditorKey]    = useState(0)
@@ -85,8 +112,39 @@ export default function QuickMemoPage() {
   const qidRef    = useRef('')     // 이 창이 쓰는 draft 슬롯 id — orphan 선택 대기 중엔 빈 문자열
   const supabase  = createClient()
 
+  // pilotClient가 null이면(=.env.development.local 미설정, 프로덕션과 100% 동일)
+  // activeSupabase는 기존 supabase와 완전히 동일한 참조 — 이 화면의 기존 동작은
+  // 조금도 바뀌지 않는다. pilotClient가 있을 때만(로컬 dev-pilot 테스트) 이 화면의
+  // 모든 Supabase 호출이 dev pilot 프로젝트로 향한다 (docs/autosave-implementation.md
+  // 참조). STEP A-2부터 autosave 자체도 이 activeSupabase를 그대로 써서 프로덕션에서도
+  // 동작한다 — dev-pilot 테스트 중엔 여전히 dev-pilot 프로젝트로, 그 외엔 프로덕션으로.
+  const pilotClient   = getDevPilotClient()
+  const isDevPilot    = pilotClient !== null
+  const activeSupabase = pilotClient ?? supabase
+  // qidRef는 ref라서 값이 바뀌어도 리렌더를 유발하지 않음 — useAutosave에 entityId로
+  // 넘기려면 렌더링에 반영되는 state 미러가 필요해서 별도로 둔다.
+  const [autosaveEntityId, setAutosaveEntityId] = useState('')
+
   // 크래시 등으로 이전에 정리되지 못한 draft가 여러 개 남아있을 때 고르게 하는 화면
   const [orphans, setOrphans] = useState<(DraftEntry & { id: string })[]>([])
+
+  // 저장 성공 후에도 유예기간(3일) 보관되는 최근 저장 기록 — "저장됐다는데 안 보인다" 상황의 복구용
+  const [showArchive, setShowArchive] = useState(false)
+  const [archiveEntries, setArchiveEntries] = useState<ArchiveEntry[]>([])
+
+  function openArchive() {
+    const now = Date.now()
+    const fresh = readArchive().filter(e => now - e.savedAt < ARCHIVE_RETENTION_MS)
+    setArchiveEntries(fresh)
+    setShowArchive(true)
+  }
+
+  function restoreFromArchive(e: ArchiveEntry) {
+    setTitle(e.title); setContent(e.content); setTag(e.tag)
+    setEditorKey(k => k + 1)
+    setShowArchive(false)
+    setTimeout(() => titleRef.current?.focus(), 30)
+  }
 
   // ── 클라이언트 마운트: draft 복원 (여러 개 남아있으면 고르게 함) ─────────
   useEffect(() => {
@@ -96,15 +154,18 @@ export default function QuickMemoPage() {
     const isCascaded = new URLSearchParams(window.location.search).get('blank') === '1'
     if (isCascaded) {
       qidRef.current = crypto.randomUUID()
+      setAutosaveEntityId(qidRef.current)
       return
     }
     const drafts = readDrafts()
     const ids = Object.keys(drafts)
     if (ids.length === 0) {
       qidRef.current = crypto.randomUUID()
+      setAutosaveEntityId(qidRef.current)
     } else if (ids.length === 1) {
       const id = ids[0]
       qidRef.current = id
+      setAutosaveEntityId(id)
       const d = drafts[id]
       setTitle(d.title ?? ''); setContent(d.content ?? ''); setTag(d.tag ?? '업무관련')
       setEditorKey(k => k + 1)
@@ -117,6 +178,7 @@ export default function QuickMemoPage() {
 
   function pickOrphan(o: DraftEntry & { id: string }) {
     qidRef.current = o.id
+    setAutosaveEntityId(o.id)
     setTitle(o.title); setContent(o.content); setTag(o.tag)
     setEditorKey(k => k + 1)
     setOrphans([])
@@ -125,6 +187,7 @@ export default function QuickMemoPage() {
 
   function startFreshIgnoringOrphans() {
     qidRef.current = crypto.randomUUID()
+    setAutosaveEntityId(qidRef.current)
     setOrphans([])
     setTimeout(() => titleRef.current?.focus(), 30)
   }
@@ -139,16 +202,38 @@ export default function QuickMemoPage() {
   const [subTaskCreated, setSubTaskCreated] = useState('')
 
   useEffect(() => {
-    supabase.from('agenda_groups').select('id, name, color').order('sort_order').then(({ data }) => {
+    activeSupabase.from('agenda_groups').select('id, name, color').order('sort_order').then(({ data }) => {
       setGroups((data ?? []) as AgendaGroupOption[])
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [isDevPilot])
 
   const handleSelectionChange = useCallback((text: string) => {
     setSelText(text)
     if (!text) setShowPicker(false)
   }, [])
+
+  // ── Autosave (docs/autosave-architecture.md / autosave-db-design.md) ────
+  // activeSupabase를 그대로 써서 dev-pilot 테스트 중엔 dev-pilot 프로젝트로,
+  // 프로덕션에서는 실제 로그인 세션으로 production autosave_drafts/content_versions에
+  // 연결된다(STEP A-2). entityId(qid)가 아직 없으면 enabled=false로 완전히 비활성.
+  const draftValue = useMemo(() => ({ title, content, tag }), [title, content, tag])
+  const autosave = useAutosave({
+    supabase: activeSupabase,
+    enabled: isHolderState && !!autosaveEntityId,
+    entityType: 'quick_memo',
+    entityId: autosaveEntityId,
+    fieldKey: 'draft',
+    value: draftValue,
+  })
+
+  function applyRecovered() {
+    if (!autosave.recovered) return
+    const v = autosave.recovered.value as { title: string; content: string; tag: MemoTag }
+    setTitle(v.title ?? ''); setContent(v.content ?? ''); setTag(v.tag ?? '업무관련')
+    setEditorKey(k => k + 1)
+    autosave.discardRecovered()
+  }
 
   // ── 자동저장 ── 이 창 고유 슬롯(qid)에만 씀, 다른 창과 절대 안 겹침 ─────────
   const saveDraft = useCallback((t: string, c: string, tg: MemoTag) => {
@@ -193,6 +278,7 @@ export default function QuickMemoPage() {
   // ── 초기화 후 닫기: draft 제거 → 다음 열기 시 빈 창 ────────────────────
   function handleDiscardAndClose() {
     if (qidRef.current) removeDraftEntry(qidRef.current)
+    if (qidRef.current) clearAutosaveBuffer('quick_memo', qidRef.current, 'draft')
     window.close()
   }
 
@@ -261,7 +347,7 @@ export default function QuickMemoPage() {
   // ── 세부task ──────────────────────────────────────────────────────────────
   async function onGroupSelect(groupId: string) {
     setPickerLoading(true)
-    const { data } = await supabase.from('agenda_items')
+    const { data } = await activeSupabase.from('agenda_items')
       .select('id, title').eq('group_id', groupId).eq('status', 'active').order('sort_order')
     setPickerItems((data ?? []) as AgendaItemOption[])
     setPickerLoading(false)
@@ -270,9 +356,9 @@ export default function QuickMemoPage() {
 
   async function onItemSelect(agendaItemId: string) {
     setPickerLoading(true)
-    const { count } = await supabase.from('agenda_sub_tasks')
+    const { count } = await activeSupabase.from('agenda_sub_tasks')
       .select('*', { count: 'exact', head: true }).eq('agenda_item_id', agendaItemId)
-    await supabase.from('agenda_sub_tasks').insert({
+    await activeSupabase.from('agenda_sub_tasks').insert({
       agenda_item_id: agendaItemId, title: selText, status: 'active', sort_order: (count ?? 0) + 1,
     })
     setPickerLoading(false)
@@ -287,19 +373,77 @@ export default function QuickMemoPage() {
   async function handleSave() {
     if (!title.trim()) return
     setSaving(true)
+    setSaveError('')
+
+    // quick_memos 브랜치에서만 canonical id가 생김 — 세부task/일정 브랜치(project_meetings)는
+    // 별도 테이블이라 rebind 대상 자체가 없음(autosave_drafts는 계속 qid로만 추적).
+    let canonicalQuickMemoId: string | null = null
+
     if (tag === '회의관련' && meetingDate) {
-      const { data: newMeeting } = await supabase.from('project_meetings')
+      const { data: newMeeting, error } = await activeSupabase.from('project_meetings')
         .insert({ title: title.trim(), meeting_date: meetingDate })
         .select('id, title, meeting_date').single()
+      if (error) {
+        // 실패 시 draft를 지우지 않고 그대로 남겨서 재시도/복구가 가능하게 함
+        setSaving(false)
+        setSaveError('저장 실패 — 잠시 후 다시 시도해 주세요 (내용은 보존됨)')
+        return
+      }
       if (newMeeting && window.opener)
         window.opener.dispatchEvent(new CustomEvent('quick-meeting-created', { detail: newMeeting }))
       setSavedMsg('📅 일정에 추가됨!')
     } else {
-      await supabase.from('quick_memos').insert({ title: title.trim(), content, tag: [tag] })
+      const { data: newMemo, error } = await activeSupabase.from('quick_memos')
+        .insert({ title: title.trim(), content, tag: [tag] })
+        .select('id').single()
+      if (error) {
+        setSaving(false)
+        setSaveError('저장 실패 — 잠시 후 다시 시도해 주세요 (내용은 보존됨)')
+        return
+      }
+      canonicalQuickMemoId = newMemo?.id ?? null
       if (window.opener) window.opener.dispatchEvent(new CustomEvent('quick-memo-saved'))
       setSavedMsg('저장됨!')
     }
-    if (qidRef.current) removeDraftEntry(qidRef.current)
+
+    // Autosave: canonical insert가 실제로 성공한 뒤에만 이번 메모를 'final' 버전으로
+    // stamp — 실패 시(위에서 이미 return) 절대 호출되지 않음. canonicalQuickMemoId가
+    // 있으면 같은 flush 호출 안에서 autosave_drafts의 임시 qid 행을 canonical id로
+    // rebind(entity_id만 CAS로 변경) + canonical id 기준 새 content_versions 행을
+    // INSERT — 기존 qid 기반 draft/version은 절대 건드리지 않음.
+    const savedQid = qidRef.current
+    if (savedQid) {
+      const result = await autosave.flush({
+        source: 'final',
+        ...(canonicalQuickMemoId ? { rebindToEntityId: canonicalQuickMemoId } : {}),
+      })
+      if (canonicalQuickMemoId && !result.rebind?.ok) {
+        // rebind 실패해도 canonical Save(quick_memos insert) 자체는 이미 성공했으므로
+        // 롤백하지 않음 — 최소한의 추적 가능한 로그만 남김(민감정보 없음).
+        console.error('quick_memo_autosave_rebind_failed', {
+          event: 'quick_memo_autosave_rebind_failed',
+          qid: savedQid,
+          canonicalId: canonicalQuickMemoId,
+          step: result.ok ? 'rebind' : 'sync',
+          error: result.rebind?.error ?? result.error ?? 'unknown',
+          timestamp: new Date().toISOString(),
+        })
+      }
+      clearAutosaveBuffer('quick_memo', savedQid, 'draft')
+    }
+
+    // Final Save 성공 시(rebind 성공/실패 무관) 이 창의 draft identity를 즉시 새로
+    // 교체 — 이후 같은 창에서 이어 입력해도 방금 저장된 메모와 identity를 공유하지
+    // 않고 완전히 새 qid/버전 계열을 쓴다(docs/autosave-rollout-plan.md §16 item 24).
+    if (savedQid) {
+      qidRef.current = crypto.randomUUID()
+      setAutosaveEntityId(qidRef.current)
+    }
+
+    // DB 저장이 실제로 성공했을 때만 — 그래도 즉시 파기하지 않고 보관함으로 옮겨
+    // "성공한 것처럼 보였지만 실은 안 됐던" 경우에 대비한 유예기간을 둠
+    appendToArchive({ title: title.trim(), content, tag, savedAt: Date.now() })
+    if (savedQid) removeDraftEntry(savedQid)
     setSaving(false)
     setTitle(''); setContent(''); setTag('업무관련')
     setEditorKey(k => k + 1)
@@ -344,7 +488,41 @@ export default function QuickMemoPage() {
       </button>
     </div>
   ) : (
-    <div className="h-screen flex flex-col p-5" style={{ background: '#161B24', colorScheme: 'dark', boxSizing: 'border-box' }}>
+    <div className="h-screen flex flex-col p-5 relative" style={{ background: '#161B24', colorScheme: 'dark', boxSizing: 'border-box' }}>
+      {/* 최근 저장 기록 — 성공 저장 후에도 3일간 남아있는 보관함. "저장됐다는데 안 보인다" 복구용 */}
+      {showArchive && (
+        <div className="absolute inset-0 z-20 flex flex-col p-5" style={{ background: '#161B24' }}>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-semibold text-[#E5E7EB] text-sm tracking-wide">최근 저장 기록</h3>
+            <button onClick={() => setShowArchive(false)}
+              className="text-[#5B6270] hover:text-[#E5E7EB] text-lg leading-none transition-colors w-6 h-6 flex items-center justify-center rounded hover:bg-[rgba(255,255,255,0.08)]">
+              ×
+            </button>
+          </div>
+          <p className="text-xs mb-3" style={{ color: '#5B6270' }}>
+            저장 성공 후에도 3일간 남아있는 기록이에요. 목록에 안 보이는 메모가 있으면 여기서 복원해서 다시 저장해 주세요.
+          </p>
+          <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide flex flex-col gap-2">
+            {archiveEntries.length === 0 ? (
+              <p className="text-xs text-center py-6" style={{ color: '#5B6270' }}>최근 저장 기록이 없어요</p>
+            ) : archiveEntries.map((e, i) => (
+              <button key={i} onClick={() => restoreFromArchive(e)}
+                className="text-left rounded-lg px-3 py-2.5 transition-colors"
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+                onMouseEnter={ev => (ev.currentTarget.style.background = 'rgba(255,255,255,0.08)')}
+                onMouseLeave={ev => (ev.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
+              >
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <span className="text-sm font-medium truncate" style={{ color: '#E5E7EB' }}>{e.title || '(제목 없음)'}</span>
+                  <span className="text-[10px] flex-shrink-0" style={{ color: '#5B6270' }}>{timeAgo(e.savedAt)}</span>
+                </div>
+                <p className="text-xs truncate" style={{ color: '#9CA3AF' }}>{stripHtml(e.content) || '(내용 없음)'}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* 헤더 */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
@@ -355,15 +533,62 @@ export default function QuickMemoPage() {
               새 메모
             </span>
           )}
+          {isDevPilot && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold tracking-wide"
+              style={{ background: 'rgba(249,158,11,0.15)', color: '#F99E0B', border: '1px solid rgba(249,158,11,0.35)' }}
+              title="dev pilot Supabase 프로젝트에 연결됨 — 프로덕션 데이터에는 영향 없음">
+              DEV PILOT MODE
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2">
+          <AutosaveStatusBadge autosave={autosave} />
           {autoSaved && <span className="text-[10px] text-[#5B6270]">임시저장됨</span>}
+          <button onClick={openArchive}
+            className="text-[10px] px-2 py-1 rounded-lg transition-colors"
+            style={{ color: '#5B6270', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+            title="저장 성공 후에도 3일간 남아있는 최근 저장 기록">
+            최근 저장 기록
+          </button>
           <button onClick={() => window.close()}
             className="text-[#5B6270] hover:text-[#E5E7EB] text-lg leading-none transition-colors w-6 h-6 flex items-center justify-center rounded hover:bg-[rgba(255,255,255,0.08)]">
             ×
           </button>
         </div>
       </div>
+
+      {/* Autosave: 복구 배너 */}
+      {autosave.recovered && (
+        <div className="mb-2 px-3 py-2 rounded-lg text-xs flex items-center gap-2"
+          style={{ background: 'rgba(76,127,224,0.1)', border: '1px solid rgba(76,127,224,0.3)', color: '#8DAEE6' }}>
+          <span>복구 가능한 자동저장 내용이 있습니다</span>
+          <div className="flex-1" />
+          <button onClick={applyRecovered} className="underline underline-offset-2">적용</button>
+          <button onClick={() => autosave.discardRecovered()} className="underline underline-offset-2">무시</button>
+        </div>
+      )}
+
+      {/* Autosave: 충돌 배너 — 자동 병합하지 않고 사용자가 선택 */}
+      {autosave.conflict && (
+        <div className="mb-2 px-3 py-2 rounded-lg text-xs flex flex-col gap-1.5"
+          style={{ background: 'rgba(249,158,11,0.1)', border: '1px solid rgba(249,158,11,0.35)', color: '#F99E0B' }}>
+          <span>다른 창/기기에서 이 메모가 변경되었습니다 — 자동 병합하지 않습니다.</span>
+          <div className="flex items-center gap-2">
+            <button onClick={() => autosave.resolveConflict('keep-mine')} className="underline underline-offset-2">
+              내 내용 유지(덮어쓰기)
+            </button>
+            <button
+              onClick={() => {
+                const v = autosave.conflict?.serverContent as { title: string; content: string; tag: MemoTag } | undefined
+                if (v) { setTitle(v.title ?? ''); setContent(v.content ?? ''); setTag(v.tag ?? '업무관련'); setEditorKey(k => k + 1) }
+                autosave.resolveConflict('take-theirs')
+              }}
+              className="underline underline-offset-2">
+              서버 내용 사용
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 태그 */}
       <div className="flex gap-1.5 mb-3">
@@ -478,6 +703,15 @@ export default function QuickMemoPage() {
         </div>
       )}
 
+      {/* 저장 실패 안내 — 실패 시 draft는 지우지 않으므로 재시도하면 됨 */}
+      {saveError && (
+        <div className="mb-2 px-3 py-2 rounded-lg text-xs flex items-center gap-2"
+          style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#FC8181' }}>
+          <span>⚠</span>
+          <span className="flex-1">{saveError}</span>
+        </div>
+      )}
+
       {/* 푸터 */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
@@ -532,5 +766,24 @@ export default function QuickMemoPage() {
       </div>
     </div>
   )
+}
+
+// Autosave 상태 표시 — docs/autosave-architecture.md Ch.15.A:
+// 성공하지 않았는데 "저장됨"으로 보이는 표시는 절대 하지 않는다(honest status).
+function AutosaveStatusBadge({ autosave }: { autosave: ReturnType<typeof useAutosave<{ title: string; content: string; tag: MemoTag }>> }) {
+  const { status, failureReason } = autosave
+  const map: Record<string, { text: string; color: string }> = {
+    'idle':          { text: '', color: '#5B6270' },
+    'local-saving':  { text: '로컬 저장 중…', color: '#5B6270' },
+    'pending-sync':  { text: '동기화 대기…', color: '#5B6270' },
+    'syncing':       { text: '서버 저장 중…', color: '#8DAEE6' },
+    'saved':         { text: '자동저장됨(서버)', color: '#66CC99' },
+    'retrying':      { text: failureReason === 'network' ? '오프라인 — 재연결 시 자동 저장' : '저장 실패 · 재시도 중', color: '#F99E0B' },
+    'error':         { text: '저장 실패 · 로컬 보관', color: '#FC8181' },
+    'conflict':      { text: '충돌 발생', color: '#F99E0B' },
+  }
+  const cur = map[status] ?? map.idle
+  if (!cur.text) return null
+  return <span className="text-[10px]" style={{ color: cur.color }}>{cur.text}</span>
 }
 

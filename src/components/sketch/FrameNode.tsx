@@ -4,7 +4,9 @@ import { useState, useRef } from 'react'
 import { NodeResizer } from '@xyflow/react'
 import type { NodeProps } from '@xyflow/react'
 import type { Node } from '@xyflow/react'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { ChevronRight, ChevronDown, Trash2 } from 'lucide-react'
+import { useAutosave } from '@/hooks/useAutosave'
 
 export type FrameData = {
   title: string
@@ -15,6 +17,7 @@ export type FrameData = {
   onCollapseToggle: (id: string) => void
   onDelete: (id: string) => void
   onResize: (id: string, box: { x: number; y: number; width: number; height: number }) => void
+  supabase: SupabaseClient
 }
 
 export type FrameNodeType = Node<FrameData, 'frame'>
@@ -23,6 +26,18 @@ export function FrameNodeComponent({ id, data, selected }: NodeProps<FrameNodeTy
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(data.title)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // Autosave (프레임 제목, 텍스트 필드 우선 STEP) — canonical UPDATE(onTitleChange)는
+  // 그대로 유지, 이 훅은 autosave_drafts/content_versions에만 병행 기록한다.
+  // entity_id는 항상 실존하는 sketch_frames.id이므로 qid/rebind 불필요.
+  useAutosave({
+    supabase: data.supabase,
+    enabled: editing,
+    entityType: 'sketch_frame',
+    entityId: id,
+    fieldKey: 'title',
+    value: draft,
+  })
 
   function startEdit(e: React.MouseEvent) {
     e.stopPropagation()

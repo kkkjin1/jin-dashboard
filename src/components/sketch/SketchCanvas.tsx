@@ -10,7 +10,9 @@ import {
   type InternalNode, type NodeChange,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
+import { useAutosave } from '@/hooks/useAutosave'
 import { CATEGORY_PALETTE, type CategoryColorKey } from '@/lib/categoryColors'
 import { ArrowLeft, Plus, Trash2, GripVertical, Frame } from 'lucide-react'
 import type { SketchBoard, SketchCard, SketchEdge, SketchFrame } from '@/types'
@@ -69,6 +71,7 @@ type CardData = {
   onColorChange: (id: string, color: CategoryColorKey) => void
   onDelete: (id: string) => void
   onResize: (id: string, box: { x: number; y: number; width: number; height: number }) => void
+  supabase: SupabaseClient
 }
 type CardNode = Node<CardData, 'sticky'>
 
@@ -97,8 +100,25 @@ function StickyCardNode({ id, data, selected }: NodeProps<CardNode>) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Autosave (카드 본문, 텍스트 필드 우선 STEP) — canonical UPDATE(onContentChange)는
+  // 그대로 유지, 이 훅은 autosave_drafts/content_versions에만 병행 기록한다.
+  // 이 상태는 오직 훅에 넘길 값 추적용이라 editorRef.innerHTML을 되돌려쓰지 않음
+  // (DOM이 계속 진실 소스, 커서 위치 보존). entity_id는 항상 실존하는
+  // sketch_cards.id이므로 qid/rebind 불필요. 카드가 많을 때 마운트 시 동시
+  // 부트스트랩 요청이 몰리지 않도록 세부task title과 동일하게 편집 중(포커스)에만 활성화.
+  const [autosaveContent, setAutosaveContent] = useState(data.content)
+  useAutosave({
+    supabase: data.supabase,
+    enabled: isEditing,
+    entityType: 'sketch_card',
+    entityId: id,
+    fieldKey: 'content',
+    value: autosaveContent,
+  })
+
   function handleInput(e: React.FormEvent<HTMLDivElement>) {
     const html = e.currentTarget.innerHTML
+    setAutosaveContent(html)
     clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(() => data.onContentChange(id, html), 500)
   }
@@ -357,7 +377,8 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
     onColorChange: handleColorChange,
     onDelete: handleDelete,
     onResize: handleCardResize,
-  }), [handleContentChange, handleColorChange, handleDelete, handleCardResize])
+    supabase,
+  }), [handleContentChange, handleColorChange, handleDelete, handleCardResize, supabase])
 
   // ── 프레임 handlers ───────────────────────────────────────────────────────
   const handleFrameTitleChange = useCallback((frameId: string, title: string) => {
@@ -438,7 +459,8 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
     onCollapseToggle: handleFrameCollapseToggle,
     onDelete: handleFrameDelete,
     onResize: handleFrameResize,
-  }), [handleFrameTitleChange, handleFrameCollapseToggle, handleFrameDelete, handleFrameResize])
+    supabase,
+  }), [handleFrameTitleChange, handleFrameCollapseToggle, handleFrameDelete, handleFrameResize, supabase])
 
   // ── 카드↔프레임 소속 관리 ─────────────────────────────────────────────────
   const addCardToFrame = useCallback((cardId: string, frame: SketchFrame, absPos: { x: number; y: number }) => {

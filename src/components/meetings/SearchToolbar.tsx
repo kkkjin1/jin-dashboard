@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useEffect, useState } from 'react'
-import { Search, Calendar, ChevronDown, ArrowUpDown, ChevronLeft, ChevronRight, Plus, X } from 'lucide-react'
+import { Calendar, ChevronDown, ArrowUpDown, ChevronLeft, ChevronRight, Plus, X } from 'lucide-react'
 import {
   format, addMonths, subMonths, getDaysInMonth, getDay, startOfMonth,
   startOfWeek, endOfWeek, endOfMonth, startOfYear, endOfYear,
@@ -17,8 +17,6 @@ export type DateSelection = {
 } | null
 
 interface Props {
-  search: string
-  setSearch: (v: string) => void
   dateSelection: DateSelection
   setDateSelection: (v: DateSelection) => void
   teamFilter: string
@@ -76,7 +74,6 @@ function getPeriodSelection(label: string): DateSelection {
 const PERIOD_OPTIONS = ['오늘', '이번주', '이번달', '이번분기', '이번반기', '올해']
 
 export default function SearchToolbar({
-  search, setSearch,
   dateSelection, setDateSelection,
   teamFilter, setTeamFilter,
   sortOrder, setSortOrder,
@@ -220,19 +217,8 @@ export default function SearchToolbar({
 
   return (
     <div className="flex-shrink-0" style={{ position: 'sticky', top: 0, zIndex: 40, background: '#0F1319', paddingBottom: 12 }}>
-      {/* 검색 + 달력 + 정렬 */}
+      {/* 달력 + 정렬 */}
       <div className="flex items-center gap-2 mb-3">
-        <div className="flex items-center gap-2 flex-1 px-3 py-2 rounded-xl" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.09)' }}>
-          <Search size={14} style={{ color: 'rgba(226,232,240,0.35)', flexShrink: 0 }} />
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="회의명, 키워드 검색..."
-            className="flex-1 bg-transparent text-[13px] focus:outline-none placeholder:text-[rgba(226,232,240,0.25)]"
-            style={{ color: '#E2E8F0' }}
-          />
-        </div>
-
         {/* 달력 피커 */}
         <div ref={calRef} style={{ position: 'relative' }}>
           <button
