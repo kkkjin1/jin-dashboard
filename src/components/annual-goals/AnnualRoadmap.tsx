@@ -251,6 +251,10 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
   const [linkAgendaItemId, setLinkAgendaItemId] = useState<string | null>(null)
   const [linkSearch, setLinkSearch] = useState('')
   const [newLinkSubTaskTitle, setNewLinkSubTaskTitle] = useState('')
+  const [prioritySortCol, setPrioritySortCol] = useState<{ col: '범주' | '안건'; dir: 'asc' | 'desc' } | null>(null)
+  function togglePrioritySortCol(col: '범주' | '안건') {
+    setPrioritySortCol(prev => prev?.col === col ? { col, dir: prev.dir === 'asc' ? 'desc' : 'asc' } : { col, dir: 'asc' })
+  }
 
   const isAll = category === '전체'
 
@@ -631,7 +635,7 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
   ) : null
 
   // ── 세부task 한 행 렌더 (목록/기능/우선순위 모드 공용) ──────────────
-  function renderTaskRow(task: AnnualGoalTask, itemColor: string, contextBadge?: string, showFunctionCol = true, extraCol?: React.ReactNode) {
+  function renderTaskRow(task: AnnualGoalTask, itemColor: string, contextBadge?: string, showFunctionCol = true, extraCol?: React.ReactNode, extraCells?: { key: string; width: number; content: React.ReactNode }[]) {
     return (
       <div key={task.id}
         className="group/trow flex hover:bg-[rgba(59,130,246,0.04)] transition-colors"
@@ -675,6 +679,11 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
             )}
           </div>
         </div>
+        {(extraCells ?? []).map(c => (
+          <div key={c.key} style={{ width: c.width, padding: '7px 10px', borderLeft: S.bdL, display: 'flex', alignItems: 'center' }}>
+            {c.content}
+          </div>
+        ))}
         <div style={{ width: 40, borderLeft: S.bdL, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           {task.track && <span style={{ fontSize: 9, fontWeight: 700, color: '#c9cdd3', background: 'rgba(255,255,255,0.06)', padding: '1px 6px', borderRadius: 999 }}>{task.track}</span>}
         </div>
@@ -734,11 +743,21 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
   }
 
   // ── 세부task 테이블 컬럼 헤더 (목록/기능/우선순위 모드 공용) ────────
-  function renderColumnHeader(showFunctionCol = true, showLinkCol = false) {
+  function renderColumnHeader(showFunctionCol = true, showLinkCol = false, extraHeaderCols?: { key: string; label: string; width: number; sortDir?: 'asc' | 'desc' | null; onSortClick?: () => void }[]) {
     const hd: React.CSSProperties = { fontSize: 10, fontWeight: 700, color: S.t3, letterSpacing: '.05em', textTransform: 'uppercase', padding: '6px 8px', borderLeft: S.bdL }
     return (
       <div className="flex" style={{ borderTop: '0.5px solid rgba(255,255,255,0.06)' }}>
         <div style={{ flex: 1, minWidth: 200, ...hd, borderLeft: 'none', paddingLeft: 20 }}>세부task</div>
+        {(extraHeaderCols ?? []).map(c => (
+          <div key={c.key} style={{ width: c.width, ...hd }}>
+            {c.onSortClick ? (
+              <button onClick={c.onSortClick}
+                style={{ fontSize: 10, fontWeight: 700, color: c.sortDir ? S.t2 : S.t3, letterSpacing: '.05em', textTransform: 'uppercase', background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                {c.label}{c.sortDir && <span style={{ fontSize: 9 }}>{c.sortDir === 'asc' ? '↑' : '↓'}</span>}
+              </button>
+            ) : c.label}
+          </div>
+        ))}
         <div style={{ width: 40, ...hd }}>트랙</div>
         <div style={{ width: 92, ...hd }}>담당자</div>
         <div style={{ width: 100, ...hd }}>일정({scheduleUnit === 'month' ? '월' : '주'})</div>
@@ -1051,7 +1070,16 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
     const priorityTasksAll = tasks.filter(t => t.agreed_priority === '1순위' || t.agreed_priority === '2순위')
     const doneTasks = priorityTasksAll.filter(t => t.status === 'done')
     const visibleTasks = showDoneItems.has('__priority__') ? priorityTasksAll : priorityTasksAll.filter(t => t.status !== 'done')
-    const orderedTasks = [...visibleTasks].sort(priorityComparator)
+    const orderedTasks = [...visibleTasks].sort((a, b) => {
+      if (prioritySortCol) {
+        const ai = itemsById[a.item_id], bi = itemsById[b.item_id]
+        const av = prioritySortCol.col === '범주' ? (ai ? displayCat(ai.category) : '') : (ai?.title ?? '')
+        const bv = prioritySortCol.col === '범주' ? (bi ? displayCat(bi.category) : '') : (bi?.title ?? '')
+        const cmp = av.localeCompare(bv, 'ko')
+        if (cmp !== 0) return prioritySortCol.dir === 'asc' ? cmp : -cmp
+      }
+      return priorityComparator(a, b)
+    })
     return (
       <>
         {viewToggle}
@@ -1062,8 +1090,11 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
             ) : (
               <div style={{ background: 'rgba(255,255,255,0.06)', border: '0.5px solid rgba(255,255,255,0.09)', borderRadius: 20, overflow: 'hidden' }}>
                 <div style={{ overflowX: 'auto' }}>
-                  <div style={{ minWidth: 900 }}>
-                    {renderColumnHeader(false, true)}
+                  <div style={{ minWidth: 1160 }}>
+                    {renderColumnHeader(false, true, [
+                      { key: 'category', label: '범주', width: 110, sortDir: prioritySortCol?.col === '범주' ? prioritySortCol.dir : null, onSortClick: () => togglePrioritySortCol('범주') },
+                      { key: 'item', label: '안건', width: 150, sortDir: prioritySortCol?.col === '안건' ? prioritySortCol.dir : null, onSortClick: () => togglePrioritySortCol('안건') },
+                    ])}
                     {orderedTasks.map(task => {
                       const parentItem = itemsById[task.item_id]
                       const linkedSubTask = task.linked_agenda_sub_task_id ? agendaSubTasksById[task.linked_agenda_sub_task_id] : undefined
@@ -1086,7 +1117,16 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
                           + 연동
                         </button>
                       )
-                      return renderTaskRow(task, NEUTRAL_ACCENT, parentItem ? `${displayCat(parentItem.category)} · ${parentItem.title}` : undefined, false, extraCol)
+                      const extraCells = [
+                        { key: 'category', width: 110, content: parentItem ? (() => {
+                            const b = categoryBadge(parentItem.category)
+                            return <span style={{ fontSize: 10, fontWeight: 600, color: b.text, background: b.bg, padding: '1px 7px', borderRadius: 999, whiteSpace: 'nowrap' as const, overflow: 'hidden', textOverflow: 'ellipsis' as const, maxWidth: '100%' }}>{displayCat(parentItem.category)}</span>
+                          })() : null },
+                        { key: 'item', width: 150, content: parentItem ? (
+                            <span style={{ fontSize: 11, color: S.t2, whiteSpace: 'nowrap' as const, overflow: 'hidden', textOverflow: 'ellipsis' as const }} title={parentItem.title}>{parentItem.title}</span>
+                          ) : null },
+                      ]
+                      return renderTaskRow(task, NEUTRAL_ACCENT, undefined, false, extraCol, extraCells)
                     })}
                   </div>
                 </div>
