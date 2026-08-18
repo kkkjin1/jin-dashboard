@@ -317,6 +317,11 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
   const [board, setBoard] = useState<SketchBoard | null>(null)
   const [nameInput, setNameInput] = useState('')
   const [loading, setLoading] = useState(true)
+
+  // 저장 실패 안내 — 위치/크기/색상/연결선 canonical write 실패 시 공통 표시(STEP D 패턴 재사용).
+  // 텍스트 필드(카드 본문/프레임 제목)는 useAutosave가 이미 별도 안전망을 갖고 있어 대상 아님.
+  const [saveError, setSaveError] = useState('')
+  const SAVE_ERROR_MSG = '저장 실패 — 화면에는 반영됐지만 서버에 저장되지 않았을 수 있습니다. 새로고침 후 다시 확인해주세요.'
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
   const [frames, setFrames] = useState<SketchFrame[]>([])
@@ -352,7 +357,7 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
 
   const handleColorChange = useCallback((id: string, color: CategoryColorKey) => {
     supabase.from('sketch_cards').update({ color }).eq('id', id)
-      .then(({ error }) => { if (error) console.error('카드 색상 저장 실패:', error.message) })
+      .then(({ error }) => { setSaveError(error ? SAVE_ERROR_MSG : '') })
     setNodes(prev => prev.map(n => n.id === id ? { ...n, data: { ...n.data, color } } : n))
   }, [])
 
@@ -369,7 +374,7 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
     supabase.from('sketch_cards')
       .update({ position_x: box.x, position_y: box.y, width: box.width, height: box.height })
       .eq('id', id)
-      .then(({ error }) => { if (error) console.error('카드 크기 저장 실패:', error.message) })
+      .then(({ error }) => { setSaveError(error ? SAVE_ERROR_MSG : '') })
   }, [])
 
   const cardHandlers = useMemo(() => ({
@@ -451,7 +456,7 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
     supabase.from('sketch_frames')
       .update({ position_x: box.x, position_y: box.y, width: box.width, height: box.height })
       .eq('id', frameId)
-      .then(({ error }) => { if (error) console.error('프레임 크기 저장 실패:', error.message) })
+      .then(({ error }) => { setSaveError(error ? SAVE_ERROR_MSG : '') })
   }, [])
 
   const frameHandlers = useMemo(() => ({
@@ -469,9 +474,9 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
     setNodes(prev => prev.map(n => n.id !== cardId ? n : { ...n, parentId: frame.id, extent: 'parent' as const, position: { x: relX, y: relY } }))
     supabase.from('sketch_cards').update({ frame_id: frame.id, position_x: relX, position_y: relY }).eq('id', cardId)
       .then(({ error }) => {
+        setSaveError(error ? SAVE_ERROR_MSG : '')
         if (error) {
           setNodes(prev => prev.map(n => n.id !== cardId ? n : { ...n, parentId: undefined, extent: undefined, position: absPos }))
-          alert('카드를 프레임에 추가하는 데 실패했습니다.')
         }
       })
   }, [])
@@ -479,18 +484,13 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
   const removeCardFromFrame = useCallback((cardId: string, absPos: { x: number; y: number }) => {
     setNodes(prev => prev.map(n => n.id !== cardId ? n : { ...n, parentId: undefined, extent: undefined, position: absPos }))
     supabase.from('sketch_cards').update({ frame_id: null, position_x: absPos.x, position_y: absPos.y }).eq('id', cardId)
-      .then(({ error }) => {
-        if (error) {
-          console.error('카드 프레임 해제 실패:', error.message)
-          alert('카드를 프레임에서 제거하는 데 실패했습니다.')
-        }
-      })
+      .then(({ error }) => { setSaveError(error ? SAVE_ERROR_MSG : '') })
   }, [])
 
   // ── 위치/연결 ─────────────────────────────────────────────────────────────
   const savePosition = useCallback((nodeId: string, position: { x: number; y: number }) => {
     supabase.from('sketch_cards').update({ position_x: position.x, position_y: position.y }).eq('id', nodeId)
-      .then(({ error }) => { if (error) console.error('카드 위치 저장 실패:', error.message) })
+      .then(({ error }) => { setSaveError(error ? SAVE_ERROR_MSG : '') })
   }, [])
 
   const handleConnect = useCallback((sourceId: string, targetId: string) => {
@@ -498,7 +498,8 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
       .insert({ board_id: boardId, source_card_id: sourceId, target_card_id: targetId })
       .select().single()
       .then(({ data, error }) => {
-        if (error || !data) { alert('연결 생성에 실패했습니다.'); return }
+        setSaveError(error || !data ? SAVE_ERROR_MSG : '')
+        if (error || !data) return
         setEdges(eds => [...eds, edgeFromRow(data as SketchEdge)])
       })
   }, [boardId])
@@ -507,10 +508,8 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
     setEdges(prev => prev.filter(e => e.id !== edge.id))
     supabase.from('sketch_edges').delete().eq('id', edge.id)
       .then(({ error }) => {
-        if (error) {
-          setEdges(prev => [...prev, edge])
-          alert('연결 해제에 실패했습니다.')
-        }
+        setSaveError(error ? SAVE_ERROR_MSG : '')
+        if (error) setEdges(prev => [...prev, edge])
       })
   }, [])
 
@@ -751,7 +750,7 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
       if (!f) return
       setFrames(prev => prev.map(fr => fr.id === node.id ? { ...fr, position_x: node.position.x, position_y: node.position.y } : fr))
       supabase.from('sketch_frames').update({ position_x: node.position.x, position_y: node.position.y }).eq('id', node.id)
-        .then(({ error }) => { if (error) console.error('프레임 위치 저장 실패:', error.message) })
+        .then(({ error }) => { setSaveError(error ? SAVE_ERROR_MSG : '') })
       return
     }
 
@@ -905,6 +904,16 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
           <span className="text-[10px] font-mono opacity-50">N</span>
         </button>
       </div>
+
+      {/* 저장 실패 안내 — 위치/크기/색상/연결선 canonical write 실패 시 표시 */}
+      {saveError && (
+        <div className="flex-shrink-0 mb-2 px-4 py-2.5 rounded-xl text-[12px] flex items-center gap-2"
+          style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#FC8181' }}>
+          <span>⚠</span>
+          <span className="flex-1">{saveError}</span>
+          <button onClick={() => setSaveError('')} className="text-[10px] opacity-70 hover:opacity-100 flex-shrink-0">닫기</button>
+        </div>
+      )}
 
       {/* 캔버스 */}
       <div

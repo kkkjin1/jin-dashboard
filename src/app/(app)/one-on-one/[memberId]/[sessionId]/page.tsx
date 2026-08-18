@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { format, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { createClient } from '@/lib/supabase/client'
+import { useAutosave } from '@/hooks/useAutosave'
 import type { OneOnOne, Member, NoteEntry } from '@/types'
 import dynamic from 'next/dynamic'
 const TiptapEditor = dynamic(() => import('@/components/TiptapEditor'), { ssr: false })
@@ -33,6 +34,12 @@ export default function OneOnOneSessionPage() {
   const [nextAppointment, setNextAppointment]       = useState('')
   const [nextAppointmentDate, setNextAppointmentDate] = useState('')
   const [deleting, setDeleting]             = useState(false)
+
+  // 저장 실패 안내 — canonical write 실패 시 표시(STEP D 패턴 재사용). 이 화면의 모든
+  // canonical write(updateSession/deleteSession)가 공유하는 단일 공통 에러 상태.
+  const [saveError, setSaveError] = useState('')
+  const SAVE_ERROR_MSG   = '저장 실패 — 화면에는 반영됐지만 서버에 저장되지 않았을 수 있습니다. 새로고침 후 다시 확인해주세요.'
+  const DELETE_ERROR_MSG = '삭제 실패 — 잠시 후 다시 시도해주세요.'
 
   const titleRef   = useRef<HTMLInputElement>(null)
   const saveTimer  = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -81,10 +88,44 @@ export default function OneOnOneSessionPage() {
     }
   }, [session])
 
+  // 세션 화면의 모든 canonical write(제목/날짜/기록내용/다음약속)가 공유하는 단일
+  // 진입점 — 이전엔 error를 전혀 체크하지 않아 저장 실패가 사용자에게 조용히
+  // 묻혔다(STEP D 그룹1/2와 달리 1on1 화면은 그동안 대상에서 빠져 있었음).
   async function updateSession(updates: Partial<OneOnOne>) {
-    await supabase.from('one_on_ones').update(updates).eq('id', sessionId)
+    const { error } = await supabase.from('one_on_ones').update(updates).eq('id', sessionId)
+    setSaveError(error ? SAVE_ERROR_MSG : '')
     setSession(prev => prev ? { ...prev, ...updates } : prev)
   }
+
+  // Autosave 안전망(제목/기록내용/다음약속) — canonical UPDATE(updateSession)는 그대로
+  // 유지, 이 훅은 autosave_drafts/content_versions에만 병행 기록한다. entity_id는
+  // 항상 실존하는 one_on_ones.id(URL 파라미터)이므로 qid/rebind 불필요. 단일 세션
+  // 상세 페이지라 카드형 캔버스처럼 동시 마운트가 몰릴 일이 없어 포커스 게이팅 없이
+  // project_item title/description과 동일하게 상시 enabled로 둔다.
+  useAutosave({
+    supabase,
+    enabled: !!sessionId,
+    entityType: 'one_on_one',
+    entityId: sessionId,
+    fieldKey: 'title',
+    value: titleInput,
+  })
+  useAutosave({
+    supabase,
+    enabled: !!sessionId,
+    entityType: 'one_on_one',
+    entityId: sessionId,
+    fieldKey: 'content',
+    value: contentInput,
+  })
+  useAutosave({
+    supabase,
+    enabled: !!sessionId,
+    entityType: 'one_on_one',
+    entityId: sessionId,
+    fieldKey: 'next_appointment',
+    value: nextAppointment,
+  })
 
   function handleContentChange(html: string) {
     setContentInput(html)
@@ -123,7 +164,12 @@ export default function OneOnOneSessionPage() {
   async function deleteSession() {
     if (!confirm('이 1on1 기록을 삭제하시겠습니까?')) return
     setDeleting(true)
-    await supabase.from('one_on_ones').delete().eq('id', sessionId)
+    const { error } = await supabase.from('one_on_ones').delete().eq('id', sessionId)
+    if (error) {
+      setSaveError(DELETE_ERROR_MSG)
+      setDeleting(false)
+      return
+    }
     router.push(`/one-on-one/${memberId}`)
   }
 
@@ -186,6 +232,16 @@ export default function OneOnOneSessionPage() {
 
         {/* ── 메인 콘텐츠 ── */}
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+          {/* 저장 실패 안내 — canonical write 실패 시 표시 */}
+          {saveError && (
+            <div className="flex items-center gap-2 rounded-xl"
+              style={{ padding: '10px 16px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#FC8181', fontSize: 12 }}>
+              <span>⚠</span>
+              <span style={{ flex: 1 }}>{saveError}</span>
+              <button onClick={() => setSaveError('')} style={{ fontSize: 10, opacity: 0.7, background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }}>닫기</button>
+            </div>
+          )}
 
           {/* 제목 */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
