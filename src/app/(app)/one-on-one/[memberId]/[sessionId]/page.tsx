@@ -99,33 +99,72 @@ export default function OneOnOneSessionPage() {
 
   // Autosave 안전망(제목/기록내용/다음약속) — canonical UPDATE(updateSession)는 그대로
   // 유지, 이 훅은 autosave_drafts/content_versions에만 병행 기록한다. entity_id는
-  // 항상 실존하는 one_on_ones.id(URL 파라미터)이므로 qid/rebind 불필요. 단일 세션
-  // 상세 페이지라 카드형 캔버스처럼 동시 마운트가 몰릴 일이 없어 포커스 게이팅 없이
-  // project_item title/description과 동일하게 상시 enabled로 둔다.
-  useAutosave({
+  // 항상 실존하는 one_on_ones.id(URL 파라미터)이므로 qid/rebind 불필요.
+  // 복구 배너(Quick Memo/Meeting과 동일 패턴) — 각 훅이 반환하는 recovered를 직접 읽어
+  // "적용" 버튼으로만 반영한다(자동 적용 안 함, architecture Ch.6). 이 배너는 canonical
+  // save 로직과 무관 — 화면에 보여주고 사용자가 누르면 기존 input state만 갱신한다.
+  // enabled를 sessionId가 아닌 session(로드 완료 후)으로 건다 — sessionId는 URL에서
+  // 즉시 나오지만 titleInput 등은 load() effect가 비동기로 채우기 전까지 초기값('')이라,
+  // sessionId만으로 활성화하면 훅의 mount-time recovery 비교가 아직 안 채워진 ''과 로컬
+  // 버퍼값을 비교해 값이 실제로 같아도 매번 거짓 복구 배너를 띄우는 걸 로컬 재현으로 확인함.
+  const titleAutosave = useAutosave({
     supabase,
-    enabled: !!sessionId,
+    enabled: !!session,
     entityType: 'one_on_one',
     entityId: sessionId,
     fieldKey: 'title',
     value: titleInput,
   })
-  useAutosave({
+  const contentAutosave = useAutosave({
     supabase,
-    enabled: !!sessionId,
+    enabled: !!session,
     entityType: 'one_on_one',
     entityId: sessionId,
     fieldKey: 'content',
     value: contentInput,
   })
-  useAutosave({
+  const nextAppointmentAutosave = useAutosave({
     supabase,
-    enabled: !!sessionId,
+    enabled: !!session,
     entityType: 'one_on_one',
     entityId: sessionId,
     fieldKey: 'next_appointment',
     value: nextAppointment,
   })
+
+  // TiptapEditor는 마운트 시 content를 한 번만 읽는 비제어 컴포넌트라, contentInput을
+  // 바꾸는 것만으로는 화면이 갱신되지 않는다 — 복구 적용 시 key를 올려 강제 재마운트한다.
+  const [contentEditorKey, setContentEditorKey] = useState(0)
+
+  // 적용 시 상태만 바꾸고 끝내면, 이후 사용자가 그 필드를 다시 건드리지 않는 한
+  // 복구된 값이 canonical에는 반영되지 않은 채로 남는다(다시 새로고침하면 또
+  // 사라짐) — 그래서 기존 저장 함수(updateSession/saveContent, 로직 자체는 무수정)를
+  // 그대로 재사용해 복구 즉시 canonical에도 반영되게 한다. 대기 중이던 debounce
+  // 타이머는 지워서 이전 입력값으로 덮어쓰지 않게 한다.
+  function applyRecoveredTitle() {
+    if (!titleAutosave.recovered) return
+    const v = titleAutosave.recovered.value
+    setTitleInput(v)
+    titleAutosave.discardRecovered()
+    updateSession({ title: v.trim() || null })
+  }
+  function applyRecoveredContent() {
+    if (!contentAutosave.recovered) return
+    const v = contentAutosave.recovered.value
+    clearTimeout(saveTimer.current)
+    setContentInput(v)
+    setContentEditorKey(k => k + 1)
+    contentAutosave.discardRecovered()
+    saveContent(v)
+  }
+  function applyRecoveredNextAppointment() {
+    if (!nextAppointmentAutosave.recovered) return
+    const v = nextAppointmentAutosave.recovered.value
+    clearTimeout(nextAppointmentSaveTimer.current)
+    setNextAppointment(v)
+    nextAppointmentAutosave.discardRecovered()
+    updateSession({ next_appointment: v.trim() || null })
+  }
 
   function handleContentChange(html: string) {
     setContentInput(html)
@@ -243,6 +282,16 @@ export default function OneOnOneSessionPage() {
             </div>
           )}
 
+          {/* 제목 복구 배너 */}
+          {titleAutosave.recovered && (
+            <div className="flex items-center gap-2 rounded-lg"
+              style={{ padding: '8px 14px', background: 'rgba(76,127,224,0.12)', border: '1px solid rgba(76,127,224,0.25)', color: '#9DBEF5', fontSize: 12 }}>
+              <span style={{ flex: 1 }}>복구 가능한 자동저장 내용이 있습니다</span>
+              <button onClick={applyRecoveredTitle} style={{ textDecoration: 'underline', background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: 12 }}>적용</button>
+              <button onClick={() => titleAutosave.discardRecovered()} style={{ textDecoration: 'underline', background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: 12 }}>무시</button>
+            </div>
+          )}
+
           {/* 제목 */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ width: 8, height: 8, borderRadius: '50%', background: MEMBER_COLOR, flexShrink: 0 }} />
@@ -268,7 +317,16 @@ export default function OneOnOneSessionPage() {
               <span style={{ fontSize: 11, fontWeight: 600, color: T3, letterSpacing: '0.04em', textTransform: 'uppercase' }}>기록</span>
             </div>
             <div style={{ padding: '0 20px 16px' }}>
+              {contentAutosave.recovered && (
+                <div className="flex items-center gap-2 rounded-lg"
+                  style={{ padding: '8px 14px', marginBottom: 8, background: 'rgba(76,127,224,0.12)', border: '1px solid rgba(76,127,224,0.25)', color: '#9DBEF5', fontSize: 12 }}>
+                  <span style={{ flex: 1 }}>복구 가능한 자동저장 내용이 있습니다</span>
+                  <button onClick={applyRecoveredContent} style={{ textDecoration: 'underline', background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: 12 }}>적용</button>
+                  <button onClick={() => contentAutosave.discardRecovered()} style={{ textDecoration: 'underline', background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: 12 }}>무시</button>
+                </div>
+              )}
               <TiptapEditor
+                key={contentEditorKey}
                 dark
                 value={contentInput}
                 onChange={handleContentChange}
@@ -300,6 +358,14 @@ export default function OneOnOneSessionPage() {
               <p style={{ fontSize: 11, color: T3, marginTop: 1, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>다음 1on1에서 확인할 약속이나 과제</p>
             </div>
             <div style={{ padding: '12px 20px 16px' }}>
+              {nextAppointmentAutosave.recovered && (
+                <div className="flex items-center gap-2 rounded-lg"
+                  style={{ padding: '8px 14px', marginBottom: 8, background: 'rgba(76,127,224,0.12)', border: '1px solid rgba(76,127,224,0.25)', color: '#9DBEF5', fontSize: 12 }}>
+                  <span style={{ flex: 1 }}>복구 가능한 자동저장 내용이 있습니다</span>
+                  <button onClick={applyRecoveredNextAppointment} style={{ textDecoration: 'underline', background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: 12 }}>적용</button>
+                  <button onClick={() => nextAppointmentAutosave.discardRecovered()} style={{ textDecoration: 'underline', background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: 12 }}>무시</button>
+                </div>
+              )}
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, paddingBottom: 12, borderBottom: `1px solid ${BORDER}` }}>
                 <span style={{ fontSize: 11, color: T2, fontWeight: 500, whiteSpace: 'nowrap' }}>다음 1on1 일자</span>
                 <input type="date" value={nextAppointmentDate}
