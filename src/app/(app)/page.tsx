@@ -9,7 +9,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Search, Plus, FileText, Clock, NotebookPen, Layers, CheckSquare, CalendarDays, StickyNote, Repeat2, X } from 'lucide-react'
 import ShortcutIcons from '@/components/ShortcutIcons'
-import type { TaskTodo, Meeting, QuickMemo, AgendaSubTask, NoteEntry, ScheduleItem } from '@/types'
+import type { TaskTodo, Meeting, QuickMemo, AgendaSubTask, NoteEntry, ScheduleItem, QuickTodo } from '@/types'
 import type { GoogleCalendarEvent } from '@/app/api/calendar/today/route'
 import { JournalFullscreenEditor, type DailyJournal } from '@/components/home/DailyJournalWidget'
 import { useUserSetting } from '@/hooks/useUserSetting'
@@ -852,6 +852,10 @@ export default function HomePage() {
   const router = useRouter()
   const [doneTasks,     setDoneTasks]     = useState<string[]>([])
   const [doneAgenda,    setDoneAgenda]    = useState<string[]>([])
+  const [doneQuick,     setDoneQuick]     = useState<string[]>([])
+  const [quickTodos,    setQuickTodos]    = useState<QuickTodo[]>([])
+  const [quickAddOpen,  setQuickAddOpen]  = useState(false)
+  const [quickAddTitle, setQuickAddTitle] = useState('')
   const [showJournal,   setShowJournal]   = useState(false)
   const [fMemoOpen,     setFMemoOpen]     = useState<Record<string, boolean>>({})
   const [fMemoTexts,    setFMemoTexts]    = useState<Record<string, string>>({})
@@ -905,6 +909,7 @@ export default function HomePage() {
       const [
         { data: stData }, { data: taskTodoData },
         { data: mData },  { data: mmData }, { data: jData },
+        { data: qtData },
       ] = await Promise.all([
         sb.current.from('agenda_sub_tasks').select('*, agenda_items(id, title, agenda_groups(name, color, category)), sub_task_notes(created_at, edited_at, content)').eq('status', 'active').order('sort_order').limit(100),
         // schedule_tag는 배정 시점의 스냅샷이라 자정이 지나도 갱신되지 않음 — target_date를 기준으로 오늘/금주 분류
@@ -912,12 +917,15 @@ export default function HomePage() {
         sb.current.from('meetings').select('*').order('meeting_date', { ascending: false }).limit(20),
         sb.current.from('quick_memos').select('*').order('created_at', { ascending: false }).limit(100),
         sb.current.from('daily_journals').select('id, date, content, linked_task_ids, linked_meeting_ids, tags').in('date', [today, yesterday]),
+        // 프로젝트/안건에 속하지 않는 즉석 추가 할일 — quick_todos 전용 테이블 (schedule 탭과 공유)
+        sb.current.from('quick_todos').select('*').eq('target_date', today).eq('done', false).order('sort_order'),
       ])
 
       setSubTasks((stData ?? []) as SubTaskWithContext[])
       setAllTaskTodos((taskTodoData ?? []) as TodayTodo[])
       setMeetings((mData ?? []) as Meeting[])
       setMemos((mmData ?? []) as QuickMemo[])
+      setQuickTodos((qtData ?? []) as QuickTodo[])
       const jList = (jData ?? []) as DailyJournal[]
       setTodayJournal(jList.find(j => j.date === today) ?? null)
       setYesterJournal(jList.find(j => j.date === yesterday) ?? null)
@@ -1092,6 +1100,30 @@ export default function HomePage() {
     setTimeout(() => setAllTaskTodos(p => p.filter(t => t.id !== id)), 600)
   }
 
+  // 즉석 할일 (quick_todos) — 프로젝트 상세task/안건에 속하지 않는, 홈에서 바로 추가하는 가벼운 항목
+  async function addQuickTodo() {
+    const title = quickAddTitle.trim()
+    if (!title) return
+    const { data, error } = await sb.current.from('quick_todos')
+      .insert({ title, target_date: today }).select('*').single()
+    if (error) { console.error('즉석 할일 추가 실패:', error.message); return }
+    if (data) setQuickTodos(p => [...p, data as QuickTodo])
+    setQuickAddTitle('')
+    setQuickAddOpen(false)
+  }
+
+  async function toggleQuickTodo(id: string) {
+    setDoneQuick(p => [...p, id])
+    await sb.current.from('quick_todos').update({ done: true }).eq('id', id)
+    setTimeout(() => setQuickTodos(p => p.filter(t => t.id !== id)), 600)
+  }
+
+  function removeQuickTodo(id: string) {
+    setQuickTodos(p => p.filter(t => t.id !== id))
+    sb.current.from('quick_todos').delete().eq('id', id)
+      .then(({ error }) => { if (error) console.error('즉석 할일 삭제 실패:', error.message) })
+  }
+
   async function completeSubTask(id: string) {
     setDoneAgenda(p => [...p, id])
     await sb.current.from('agenda_sub_tasks').update({ status: 'done' }).eq('id', id)
@@ -1244,27 +1276,63 @@ export default function HomePage() {
         <div className="rounded-[20px] p-4" style={MCARD}>
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-[13px] font-bold" style={{ color: TEXT1 }}>오늘의 할 일</h2>
-            <Link href="/tasks" className="text-[11px]" style={{ color: TEXT3 }}>+ 추가</Link>
+            <button onClick={() => setQuickAddOpen(v => !v)} className="text-[11px]" style={{ color: quickAddOpen ? '#38BE98' : TEXT3, background: 'none', border: 'none' }}>
+              {quickAddOpen ? '취소' : '+ 추가'}
+            </button>
           </div>
+          {quickAddOpen && (
+            <div className="flex gap-1.5 mb-3">
+              <input
+                autoFocus
+                value={quickAddTitle}
+                onChange={e => setQuickAddTitle(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') addQuickTodo(); if (e.key === 'Escape') setQuickAddOpen(false) }}
+                placeholder="오늘 할 일을 바로 추가..."
+                className="flex-1 text-[13px] rounded-lg px-2.5 py-1.5 outline-none"
+                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)', color: TEXT1 }}
+              />
+              <button onClick={addQuickTodo} disabled={!quickAddTitle.trim()} className="text-[12px] px-3 rounded-lg"
+                style={{ background: quickAddTitle.trim() ? 'rgba(56,190,152,0.18)' : 'rgba(255,255,255,0.04)', border: `1px solid ${quickAddTitle.trim() ? 'rgba(56,190,152,0.35)' : 'rgba(255,255,255,0.07)'}`, color: quickAddTitle.trim() ? '#38BE98' : TEXT3 }}>
+                추가
+              </button>
+            </div>
+          )}
           {loading ? <div className="space-y-2">{skel(3)}</div>
-            : todayTodos.length === 0
+            : todayTodos.length === 0 && quickTodos.length === 0
               ? <p className="text-[13px] py-1" style={{ color: TEXT3 }}>오늘 할 일이 없어요</p>
-              : todayTodos.map((t, i) => {
-                  const done = doneTasks.includes(t.id)
-                  return (
-                    <div key={t.id} className="flex items-center gap-3 py-2.5" style={rd(i, todayTodos.length)}>
-                      <button onClick={() => toggleTask(t.id)} className="flex-shrink-0 rounded-full border-2 flex items-center justify-center"
-                        style={{ width: 18, height: 18, borderColor: done ? '#38BE98' : 'rgba(255,255,255,0.2)', background: done ? '#38BE98' : 'transparent' }}>
-                        {done && <svg width="7" height="7" viewBox="0 0 8 8" fill="none"><path d="M1.5 4L3 5.5L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
-                      </button>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[13px] font-medium" style={{ color: done ? TEXT3 : TEXT1, textDecoration: done ? 'line-through' : 'none' }}>{t.title}</p>
-                        {t.tasks && <p className="text-[11px]" style={{ color: TEXT2 }}>{t.tasks.short_name ?? t.tasks.title}</p>}
+              : <>
+                  {todayTodos.map((t, i) => {
+                    const done = doneTasks.includes(t.id)
+                    return (
+                      <div key={t.id} className="flex items-center gap-3 py-2.5" style={rd(i, todayTodos.length + quickTodos.length)}>
+                        <button onClick={() => toggleTask(t.id)} className="flex-shrink-0 rounded-full border-2 flex items-center justify-center"
+                          style={{ width: 18, height: 18, borderColor: done ? '#38BE98' : 'rgba(255,255,255,0.2)', background: done ? '#38BE98' : 'transparent' }}>
+                          {done && <svg width="7" height="7" viewBox="0 0 8 8" fill="none"><path d="M1.5 4L3 5.5L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+                        </button>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[13px] font-medium" style={{ color: done ? TEXT3 : TEXT1, textDecoration: done ? 'line-through' : 'none' }}>{t.title}</p>
+                          {t.tasks && <p className="text-[11px]" style={{ color: TEXT2 }}>{t.tasks.short_name ?? t.tasks.title}</p>}
+                        </div>
+                        {t.tasks && <span className="text-[11px] font-medium px-2 py-0.5 rounded-full" style={tagStyle(t.tasks.part)}>{t.tasks.part}</span>}
                       </div>
-                      {t.tasks && <span className="text-[11px] font-medium px-2 py-0.5 rounded-full" style={tagStyle(t.tasks.part)}>{t.tasks.part}</span>}
-                    </div>
-                  )
-                })
+                    )
+                  })}
+                  {quickTodos.map((t, i) => {
+                    const done = doneQuick.includes(t.id)
+                    return (
+                      <div key={t.id} className="flex items-center gap-3 py-2.5" style={rd(todayTodos.length + i, todayTodos.length + quickTodos.length)}>
+                        <button onClick={() => toggleQuickTodo(t.id)} className="flex-shrink-0 rounded-full border-2 flex items-center justify-center"
+                          style={{ width: 18, height: 18, borderColor: done ? '#38BE98' : 'rgba(255,255,255,0.2)', background: done ? '#38BE98' : 'transparent' }}>
+                          {done && <svg width="7" height="7" viewBox="0 0 8 8" fill="none"><path d="M1.5 4L3 5.5L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+                        </button>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[13px] font-medium" style={{ color: done ? TEXT3 : TEXT1, textDecoration: done ? 'line-through' : 'none' }}>{t.title}</p>
+                        </div>
+                        <button onClick={() => removeQuickTodo(t.id)} className="text-[13px] flex-shrink-0 px-1" style={{ color: TEXT3, background: 'none', border: 'none' }}>×</button>
+                      </div>
+                    )
+                  })}
+                </>
           }
         </div>
 
@@ -1387,7 +1455,7 @@ export default function HomePage() {
               {!loading && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 8 }}>
                   <KpiChip dot="#5B7EC4" label={`오늘 일정 ${todayMeetings.length + (isTimelineToday ? googleEvents.length : 0)}건`} />
-                  <KpiChip dot="#7878D8" label={`오늘 업무 ${todayTodos.length}건`} />
+                  <KpiChip dot="#7878D8" label={`오늘 업무 ${todayTodos.length + quickTodos.length}건`} />
                   <KpiChip dot="#38BE98" label={`진행중 과업 ${subTasks.length}건`} />
                   <KpiChip dot={todayJournal ? '#38BE98' : '#C86868'} label={todayJournal ? '회고 작성완료' : '회고 미작성'} onClick={() => setShowJournal(true)} />
                 </div>
@@ -1569,9 +1637,37 @@ export default function HomePage() {
             </div>
 
             {/* 오늘 업무 */}
-            <CardSection title="오늘 업무" link="/tasks" linkLabel="+ 추가" icon={<CheckSquare size={14} strokeWidth={2} style={{ color: '#38BE98' }} />}>
+            <CardSection title="오늘 업무" icon={<CheckSquare size={14} strokeWidth={2} style={{ color: '#38BE98' }} />}
+              extra={
+                <button
+                  onClick={() => setQuickAddOpen(v => !v)}
+                  style={{ fontSize: 11.5, color: quickAddOpen ? '#38BE98' : TEXT3, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                >
+                  {quickAddOpen ? '취소' : '+ 추가'}
+                </button>
+              }
+            >
+              {quickAddOpen && (
+                <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+                  <input
+                    autoFocus
+                    value={quickAddTitle}
+                    onChange={e => setQuickAddTitle(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') addQuickTodo(); if (e.key === 'Escape') setQuickAddOpen(false) }}
+                    placeholder="오늘 할 일을 바로 추가..."
+                    style={{ flex: 1, fontSize: 13, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 7, padding: '6px 10px', color: TEXT1, outline: 'none' }}
+                  />
+                  <button
+                    onClick={addQuickTodo}
+                    disabled={!quickAddTitle.trim()}
+                    style={{ fontSize: 12, padding: '0 12px', borderRadius: 7, background: quickAddTitle.trim() ? 'rgba(56,190,152,0.18)' : 'rgba(255,255,255,0.04)', border: `1px solid ${quickAddTitle.trim() ? 'rgba(56,190,152,0.35)' : 'rgba(255,255,255,0.07)'}`, color: quickAddTitle.trim() ? '#38BE98' : TEXT3, cursor: quickAddTitle.trim() ? 'pointer' : 'default' }}
+                  >
+                    추가
+                  </button>
+                </div>
+              )}
               {loading ? <div>{skel(4)}</div>
-                : todayTodos.length === 0 && todayAgendaItems.length === 0 && todayFixedMeetingsVisible.length === 0
+                : todayTodos.length === 0 && quickTodos.length === 0 && todayAgendaItems.length === 0 && todayFixedMeetingsVisible.length === 0
                     && tomorrowAgendaItems.length === 0 && tomorrowFixedMeetingsVisible.length === 0
                   ? <EmptyState
                       icon={<CheckSquare size={20} strokeWidth={1.5} />}
@@ -1590,7 +1686,7 @@ export default function HomePage() {
                             const linkedMeeting = meetings.find(m => m.title === s.title && m.meeting_date?.startsWith(today))
                             const prepNotes = ((linkedMeeting?.notes ?? []) as NoteEntry[]).filter(n => n.is_prep)
                             const isLogged = !!linkedMeeting
-                            const total = todayFixedMeetingsVisible.length + todayTodos.length + todayAgendaItems.length
+                            const total = todayFixedMeetingsVisible.length + todayTodos.length + quickTodos.length + todayAgendaItems.length
                             return (
                               <div key={s.id} style={{ ...rd(i, total), paddingBottom: 2 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0 5px' }}>
@@ -1662,7 +1758,7 @@ export default function HomePage() {
                               </div>
                             )
                           })}
-                          {(todayTodos.length > 0 || todayAgendaItems.length > 0) && (
+                          {(todayTodos.length > 0 || quickTodos.length > 0 || todayAgendaItems.length > 0) && (
                             <div style={{ borderTop: `1px solid ${DIVIDER}`, margin: '4px 0 6px' }} />
                           )}
                         </>
@@ -1670,7 +1766,7 @@ export default function HomePage() {
                       {todayTodos.map((t, i) => {
                         const done = doneTasks.includes(t.id)
                         return (
-                          <ListRow key={t.id} style={{ ...rd(i, todayTodos.length + todayAgendaItems.length) }}>
+                          <ListRow key={t.id} style={{ ...rd(i, todayTodos.length + quickTodos.length + todayAgendaItems.length) }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0' }}>
                               <button
                                 onClick={() => toggleTask(t.id)}
@@ -1687,11 +1783,36 @@ export default function HomePage() {
                           </ListRow>
                         )
                       })}
+                      {quickTodos.map((t, i) => {
+                        const done = doneQuick.includes(t.id)
+                        return (
+                          <ListRow key={t.id} style={{ ...rd(todayTodos.length + i, todayTodos.length + quickTodos.length + todayAgendaItems.length) }}>
+                            <div className="group" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0' }}>
+                              <button
+                                onClick={() => toggleQuickTodo(t.id)}
+                                style={{ width: 16, height: 16, borderRadius: '50%', border: `1.5px solid ${done ? '#38BE98' : 'rgba(255,255,255,0.18)'}`, background: done ? '#38BE98' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer', transition: 'all 200ms ease-out' }}
+                              >
+                                {done && <svg width="6" height="6" viewBox="0 0 8 8" fill="none"><path d="M1.5 4L3 5.5L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+                              </button>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <p style={{ fontSize: 14, fontWeight: done ? 400 : 500, color: done ? TEXT3 : TEXT1, textDecoration: done ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', transition: 'color 200ms' }}>{t.title}</p>
+                              </div>
+                              <button
+                                onClick={() => removeQuickTodo(t.id)}
+                                className="opacity-0 group-hover:opacity-100"
+                                style={{ fontSize: 12, color: TEXT3, background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0, padding: '0 2px', transition: 'opacity 150ms' }}
+                              >
+                                ×
+                              </button>
+                            </div>
+                          </ListRow>
+                        )
+                      })}
                       {todayAgendaItems.map((st, i) => {
                         const done = doneAgenda.includes(st.id)
                         const groupColor = st.agenda_items?.agenda_groups?.color ?? TEXT3
-                        const total = todayTodos.length + todayAgendaItems.length
-                        const globalIdx = todayTodos.length + i
+                        const total = todayTodos.length + quickTodos.length + todayAgendaItems.length
+                        const globalIdx = todayTodos.length + quickTodos.length + i
                         return (
                           <ListRow key={st.id}
                             draggable
@@ -1716,7 +1837,7 @@ export default function HomePage() {
                       {/* ── 내일 (고정회의 + 상세task, dimmed) ── */}
                       {(tomorrowAgendaItems.length > 0 || tomorrowFixedMeetingsVisible.length > 0) && (
                         <>
-                          {(todayTodos.length > 0 || todayAgendaItems.length > 0) && (
+                          {(todayTodos.length > 0 || quickTodos.length > 0 || todayAgendaItems.length > 0) && (
                             <div style={{ borderTop: `1px solid ${DIVIDER}`, margin: '4px 0 6px' }} />
                           )}
                           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginBottom: 6, padding: '2px 8px', borderRadius: 999, background: 'rgba(94,143,191,0.08)', border: '1px solid rgba(94,143,191,0.18)' }}>

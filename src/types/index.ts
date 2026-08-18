@@ -264,6 +264,7 @@ export interface AnnualGoalTask {
   created_at: string
   updated_at: string
   annual_goal_items?: AnnualGoalItem
+  linked_agenda_sub_task_id?: string | null
 }
 
 export interface AnnualGoalTaskNote {
@@ -333,6 +334,18 @@ export interface ScheduleItem {
   item_date: string
   start_hour: number
   duration_hours: number
+  created_at: string
+  updated_at: string
+}
+
+// ── 즉석 할일 (프로젝트/안건에 속하지 않는 "오늘 업무" 퀵 추가) ──────────────
+
+export interface QuickTodo {
+  id: string
+  title: string
+  target_date: string
+  done: boolean
+  sort_order: number
   created_at: string
   updated_at: string
 }

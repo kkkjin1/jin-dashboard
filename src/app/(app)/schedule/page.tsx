@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import { fetchAllTasks, fetchMembers } from '@/lib/tasks'
 import { useUserSetting } from '@/hooks/useUserSetting'
 import { useOrgData } from '@/hooks/useOrgData'
-import type { Task, Member, TaskStatus, Meeting, NoteEntry } from '@/types'
+import type { Task, Member, TaskStatus, Meeting, NoteEntry, QuickTodo } from '@/types'
 import { CATEGORY_PALETTE, MEETING_CATEGORY, FIXED_MEETING_TAGS, type CategoryColorKey, colorKeyFromName } from '@/lib/categoryColors'
 import { GlassSelect } from '@/components/ui/GlassSelect'
 
@@ -192,6 +192,9 @@ export default function SchedulePage() {
   const [members, setMembers] = useState<Member[]>([])
   const [meetings, setMeetings] = useState<Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category' | 'notes'>[]>([])
   const [scheduledTodos, setScheduledTodos] = useState<ScheduledTodo[]>([])
+  // 즉석 할일 (quick_todos) — 프로젝트 상세task/안건에 속하지 않는, 홈 "오늘 업무"에서 즉석 추가되는 항목
+  const [quickTodos, setQuickTodos] = useState<QuickTodo[]>([])
+  const [quickAddTitle, setQuickAddTitle] = useState('')
   const [current, setCurrent] = useState(new Date())
   const [selectedDay, setSelectedDay] = useState<Date | null>(null)
   const [assigneeFilter, setAssigneeFilter] = useState<string>('전체')
@@ -253,6 +256,28 @@ export default function SchedulePage() {
   function removeMeetingSchedule(id: string) {
     saveSchedules(schedules.filter(s => s.id !== id))
     if (editingId === id) setEditingId(null)
+  }
+
+  // 즉석 할일 (quick_todos) — 선택한 날짜에 바로 추가. 홈 "오늘 업무"와 같은 테이블을 공유한다.
+  async function addQuickTodoForDay(dateStr: string) {
+    const title = quickAddTitle.trim()
+    if (!title) return
+    const { data, error } = await supabase.from('quick_todos').insert({ title, target_date: dateStr }).select('*').single()
+    if (error) { console.error('[schedule] quick_todos 추가 실패:', error.message); return }
+    if (data) setQuickTodos(p => [...p, data as QuickTodo])
+    setQuickAddTitle('')
+  }
+
+  async function toggleQuickTodo(id: string) {
+    setQuickTodos(p => p.filter(t => t.id !== id))
+    const { error } = await supabase.from('quick_todos').update({ done: true }).eq('id', id)
+    if (error) console.error('[schedule] quick_todos 완료 처리 실패:', error.message)
+  }
+
+  function removeQuickTodo(id: string) {
+    setQuickTodos(p => p.filter(t => t.id !== id))
+    supabase.from('quick_todos').delete().eq('id', id)
+      .then(({ error }) => { if (error) console.error('[schedule] quick_todos 삭제 실패:', error.message) })
   }
 
   function startEdit(s: MeetingSchedule) {
@@ -328,12 +353,15 @@ export default function SchedulePage() {
       supabase.from('meetings').select('id, title, meeting_date, category, notes').not('meeting_date', 'is', null),
       supabase.from('task_todos').select('*, tasks(id, title, short_name, part)').eq('done', false).limit(500),
       supabase.from('agenda_sub_tasks').select('id, title, target_date, agenda_items(id, title, agenda_groups(category))').not('target_date', 'is', null).neq('status', 'done'),
-    ]).then(([t, m, { data: mtgs, error: mtgErr }, { data: allTodos, error: todosErr }, { data: subTaskData, error: stErr }]) => {
+      supabase.from('quick_todos').select('*').eq('done', false).order('sort_order'),
+    ]).then(([t, m, { data: mtgs, error: mtgErr }, { data: allTodos, error: todosErr }, { data: subTaskData, error: stErr }, { data: qtData, error: qtErr }]) => {
       if (mtgErr) console.error('[schedule] meetings error:', mtgErr)
       if (todosErr) console.error('[schedule] todos error:', todosErr)
       if (stErr) console.error('[schedule] subtasks error:', stErr)
+      if (qtErr) console.error('[schedule] quick_todos error:', qtErr)
       setTasks(t); setMembers(m)
       setMeetings((mtgs ?? []) as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category' | 'notes'>[])
+      setQuickTodos((qtData ?? []) as QuickTodo[])
       // task_todos
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const todoItems: ScheduledTodo[] = (allTodos ?? [])
@@ -492,6 +520,12 @@ export default function SchedulePage() {
     return result
   }
 
+  function getDayQuickTodos(day: Date): QuickTodo[] {
+    if (viewFilter === '회의만') return []
+    const dateStr = format(day, 'yyyy-MM-dd')
+    return quickTodos.filter(t => t.target_date === dateStr)
+  }
+
   function getDayOneOnOnes(day: Date): ScheduledOneOnOne[] {
     if (viewFilter === '업무만') return []
     return scheduledOneOnOnes.filter(o => isSameDay(parseISO(o.next_appointment_date), day))
@@ -520,17 +554,20 @@ export default function SchedulePage() {
   const selectedDayTodos = selectedDay ? getDayScheduledTodos(selectedDay) : []
   const selectedDayOneOnOnes = selectedDay ? getDayOneOnOnes(selectedDay) : []
   const selectedDayFixedMeetings = selectedDay ? getDayFixedMeetings(selectedDay) : []
+  const selectedDayQuickTodos = selectedDay ? getDayQuickTodos(selectedDay) : []
 
   type DayListItem =
     | { itemId: string; type: 'task'; data: DayTask }
     | { itemId: string; type: 'meeting'; data: Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'> }
     | { itemId: string; type: 'todo'; data: ScheduledTodo }
+    | { itemId: string; type: 'quick'; data: QuickTodo }
 
   function getOrderedDayItems(): DayListItem[] {
     const all: DayListItem[] = [
       ...selectedDayMeetings.map(m => ({ itemId: `meeting-${m.id}`, type: 'meeting' as const, data: m })),
       ...selectedDayTasks.map(dt => ({ itemId: `task-${dt.task.id}-${dt.dateType}`, type: 'task' as const, data: dt })),
       ...selectedDayTodos.map(t => ({ itemId: `todo-${t.id}`, type: 'todo' as const, data: t })),
+      ...selectedDayQuickTodos.map(t => ({ itemId: `quick-${t.id}`, type: 'quick' as const, data: t })),
     ]
     if (!selectedDay) return all
     const key = format(selectedDay, 'yyyy-MM-dd')
@@ -614,6 +651,7 @@ export default function SchedulePage() {
     const dayTodos = getDayScheduledTodos(day)
     const dayOneOnOnes = getDayOneOnOnes(day)
     const dayFixed = getDayFixedMeetings(day)
+    const dayQuick = getDayQuickTodos(day)
     // 실제 meeting 레코드가 있는 고정 회의는 중복 제외
     const dayFixedFiltered = dayFixed.filter(
       s => !dayMeetings.some(m => m.title === s.title)
@@ -623,6 +661,7 @@ export default function SchedulePage() {
       ...dayMeetings.map(m => ({ type: 'meeting' as const, m })),
       ...dayFixedFiltered.map(s => ({ type: 'fixed' as const, s })),
       ...dayTodos.map(t => ({ type: 'todo' as const, t })),
+      ...dayQuick.map(q => ({ type: 'quick' as const, q })),
       ...dayOneOnOnes.map(o => ({ type: 'one-on-one' as const, o })),
     ]
     const isToday = isSameDay(day, new Date())
@@ -680,6 +719,16 @@ export default function SchedulePage() {
                   className="w-full text-left rounded-lg px-1.5 py-0.5 truncate text-[11px] leading-tight hover:opacity-80 bg-emerald-900/40 text-emerald-300 border border-emerald-700/40"
                   title={`고정회의 | ${s.title} ${s.time} (클릭하면 회의록으로 이동)`}>
                   <span className="opacity-60 mr-0.5">↺</span>{s.time} {s.title}
+                </button>
+              )
+            } else if (item.type === 'quick') {
+              const { q } = item
+              return (
+                <button key={`quick-${q.id}-${idx}`}
+                  onClick={e => { e.stopPropagation(); toggleQuickTodo(q.id) }}
+                  className="w-full text-left rounded-lg px-1.5 py-0.5 truncate text-[11px] leading-tight hover:opacity-80 bg-amber-100/70 text-amber-800"
+                  title={`즉석 할일 | ${q.title} (클릭하면 완료 처리)`}>
+                  <span className="opacity-60 mr-0.5">·</span>{q.title}
                 </button>
               )
             } else {
@@ -802,6 +851,10 @@ export default function SchedulePage() {
               <div className="flex items-center gap-1.5">
                 <div className="w-3 h-2.5 bg-violet-50/80 rounded border border-violet-200/50" />
                 <span className="text-xs text-[rgba(226,232,240,0.4)]">할일</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-2.5 bg-amber-100/70 rounded border border-amber-200/50" />
+                <span className="text-xs text-[rgba(226,232,240,0.4)]">즉석 할일</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <div className="w-3 h-2.5 bg-purple-100/70 rounded border border-purple-200/50" />
@@ -1059,19 +1112,39 @@ export default function SchedulePage() {
               <h3 className="text-sm font-semibold text-[rgba(226,232,240,0.8)] mb-3">
                 {selectedDay ? `${format(selectedDay, 'M월 d일 (E)', { locale: ko })} 일정` : '날짜를 선택하세요'}
               </h3>
+              {selectedDay && (
+                <div className="flex items-center gap-1.5 mb-3">
+                  <input
+                    value={quickAddTitle}
+                    onChange={e => setQuickAddTitle(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') addQuickTodoForDay(format(selectedDay, 'yyyy-MM-dd')) }}
+                    placeholder="즉석 할일 추가..."
+                    className="flex-1 text-xs bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.09)] rounded-lg px-2.5 py-1.5 text-[rgba(226,232,240,0.85)] outline-none placeholder:text-[rgba(226,232,240,0.25)]"
+                  />
+                  <button
+                    onClick={() => addQuickTodoForDay(format(selectedDay, 'yyyy-MM-dd'))}
+                    disabled={!quickAddTitle.trim()}
+                    className="text-[11px] px-2.5 py-1.5 rounded-lg border transition-all disabled:opacity-40"
+                    style={{ background: 'rgba(240,184,96,0.15)', borderColor: 'rgba(240,184,96,0.3)', color: '#F0B860' }}>
+                    추가
+                  </button>
+                </div>
+              )}
               {!selectedDay ? (
                 <p className="text-xs text-[rgba(226,232,240,0.3)] leading-relaxed">캘린더에서 날짜를 클릭하면 해당일 일정을 볼 수 있습니다</p>
-              ) : (selectedDayTasks.length === 0 && selectedDayMeetings.length === 0 && selectedDayTodos.length === 0 && selectedDayOneOnOnes.length === 0 && selectedDayFixedMeetings.length === 0) ? (
+              ) : (selectedDayTasks.length === 0 && selectedDayMeetings.length === 0 && selectedDayTodos.length === 0 && selectedDayQuickTodos.length === 0 && selectedDayOneOnOnes.length === 0 && selectedDayFixedMeetings.length === 0) ? (
                 <p className="text-xs text-[rgba(226,232,240,0.3)]">예정된 일정이 없습니다</p>
               ) : (
                 <div className="divide-y divide-[rgba(255,255,255,0.05)]">
                   {getOrderedDayItems().map(item => {
                     const dotColor = item.type === 'meeting' ? '#BADEC8'
                       : item.type === 'todo' ? '#A78BFA'
+                      : item.type === 'quick' ? '#F0B860'
                       : (item.data as DayTask).dateType === 'mid' ? '#F3E482' : '#90A7D8'
                     const title = item.type === 'meeting'
                       ? (item.data as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>).title
                       : item.type === 'todo' ? (item.data as ScheduledTodo).title
+                      : item.type === 'quick' ? (item.data as QuickTodo).title
                       : (item.data as DayTask).task.title
                     const sub = item.type === 'todo'
                       ? ((item.data as ScheduledTodo).task.short_name ?? (item.data as ScheduledTodo).task.title)
@@ -1082,12 +1155,21 @@ export default function SchedulePage() {
                         onClick={() => {
                           if (item.type === 'meeting') router.push(`/meetings/${(item.data as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>).id}`)
                           else if (item.type === 'todo') router.push(`/tasks/${(item.data as ScheduledTodo).task.id}`)
+                          else if (item.type === 'quick') toggleQuickTodo((item.data as QuickTodo).id)
                           else router.push(`/tasks/${(item.data as DayTask).task.id}`)
                         }}
-                        className="flex items-center gap-2 py-2 cursor-pointer hover:bg-[rgba(255,255,255,0.04)] rounded-lg transition-colors px-1">
+                        title={item.type === 'quick' ? '클릭하면 완료 처리됩니다' : undefined}
+                        className="flex items-center gap-2 py-2 cursor-pointer hover:bg-[rgba(255,255,255,0.04)] rounded-lg transition-colors px-1 group">
                         <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: dotColor }} />
                         <span className="text-[12px] text-[rgba(226,232,240,0.85)] truncate flex-1">{title}</span>
                         {sub && <span className="text-[10px] text-[rgba(226,232,240,0.3)] flex-shrink-0 truncate max-w-[4rem]">{sub}</span>}
+                        {item.type === 'quick' && (
+                          <button
+                            onClick={e => { e.stopPropagation(); removeQuickTodo((item.data as QuickTodo).id) }}
+                            className="text-[11px] text-[rgba(226,232,240,0.2)] hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                            ×
+                          </button>
+                        )}
                       </div>
                     )
                   })}
