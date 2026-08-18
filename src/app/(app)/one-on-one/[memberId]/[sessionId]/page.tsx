@@ -132,6 +132,31 @@ export default function OneOnOneSessionPage() {
     value: nextAppointment,
   })
 
+  // 타이핑 직후 새로고침/탭 닫기 시 canonical debounce(500~1500ms)뿐 아니라 이 훅의
+  // 로컬 버퍼 기록(700ms debounce)까지 아직 안 돈 상태로 유실될 수 있음을 실제
+  // 재현으로 확인함(브라우저가 새로고침을 그 어떤 pending effect보다 먼저 처리).
+  // pagehide/beforeunload 시점에 각 필드의 flush()를 강제로 걸어 최소한 그 순간의
+  // 값이라도 autosave_drafts에 밀어넣을 기회를 준다 — canonical save 로직(updateSession
+  // 등)은 그대로 두고 이 안전망 쪽에만 추가. 완전한 해결은 아니다: 브라우저가 페이지를
+  // 그 자리에서 바로 죽여버리면 flush()가 걸어놓은 요청도 못 나갈 수 있다 — 유실
+  // "창을 줄이는" 조치일 뿐, unmount-flush가 없던 이전보다 나아지는 정도로 이해한다.
+  const titleFlush = titleAutosave.flush
+  const contentFlush = contentAutosave.flush
+  const nextAppointmentFlush = nextAppointmentAutosave.flush
+  useEffect(() => {
+    function flushAll() {
+      titleFlush()
+      contentFlush()
+      nextAppointmentFlush()
+    }
+    window.addEventListener('pagehide', flushAll)
+    window.addEventListener('beforeunload', flushAll)
+    return () => {
+      window.removeEventListener('pagehide', flushAll)
+      window.removeEventListener('beforeunload', flushAll)
+    }
+  }, [titleFlush, contentFlush, nextAppointmentFlush])
+
   // TiptapEditor는 마운트 시 content를 한 번만 읽는 비제어 컴포넌트라, contentInput을
   // 바꾸는 것만으로는 화면이 갱신되지 않는다 — 복구 적용 시 key를 올려 강제 재마운트한다.
   const [contentEditorKey, setContentEditorKey] = useState(0)
