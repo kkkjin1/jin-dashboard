@@ -340,31 +340,22 @@ html, body {
 .tiptap-input h1 { font-size: 1.2rem; font-weight: 700; color: #111827; margin: 0.5rem 0 0.25rem; }
 .tiptap-input h2 { font-size: 1.05rem; font-weight: 600; color: #1f2937; margin: 0.4rem 0 0.2rem; }
 .tiptap-input h3 { font-size: 0.95rem; font-weight: 600; color: #374151; margin: 0.3rem 0 0.1rem; }
-.tiptap-input ul { padding-left: 1.1rem; list-style-type: disc; }
-.tiptap-input ul ul { list-style-type: circle; }
-/* 번호 리스트에 중첩되지 않은 최상위 단독 불릿 — 1)/2)와 같은 들여쓰기 위치로 정렬 */
-.tiptap-input > ul { list-style: none; padding-left: 1.2rem; }
-.tiptap-input > ul > li { position: relative; }
+/* 리스트 — 실제 ol/ul 태그 조합이 아니라 "중첩 깊이"로 들여쓰기·마커를 결정한다.
+   깊이1: 1. / 깊이2: 1) / 깊이3+: 항상 •. 불릿(ul)은 같은 깊이의 번호보다 한 단계 더 들여쓴 슬롯을 쓴다 */
+.tiptap-input :is(ol, ul) { list-style: none; margin: 0; }
+.tiptap-input :is(ol, ul) > li { position: relative; }
+.tiptap-input > ol { padding-left: 1.4rem; counter-reset: tipol var(--ol-start, 0); }
+.tiptap-input > ol > li { counter-increment: tipol; }
+.tiptap-input > ol > li::before { content: counter(tipol) "."; position: absolute; left: -1.4rem; width: 1.2rem; text-align: right; }
+.tiptap-input > ul { padding-left: 1.2rem; }
 .tiptap-input > ul > li::before { content: "•"; position: absolute; left: -1.2rem; width: 1rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
-/* 4단계: 1. → 1) → • → ○ */
-.tiptap-input ol { list-style: none; counter-reset: tipol var(--ol-start, 0); padding-left: 1.4rem; }
-.tiptap-input ol > li { counter-increment: tipol; position: relative; }
-.tiptap-input ol > li::before { content: counter(tipol) "."; position: absolute; left: -1.4rem; width: 1.2rem; text-align: right; }
-.tiptap-input ol ol { list-style: none; counter-reset: tipol2 var(--ol-start, 0); padding-left: 1.2rem; }
-.tiptap-input ol ol > li { counter-increment: tipol2; }
-.tiptap-input ol ol > li::before { content: counter(tipol2) ")"; left: -1.2rem; width: 1rem; text-align: right; }
-.tiptap-input ol ol ol { list-style: none; padding-left: 1.1rem; }
-.tiptap-input ol ol ol > li { counter-increment: none; }
-.tiptap-input ol ol ol > li::before { content: "•"; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
-.tiptap-input ol ol ol ol { list-style: none; padding-left: 1.1rem; }
-.tiptap-input ol ol ol ol > li { counter-increment: none; }
-.tiptap-input ol ol ol ol > li::before { content: "•"; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
-.tiptap-input ol ol ul { list-style: none; padding-left: 1.1rem; }
-.tiptap-input ol ol ul > li { counter-increment: none; }
-.tiptap-input ol ol ul > li::before { content: "•"; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
-.tiptap-input ol ol ul ul { list-style: none; padding-left: 1.1rem; }
-.tiptap-input ol ol ul ul > li { counter-increment: none; }
-.tiptap-input ol ol ul ul > li::before { content: "•"; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
+.tiptap-input :is(ol, ul) ol { padding-left: 1.2rem; counter-reset: tipol2 var(--ol-start, 0); }
+.tiptap-input :is(ol, ul) ol > li { counter-increment: tipol2; }
+.tiptap-input :is(ol, ul) ol > li::before { content: counter(tipol2) ")"; position: absolute; left: -1.2rem; width: 1rem; text-align: right; }
+.tiptap-input :is(ol, ul) ul { padding-left: 1.1rem; }
+.tiptap-input :is(ol, ul) ul > li::before { content: "•"; position: absolute; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
+.tiptap-input :is(ol, ul) :is(ol, ul) :is(ol, ul) { padding-left: 1.1rem; }
+.tiptap-input :is(ol, ul) :is(ol, ul) :is(ol, ul) > li::before { content: "•"; position: absolute; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
 .tiptap-input li > p { margin: 0; min-height: auto; }
 .tiptap-input strong { font-weight: 700; }
 .tiptap-input u { text-decoration: underline; }
@@ -373,36 +364,31 @@ html, body {
 
 /* ── HTML 노트 렌더링 (MarkdownContent) — 라이트 ── */
 .note-html { color: #374151; line-height: 1.7; font-size: 15px; }
-.note-html p { margin: 0; }
+/* min-height 없으면 빈 <p></p>(에디터에선 브라우저가 자동으로 넣어주는 <br>로 채워지지만
+   저장된 HTML을 그대로 읽기모드에 렌더링할 땐 그 <br>이 없어 높이가 0으로 붕괴됨)의
+   절대위치 리스트 마커(::before)가 자기 줄 밖으로 튀어나가 아래 내용과 겹친다 */
+.note-html p { margin: 0; min-height: 1.5em; }
 .note-html p + p { margin-top: 2px; }
 .note-html h1 { font-size: 1.2rem; font-weight: 700; color: #111827; margin: 0.5rem 0 0.25rem; }
 .note-html h2 { font-size: 1.05rem; font-weight: 600; color: #1f2937; margin: 0.4rem 0 0.2rem; }
 .note-html h3 { font-size: 0.95rem; font-weight: 600; color: #374151; margin: 0.3rem 0 0.1rem; }
-.note-html ul { padding-left: 1.1rem; list-style-type: disc; }
-.note-html ul ul { list-style-type: circle; }
-/* 번호 리스트에 중첩되지 않은 최상위 단독 불릿 — 1)/2)와 같은 들여쓰기 위치로 정렬 */
-.note-html > ul { list-style: none; padding-left: 1.2rem; }
-.note-html > ul > li { position: relative; }
+/* 리스트 — 실제 ol/ul 태그 조합이 아니라 "중첩 깊이"로 들여쓰기·마커를 결정한다.
+   깊이1: 1. / 깊이2: 1) / 깊이3+: 항상 •. 불릿(ul)은 같은 깊이의 번호보다 한 단계 더 들여쓴 슬롯을 쓴다 */
+.note-html :is(ol, ul) { list-style: none; margin: 0; }
+.note-html :is(ol, ul) > li { position: relative; }
+.note-html > ol { padding-left: 1.4rem; counter-reset: noteol var(--ol-start, 0); }
+.note-html > ol > li { counter-increment: noteol; }
+.note-html > ol > li::before { content: counter(noteol) "."; position: absolute; left: -1.4rem; width: 1.2rem; text-align: right; }
+.note-html > ul { padding-left: 1.2rem; }
 .note-html > ul > li::before { content: "•"; position: absolute; left: -1.2rem; width: 1rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
-.note-html ol { list-style: none; counter-reset: noteol var(--ol-start, 0); padding-left: 1.4rem; }
-.note-html ol > li { counter-increment: noteol; position: relative; }
-.note-html ol > li::before { content: counter(noteol) "."; position: absolute; left: -1.4rem; width: 1.2rem; text-align: right; }
-.note-html ol ol { list-style: none; counter-reset: noteol2 var(--ol-start, 0); padding-left: 1.2rem; }
-.note-html ol ol > li { counter-increment: noteol2; }
-.note-html ol ol > li::before { content: counter(noteol2) ")"; left: -1.2rem; width: 1rem; text-align: right; }
-.note-html ol ol ol { list-style: none; padding-left: 1.1rem; }
-.note-html ol ol ol > li { counter-increment: none; }
-.note-html ol ol ol > li::before { content: "•"; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
-.note-html ol ol ol ol { list-style: none; padding-left: 1.1rem; }
-.note-html ol ol ol ol > li { counter-increment: none; }
-.note-html ol ol ol ol > li::before { content: "•"; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
-.note-html ol ol ul { list-style: none; padding-left: 1.1rem; }
-.note-html ol ol ul > li { counter-increment: none; }
-.note-html ol ol ul > li::before { content: "•"; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
-.note-html ol ol ul ul { list-style: none; padding-left: 1.1rem; }
-.note-html ol ol ul ul > li { counter-increment: none; }
-.note-html ol ol ul ul > li::before { content: "•"; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
-.note-html li > p { margin: 0; }
+.note-html :is(ol, ul) ol { padding-left: 1.2rem; counter-reset: noteol2 var(--ol-start, 0); }
+.note-html :is(ol, ul) ol > li { counter-increment: noteol2; }
+.note-html :is(ol, ul) ol > li::before { content: counter(noteol2) ")"; position: absolute; left: -1.2rem; width: 1rem; text-align: right; }
+.note-html :is(ol, ul) ul { padding-left: 1.1rem; }
+.note-html :is(ol, ul) ul > li::before { content: "•"; position: absolute; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
+.note-html :is(ol, ul) :is(ol, ul) :is(ol, ul) { padding-left: 1.1rem; }
+.note-html :is(ol, ul) :is(ol, ul) :is(ol, ul) > li::before { content: "•"; position: absolute; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
+.note-html li > p { margin: 0; min-height: 1.5em; }
 .note-html strong { font-weight: 700; }
 .note-html u { text-decoration: underline; }
 .note-html mark { border-radius: 2px; padding: 0 2px; }
@@ -418,31 +404,22 @@ html, body {
 .tiptap-input-dark h1 { font-size: 1.2rem; font-weight: 700; color: #E2E8F0; margin: 0.5rem 0 0.25rem; }
 .tiptap-input-dark h2 { font-size: 1.05rem; font-weight: 600; color: rgba(226,232,240,0.9); margin: 0.4rem 0 0.2rem; }
 .tiptap-input-dark h3 { font-size: 0.95rem; font-weight: 600; color: rgba(226,232,240,0.8); margin: 0.3rem 0 0.1rem; }
-.tiptap-input-dark ul { padding-left: 1.1rem; list-style-type: disc; }
-.tiptap-input-dark ul ul { list-style-type: circle; }
-/* 번호 리스트에 중첩되지 않은 최상위 단독 불릿 — 1)/2)와 같은 들여쓰기 위치로 정렬 */
-.tiptap-input-dark > ul { list-style: none; padding-left: 1.2rem; }
-.tiptap-input-dark > ul > li { position: relative; }
+/* 리스트 — 실제 ol/ul 태그 조합이 아니라 "중첩 깊이"로 들여쓰기·마커를 결정한다.
+   깊이1: 1. / 깊이2: 1) / 깊이3+: 항상 •. 불릿(ul)은 같은 깊이의 번호보다 한 단계 더 들여쓴 슬롯을 쓴다 */
+.tiptap-input-dark :is(ol, ul) { list-style: none; margin: 0; }
+.tiptap-input-dark :is(ol, ul) > li { position: relative; }
+.tiptap-input-dark > ol { padding-left: 1.4rem; counter-reset: tipold var(--ol-start, 0); }
+.tiptap-input-dark > ol > li { counter-increment: tipold; }
+.tiptap-input-dark > ol > li::before { content: counter(tipold) "."; position: absolute; left: -1.4rem; width: 1.2rem; text-align: right; }
+.tiptap-input-dark > ul { padding-left: 1.2rem; }
 .tiptap-input-dark > ul > li::before { content: "•"; position: absolute; left: -1.2rem; width: 1rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
-/* 4단계: 1. → 1) → • → ○ */
-.tiptap-input-dark ol { list-style: none; counter-reset: tipold var(--ol-start, 0); padding-left: 1.4rem; }
-.tiptap-input-dark ol > li { counter-increment: tipold; position: relative; }
-.tiptap-input-dark ol > li::before { content: counter(tipold) "."; position: absolute; left: -1.4rem; width: 1.2rem; text-align: right; }
-.tiptap-input-dark ol ol { list-style: none; counter-reset: tipold2 var(--ol-start, 0); padding-left: 1.2rem; }
-.tiptap-input-dark ol ol > li { counter-increment: tipold2; }
-.tiptap-input-dark ol ol > li::before { content: counter(tipold2) ")"; left: -1.2rem; width: 1rem; text-align: right; }
-.tiptap-input-dark ol ol ol { list-style: none; padding-left: 1.1rem; }
-.tiptap-input-dark ol ol ol > li { counter-increment: none; }
-.tiptap-input-dark ol ol ol > li::before { content: "•"; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
-.tiptap-input-dark ol ol ol ol { list-style: none; padding-left: 1.1rem; }
-.tiptap-input-dark ol ol ol ol > li { counter-increment: none; }
-.tiptap-input-dark ol ol ol ol > li::before { content: "•"; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
-.tiptap-input-dark ol ol ul { list-style: none; padding-left: 1.1rem; }
-.tiptap-input-dark ol ol ul > li { counter-increment: none; }
-.tiptap-input-dark ol ol ul > li::before { content: "•"; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
-.tiptap-input-dark ol ol ul ul { list-style: none; padding-left: 1.1rem; }
-.tiptap-input-dark ol ol ul ul > li { counter-increment: none; }
-.tiptap-input-dark ol ol ul ul > li::before { content: "•"; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
+.tiptap-input-dark :is(ol, ul) ol { padding-left: 1.2rem; counter-reset: tipold2 var(--ol-start, 0); }
+.tiptap-input-dark :is(ol, ul) ol > li { counter-increment: tipold2; }
+.tiptap-input-dark :is(ol, ul) ol > li::before { content: counter(tipold2) ")"; position: absolute; left: -1.2rem; width: 1rem; text-align: right; }
+.tiptap-input-dark :is(ol, ul) ul { padding-left: 1.1rem; }
+.tiptap-input-dark :is(ol, ul) ul > li::before { content: "•"; position: absolute; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
+.tiptap-input-dark :is(ol, ul) :is(ol, ul) :is(ol, ul) { padding-left: 1.1rem; }
+.tiptap-input-dark :is(ol, ul) :is(ol, ul) :is(ol, ul) > li::before { content: "•"; position: absolute; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
 .tiptap-input-dark li > p { margin: 0; min-height: auto; }
 .tiptap-input-dark strong { font-weight: 700; }
 .tiptap-input-dark u { text-decoration: underline; }
@@ -452,36 +429,31 @@ html, body {
 
 /* ── HTML 노트 렌더링 (MarkdownContent) — 다크 ── */
 .note-html-dark { color: rgba(226,232,240,0.8); line-height: 1.7; font-size: 15px; }
-.note-html-dark p { margin: 0; }
+/* min-height 없으면 빈 <p></p>(에디터에선 브라우저가 자동으로 넣어주는 <br>로 채워지지만
+   저장된 HTML을 그대로 읽기모드에 렌더링할 땐 그 <br>이 없어 높이가 0으로 붕괴됨)의
+   절대위치 리스트 마커(::before)가 자기 줄 밖으로 튀어나가 아래 내용과 겹친다 */
+.note-html-dark p { margin: 0; min-height: 1.5em; }
 .note-html-dark p + p { margin-top: 2px; }
 .note-html-dark h1 { font-size: 1.2rem; font-weight: 700; color: #E2E8F0; margin: 0.5rem 0 0.25rem; }
 .note-html-dark h2 { font-size: 1.05rem; font-weight: 600; color: rgba(226,232,240,0.9); margin: 0.4rem 0 0.2rem; }
 .note-html-dark h3 { font-size: 0.95rem; font-weight: 600; color: rgba(226,232,240,0.8); margin: 0.3rem 0 0.1rem; }
-.note-html-dark ul { padding-left: 1.1rem; list-style-type: disc; }
-.note-html-dark ul ul { list-style-type: circle; }
-/* 번호 리스트에 중첩되지 않은 최상위 단독 불릿 — 1)/2)와 같은 들여쓰기 위치로 정렬 */
-.note-html-dark > ul { list-style: none; padding-left: 1.2rem; }
-.note-html-dark > ul > li { position: relative; }
+/* 리스트 — 실제 ol/ul 태그 조합이 아니라 "중첩 깊이"로 들여쓰기·마커를 결정한다.
+   깊이1: 1. / 깊이2: 1) / 깊이3+: 항상 •. 불릿(ul)은 같은 깊이의 번호보다 한 단계 더 들여쓴 슬롯을 쓴다 */
+.note-html-dark :is(ol, ul) { list-style: none; margin: 0; }
+.note-html-dark :is(ol, ul) > li { position: relative; }
+.note-html-dark > ol { padding-left: 1.4rem; counter-reset: noteold var(--ol-start, 0); }
+.note-html-dark > ol > li { counter-increment: noteold; }
+.note-html-dark > ol > li::before { content: counter(noteold) "."; position: absolute; left: -1.4rem; width: 1.2rem; text-align: right; }
+.note-html-dark > ul { padding-left: 1.2rem; }
 .note-html-dark > ul > li::before { content: "•"; position: absolute; left: -1.2rem; width: 1rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
-.note-html-dark ol { list-style: none; counter-reset: noteold var(--ol-start, 0); padding-left: 1.4rem; }
-.note-html-dark ol > li { counter-increment: noteold; position: relative; }
-.note-html-dark ol > li::before { content: counter(noteold) "."; position: absolute; left: -1.4rem; width: 1.2rem; text-align: right; }
-.note-html-dark ol ol { list-style: none; counter-reset: noteold2 var(--ol-start, 0); padding-left: 1.2rem; }
-.note-html-dark ol ol > li { counter-increment: noteold2; }
-.note-html-dark ol ol > li::before { content: counter(noteold2) ")"; left: -1.2rem; width: 1rem; text-align: right; }
-.note-html-dark ol ol ol { list-style: none; padding-left: 1.1rem; }
-.note-html-dark ol ol ol > li { counter-increment: none; }
-.note-html-dark ol ol ol > li::before { content: "•"; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
-.note-html-dark ol ol ol ol { list-style: none; padding-left: 1.1rem; }
-.note-html-dark ol ol ol ol > li { counter-increment: none; }
-.note-html-dark ol ol ol ol > li::before { content: "•"; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
-.note-html-dark ol ol ul { list-style: none; padding-left: 1.1rem; }
-.note-html-dark ol ol ul > li { counter-increment: none; }
-.note-html-dark ol ol ul > li::before { content: "•"; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
-.note-html-dark ol ol ul ul { list-style: none; padding-left: 1.1rem; }
-.note-html-dark ol ol ul ul > li { counter-increment: none; }
-.note-html-dark ol ol ul ul > li::before { content: "•"; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
-.note-html-dark li > p { margin: 0; }
+.note-html-dark :is(ol, ul) ol { padding-left: 1.2rem; counter-reset: noteold2 var(--ol-start, 0); }
+.note-html-dark :is(ol, ul) ol > li { counter-increment: noteold2; }
+.note-html-dark :is(ol, ul) ol > li::before { content: counter(noteold2) ")"; position: absolute; left: -1.2rem; width: 1rem; text-align: right; }
+.note-html-dark :is(ol, ul) ul { padding-left: 1.1rem; }
+.note-html-dark :is(ol, ul) ul > li::before { content: "•"; position: absolute; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
+.note-html-dark :is(ol, ul) :is(ol, ul) :is(ol, ul) { padding-left: 1.1rem; }
+.note-html-dark :is(ol, ul) :is(ol, ul) :is(ol, ul) > li::before { content: "•"; position: absolute; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
+.note-html-dark li > p { margin: 0; min-height: 1.5em; }
 .note-html-dark strong { font-weight: 700; }
 .note-html-dark u { text-decoration: underline; }
 .note-html-dark mark { border-radius: 2px; padding: 0 2px; color: rgba(0,0,0,0.85) !important; }
