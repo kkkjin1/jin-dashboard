@@ -9,6 +9,7 @@ import { Color, TextStyle } from '@tiptap/extension-text-style'
 import Highlight from '@tiptap/extension-highlight'
 import Image from '@tiptap/extension-image'
 import { ArrowShortcuts } from '@/lib/arrowShortcuts'
+import { collapseEmptyParagraphs } from '@/lib/htmlCleanup'
 
 const COLOR_MAP: Record<string, string> = {
   red: '#EF4444', blue: '#3B82F6', green: '#22C55E',
@@ -41,9 +42,11 @@ interface LegacyLine { kind: LegacyKind; body: string }
 // Hierarchy: 1. → 1) / 가. → • → ○
 function legacyToHtml(text: string): string {
   if (!text) return '<p></p>'
-  if (text.trimStart().startsWith('<')) return text
+  if (text.trimStart().startsWith('<')) return collapseEmptyParagraphs(text)
 
-  const parsed: LegacyLine[] = text.split('\n').map(raw => {
+  // 연달아 여러 줄이 비어있어도 빈 <p>는 1개만 생성되도록 미리 합친다
+  const normalized = text.replace(/\n{3,}/g, '\n\n')
+  const parsed: LegacyLine[] = normalized.split('\n').map(raw => {
     const t = raw.trimStart()
     const num  = t.match(NUM_RE)
     const par  = t.match(PAR_RE)
@@ -319,6 +322,10 @@ export default function TiptapEditor({
       handleKeyDown: stableKeyDown,
       handlePaste: stablePaste,
       handleDrop: stableDrop,
+      // 붙여넣는 텍스트에 빈 줄이 여러 개 연달아 있으면(문서에서 문단 구분용으로 흔함)
+      // 그만큼 빈 <p>가 쌓여 줄간격이 과도해진다 — 빈 줄 1개(문단 구분)까지만 남긴다.
+      transformPastedText: (text: string) => text.replace(/\n{3,}/g, '\n\n'),
+      transformPastedHTML: (html: string) => collapseEmptyParagraphs(html),
     },
   })
 

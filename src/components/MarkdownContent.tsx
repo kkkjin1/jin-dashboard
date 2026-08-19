@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
+import { collapseEmptyParagraphs } from '@/lib/htmlCleanup'
 
 const COLOR_CLASSES: Record<string, string> = {
   red: 'text-red-500', blue: 'text-blue-500', green: 'text-green-600',
@@ -176,7 +177,7 @@ function ToggleBlock({ title, lines, blockKey, dark }: { title: string; lines: s
 export default function MarkdownContent({ content, className, dark }: { content: string; className?: string; dark?: boolean }) {
   // Tiptap HTML: bullet 문자로 시작하는 <p>에 hanging indent 전처리 후 렌더링
   if (content.trimStart().startsWith('<')) {
-    const processed = preprocessBulletHtml(content)
+    const processed = preprocessBulletHtml(collapseEmptyParagraphs(content))
     return <div className={`${dark ? 'note-html-dark' : 'note-html'} ${className ?? ''}`} dangerouslySetInnerHTML={{ __html: processed }} />
   }
   const lines = content.split('\n')
@@ -202,12 +203,14 @@ export default function MarkdownContent({ content, className, dark }: { content:
     }
 
     // 빈 줄: 리스트 인접 시 문단 구분 간격, 아니면 기본 간격
+    // 연달아 여러 줄이 비어있어도(문서에서 문단 구분용으로 흔함) 간격은 1개분만 준다
     if (line === '') {
       const prevLine = i > 0 ? lines[i - 1] : ''
-      const nextLine = i < lines.length - 1 ? lines[i + 1] : ''
+      const start = i
+      while (i < lines.length && lines[i] === '') i++
+      const nextLine = i < lines.length ? lines[i] : ''
       const listAdjacent = isListLine(prevLine) || isListLine(nextLine)
-      nodes.push(<div key={i} className={listAdjacent ? 'h-4' : 'h-2'} />)
-      i++
+      nodes.push(<div key={start} className={listAdjacent ? 'h-4' : 'h-2'} />)
       continue
     }
 
