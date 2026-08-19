@@ -262,6 +262,15 @@ export default function TiptapEditor({
       ed.chain().focus().toggleHighlight({ color: '#FEF08A' }).run()
       return true
     }
+    // Tab/Shift-Tab을 리스트 밖(또는 더 이상 들여쓰기/내어쓰기 불가한 위치)에서 누르면
+    // sinkListItem/liftListItem이 실패(false)해 브라우저 기본 동작인 "다음 포커스 요소로 이동"이
+    // 발생해 에디터 밖으로 커서가 튕겨나갔다 — 항상 여기서 처리하고 true를 반환해 막는다.
+    if (e.key === 'Tab') {
+      e.shiftKey
+        ? ed.chain().focus().liftListItem('listItem').run()
+        : ed.chain().focus().sinkListItem('listItem').run()
+      return true
+    }
     return false
   }, [])
 

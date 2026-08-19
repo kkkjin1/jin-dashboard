@@ -202,6 +202,7 @@ interface TodayCtx {
   newTasks: { id: string; title: string; status: string; agendaItemTitle?: string }[]
   taskNotes: { id: string; content: string; title?: string | null; subTaskTitle?: string; agendaItemTitle?: string }[]
   scheduleItems: { id: string; title: string; start_hour: number }[]
+  todos: { id: string; title: string; done: boolean }[]
 }
 
 function hourToStr(h: number) {
@@ -315,7 +316,7 @@ export function JournalFullscreenEditor({ selectedDate, current, yesterday, meet
   const [showMeetingPicker, setShowMeetingPicker] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
-  const [todayCtx, setTodayCtx] = useState<TodayCtx>({ memos: [], meetings: [], oneOnOnes: [], newTasks: [], taskNotes: [], scheduleItems: [] })
+  const [todayCtx, setTodayCtx] = useState<TodayCtx>({ memos: [], meetings: [], oneOnOnes: [], newTasks: [], taskNotes: [], scheduleItems: [], todos: [] })
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const meetingSearchRef = useRef<HTMLInputElement>(null)
   const draftTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -357,8 +358,10 @@ export function JournalFullscreenEditor({ selectedDate, current, yesterday, meet
         .select('id, title, start_hour')
         .eq('item_date', selectedDate)
         .order('start_hour'),
+      supabaseClient.from('quick_todos').select('id, title, done').eq('target_date', selectedDate),
+      supabaseClient.from('task_todos').select('id, title, done').eq('target_date', selectedDate),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ]).then(([memoRes, mtgRes, oonRes, newTaskRes, notesRes, agendaUpdateRes, scheduleRes]: any[]) => {
+    ]).then(([memoRes, mtgRes, oonRes, newTaskRes, notesRes, agendaUpdateRes, scheduleRes, quickTodoRes, taskTodoRes]: any[]) => {
       const meetingItemIds = new Set((agendaUpdateRes.data ?? []).map((u: any) => u.agenda_item_id))
       setTodayCtx({
         memos: memoRes.data ?? [],
@@ -378,6 +381,7 @@ export function JournalFullscreenEditor({ selectedDate, current, yesterday, meet
           agendaItemTitle: n.agenda_sub_tasks?.agenda_items?.title,
         })),
         scheduleItems: scheduleRes.data ?? [],
+        todos: [...(quickTodoRes.data ?? []), ...(taskTodoRes.data ?? [])],
       })
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -439,7 +443,7 @@ export function JournalFullscreenEditor({ selectedDate, current, yesterday, meet
   ).slice(0, 8)
 
   const dateLabel = formatDateLabel(selectedDate)
-  const totalActivity = todayCtx.memos.length + todayCtx.meetings.length + todayCtx.oneOnOnes.length + todayCtx.newTasks.length + todayCtx.taskNotes.length + todayCtx.scheduleItems.length
+  const totalActivity = todayCtx.memos.length + todayCtx.meetings.length + todayCtx.oneOnOnes.length + todayCtx.newTasks.length + todayCtx.taskNotes.length + todayCtx.scheduleItems.length + todayCtx.todos.length
 
   const D = {
     bg:      '#0F1319',
@@ -660,6 +664,19 @@ export function JournalFullscreenEditor({ selectedDate, current, yesterday, meet
                   <div key={s.id} className="flex items-baseline gap-1.5 mb-1.5">
                     <span className="text-[11px] flex-shrink-0 tabular-nums" style={{ color: D.t3 }}>{hourToStr(s.start_hour)}</span>
                     <span className="text-[13px] truncate" style={{ color: D.t1 }}>{s.title}</span>
+                  </div>
+                )) : <p className="text-[12px]" style={{ color: D.t3 }}>—</p>}
+              </div>
+
+              {/* 오늘업무 (즉석 할일 + 프로젝트 할일, 완료/미완료 모두) */}
+              <div className="px-4 py-3" style={{ borderBottom: `1px solid ${D.divider}` }}>
+                <p className="text-[10px] font-semibold tracking-wider mb-2" style={{ color: D.t3 }}>☑️ 오늘업무</p>
+                {todayCtx.todos.length > 0 ? todayCtx.todos.map(t => (
+                  <div key={t.id} className="flex items-center gap-1.5 mb-1.5">
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium flex-shrink-0 ${t.done ? 'bg-green-50 text-green-500' : 'bg-gray-100 text-gray-400'}`}>
+                      {t.done ? '완료' : '미완료'}
+                    </span>
+                    <span className="text-[13px] truncate" style={{ color: D.t1 }}>{t.title}</span>
                   </div>
                 )) : <p className="text-[12px]" style={{ color: D.t3 }}>—</p>}
               </div>

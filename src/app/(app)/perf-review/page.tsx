@@ -13,6 +13,8 @@ interface CompletedAgendaItem { id: string; title: string; group_name: string; g
 interface CompletedSubTask { id: string; title: string; agenda_item_title: string; group_name: string; group_color: string }
 interface DailyJournal { id: string; date: string; content: string }
 interface QuickMemo { id: string; title: string; tag: string[] | null; created_at: string }
+interface PeriodTodo { id: string; title: string; done: boolean; target_date: string; source: 'quick' | 'task' }
+interface PeriodScheduleItem { id: string; title: string; item_date: string; start_hour: number }
 type Mode = 'weekly' | 'monthly'
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -232,6 +234,28 @@ function JournalRow({ date, title, preview }: { date: string; title: string; pre
     </div>
   )
 }
+function TodoRow({ date, title, done }: { date: string; title: string; done: boolean }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderBottom: `1px solid ${S.rowBorder}` }}>
+      <span style={{ width: 32, fontSize: 11, color: S.t4, flexShrink: 0 }}>{fmtDateShort(date)}</span>
+      <span style={{ flex: 1, fontSize: 12.5, color: S.t2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</span>
+      <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, background: done ? 'rgba(186,222,200,0.25)' : 'rgba(255,255,255,0.08)', color: done ? '#7DC4A0' : S.t4, flexShrink: 0 }}>
+        {done ? '완료' : '미완료'}
+      </span>
+    </div>
+  )
+}
+function ScheduleRow({ date, hour, title }: { date: string; hour: number; title: string }) {
+  const hh = String(Math.floor(hour)).padStart(2, '0')
+  const mm = String(Math.round((hour - Math.floor(hour)) * 60)).padStart(2, '0')
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', borderBottom: `1px solid ${S.rowBorder}` }}>
+      <span style={{ width: 32, fontSize: 11, color: S.t4, flexShrink: 0 }}>{fmtDateShort(date)}</span>
+      <span style={{ width: 36, fontSize: 11, color: S.t4, flexShrink: 0 }}>{hh}:{mm}</span>
+      <span style={{ flex: 1, fontSize: 12.5, color: S.t2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</span>
+    </div>
+  )
+}
 function MemoRow({ title, date, tag }: { title: string; date: string; tag: string[] | null }) {
   const tagLabel = tag && tag.length > 0 ? tag.join(', ') : null
   return (
@@ -297,6 +321,8 @@ export default function CompletedTestPage() {
   const [completedSubTasks, setCompletedSubTasks] = useState<CompletedSubTask[]>([])
   const [journals, setJournals] = useState<DailyJournal[]>([])
   const [quickMemos, setQuickMemos] = useState<QuickMemo[]>([])
+  const [periodTodos, setPeriodTodos] = useState<PeriodTodo[]>([])
+  const [periodSchedule, setPeriodSchedule] = useState<PeriodScheduleItem[]>([])
 
   const [good, setGood] = useState<string | null>(null)
   const [bad, setBad] = useState<string | null>(null)
@@ -308,7 +334,7 @@ export default function CompletedTestPage() {
   const badRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const nextRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const [open, setOpen] = useState({ meetings: true, completed: true, memos: true, journals: true })
+  const [open, setOpen] = useState({ meetings: true, completed: true, todos: true, schedule: true, memos: true, journals: true })
 
   // 회고 완성도: good/bad/next_focus 중 실제 내용이 있는 개수 (0~3)
   const retroFilled = useMemo(() => {
@@ -333,7 +359,7 @@ export default function CompletedTestPage() {
 
   useEffect(() => {
     setLoading(true)
-    setMeetings([]); setCompletedTasks([]); setCompletedAgenda([]); setCompletedSubTasks([]); setJournals([]); setQuickMemos([])
+    setMeetings([]); setCompletedTasks([]); setCompletedAgenda([]); setCompletedSubTasks([]); setJournals([]); setQuickMemos([]); setPeriodTodos([]); setPeriodSchedule([])
     Promise.all([
       supabase.from('meetings').select('id, title, meeting_date').gte('meeting_date', wsDate).lt('meeting_date', weDate).order('meeting_date'),
       supabase.from('tasks').select('id, title, part, type').eq('status', '완료').gte('updated_at', wsISO).lt('updated_at', weISO),
@@ -341,7 +367,10 @@ export default function CompletedTestPage() {
       supabase.from('agenda_sub_tasks').select('id, title, agenda_items(title, agenda_groups(name, color))').eq('status', 'done').gte('updated_at', wsISO).lt('updated_at', weISO),
       supabase.from('daily_journals').select('id, date, content').gte('date', wsDate).lt('date', weDate).order('date'),
       supabase.from('quick_memos').select('id, title, tag, created_at').gte('created_at', wsISO).lt('created_at', weISO).order('created_at', { ascending: false }),
-    ]).then(([mtgRes, taskRes, agendaRes, stRes, journalRes, memoRes]) => {
+      supabase.from('quick_todos').select('id, title, done, target_date').gte('target_date', wsDate).lt('target_date', weDate).order('target_date'),
+      supabase.from('task_todos').select('id, title, done, target_date').not('target_date', 'is', null).gte('target_date', wsDate).lt('target_date', weDate).order('target_date'),
+      supabase.from('schedule_items').select('id, title, item_date, start_hour').gte('item_date', wsDate).lt('item_date', weDate).order('item_date').order('start_hour'),
+    ]).then(([mtgRes, taskRes, agendaRes, stRes, journalRes, memoRes, quickTodoRes, taskTodoRes, scheduleRes]) => {
       setMeetings((mtgRes.data ?? []) as Meeting[])
       setCompletedTasks((taskRes.data ?? []) as CompletedTask[])
       setCompletedAgenda(
@@ -360,6 +389,11 @@ export default function CompletedTestPage() {
       )
       setJournals((journalRes.data ?? []) as DailyJournal[])
       setQuickMemos((memoRes.data ?? []) as QuickMemo[])
+      setPeriodTodos([
+        ...(quickTodoRes.data ?? []).map((t: { id: string; title: string; done: boolean; target_date: string }) => ({ id: `q_${t.id}`, title: t.title, done: t.done, target_date: t.target_date, source: 'quick' as const })),
+        ...(taskTodoRes.data ?? []).map((t: { id: string; title: string; done: boolean; target_date: string }) => ({ id: `t_${t.id}`, title: t.title, done: t.done, target_date: t.target_date, source: 'task' as const })),
+      ].sort((a, b) => a.target_date.localeCompare(b.target_date)))
+      setPeriodSchedule((scheduleRes.data ?? []) as PeriodScheduleItem[])
       setLoading(false)
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -472,6 +506,8 @@ export default function CompletedTestPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
             <StatChip icon="📋" label="회의" count={loading ? '–' : meetings.length} unit="" bg="rgba(144,167,216,0.18)" />
             <StatChip icon="✅" label="완료" count={loading ? '–' : allCompleted.length} unit="" bg="rgba(186,222,200,0.18)" />
+            <StatChip icon="☑️" label="할일" count={loading ? '–' : periodTodos.length} unit="" bg="rgba(232,150,100,0.16)" />
+            <StatChip icon="🗓️" label="일정" count={loading ? '–' : periodSchedule.length} unit="" bg="rgba(120,120,216,0.16)" />
             <StatChip icon="📓" label="기록" count={loading ? '–' : filledJournals.length} unit="일" bg="rgba(251,191,36,0.16)" />
             <StatChip icon="💬" label="퀵메모" count={loading ? '–' : quickMemos.length} unit="" bg="rgba(167,139,250,0.16)" />
           </div>
@@ -518,6 +554,22 @@ export default function CompletedTestPage() {
                     <CompletedItemRow key={`t_${t.id}`} typeLabel="업무" title={t.title ?? ''} tag={t.part ?? '업무'} tagBg="rgba(144,167,216,0.22)" tagColor="#90A7D8" />
                   ))}
                 </>
+              }
+            </SummaryCard>
+
+            {/* 오늘업무 (즉석 할일 + 프로젝트 할일, 기간 내 target_date 기준 — 완료/미완료 모두 표시) */}
+            <SummaryCard icon="☑️" iconBg="rgba(232,150,100,0.22)" label="할일" count={periodTodos.length} countUnit="건" loading={loading} open={open.todos} onToggle={() => toggleSection('todos')}>
+              {loading ? <EmptyRow text="불러오는 중..." /> :
+                periodTodos.length === 0 ? <EmptyRow text="해당 기간 할일 없음" /> :
+                periodTodos.map(t => <TodoRow key={t.id} date={t.target_date} title={t.title ?? ''} done={t.done} />)
+              }
+            </SummaryCard>
+
+            {/* 일정 (홈 타임라인) */}
+            <SummaryCard icon="🗓️" iconBg="rgba(120,120,216,0.22)" label="일정" count={periodSchedule.length} countUnit="건" loading={loading} open={open.schedule} onToggle={() => toggleSection('schedule')}>
+              {loading ? <EmptyRow text="불러오는 중..." /> :
+                periodSchedule.length === 0 ? <EmptyRow text="해당 기간 일정 없음" /> :
+                periodSchedule.map(s => <ScheduleRow key={s.id} date={s.item_date} hour={s.start_hour} title={s.title ?? ''} />)
               }
             </SummaryCard>
 
