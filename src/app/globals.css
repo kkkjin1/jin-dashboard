@@ -342,6 +342,10 @@ html, body {
 .tiptap-input h3 { font-size: 0.95rem; font-weight: 600; color: #374151; margin: 0.3rem 0 0.1rem; }
 .tiptap-input ul { padding-left: 1.1rem; list-style-type: disc; }
 .tiptap-input ul ul { list-style-type: circle; }
+/* 번호 리스트에 중첩되지 않은 최상위 단독 불릿 — 1)/2)와 같은 들여쓰기 위치로 정렬 */
+.tiptap-input > ul { list-style: none; padding-left: 1.2rem; }
+.tiptap-input > ul > li { position: relative; }
+.tiptap-input > ul > li::before { content: "•"; position: absolute; left: -1.2rem; width: 1rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
 /* 4단계: 1. → 1) → • → ○ */
 .tiptap-input ol { list-style: none; counter-reset: tipol var(--ol-start, 0); padding-left: 1.4rem; }
 .tiptap-input ol > li { counter-increment: tipol; position: relative; }
@@ -376,6 +380,10 @@ html, body {
 .note-html h3 { font-size: 0.95rem; font-weight: 600; color: #374151; margin: 0.3rem 0 0.1rem; }
 .note-html ul { padding-left: 1.1rem; list-style-type: disc; }
 .note-html ul ul { list-style-type: circle; }
+/* 번호 리스트에 중첩되지 않은 최상위 단독 불릿 — 1)/2)와 같은 들여쓰기 위치로 정렬 */
+.note-html > ul { list-style: none; padding-left: 1.2rem; }
+.note-html > ul > li { position: relative; }
+.note-html > ul > li::before { content: "•"; position: absolute; left: -1.2rem; width: 1rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
 .note-html ol { list-style: none; counter-reset: noteol var(--ol-start, 0); padding-left: 1.4rem; }
 .note-html ol > li { counter-increment: noteol; position: relative; }
 .note-html ol > li::before { content: counter(noteol) "."; position: absolute; left: -1.4rem; width: 1.2rem; text-align: right; }
@@ -412,6 +420,10 @@ html, body {
 .tiptap-input-dark h3 { font-size: 0.95rem; font-weight: 600; color: rgba(226,232,240,0.8); margin: 0.3rem 0 0.1rem; }
 .tiptap-input-dark ul { padding-left: 1.1rem; list-style-type: disc; }
 .tiptap-input-dark ul ul { list-style-type: circle; }
+/* 번호 리스트에 중첩되지 않은 최상위 단독 불릿 — 1)/2)와 같은 들여쓰기 위치로 정렬 */
+.tiptap-input-dark > ul { list-style: none; padding-left: 1.2rem; }
+.tiptap-input-dark > ul > li { position: relative; }
+.tiptap-input-dark > ul > li::before { content: "•"; position: absolute; left: -1.2rem; width: 1rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
 /* 4단계: 1. → 1) → • → ○ */
 .tiptap-input-dark ol { list-style: none; counter-reset: tipold var(--ol-start, 0); padding-left: 1.4rem; }
 .tiptap-input-dark ol > li { counter-increment: tipold; position: relative; }
@@ -447,6 +459,10 @@ html, body {
 .note-html-dark h3 { font-size: 0.95rem; font-weight: 600; color: rgba(226,232,240,0.8); margin: 0.3rem 0 0.1rem; }
 .note-html-dark ul { padding-left: 1.1rem; list-style-type: disc; }
 .note-html-dark ul ul { list-style-type: circle; }
+/* 번호 리스트에 중첩되지 않은 최상위 단독 불릿 — 1)/2)와 같은 들여쓰기 위치로 정렬 */
+.note-html-dark > ul { list-style: none; padding-left: 1.2rem; }
+.note-html-dark > ul > li { position: relative; }
+.note-html-dark > ul > li::before { content: "•"; position: absolute; left: -1.2rem; width: 1rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
 .note-html-dark ol { list-style: none; counter-reset: noteold var(--ol-start, 0); padding-left: 1.4rem; }
 .note-html-dark ol > li { counter-increment: noteold; position: relative; }
 .note-html-dark ol > li::before { content: counter(noteold) "."; position: absolute; left: -1.4rem; width: 1.2rem; text-align: right; }
