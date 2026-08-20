@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useLayoutEffect, useState, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Search } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -72,6 +72,24 @@ export default function MeetingNotesNew() {
   // 우측 미리보기 패널 — 도킹 상세 편집 대신, 선택한 회의를 가볍게 훑어보는 용도(편집은 상세 페이지에서)
   const [selected, setSelected] = useState<Meeting | null>(null)
   const [previewCounts, setPreviewCounts] = useState<{ attachments: number; links: number } | null>(null)
+
+  // 헤더(제목+검색+버튼) + 새 회의록 폼 + SearchToolbar 영역의 실측 높이 — 미리보기
+  // 패널의 marginTop으로 그대로 써서, 카테고리 그룹 박스 상단과 미리보기 패널 상단을
+  // 항상 맞춘다. 폼 열림/닫힘처럼 실제 레이아웃 흐름에 영향을 주는 변화만 반영되고,
+  // 캘린더 드롭다운처럼 absolute 포지션인 오버레이는 흐름 밖이라 높이에 영향 없음.
+  const headerRef = useRef<HTMLDivElement>(null)
+  const [headerHeight, setHeaderHeight] = useState(0)
+
+  useLayoutEffect(() => {
+    const el = headerRef.current
+    if (!el) return
+    const observer = new ResizeObserver(entries => {
+      const entry = entries[0]
+      if (entry) setHeaderHeight(entry.contentRect.height)
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
 
   useEffect(() => {
     if (!selected) { setPreviewCounts(null); return }
@@ -270,85 +288,89 @@ export default function MeetingNotesNew() {
     : ''
 
   return (
-    <div className="h-full flex overflow-hidden" style={{ background: '#0F1319' }}>
+    <div className="h-full flex gap-6 overflow-hidden" style={{ background: '#0F1319' }}>
     {/* 리스트 폭 제한 — 화면 전체로 늘어나면 제목 뒤 태그/노트수까지 빈 공간이 길게 남아서
         컬럼 폭을 제한. 오른쪽 남는 공간은 회의 선택 시 미리보기 패널이 차지 */}
     <div className="h-full flex flex-col overflow-hidden" style={{ width: 720, maxWidth: '100%', flexShrink: 0 }}>
 
-      {/* 헤더: 1행 제목 단독, 2행 검색(풀와이드) + 추가 버튼 — 메모 탭과 동일한 리듬 */}
-      <div className="flex-shrink-0 pt-6 pb-3">
-        <h1 className="text-[20px] font-bold mb-3" style={{ color: '#E2E8F0' }}>회의록</h1>
-        <div className="flex items-center gap-3">
-          <div className="flex-1 flex items-center gap-2 px-3 py-2 rounded-xl" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.09)' }}>
-            <Search size={14} style={{ color: 'rgba(226,232,240,0.35)', flexShrink: 0 }} />
+      {/* 헤더+새 회의록 폼+검색 툴바 wrapper — 실측 높이를 ResizeObserver로 재서
+          headerHeight에 담고, 우측 미리보기 패널의 marginTop으로 그대로 사용한다 */}
+      <div ref={headerRef} className="flex-shrink-0">
+        {/* 헤더: 1행 제목 단독, 2행 검색(풀와이드) + 추가 버튼 — 메모 탭과 동일한 리듬 */}
+        <div className="flex-shrink-0 pt-6 pb-3">
+          <h1 className="text-[20px] font-bold mb-3" style={{ color: '#E2E8F0' }}>회의록</h1>
+          <div className="flex items-center gap-3">
+            <div className="flex-1 flex items-center gap-2 px-3 py-2 rounded-xl" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.09)' }}>
+              <Search size={14} style={{ color: 'rgba(226,232,240,0.35)', flexShrink: 0 }} />
+              <input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="회의명, 키워드 검색..."
+                className="flex-1 bg-transparent text-[13px] focus:outline-none placeholder:text-[rgba(226,232,240,0.25)]"
+                style={{ color: '#E2E8F0' }}
+              />
+            </div>
+            <button
+              onClick={openAddForm}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-medium transition-colors flex-shrink-0"
+              style={{ background: 'rgba(76,127,224,0.18)', border: '1px solid rgba(76,127,224,0.35)', color: '#9DBEF5' }}
+            >
+              + 새 회의록
+            </button>
+          </div>
+        </div>
+
+        {/* 새 회의록 입력 폼 */}
+        {adding && (
+          <div
+            className="flex-shrink-0 rounded-2xl px-5 py-4 mb-3"
+            style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
+          >
+            {/* Autosave: 복구 배너 — 자동 적용하지 않음 */}
+            {autosave.recovered && (
+              <div
+                className="mb-2 px-3 py-2 rounded-lg text-[12px] flex items-center gap-2"
+                style={{ background: 'rgba(76,127,224,0.12)', border: '1px solid rgba(76,127,224,0.25)', color: '#9DBEF5' }}
+              >
+                <span className="flex-1">복구 가능한 자동저장 내용이 있습니다</span>
+                <button onClick={applyRecovered} className="underline underline-offset-2">적용</button>
+                <button onClick={() => autosave.discardRecovered()} className="underline underline-offset-2">무시</button>
+              </div>
+            )}
             <input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="회의명, 키워드 검색..."
-              className="flex-1 bg-transparent text-[13px] focus:outline-none placeholder:text-[rgba(226,232,240,0.25)]"
+              autoFocus
+              value={newTitle}
+              onChange={e => setNewTitle(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleAdd()
+                if (e.key === 'Escape') { setAdding(false); setNewTitle(''); setAddError('') }
+              }}
+              onBlur={handleAdd}
+              placeholder="회의 제목 입력 후 Enter"
+              className="w-full text-[13px] bg-transparent focus:outline-none placeholder:text-[rgba(226,232,240,0.3)]"
               style={{ color: '#E2E8F0' }}
             />
+
+            {/* 저장 실패 안내 — 실패 시 폼/입력값은 지우지 않으므로 재시도하면 됨 */}
+            {addError && (
+              <div className="mt-2 px-3 py-2 rounded-lg text-[12px] flex items-center gap-2"
+                style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#FC8181' }}>
+                <span>⚠</span>
+                <span className="flex-1">{addError}</span>
+              </div>
+            )}
           </div>
-          <button
-            onClick={openAddForm}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-medium transition-colors flex-shrink-0"
-            style={{ background: 'rgba(76,127,224,0.18)', border: '1px solid rgba(76,127,224,0.35)', color: '#9DBEF5' }}
-          >
-            + 새 회의록
-          </button>
-        </div>
+        )}
+
+        {/* 검색 툴바 (sticky) — 검색창은 위 헤더로 이동, 여기는 기간/정렬/팀 필터만 */}
+        <SearchToolbar
+          dateSelection={dateSelection} setDateSelection={setDateSelection}
+          teamFilter={teamFilter}     setTeamFilter={setTeamFilter}
+          sortOrder={sortOrder}       setSortOrder={setSortOrder}
+          catOrder={catOrder}         setCatOrder={setCatOrder}
+          total={filtered.length}
+        />
       </div>
-
-      {/* 새 회의록 입력 폼 */}
-      {adding && (
-        <div
-          className="flex-shrink-0 rounded-2xl px-5 py-4 mb-3"
-          style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
-        >
-          {/* Autosave: 복구 배너 — 자동 적용하지 않음 */}
-          {autosave.recovered && (
-            <div
-              className="mb-2 px-3 py-2 rounded-lg text-[12px] flex items-center gap-2"
-              style={{ background: 'rgba(76,127,224,0.12)', border: '1px solid rgba(76,127,224,0.25)', color: '#9DBEF5' }}
-            >
-              <span className="flex-1">복구 가능한 자동저장 내용이 있습니다</span>
-              <button onClick={applyRecovered} className="underline underline-offset-2">적용</button>
-              <button onClick={() => autosave.discardRecovered()} className="underline underline-offset-2">무시</button>
-            </div>
-          )}
-          <input
-            autoFocus
-            value={newTitle}
-            onChange={e => setNewTitle(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleAdd()
-              if (e.key === 'Escape') { setAdding(false); setNewTitle(''); setAddError('') }
-            }}
-            onBlur={handleAdd}
-            placeholder="회의 제목 입력 후 Enter"
-            className="w-full text-[13px] bg-transparent focus:outline-none placeholder:text-[rgba(226,232,240,0.3)]"
-            style={{ color: '#E2E8F0' }}
-          />
-
-          {/* 저장 실패 안내 — 실패 시 폼/입력값은 지우지 않으므로 재시도하면 됨 */}
-          {addError && (
-            <div className="mt-2 px-3 py-2 rounded-lg text-[12px] flex items-center gap-2"
-              style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#FC8181' }}>
-              <span>⚠</span>
-              <span className="flex-1">{addError}</span>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* 검색 툴바 (sticky) — 검색창은 위 헤더로 이동, 여기는 기간/정렬/팀 필터만 */}
-      <SearchToolbar
-        dateSelection={dateSelection} setDateSelection={setDateSelection}
-        teamFilter={teamFilter}     setTeamFilter={setTeamFilter}
-        sortOrder={sortOrder}       setSortOrder={setSortOrder}
-        catOrder={catOrder}         setCatOrder={setCatOrder}
-        total={filtered.length}
-      />
 
       {/* 본문 */}
       <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
@@ -385,10 +407,12 @@ export default function MeetingNotesNew() {
       </div>
     </div>
 
-    {/* 우측 미리보기 패널 — 회의를 선택했을 때만 등장. 편집은 여기서 하지 않고 상세 페이지로 유도 */}
-    <div className="flex-1 min-w-0 h-full overflow-y-auto scrollbar-hide">
+    {/* 우측 미리보기 패널 — 회의를 선택했을 때만 등장. 편집은 여기서 하지 않고 상세 페이지로 유도.
+        marginTop을 좌측 헤더 wrapper의 실측 높이(headerHeight)로 맞춰서, 경영진 그룹 박스
+        상단과 미리보기 패널 상단이 항상 같은 y좌표에서 시작하도록 함 */}
+    <div className="flex-1 min-w-0 h-full overflow-y-auto scrollbar-hide" style={{ marginTop: headerHeight }}>
       {selected ? (
-        <div className="pt-6 pr-1 pb-6">
+        <div className="pr-1 pb-6">
           <div className="rounded-2xl p-5" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.09)' }}>
             <div className="flex items-center justify-between mb-4">
               <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'rgba(226,232,240,0.4)' }}>회의 미리보기</span>
