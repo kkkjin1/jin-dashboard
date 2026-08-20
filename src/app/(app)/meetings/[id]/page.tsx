@@ -874,7 +874,7 @@ export default function MeetingDetailPage() {
               <p className="text-xs text-[rgba(226,232,240,0.4)]">크게보기 모드 (클릭하면 닫힘)</p>
               <button onClick={() => setShowFullscreen(false)} className="text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)] text-xl">×</button>
             </div>
-            <MarkdownContent content={fullscreenContent} className="text-lg text-[rgba(226,232,240,0.9)] leading-relaxed" />
+            <MarkdownContent content={fullscreenContent} dark className="text-lg text-[rgba(226,232,240,0.9)] leading-relaxed" />
           </div>
         </div>
       )}
