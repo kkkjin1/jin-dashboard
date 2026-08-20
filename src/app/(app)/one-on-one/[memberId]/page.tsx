@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { Member, OneOnOne } from '@/types'
 import { format, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
+import MarkdownContent from '@/components/MarkdownContent'
 
 const T1 = 'rgba(226,232,240,0.92)'
 const T2 = 'rgba(226,232,240,0.55)'
@@ -90,7 +91,7 @@ function SessionDetail({ session, memberId }: { session: OneOnOne; memberId: str
               {note.title && i > 0 && (
                 <p style={{ fontSize: 11, fontWeight: 600, color: T3, marginBottom: 6, letterSpacing: '0.03em', textTransform: 'uppercase' }}>{note.title}</p>
               )}
-              <div className="prose-dark" dangerouslySetInnerHTML={{ __html: note.content }} />
+              <MarkdownContent content={note.content} dark className="text-[13px]" />
             </div>
           ))
         ) : (

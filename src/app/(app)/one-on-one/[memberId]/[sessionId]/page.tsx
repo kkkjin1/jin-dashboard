@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useAutosave } from '@/hooks/useAutosave'
 import type { OneOnOne, Member, NoteEntry } from '@/types'
 import dynamic from 'next/dynamic'
+import MarkdownContent from '@/components/MarkdownContent'
 const TiptapEditor = dynamic(() => import('@/components/TiptapEditor'), { ssr: false })
 
 const T1 = 'rgba(226,232,240,0.92)'
@@ -369,7 +370,7 @@ export default function OneOnOneSessionPage() {
                 {session.notes.slice(1).map((note, idx) => (
                   <div key={idx} className="surface-card rounded-xl" style={{ padding: 14 }}>
                     <p style={{ fontSize: 11, color: T3, marginBottom: 6 }}>{note.title}</p>
-                    <div className="prose-dark" dangerouslySetInnerHTML={{ __html: note.content }} />
+                    <MarkdownContent content={note.content} dark className="text-[13px]" />
                   </div>
                 ))}
               </div>
@@ -461,7 +462,7 @@ export default function OneOnOneSessionPage() {
                 </button>
                 {prevOpen && (
                   <div style={{ borderTop: `1px solid ${BORDER}`, padding: '10px 14px 14px', maxHeight: 380, overflowY: 'auto' }} className="scrollbar-hide">
-                    <div className="prose-dark" dangerouslySetInnerHTML={{ __html: prevContent }} />
+                    <MarkdownContent content={prevContent} dark className="text-[13px]" />
                   </div>
                 )}
               </div>
