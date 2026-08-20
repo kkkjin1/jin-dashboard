@@ -9,9 +9,10 @@ interface Props {
   onSave?: () => void
   onClose: () => void
   title?: string
+  dark?: boolean
 }
 
-export default function FullscreenNoteEditor({ value, onChange, onSave, onClose, title }: Props) {
+export default function FullscreenNoteEditor({ value, onChange, onSave, onClose, title, dark }: Props) {
   // Escape/배경클릭으로 닫을 때도 저장 후 닫기 — 저장 없이 닫으면 입력 내용이 유실됨
   function closeWithSave() {
     onSave?.()
@@ -30,12 +31,12 @@ export default function FullscreenNoteEditor({ value, onChange, onSave, onClose,
   return (
     <>
       <div className="fixed inset-0 bg-black/40 z-[85]" onClick={closeWithSave} />
-      <div className="fixed inset-4 md:inset-10 bg-white rounded-2xl shadow-2xl z-[86] flex flex-col overflow-hidden">
+      <div className={`fixed inset-4 md:inset-10 rounded-2xl shadow-2xl z-[86] flex flex-col overflow-hidden ${dark ? 'bg-[#26282E]' : 'bg-white'}`}>
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 flex-shrink-0">
-          <span className="text-sm font-semibold text-gray-700">{title || '노트 편집'}</span>
+        <div className={`flex items-center justify-between px-5 py-3.5 border-b flex-shrink-0 ${dark ? 'border-[rgba(255,255,255,0.06)]' : 'border-gray-100'}`}>
+          <span className={`text-sm font-semibold ${dark ? 'text-[rgba(226,232,240,0.85)]' : 'text-gray-700'}`}>{title || '노트 편집'}</span>
           <div className="flex items-center gap-3">
-            <span className="text-[11px] text-gray-300 hidden md:block">ESC 닫기 · Ctrl+Enter 저장</span>
+            <span className={`text-[11px] hidden md:block ${dark ? 'text-[rgba(226,232,240,0.3)]' : 'text-gray-300'}`}>ESC 닫기 · Ctrl+Enter 저장</span>
             {onSave && (
               <button
                 onClick={closeWithSave}
@@ -43,7 +44,7 @@ export default function FullscreenNoteEditor({ value, onChange, onSave, onClose,
                 저장
               </button>
             )}
-            <button onClick={closeWithSave} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+            <button onClick={closeWithSave} className={`text-xl leading-none ${dark ? 'text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)]' : 'text-gray-400 hover:text-gray-600'}`}>×</button>
           </div>
         </div>
         {/* Editor */}
@@ -55,6 +56,7 @@ export default function FullscreenNoteEditor({ value, onChange, onSave, onClose,
             onEscape={closeWithSave}
             autoFocus
             minHeight={400}
+            dark={dark}
           />
         </div>
       </div>

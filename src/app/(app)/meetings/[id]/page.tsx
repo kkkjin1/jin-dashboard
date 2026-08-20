@@ -208,6 +208,7 @@ function NoteAccordion({ note, index, isOpen, onToggle, onDelete, onEdit, onFull
           onSave={() => { onEdit(index, editContent); setEditing(false) }}
           onClose={() => { setFullscreen(false); setTiptapKey(k => k + 1) }}
           title={note.title}
+          dark
         />
       )}
       {isOpen && (
@@ -663,6 +664,7 @@ export default function MeetingDetailPage() {
                 onSave={() => { saveNote(); setShowFullscreenNew(false) }}
                 onClose={() => setShowFullscreenNew(false)}
                 title="회의 내용 입력"
+                dark
               />
             )}
 
