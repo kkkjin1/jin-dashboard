@@ -333,134 +333,66 @@ html, body {
   font-family: 'Pretendard', 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
-/* ── Tiptap 에디터 ── */
-.tiptap-input { color: #374151; line-height: 1.7; font-size: 15px; }
-.tiptap-input p { margin: 0; min-height: 1.5em; }
-.tiptap-input p + p { margin-top: 2px; }
-.tiptap-input h1 { font-size: 1.2rem; font-weight: 700; color: #111827; margin: 0.5rem 0 0.25rem; }
-.tiptap-input h2 { font-size: 1.05rem; font-weight: 600; color: #1f2937; margin: 0.4rem 0 0.2rem; }
-.tiptap-input h3 { font-size: 0.95rem; font-weight: 600; color: #374151; margin: 0.3rem 0 0.1rem; }
+/* ── 노트 렌더링 공용 구조 (Tiptap 에디터 입력 + MarkdownContent 읽기모드 × 라이트/다크, 4-variant) ──
+   구조(리스트 marker/counter geometry, 여백, 폰트크기)는 4개 variant가 모두 동일함을 라인 단위
+   diff로 재확인하여 하나의 selector 세트로 물리 병합했다. 색상만 variant별로 달라서 custom
+   property로 분리해 각 스코프에서 override한다. mark의 다크 전용 !important 규칙은 변수로 옮기면
+   !important 우선순위 의미가 깨지므로 예외적으로 선택자만 합치고 리터럴 값을 그대로 유지했다.
+   에디터 vs 읽기모드 사이에 실제로 다른 부분(li>p min-height, img, 리스트 불릿 hanging-indent)은
+   구조가 같지 않으므로 병합하지 않고 아래 "에디터 전용" / "읽기모드 전용" 섹션에 남겨뒀다. */
+.tiptap-input, .note-html { --note-color: #374151; }
+.tiptap-input-dark { --note-color: rgba(226,232,240,0.85); }
+.note-html-dark { --note-color: rgba(226,232,240,0.8); }
+.tiptap-input, .tiptap-input-dark, .note-html, .note-html-dark {
+  --note-h1-color: #111827; --note-h2-color: #1f2937; --note-h3-color: #374151;
+}
+.tiptap-input-dark, .note-html-dark {
+  --note-h1-color: #E2E8F0; --note-h2-color: rgba(226,232,240,0.9); --note-h3-color: rgba(226,232,240,0.8);
+}
+.tiptap-input, .tiptap-input-dark, .note-html, .note-html-dark { color: var(--note-color); line-height: 1.7; font-size: 15px; }
+.tiptap-input p, .tiptap-input-dark p, .note-html p, .note-html-dark p { margin: 0; min-height: 1.5em; }
+.tiptap-input p + p, .tiptap-input-dark p + p, .note-html p + p, .note-html-dark p + p { margin-top: 2px; }
+.tiptap-input h1, .tiptap-input-dark h1, .note-html h1, .note-html-dark h1 { font-size: 1.2rem; font-weight: 700; color: var(--note-h1-color); margin: 0.5rem 0 0.25rem; }
+.tiptap-input h2, .tiptap-input-dark h2, .note-html h2, .note-html-dark h2 { font-size: 1.05rem; font-weight: 600; color: var(--note-h2-color); margin: 0.4rem 0 0.2rem; }
+.tiptap-input h3, .tiptap-input-dark h3, .note-html h3, .note-html-dark h3 { font-size: 0.95rem; font-weight: 600; color: var(--note-h3-color); margin: 0.3rem 0 0.1rem; }
 /* 리스트 — 실제 ol/ul 태그 조합이 아니라 "중첩 깊이"로 들여쓰기·마커를 결정한다.
-   깊이1: 1. / 깊이2: 1) / 깊이3+: 항상 •. 불릿(ul)은 같은 깊이의 번호보다 한 단계 더 들여쓴 슬롯을 쓴다 */
-.tiptap-input :is(ol, ul) { list-style: none; margin: 0; }
-.tiptap-input :is(ol, ul) > li { position: relative; }
-.tiptap-input > ol { padding-left: 1.4rem; counter-reset: tipol var(--ol-start, 0); }
-.tiptap-input > ol > li { counter-increment: tipol; }
-.tiptap-input > ol > li::before { content: counter(tipol) "."; position: absolute; left: -1.4rem; width: 1.2rem; text-align: right; }
-.tiptap-input > ul { padding-left: 1.2rem; }
-.tiptap-input > ul > li::before { content: "•"; position: absolute; left: -1.2rem; width: 1rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
-.tiptap-input :is(ol, ul) ol { padding-left: 1.2rem; counter-reset: tipol2 var(--ol-start, 0); }
-.tiptap-input :is(ol, ul) ol > li { counter-increment: tipol2; }
-.tiptap-input :is(ol, ul) ol > li::before { content: counter(tipol2) ")"; position: absolute; left: -1.2rem; width: 1rem; text-align: right; }
-.tiptap-input :is(ol, ul) ul { padding-left: 1.1rem; }
-.tiptap-input :is(ol, ul) ul > li::before { content: "•"; position: absolute; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
-.tiptap-input :is(ol, ul) :is(ol, ul) :is(ol, ul) { padding-left: 1.1rem; }
-.tiptap-input :is(ol, ul) :is(ol, ul) :is(ol, ul) > li::before { content: "•"; position: absolute; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
-.tiptap-input li > p { margin: 0; min-height: auto; }
-.tiptap-input strong { font-weight: 700; }
-.tiptap-input u { text-decoration: underline; }
-.tiptap-input mark { border-radius: 2px; padding: 0 2px; }
-.tiptap-input img { max-width: 100%; border-radius: 6px; display: block; margin: 4px 0; }
+   깊이1: 1. / 깊이2: 1) / 깊이3+: 항상 •. 불릿(ul)은 같은 깊이의 번호보다 한 단계 더 들여쓴 슬롯을 쓴다.
+   counter 이름(notecnt/notecnt2)은 4-variant가 공유하지만, 한 DOM 요소는 이 중 하나의 클래스만
+   가지므로(다크/라이트, 에디터/읽기모드가 동시에 적용되는 요소가 없음) 충돌 리스크가 없다. */
+.tiptap-input :is(ol, ul), .tiptap-input-dark :is(ol, ul), .note-html :is(ol, ul), .note-html-dark :is(ol, ul) { list-style: none; margin: 0; }
+.tiptap-input :is(ol, ul) > li, .tiptap-input-dark :is(ol, ul) > li, .note-html :is(ol, ul) > li, .note-html-dark :is(ol, ul) > li { position: relative; }
+.tiptap-input > ol, .tiptap-input-dark > ol, .note-html > ol, .note-html-dark > ol { padding-left: 1.4rem; counter-reset: notecnt var(--ol-start, 0); }
+.tiptap-input > ol > li, .tiptap-input-dark > ol > li, .note-html > ol > li, .note-html-dark > ol > li { counter-increment: notecnt; }
+.tiptap-input > ol > li::before, .tiptap-input-dark > ol > li::before, .note-html > ol > li::before, .note-html-dark > ol > li::before { content: counter(notecnt) "."; position: absolute; left: -1.4rem; width: 1.2rem; text-align: right; }
+.tiptap-input > ul, .tiptap-input-dark > ul, .note-html > ul, .note-html-dark > ul { padding-left: 1.2rem; }
+.tiptap-input > ul > li::before, .tiptap-input-dark > ul > li::before, .note-html > ul > li::before, .note-html-dark > ul > li::before { content: "•"; position: absolute; left: -1.2rem; width: 1rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
+.tiptap-input :is(ol, ul) ol, .tiptap-input-dark :is(ol, ul) ol, .note-html :is(ol, ul) ol, .note-html-dark :is(ol, ul) ol { padding-left: 1.2rem; counter-reset: notecnt2 var(--ol-start, 0); }
+.tiptap-input :is(ol, ul) ol > li, .tiptap-input-dark :is(ol, ul) ol > li, .note-html :is(ol, ul) ol > li, .note-html-dark :is(ol, ul) ol > li { counter-increment: notecnt2; }
+.tiptap-input :is(ol, ul) ol > li::before, .tiptap-input-dark :is(ol, ul) ol > li::before, .note-html :is(ol, ul) ol > li::before, .note-html-dark :is(ol, ul) ol > li::before { content: counter(notecnt2) ")"; position: absolute; left: -1.2rem; width: 1rem; text-align: right; }
+.tiptap-input :is(ol, ul) ul, .tiptap-input-dark :is(ol, ul) ul, .note-html :is(ol, ul) ul, .note-html-dark :is(ol, ul) ul { padding-left: 1.1rem; }
+.tiptap-input :is(ol, ul) ul > li::before, .tiptap-input-dark :is(ol, ul) ul > li::before, .note-html :is(ol, ul) ul > li::before, .note-html-dark :is(ol, ul) ul > li::before { content: "•"; position: absolute; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
+.tiptap-input :is(ol, ul) :is(ol, ul) :is(ol, ul), .tiptap-input-dark :is(ol, ul) :is(ol, ul) :is(ol, ul), .note-html :is(ol, ul) :is(ol, ul) :is(ol, ul), .note-html-dark :is(ol, ul) :is(ol, ul) :is(ol, ul) { padding-left: 1.1rem; }
+.tiptap-input :is(ol, ul) :is(ol, ul) :is(ol, ul) > li::before, .tiptap-input-dark :is(ol, ul) :is(ol, ul) :is(ol, ul) > li::before, .note-html :is(ol, ul) :is(ol, ul) :is(ol, ul) > li::before, .note-html-dark :is(ol, ul) :is(ol, ul) :is(ol, ul) > li::before { content: "•"; position: absolute; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
+.tiptap-input strong, .tiptap-input-dark strong, .note-html strong, .note-html-dark strong { font-weight: 700; }
+.tiptap-input u, .tiptap-input-dark u, .note-html u, .note-html-dark u { text-decoration: underline; }
+.tiptap-input mark, .tiptap-input-dark mark, .note-html mark, .note-html-dark mark { border-radius: 2px; padding: 0 2px; }
+.tiptap-input-dark mark, .note-html-dark mark { color: rgba(0,0,0,0.85) !important; }
+.tiptap-input-dark mark *, .note-html-dark mark * { color: rgba(0,0,0,0.85) !important; }
 
-/* ── HTML 노트 렌더링 (MarkdownContent) — 라이트 ── */
-.note-html { color: #374151; line-height: 1.7; font-size: 15px; }
-/* min-height 없으면 빈 <p></p>(에디터에선 브라우저가 자동으로 넣어주는 <br>로 채워지지만
-   저장된 HTML을 그대로 읽기모드에 렌더링할 땐 그 <br>이 없어 높이가 0으로 붕괴됨)의
-   절대위치 리스트 마커(::before)가 자기 줄 밖으로 튀어나가 아래 내용과 겹친다 */
-.note-html p { margin: 0; min-height: 1.5em; }
-.note-html p + p { margin-top: 2px; }
-.note-html h1 { font-size: 1.2rem; font-weight: 700; color: #111827; margin: 0.5rem 0 0.25rem; }
-.note-html h2 { font-size: 1.05rem; font-weight: 600; color: #1f2937; margin: 0.4rem 0 0.2rem; }
-.note-html h3 { font-size: 0.95rem; font-weight: 600; color: #374151; margin: 0.3rem 0 0.1rem; }
-/* 리스트 — 실제 ol/ul 태그 조합이 아니라 "중첩 깊이"로 들여쓰기·마커를 결정한다.
-   깊이1: 1. / 깊이2: 1) / 깊이3+: 항상 •. 불릿(ul)은 같은 깊이의 번호보다 한 단계 더 들여쓴 슬롯을 쓴다 */
-.note-html :is(ol, ul) { list-style: none; margin: 0; }
-.note-html :is(ol, ul) > li { position: relative; }
-.note-html > ol { padding-left: 1.4rem; counter-reset: noteol var(--ol-start, 0); }
-.note-html > ol > li { counter-increment: noteol; }
-.note-html > ol > li::before { content: counter(noteol) "."; position: absolute; left: -1.4rem; width: 1.2rem; text-align: right; }
-.note-html > ul { padding-left: 1.2rem; }
-.note-html > ul > li::before { content: "•"; position: absolute; left: -1.2rem; width: 1rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
-.note-html :is(ol, ul) ol { padding-left: 1.2rem; counter-reset: noteol2 var(--ol-start, 0); }
-.note-html :is(ol, ul) ol > li { counter-increment: noteol2; }
-.note-html :is(ol, ul) ol > li::before { content: counter(noteol2) ")"; position: absolute; left: -1.2rem; width: 1rem; text-align: right; }
-.note-html :is(ol, ul) ul { padding-left: 1.1rem; }
-.note-html :is(ol, ul) ul > li::before { content: "•"; position: absolute; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
-.note-html :is(ol, ul) :is(ol, ul) :is(ol, ul) { padding-left: 1.1rem; }
-.note-html :is(ol, ul) :is(ol, ul) :is(ol, ul) > li::before { content: "•"; position: absolute; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
-.note-html li > p { margin: 0; min-height: 1.5em; }
-.note-html strong { font-weight: 700; }
-.note-html u { text-decoration: underline; }
-.note-html mark { border-radius: 2px; padding: 0 2px; }
-/* ■ □ 등 불릿 문자 hanging-indent */
-.note-html p.note-bullet-p { display: flex; gap: 4px; align-items: flex-start; margin: 0; }
-.note-html .note-bullet-sym { flex-shrink: 0; line-height: inherit; }
-.note-html .note-bullet-body { flex: 1; min-width: 0; }
+/* ── Tiptap 에디터 전용 (읽기모드와 다른 부분 — 병합하지 않음) ── */
+.tiptap-input li > p, .tiptap-input-dark li > p { margin: 0; min-height: auto; }
+.tiptap-input img, .tiptap-input-dark img { max-width: 100%; border-radius: 6px; display: block; margin: 4px 0; }
 
-/* ── Tiptap 에디터 — 다크 ── */
-.tiptap-input-dark { color: rgba(226,232,240,0.85); line-height: 1.7; font-size: 15px; }
-.tiptap-input-dark p { margin: 0; min-height: 1.5em; }
-.tiptap-input-dark p + p { margin-top: 2px; }
-.tiptap-input-dark h1 { font-size: 1.2rem; font-weight: 700; color: #E2E8F0; margin: 0.5rem 0 0.25rem; }
-.tiptap-input-dark h2 { font-size: 1.05rem; font-weight: 600; color: rgba(226,232,240,0.9); margin: 0.4rem 0 0.2rem; }
-.tiptap-input-dark h3 { font-size: 0.95rem; font-weight: 600; color: rgba(226,232,240,0.8); margin: 0.3rem 0 0.1rem; }
-/* 리스트 — 실제 ol/ul 태그 조합이 아니라 "중첩 깊이"로 들여쓰기·마커를 결정한다.
-   깊이1: 1. / 깊이2: 1) / 깊이3+: 항상 •. 불릿(ul)은 같은 깊이의 번호보다 한 단계 더 들여쓴 슬롯을 쓴다 */
-.tiptap-input-dark :is(ol, ul) { list-style: none; margin: 0; }
-.tiptap-input-dark :is(ol, ul) > li { position: relative; }
-.tiptap-input-dark > ol { padding-left: 1.4rem; counter-reset: tipold var(--ol-start, 0); }
-.tiptap-input-dark > ol > li { counter-increment: tipold; }
-.tiptap-input-dark > ol > li::before { content: counter(tipold) "."; position: absolute; left: -1.4rem; width: 1.2rem; text-align: right; }
-.tiptap-input-dark > ul { padding-left: 1.2rem; }
-.tiptap-input-dark > ul > li::before { content: "•"; position: absolute; left: -1.2rem; width: 1rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
-.tiptap-input-dark :is(ol, ul) ol { padding-left: 1.2rem; counter-reset: tipold2 var(--ol-start, 0); }
-.tiptap-input-dark :is(ol, ul) ol > li { counter-increment: tipold2; }
-.tiptap-input-dark :is(ol, ul) ol > li::before { content: counter(tipold2) ")"; position: absolute; left: -1.2rem; width: 1rem; text-align: right; }
-.tiptap-input-dark :is(ol, ul) ul { padding-left: 1.1rem; }
-.tiptap-input-dark :is(ol, ul) ul > li::before { content: "•"; position: absolute; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
-.tiptap-input-dark :is(ol, ul) :is(ol, ul) :is(ol, ul) { padding-left: 1.1rem; }
-.tiptap-input-dark :is(ol, ul) :is(ol, ul) :is(ol, ul) > li::before { content: "•"; position: absolute; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
-.tiptap-input-dark li > p { margin: 0; min-height: auto; }
-.tiptap-input-dark strong { font-weight: 700; }
-.tiptap-input-dark u { text-decoration: underline; }
-.tiptap-input-dark mark { border-radius: 2px; padding: 0 2px; color: rgba(0,0,0,0.85) !important; }
-.tiptap-input-dark mark * { color: rgba(0,0,0,0.85) !important; }
-.tiptap-input-dark img { max-width: 100%; border-radius: 6px; display: block; margin: 4px 0; }
-
-/* ── HTML 노트 렌더링 (MarkdownContent) — 다크 ── */
-.note-html-dark { color: rgba(226,232,240,0.8); line-height: 1.7; font-size: 15px; }
-/* min-height 없으면 빈 <p></p>(에디터에선 브라우저가 자동으로 넣어주는 <br>로 채워지지만
-   저장된 HTML을 그대로 읽기모드에 렌더링할 땐 그 <br>이 없어 높이가 0으로 붕괴됨)의
-   절대위치 리스트 마커(::before)가 자기 줄 밖으로 튀어나가 아래 내용과 겹친다 */
-.note-html-dark p { margin: 0; min-height: 1.5em; }
-.note-html-dark p + p { margin-top: 2px; }
-.note-html-dark h1 { font-size: 1.2rem; font-weight: 700; color: #E2E8F0; margin: 0.5rem 0 0.25rem; }
-.note-html-dark h2 { font-size: 1.05rem; font-weight: 600; color: rgba(226,232,240,0.9); margin: 0.4rem 0 0.2rem; }
-.note-html-dark h3 { font-size: 0.95rem; font-weight: 600; color: rgba(226,232,240,0.8); margin: 0.3rem 0 0.1rem; }
-/* 리스트 — 실제 ol/ul 태그 조합이 아니라 "중첩 깊이"로 들여쓰기·마커를 결정한다.
-   깊이1: 1. / 깊이2: 1) / 깊이3+: 항상 •. 불릿(ul)은 같은 깊이의 번호보다 한 단계 더 들여쓴 슬롯을 쓴다 */
-.note-html-dark :is(ol, ul) { list-style: none; margin: 0; }
-.note-html-dark :is(ol, ul) > li { position: relative; }
-.note-html-dark > ol { padding-left: 1.4rem; counter-reset: noteold var(--ol-start, 0); }
-.note-html-dark > ol > li { counter-increment: noteold; }
-.note-html-dark > ol > li::before { content: counter(noteold) "."; position: absolute; left: -1.4rem; width: 1.2rem; text-align: right; }
-.note-html-dark > ul { padding-left: 1.2rem; }
-.note-html-dark > ul > li::before { content: "•"; position: absolute; left: -1.2rem; width: 1rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
-.note-html-dark :is(ol, ul) ol { padding-left: 1.2rem; counter-reset: noteold2 var(--ol-start, 0); }
-.note-html-dark :is(ol, ul) ol > li { counter-increment: noteold2; }
-.note-html-dark :is(ol, ul) ol > li::before { content: counter(noteold2) ")"; position: absolute; left: -1.2rem; width: 1rem; text-align: right; }
-.note-html-dark :is(ol, ul) ul { padding-left: 1.1rem; }
-.note-html-dark :is(ol, ul) ul > li::before { content: "•"; position: absolute; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
-.note-html-dark :is(ol, ul) :is(ol, ul) :is(ol, ul) { padding-left: 1.1rem; }
-.note-html-dark :is(ol, ul) :is(ol, ul) :is(ol, ul) > li::before { content: "•"; position: absolute; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
-.note-html-dark li > p { margin: 0; min-height: 1.5em; }
-.note-html-dark strong { font-weight: 700; }
-.note-html-dark u { text-decoration: underline; }
-.note-html-dark mark { border-radius: 2px; padding: 0 2px; color: rgba(0,0,0,0.85) !important; }
-.note-html-dark mark * { color: rgba(0,0,0,0.85) !important; }
-.note-html-dark p.note-bullet-p { display: flex; gap: 4px; align-items: flex-start; margin: 0; }
-.note-html-dark .note-bullet-sym { flex-shrink: 0; line-height: inherit; }
-.note-html-dark .note-bullet-body { flex: 1; min-width: 0; }
+/* ── HTML 읽기모드 전용 (MarkdownContent, 에디터와 다른 부분 — 병합하지 않음) ──
+   li > p의 min-height: 에디터에서는 빈 <p></p>를 브라우저가 자동으로 <br>을 넣어 채워주지만,
+   저장된 HTML을 그대로 읽기모드로 렌더링할 땐 그 <br>이 없어 높이가 0으로 붕괴되고 절대위치
+   리스트 마커(::before)가 자기 줄 밖으로 튀어나가 아래 내용과 겹친다. 그래서 읽기모드만
+   min-height: 1.5em으로 강제한다 — auto로 통일하면 이 마커-겹침 버그가 재발한다. */
+.note-html li > p, .note-html-dark li > p { margin: 0; min-height: 1.5em; }
+/* ■ □ 등 불릿 문자 hanging-indent (읽기모드 전용 — MarkdownContent가 텍스트를 <p class="note-bullet-p">로 전처리) */
+.note-html p.note-bullet-p, .note-html-dark p.note-bullet-p { display: flex; gap: 4px; align-items: flex-start; margin: 0; }
+.note-html .note-bullet-sym, .note-html-dark .note-bullet-sym { flex-shrink: 0; line-height: inherit; }
+.note-html .note-bullet-body, .note-html-dark .note-bullet-body { flex: 1; min-width: 0; }
 
 /* ── Markdown 미리보기 (.md-preview) ── */
 .md-preview p { margin: 0; line-height: 1.7; }
