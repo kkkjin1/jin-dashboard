@@ -89,9 +89,26 @@ function StickyCardNode({ id, data, selected }: NodeProps<CardNode>) {
   const editorRef = useRef<HTMLDivElement>(null)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const palette = CATEGORY_PALETTE[data.color]
-  // 편집 중(포커스)에는 왼쪽 절반 드래그 오버레이가 마우스 이벤트를 가로채면 안 됨 —
-  // 그래야 텍스트 선택 드래그가 카드 왼쪽으로 넘어가도 끊기지 않는다.
   const [isEditing, setIsEditing] = useState(false)
+  // 텍스트 선택 드래그 중(마우스 버튼 down)에는 왼쪽 절반 드래그 오버레이가 마우스
+  // 이벤트를 가로채면 안 됨 — 그래야 선택 드래그가 카드 왼쪽으로 넘어가도 끊기지
+  // 않는다. isEditing(포커스 여부)로 게이팅하면, 입력을 마치고 드래그 없이 바로
+  // 왼쪽 핸들을 클릭했을 때 그 클릭이 오버레이를 그대로 통과해 여전히 focus된
+  // (그리고 nodrag인) contentEditable에 떨어져버려 blur도, 드래그 시작도 안 되는
+  // 버그가 있었다 — 그래서 "실제 드래그 중"만 별도로 추적한다.
+  const [isSelecting, setIsSelecting] = useState(false)
+
+  // mouseup은 "mousedown이 어디서 시작됐는지"가 아니라 버튼을 뗀 순간 커서 아래
+  // 있는 엘리먼트를 타겟으로 잡는다 — 카드 밖(캔버스 배경)까지 드래그했다가 거기서
+  // 버튼을 떼면 이 div의 onMouseUp은 안 불리고, blur도 안 일어난다(새 mousedown이
+  // 없으면 focus가 그대로 유지되는 게 정상 동작이라 blur가 안전망이 못 됨) —
+  // isSelecting이 true로 stuck되는 걸 막기 위해 window 전체에서 mouseup을 받는다.
+  useEffect(() => {
+    if (!isSelecting) return
+    const onWindowMouseUp = () => setIsSelecting(false)
+    window.addEventListener('mouseup', onWindowMouseUp)
+    return () => window.removeEventListener('mouseup', onWindowMouseUp)
+  }, [isSelecting])
 
   // 최초 1회만 innerHTML 세팅 — 이후엔 DOM이 진실 소스라 React가 다시 덮어쓰면
   // (매 렌더마다) 커서 위치가 튀어버림
@@ -184,12 +201,14 @@ function StickyCardNode({ id, data, selected }: NodeProps<CardNode>) {
           onInput={handleInput}
           onKeyDown={handleKeyDown}
           onFocus={() => setIsEditing(true)}
-          onBlur={() => setIsEditing(false)}
+          onBlur={() => { setIsEditing(false); setIsSelecting(false) }}
+          onMouseDown={() => setIsSelecting(true)}
+          onMouseUp={() => setIsSelecting(false)}
           className="nodrag nopan scrollbar-hide absolute inset-0 w-full h-full overflow-y-auto bg-transparent focus:outline-none text-[12.5px] leading-snug"
           style={{ color: BASE_TEXT, padding: '4px 10px 4px 16px', whiteSpace: 'pre-wrap', overflowWrap: 'break-word' }}
         />
         <div
-          className={`absolute inset-y-0 left-0 w-1/2 flex items-center justify-center cursor-grab active:cursor-grabbing ${isEditing ? 'pointer-events-none' : ''}`}
+          className={`absolute inset-y-0 left-0 w-1/2 flex items-center justify-center cursor-grab active:cursor-grabbing ${isSelecting ? 'pointer-events-none' : ''}`}
         >
           <GripVertical size={14} className="opacity-0 group-hover:opacity-40 transition-opacity pointer-events-none" style={{ color: palette.solid }} />
         </div>
