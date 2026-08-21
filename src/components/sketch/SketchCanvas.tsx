@@ -273,19 +273,6 @@ function toAbsolutePosition(
   return { x: frame.position_x + pos.x, y: frame.position_y + pos.y }
 }
 
-// toAbsolutePosition의 역변환 — Tab 자동배치가 계산한 절대좌표를 프레임 소속
-// 형제 카드의 저장/렌더 좌표(프레임 기준 상대좌표)로 되돌릴 때 쓴다.
-function toRelativePosition(
-  absPos: { x: number; y: number },
-  parentId: string | undefined,
-  frames: SketchFrame[],
-): { x: number; y: number } {
-  if (!parentId) return absPos
-  const frame = frames.find(f => f.id === parentId)
-  if (!frame) return absPos
-  return { x: absPos.x - frame.position_x, y: absPos.y - frame.position_y }
-}
-
 function rectsOverlapArea(ax: number, ay: number, aw: number, ah: number, bx: number, by: number, bw: number, bh: number) {
   const w = Math.max(0, Math.min(ax + aw, bx + bw) - Math.max(ax, bx))
   const h = Math.max(0, Math.min(ay + ah, by + bh) - Math.max(ay, by))
@@ -425,6 +412,115 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
   const hoverTargetIdRef = useRef<string | null>(null)
   const dragStartPositionRef = useRef<{ x: number; y: number } | null>(null)
   const pendingOriginRef = useRef<{ nodeId: string; origin: { x: number; y: number } } | null>(null)
+  // restoreCard(undo/redo에서 카드를 되살릴 때 씀)가 cardHandlers를 직접 참조하면
+  // cardHandlers(useMemo, 더 아래에서 선언)보다 먼저 오는 handleDelete 등의
+  // 클로저에서 "선언 전 접근" 순환이 생긴다 — ref로 한 단계 끊어서 회피.
+  const cardHandlersRef = useRef<Omit<CardData, 'content' | 'color' | 'autoFocus'> | null>(null)
+
+  // ── Undo/Redo 히스토리 ─────────────────────────────────────────────────────
+  // Ctrl+Z 대상: 카드 삭제, 카드 이동(프레임 진입/이탈 포함), 색상 변경, 연결/해제,
+  // Tab 자식 생성. 텍스트 입력 자체는 건드리지 않는다 — contentEditable의 브라우저
+  // 기본 undo가 이미 그 역할을 한다. 각 조작은 "핵심 반영"(apply*/*Cascade — DB
+  // 반영 + 로컬 state 갱신만, 히스토리는 안 쌓음)과 "공개 핸들러"(사용자 액션에서
+  // 호출, 핵심 반영을 실행한 뒤 pushHistory로 undo/redo 클로저 등록)로 나눈다.
+  // undo/redo는 항상 핵심 반영 쪽을 직접 호출해서, 되돌리는 동작이 새 히스토리를
+  // 또 쌓는 순환을 막는다.
+  type HistoryEntry = { undo: () => void | Promise<unknown>; redo: () => void | Promise<unknown> }
+  const historyRef = useRef<HistoryEntry[]>([])
+  const redoStackRef = useRef<HistoryEntry[]>([])
+  const MAX_HISTORY = 50
+
+  function pushHistory(entry: HistoryEntry) {
+    historyRef.current.push(entry)
+    if (historyRef.current.length > MAX_HISTORY) historyRef.current.shift()
+    redoStackRef.current = []
+  }
+
+  async function runUndo() {
+    const entry = historyRef.current.pop()
+    if (!entry) return
+    await entry.undo()
+    redoStackRef.current.push(entry)
+  }
+
+  async function runRedo() {
+    const entry = redoStackRef.current.pop()
+    if (!entry) return
+    await entry.redo()
+    historyRef.current.push(entry)
+  }
+
+  function applyColorChange(id: string, color: CategoryColorKey) {
+    setNodes(prev => prev.map(n => n.id === id ? { ...n, data: { ...n.data, color } } : n))
+    supabase.from('sketch_cards').update({ color }).eq('id', id)
+      .then(({ error }) => { setSaveError(error ? SAVE_ERROR_MSG : '') })
+  }
+
+  async function applyEdgeAdd(edge: Edge) {
+    setEdges(prev => [...prev, edge])
+    const kind = (edge.data as { kind?: string } | undefined)?.kind
+    const { error } = await supabase.from('sketch_edges')
+      .insert({ id: edge.id, board_id: boardId, source_card_id: edge.source, target_card_id: edge.target, ...(kind ? { kind } : {}) })
+    setSaveError(error ? SAVE_ERROR_MSG : '')
+    if (error) setEdges(prev => prev.filter(e => e.id !== edge.id))
+  }
+
+  async function applyEdgeRemove(edge: Edge) {
+    setEdges(prev => prev.filter(e => e.id !== edge.id))
+    const { error } = await supabase.from('sketch_edges').delete().eq('id', edge.id)
+    setSaveError(error ? SAVE_ERROR_MSG : '')
+    if (error) setEdges(prev => [...prev, edge])
+  }
+
+  function applyCardPlacement(id: string, placement: { position: { x: number; y: number }; parentId: string | undefined }) {
+    setNodes(prev => prev.map(n => n.id !== id ? n : {
+      ...n, position: placement.position, parentId: placement.parentId,
+      extent: placement.parentId ? ('parent' as const) : undefined,
+    }))
+    supabase.from('sketch_cards')
+      .update({ position_x: placement.position.x, position_y: placement.position.y, frame_id: placement.parentId ?? null })
+      .eq('id', id)
+      .then(({ error }) => { setSaveError(error ? SAVE_ERROR_MSG : '') })
+  }
+
+  // 드래그 시작 시점 위치/프레임 소속과 종료 후 위치/소속이 다를 때만 기록한다.
+  function pushMoveHistory(
+    id: string,
+    before: { position: { x: number; y: number }; parentId: string | undefined },
+    after: { position: { x: number; y: number }; parentId: string | undefined },
+  ) {
+    if (before.position.x === after.position.x && before.position.y === after.position.y && before.parentId === after.parentId) return
+    pushHistory({ undo: () => applyCardPlacement(id, before), redo: () => applyCardPlacement(id, after) })
+  }
+
+  async function deleteCardCascade(id: string): Promise<{ card: SketchCard; edges: Edge[] } | null> {
+    const relatedEdges = edgesRef.current.filter(e => e.source === id || e.target === id)
+    const { data, error } = await supabase.from('sketch_cards').delete().eq('id', id).select().single()
+    if (error || !data) return null
+    setNodes(prev => prev.filter(n => n.id !== id))
+    setEdges(prev => prev.filter(e => e.source !== id && e.target !== id))
+    return { card: data as SketchCard, edges: relatedEdges }
+  }
+
+  async function restoreCard(card: SketchCard, relatedEdges: Edge[]) {
+    const { error } = await supabase.from('sketch_cards').insert({
+      id: card.id, board_id: card.board_id, content: card.content, color: card.color,
+      position_x: card.position_x, position_y: card.position_y,
+      width: card.width, height: card.height, frame_id: card.frame_id,
+    })
+    if (error) { console.error('카드 복원 실패:', error.message); return }
+    const handlers = cardHandlersRef.current
+    if (!handlers) return
+    setNodes(prev => [...prev, cardToNode(card, handlers)])
+    if (relatedEdges.length === 0) return
+    const rows = relatedEdges.map(e => ({
+      id: e.id, board_id: boardId, source_card_id: e.source, target_card_id: e.target,
+      ...((e.data as { kind?: string } | undefined)?.kind ? { kind: (e.data as { kind?: string }).kind } : {}),
+    }))
+    const { error: edgeError } = await supabase.from('sketch_edges').insert(rows)
+    if (edgeError) { console.error('연결선 복원 실패:', edgeError.message); return }
+    setEdges(prev => [...prev, ...relatedEdges])
+  }
 
   // ── 카드 handlers ─────────────────────────────────────────────────────────
   const handleContentChange = useCallback((id: string, content: string) => {
@@ -433,16 +529,17 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
   }, [])
 
   const handleColorChange = useCallback((id: string, color: CategoryColorKey) => {
-    supabase.from('sketch_cards').update({ color }).eq('id', id)
-      .then(({ error }) => { setSaveError(error ? SAVE_ERROR_MSG : '') })
-    setNodes(prev => prev.map(n => n.id === id ? { ...n, data: { ...n.data, color } } : n))
+    const prevColor = (nodesRef.current.find(n => n.id === id)?.data as { color?: CategoryColorKey } | undefined)?.color
+    applyColorChange(id, color)
+    if (prevColor && prevColor !== color) {
+      pushHistory({ undo: () => applyColorChange(id, prevColor), redo: () => applyColorChange(id, color) })
+    }
   }, [])
 
   const handleDelete = useCallback(async (id: string) => {
-    const { error } = await supabase.from('sketch_cards').delete().eq('id', id)
-    if (error) { alert('카드 삭제에 실패했습니다.'); return }
-    setNodes(prev => prev.filter(n => n.id !== id))
-    setEdges(prev => prev.filter(e => e.source !== id && e.target !== id))
+    const result = await deleteCardCascade(id)
+    if (!result) { alert('카드 삭제에 실패했습니다.'); return }
+    pushHistory({ undo: () => restoreCard(result.card, result.edges), redo: () => deleteCardCascade(id) })
   }, [])
 
   const handleCardResize = useCallback((id: string, box: { x: number; y: number; width: number; height: number }) => {
@@ -462,6 +559,7 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
     onResize: handleCardResize,
     supabase,
   }), [handleContentChange, handleColorChange, handleDelete, handleCardResize, supabase])
+  useEffect(() => { cardHandlersRef.current = cardHandlers }, [cardHandlers])
 
   // ── 프레임 handlers ───────────────────────────────────────────────────────
   const handleFrameTitleChange = useCallback((frameId: string, title: string) => {
@@ -575,27 +673,26 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
   // 연결(기존 호출부)은 kind를 안 넘겨 null로 남는다 — 지금은 스타일 차이를 두지
   // 않지만(edgeFromRow가 data.kind로 그대로 실어 보냄), 나중에 위계 연결만 다르게
   // 그리고 싶을 때 이 값으로 바로 필터링할 수 있다.
-  const handleConnect = useCallback((sourceId: string, targetId: string, kind?: string) => {
+  // 반환된 Edge는 호출부(onConnect/드래그 연결/Tab)가 각자의 되돌리기 히스토리를
+  // 등록하는 데 쓴다 — 이 함수 자체는 히스토리를 쌓지 않는다(Tab은 카드+연결을
+  // 하나의 되돌리기 단위로 묶어야 해서, 여기서 개별로 쌓으면 안 됨).
+  const handleConnect = useCallback(async (sourceId: string, targetId: string, kind?: string): Promise<Edge | null> => {
     // kind가 없는 기존 수동 연결 호출부는 payload에 kind 키 자체를 안 넣는다 —
     // supabase/schema_v44.sql(kind 컬럼 추가) 적용 전에도 기존 드래그 연결이
     // 깨지지 않도록. Tab 쪽만 새로 kind:'hierarchy'를 명시적으로 넘긴다.
-    supabase.from('sketch_edges')
+    const { data, error } = await supabase.from('sketch_edges')
       .insert({ board_id: boardId, source_card_id: sourceId, target_card_id: targetId, ...(kind ? { kind } : {}) })
       .select().single()
-      .then(({ data, error }) => {
-        setSaveError(error || !data ? SAVE_ERROR_MSG : '')
-        if (error || !data) return
-        setEdges(eds => [...eds, edgeFromRow(data as SketchEdge)])
-      })
+    setSaveError(error || !data ? SAVE_ERROR_MSG : '')
+    if (error || !data) return null
+    const edge = edgeFromRow(data as SketchEdge)
+    setEdges(eds => [...eds, edge])
+    return edge
   }, [boardId])
 
   const handleDisconnect = useCallback((edge: Edge) => {
-    setEdges(prev => prev.filter(e => e.id !== edge.id))
-    supabase.from('sketch_edges').delete().eq('id', edge.id)
-      .then(({ error }) => {
-        setSaveError(error ? SAVE_ERROR_MSG : '')
-        if (error) setEdges(prev => [...prev, edge])
-      })
+    applyEdgeRemove(edge)
+    pushHistory({ undo: () => applyEdgeAdd(edge), redo: () => applyEdgeRemove(edge) })
   }, [])
 
   const handleEdgesDelete = useCallback((deleted: Edge[]) => {
@@ -613,7 +710,9 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
 
   const onConnect: OnConnect = useCallback((connection) => {
     if (!connection.source || !connection.target || connection.source === connection.target) return
-    handleConnect(connection.source, connection.target)
+    handleConnect(connection.source, connection.target).then(edge => {
+      if (edge) pushHistory({ undo: () => applyEdgeRemove(edge), redo: () => applyEdgeAdd(edge) })
+    })
   }, [handleConnect])
 
   // ── customOnNodesChange (진단 + intercept) ────────────────────────────────
@@ -671,31 +770,27 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
   }
 
   // ── Tab: 선택된 카드 아래에 자식 카드 생성 ──────────────────────────────────
-  // 같은 부모의 기존 직계 자식(엣지 source===parent.id)들을 부모 중심축 기준으로
-  // 가로로 나란히 재배치하면서, 새 자식을 그 줄의 맨 끝에 추가한다. 형제 카드가
-  // 다른 프레임에 속해 있으면(드문 케이스) 절대좌표로 계산한 뒤 그 프레임 기준
-  // 상대좌표로 되돌려서 저장 — 새로 만드는 자식 자체는 항상 프레임 밖 자유 카드로
-  // 둔다(부모가 프레임에 속해 있어도 자동으로 같은 프레임에 편입시키지 않음).
+  // 새 자식은 부모의 기존 hierarchy 자식(Tab으로 만든 자식만, edge.kind==='hierarchy')
+  // 중 가장 오른쪽 카드 옆에 배치한다. 기존 카드는 위치를 절대 건드리지 않음 —
+  // 예전엔 parent.id를 source로 하는 엣지를 전부 "형제"로 취급해 부모 중심축
+  // 기준 한 줄로 강제 재배치했는데, 그 대상에 수동으로 드래그 연결해둔 카드나
+  // 사용자가 직접 다른 자리로 옮겨둔 기존 자식까지 포함돼 있어 Tab 한 번에
+  // 엉뚱한(이미 다른 자리에 있던) 카드가 자식 줄로 끌려 내려오는 버그가 있었다.
   async function handleTabCreateChild(parent: Node) {
     const parentAbs = toAbsolutePosition(parent.position, parent.parentId, framesRef.current)
     const parentSize = nodeSize(parent)
     const childY = parentAbs.y + parentSize.height + CHILD_V_GAP
 
-    const siblingIds = edgesRef.current.filter(e => e.source === parent.id).map(e => e.target)
+    const siblingIds = edgesRef.current
+      .filter(e => e.source === parent.id && (e.data as { kind?: string } | undefined)?.kind === 'hierarchy')
+      .map(e => e.target)
     const siblings = siblingIds
       .map(id => nodesRef.current.find(n => n.id === id && n.type === 'sticky'))
       .filter((n): n is Node => !!n)
 
-    const widths = [...siblings.map(nodeSize), { width: DEFAULT_WIDTH, height: DEFAULT_HEIGHT }]
-    const totalWidth = widths.reduce((sum, s) => sum + s.width, 0) + CHILD_H_GAP * (widths.length - 1)
-    let cursorX = parentAbs.x + parentSize.width / 2 - totalWidth / 2
-
-    const siblingMoves = siblings.map((s, i) => {
-      const abs = { x: cursorX, y: childY }
-      cursorX += widths[i].width + CHILD_H_GAP
-      return { id: s.id, frameId: s.parentId, rel: toRelativePosition(abs, s.parentId, framesRef.current) }
-    })
-    const newChildAbsX = cursorX // 마지막 자리 = 새 자식 (항상 프레임 밖, 절대좌표 그대로 저장)
+    const newChildAbsX = siblings.length === 0
+      ? parentAbs.x + parentSize.width / 2 - DEFAULT_WIDTH / 2
+      : Math.max(...siblings.map(s => toAbsolutePosition(s.position, s.parentId, framesRef.current).x + nodeSize(s).width)) + CHILD_H_GAP
 
     const color = COLOR_KEYS[nodesRef.current.filter(n => n.type === 'sticky').length % COLOR_KEYS.length]
     const { data, error } = await supabase.from('sketch_cards')
@@ -708,18 +803,7 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
     if (error || !data) { console.error('자식 카드 생성 실패:', error?.message); return }
     const newCard = data as SketchCard
 
-    await Promise.all(siblingMoves.map(m =>
-      supabase.from('sketch_cards').update({ position_x: m.rel.x, position_y: m.rel.y }).eq('id', m.id)
-        .then(({ error }) => { if (error) console.error('형제 카드 재배치 실패:', error.message) })
-    ))
-
-    setNodes(prev => {
-      const repositioned = prev.map(n => {
-        const m = siblingMoves.find(m => m.id === n.id)
-        return m ? { ...n, position: m.rel } : n
-      })
-      return [...repositioned, cardToNode(newCard, cardHandlers, { autoFocus: true })]
-    })
+    setNodes(prev => [...prev, cardToNode(newCard, cardHandlers, { autoFocus: true })])
 
     // 선택 상태는 raw setNodes로 node.selected를 직접 대입하지 않고 React Flow의
     // 정식 change 파이프라인(onNodesChange 'select')으로 보낸다 — 직접 대입하면
@@ -732,7 +816,13 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
       { type: 'select' as const, id: newCard.id, selected: true },
     ])
 
-    handleConnect(parent.id, newCard.id, 'hierarchy')
+    const edge = await handleConnect(parent.id, newCard.id, 'hierarchy')
+    // 카드 생성 + 연결을 하나의 되돌리기 단위로 묶는다 — undo는 새 카드를(연결도
+    // cascade로 함께) 지우고, redo는 같은 id로 카드+연결을 다시 만든다.
+    pushHistory({
+      undo: () => deleteCardCascade(newCard.id),
+      redo: () => restoreCard(newCard, edge ? [edge] : []),
+    })
   }
 
   function handlePaneDoubleClick(e: React.MouseEvent) {
@@ -756,6 +846,23 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
+      // Ctrl/Cmd+Z(되돌리기), Ctrl/Cmd+Shift+Z 또는 Ctrl+Y(다시하기) — 텍스트
+      // 편집 중(contenteditable/input)에는 브라우저 기본 undo/redo에 맡기고 여기서
+      // 가로채지 않는다.
+      const key = e.key.toLowerCase()
+      const isUndoKey = (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && key === 'z'
+      const isRedoKey = (e.ctrlKey || e.metaKey) && !e.altKey && ((e.shiftKey && key === 'z') || (!e.shiftKey && key === 'y'))
+      if (isUndoKey || isRedoKey) {
+        const editTarget = e.target as HTMLElement | null
+        const editTag = editTarget?.tagName.toLowerCase()
+        const inEditable = (!!editTag && ['input', 'textarea', 'select'].includes(editTag))
+          || editTarget?.getAttribute('contenteditable') === 'true'
+        if (inEditable) return
+        e.preventDefault()
+        if (isRedoKey) void runRedo()
+        else void runUndo()
+        return
+      }
       if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || e.isComposing) return
       const target = e.target as HTMLElement | null
       if (!target) return
@@ -949,7 +1056,11 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
           pendingOriginRef.current = null
         }, 0)
       }
-      handleConnect(capturedId, overlap.id)
+      // 드래그로 이동한 위치는 원위치로 되돌아가고 연결만 남으므로, 되돌리기
+      // 대상은 위치가 아니라 방금 생긴 연결선 하나뿐이다.
+      handleConnect(capturedId, overlap.id).then(edge => {
+        if (edge) pushHistory({ undo: () => applyEdgeRemove(edge), redo: () => applyEdgeAdd(edge) })
+      })
       return
     }
 
@@ -958,7 +1069,7 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
       const capturedId = node.id
       const existing = edgesRef.current.find(e =>
         (e.source === capturedId && e.target === overlap.id) || (e.source === overlap.id && e.target === capturedId))
-      if (existing) handleDisconnect(existing)
+      if (existing) handleDisconnect(existing) // handleDisconnect가 자체적으로 되돌리기 히스토리를 쌓는다
       if (origin) {
         savePosition(capturedId, origin)
         setTimeout(() => {
@@ -974,14 +1085,17 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
     if (node.parentId) {
       const frame = framesRef.current.find(f => f.id === node.parentId)
       if (!frame) return
+      const beforePos = dragStartPositionRef.current ?? node.position
       // node.position 은 프레임 상대좌표
       const cardCenterX = node.position.x + DEFAULT_WIDTH / 2
       const cardCenterY = node.position.y + DEFAULT_HEIGHT / 2
       const isOutside = cardCenterX < 0 || cardCenterX > frame.width || cardCenterY < 0 || cardCenterY > frame.height
       if (isOutside) {
         const absPos = { x: frame.position_x + node.position.x, y: frame.position_y + node.position.y }
+        pushMoveHistory(node.id, { position: beforePos, parentId: node.parentId }, { position: absPos, parentId: undefined })
         removeCardFromFrame(node.id, absPos)
       } else {
+        pushMoveHistory(node.id, { position: beforePos, parentId: node.parentId }, { position: node.position, parentId: node.parentId })
         savePosition(node.id, node.position)
       }
       return
@@ -996,8 +1110,18 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
       const centerY = relY + DEFAULT_HEIGHT / 2
       return centerX > 0 && centerX < frame.width && centerY > 0 && centerY < frame.height
     })
-    if (targetFrame) { addCardToFrame(node.id, targetFrame, node.position); return }
+    if (targetFrame) {
+      const beforePos = dragStartPositionRef.current ?? node.position
+      const relPos = { x: node.position.x - targetFrame.position_x, y: node.position.y - targetFrame.position_y }
+      pushMoveHistory(node.id, { position: beforePos, parentId: undefined }, { position: relPos, parentId: targetFrame.id })
+      addCardToFrame(node.id, targetFrame, node.position)
+      return
+    }
 
+    {
+      const beforePos = dragStartPositionRef.current ?? node.position
+      pushMoveHistory(node.id, { position: beforePos, parentId: undefined }, { position: node.position, parentId: undefined })
+    }
     savePosition(node.id, node.position)
   }, [savePosition, handleConnect, handleDisconnect, handleDelete, addCardToFrame, removeCardFromFrame, setNodes])
 
