@@ -362,7 +362,8 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
   }, [])
 
   const handleDelete = useCallback(async (id: string) => {
-    await supabase.from('sketch_cards').delete().eq('id', id)
+    const { error } = await supabase.from('sketch_cards').delete().eq('id', id)
+    if (error) { alert('카드 삭제에 실패했습니다.'); return }
     setNodes(prev => prev.filter(n => n.id !== id))
     setEdges(prev => prev.filter(e => e.source !== id && e.target !== id))
   }, [])
@@ -516,6 +517,15 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
   const handleEdgesDelete = useCallback((deleted: Edge[]) => {
     deleted.forEach(edge => handleDisconnect(edge))
   }, [handleDisconnect])
+
+  // Backspace/Delete 키(deleteKeyCode)로 지운 카드는 React Flow가 로컬 state에서만
+  // 제거하고 끝나버려 canonical DB delete가 전혀 호출되지 않았던 버그 수정 —
+  // 이 콜백이 트래시 아이콘/드래그-투-트래시와 동일한 handleDelete(캐논니컬 삭제 +
+  // 에러 체크)를 태워준다. 프레임(type: 'frame')은 자식 카드 reparenting이 필요해
+  // handleFrameDelete가 따로 처리하므로 여기서는 제외.
+  const handleNodesDelete = useCallback((deleted: Node[]) => {
+    deleted.filter(n => n.type === 'sticky').forEach(n => handleDelete(n.id))
+  }, [handleDelete])
 
   const onConnect: OnConnect = useCallback((connection) => {
     if (!connection.source || !connection.target || connection.source === connection.target) return
@@ -935,6 +945,7 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
             onEdgesDelete={handleEdgesDelete}
+            onNodesDelete={handleNodesDelete}
             deleteKeyCode={['Backspace', 'Delete']}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
