@@ -9,13 +9,13 @@ interface Props {
   meeting: Meeting
   catAccent: string
   onClick: () => void
+  noteCount: number
 }
 
-export default function MeetingRow({ meeting, catAccent, onClick }: Props) {
+export default function MeetingRow({ meeting, catAccent, onClick, noteCount }: Props) {
   const date = meeting.meeting_date
     ? format(parseISO(meeting.meeting_date), 'MM.dd (eee)', { locale: ko })
     : '미지정'
-  const noteCount = meeting.notes?.length ?? 0
 
   return (
     <div

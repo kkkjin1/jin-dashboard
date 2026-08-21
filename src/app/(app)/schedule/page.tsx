@@ -8,7 +8,8 @@ import { createClient } from '@/lib/supabase/client'
 import { fetchAllTasks, fetchMembers } from '@/lib/tasks'
 import { useUserSetting } from '@/hooks/useUserSetting'
 import { useOrgData } from '@/hooks/useOrgData'
-import type { Task, Member, TaskStatus, Meeting, NoteEntry, QuickTodo } from '@/types'
+import type { Task, Member, TaskStatus, Meeting, QuickTodo } from '@/types'
+import { fetchMeetingNotesByMeetingIds, type MeetingNotesGrouped, type MeetingNoteRow } from '@/lib/meetingNotes'
 import { CATEGORY_PALETTE, MEETING_CATEGORY, FIXED_MEETING_TAGS, type CategoryColorKey, colorKeyFromName } from '@/lib/categoryColors'
 import { GlassSelect } from '@/components/ui/GlassSelect'
 
@@ -190,7 +191,8 @@ interface ScheduledOneOnOne {
 export default function SchedulePage() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [members, setMembers] = useState<Member[]>([])
-  const [meetings, setMeetings] = useState<Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category' | 'notes'>[]>([])
+  const [meetings, setMeetings] = useState<Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>[]>([])
+  const [notesByMeeting, setNotesByMeeting] = useState<Record<string, MeetingNotesGrouped>>({})
   const [scheduledTodos, setScheduledTodos] = useState<ScheduledTodo[]>([])
   // 즉석 할일 (quick_todos) — 프로젝트 상세task/안건에 속하지 않는, 홈 "오늘 업무"에서 즉석 추가되는 항목
   const [quickTodos, setQuickTodos] = useState<QuickTodo[]>([])
@@ -309,21 +311,32 @@ export default function SchedulePage() {
   const [fixedMemoSaving, setFixedMemoSaving] = useState<Record<string, boolean>>({})
   const [fixedMemoSaved,  setFixedMemoSaved]  = useState<Record<string, boolean>>({})
 
+  // Track B-4: meeting_notes에 is_prep=true row를 INSERT — meetings.notes는
+  // 더 이상 건드리지 않는다. 신규 meeting 생성 케이스의 비원자성은 B-4
+  // 설계 §6에서 승인된 수용 리스크(보상 write 추가하지 않음).
   async function saveScheduleFixedMemo(schedule: MeetingSchedule, dateStr: string) {
     const key = `${schedule.id}_${dateStr}`
     const text = (fixedMemoText[key] ?? '').trim()
     if (!text) return
     setFixedMemoSaving(p => ({ ...p, [key]: true }))
-    const newNote: NoteEntry = { title: '사전 메모', content: text, created_at: new Date().toISOString(), is_prep: true }
+    const now = new Date().toISOString()
     const category = schedule.category ?? '기타'
     const existing = meetings.find(m => m.title === schedule.title && m.meeting_date?.startsWith(dateStr))
-    if (existing) {
-      const prev = (existing.notes ?? []) as NoteEntry[]
-      await supabase.from('meetings').update({ notes: [...prev, newNote] }).eq('id', existing.id)
-      setMeetings(ms => ms.map(m => m.id === existing.id ? { ...m, notes: [...(m.notes ?? []), newNote] } : m))
-    } else {
-      const { data } = await supabase.from('meetings').insert({ title: schedule.title, meeting_date: dateStr, category, notes: [newNote] }).select('id, title, meeting_date, category, notes').single()
-      if (data) setMeetings(ms => [...ms, data as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category' | 'notes'>])
+    let meetingId = existing?.id
+    if (!meetingId) {
+      const { data } = await supabase.from('meetings').insert({ title: schedule.title, meeting_date: dateStr, category }).select('id, title, meeting_date, category').single()
+      if (data) { setMeetings(ms => [...ms, data as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>]); meetingId = (data as Meeting).id }
+    }
+    if (meetingId) {
+      const { data: noteData } = await supabase.from('meeting_notes').insert({
+        meeting_id: meetingId, title: '사전 메모', content: text, is_prep: true, created_at: now, updated_at: now,
+      }).select('*').single()
+      if (noteData) {
+        setNotesByMeeting(prev => {
+          const g = prev[meetingId as string] ?? { regular: [], prep: [] }
+          return { ...prev, [meetingId as string]: { ...g, prep: [...g.prep, noteData as MeetingNoteRow] } }
+        })
+      }
     }
     setFixedMemoText(p => ({ ...p, [key]: '' }))
     setFixedMemoSaving(p => ({ ...p, [key]: false }))
@@ -336,9 +349,9 @@ export default function SchedulePage() {
     const existing = meetings.find(m => m.title === schedule.title && m.meeting_date?.startsWith(dateStr))
     if (existing) { router.push(`/meetings/${existing.id}`); return }
     const category = schedule.category ?? '기타'
-    const { data } = await supabase.from('meetings').insert({ title: schedule.title, meeting_date: dateStr, category, notes: [] }).select('id, title, meeting_date, category, notes').single()
+    const { data } = await supabase.from('meetings').insert({ title: schedule.title, meeting_date: dateStr, category }).select('id, title, meeting_date, category').single()
     if (data) {
-      const created = data as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category' | 'notes'>
+      const created = data as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>
       setMeetings(ms => [...ms, created])
       router.push(`/meetings/${created.id}`)
     }
@@ -350,17 +363,19 @@ export default function SchedulePage() {
     Promise.all([
       fetchAllTasks(),
       fetchMembers(),
-      supabase.from('meetings').select('id, title, meeting_date, category, notes').not('meeting_date', 'is', null),
+      supabase.from('meetings').select('id, title, meeting_date, category').not('meeting_date', 'is', null),
       supabase.from('task_todos').select('*, tasks(id, title, short_name, part)').eq('done', false).limit(500),
       supabase.from('agenda_sub_tasks').select('id, title, target_date, agenda_items(id, title, agenda_groups(category))').not('target_date', 'is', null).neq('status', 'done'),
       supabase.from('quick_todos').select('*').eq('done', false).order('sort_order'),
-    ]).then(([t, m, { data: mtgs, error: mtgErr }, { data: allTodos, error: todosErr }, { data: subTaskData, error: stErr }, { data: qtData, error: qtErr }]) => {
+    ]).then(async ([t, m, { data: mtgs, error: mtgErr }, { data: allTodos, error: todosErr }, { data: subTaskData, error: stErr }, { data: qtData, error: qtErr }]) => {
       if (mtgErr) console.error('[schedule] meetings error:', mtgErr)
       if (todosErr) console.error('[schedule] todos error:', todosErr)
       if (stErr) console.error('[schedule] subtasks error:', stErr)
       if (qtErr) console.error('[schedule] quick_todos error:', qtErr)
       setTasks(t); setMembers(m)
-      setMeetings((mtgs ?? []) as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category' | 'notes'>[])
+      const loadedMeetings = (mtgs ?? []) as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>[]
+      setMeetings(loadedMeetings)
+      setNotesByMeeting(await fetchMeetingNotesByMeetingIds(supabase, loadedMeetings.map(lm => lm.id)))
       setQuickTodos((qtData ?? []) as QuickTodo[])
       // task_todos
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -432,7 +447,7 @@ export default function SchedulePage() {
 
   useEffect(() => {
     function onMeetingCreated(e: Event) {
-      const m = (e as CustomEvent).detail as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category' | 'notes'>
+      const m = (e as CustomEvent).detail as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>
       if (m?.meeting_date) setMeetings(prev => [...prev, m])
     }
     window.addEventListener('quick-meeting-created', onMeetingCreated)
@@ -1192,7 +1207,7 @@ export default function SchedulePage() {
                       const saving = fixedMemoSaving[key] ?? false
                       const saved  = fixedMemoSaved[key] ?? false
                       const linked = meetings.find(m => m.title === s.title && m.meeting_date?.startsWith(dateStr))
-                      const prepNotes = ((linked?.notes ?? []) as NoteEntry[]).filter(n => n.is_prep)
+                      const prepNotes = notesByMeeting[linked?.id ?? '']?.prep ?? []
                       return (
                         <div key={`fixed-panel-${s.id}`} className="px-1 pb-1">
                           <div className="flex items-center gap-2 py-2">

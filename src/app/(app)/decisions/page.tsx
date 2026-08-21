@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Meeting } from '@/types'
+import { fetchMeetingNotesByMeetingIds, type MeetingNotesGrouped } from '@/lib/meetingNotes'
 import dynamic from 'next/dynamic'
 import MarkdownContent from '@/components/MarkdownContent'
 const TiptapEditor = dynamic(() => import('@/components/TiptapEditor'), { ssr: false })
@@ -91,6 +92,7 @@ export default function DecisionsPage() {
   const [includeMeetings, setIncludeMeetings] = useState(false)
   const [meetings, setMeetings] = useState<Meeting[]>([])
   const [meetingsLoading, setMeetingsLoading] = useState(false)
+  const [notesByMeeting, setNotesByMeeting] = useState<Record<string, MeetingNotesGrouped>>({})
 
   const supabase = createClient()
 
@@ -115,11 +117,13 @@ export default function DecisionsPage() {
     if (!includeMeetings || !category) { setMeetings([]); return }
     setMeetingsLoading(true)
     supabase.from('meetings')
-      .select('id, title, meeting_date, category, notes, created_at, updated_at')
+      .select('id, title, meeting_date, category, created_at, updated_at')
       .eq('category', category)
       .order('meeting_date', { ascending: false })
-      .then(({ data }) => {
-        setMeetings((data ?? []) as Meeting[])
+      .then(async ({ data }) => {
+        const loaded = (data ?? []) as Meeting[]
+        setMeetings(loaded)
+        setNotesByMeeting(await fetchMeetingNotesByMeetingIds(supabase, loaded.map(m => m.id)))
         setMeetingsLoading(false)
       })
   }, [includeMeetings, activeTab])
@@ -249,7 +253,9 @@ export default function DecisionsPage() {
       for (const m of meetings) {
         lines.push(`### ${m.meeting_date ?? '날짜미상'} — ${m.title}`)
         lines.push('')
-        for (const note of (m.notes ?? [])) {
+        const grouped = notesByMeeting[m.id]
+        const notes = grouped ? [...grouped.regular, ...grouped.prep] : []
+        for (const note of notes) {
           if (note.title) lines.push(`**${note.title}**`)
           lines.push(note.content)
           lines.push('')

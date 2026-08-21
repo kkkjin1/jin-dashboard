@@ -5,8 +5,9 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { format, parseISO } from 'date-fns'
 import { createClient } from '@/lib/supabase/client'
-import type { Meeting, NoteEntry, Attachment } from '@/types'
+import type { Meeting, Attachment } from '@/types'
 import { generateMeetingMd, downloadMd } from '@/lib/markdown'
+import { fetchMeetingNotes, wasEdited, type MeetingNoteRow } from '@/lib/meetingNotes'
 import dynamic from 'next/dynamic'
 import MarkdownContent from '@/components/MarkdownContent'
 import TextSelectionCapture from '@/components/TextSelectionCapture'
@@ -47,18 +48,17 @@ interface LinkedAgendaItem {
 }
 
 interface NoteAccordionProps {
-  note: NoteEntry
-  index: number
+  note: MeetingNoteRow
   isOpen: boolean
   onToggle: () => void
-  onDelete: (index: number) => void
-  onEdit: (index: number, newContent: string, newTitle?: string) => void
+  onDelete: (id: string) => void
+  onEdit: (id: string, newContent: string, newTitle?: string) => void
   onFullscreen: (content: string) => void
   agendaItems: AgendaItemOption[]
   onAddToItem: (itemId: string, noteContent: string, noteTitle: string) => Promise<void>
 }
 
-function NoteAccordion({ note, index, isOpen, onToggle, onDelete, onEdit, onFullscreen, agendaItems, onAddToItem }: NoteAccordionProps) {
+function NoteAccordion({ note, isOpen, onToggle, onDelete, onEdit, onFullscreen, agendaItems, onAddToItem }: NoteAccordionProps) {
   const [editing, setEditing] = useState(false)
   const [editContent, setEditContent] = useState(note.content)
   const [editingTitle, setEditingTitle] = useState(false)
@@ -102,7 +102,7 @@ function NoteAccordion({ note, index, isOpen, onToggle, onDelete, onEdit, onFull
     clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(() => {
       if (html.replace(/<[^>]*>/g, '').trim()) {
-        onEdit(index, html)
+        onEdit(note.id, html)
         setAutoSaved(true)
         setTimeout(() => setAutoSaved(false), 2000)
       }
@@ -125,7 +125,7 @@ function NoteAccordion({ note, index, isOpen, onToggle, onDelete, onEdit, onFull
               onBlur={e => {
                 const val = e.target.value.trim()
                 setEditingTitle(false)
-                onEdit(index, note.content, val || note.title)
+                onEdit(note.id, note.content, val || note.title)
               }}
               onKeyDown={e => {
                 if (e.nativeEvent.isComposing) return
@@ -140,7 +140,7 @@ function NoteAccordion({ note, index, isOpen, onToggle, onDelete, onEdit, onFull
               onClick={e => { e.stopPropagation(); setEditTitle(note.title); setEditingTitle(true) }}
             >{note.title}</span>
           )}
-          {note.edited_at && !editingTitle && (
+          {wasEdited(note) && !editingTitle && (
             <span className="text-xs text-[rgba(226,232,240,0.4)] flex-shrink-0 ml-1">수정됨</span>
           )}
         </div>
@@ -197,7 +197,7 @@ function NoteAccordion({ note, index, isOpen, onToggle, onDelete, onEdit, onFull
             title="크게보기">⛶</button>
           <button onClick={e => { e.stopPropagation(); setEditContent(note.content); setEditing(true); if (!isOpen) onToggle() }}
             className="text-xs text-[rgba(226,232,240,0.3)] hover:text-blue-500 transition-colors opacity-0 group-hover:opacity-100">수정</button>
-          <button onClick={e => { e.stopPropagation(); onDelete(index) }}
+          <button onClick={e => { e.stopPropagation(); onDelete(note.id) }}
             className="text-xs text-[rgba(226,232,240,0.2)] hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100">삭제</button>
         </div>
       </div>
@@ -205,7 +205,7 @@ function NoteAccordion({ note, index, isOpen, onToggle, onDelete, onEdit, onFull
         <FullscreenNoteEditor
           value={editContent}
           onChange={handleChange}
-          onSave={() => { onEdit(index, editContent); setEditing(false) }}
+          onSave={() => { onEdit(note.id, editContent); setEditing(false) }}
           onClose={() => { setFullscreen(false); setTiptapKey(k => k + 1) }}
           title={note.title}
           dark
@@ -220,7 +220,7 @@ function NoteAccordion({ note, index, isOpen, onToggle, onDelete, onEdit, onFull
                 key={tiptapKey}
                 value={editContent}
                 onChange={handleChange}
-                onSubmit={() => { onEdit(index, editContent); setEditing(false) }}
+                onSubmit={() => { onEdit(note.id, editContent); setEditing(false) }}
                 onEscape={() => setEditing(false)}
                 onExpand={() => setFullscreen(true)}
                 autoFocus
@@ -230,7 +230,7 @@ function NoteAccordion({ note, index, isOpen, onToggle, onDelete, onEdit, onFull
                 <span className={`text-xs transition-opacity ${autoSaved ? 'text-emerald-500 opacity-100' : 'opacity-0'}`}>자동저장됨</span>
                 <div className="flex gap-2">
                   <button onClick={() => setEditing(false)} className="text-xs text-[rgba(226,232,240,0.4)] px-3 py-1 rounded-lg">취소</button>
-                  <button onClick={() => { onEdit(index, editContent); setEditing(false) }}
+                  <button onClick={() => { onEdit(note.id, editContent); setEditing(false) }}
                     className="text-xs bg-[rgba(76,127,224,0.1)] text-[#4C7FE0] border border-[rgba(76,127,224,0.25)] px-3 py-1 rounded-lg">저장</button>
                 </div>
               </div>
@@ -272,6 +272,8 @@ export default function MeetingDetailPage() {
   )
 
   const [meeting, setMeeting] = useState<Meeting | null>(null)
+  const [regularNotes, setRegularNotes] = useState<MeetingNoteRow[]>([])
+  const [prepNotes, setPrepNotes] = useState<MeetingNoteRow[]>([])
   const [titleInput, setTitleInput] = useState('')
   const [noteInput, setNoteInput] = useState('')
   const [noteTitle, setNoteTitle] = useState(defaultNoteTitle())
@@ -298,8 +300,9 @@ export default function MeetingDetailPage() {
 
   useEffect(() => {
     async function load() {
-      const [meetingRes, agendaLinksRes, attsRes, agendaRes] = await Promise.all([
+      const [meetingRes, notesGrouped, agendaLinksRes, attsRes, agendaRes] = await Promise.all([
         supabase.from('meetings').select('*').eq('id', id).single(),
+        fetchMeetingNotes(supabase, id),
         supabase.from('meeting_agenda_links').select('id, agenda_item_id, agenda_items(id, title, status, agenda_groups(name, category))').eq('meeting_id', id),
         supabase.from('attachments').select('*').eq('meeting_id', id).order('created_at', { ascending: false }),
         supabase.from('agenda_items').select('id, title, status, group_id, agenda_groups(name, category)').neq('status', 'done').order('sort_order'),
@@ -308,6 +311,8 @@ export default function MeetingDetailPage() {
         setMeeting(meetingRes.data as Meeting)
         setTitleInput((meetingRes.data as Meeting).title)
       }
+      setRegularNotes(notesGrouped.regular)
+      setPrepNotes(notesGrouped.prep)
       if (agendaLinksRes.data) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         setLinkedAgendaItems((agendaLinksRes.data as any[]).filter(l => l.agenda_items).map(l => ({
@@ -454,16 +459,24 @@ export default function MeetingDetailPage() {
     setMeeting(prev => prev ? { ...prev, ...updates } : prev)
   }
 
+  // Track B-4: meeting_notes 단일 row INSERT. meetings.notes는 더 이상
+  // 건드리지 않는다(dual-write 차단). created_at/updated_at을 같은 값으로
+  // 명시해 신규 노트가 "수정됨"으로 표시되지 않도록 한다(wasEdited 참조).
   async function saveNote() {
     if (!noteInput.replace(/<[^>]*>/g, '').trim() || !meeting) return
-    const newNote: NoteEntry = {
+    const now = new Date().toISOString()
+    const { data } = await supabase.from('meeting_notes').insert({
+      meeting_id: id,
       title: noteTitle.trim() || defaultNoteTitle(),
       content: noteInput,
-      created_at: new Date().toISOString(),
+      is_prep: false,
+      created_at: now,
+      updated_at: now,
+    }).select('*').single()
+    if (data) {
+      setRegularNotes(prev => [data as MeetingNoteRow, ...prev])
+      setOpenIndexes(new Set([0]))
     }
-    const updatedNotes = [newNote, ...meeting.notes]
-    await updateMeeting({ notes: updatedNotes })
-    setOpenIndexes(new Set([0]))
     setNoteInput('')
     setNoteTitle(defaultNoteTitle())
     setNewNoteKey(k => k + 1)
@@ -471,23 +484,24 @@ export default function MeetingDetailPage() {
     localStorage.removeItem(`meeting_draft_title_${id}`)
   }
 
-  async function deleteNote(index: number) {
-    if (!meeting) return
-    const updatedNotes = meeting.notes.filter((_, i) => i !== index)
-    await updateMeeting({ notes: updatedNotes })
+  // Track B-4: id(PK) 기준 단일 row DELETE — 더 이상 배열 index에 의존하지 않음.
+  async function deleteNote(noteId: string) {
+    await supabase.from('meeting_notes').delete().eq('id', noteId)
+    setRegularNotes(prev => prev.filter(n => n.id !== noteId))
     setOpenIndexes(new Set([0]))
   }
 
-  async function editNote(index: number, newContent: string, newTitle?: string) {
-    if (!meeting) return
-    const existing = meeting.notes[index]
+  // Track B-4: id(PK) 기준 단일 row UPDATE. updated_at만 갱신하고
+  // created_at은 건드리지 않음(wasEdited가 이 둘의 비교로 배지를 판단).
+  async function editNote(noteId: string, newContent: string, newTitle?: string) {
+    const existing = regularNotes.find(n => n.id === noteId)
     if (!existing) return
     const safeContent = newContent.trim() || existing.content
     if (!safeContent) return
-    const updatedNotes = meeting.notes.map((n, i) =>
-      i === index ? { ...n, content: safeContent, ...(newTitle ? { title: newTitle } : {}), edited_at: new Date().toISOString() } : n
-    )
-    await updateMeeting({ notes: updatedNotes })
+    const updatedAt = new Date().toISOString()
+    const updates = { content: safeContent, ...(newTitle ? { title: newTitle } : {}), updated_at: updatedAt }
+    await supabase.from('meeting_notes').update(updates).eq('id', noteId)
+    setRegularNotes(prev => prev.map(n => n.id === noteId ? { ...n, ...updates } : n))
   }
 
   async function deleteMeeting() {
@@ -561,7 +575,10 @@ export default function MeetingDetailPage() {
 
   function handleDownloadMd() {
     if (!meeting) return
-    const md = generateMeetingMd({ title: meeting.title, meeting_date: meeting.meeting_date, notes: meeting.notes })
+    // 원본 meetings.notes 배열 순서(구: prepend되는 일반 노트 -> append되는
+    // 사전 메모) 재현 — regularNotes(DESC)+prepNotes(ASC) 이어붙이면 동일함.
+    const notes = [...regularNotes, ...prepNotes].map(n => ({ title: n.title, content: n.content, created_at: n.created_at }))
+    const md = generateMeetingMd({ title: meeting.title, meeting_date: meeting.meeting_date, notes })
     downloadMd(md, meeting.title)
   }
 
@@ -619,15 +636,15 @@ export default function MeetingDetailPage() {
           </div>
 
           {/* 📌 사전 메모 (홈탭에서 연동된 경우) */}
-          {meeting.notes.some(n => n.is_prep) && (
+          {prepNotes.length > 0 && (
             <div className="mb-4 bg-[rgba(200,120,40,0.08)] border border-[rgba(200,120,40,0.2)] rounded-xl p-4">
               <p className="text-[11px] font-semibold text-amber-400 mb-2">📌 사전 메모</p>
-              {meeting.notes.filter(n => n.is_prep).map((n, i) => (
-                <div key={i}>
+              {prepNotes.map(n => (
+                <div key={n.id}>
                   <p className="text-sm text-[rgba(226,232,240,0.8)] leading-relaxed whitespace-pre-wrap">{n.content}</p>
-                  {n.edited_at && (
+                  {wasEdited(n) && (
                     <p className="text-[10px] text-amber-500/70 mt-1">
-                      수정: {new Date(n.edited_at).toLocaleDateString('ko-KR')}
+                      수정: {new Date(n.updated_at).toLocaleDateString('ko-KR')}
                     </p>
                   )}
                 </div>
@@ -669,11 +686,11 @@ export default function MeetingDetailPage() {
             )}
 
             <div className="space-y-2">
-              {meeting.notes.filter(n => !n.is_prep).length === 0 ? (
+              {regularNotes.length === 0 ? (
                 <p className="text-sm text-[rgba(226,232,240,0.3)] text-center py-4">아직 기록된 내용이 없습니다</p>
               ) : (
-                meeting.notes.map((note, idx) => note.is_prep ? null : (
-                  <NoteAccordion key={`${note.created_at}-${idx}`} note={note} index={idx}
+                regularNotes.map((note, idx) => (
+                  <NoteAccordion key={note.id} note={note}
                     isOpen={openIndexes.has(idx)} onToggle={() => toggleNote(idx)} onDelete={deleteNote}
                     onEdit={editNote} onFullscreen={(content) => { setFullscreenContent(content); setShowFullscreen(true) }}
                     agendaItems={agendaItems} onAddToItem={addNoteToItem} />

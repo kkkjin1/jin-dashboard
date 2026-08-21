@@ -10,6 +10,7 @@ import { format, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import type { Meeting } from '@/types'
 import { CATEGORY_PALETTE, MEETING_CATEGORY, colorKeyFromName } from '@/lib/categoryColors'
+import { fetchMeetingNotesByMeetingIds, type MeetingNotesGrouped } from '@/lib/meetingNotes'
 import SearchToolbar, { type SortOrder, type DateSelection } from './SearchToolbar'
 import MeetingSection from './MeetingSection'
 
@@ -54,6 +55,7 @@ export default function MeetingNotesNew() {
   const activeSupabase = pilotClient ?? supabase
 
   const [meetings,  setMeetings]  = useState<Meeting[]>([])
+  const [notesByMeeting, setNotesByMeeting] = useState<Record<string, MeetingNotesGrouped>>({})
   const [loading,   setLoading]   = useState(true)
   const [catOrder,  setCatOrder]  = useState<string[]>([...DEFAULT_CATS])
 
@@ -118,9 +120,10 @@ export default function MeetingNotesNew() {
       .from('meetings')
       .select('*')
       .order('meeting_date', { ascending: false, nullsFirst: false })
-      .then(({ data: m }) => {
+      .then(async ({ data: m }) => {
         const loaded = (m ?? []) as Meeting[]
         setMeetings(loaded)
+        setNotesByMeeting(await fetchMeetingNotesByMeetingIds(activeSupabase, loaded.map(mt => mt.id)))
 
         // DB에 있는 신규 범주 자동 추가
         const dbCats = [...new Set(loaded.map(mt => mt.category).filter((c): c is string => !!c && c !== '기타'))]
@@ -282,7 +285,14 @@ export default function MeetingNotesNew() {
     return result
   }, [filtered, catOrder, teamFilter, search, dateSelection])
 
-  const latestNote = selected?.notes.find(n => !n.is_prep)
+  const noteCounts = useMemo(() => Object.fromEntries(
+    Object.entries(notesByMeeting).map(([mid, g]) => [mid, g.regular.length + g.prep.length])
+  ), [notesByMeeting])
+
+  // regular는 created_at DESC로 이미 정렬되어 있어 [0]이 곧 최신 일반 노트 —
+  // 구 `selected.notes.find(n => !n.is_prep)`(원본 배열에서 첫 non-prep, 항상
+  // prepend되어 왔으므로 결과적으로 최신 노트였음)와 동일한 결과.
+  const latestNote = selected ? notesByMeeting[selected.id]?.regular[0] : undefined
   const selectedDateLabel = selected?.meeting_date
     ? (() => { try { return format(parseISO(selected.meeting_date as string), 'yyyy.MM.dd (eee)', { locale: ko }) } catch { return '' } })()
     : ''
@@ -400,6 +410,7 @@ export default function MeetingNotesNew() {
                 meetings={items}
                 dotColor={catDot(cat)}
                 onSelect={id => setSelected(meetings.find(m => m.id === id) ?? null)}
+                noteCounts={noteCounts}
               />
             ))}
           </div>

@@ -11,11 +11,12 @@ interface Props {
   meetings: Meeting[]
   dotColor: string
   onSelect: (id: string) => void
+  noteCounts: Record<string, number>
 }
 
 const PREVIEW_COUNT = 3
 
-export default function MeetingSection({ cat, meetings, dotColor, onSelect }: Props) {
+export default function MeetingSection({ cat, meetings, dotColor, onSelect, noteCounts }: Props) {
   // 범주 섹션은 항상 최소 미리보기(최신 3건)를 보여주고, "전체 보기"를 눌러야 월별 탭 전체 뷰로 펼쳐짐
   // (메모 탭처럼 클릭 한 번 없이도 내용이 바로 보이도록)
   const [expanded, setExpanded] = useState(false)
@@ -70,7 +71,7 @@ export default function MeetingSection({ cat, meetings, dotColor, onSelect }: Pr
       {meetings.length === 0 ? null : !expanded ? (
         <div className="px-4 py-1">
           {previewItems.map(m => (
-            <MeetingRow key={m.id} meeting={m} catAccent={dotColor} onClick={() => onSelect(m.id)} />
+            <MeetingRow key={m.id} meeting={m} catAccent={dotColor} onClick={() => onSelect(m.id)} noteCount={noteCounts[m.id] ?? 0} />
           ))}
           {hasMore && (
             <button
@@ -88,6 +89,7 @@ export default function MeetingSection({ cat, meetings, dotColor, onSelect }: Pr
             months={months}
             catAccent={dotColor}
             onNavigate={onSelect}
+            noteCounts={noteCounts}
           />
           <div className="px-4">
             <button

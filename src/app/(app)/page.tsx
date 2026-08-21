@@ -9,7 +9,8 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Search, Plus, FileText, Clock, NotebookPen, Layers, CheckSquare, CalendarDays, StickyNote, Repeat2, X } from 'lucide-react'
 import ShortcutIcons from '@/components/ShortcutIcons'
-import type { TaskTodo, Meeting, QuickMemo, AgendaSubTask, NoteEntry, ScheduleItem, QuickTodo } from '@/types'
+import type { TaskTodo, Meeting, QuickMemo, AgendaSubTask, ScheduleItem, QuickTodo } from '@/types'
+import { fetchMeetingNotesByMeetingIds, type MeetingNotesGrouped, type MeetingNoteRow } from '@/lib/meetingNotes'
 import type { GoogleCalendarEvent } from '@/app/api/calendar/today/route'
 import { JournalFullscreenEditor, type DailyJournal } from '@/components/home/DailyJournalWidget'
 import { useUserSetting } from '@/hooks/useUserSetting'
@@ -880,6 +881,7 @@ export default function HomePage() {
   const [subTasks,      setSubTasks]      = useState<SubTaskWithContext[]>([])
   const [allTaskTodos,  setAllTaskTodos]  = useState<TodayTodo[]>([])
   const [meetings,      setMeetings]      = useState<Meeting[]>([])
+  const [notesByMeeting, setNotesByMeeting] = useState<Record<string, MeetingNotesGrouped>>({})
   const [memos,         setMemos]         = useState<QuickMemo[]>([])
   const [scheduleItems, setScheduleItems] = useState<ScheduleItem[]>([])
   const [todayJournal,  setTodayJournal]  = useState<DailyJournal | null>(null)
@@ -923,7 +925,9 @@ export default function HomePage() {
 
       setSubTasks((stData ?? []) as SubTaskWithContext[])
       setAllTaskTodos((taskTodoData ?? []) as TodayTodo[])
-      setMeetings((mData ?? []) as Meeting[])
+      const loadedMeetings = (mData ?? []) as Meeting[]
+      setMeetings(loadedMeetings)
+      setNotesByMeeting(await fetchMeetingNotesByMeetingIds(sb.current, loadedMeetings.map(m => m.id)))
       setMemos((mmData ?? []) as QuickMemo[])
       setQuickTodos((qtData ?? []) as QuickTodo[])
       const jList = (jData ?? []) as DailyJournal[]
@@ -1137,20 +1141,32 @@ export default function HomePage() {
     setHoveredStId(null)
   }
 
+  // Track B-4: meeting_notes에 is_prep=true row를 INSERT — meetings.notes는
+  // 더 이상 건드리지 않는다. meeting이 없어 새로 만드는 경우 "meeting INSERT
+  // -> meeting_notes INSERT" 두 호출이 되어 원자성이 사라지지만(B-4 설계
+  // §6에서 승인된 수용 리스크), 실패 시 보상 write는 추가하지 않는다.
   async function saveFixedMeetingMemo(schedule: MeetingSchedule, date: string = today, stateKey: string = schedule.id) {
     const text = (fMemoTexts[stateKey] ?? '').trim()
     if (!text) return
     setFMemoSaving(p => ({ ...p, [stateKey]: true }))
-    const newNote: NoteEntry = { title: '사전 메모', content: text, created_at: new Date().toISOString(), is_prep: true }
+    const now = new Date().toISOString()
     const category = schedule.category ?? '기타'
     const existing = meetings.find(m => m.title === schedule.title && m.meeting_date?.startsWith(date))
-    if (existing) {
-      const existingNotes = (existing.notes ?? []) as NoteEntry[]
-      await sb.current.from('meetings').update({ notes: [...existingNotes, newNote] }).eq('id', existing.id)
-      setMeetings(prev => prev.map(m => m.id === existing.id ? { ...m, notes: [...(m.notes ?? []), newNote] } : m))
-    } else {
-      const { data } = await sb.current.from('meetings').insert({ title: schedule.title, meeting_date: date, category, notes: [newNote] }).select('*').single()
-      if (data) setMeetings(prev => [...prev, data as Meeting])
+    let meetingId = existing?.id
+    if (!meetingId) {
+      const { data } = await sb.current.from('meetings').insert({ title: schedule.title, meeting_date: date, category }).select('*').single()
+      if (data) { setMeetings(prev => [...prev, data as Meeting]); meetingId = (data as Meeting).id }
+    }
+    if (meetingId) {
+      const { data: noteData } = await sb.current.from('meeting_notes').insert({
+        meeting_id: meetingId, title: '사전 메모', content: text, is_prep: true, created_at: now, updated_at: now,
+      }).select('*').single()
+      if (noteData) {
+        setNotesByMeeting(prev => {
+          const g = prev[meetingId as string] ?? { regular: [], prep: [] }
+          return { ...prev, [meetingId as string]: { ...g, prep: [...g.prep, noteData as MeetingNoteRow] } }
+        })
+      }
     }
     setFMemoTexts(p => ({ ...p, [stateKey]: '' }))
     setFMemoSaving(p => ({ ...p, [stateKey]: false }))
@@ -1232,7 +1248,7 @@ export default function HomePage() {
       const linked = meetings.find(m => m.title === s.title && m.meeting_date?.startsWith(tomorrowStr))
       if (!linked) return true
       // 사전 메모만 있는 레코드는 중복 취급 안 함
-      return !((linked.notes ?? []) as NoteEntry[]).some(n => !n.is_prep)
+      return (notesByMeeting[linked.id]?.regular.length ?? 0) === 0
     })
 
   // agenda_sub_tasks → date-based derived lists
@@ -1684,7 +1700,7 @@ export default function HomePage() {
                             const saving = fMemoSaving[s.id] ?? false
                             const saved  = fMemoSaved[s.id] ?? false
                             const linkedMeeting = meetings.find(m => m.title === s.title && m.meeting_date?.startsWith(today))
-                            const prepNotes = ((linkedMeeting?.notes ?? []) as NoteEntry[]).filter(n => n.is_prep)
+                            const prepNotes = notesByMeeting[linkedMeeting?.id ?? '']?.prep ?? []
                             const isLogged = !!linkedMeeting
                             const total = todayFixedMeetingsVisible.length + todayTodos.length + quickTodos.length + todayAgendaItems.length
                             return (
@@ -1716,7 +1732,7 @@ export default function HomePage() {
                                 </div>
                                 {prepNotes.length > 0 && !isOpen && (
                                   <div style={{ marginLeft: 26, marginBottom: 5 }}>
-                                    {prepNotes.slice(-3).map((n: NoteEntry, ni: number) => (
+                                    {prepNotes.slice(-3).map((n: MeetingNoteRow, ni: number) => (
                                       <p key={ni} style={{ fontSize: 11.5, color: TEXT3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.6 }}>· {n.content}</p>
                                     ))}
                                   </div>
@@ -1725,7 +1741,7 @@ export default function HomePage() {
                                   <div style={{ marginLeft: 26, marginBottom: 7 }}>
                                     {prepNotes.length > 0 && (
                                       <div style={{ marginBottom: 6 }}>
-                                        {prepNotes.map((n: NoteEntry, ni: number) => (
+                                        {prepNotes.map((n: MeetingNoteRow, ni: number) => (
                                           <p key={ni} style={{ fontSize: 11.5, color: TEXT3, lineHeight: 1.6 }}>· {n.content}</p>
                                         ))}
                                       </div>
@@ -1851,7 +1867,7 @@ export default function HomePage() {
                             const saving = fMemoSaving[tmrKey] ?? false
                             const saved  = fMemoSaved[tmrKey] ?? false
                             const linkedMeeting = meetings.find(m => m.title === s.title && m.meeting_date?.startsWith(tomorrowStr))
-                            const prepNotes = ((linkedMeeting?.notes ?? []) as NoteEntry[]).filter(n => n.is_prep)
+                            const prepNotes = notesByMeeting[linkedMeeting?.id ?? '']?.prep ?? []
                             return (
                               <div key={s.id} style={{ ...rd(i, tomorrowFixedMeetingsVisible.length), paddingBottom: 2, opacity: 0.75 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0 5px' }}>
@@ -1878,7 +1894,7 @@ export default function HomePage() {
                                 </div>
                                 {prepNotes.length > 0 && !isOpen && (
                                   <div style={{ marginLeft: 26, marginBottom: 5 }}>
-                                    {prepNotes.slice(-3).map((n: NoteEntry, ni: number) => (
+                                    {prepNotes.slice(-3).map((n: MeetingNoteRow, ni: number) => (
                                       <p key={ni} style={{ fontSize: 11.5, color: TEXT3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.6 }}>· {n.content}</p>
                                     ))}
                                   </div>
@@ -1887,7 +1903,7 @@ export default function HomePage() {
                                   <div style={{ marginLeft: 26, marginBottom: 7 }}>
                                     {prepNotes.length > 0 && (
                                       <div style={{ marginBottom: 6 }}>
-                                        {prepNotes.map((n: NoteEntry, ni: number) => (
+                                        {prepNotes.map((n: MeetingNoteRow, ni: number) => (
                                           <p key={ni} style={{ fontSize: 11.5, color: TEXT3, lineHeight: 1.6 }}>· {n.content}</p>
                                         ))}
                                       </div>
