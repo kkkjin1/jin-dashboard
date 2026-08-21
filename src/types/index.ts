@@ -310,6 +310,8 @@ export interface SketchEdge {
   board_id: string
   source_card_id: string
   target_card_id: string
+  /** 'hierarchy' = Tab으로 만든 부모→자식 연결, null = 드래그로 만든 수동 연결 */
+  kind: string | null
   created_at: string
 }
 

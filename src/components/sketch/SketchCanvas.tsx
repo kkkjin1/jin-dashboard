@@ -26,13 +26,21 @@ const CONNECT_OVERLAP_RATIO = 0.6
 const DISCONNECT_OVERLAP_RATIO = 0.55
 const FRAME_PADDING = 24
 const FRAME_LABEL_SPACE = 100 // 프레임 안쪽 좌상단 대형 라벨(FrameNode.tsx)이 첫 카드와 겹치지 않도록 새 프레임 생성 시 위쪽에 확보하는 여유 공간
+const CHILD_H_GAP = FRAME_PADDING // Tab으로 만든 형제 카드 사이 가로 간격 — 기존 프레임 패딩과 톤 통일
+const CHILD_V_GAP = 56 // Tab으로 만든 자식 카드와 부모 카드 사이 세로 간격
 const EDGE_COLOR = 'rgba(157,190,245,0.55)'
 const EDGE_STYLE = { stroke: EDGE_COLOR, strokeWidth: 1.5 }
 const EDGE_MARKER = { type: MarkerType.ArrowClosed, color: EDGE_COLOR, width: 16, height: 16 }
 
 // ── Edge helpers ───────────────────────────────────────────────────────────────
 function edgeFromRow(row: SketchEdge): Edge {
-  return { id: row.id, source: row.source_card_id, target: row.target_card_id, type: 'floating', markerEnd: EDGE_MARKER, style: EDGE_STYLE }
+  return {
+    id: row.id, source: row.source_card_id, target: row.target_card_id, type: 'floating',
+    markerEnd: EDGE_MARKER, style: EDGE_STYLE,
+    // 지금은 스타일 분기 없이 그대로 실어 보내기만 함 — 나중에 위계 연결(kind
+    // === 'hierarchy')만 다르게 그리고 싶을 때 FloatingEdge에서 바로 꺼내 쓸 수 있게.
+    data: { kind: row.kind },
+  }
 }
 
 function getNodeIntersection(intersectionNode: InternalNode, targetNode: InternalNode) {
@@ -72,6 +80,8 @@ type CardData = {
   onDelete: (id: string) => void
   onResize: (id: string, box: { x: number; y: number; width: number; height: number }) => void
   supabase: SupabaseClient
+  /** Tab으로 자식 카드를 만들 때만 true — 마운트 시 1회 편집모드로 자동 진입시킨다. */
+  autoFocus?: boolean
 }
 type CardNode = Node<CardData, 'sticky'>
 
@@ -114,6 +124,32 @@ function StickyCardNode({ id, data, selected }: NodeProps<CardNode>) {
   // (매 렌더마다) 커서 위치가 튀어버림
   useEffect(() => {
     if (editorRef.current) editorRef.current.innerHTML = toDisplayHtml(data.content)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Tab으로 만든 자식 카드만 마운트 시 1회 자동으로 편집모드 진입 (data.autoFocus는
+  // 생성 시점에만 실어 보내는 값이라 리렌더돼도 다시 안 트리거됨 — deps [] 고정).
+  // 새로 추가된 노드는 React Flow가 실제 크기를 측정(ResizeObserver)하기 전까지
+  // wrapper div에 style.visibility='hidden'을 직접 걸어둔다 — 그 구간에
+  // element.focus()를 호출하면 브라우저가 조용히 무시한다(포커스 불가능한
+  // 엘리먼트). 측정이 끝나 visibility가 풀릴 때까지 프레임 단위로 재시도.
+  useEffect(() => {
+    if (!data.autoFocus) return
+    let rafId: number
+    let attempts = 0
+    const tryFocus = () => {
+      const el = editorRef.current
+      if (!el) return
+      const hidden = getComputedStyle(el).visibility === 'hidden'
+      if (hidden && attempts < 30) {
+        attempts += 1
+        rafId = requestAnimationFrame(tryFocus)
+        return
+      }
+      el.focus()
+    }
+    rafId = requestAnimationFrame(tryFocus)
+    return () => cancelAnimationFrame(rafId)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -197,6 +233,11 @@ function StickyCardNode({ id, data, selected }: NodeProps<CardNode>) {
         <div
           ref={editorRef}
           contentEditable
+          // tabIndex 없는 contentEditable은 클릭으로는 focus가 걸리지만
+          // element.focus()로는 (크롬에서) 조용히 실패한다 — Tab 자식 생성 후
+          // 자동 편집모드 진입(programmatic focus)이 필요해서 -1로 스크립트
+          // focus만 가능하게 열어둔다(일반 Tab 키 순회 대상에는 안 들어감).
+          tabIndex={-1}
           suppressContentEditableWarning
           onInput={handleInput}
           onKeyDown={handleKeyDown}
@@ -230,6 +271,19 @@ function toAbsolutePosition(
   const frame = frames.find(f => f.id === parentId)
   if (!frame) return pos
   return { x: frame.position_x + pos.x, y: frame.position_y + pos.y }
+}
+
+// toAbsolutePosition의 역변환 — Tab 자동배치가 계산한 절대좌표를 프레임 소속
+// 형제 카드의 저장/렌더 좌표(프레임 기준 상대좌표)로 되돌릴 때 쓴다.
+function toRelativePosition(
+  absPos: { x: number; y: number },
+  parentId: string | undefined,
+  frames: SketchFrame[],
+): { x: number; y: number } {
+  if (!parentId) return absPos
+  const frame = frames.find(f => f.id === parentId)
+  if (!frame) return absPos
+  return { x: absPos.x - frame.position_x, y: absPos.y - frame.position_y }
 }
 
 function rectsOverlapArea(ax: number, ay: number, aw: number, ah: number, bx: number, by: number, bw: number, bh: number) {
@@ -277,13 +331,17 @@ function nodeSize(n: Node): { width: number; height: number } {
 function viewportKey(boardId: string) { return `sketch_viewport_${boardId}` }
 
 // ── Node 빌더 ──────────────────────────────────────────────────────────────────
-function cardToNode(card: SketchCard, handlers: Omit<CardData, 'content' | 'color'>): CardNode {
+function cardToNode(
+  card: SketchCard,
+  handlers: Omit<CardData, 'content' | 'color' | 'autoFocus'>,
+  extraData?: { autoFocus?: boolean },
+): CardNode {
   const node: CardNode = {
     id: card.id,
     type: 'sticky',
     position: { x: card.position_x, y: card.position_y },
     style: { width: card.width, height: card.height },
-    data: { content: card.content, color: card.color as CategoryColorKey, ...handlers },
+    data: { content: card.content, color: card.color as CategoryColorKey, ...handlers, ...extraData },
     zIndex: 10,
   }
   if (card.frame_id) {
@@ -513,9 +571,16 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
       .then(({ error }) => { setSaveError(error ? SAVE_ERROR_MSG : '') })
   }, [])
 
-  const handleConnect = useCallback((sourceId: string, targetId: string) => {
+  // kind: Tab으로 만든 부모→자식 엣지는 'hierarchy'로 표시, 드래그로 만든 수동
+  // 연결(기존 호출부)은 kind를 안 넘겨 null로 남는다 — 지금은 스타일 차이를 두지
+  // 않지만(edgeFromRow가 data.kind로 그대로 실어 보냄), 나중에 위계 연결만 다르게
+  // 그리고 싶을 때 이 값으로 바로 필터링할 수 있다.
+  const handleConnect = useCallback((sourceId: string, targetId: string, kind?: string) => {
+    // kind가 없는 기존 수동 연결 호출부는 payload에 kind 키 자체를 안 넣는다 —
+    // supabase/schema_v44.sql(kind 컬럼 추가) 적용 전에도 기존 드래그 연결이
+    // 깨지지 않도록. Tab 쪽만 새로 kind:'hierarchy'를 명시적으로 넘긴다.
     supabase.from('sketch_edges')
-      .insert({ board_id: boardId, source_card_id: sourceId, target_card_id: targetId })
+      .insert({ board_id: boardId, source_card_id: sourceId, target_card_id: targetId, ...(kind ? { kind } : {}) })
       .select().single()
       .then(({ data, error }) => {
         setSaveError(error || !data ? SAVE_ERROR_MSG : '')
@@ -605,6 +670,71 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
     setNodes(prev => [...prev, cardToNode(data as SketchCard, cardHandlers)])
   }
 
+  // ── Tab: 선택된 카드 아래에 자식 카드 생성 ──────────────────────────────────
+  // 같은 부모의 기존 직계 자식(엣지 source===parent.id)들을 부모 중심축 기준으로
+  // 가로로 나란히 재배치하면서, 새 자식을 그 줄의 맨 끝에 추가한다. 형제 카드가
+  // 다른 프레임에 속해 있으면(드문 케이스) 절대좌표로 계산한 뒤 그 프레임 기준
+  // 상대좌표로 되돌려서 저장 — 새로 만드는 자식 자체는 항상 프레임 밖 자유 카드로
+  // 둔다(부모가 프레임에 속해 있어도 자동으로 같은 프레임에 편입시키지 않음).
+  async function handleTabCreateChild(parent: Node) {
+    const parentAbs = toAbsolutePosition(parent.position, parent.parentId, framesRef.current)
+    const parentSize = nodeSize(parent)
+    const childY = parentAbs.y + parentSize.height + CHILD_V_GAP
+
+    const siblingIds = edgesRef.current.filter(e => e.source === parent.id).map(e => e.target)
+    const siblings = siblingIds
+      .map(id => nodesRef.current.find(n => n.id === id && n.type === 'sticky'))
+      .filter((n): n is Node => !!n)
+
+    const widths = [...siblings.map(nodeSize), { width: DEFAULT_WIDTH, height: DEFAULT_HEIGHT }]
+    const totalWidth = widths.reduce((sum, s) => sum + s.width, 0) + CHILD_H_GAP * (widths.length - 1)
+    let cursorX = parentAbs.x + parentSize.width / 2 - totalWidth / 2
+
+    const siblingMoves = siblings.map((s, i) => {
+      const abs = { x: cursorX, y: childY }
+      cursorX += widths[i].width + CHILD_H_GAP
+      return { id: s.id, frameId: s.parentId, rel: toRelativePosition(abs, s.parentId, framesRef.current) }
+    })
+    const newChildAbsX = cursorX // 마지막 자리 = 새 자식 (항상 프레임 밖, 절대좌표 그대로 저장)
+
+    const color = COLOR_KEYS[nodesRef.current.filter(n => n.type === 'sticky').length % COLOR_KEYS.length]
+    const { data, error } = await supabase.from('sketch_cards')
+      .insert({
+        board_id: boardId, content: '', color,
+        position_x: newChildAbsX, position_y: childY,
+        width: DEFAULT_WIDTH, height: DEFAULT_HEIGHT,
+      })
+      .select().single()
+    if (error || !data) { console.error('자식 카드 생성 실패:', error?.message); return }
+    const newCard = data as SketchCard
+
+    await Promise.all(siblingMoves.map(m =>
+      supabase.from('sketch_cards').update({ position_x: m.rel.x, position_y: m.rel.y }).eq('id', m.id)
+        .then(({ error }) => { if (error) console.error('형제 카드 재배치 실패:', error.message) })
+    ))
+
+    setNodes(prev => {
+      const repositioned = prev.map(n => {
+        const m = siblingMoves.find(m => m.id === n.id)
+        return m ? { ...n, position: m.rel } : n
+      })
+      return [...repositioned, cardToNode(newCard, cardHandlers, { autoFocus: true })]
+    })
+
+    // 선택 상태는 raw setNodes로 node.selected를 직접 대입하지 않고 React Flow의
+    // 정식 change 파이프라인(onNodesChange 'select')으로 보낸다 — 직접 대입하면
+    // z-index/visibility 같은 파생 스타일이 다음 클릭 전까지 정리되지 않고 남아있어
+    // (선택은 됐지만 elevated z-index + visibility:hidden에 갇힘) 방금 만든 카드로
+    // 옮긴 focus()가 조용히 실패하는 문제가 있었다.
+    const previouslySelectedIds = nodesRef.current.filter(n => n.selected).map(n => n.id)
+    onNodesChange([
+      ...previouslySelectedIds.map(nid => ({ type: 'select' as const, id: nid, selected: false })),
+      { type: 'select' as const, id: newCard.id, selected: true },
+    ])
+
+    handleConnect(parent.id, newCard.id, 'hierarchy')
+  }
+
   function handlePaneDoubleClick(e: React.MouseEvent) {
     if (!(e.target as HTMLElement).classList.contains('react-flow__pane')) return
     const pos = screenToFlowPosition({ x: e.clientX, y: e.clientY })
@@ -621,6 +751,9 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
   const handleAddButtonClickRef = useRef(handleAddButtonClick)
   useEffect(() => { handleAddButtonClickRef.current = handleAddButtonClick })
 
+  const handleTabCreateChildRef = useRef(handleTabCreateChild)
+  useEffect(() => { handleTabCreateChildRef.current = handleTabCreateChild })
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || e.isComposing) return
@@ -632,6 +765,13 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
       if (e.key.toLowerCase() === 'n') { e.preventDefault(); handleAddButtonClickRef.current() }
       if (e.key.toLowerCase() === 'f') { e.preventDefault(); setIsCreatingFrame(v => !v) }
       if (e.key === 'Escape') setIsCreatingFrame(false)
+      if (e.key === 'Tab') {
+        // 편집모드(contenteditable/input)는 위에서 이미 걸러졌으므로 여기 도달했다는
+        // 건 "선택된 상태(비편집)"라는 뜻 — 정확히 카드 1개가 선택돼 있을 때만 자식을
+        // 만든다(0개=아무 의미 없음, 2개 이상=어느 카드 밑에 만들지 모호해서 무시).
+        const selected = nodesRef.current.filter(n => n.type === 'sticky' && n.selected)
+        if (selected.length === 1) { e.preventDefault(); void handleTabCreateChildRef.current(selected[0]) }
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
