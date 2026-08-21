@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import type { Member, OneOnOne } from '@/types'
+import type { Member, OneOnOne, OneOnOneTemplate } from '@/types'
 import { format, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import MarkdownContent from '@/components/MarkdownContent'
@@ -109,6 +109,7 @@ export default function MemberOneOnOnePage() {
 
   const [member, setMember] = useState<Member | null>(null)
   const [sessions, setSessions] = useState<OneOnOne[]>([])
+  const [templates, setTemplates] = useState<OneOnOneTemplate[]>([])
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [creating, setCreating] = useState(false)
@@ -118,27 +119,27 @@ export default function MemberOneOnOnePage() {
     Promise.all([
       supabase.from('members').select('*').eq('id', memberId).single(),
       supabase.from('one_on_ones').select('*').eq('member_id', memberId).order('session_date', { ascending: false }),
-    ]).then(([{ data: m }, { data: s }]) => {
+      supabase.from('one_on_one_template').select('*').order('updated_at', { ascending: false }),
+    ]).then(([{ data: m }, { data: s }, { data: t }]) => {
       if (m) setMember(m as Member)
       const list = (s ?? []) as OneOnOne[]
       setSessions(list)
       if (list.length > 0) setSelectedSessionId(list[0].id)
+      setTemplates((t ?? []) as OneOnOneTemplate[])
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [memberId])
 
-  async function createSession(useTemplate: boolean) {
+  async function createSession(templateId: string | null) {
     setCreating(true)
     let initialNotes: { title: string; content: string; created_at: string }[] = []
-    if (useTemplate) {
-      const { data } = await supabase.from('one_on_one_template').select('content').limit(1).single()
-      if (data?.content) {
-        const now = new Date()
-        const yy = String(now.getFullYear()).slice(2)
-        const mm = String(now.getMonth() + 1).padStart(2, '0')
-        const dd = String(now.getDate()).padStart(2, '0')
-        initialNotes = [{ title: `${yy}${mm}${dd} 1on1`, content: (data as { content: string }).content, created_at: now.toISOString() }]
-      }
+    const template = templateId ? templates.find(t => t.id === templateId) : null
+    if (template) {
+      const now = new Date()
+      const yy = String(now.getFullYear()).slice(2)
+      const mm = String(now.getMonth() + 1).padStart(2, '0')
+      const dd = String(now.getDate()).padStart(2, '0')
+      initialNotes = [{ title: `${yy}${mm}${dd} 1on1`, content: template.content, created_at: now.toISOString() }]
     }
     const today = new Date().toISOString().slice(0, 10)
     const { data } = await supabase.from('one_on_ones')
@@ -262,19 +263,28 @@ export default function MemberOneOnOnePage() {
           <div className="surface-card rounded-2xl" style={{ padding: 24, width: 320 }} onClick={e => e.stopPropagation()}>
             <h3 style={{ fontSize: 16, fontWeight: 600, color: T1, marginBottom: 6 }}>새 1on1 시작</h3>
             <p style={{ fontSize: 13, color: T3, marginBottom: 20 }}>어떻게 시작할까요?</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {[
-                { label: '빈 양식', sub: '백지 상태로 시작', useTemplate: false },
-                { label: '템플릿 적용', sub: '저장된 템플릿으로 시작', useTemplate: true },
-              ].map(opt => (
-                <button key={opt.label} onClick={() => createSession(opt.useTemplate)} disabled={creating}
-                  style={{ textAlign: 'left', padding: '12px 16px', borderRadius: 12, border: `1px solid ${BORDER}`, background: 'transparent', cursor: 'pointer', transition: 'background 150ms', width: '100%' }}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 320, overflowY: 'auto' }} className="scrollbar-hide">
+              <button onClick={() => createSession(null)} disabled={creating}
+                style={{ textAlign: 'left', padding: '12px 16px', borderRadius: 12, border: `1px solid ${BORDER}`, background: 'transparent', cursor: 'pointer', transition: 'background 150ms', width: '100%', flexShrink: 0 }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                <p style={{ fontSize: 13, fontWeight: 500, color: T1, marginBottom: 2 }}>빈 양식</p>
+                <p style={{ fontSize: 11, color: T3 }}>백지 상태로 시작</p>
+              </button>
+              {templates.map(t => (
+                <button key={t.id} onClick={() => createSession(t.id)} disabled={creating}
+                  style={{ textAlign: 'left', padding: '12px 16px', borderRadius: 12, border: `1px solid ${BORDER}`, background: 'transparent', cursor: 'pointer', transition: 'background 150ms', width: '100%', flexShrink: 0 }}
                   onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                  <p style={{ fontSize: 13, fontWeight: 500, color: T1, marginBottom: 2 }}>{opt.label}</p>
-                  <p style={{ fontSize: 11, color: T3 }}>{opt.sub}</p>
+                  <p style={{ fontSize: 13, fontWeight: 500, color: T1, marginBottom: 2 }}>{t.title}</p>
+                  <p style={{ fontSize: 11, color: T3 }}>템플릿으로 시작</p>
                 </button>
               ))}
+              {templates.length === 0 && (
+                <p style={{ fontSize: 11, color: T3, padding: '0 4px' }}>
+                  저장된 템플릿이 없습니다 · <Link href="/one-on-one/template" style={{ color: '#93C5FD' }}>템플릿 만들기</Link>
+                </p>
+              )}
             </div>
             <button onClick={() => setShowModal(false)}
               style={{ marginTop: 16, width: '100%', fontSize: 12, color: T3, background: 'none', border: 'none', cursor: 'pointer', transition: 'color 150ms' }}

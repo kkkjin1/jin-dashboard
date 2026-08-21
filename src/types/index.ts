@@ -133,6 +133,13 @@ export interface OneOnOne {
   updated_at: string
 }
 
+export interface OneOnOneTemplate {
+  id: string
+  title: string
+  content: string
+  updated_at: string
+}
+
 export interface MyFeedback {
   id: string
   month: string
