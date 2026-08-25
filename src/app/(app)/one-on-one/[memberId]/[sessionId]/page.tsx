@@ -293,7 +293,7 @@ export default function OneOnOneSessionPage() {
       </div>
 
       {/* 본문 */}
-      <div style={{ flex: 1, minHeight: 0, display: 'flex', gap: 16, padding: '16px 20px 32px', overflowY: 'auto' }} className="scrollbar-hide">
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'flex-start', gap: 16, padding: '16px 20px 32px', overflowY: 'auto' }} className="scrollbar-hide">
 
         {/* ── 메인 콘텐츠 ── */}
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
