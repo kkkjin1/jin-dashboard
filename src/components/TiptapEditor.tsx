@@ -11,6 +11,82 @@ import Image from '@tiptap/extension-image'
 import { ArrowShortcuts } from '@/lib/arrowShortcuts'
 import { collapseEmptyParagraphs } from '@/lib/htmlCleanup'
 
+// ── Clipboard: ProseMirror document → Markdown (GFM) ─────────────────────────
+
+function inlineToMd(node: any): string {
+  let out = ''
+  node.forEach((leaf: any) => {
+    if (leaf.type.name !== 'text') return
+    let t: string = leaf.text ?? ''
+    const has = (n: string) => leaf.marks.some((m: any) => m.type.name === n)
+    if (has('code')) { out += `\`${t}\``; return }
+    if (has('bold')) t = `**${t}**`
+    if (has('italic')) t = `_${t}_`
+    if (has('strike')) t = `~~${t}~~`
+    out += t
+  })
+  return out
+}
+
+function collectMarkdown(node: any, lines: string[], depth: number): void {
+  const t: string = node.type.name
+  if (t === 'paragraph') {
+    lines.push(inlineToMd(node))
+  } else if (t === 'heading') {
+    lines.push('#'.repeat(node.attrs.level as number) + ' ' + inlineToMd(node))
+  } else if (t === 'orderedList') {
+    let n: number = (node.attrs.start as number) ?? 1
+    node.forEach((item: any) => {
+      const indent = '   '.repeat(depth)
+      item.forEach((child: any) => {
+        if (child.type.name === 'paragraph') {
+          lines.push(`${indent}${n}. ${inlineToMd(child)}`)
+        } else {
+          collectMarkdown(child, lines, depth + 1)
+        }
+      })
+      n++
+    })
+  } else if (t === 'bulletList') {
+    node.forEach((item: any) => {
+      const indent = '   '.repeat(depth)
+      item.forEach((child: any) => {
+        if (child.type.name === 'paragraph') {
+          lines.push(`${indent}- ${inlineToMd(child)}`)
+        } else {
+          collectMarkdown(child, lines, depth + 1)
+        }
+      })
+    })
+  } else if (t === 'listItem') {
+    // top-level listItem (edge case: partial selection starting inside list)
+    node.forEach((child: any) => {
+      if (child.type.name === 'paragraph') {
+        lines.push('   '.repeat(depth) + '- ' + inlineToMd(child))
+      } else {
+        collectMarkdown(child, lines, depth + 1)
+      }
+    })
+  } else if (t === 'blockquote') {
+    const inner: string[] = []
+    node.forEach((child: any) => collectMarkdown(child, inner, 0))
+    inner.forEach(l => lines.push(`> ${l}`))
+  } else if (t === 'codeBlock') {
+    const lang: string = (node.attrs.language as string) ?? ''
+    lines.push('```' + lang)
+    node.forEach((c: any) => { if (c.type.name === 'text') lines.push(c.text ?? '') })
+    lines.push('```')
+  }
+}
+
+function pmDocToMarkdown(doc: any): string {
+  const lines: string[] = []
+  doc.forEach((node: any) => collectMarkdown(node, lines, 0))
+  return lines.join('\n').trim()
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 const COLOR_MAP: Record<string, string> = {
   red: '#EF4444', blue: '#3B82F6', green: '#22C55E',
   orange: '#F97316', purple: '#A855F7', gray: '#9CA3AF',
@@ -356,6 +432,48 @@ export default function TiptapEditor({
       return () => clearTimeout(t)
     }
   }, [autoFocus, editor])
+
+  // Clipboard: text/html (nested DOM) + text/plain (GFM Markdown)
+  useEffect(() => {
+    if (!editor) return
+
+    const dom = editor.view.dom
+    const handleCopy = (e: ClipboardEvent) => {
+      if (!e.clipboardData) return
+      e.preventDefault()
+
+      // text/html: browser DOM selection gives proper nested structure without CSS pseudo-elements
+      let htmlContent = editor.getHTML()
+      const winSel = window.getSelection()
+      if (winSel && winSel.rangeCount > 0 && !winSel.isCollapsed) {
+        const range = winSel.getRangeAt(0)
+        const tmp = document.createElement('div')
+        tmp.appendChild(range.cloneContents())
+        htmlContent = tmp.innerHTML
+      }
+
+      // text/plain: GFM Markdown serialized from ProseMirror document
+      const { selection, doc, schema } = editor.state
+      let mdContent: string
+      if (!selection.empty) {
+        try {
+          const slice = doc.slice(selection.from, selection.to)
+          const tempDoc = (schema.nodes.doc as any).createAndFill(null, slice.content)
+          mdContent = tempDoc ? pmDocToMarkdown(tempDoc) : pmDocToMarkdown(doc)
+        } catch {
+          mdContent = pmDocToMarkdown(doc)
+        }
+      } else {
+        mdContent = pmDocToMarkdown(doc)
+      }
+
+      e.clipboardData.setData('text/html', htmlContent)
+      e.clipboardData.setData('text/plain', mdContent)
+    }
+
+    dom.addEventListener('copy', handleCopy)
+    return () => dom.removeEventListener('copy', handleCopy)
+  }, [editor])
 
   if (!editor) return null
 

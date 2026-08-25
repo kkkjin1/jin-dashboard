@@ -355,10 +355,7 @@ html, body {
 .tiptap-input h1, .tiptap-input-dark h1, .note-html h1, .note-html-dark h1 { font-size: 1.2rem; font-weight: 700; color: var(--note-h1-color); margin: 0.5rem 0 0.25rem; }
 .tiptap-input h2, .tiptap-input-dark h2, .note-html h2, .note-html-dark h2 { font-size: 1.05rem; font-weight: 600; color: var(--note-h2-color); margin: 0.4rem 0 0.2rem; }
 .tiptap-input h3, .tiptap-input-dark h3, .note-html h3, .note-html-dark h3 { font-size: 0.95rem; font-weight: 600; color: var(--note-h3-color); margin: 0.3rem 0 0.1rem; }
-/* 리스트 — 실제 ol/ul 태그 조합이 아니라 "중첩 깊이"로 들여쓰기·마커를 결정한다.
-   깊이1: 1. / 깊이2: 1) / 깊이3+: 항상 •. 불릿(ul)은 같은 깊이의 번호보다 한 단계 더 들여쓴 슬롯을 쓴다.
-   counter 이름(notecnt/notecnt2)은 4-variant가 공유하지만, 한 DOM 요소는 이 중 하나의 클래스만
-   가지므로(다크/라이트, 에디터/읽기모드가 동시에 적용되는 요소가 없음) 충돌 리스크가 없다. */
+/* 리스트 — 깊이1: 1. / 깊이2: 1) / 깊이3: • / 깊이4+: ○ */
 .tiptap-input :is(ol, ul), .tiptap-input-dark :is(ol, ul), .note-html :is(ol, ul), .note-html-dark :is(ol, ul) { list-style: none; margin: 0; }
 .tiptap-input :is(ol, ul) > li, .tiptap-input-dark :is(ol, ul) > li, .note-html :is(ol, ul) > li, .note-html-dark :is(ol, ul) > li { position: relative; }
 .tiptap-input > ol, .tiptap-input-dark > ol, .note-html > ol, .note-html-dark > ol { padding-left: 1.4rem; counter-reset: notecnt var(--ol-start, 0); }
@@ -373,6 +370,8 @@ html, body {
 .tiptap-input :is(ol, ul) ul > li::before, .tiptap-input-dark :is(ol, ul) ul > li::before, .note-html :is(ol, ul) ul > li::before, .note-html-dark :is(ol, ul) ul > li::before { content: "•"; position: absolute; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
 .tiptap-input :is(ol, ul) :is(ol, ul) :is(ol, ul), .tiptap-input-dark :is(ol, ul) :is(ol, ul) :is(ol, ul), .note-html :is(ol, ul) :is(ol, ul) :is(ol, ul), .note-html-dark :is(ol, ul) :is(ol, ul) :is(ol, ul) { padding-left: 1.1rem; }
 .tiptap-input :is(ol, ul) :is(ol, ul) :is(ol, ul) > li::before, .tiptap-input-dark :is(ol, ul) :is(ol, ul) :is(ol, ul) > li::before, .note-html :is(ol, ul) :is(ol, ul) :is(ol, ul) > li::before, .note-html-dark :is(ol, ul) :is(ol, ul) :is(ol, ul) > li::before { content: "•"; position: absolute; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
+/* 깊이4+: ○ (hollow circle) — 깊이3 규칙보다 specificity가 높아 override됨 */
+.tiptap-input :is(ol, ul) :is(ol, ul) :is(ol, ul) :is(ol, ul) > li::before, .tiptap-input-dark :is(ol, ul) :is(ol, ul) :is(ol, ul) :is(ol, ul) > li::before, .note-html :is(ol, ul) :is(ol, ul) :is(ol, ul) :is(ol, ul) > li::before, .note-html-dark :is(ol, ul) :is(ol, ul) :is(ol, ul) :is(ol, ul) > li::before { content: "○"; position: absolute; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.0em; line-height: 1.7; top: 0; }
 .tiptap-input strong, .tiptap-input-dark strong, .note-html strong, .note-html-dark strong { font-weight: 700; }
 .tiptap-input u, .tiptap-input-dark u, .note-html u, .note-html-dark u { text-decoration: underline; }
 .tiptap-input mark, .tiptap-input-dark mark, .note-html mark, .note-html-dark mark { border-radius: 2px; padding: 0 2px; }
@@ -413,13 +412,13 @@ html, body {
 .md-preview ol ol ol > li::before { content: "•"; left: -1rem; width: 0.8rem; text-align: center; font-size: 1.5em; line-height: 1.1; top: 0; }
 .md-preview ol ol ol ol { list-style: none; padding-left: 1rem; }
 .md-preview ol ol ol ol > li { counter-increment: none; }
-.md-preview ol ol ol ol > li::before { content: "•"; left: -1rem; width: 0.8rem; text-align: center; font-size: 1.5em; line-height: 1.1; top: 0; }
+.md-preview ol ol ol ol > li::before { content: "○"; left: -1rem; width: 0.8rem; text-align: center; font-size: 1.0em; line-height: 1.7; top: 0; }
 .md-preview ol ol ul { list-style: none; padding-left: 1rem; }
 .md-preview ol ol ul > li { counter-increment: none; }
 .md-preview ol ol ul > li::before { content: "•"; left: -1rem; width: 0.8rem; text-align: center; font-size: 1.5em; line-height: 1.1; top: 0; }
 .md-preview ol ol ul ul { list-style: none; padding-left: 1rem; }
 .md-preview ol ol ul ul > li { counter-increment: none; }
-.md-preview ol ol ul ul > li::before { content: "•"; left: -1rem; width: 0.8rem; text-align: center; font-size: 1.5em; line-height: 1.1; top: 0; }
+.md-preview ol ol ul ul > li::before { content: "○"; left: -1rem; width: 0.8rem; text-align: center; font-size: 1.0em; line-height: 1.7; top: 0; }
 .md-preview li { margin: 0.08rem 0; line-height: 1.65; }
 .md-preview li > p { margin: 0; }
 .md-preview strong { font-weight: 700; }
