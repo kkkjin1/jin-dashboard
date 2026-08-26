@@ -157,6 +157,65 @@ function removeEmptyListItemOnBackspace(editor: Editor): boolean {
   }).run()
 }
 
+// Backspace on an empty paragraph that is a listItem's FIRST child, where that
+// listItem's ONLY other content is a nested list (childCount === 2): the
+// listItem itself isn't empty/removable the way removeEmptyListItemOnBackspace
+// handles (it has real content — the nested list), so that function's
+// `childCount !== 1` guard correctly leaves this case alone. Left untouched,
+// it falls to Tiptap's default ListKeymap, whose handleBackspace only checks
+// "cursor at offset 0 inside some listItem" and calls liftListItem — which,
+// for a listItem carrying a nested list, lifts the WHOLE item (empty
+// paragraph + nested list) out via prosemirror-schema-list. When this listItem
+// sits directly in the outermost list, that lift routes to liftOutOfList
+// (confirmed via prosemirror-schema-list source: liftToOuterList only runs
+// when the list's own parent is itself a listItem, which isn't the case here),
+// and liftOutOfList unwraps the nested list to bare top-level flow content and
+// splits the surrounding ordered list in two around the removed item — same
+// class of split/renumber corruption as the leaf-item bug above, but via a
+// different trigger (a non-leaf item with a real nested child, not a residue).
+//
+// Confirmed by inspection that neither prosemirror-schema-list helper fits:
+// liftOutOfList has no rejoin step (that's the bug itself), and liftToOuterList
+// can't even be reached here (and would be unsafe to force, since its
+// ReplaceAroundStep assumes an outer listItem to wrap trailing siblings into).
+// So this case is handled the same way as every other handler in this file —
+// a direct, precisely-targeted transaction, no lift command involved: replace
+// the whole listItem with its nested list's own listItem children, splicing
+// them into the parent list at the same slot. The nested list's internal
+// structure (its own further nesting, if any) is copied over unchanged since
+// we move its `content` Fragment as-is — only the nested list's own wrapper
+// node is discarded, nothing inside it is touched.
+function spliceNestedListOnBackspace(editor: Editor): boolean {
+  const { state } = editor
+  const { selection } = state
+  if (!selection.empty) return false
+  const { $from } = selection
+  if ($from.parentOffset !== 0) return false
+  if ($from.parent.type.name !== 'paragraph' || $from.parent.content.size !== 0) return false
+  if ($from.depth < 3) return false
+
+  const liDepth = $from.depth - 1
+  const li = $from.node(liDepth)
+  if (li.type.name !== 'listItem') return false
+  if ($from.index(liDepth) !== 0) return false
+  if (li.childCount !== 2) return false
+  const nestedList = li.child(1)
+  if (nestedList.type.name !== 'orderedList' && nestedList.type.name !== 'bulletList') return false
+  const list = $from.node(liDepth - 1)
+  if (!list || (list.type.name !== 'orderedList' && list.type.name !== 'bulletList')) return false
+
+  const liStart = $from.before(liDepth)
+  const liEnd = $from.after(liDepth)
+
+  return editor.chain().focus().command(({ tr, dispatch }) => {
+    if (!dispatch) return true
+    tr.replaceWith(liStart, liEnd, nestedList.content)
+    tr.setSelection(TextSelection.near(tr.doc.resolve(liStart + 1), 1))
+    dispatch(tr)
+    return true
+  }).run()
+}
+
 // Delete (forward) at the very end of the last item of a nested list: the
 // next textblock in document order lives in a shallower list (or a different
 // branch entirely), so the default join-forward has to cross a depth
@@ -514,6 +573,7 @@ export default function TiptapEditor({
     }
     if (e.key === 'Backspace' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
       if (removeEmptyListItemOnBackspace(ed)) return true
+      if (spliceNestedListOnBackspace(ed)) return true
     }
     if (e.key === 'Delete' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
       if (pullAncestorSiblingOnDelete(ed)) return true
