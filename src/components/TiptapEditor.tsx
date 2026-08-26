@@ -139,20 +139,33 @@ function removeEmptyListItemOnBackspace(editor: Editor): boolean {
 // Delete (forward) at the very end of the last item of a nested list: the
 // next textblock in document order lives in a shallower list (or a different
 // branch entirely), so the default join-forward has to cross a depth
-// boundary to reach it. Verified via before/after document JSON: instead of
-// merging text or leaving structure alone, it relocates that next node bodily
-// into the deeper list as an extra sibling item — e.g. deleting forward at
-// the end of "아" (last child of a level-3 list) pulls the unrelated level-2
-// item "아아" one level deeper, duplicating structure without merging any
-// text. This is a different failure (forward join mis-nesting a sibling) from
-// the Backspace lift/split bug above (same-depth list splitting) — same
+// boundary to reach it. Verified via before/after document JSON: the default
+// relocates that next node bodily into the deeper list as an EXTRA sibling
+// item without removing the current one — e.g. deleting forward at the end
+// of "아" (last child of a level-3 list) pulled the unrelated level-2 item
+// "아아" one level deeper, duplicating structure without deleting anything.
+// That's a different failure (forward join mis-nesting a sibling) from the
+// Backspace lift/split bug above (same-depth list splitting) — same
 // "crossing a nested-list depth boundary" class of default-behavior bug, but
-// a separate mechanism, so it needs its own guard. Intercepting only this
-// exact case (cursor at end of a leaf item that is the last child of its
-// list) and no-opping avoids the corruption; every other Delete/backspace
-// path (including deleting a non-last item like "아스으") is untouched and
-// already merges cleanly by default.
-function blockCrossDepthJoinOnDelete(editor: Editor): boolean {
+// a separate mechanism, so it needs its own handling.
+//
+// The desired behavior (confirmed with the reporter) isn't "block it" but
+// "do the move correctly": delete the current leaf item, and if some
+// ancestor list has a following sibling item (walking up past however many
+// list levels have none), move THAT sibling node down to replace the current
+// item's position — same slot, same depth, current item's own text/node
+// discarded. E.g. deleting at the end of "무궁화" (last leaf of a level-3
+// list nested three levels under "산이마") pulls "삼천리" — the next item of
+// the level-1 list two levels up — down to become the new last item of that
+// same level-3 list; "대한으로" then correctly becomes the level-1 list's
+// item 2.
+//
+// Only intercepts the exact edge case: cursor at the true end of a leaf item
+// (no nested sub-list of its own) that is the last child of its list. Every
+// other Delete path (mid-text, non-last item, item with children) falls
+// through untouched and keeps using Tiptap's default merge, which is already
+// correct there.
+function pullAncestorSiblingOnDelete(editor: Editor): boolean {
   const { state } = editor
   const { selection } = state
   if (!selection.empty) return false
@@ -167,7 +180,50 @@ function blockCrossDepthJoinOnDelete(editor: Editor): boolean {
   if (!list || (list.type.name !== 'orderedList' && list.type.name !== 'bulletList')) return false
   if ($from.index(liDepth - 1) !== list.childCount - 1) return false // not the last item — default merge is safe
 
-  return true // swallow the keypress: block the corrupting cross-depth join
+  // Walk up through ancestor (listItem, list) pairs looking for the first
+  // level where the listItem owning the current nested list has a following
+  // sibling in ITS OWN parent list. That sibling is what document order says
+  // comes "next" after this whole branch — the item we pull down.
+  let ownerLiDepth = liDepth - 2
+  let targetParentListDepth = -1
+  let targetIndex = -1
+  while (ownerLiDepth >= 1) {
+    const ownerLi = $from.node(ownerLiDepth)
+    const ownerList = $from.node(ownerLiDepth - 1)
+    if (!ownerLi || ownerLi.type.name !== 'listItem') break
+    if (!ownerList || (ownerList.type.name !== 'orderedList' && ownerList.type.name !== 'bulletList')) break
+    const idx = $from.index(ownerLiDepth - 1)
+    if (idx < ownerList.childCount - 1) {
+      targetParentListDepth = ownerLiDepth - 1
+      targetIndex = idx + 1
+      break
+    }
+    ownerLiDepth -= 2
+  }
+  if (targetIndex === -1) return true // nothing follows anywhere up the chain — no valid move, just swallow the key (no corrupting default, no needless transaction)
+
+  const targetParentList = $from.node(targetParentListDepth)
+  const targetNode = targetParentList.child(targetIndex)
+  const targetListStart = $from.start(targetParentListDepth)
+  let targetFrom = targetListStart
+  for (let i = 0; i < targetIndex; i++) targetFrom += targetParentList.child(i).nodeSize
+  const targetTo = targetFrom + targetNode.nodeSize
+
+  const curFrom = $from.before(liDepth)
+  const curTo = $from.after(liDepth)
+  // Current item is always nested inside the branch that precedes the target
+  // sibling in the document, so curTo <= targetFrom always holds — deleting
+  // the target first can't shift curFrom/curTo.
+
+  return editor.chain().focus().command(({ tr, dispatch }) => {
+    if (!dispatch) return true
+    tr.delete(targetFrom, targetTo)
+    tr.delete(curFrom, curTo)
+    tr.insert(curFrom, targetNode)
+    tr.setSelection(TextSelection.near(tr.doc.resolve(curFrom + 1)))
+    dispatch(tr)
+    return true
+  }).run()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -439,7 +495,7 @@ export default function TiptapEditor({
       if (removeEmptyListItemOnBackspace(ed)) return true
     }
     if (e.key === 'Delete' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
-      if (blockCrossDepthJoinOnDelete(ed)) return true
+      if (pullAncestorSiblingOnDelete(ed)) return true
     }
     return false
   }, [])
