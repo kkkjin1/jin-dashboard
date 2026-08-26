@@ -1,10 +1,11 @@
 'use client'
 
 import { useCallback, useEffect, useRef } from 'react'
-import { useEditor, EditorContent } from '@tiptap/react'
+import { useEditor, EditorContent, type Editor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import OrderedList from '@tiptap/extension-ordered-list'
 import { mergeAttributes } from '@tiptap/core'
+import { TextSelection } from '@tiptap/pm/state'
 import { Color, TextStyle } from '@tiptap/extension-text-style'
 import Highlight from '@tiptap/extension-highlight'
 import Image from '@tiptap/extension-image'
@@ -83,6 +84,90 @@ function pmDocToMarkdown(doc: any): string {
   const lines: string[] = []
   doc.forEach((node: any) => collectMarkdown(node, lines, 0))
   return lines.join('\n').trim()
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Backspace on an already-empty, childless list item: ProseMirror's default
+// liftListItem chain (StarterKit's ListKeymap) outdents the item one level per
+// press instead of removing it, and — when the item isn't the last child of
+// its list — that lift SPLITS the surrounding orderedList into separate
+// sibling ol nodes (nesting the trailing siblings underneath the lifted item).
+// Each split-off ol keeps the default start=1, so a later item that used to
+// read "3." renders as "1." once it lands in its own detached ol. Nested lists
+// several levels deep can cascade through this on repeated backspaces until it
+// reaches the top-level list. Intercepting only this exact case (empty leaf
+// item, cursor at its start) and splicing the listItem straight out of its
+// parent list's content sidesteps the lift chain entirely, so numbering for
+// every remaining sibling stays correct automatically (same ol, same CSS
+// counter). All other backspace/delete behavior is untouched.
+function removeEmptyListItemOnBackspace(editor: Editor): boolean {
+  const { state } = editor
+  const { selection } = state
+  if (!selection.empty) return false
+  const { $from } = selection
+  if ($from.parentOffset !== 0) return false
+  if ($from.parent.type.name !== 'paragraph' || $from.parent.content.size !== 0) return false
+  if ($from.depth < 3) return false
+
+  const liDepth = $from.depth - 1
+  const li = $from.node(liDepth)
+  if (li.type.name !== 'listItem' || li.childCount !== 1) return false
+  const list = $from.node(liDepth - 1)
+  if (!list || (list.type.name !== 'orderedList' && list.type.name !== 'bulletList')) return false
+
+  const liStart = $from.before(liDepth)
+  const liEnd = $from.after(liDepth)
+
+  return editor.chain().focus().command(({ tr, dispatch }) => {
+    if (!dispatch) return true
+    if (list.childCount === 1) {
+      // sole item in this list — nothing left to number, collapse the whole list to an empty paragraph
+      const listStart = $from.before(liDepth - 1)
+      const listEnd = $from.after(liDepth - 1)
+      tr.replaceWith(listStart, listEnd, state.schema.nodes.paragraph.create())
+      tr.setSelection(TextSelection.near(tr.doc.resolve(listStart + 1)))
+    } else {
+      tr.delete(liStart, liEnd)
+      tr.setSelection(TextSelection.near(tr.doc.resolve(liStart), -1))
+    }
+    dispatch(tr)
+    return true
+  }).run()
+}
+
+// Delete (forward) at the very end of the last item of a nested list: the
+// next textblock in document order lives in a shallower list (or a different
+// branch entirely), so the default join-forward has to cross a depth
+// boundary to reach it. Verified via before/after document JSON: instead of
+// merging text or leaving structure alone, it relocates that next node bodily
+// into the deeper list as an extra sibling item — e.g. deleting forward at
+// the end of "아" (last child of a level-3 list) pulls the unrelated level-2
+// item "아아" one level deeper, duplicating structure without merging any
+// text. This is a different failure (forward join mis-nesting a sibling) from
+// the Backspace lift/split bug above (same-depth list splitting) — same
+// "crossing a nested-list depth boundary" class of default-behavior bug, but
+// a separate mechanism, so it needs its own guard. Intercepting only this
+// exact case (cursor at end of a leaf item that is the last child of its
+// list) and no-opping avoids the corruption; every other Delete/backspace
+// path (including deleting a non-last item like "아스으") is untouched and
+// already merges cleanly by default.
+function blockCrossDepthJoinOnDelete(editor: Editor): boolean {
+  const { state } = editor
+  const { selection } = state
+  if (!selection.empty) return false
+  const { $from } = selection
+  if ($from.parent.type.name !== 'paragraph' || $from.parentOffset !== $from.parent.content.size) return false
+  if ($from.depth < 3) return false
+
+  const liDepth = $from.depth - 1
+  const li = $from.node(liDepth)
+  if (li.type.name !== 'listItem' || li.childCount !== 1) return false
+  const list = $from.node(liDepth - 1)
+  if (!list || (list.type.name !== 'orderedList' && list.type.name !== 'bulletList')) return false
+  if ($from.index(liDepth - 1) !== list.childCount - 1) return false // not the last item — default merge is safe
+
+  return true // swallow the keypress: block the corrupting cross-depth join
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -349,6 +434,12 @@ export default function TiptapEditor({
         ? ed.chain().focus().liftListItem('listItem').run()
         : ed.chain().focus().sinkListItem('listItem').run()
       return true
+    }
+    if (e.key === 'Backspace' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      if (removeEmptyListItemOnBackspace(ed)) return true
+    }
+    if (e.key === 'Delete' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      if (blockCrossDepthJoinOnDelete(ed)) return true
     }
     return false
   }, [])
