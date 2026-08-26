@@ -122,11 +122,32 @@ function removeEmptyListItemOnBackspace(editor: Editor): boolean {
   return editor.chain().focus().command(({ tr, dispatch }) => {
     if (!dispatch) return true
     if (list.childCount === 1) {
-      // sole item in this list — nothing left to number, collapse the whole list to an empty paragraph
+      // Sole item in this list — the whole list node goes away, not just the item.
       const listStart = $from.before(liDepth - 1)
       const listEnd = $from.after(liDepth - 1)
-      tr.replaceWith(listStart, listEnd, state.schema.nodes.paragraph.create())
-      tr.setSelection(TextSelection.near(tr.doc.resolve(listStart + 1)))
+      const listParent = $from.node(liDepth - 2)
+      if (listParent && listParent.type.name === 'listItem') {
+        // This list is nested inside another listItem, whose content model
+        // ("paragraph block*") guarantees a paragraph already precedes it —
+        // deleting the list outright leaves that parent listItem with valid,
+        // untouched content. Replacing it with an empty paragraph instead (as
+        // below) would leave that placeholder behind as a second paragraph
+        // sibling inside the parent listItem — a residue that the guard above
+        // (`li.childCount !== 1`) can no longer recognize as "the empty list
+        // item" on the next Backspace, so it falls through to Tiptap's default
+        // ListKeymap handling, which lifts the whole parent item out of its
+        // list one level per keystroke — splitting the surrounding ordered
+        // list in two once it reaches the top level. Deleting the list
+        // in-place avoids ever creating that residue.
+        tr.delete(listStart, listEnd)
+        tr.setSelection(TextSelection.near(tr.doc.resolve(listStart), -1))
+      } else {
+        // Top-level (or otherwise non-listItem-nested) list — its container
+        // doesn't already have other content guaranteeing validity, so
+        // collapse to an empty paragraph instead of deleting outright.
+        tr.replaceWith(listStart, listEnd, state.schema.nodes.paragraph.create())
+        tr.setSelection(TextSelection.near(tr.doc.resolve(listStart + 1)))
+      }
     } else {
       tr.delete(liStart, liEnd)
       tr.setSelection(TextSelection.near(tr.doc.resolve(liStart), -1))

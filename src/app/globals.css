@@ -370,8 +370,12 @@ html, body {
 .tiptap-input :is(ol, ul) ul > li::before, .tiptap-input-dark :is(ol, ul) ul > li::before, .note-html :is(ol, ul) ul > li::before, .note-html-dark :is(ol, ul) ul > li::before { content: "•"; position: absolute; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
 .tiptap-input :is(ol, ul) :is(ol, ul) :is(ol, ul), .tiptap-input-dark :is(ol, ul) :is(ol, ul) :is(ol, ul), .note-html :is(ol, ul) :is(ol, ul) :is(ol, ul), .note-html-dark :is(ol, ul) :is(ol, ul) :is(ol, ul) { padding-left: 1.1rem; }
 .tiptap-input :is(ol, ul) :is(ol, ul) :is(ol, ul) > li::before, .tiptap-input-dark :is(ol, ul) :is(ol, ul) :is(ol, ul) > li::before, .note-html :is(ol, ul) :is(ol, ul) :is(ol, ul) > li::before, .note-html-dark :is(ol, ul) :is(ol, ul) :is(ol, ul) > li::before { content: "•"; position: absolute; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
-/* 깊이4+: ○ (hollow circle) — 깊이3 규칙보다 specificity가 높아 override됨 */
-.tiptap-input :is(ol, ul) :is(ol, ul) :is(ol, ul) :is(ol, ul) > li::before, .tiptap-input-dark :is(ol, ul) :is(ol, ul) :is(ol, ul) :is(ol, ul) > li::before, .note-html :is(ol, ul) :is(ol, ul) :is(ol, ul) :is(ol, ul) > li::before, .note-html-dark :is(ol, ul) :is(ol, ul) :is(ol, ul) :is(ol, ul) > li::before { content: ""; position: absolute; left: calc(-1.1rem + (0.9rem - 6px) / 2); top: 0.65em; width: 6px; height: 6px; border-radius: 50%; border: 1px solid currentColor; background: transparent; }
+/* 깊이4+: ○ (hollow circle) — 깊이3 규칙보다 specificity가 높아 override됨.
+   깊이3(•)과 동일하게 실제 글리프를 line-height로 본문 줄(1.7em)에 맞춰 앉히는 방식 —
+   .md-preview의 ol ol ol ol(같은 line-height:1.7 베이스)에 이미 검증된 font-size/line-height
+   조합을 그대로 이식. 이전엔 content:"" + 그려진 6px 원 + top:0.65em 매직넘버였는데, 그 top 값이
+   실제 줄의 중앙과 맞지 않아 텍스트보다 아래로 처져 보였다. */
+.tiptap-input :is(ol, ul) :is(ol, ul) :is(ol, ul) :is(ol, ul) > li::before, .tiptap-input-dark :is(ol, ul) :is(ol, ul) :is(ol, ul) :is(ol, ul) > li::before, .note-html :is(ol, ul) :is(ol, ul) :is(ol, ul) :is(ol, ul) > li::before, .note-html-dark :is(ol, ul) :is(ol, ul) :is(ol, ul) :is(ol, ul) > li::before { content: "○"; position: absolute; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.0em; line-height: 1.7; top: 0; }
 .tiptap-input strong, .tiptap-input-dark strong, .note-html strong, .note-html-dark strong { font-weight: 700; }
 .tiptap-input u, .tiptap-input-dark u, .note-html u, .note-html-dark u { text-decoration: underline; }
 .tiptap-input mark, .tiptap-input-dark mark, .note-html mark, .note-html-dark mark { border-radius: 2px; padding: 0 2px; }
