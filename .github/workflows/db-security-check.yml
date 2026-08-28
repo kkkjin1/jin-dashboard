@@ -3,11 +3,16 @@ name: DB Security Check
 # JIN Dashboard Supabase RLS 보안 점검. HRM(team_log_*)은 이 검사 대상이 아님
 # (scripts/db-security-check.mjs가 호출하는 public.rls_audit() 함수 자체가 제외함).
 #
-# 최초 1회 설정 필요: repo Settings → Secrets and variables → Actions에
+# `npm run db:security-check`는 두 단계로 동작한다:
+#   1) scripts/lib/rls-rules.test.mjs — 판정 로직(A~F 규칙) 자체의 단위 테스트.
+#      DB 접근이 전혀 필요 없어 secret 설정 여부와 무관하게 항상 실행/검증된다.
+#   2) scripts/db-security-check.mjs — 실제 production RLS 상태 점검(rls_audit() 호출).
+#
+# 2단계는 최초 1회 설정 필요: repo Settings → Secrets and variables → Actions에
 #   - NEXT_PUBLIC_SUPABASE_URL
 #   - SUPABASE_SERVICE_ROLE_KEY
-# 두 개를 등록해야 이 workflow가 통과할 수 있다. 등록 전에는 매번 실패하며,
-# 실패 로그에 설정 방법이 그대로 출력된다(scripts/db-security-check.mjs 참고).
+# 두 개를 등록해야 통과할 수 있다. 등록 전에는 1단계(규칙 테스트)까지는 통과하고
+# 2단계에서 실패하며, 실패 로그에 설정 방법이 그대로 출력된다.
 
 on:
   schedule:
@@ -16,6 +21,7 @@ on:
     branches: [main]
     paths:
       - 'supabase/**'
+      - 'scripts/**'
   workflow_dispatch: {}
 
 jobs:

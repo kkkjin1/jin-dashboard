@@ -34,3 +34,13 @@ anon에 노출)의 근본 원인은 전부 "Supabase 대시보드 SQL 에디터�
 `supabase/schema_v46.sql`의 `rls_audit()` 함수 안 `allowlist` 배열에 테이블명을
 추가하고, 그 커밋 메시지에 왜 공개되어야 하는지 이유를 남긴다. 이유 없이 그냥
 목록에만 추가하지 않는다 — 이후 감사(audit) 때 이 근거를 다시 확인해야 한다.
+
+## 판정 규칙(A~F)을 바꿀 때
+
+탐지 규칙은 두 곳에 나뉘어 있다 — 바꿀 때 반드시 둘 다 같이 수정한다:
+- `supabase/schema_v46.sql`의 `rls_audit()` SQL 함수 (실제 production 조회용)
+- `scripts/lib/rls-rules.mjs`의 `classify()` 순수 함수 (단위 테스트 가능한 명세)
+
+규칙을 고친 뒤에는 `npm run db:rls-rules-test`로 `scripts/lib/rls-rules.test.mjs`의
+기존 테스트가 여전히 통과하는지, 새 케이스가 필요하면 테스트를 추가했는지 확인한다.
+이 테스트는 DB에 전혀 접근하지 않으므로 secret 설정 여부와 무관하게 항상 돌아간다.
