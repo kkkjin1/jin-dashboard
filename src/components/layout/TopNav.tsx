@@ -5,20 +5,18 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
-  Home, ClipboardList, Trophy, MessageSquare, CalendarDays,
+  Home, Trophy, MessageSquare, CalendarDays,
   StickyNote, Users, BookOpen, Brain, NotebookPen, Settings,
   ChevronDown, LogOut, MoreHorizontal, Archive, LayoutGrid,
-  GripVertical, Eye, EyeOff, X, Target, Compass,
+  GripVertical, Eye, EyeOff, X, Compass,
 } from 'lucide-react'
 
 const ALL_NAV = [
   { href: '/',            label: '홈',       key: '1', icon: Home },
   { href: '/project',     label: '프로젝트',  key: '2', icon: LayoutGrid },
   { href: '/annual-goals', label: '연간목표', key: '',  icon: Compass },
-  { href: '/tasks',       label: '업무',     key: '3', icon: ClipboardList },
   { href: '/completed',   label: '완료',     key: '',  icon: Trophy },
   { href: '/meetings',    label: '회의록',   key: '4', icon: MessageSquare },
-  { href: '/objectives',  label: '목표관리', key: '',  icon: Target },
   { href: '/schedule',    label: '일정',     key: '5', icon: CalendarDays },
   { href: '/memos',       label: '메모',     key: '6', icon: StickyNote },
   { href: '/one-on-one',  label: '1on1',     key: '7', icon: Users },

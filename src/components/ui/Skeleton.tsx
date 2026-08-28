@@ -26,26 +26,6 @@ export function SkeletonRow() {
   )
 }
 
-export function TaskPageSkeleton() {
-  return (
-    <div className="p-4 md:p-6 space-y-5 animate-pulse">
-      <div className="flex items-center justify-between">
-        <Skeleton className="h-6 w-24" />
-        <div className="flex gap-2">
-          <Skeleton className="h-8 w-20 rounded-lg" />
-          <Skeleton className="h-8 w-20 rounded-lg" />
-        </div>
-      </div>
-      {[1, 2, 3].map(i => (
-        <div key={i} className="bg-white rounded-xl border border-gray-100 p-4 space-y-2">
-          <Skeleton className="h-4 w-28 mb-3" />
-          {[1, 2, 3].map(j => <SkeletonRow key={j} />)}
-        </div>
-      ))}
-    </div>
-  )
-}
-
 export function MemoPageSkeleton() {
   return (
     <div className="p-4 md:p-6 animate-pulse">

@@ -15,8 +15,6 @@ const ALL_NAV = [
   { href: '/',                label: '홈' },
   { href: '/project',         label: '프로젝트' },
   { href: '/annual-goals',    label: '연간목표' },
-  { href: '/tasks',           label: '업무 목록' },
-  { href: '/objectives',      label: '목표관리' },
   { href: '/objective-review', label: '목표리뷰' },
   { href: '/completed',       label: '완료 성과' },
   { href: '/perf-review',     label: '성과회고' },

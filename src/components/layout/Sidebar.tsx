@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import ShortcutIcons from '@/components/ShortcutIcons'
 import {
-  Home, ClipboardList, Trophy, MessageSquare, CalendarDays,
+  Home, Trophy, MessageSquare, CalendarDays,
   StickyNote, Users, BookOpen, Settings, Brain, ChevronLeft, ChevronRight,
   NotebookPen, LayoutGrid, Target, Archive, LogOut, Compass, PenTool,
 } from 'lucide-react'
@@ -19,8 +19,6 @@ const NAV_SECTIONS = [
       { href: '/',           label: '홈',       key: '1', icon: Home },
       { href: '/project',    label: '프로젝트',  key: '2', icon: LayoutGrid },
       { href: '/annual-goals', label: '연간목표', key: '', icon: Compass },
-      { href: '/tasks',      label: '업무 목록', key: '3', icon: ClipboardList },
-      { href: '/objectives', label: '목표관리',  key: '',  icon: Target },
       { href: '/objective-review', label: '목표리뷰', key: '', icon: Target },
       { href: '/completed',       label: '완료 성과',       key: '',  icon: Trophy },
       { href: '/perf-review', label: '성과회고',   key: '',  icon: Trophy },

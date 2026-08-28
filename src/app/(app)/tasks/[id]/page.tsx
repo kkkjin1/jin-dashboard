@@ -345,10 +345,15 @@ export default function TaskDetailPage() {
 
   async function addTodo() {
     if (!todoInput.trim()) return
-    const { data } = await supabase.from('task_todos').insert({
+    const { data, error } = await supabase.from('task_todos').insert({
       task_id: id, title: todoInput.trim(), sort_order: todos.length,
     }).select().single()
-    if (data) setTodos(prev => [...prev, data as TaskTodo])
+    if (error || !data) {
+      // 저장 실패 — 입력값을 지우지 않고 그대로 유지해 재시도 가능하게 함
+      setToast(`할일 저장 실패: ${error?.message ?? '알 수 없는 오류'}`)
+      return
+    }
+    setTodos(prev => [...prev, data as TaskTodo])
     setTodoInput('')
   }
 
@@ -465,12 +470,15 @@ export default function TaskDetailPage() {
       const found = members.find(m => m.name === parsed.assignee_name)
       if (found) taskUpdates.assignee_id = found.id
     }
-    const { data } = await supabase.from('notes').insert({ task_id: id, title: noteTitle.trim() || null, content: noteInput }).select().single()
-    if (data) {
-      const newNote = data as Note
-      setNotes(prev => [newNote, ...prev])
-      setOpenNoteIds(prev => new Set([newNote.id, ...prev]))
+    const { data, error } = await supabase.from('notes').insert({ task_id: id, title: noteTitle.trim() || null, content: noteInput }).select().single()
+    if (error || !data) {
+      // 저장 실패 — draft/입력값을 지우지 않고 그대로 유지해 재시도 가능하게 함
+      setToast(`저장 실패: ${error?.message ?? '알 수 없는 오류'}`)
+      return
     }
+    const newNote = data as Note
+    setNotes(prev => [newNote, ...prev])
+    setOpenNoteIds(prev => new Set([newNote.id, ...prev]))
     if (Object.keys(taskUpdates).length > 0) {
       await updateTask(taskUpdates)
       const labels: string[] = []
@@ -595,7 +603,7 @@ export default function TaskDetailPage() {
     if (!confirm('이 업무를 삭제하시겠습니까? 되돌릴 수 없습니다.')) return
     setDeleting(true)
     await supabase.from('tasks').delete().eq('id', id)
-    router.push('/tasks')
+    router.push('/')
   }
 
   async function linkMeeting() {
@@ -695,7 +703,7 @@ export default function TaskDetailPage() {
 
       {/* 뒤로가기 + 너비조절 + MD 다운로드 */}
       <div className="flex items-center justify-between mb-8">
-        <Link href="/tasks" className="text-sm text-gray-400 hover:text-gray-600 inline-flex items-center gap-1">← 업무 목록</Link>
+        <Link href="/" className="text-sm text-gray-400 hover:text-gray-600 inline-flex items-center gap-1">← 홈</Link>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setContentWidth(prev => prev ? null : 720)}
