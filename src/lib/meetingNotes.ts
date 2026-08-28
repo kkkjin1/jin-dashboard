@@ -85,3 +85,24 @@ export async function fetchMeetingNotesByMeetingIds(
   })
   return grouped
 }
+
+// 회의 목록의 "N개 노트" 배지용 — 본문(content)을 내려받지 않고 개수만 집계.
+// meeting_id만 select하므로 fetchMeetingNotesByMeetingIds보다 훨씬 가볍다.
+export async function fetchMeetingNoteCounts(
+  supabase: SupabaseClient,
+  meetingIds: string[],
+): Promise<Record<string, number>> {
+  const counts: Record<string, number> = {}
+  if (meetingIds.length === 0) return counts
+
+  const { data, error } = await supabase
+    .from('meeting_notes')
+    .select('meeting_id')
+    .in('meeting_id', meetingIds)
+  if (error || !data) return counts
+
+  ;(data as { meeting_id: string }[]).forEach(row => {
+    counts[row.meeting_id] = (counts[row.meeting_id] ?? 0) + 1
+  })
+  return counts
+}

@@ -10,7 +10,7 @@ import { format, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import type { Meeting } from '@/types'
 import { CATEGORY_PALETTE, MEETING_CATEGORY, colorKeyFromName } from '@/lib/categoryColors'
-import { fetchMeetingNotesByMeetingIds, type MeetingNotesGrouped } from '@/lib/meetingNotes'
+import { fetchMeetingNotes, fetchMeetingNoteCounts, type MeetingNotesGrouped } from '@/lib/meetingNotes'
 import SearchToolbar, { type SortOrder, type DateSelection } from './SearchToolbar'
 import MeetingSection from './MeetingSection'
 
@@ -55,7 +55,7 @@ export default function MeetingNotesNew() {
   const activeSupabase = pilotClient ?? supabase
 
   const [meetings,  setMeetings]  = useState<Meeting[]>([])
-  const [notesByMeeting, setNotesByMeeting] = useState<Record<string, MeetingNotesGrouped>>({})
+  const [noteCounts, setNoteCounts] = useState<Record<string, number>>({})
   const [loading,   setLoading]   = useState(true)
   const [catOrder,  setCatOrder]  = useState<string[]>([...DEFAULT_CATS])
 
@@ -74,6 +74,7 @@ export default function MeetingNotesNew() {
   // 우측 미리보기 패널 — 도킹 상세 편집 대신, 선택한 회의를 가볍게 훑어보는 용도(편집은 상세 페이지에서)
   const [selected, setSelected] = useState<Meeting | null>(null)
   const [previewCounts, setPreviewCounts] = useState<{ attachments: number; links: number } | null>(null)
+  const [selectedNotes, setSelectedNotes] = useState<MeetingNotesGrouped | null>(null)
 
   // 헤더(제목+검색+버튼) + 새 회의록 폼 + SearchToolbar 영역의 실측 높이 — 미리보기
   // 패널의 marginTop으로 그대로 써서, 카테고리 그룹 박스 상단과 미리보기 패널 상단을
@@ -106,6 +107,17 @@ export default function MeetingNotesNew() {
     return () => { cancelled = true }
   }, [selected?.id])
 
+  // 미리보기의 "최근 노트"는 선택된 회의 1건에 대해서만 본문을 조회 — 목록 전체의
+  // 노트 본문을 미리 내려받지 않는다(noteCounts는 개수만 별도 조회, 아래 참고).
+  useEffect(() => {
+    if (!selected) { setSelectedNotes(null); return }
+    let cancelled = false
+    fetchMeetingNotes(activeSupabase, selected.id).then(grouped => {
+      if (!cancelled) setSelectedNotes(grouped)
+    })
+    return () => { cancelled = true }
+  }, [selected?.id])
+
   useEffect(() => {
     let savedOrder = [...DEFAULT_CATS]
     try {
@@ -118,12 +130,13 @@ export default function MeetingNotesNew() {
 
     activeSupabase
       .from('meetings')
-      .select('*')
+      // 목록/검색/필터/정렬에 실제로 쓰이는 열만 select — 레거시 notes(jsonb) 등은 제외.
+      .select('id, title, meeting_date, category')
       .order('meeting_date', { ascending: false, nullsFirst: false })
       .then(async ({ data: m }) => {
         const loaded = (m ?? []) as Meeting[]
         setMeetings(loaded)
-        setNotesByMeeting(await fetchMeetingNotesByMeetingIds(activeSupabase, loaded.map(mt => mt.id)))
+        setNoteCounts(await fetchMeetingNoteCounts(activeSupabase, loaded.map(mt => mt.id)))
 
         // DB에 있는 신규 범주 자동 추가
         const dbCats = [...new Set(loaded.map(mt => mt.category).filter((c): c is string => !!c && c !== '기타'))]
@@ -285,14 +298,10 @@ export default function MeetingNotesNew() {
     return result
   }, [filtered, catOrder, teamFilter, search, dateSelection])
 
-  const noteCounts = useMemo(() => Object.fromEntries(
-    Object.entries(notesByMeeting).map(([mid, g]) => [mid, g.regular.length + g.prep.length])
-  ), [notesByMeeting])
-
   // regular는 created_at DESC로 이미 정렬되어 있어 [0]이 곧 최신 일반 노트 —
   // 구 `selected.notes.find(n => !n.is_prep)`(원본 배열에서 첫 non-prep, 항상
   // prepend되어 왔으므로 결과적으로 최신 노트였음)와 동일한 결과.
-  const latestNote = selected ? notesByMeeting[selected.id]?.regular[0] : undefined
+  const latestNote = selectedNotes?.regular[0]
   const selectedDateLabel = selected?.meeting_date
     ? (() => { try { return format(parseISO(selected.meeting_date as string), 'yyyy.MM.dd (eee)', { locale: ko }) } catch { return '' } })()
     : ''
