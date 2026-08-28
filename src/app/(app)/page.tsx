@@ -868,7 +868,11 @@ export default function HomePage() {
   const [memoViewId,    setMemoViewId]    = useState<string | null>(null)
   const [hoveredStId,   setHoveredStId]   = useState<string | null>(null)
   const [datePickerStId,setDatePickerStId] = useState<string | null>(null)
-  const [now,           setNow]           = useState(new Date())
+  // 초기값을 epoch(고정값)로 둬서 SSR과 클라이언트 첫 렌더가 항상 일치하게 함 —
+  // new Date()를 렌더 중에 직접 호출하면 서버 렌더 시각과 클라이언트 하이드레이션 시각이
+  // 달라 hydration mismatch(React #418)가 발생하고, 이는 next/link의 client-side
+  // navigation을 깨뜨려 모든 링크 클릭이 hard reload로 떨어지는 원인이 된다.
+  const [now,           setNow]           = useState(new Date(0))
   const [stCols,        setStCols]        = useState<[number, number, number, number, number]>([56, 160, 72, 64, 100])
   const [stSort,        setStSort]        = useState<{ col: string; dir: 'asc' | 'desc' } | null>({ col: '업데이트', dir: 'desc' })
   const [stRowH,        setStRowH]        = useState(40)
@@ -893,6 +897,7 @@ export default function HomePage() {
   const meetingCategories = useMemo(() => [...org.map(t => t.name), ...FIXED_MEETING_TAGS], [org])
 
   useEffect(() => {
+    setNow(new Date())
     const id = setInterval(() => setNow(new Date()), 60_000)
     return () => clearInterval(id)
   }, [])
