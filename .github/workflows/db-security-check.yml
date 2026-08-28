@@ -1,0 +1,33 @@
+name: DB Security Check
+
+# JIN Dashboard Supabase RLS 보안 점검. HRM(team_log_*)은 이 검사 대상이 아님
+# (scripts/db-security-check.mjs가 호출하는 public.rls_audit() 함수 자체가 제외함).
+#
+# 최초 1회 설정 필요: repo Settings → Secrets and variables → Actions에
+#   - NEXT_PUBLIC_SUPABASE_URL
+#   - SUPABASE_SERVICE_ROLE_KEY
+# 두 개를 등록해야 이 workflow가 통과할 수 있다. 등록 전에는 매번 실패하며,
+# 실패 로그에 설정 방법이 그대로 출력된다(scripts/db-security-check.mjs 참고).
+
+on:
+  schedule:
+    - cron: '0 21 * * *' # 매일 06:00 KST
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/**'
+  workflow_dispatch: {}
+
+jobs:
+  rls-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npm run db:security-check
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
