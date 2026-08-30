@@ -77,7 +77,7 @@ function SubTaskAccordion({
   selectedNoteIds, setSelectedNoteIds, addingNoteFor, uploadingFor,
   toggleST, cycleSTStatus, updateSubTaskDate, updateSTAssignee, updateSTMidDate, updateSTDueDate, deleteSubTask,
   addNoteEntry, updateNoteTitle, handleNoteChange, handleUpload, deleteAttachment,
-  stDateLabel, formatNoteDate, stAtts, setExpandFor, expandFor, onAccordionRef, onTagToggle,
+  stDateLabel, formatNoteDate, stAtts, setExpandFor, expandFor, onAccordionRef, onTagToggle, onOpenResource,
 }: {
   st: SubTaskWithNote
   isOpen: boolean
@@ -117,6 +117,7 @@ function SubTaskAccordion({
   expandFor: string | null
   onAccordionRef: (el: HTMLDivElement | null) => void
   onTagToggle: (stId: string, tags: string[]) => void
+  onOpenResource: (r: LearningResource) => void
 }) {
   const stColor = st.status === 'done' ? '#9CA3AF' : (st.status === 'hold' ? '#F59E0B' : groupColor)
   const isEditing = editingSTId === st.id
@@ -438,12 +439,12 @@ function SubTaskAccordion({
                   ? <p className="text-[10px] text-[rgba(226,232,240,0.3)]">매칭되는 학습자료 없음</p>
                   : <div className="flex flex-col gap-1">
                       {relatedResources.map(r => (
-                        <a key={r.id} href={`/learning/${r.id}`}
-                          className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-[rgba(255,255,255,0.07)] bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.06)] transition-colors group/lr">
+                        <button key={r.id} onClick={() => onOpenResource(r)}
+                          className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-[rgba(255,255,255,0.07)] bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.06)] transition-colors group/lr text-left w-full">
                           <span className="text-[10px] text-[rgba(226,232,240,0.7)] truncate flex-1 group-hover/lr:text-[rgba(226,232,240,0.95)]">{r.title}</span>
                           {r.source && <span className="text-[9px] text-[rgba(226,232,240,0.3)] truncate max-w-[100px]">{r.source}</span>}
                           <span className="text-[rgba(226,232,240,0.2)] group-hover/lr:text-[rgba(226,232,240,0.4)] text-[10px] flex-shrink-0">→</span>
-                        </a>
+                        </button>
                       ))}
                     </div>
               )}
@@ -475,6 +476,9 @@ export default function AgendaItemDetailPage() {
   // 제목 편집
   const [editingTitle, setEditingTitle] = useState(false)
   const [editTitle,    setEditTitle]    = useState('')
+
+  // 학습자료 슬라이드 패널
+  const [panelResource, setPanelResource] = useState<LearningResource | null>(null)
 
   // 아코디언 열림 상태
   const [openST, setOpenST] = useState<Set<string>>(new Set())
@@ -921,6 +925,7 @@ export default function AgendaItemDetailPage() {
     ? (subTasks.find(s => s.id === expandFor) ?? null) : null
 
   return (
+    <>
     <div className="h-full overflow-y-auto">
       <div className="max-w-3xl w-full mx-auto px-4 md:px-6 py-6 pb-16 flex flex-col gap-6">
 
@@ -1075,6 +1080,7 @@ export default function AgendaItemDetailPage() {
               expandFor={expandFor}
               onAccordionRef={el => { accordionRefs.current[st.id] = el }}
               onTagToggle={(stId, tags) => setSubTasks(p => p.map(s => s.id === stId ? { ...s, tags } : s))}
+              onOpenResource={setPanelResource}
             />
           ))}
 
@@ -1209,5 +1215,84 @@ export default function AgendaItemDetailPage() {
         )
       })()}
     </div>
+
+    {/* 학습자료 슬라이드 패널 — 백드롭 */}
+    {panelResource && (
+      <div
+        className="fixed inset-0 z-40"
+        style={{ background: 'rgba(0,0,0,0.3)' }}
+        onClick={() => setPanelResource(null)}
+      />
+    )}
+    {/* 패널 본체 */}
+    <div
+      className="fixed top-0 right-0 h-full z-50 flex flex-col overflow-hidden"
+      style={{
+        width: 400,
+        background: '#161B22',
+        borderLeft: '1px solid rgba(255,255,255,0.08)',
+        transform: panelResource ? 'translateX(0)' : 'translateX(100%)',
+        transition: 'transform 0.25s ease',
+        boxShadow: panelResource ? '-8px 0 32px rgba(0,0,0,0.4)' : 'none',
+      }}>
+      {panelResource && (
+        <>
+          <div className="flex items-start justify-between px-5 py-4 flex-shrink-0"
+            style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+            <div className="flex-1 min-w-0 pr-3">
+              <p className="text-[11px] text-[rgba(226,232,240,0.35)] mb-1">📚 학습자료</p>
+              <h2 className="text-[15px] font-semibold text-[rgba(226,232,240,0.95)] leading-snug">{panelResource.title}</h2>
+              {panelResource.source && (
+                <p className="text-[11px] text-[rgba(226,232,240,0.4)] mt-0.5 truncate">{panelResource.source}</p>
+              )}
+              {(panelResource.tags ?? []).length > 0 && (
+                <div className="flex gap-1 mt-2 flex-wrap">
+                  {(panelResource.tags ?? []).map(t => (
+                    <span key={t} className="text-[9px] px-1.5 py-0.5 rounded-full"
+                      style={{ background: 'rgba(76,127,224,0.15)', color: 'rgba(76,127,224,0.85)' }}>{t}</span>
+                  ))}
+                </div>
+              )}
+            </div>
+            <button onClick={() => setPanelResource(null)}
+              className="text-[rgba(226,232,240,0.35)] hover:text-[rgba(226,232,240,0.7)] transition-colors text-lg leading-none flex-shrink-0 mt-0.5">
+              ✕
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-5">
+            {panelResource.notes.map((note, i) => (
+              <div key={i}>
+                {note.summary && (
+                  <div className="mb-3 px-3 py-2.5 rounded-lg"
+                    style={{ background: 'rgba(76,127,224,0.08)', borderLeft: '3px solid rgba(76,127,224,0.5)' }}>
+                    <p className="text-[12px] font-medium text-[rgba(226,232,240,0.8)] leading-relaxed">{note.summary}</p>
+                  </div>
+                )}
+                {note.content && (
+                  <div
+                    className="prose prose-invert prose-sm max-w-none text-[12px] text-[rgba(226,232,240,0.7)] leading-relaxed"
+                    dangerouslySetInnerHTML={{ __html: note.content }}
+                  />
+                )}
+                {panelResource.notes.length > 1 && i < panelResource.notes.length - 1 && (
+                  <hr className="mt-4" style={{ borderColor: 'rgba(255,255,255,0.07)' }} />
+                )}
+              </div>
+            ))}
+            {panelResource.notes.length === 0 && (
+              <p className="text-[12px] text-[rgba(226,232,240,0.3)]">내용 없음</p>
+            )}
+          </div>
+          <div className="px-5 py-3 flex-shrink-0"
+            style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+            <a href={`/learning/${panelResource.id}`}
+              className="text-[11px] text-[rgba(76,127,224,0.7)] hover:text-[rgba(76,127,224,1)] transition-colors">
+              학습자료 탭에서 전체 보기 →
+            </a>
+          </div>
+        </>
+      )}
+    </div>
+    </>
   )
 }
