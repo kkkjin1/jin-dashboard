@@ -206,6 +206,7 @@ export interface AgendaSubTask {
   due_date?: string | null
   target_date?: string | null
   achievement_type?: AchievementType | null
+  tags?: string[]
   created_at: string
   updated_at: string
 }

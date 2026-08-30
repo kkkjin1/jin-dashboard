@@ -3,7 +3,8 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import type { AgendaSubTask, Attachment, Member, AgendaItemStatus } from '@/types'
+import type { AgendaSubTask, Attachment, Member, AgendaItemStatus, LearningResource } from '@/types'
+import { useUserSetting } from '@/hooks/useUserSetting'
 import dynamic from 'next/dynamic'
 const TiptapEditor = dynamic(() => import('@/components/TiptapEditor'), { ssr: false })
 
@@ -77,7 +78,13 @@ export default function SubTaskDetailPage() {
   const [toast, setToast] = useState('')
   const [titleInput, setTitleInput] = useState('')
   const [editingTitle, setEditingTitle] = useState(false)
+  const [relatedResources, setRelatedResources] = useState<LearningResource[]>([])
   const noteTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
+
+  const { value: customTags } = useUserSetting<string[]>(
+    'learning_custom_tags',
+    ['HR', '경제', '리더십', '평가보상', '데이터', '조직문화', '기획']
+  )
 
   useEffect(() => {
     async function load() {
@@ -107,6 +114,17 @@ export default function SubTaskDetailPage() {
     return () => document.removeEventListener('keydown', onKey, true)
   }, [expandNote])
 
+  useEffect(() => {
+    const tags = subTask?.tags ?? []
+    if (tags.length === 0) { setRelatedResources([]); return }
+    supabase.from('learning_resources')
+      .select('*')
+      .overlaps('tags', tags)
+      .order('updated_at', { ascending: false })
+      .then(({ data }) => setRelatedResources((data ?? []) as LearningResource[]))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subTask?.tags])
+
   function formatNoteDate(dateStr: string) {
     const d = new Date(dateStr)
     const now = new Date()
@@ -116,6 +134,14 @@ export default function SubTaskDetailPage() {
     if (noteDay.getTime() === today.getTime()) return '오늘'
     if (noteDay.getTime() === yesterday.getTime()) return '어제'
     return `${d.getMonth() + 1}/${d.getDate()}`
+  }
+
+  async function toggleTag(tag: string) {
+    if (!subTask) return
+    const current = subTask.tags ?? []
+    const next = current.includes(tag) ? current.filter(t => t !== tag) : [...current, tag]
+    await supabase.from('agenda_sub_tasks').update({ tags: next }).eq('id', id)
+    setSubTask(prev => prev ? { ...prev, tags: next } : prev)
   }
 
   async function cycleStatus() {
@@ -432,6 +458,54 @@ export default function SubTaskDetailPage() {
               <p className="text-xs text-[rgba(226,232,240,0.3)] py-1">첨부된 파일이 없습니다</p>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* 관련 학습자료 */}
+      <div className="surface-card rounded-2xl overflow-hidden">
+        <div className="px-5 py-3 border-b border-[rgba(255,255,255,0.06)]">
+          <span className="text-xs font-semibold text-[rgba(226,232,240,0.4)] uppercase tracking-wider">관련 학습자료</span>
+        </div>
+        <div className="px-5 py-4 flex flex-col gap-3">
+          {/* 태그 선택 */}
+          <div className="flex flex-wrap gap-1.5">
+            {customTags.map(tag => {
+              const selected = (subTask.tags ?? []).includes(tag)
+              return (
+                <button key={tag} onClick={() => toggleTag(tag)}
+                  className="text-xs px-2.5 py-1 rounded-full border transition-all"
+                  style={selected
+                    ? { background: '#4C7FE0', color: 'rgba(220,230,252,0.9)', borderColor: 'rgba(76,127,224,0.5)' }
+                    : { background: 'rgba(255,255,255,0.05)', color: 'rgba(226,232,240,0.5)', borderColor: 'rgba(255,255,255,0.09)' }}>
+                  {tag}
+                </button>
+              )
+            })}
+          </div>
+          {/* 매칭된 학습자료 목록 */}
+          {(subTask.tags ?? []).length > 0 && (
+            relatedResources.length === 0
+              ? <p className="text-xs text-[rgba(226,232,240,0.3)] py-1">매칭되는 학습자료 없음</p>
+              : <div className="flex flex-col gap-1.5 mt-1">
+                  {relatedResources.map(r => (
+                    <a key={r.id} href={`/learning/${r.id}`}
+                      className="flex items-start gap-3 p-3 rounded-xl border border-[rgba(255,255,255,0.07)] bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.07)] transition-colors group">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-[rgba(226,232,240,0.85)] truncate group-hover:text-[rgba(226,232,240,1)] transition-colors">{r.title}</p>
+                        {r.source && <p className="text-[10px] text-[rgba(226,232,240,0.35)] mt-0.5 truncate">{r.source}</p>}
+                        {(r.tags ?? []).length > 0 && (
+                          <div className="flex gap-1 mt-1.5 flex-wrap">
+                            {(r.tags ?? []).map(t => (
+                              <span key={t} className="text-[9px] px-1.5 py-0.5 rounded-full bg-[rgba(76,127,224,0.15)] text-[rgba(76,127,224,0.8)]">{t}</span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <span className="text-[rgba(226,232,240,0.2)] group-hover:text-[rgba(226,232,240,0.4)] text-xs flex-shrink-0 mt-0.5">→</span>
+                    </a>
+                  ))}
+                </div>
+          )}
         </div>
       </div>
 
