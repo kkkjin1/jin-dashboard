@@ -4,7 +4,8 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAutosave } from '@/hooks/useAutosave'
-import type { AgendaItem, AgendaSubTask, Attachment, Member } from '@/types'
+import { useUserSetting } from '@/hooks/useUserSetting'
+import type { AgendaItem, AgendaSubTask, Attachment, Member, LearningResource } from '@/types'
 import TiptapEditor from '@/components/TiptapEditor'
 
 const STATUS_CYCLE = ['active', 'hold', 'done'] as const
@@ -76,7 +77,7 @@ function SubTaskAccordion({
   selectedNoteIds, setSelectedNoteIds, addingNoteFor, uploadingFor,
   toggleST, cycleSTStatus, updateSubTaskDate, updateSTAssignee, updateSTMidDate, updateSTDueDate, deleteSubTask,
   addNoteEntry, updateNoteTitle, handleNoteChange, handleUpload, deleteAttachment,
-  stDateLabel, formatNoteDate, stAtts, setExpandFor, expandFor, onAccordionRef,
+  stDateLabel, formatNoteDate, stAtts, setExpandFor, expandFor, onAccordionRef, onTagToggle,
 }: {
   st: SubTaskWithNote
   isOpen: boolean
@@ -115,9 +116,34 @@ function SubTaskAccordion({
   setExpandFor: (v: string | null) => void
   expandFor: string | null
   onAccordionRef: (el: HTMLDivElement | null) => void
+  onTagToggle: (stId: string, tags: string[]) => void
 }) {
   const stColor = st.status === 'done' ? '#9CA3AF' : (st.status === 'hold' ? '#F59E0B' : groupColor)
   const isEditing = editingSTId === st.id
+
+  const { value: customTags } = useUserSetting<string[]>(
+    'learning_custom_tags',
+    ['HR', '경제', '리더십', '평가보상', '데이터', '조직문화', '기획']
+  )
+  const [relatedResources, setRelatedResources] = useState<LearningResource[]>([])
+
+  useEffect(() => {
+    const tags = st.tags ?? []
+    if (tags.length === 0) { setRelatedResources([]); return }
+    supabase.from('learning_resources')
+      .select('*')
+      .overlaps('tags', tags)
+      .order('updated_at', { ascending: false })
+      .then(({ data }) => setRelatedResources((data ?? []) as LearningResource[]))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [st.tags])
+
+  async function toggleTag(tag: string) {
+    const current = st.tags ?? []
+    const next = current.includes(tag) ? current.filter(t => t !== tag) : [...current, tag]
+    await supabase.from('agenda_sub_tasks').update({ tags: next }).eq('id', st.id)
+    onTagToggle(st.id, next)
+  }
 
   // note 목록/선택 — "크게 편집" 오버레이와 동일한 selectedNoteIds를 공유하므로
   // 항상 같은 note를 가리킨다. isOpen 여부와 무관하게 미리 계산해서(단순 배열
@@ -383,6 +409,43 @@ function SubTaskAccordion({
                     </div>
                   ))}
                 </div>
+              )}
+            </div>
+
+            {/* 관련 학습자료 */}
+            <div className="border-t border-[rgba(255,255,255,0.07)] px-5 py-3">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: stColor }}>
+                  📚 관련 학습자료
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {customTags.map(tag => {
+                  const selected = (st.tags ?? []).includes(tag)
+                  return (
+                    <button key={tag} onClick={() => toggleTag(tag)}
+                      className="text-[10px] px-2 py-0.5 rounded-full border transition-all"
+                      style={selected
+                        ? { background: '#4C7FE0', color: 'rgba(220,230,252,0.9)', borderColor: 'rgba(76,127,224,0.5)' }
+                        : { background: 'rgba(255,255,255,0.05)', color: 'rgba(226,232,240,0.4)', borderColor: 'rgba(255,255,255,0.09)' }}>
+                      {tag}
+                    </button>
+                  )
+                })}
+              </div>
+              {(st.tags ?? []).length > 0 && (
+                relatedResources.length === 0
+                  ? <p className="text-[10px] text-[rgba(226,232,240,0.3)]">매칭되는 학습자료 없음</p>
+                  : <div className="flex flex-col gap-1">
+                      {relatedResources.map(r => (
+                        <a key={r.id} href={`/learning/${r.id}`}
+                          className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-[rgba(255,255,255,0.07)] bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.06)] transition-colors group/lr">
+                          <span className="text-[10px] text-[rgba(226,232,240,0.7)] truncate flex-1 group-hover/lr:text-[rgba(226,232,240,0.95)]">{r.title}</span>
+                          {r.source && <span className="text-[9px] text-[rgba(226,232,240,0.3)] truncate max-w-[100px]">{r.source}</span>}
+                          <span className="text-[rgba(226,232,240,0.2)] group-hover/lr:text-[rgba(226,232,240,0.4)] text-[10px] flex-shrink-0">→</span>
+                        </a>
+                      ))}
+                    </div>
               )}
             </div>
           </div>
@@ -1011,6 +1074,7 @@ export default function AgendaItemDetailPage() {
               setExpandFor={setExpandFor}
               expandFor={expandFor}
               onAccordionRef={el => { accordionRefs.current[st.id] = el }}
+              onTagToggle={(stId, tags) => setSubTasks(p => p.map(s => s.id === stId ? { ...s, tags } : s))}
             />
           ))}
 
