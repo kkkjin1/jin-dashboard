@@ -60,6 +60,10 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const [hiddenMenus, setHiddenMenus] = useState<string[]>([])
   const [menuOrder, setMenuOrder] = useState<string[]>([])
   const [teamName, setTeamName] = useState('인사기획팀')
+  // 마운트 후 로컬에서 순서 변경이 발생했는지 추적.
+  // syncFromDB()는 마운트 시 1회만 실행되는데, DB 응답 도착 전에 로컬 변경이 있었다면
+  // 오래된 DB 값으로 덮어쓰지 않도록 막는다.
+  const localOrderChangedRef = useRef(false)
 
   useEffect(() => {
     const allHrefs = NAV_SECTIONS.flatMap(s => s.items.map(i => i.href))
@@ -73,6 +77,12 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
       if (order) { try { setMenuOrder(JSON.parse(order)) } catch {} }
     }
 
+    function handleNavOrderChange() {
+      // 로컬 변경 발생 기록 → syncFromDB()가 완료되더라도 menu_order 덮어쓰기 방지
+      localOrderChangedRef.current = true
+      loadFromLocal()
+    }
+
     async function syncFromDB() {
       const supabase = createClient()
       const { data: prefs } = await supabase
@@ -84,7 +94,8 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
           setHiddenMenus(pref.value as string[])
           localStorage.setItem('dashboard_hidden_menus', JSON.stringify(pref.value))
         }
-        if (pref.key === 'menu_order' && Array.isArray(pref.value)) {
+        // 로컬 변경이 없을 때만 DB 값 적용 (DB = source of truth, 단 race condition 방지)
+        if (pref.key === 'menu_order' && Array.isArray(pref.value) && !localOrderChangedRef.current) {
           const full = [...pref.value as string[], ...allHrefs.filter(h => !(pref.value as string[]).includes(h))]
           setMenuOrder(full)
           localStorage.setItem('dashboard_menu_order', JSON.stringify(full))
@@ -97,11 +108,11 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
     window.addEventListener('nav-visibility-change', loadFromLocal)
     window.addEventListener('team-name-change', loadFromLocal)
-    window.addEventListener('nav-order-change', loadFromLocal)
+    window.addEventListener('nav-order-change', handleNavOrderChange)
     return () => {
       window.removeEventListener('nav-visibility-change', loadFromLocal)
       window.removeEventListener('team-name-change', loadFromLocal)
-      window.removeEventListener('nav-order-change', loadFromLocal)
+      window.removeEventListener('nav-order-change', handleNavOrderChange)
     }
   }, [])
 

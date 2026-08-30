@@ -326,16 +326,20 @@ export default function SettingsPage() {
 
   function onMenuDragStart(href: string) { setDraggingHref(href) }
   function onMenuDragOver(e: React.DragEvent, href: string) { e.preventDefault(); setDragOverHref(href) }
-  function onMenuDrop(href: string) {
+  async function onMenuDrop(href: string) {
     if (!draggingHref || draggingHref === href) { setDraggingHref(null); setDragOverHref(null); return }
     const o = [...menuOrder]
     const from = o.indexOf(draggingHref); const to = o.indexOf(href)
     o.splice(from, 1); o.splice(to, 0, draggingHref)
     setMenuOrder(o)
+    setDraggingHref(null)
+    setDragOverHref(null)
+    // localStorage를 먼저 갱신해 같은 탭의 Sidebar가 즉시 반영되도록 한다
     localStorage.setItem('dashboard_menu_order', JSON.stringify(o))
-    supabase.from('user_preferences').upsert({ key: 'menu_order', value: o })
+    // DB 저장 확인 후 이벤트 발행 (DB = source of truth)
+    const { error } = await supabase.from('user_preferences').upsert({ key: 'menu_order', value: o })
+    if (error) console.error('[menu-order] DB 저장 실패:', error)
     window.dispatchEvent(new Event('nav-order-change'))
-    setDraggingHref(null); setDragOverHref(null)
   }
 
   const orderedNav = menuOrder.map(href => ALL_NAV.find(i => i.href === href)).filter(Boolean) as typeof ALL_NAV
