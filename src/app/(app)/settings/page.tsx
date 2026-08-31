@@ -25,7 +25,6 @@ const ALL_NAV = [
   { href: '/learning',        label: '학습자료' },
   { href: '/decisions',       label: '의사결정' },
   { href: '/journal',         label: '회고' },
-  { href: '/archive',         label: '아카이브' },
 ]
 const PINNED = ['/', '/settings']
 

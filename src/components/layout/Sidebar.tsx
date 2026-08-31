@@ -8,7 +8,7 @@ import ShortcutIcons from '@/components/ShortcutIcons'
 import {
   Home, Trophy, MessageSquare, CalendarDays,
   StickyNote, Users, BookOpen, Settings, Brain, ChevronLeft, ChevronRight,
-  NotebookPen, LayoutGrid, Target, Archive, LogOut, Compass, PenTool,
+  NotebookPen, LayoutGrid, Target, LogOut, Compass, PenTool,
 } from 'lucide-react'
 
 // ─── 고정 섹션 그룹 ──────────────────────────────────────────────────────────
@@ -40,7 +40,6 @@ const NAV_SECTIONS = [
       { href: '/learning',  label: '학습자료',  key: '8', icon: BookOpen },
       { href: '/decisions', label: '의사결정',  key: '9', icon: Brain },
       { href: '/journal',   label: '회고',      key: '',  icon: NotebookPen },
-      { href: '/archive',   label: '아카이브',  key: '',  icon: Archive },
       { href: '/settings',  label: '설정',      key: '',  icon: Settings },
     ],
   },

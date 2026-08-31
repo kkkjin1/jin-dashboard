@@ -22,11 +22,8 @@
 | `app/(app)/one-on-one/page.tsx` | `bg-[#1B3A6B]` | 활성 view tab | 2 |
 | `app/(app)/objectives/page.tsx` | `bg-[#1B3A6B]` | 추가/확인 버튼 | 3 |
 | `app/(app)/journal/page.tsx` | `background: '#1B3A6B'` | 활성 선택 / export | 2 |
-| `app/(app)/archive/page.tsx` | `background: '#1B3A6B'` | 저장 버튼 | 1 |
-| `components/home/DailyLogWidget.tsx` | `bg-[#1B3A6B]` | 추가 버튼 | 1 |
 | `components/home/DailyJournalWidget.tsx` | `bg-[#E8F0FB] text-[#1B3A6B]` | 저장 버튼 | 1 |
 | `components/home/TodayTodoWidget.tsx` | `hover:text-[#1B3A6B]` 등 | hover/link | 3 |
-| `components/home/TomorrowPlanWidget.tsx` | `text-[#1B3A6B]` | 완료 tick/count | 3 |
 | `components/home/WeeklyGoalsWidget.tsx` | `bg-[#1B3A6B]` | 완료 체크박스 | 1 |
 | `components/home/QuickAgendaInput.tsx` | `bg-[#E8F0FB] text-[#1B3A6B]` | 추가 버튼 | 1 |
 | `components/home/QuickTaskInput.tsx` | `text-[#1B3A6B]` | 선택 텍스트 | 1 |
@@ -68,9 +65,9 @@
 |----|------|----------|
 | `#90A7D8` | 경영진/일정 범주 | meetings, schedule, one-on-one, completed |
 | `#EBA698` | 부정 피드백 / 범주 | one-on-one, completed, schedule |
-| `#F3E482` | 비즈 범주 / 개선점 | schedule, completed, archive |
+| `#F3E482` | 비즈 범주 / 개선점 | schedule, completed |
 | `#BFE4B5` | 본부장 범주 / 잘한점 | meetings, completed, one-on-one |
-| `#A8C0E0` | 회의 dot / 내일 계획 | meetings, schedule, TomorrowPlan |
+| `#A8C0E0` | 회의 dot | meetings, schedule |
 
 ---
 

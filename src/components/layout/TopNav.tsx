@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import {
   Home, Trophy, MessageSquare, CalendarDays,
   StickyNote, Users, BookOpen, Brain, NotebookPen, Settings,
-  ChevronDown, LogOut, MoreHorizontal, Archive, LayoutGrid,
+  ChevronDown, LogOut, MoreHorizontal, LayoutGrid,
   GripVertical, Eye, EyeOff, X, Compass,
 } from 'lucide-react'
 
@@ -22,8 +22,7 @@ const ALL_NAV = [
   { href: '/one-on-one',  label: '1on1',     key: '7', icon: Users },
   { href: '/learning',    label: '학습',     key: '8', icon: BookOpen },
   { href: '/decisions',   label: '의사결정', key: '9', icon: Brain },
-  { href: '/archive',     label: '회고',     key: '',  icon: Archive },
-  { href: '/journal',     label: '일지',     key: '',  icon: NotebookPen },
+  { href: '/journal',     label: '회고',     key: '',  icon: NotebookPen },
   { href: '/settings',    label: '설정',     key: '',  icon: Settings },
 ]
 
