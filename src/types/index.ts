@@ -309,6 +309,8 @@ export interface SketchCard {
   width: number
   height: number
   frame_id: string | null
+  /** null = 기본 크기(프론트 DEFAULT_FONT_SIZE) */
+  font_size: number | null
   created_at: string
   updated_at: string
 }
