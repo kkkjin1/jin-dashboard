@@ -82,15 +82,6 @@ function timeAgo(ts: number): string {
   return `${Math.round(hr / 24)}일 전`
 }
 
-function parseMeetingDate(text: string): string | null {
-  const year = new Date().getFullYear()
-  const kr = text.match(/(\d{1,2})월\s*(\d{1,2})일/)
-  if (kr) return `${year}-${kr[1].padStart(2, '0')}-${kr[2].padStart(2, '0')}`
-  const slash = text.match(/(\d{1,2})[/\-](\d{1,2})/)
-  if (slash) return `${year}-${slash[1].padStart(2, '0')}-${slash[2].padStart(2, '0')}`
-  return null
-}
-
 type AgendaGroupOption = { id: string; name: string; color: string }
 type AgendaItemOption  = { id: string; title: string }
 
@@ -368,30 +359,44 @@ export default function QuickMemoPage() {
   }
 
   // ── 저장 ─────────────────────────────────────────────────────────────────
-  const meetingDate = tag === '회의관련' ? parseMeetingDate(title) : null
-
+  // "회의관련" 태그는 quick_memos가 아니라 회의록 탭(meetings + meeting_notes)에
+  // '기타' 카테고리로 저장한다 — 정확한 범주는 사용자가 회의록 탭에서 직접 재분류.
+  // 예전엔 제목의 날짜를 파싱해 project_meetings(아무 화면도 읽지 않는 테이블)에
+  // 저장했다가 메모함/Ctrl+K 어디서도 안 보이는 사고가 있었음(2026-09-02) — 날짜
+  // 추측 로직 자체를 없애고, 실제로 화면에 보이는 회의록 테이블로 명확히 저장한다.
   async function handleSave() {
     if (!title.trim()) return
     setSaving(true)
     setSaveError('')
 
-    // quick_memos 브랜치에서만 canonical id가 생김 — 세부task/일정 브랜치(project_meetings)는
-    // 별도 테이블이라 rebind 대상 자체가 없음(autosave_drafts는 계속 qid로만 추적).
+    // quick_memos 브랜치에서만 canonical id가 생김 — 회의록 브랜치는 별도 테이블이라
+    // rebind 대상 자체가 없음(autosave_drafts는 계속 qid로만 추적).
     let canonicalQuickMemoId: string | null = null
 
-    if (tag === '회의관련' && meetingDate) {
-      const { data: newMeeting, error } = await activeSupabase.from('project_meetings')
-        .insert({ title: title.trim(), meeting_date: meetingDate })
-        .select('id, title, meeting_date').single()
-      if (error) {
-        // 실패 시 draft를 지우지 않고 그대로 남겨서 재시도/복구가 가능하게 함
+    if (tag === '회의관련') {
+      const today = new Date().toISOString().slice(0, 10)
+      const { data: newMeeting, error: meetingError } = await activeSupabase.from('meetings')
+        .insert({ title: title.trim(), meeting_date: today, category: '기타' })
+        .select('id, title, meeting_date, category').single()
+      if (meetingError || !newMeeting) {
         setSaving(false)
         setSaveError('저장 실패 — 잠시 후 다시 시도해 주세요 (내용은 보존됨)')
         return
       }
-      if (newMeeting && window.opener)
-        window.opener.dispatchEvent(new CustomEvent('quick-meeting-created', { detail: newMeeting }))
-      setSavedMsg('📅 일정에 추가됨!')
+      const now = new Date().toISOString()
+      const { error: noteError } = await activeSupabase.from('meeting_notes').insert({
+        meeting_id: newMeeting.id, title: title.trim(), content, is_prep: false,
+        created_at: now, updated_at: now,
+      })
+      if (noteError) {
+        // 회의(껍데기)는 이미 생겼지만 본문 저장에 실패한 경우 — 사용자가 알아채지 못한 채
+        // 내용이 빈 회의만 남는 걸 막기 위해 실패로 취급하고 draft는 그대로 보존
+        setSaving(false)
+        setSaveError('저장 실패 — 잠시 후 다시 시도해 주세요 (내용은 보존됨)')
+        return
+      }
+      if (window.opener) window.opener.dispatchEvent(new CustomEvent('quick-meeting-created', { detail: newMeeting }))
+      setSavedMsg('회의록에 저장됨!')
     } else {
       const { data: newMemo, error } = await activeSupabase.from('quick_memos')
         .insert({ title: title.trim(), content, tag: [tag] })
@@ -612,14 +617,14 @@ export default function QuickMemoPage() {
           if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey) e.preventDefault()
           if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); handleSave() }
         }}
-        placeholder={tag === '회의관련' ? '6월15일 미팅(홍길동/업무내용)' : '제목 (Ctrl+Enter 저장)'}
+        placeholder={tag === '회의관련' ? '호균님 미팅' : '제목 (Ctrl+Enter 저장)'}
         className="w-full text-sm placeholder:text-[#5B6270] border border-[rgba(255,255,255,0.08)] rounded-lg px-3 py-2 focus:outline-none focus:border-[rgba(255,255,255,0.2)] mb-1.5"
         style={{ background: '#1A1C1F', color: '#E5E7EB' }}
       />
 
       {tag === '회의관련' && (
-        <p className={`text-xs mb-2 px-0.5 ${meetingDate ? 'text-[#A78BFA]' : 'text-[#5B6270]'}`}>
-          {meetingDate ? `📅 ${meetingDate} 일정으로 등록됩니다` : '날짜 포함 시 일정탭에 자동 등록 (예: 6월15일 미팅)'}
+        <p className="text-xs mb-2 px-0.5 text-[#A78BFA]">
+          📋 회의록 탭 &gt; &lsquo;기타&rsquo; 범주에 저장됩니다 — 필요하면 회의록 탭에서 범주를 옮겨주세요
         </p>
       )}
 
@@ -760,7 +765,7 @@ export default function QuickMemoPage() {
             disabled={!title.trim() || saving}
             className="text-xs bg-[rgba(76,127,224,0.1)] text-[rgba(230,231,234,0.85)] border border-[rgba(255,255,255,0.08)] px-4 py-2 rounded-lg hover:bg-[rgba(76,127,224,0.18)] disabled:opacity-30 transition-colors flex-shrink-0"
             style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.07)' }}>
-            {savedMsg || (saving ? '저장 중...' : meetingDate ? '일정 등록' : '저장')}
+            {savedMsg || (saving ? '저장 중...' : '저장')}
           </button>
         </div>
       </div>
