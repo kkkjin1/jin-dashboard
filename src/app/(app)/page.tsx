@@ -862,8 +862,6 @@ export default function HomePage() {
   const [fMemoTexts,    setFMemoTexts]    = useState<Record<string, string>>({})
   const [fMemoSaving,   setFMemoSaving]   = useState<Record<string, boolean>>({})
   const [fMemoSaved,    setFMemoSaved]    = useState<Record<string, boolean>>({})
-  const [searchOpen,    setSearchOpen]    = useState(false)
-  const [searchQuery,   setSearchQuery]   = useState('')
   const [weekFilter,    setWeekFilter]    = useState<'all' | 'week' | 'unscheduled'>('all')
   const [memoViewId,    setMemoViewId]    = useState<string | null>(null)
   const [hoveredStId,   setHoveredStId]   = useState<string | null>(null)
@@ -880,7 +878,6 @@ export default function HomePage() {
   const stScrollRef = useRef<HTMLDivElement>(null)
   const stColsRef = useRef(stCols)
   stColsRef.current = stCols   // always fresh — reads latest value at drag start
-  const searchInputRef  = useRef<HTMLInputElement>(null)
 
   const [subTasks,      setSubTasks]      = useState<SubTaskWithContext[]>([])
   const [allTaskTodos,  setAllTaskTodos]  = useState<TodayTodo[]>([])
@@ -974,19 +971,14 @@ export default function HomePage() {
     return () => { cancelled = true }
   }, [timelineDate])
 
-  // Ctrl+K
+  // Esc로 인라인 메모 뷰 닫기 (전역 검색창은 GlobalSearch 컴포넌트가 자체 처리)
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); setSearchOpen(true) }
-      if (e.key === 'Escape') { setSearchOpen(false); setMemoViewId(null) }
+      if (e.key === 'Escape') setMemoViewId(null)
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [])
-  useEffect(() => {
-    if (searchOpen) setTimeout(() => searchInputRef.current?.focus(), 50)
-    else setSearchQuery('')
-  }, [searchOpen])
 
   useEffect(() => {
     try {
@@ -1050,21 +1042,6 @@ export default function HomePage() {
     setStSort(prev => prev?.col === col ? { col, dir: prev.dir === 'asc' ? 'desc' : 'asc' } : { col, dir: 'asc' })
   }
 
-  const searchResults = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase()
-    if (!q) return []
-    const res: { type: string; title: string; href: string }[] = []
-    subTasks.forEach(st => {
-      if (st.title.toLowerCase().includes(q)) res.push({ type: '세부task', title: st.title, href: `/subtasks/${st.id}` })
-    })
-    meetings.forEach(m => {
-      if (m.title.toLowerCase().includes(q)) res.push({ type: '회의록', title: m.title, href: `/meetings/${m.id}` })
-    })
-    memos.forEach(m => {
-      if ((m.title ?? '').toLowerCase().includes(q)) res.push({ type: '메모', title: m.title ?? '제목 없음', href: `memo:${m.id}` })
-    })
-    return res.slice(0, 8)
-  }, [searchQuery, subTasks, meetings, memos])
 
   function latestNoteDate(st: SubTaskWithContext): string {
     const notes = st.sub_task_notes
@@ -1488,7 +1465,7 @@ export default function HomePage() {
                 <ShortcutIcons />
               </div>
               <div
-                onClick={() => setSearchOpen(true)}
+                onClick={() => window.dispatchEvent(new Event('open-global-search'))}
                 onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = 'rgba(255,255,255,0.14)'; el.style.background = 'rgba(255,255,255,0.07)' }}
                 onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = 'rgba(255,255,255,0.08)'; el.style.background = 'rgba(255,255,255,0.04)' }}
                 style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8, width: 380, height: 30, borderRadius: 9, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', padding: '0 11px', cursor: 'pointer', transition: 'all 150ms ease' }}
@@ -2302,61 +2279,6 @@ export default function HomePage() {
               style={{ marginTop: 14, fontSize: 11.5, color: TEXT3, background: 'none', border: 'none', cursor: 'pointer' }}>
               취소
             </button>
-          </div>
-        </div>,
-        document.body
-      )}
-
-      {/* 검색 모달 */}
-      {searchOpen && typeof document !== 'undefined' && createPortal(
-        <div className="fixed inset-0 z-50 flex items-start justify-center pt-[10vh]"
-          style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)' }}
-          onClick={() => setSearchOpen(false)}>
-          <div className="w-full max-w-lg mx-4 overflow-hidden"
-            style={{ background: '#22232A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 18, boxShadow: '0 32px 80px rgba(0,0,0,0.5)' }}
-            onClick={e => e.stopPropagation()}>
-            <div className="flex items-center gap-3 px-4 py-3.5" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-              <Search size={14} style={{ color: TEXT2, opacity: 0.75 }} className="flex-shrink-0" />
-              <input ref={searchInputRef} value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-                placeholder="과업, 회의록, 메모 검색..."
-                className="flex-1 bg-transparent focus:outline-none"
-                style={{ fontSize: 14, color: TEXT1 }} />
-              {searchQuery && (
-                <button onClick={() => setSearchQuery('')} style={{ fontSize: 11, color: TEXT3 }}>지우기</button>
-              )}
-            </div>
-            <div className="max-h-[360px] overflow-y-auto">
-              {searchQuery.trim() === '' ? (
-                <p className="px-4 py-6 text-center" style={{ fontSize: 13, color: TEXT3 }}>검색어를 입력하세요</p>
-              ) : searchResults.length === 0 ? (
-                <p className="px-4 py-6 text-center" style={{ fontSize: 13, color: TEXT3 }}>검색 결과가 없어요</p>
-              ) : (
-                <div className="py-1">
-                  {searchResults.map((r, i) => (
-                    <button key={i}
-                      onClick={() => {
-                        if (r.href.startsWith('memo:')) {
-                          localStorage.setItem('memos_open_id', r.href.slice(5))
-                          router.push('/memos')
-                        } else {
-                          router.push(r.href)
-                        }
-                        setSearchOpen(false)
-                      }}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 text-left"
-                      style={{ transition: 'background 180ms', borderBottom: i < searchResults.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}
-                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
-                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                      <span className="text-[10.5px] font-medium px-2 py-0.5 rounded-full flex-shrink-0"
-                        style={{ background: r.type === '세부task' ? 'rgba(99,102,241,0.18)' : r.type === '회의록' ? 'rgba(52,211,153,0.14)' : 'rgba(251,146,60,0.14)', color: r.type === '세부task' ? '#A5B4FC' : r.type === '회의록' ? '#6EE7B7' : '#FED7AA' }}>
-                        {r.type}
-                      </span>
-                      <span style={{ fontSize: 13, color: TEXT1, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
           </div>
         </div>,
         document.body
