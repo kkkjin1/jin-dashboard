@@ -264,6 +264,25 @@ const SmartTextarea = forwardRef<HTMLTextAreaElement, Props>(function SmartTexta
       return
     }
 
+    // ── Delete: 빈 리스트 항목에서 아래 줄 내용을 끌어올리기 ─────────────────
+    // 네이티브 forward-delete에 맡기면 커서 뒤에 남은 공백 유무에 따라 개행만
+    // 지워지거나 병합되거나 하여 결과가 들쭉날쭉하고, 병합돼도 아래 줄의
+    // 불릿 기호(○/▫ 등)가 그대로 끌려와 겹쳐 보인다. 항상 결정적으로 병합하고
+    // 아래 줄이 리스트 항목이면 그 prefix는 버리고 내용만 가져온다.
+    if (e.key === 'Delete' && !e.metaKey && !e.ctrlKey && !e.shiftKey && start === end) {
+      const restOfLine = value.slice(start, lineEnd)
+      if (info.type !== 'none' && !restOfLine.trim() && lineEnd < value.length) {
+        e.preventDefault()
+        const nextLineStart = lineEnd + 1
+        const nextLineEnd = getLineEnd(value, nextLineStart)
+        const nextInfo = parseLineInfo(value.slice(nextLineStart, nextLineEnd))
+        const mergedContent = nextInfo.type !== 'none' ? nextInfo.content : value.slice(nextLineStart, nextLineEnd)
+        replaceRange(el, lineStart + info.prefix.length, nextLineEnd, mergedContent)
+        pendingCursor.current = start
+        return
+      }
+    }
+
     // ── Space: '- ' → '▪ ' ──────────────────────────────────────────────────
     if (e.key === ' ' && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
       const linePos = start - lineStart
