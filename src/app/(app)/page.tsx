@@ -1156,6 +1156,18 @@ export default function HomePage() {
     setTimeout(() => setFMemoSaved(p => ({ ...p, [stateKey]: false })), 2500)
   }
 
+  // 고정회의(반복일정) 클릭 → 그날의 회의록으로 이동. 없으면 새로 만들어서 이동.
+  async function goToFixedMeetingToday(schedule: MeetingSchedule) {
+    const existing = meetings.find(m => m.title === schedule.title && m.meeting_date?.startsWith(today))
+    if (existing) { router.push(`/meetings/${existing.id}`); return }
+    const category = schedule.category ?? '기타'
+    const { data, error } = await sb.current.from('meetings')
+      .insert({ title: schedule.title, meeting_date: today, category }).select('*').single()
+    if (error || !data) { console.error('회의록 생성 실패:', error?.message); return }
+    setMeetings(p => [...p, data as Meeting])
+    router.push(`/meetings/${(data as Meeting).id}`)
+  }
+
   // 세부task/안건에 종속시키기 어려운 "오늘 이 시간에 할 업무"용 가벼운 일정 —
   // schedule_items 전용 테이블에 저장 (퀵메모와 분리해 퀵메모가 방대해지는 것을 방지)
   async function handleAddScheduleItem(title: string, startHour: number): Promise<void> {
@@ -1688,15 +1700,16 @@ export default function HomePage() {
                             return (
                               <div key={s.id} style={{ ...rd(i, total), paddingBottom: 2 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0 5px' }}>
-                                  <Link
-                                    href={linkedMeeting ? `/meetings/${linkedMeeting.id}` : '/meetings'}
-                                    style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0, textDecoration: 'none' }}
+                                  <button
+                                    type="button"
+                                    onClick={() => goToFixedMeetingToday(s)}
+                                    style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0, textDecoration: 'none', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
                                   >
                                     <div style={{ width: 16, height: 16, borderRadius: 4, background: isLogged ? 'rgba(107,122,159,0.12)' : 'rgba(56,190,152,0.12)', border: `1px solid ${isLogged ? 'rgba(107,122,159,0.22)' : 'rgba(56,190,152,0.22)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                       <Repeat2 size={9} strokeWidth={2.5} style={{ color: isLogged ? '#6B7A9F' : '#38BE98' }} />
                                     </div>
                                     <p style={{ fontSize: 14, fontWeight: 500, color: TEXT1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>{s.title}</p>
-                                  </Link>
+                                  </button>
                                   {isLogged && (
                                     <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 999, background: 'rgba(107,122,159,0.14)', color: '#8B98B8', flexShrink: 0, marginRight: 6, whiteSpace: 'nowrap' }}>기록됨</span>
                                   )}
