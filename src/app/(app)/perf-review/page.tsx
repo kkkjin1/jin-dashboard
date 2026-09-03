@@ -3,8 +3,10 @@
 export const dynamic = 'force-dynamic'
 
 import React, { useEffect, useState, useRef, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { createClient } from '@/lib/supabase/client'
 import TiptapEditor from '@/components/TiptapEditor'
+import MarkdownContent from '@/components/MarkdownContent'
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 interface Meeting { id: string; title: string; meeting_date: string }
@@ -60,6 +62,11 @@ function adjMonth(ym: string, delta: number): string {
 function fmtDateShort(date: string): string {
   const d = new Date(date + 'T00:00:00')
   return `${d.getMonth() + 1}/${d.getDate()}`
+}
+function fmtDateFull(date: string): string {
+  const d = new Date(date + 'T00:00:00')
+  const days = ['일', '월', '화', '수', '목', '금', '토']
+  return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 (${days[d.getDay()]})`
 }
 function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, '').replace(/&[a-z#\d]+;/g, ' ').trim()
@@ -223,9 +230,14 @@ function CompletedItemRow({ typeLabel, title, tag, tagBg, tagColor }: { typeLabe
     </div>
   )
 }
-function JournalRow({ date, title, preview }: { date: string; title: string; preview: string }) {
+function JournalRow({ date, title, preview, onClick }: { date: string; title: string; preview: string; onClick?: () => void }) {
   return (
-    <div style={{ display: 'flex', gap: 12, padding: '10px 16px', borderBottom: `1px solid ${S.rowBorder}` }}>
+    <div
+      onClick={onClick}
+      onMouseEnter={e => { if (onClick) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)' }}
+      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+      style={{ display: 'flex', gap: 12, padding: '10px 16px', borderBottom: `1px solid ${S.rowBorder}`, cursor: onClick ? 'pointer' : 'default', transition: 'background 0.12s' }}
+    >
       <span style={{ width: 32, fontSize: 11, color: S.t4, flexShrink: 0, paddingTop: 2 }}>{fmtDateShort(date)}</span>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 12.5, fontWeight: 600, color: S.t2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title || '(내용 없음)'}</div>
@@ -320,6 +332,7 @@ export default function CompletedTestPage() {
   const [completedAgenda, setCompletedAgenda] = useState<CompletedAgendaItem[]>([])
   const [completedSubTasks, setCompletedSubTasks] = useState<CompletedSubTask[]>([])
   const [journals, setJournals] = useState<DailyJournal[]>([])
+  const [viewJournal, setViewJournal] = useState<DailyJournal | null>(null)
   const [quickMemos, setQuickMemos] = useState<QuickMemo[]>([])
   const [periodTodos, setPeriodTodos] = useState<PeriodTodo[]>([])
   const [periodSchedule, setPeriodSchedule] = useState<PeriodScheduleItem[]>([])
@@ -398,6 +411,13 @@ export default function CompletedTestPage() {
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wsISO, weISO, wsDate, weDate])
+
+  useEffect(() => {
+    if (!viewJournal) return
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') setViewJournal(null) }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [viewJournal])
 
   const prevPeriodRef = useRef<{ key: string; type: string } | null>(null)
 
@@ -587,7 +607,7 @@ export default function CompletedTestPage() {
                 filledJournals.length === 0 ? <EmptyRow text="해당 기간 기록 없음" /> :
                 filledJournals.map(j => {
                   const { title, preview } = parseJournal(j.content ?? '')
-                  return <JournalRow key={j.id} date={j.date} title={title} preview={preview} />
+                  return <JournalRow key={j.id} date={j.date} title={title} preview={preview} onClick={() => setViewJournal(j)} />
                 })
               }
             </SummaryCard>
@@ -605,6 +625,30 @@ export default function CompletedTestPage() {
           </div>
         </div>
       </div>
+
+      {viewJournal && typeof document !== 'undefined' && createPortal(
+        <div
+          onClick={() => setViewJournal(null)}
+          style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: '8vh' }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{ width: '100%', maxWidth: 640, maxHeight: '78vh', margin: '0 16px', display: 'flex', flexDirection: 'column', background: '#191D25', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, boxShadow: '0 32px 80px rgba(0,0,0,0.5)', overflow: 'hidden' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: `1px solid ${S.rowBorder}`, flexShrink: 0 }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: S.t1 }}>📓 {fmtDateFull(viewJournal.date)}</span>
+              <button
+                onClick={() => setViewJournal(null)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: S.t3, fontSize: 12 }}
+              >ESC 닫기</button>
+            </div>
+            <div style={{ padding: '18px 20px', overflowY: 'auto' }}>
+              <MarkdownContent content={viewJournal.content ?? ''} dark />
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   )
 }
