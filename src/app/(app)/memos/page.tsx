@@ -6,6 +6,7 @@ import { CATEGORY_PALETTE, MEMO_TAG, colorKeyFromName } from '@/lib/categoryColo
 import dynamic from 'next/dynamic'
 import { MemoPageSkeleton } from '@/components/ui/Skeleton'
 import { createClient } from '@/lib/supabase/client'
+import { useAutosave, clearAutosaveBuffer } from '@/hooks/useAutosave'
 import { useUserSetting } from '@/hooks/useUserSetting'
 import { format, parseISO, isToday, isYesterday } from 'date-fns'
 import { ko } from 'date-fns/locale'
@@ -178,6 +179,35 @@ function MemoDetailPanel({ memo, categories, onSave, onAutoSave, onDelete, onClo
   const isFirstRender = useRef(true)
   const pendingSaveDataRef = useRef<{ title: string; content: string; tags: MemoTag[] } | null>(null)
   const onAutoSaveRef = useRef(onAutoSave)
+  const supabase = createClient()
+
+  // 기존 메모 편집 보호(autosave_drafts/content_versions) — quick_memos.id가 이미
+  // 실존하므로 quick/page.tsx·MobileMemoSheet.tsx(신규 작성, temp qid→rebind)와 달리
+  // qid/rebind가 필요 없다. entityId=memo.id로 고정, fieldKey='draft' 하나에
+  // {title, content, tags}를 통째로 담아 이미 배포된 quick_memo entity 설계(단일
+  // draft 필드)를 그대로 재사용. canonical UPDATE(아래 1.5초 debounce autoSave)는
+  // 손대지 않고 병행 기록만 하는 안전망 — meeting_note(B-5)/one_on_one/project_item
+  // 등 기존 entity 편집 화면과 동일하게 dev-pilot 아닌 production supabase를 그대로
+  // 쓴다(entity_id가 이미 실존하는 canonical id라 dev-pilot 격리 대상인 create-flow
+  // temp id와는 다름).
+  const draftValue = useMemo(() => ({ title, content, tags }), [title, content, tags])
+  const autosave = useAutosave({
+    supabase,
+    enabled: true,
+    entityType: 'quick_memo',
+    entityId: memo.id,
+    fieldKey: 'draft',
+    value: draftValue,
+  })
+
+  function applyRecovered() {
+    if (!autosave.recovered) return
+    const v = autosave.recovered.value as { title: string; content: string; tags: MemoTag[] }
+    setTitle(v.title ?? '')
+    setContent(v.content ?? '')
+    setTags(v.tags ?? memo.tag)
+    autosave.discardRecovered()
+  }
 
   const [tagPickerOpen, setTagPickerOpen] = useState(false)
   const [moveOpen, setMoveOpen] = useState(false)
@@ -259,6 +289,38 @@ function MemoDetailPanel({ memo, categories, onSave, onAutoSave, onDelete, onClo
           <span className="text-[11px] font-semibold text-white/40 uppercase tracking-wide">메모 상세</span>
           <button onClick={onClose} className="text-white/[0.28] hover:text-white/70 text-lg leading-none flex-shrink-0 transition-colors">×</button>
         </div>
+
+        {/* Autosave: 복구 배너 — 새로고침/크래시로 유실될 뻔한 마지막 입력 복원. 자동 적용하지 않고 사용자가 직접 선택 */}
+        {autosave.recovered && (
+          <div className="mb-3 px-3 py-2 rounded-lg text-xs flex items-center gap-2"
+            style={{ background: 'rgba(76,127,224,0.1)', border: '1px solid rgba(76,127,224,0.3)', color: '#A8C4F0' }}>
+            <span className="flex-1">복구 가능한 자동저장 내용이 있습니다</span>
+            <button onClick={applyRecovered} className="underline underline-offset-2">적용</button>
+            <button onClick={() => autosave.discardRecovered()} className="underline underline-offset-2">무시</button>
+          </div>
+        )}
+
+        {/* Autosave: 충돌 배너 — 자동 병합하지 않고 사용자가 선택 */}
+        {autosave.conflict && (
+          <div className="mb-3 px-3 py-2 rounded-lg text-xs flex flex-col gap-1.5"
+            style={{ background: 'rgba(249,158,11,0.1)', border: '1px solid rgba(249,158,11,0.35)', color: '#F0B84C' }}>
+            <span>다른 창/기기에서 이 메모가 변경되었습니다 — 자동 병합하지 않습니다.</span>
+            <div className="flex items-center gap-2">
+              <button onClick={() => autosave.resolveConflict('keep-mine')} className="underline underline-offset-2">
+                내 내용 유지(덮어쓰기)
+              </button>
+              <button
+                onClick={() => {
+                  const v = autosave.conflict?.serverContent as { title: string; content: string; tags: MemoTag[] } | undefined
+                  if (v) { setTitle(v.title ?? ''); setContent(v.content ?? ''); setTags(v.tags ?? memo.tag) }
+                  autosave.resolveConflict('take-theirs')
+                }}
+                className="underline underline-offset-2">
+                서버 내용 사용
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* 액션 툴바 — 고정/수정/이동/더보기(삭제) */}
         <div className="flex items-center gap-1 mb-3">
@@ -518,9 +580,15 @@ export default function MemosPage() {
     setInlineTags(null); setInlineTitle(''); setInlineContent('')
   }
 
+  // 삭제 race: pending autosave draft가 있는 메모를 지울 때, canonical 삭제 직후
+  // 그 메모의 autosave_drafts row(서버)와 로컬 버퍼도 함께 지운다 — meeting_note
+  // 삭제(B-5)와 동일 패턴. content_versions는 append-only(UPDATE/DELETE 권한 없음)라
+  // 건드리지 않음 — 지워진 메모의 이력이 남는 건 기존 rebind 시나리오와 동일하게 허용.
   async function deleteMemo(id: string): Promise<boolean> {
     if (!confirm('메모를 삭제하시겠습니까?')) return false
     await supabase.from('quick_memos').delete().eq('id', id)
+    await supabase.from('autosave_drafts').delete().eq('entity_type', 'quick_memo').eq('entity_id', id)
+    clearAutosaveBuffer('quick_memo', id, 'draft')
     setMemos(prev => prev.filter(m => m.id !== id))
     setEditing(prev => (prev?.id === id ? null : prev))
     return true
