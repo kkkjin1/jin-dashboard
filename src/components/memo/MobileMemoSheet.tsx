@@ -40,12 +40,12 @@ export default function MobileMemoSheet() {
   // 이 화면의 기존 동작은 조금도 바뀌지 않는다.
   const pilotClient = getDevPilotClient()
   const isDevPilot = pilotClient !== null
-  // Quick Memo(STEP5 Phase2)와 동일한 원칙: 이 화면의 "모든" Supabase 호출(캐노니컬
-  // quick_memos 저장 포함)이 dev-pilot을 쓴다. `??`는 pilotClient가 null일 때(=
-  // .env.development.local 미설정, 일반/프로덕션 케이스) 순수 JS 언어 의미론으로
-  // 반드시 supabase(프로덕션)로 귀결된다 — 런타임 분기가 아니라 값 자체가 그렇게
-  // 정해지므로 "반대로 꼬일" 여지가 구조적으로 없다.
-  const activeSupabase = pilotClient ?? supabase
+  // devPilotClient.ts의 설계 계약상 dev-pilot은 autosave_drafts/content_versions만
+  // 격리하기 위한 것 — canonical quick_memos 저장은 항상 production(`supabase`)을
+  // 써야 한다(회의록 MeetingNotesNew.tsx/Quick Memo에서 동일 원인으로 발견/수정된
+  // 버그와 같은 클래스, 2026-09-04). activeSupabase는 이제 쓰지 않는다 — autosave는
+  // 아래 useAutosave 호출에서 `pilotClient`를 직접 받아 처리한다(꺼져 있으면 null →
+  // enabled 게이트와 함께 완전히 비활성).
 
   useEffect(() => {
     // 실제 모바일 기기에서만 표시. 너비만 보면 창을 좁게 띄운 데스크톱 브라우저도
@@ -104,7 +104,7 @@ export default function MobileMemoSheet() {
     if (!title.trim()) { titleRef.current?.focus(); return }
     setSaving(true)
     setSaveError('')
-    const { data: newMemo, error } = await activeSupabase
+    const { data: newMemo, error } = await supabase
       .from('quick_memos')
       .insert({ title: title.trim(), content: content.trim(), tag: [tag] })
       .select('id')

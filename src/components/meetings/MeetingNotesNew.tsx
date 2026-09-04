@@ -47,10 +47,13 @@ export default function MeetingNotesNew() {
   const supabase = createClient()
   const router   = useRouter()
 
-  // pilotClient가 null이면(.env.development.local 미설정) activeSupabase는 순수 JS
-  // 언어 의미론(`??`)으로 반드시 supabase(프로덕션)로 귀결된다 — MobileMemoSheet/
-  // Quick Memo와 동일한 원칙, 이 화면의 Supabase 호출 4곳 전부가 따른다. Autosave도
-  // STEP A-2부터 이 activeSupabase를 그대로 쓴다.
+  // devPilotClient.ts의 설계 계약(파일 상단 주석)상 dev-pilot은 autosave_drafts/
+  // content_versions만 격리하기 위한 것 — meetings/meeting_notes 등 canonical
+  // 테이블은 항상 production(`supabase`)을 써야 한다. 그런데 이 화면은 canonical
+  // meetings INSERT/SELECT까지 activeSupabase(dev-pilot)로 보내고 있었고, 회의
+  // 상세 페이지(meetings/[id]/page.tsx)는 항상 production만 조회하므로 dev-pilot
+  // 활성 상태에서 "새 회의록"으로 만든 회의가 상세 진입 시 보이지 않는 버그가
+  // 있었다(2026-09-04 확인). activeSupabase는 autosave 호출 한 곳에만 남긴다.
   const pilotClient = getDevPilotClient()
   const activeSupabase = pilotClient ?? supabase
 
@@ -98,8 +101,8 @@ export default function MeetingNotesNew() {
     if (!selected) { setPreviewCounts(null); return }
     let cancelled = false
     Promise.all([
-      activeSupabase.from('attachments').select('id', { count: 'exact', head: true }).eq('meeting_id', selected.id),
-      activeSupabase.from('meeting_agenda_links').select('id', { count: 'exact', head: true }).eq('meeting_id', selected.id),
+      supabase.from('attachments').select('id', { count: 'exact', head: true }).eq('meeting_id', selected.id),
+      supabase.from('meeting_agenda_links').select('id', { count: 'exact', head: true }).eq('meeting_id', selected.id),
     ]).then(([attRes, linkRes]) => {
       if (cancelled) return
       setPreviewCounts({ attachments: attRes.count ?? 0, links: linkRes.count ?? 0 })
@@ -112,7 +115,7 @@ export default function MeetingNotesNew() {
   useEffect(() => {
     if (!selected) { setSelectedNotes(null); return }
     let cancelled = false
-    fetchMeetingNotes(activeSupabase, selected.id).then(grouped => {
+    fetchMeetingNotes(supabase, selected.id).then(grouped => {
       if (!cancelled) setSelectedNotes(grouped)
     })
     return () => { cancelled = true }
@@ -128,7 +131,7 @@ export default function MeetingNotesNew() {
       }
     } catch {}
 
-    activeSupabase
+    supabase
       .from('meetings')
       // 목록/검색/필터/정렬에 실제로 쓰이는 열만 select — 레거시 notes(jsonb) 등은 제외.
       .select('id, title, meeting_date, category')
@@ -136,7 +139,7 @@ export default function MeetingNotesNew() {
       .then(async ({ data: m }) => {
         const loaded = (m ?? []) as Meeting[]
         setMeetings(loaded)
-        setNoteCounts(await fetchMeetingNoteCounts(activeSupabase, loaded.map(mt => mt.id)))
+        setNoteCounts(await fetchMeetingNoteCounts(supabase, loaded.map(mt => mt.id)))
 
         // DB에 있는 신규 범주 자동 추가
         const dbCats = [...new Set(loaded.map(mt => mt.category).filter((c): c is string => !!c && c !== '기타'))]
@@ -175,8 +178,10 @@ export default function MeetingNotesNew() {
   }
 
   // Autosave: entityId(qid)가 아직 없거나 폼이 닫혀 있으면 enabled=false라 완전히
-  // 비활성 — 기존 화면 동작에는 영향 없음. activeSupabase를 그대로 써서 dev-pilot
-  // 테스트 중엔 dev-pilot 프로젝트로, 그 외엔 프로덕션으로 향한다(STEP A-2).
+  // 비활성 — 기존 화면 동작에는 영향 없음. autosave_drafts/content_versions만
+  // 쓰는 이 호출에 한해 activeSupabase를 그대로 써서 dev-pilot 테스트 중엔
+  // dev-pilot 프로젝트로, 그 외엔 프로덕션으로 향한다(STEP A-2). canonical
+  // meetings/meeting_notes/attachments 등은 항상 production(`supabase`)을 쓴다.
   // value는 반드시 useMemo로 감싼다(MobileMemoSheet의 draftValue와 동일한 이유).
   const draftValue = useMemo(() => ({ title: newTitle }), [newTitle])
   const autosave = useAutosave({
@@ -200,7 +205,7 @@ export default function MeetingNotesNew() {
     const title = newTitle.trim()
     if (!title) { setAdding(false); return }
     const today = format(new Date(), 'yyyy-MM-dd')
-    const { data, error } = await activeSupabase
+    const { data, error } = await supabase
       .from('meetings')
       .insert({ title, meeting_date: today, notes: [] })
       .select('id')

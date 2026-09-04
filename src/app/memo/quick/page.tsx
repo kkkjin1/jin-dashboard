@@ -103,12 +103,11 @@ export default function QuickMemoPage() {
   const qidRef    = useRef('')     // 이 창이 쓰는 draft 슬롯 id — orphan 선택 대기 중엔 빈 문자열
   const supabase  = createClient()
 
-  // pilotClient가 null이면(=.env.development.local 미설정, 프로덕션과 100% 동일)
-  // activeSupabase는 기존 supabase와 완전히 동일한 참조 — 이 화면의 기존 동작은
-  // 조금도 바뀌지 않는다. pilotClient가 있을 때만(로컬 dev-pilot 테스트) 이 화면의
-  // 모든 Supabase 호출이 dev pilot 프로젝트로 향한다 (docs/autosave-implementation.md
-  // 참조). STEP A-2부터 autosave 자체도 이 activeSupabase를 그대로 써서 프로덕션에서도
-  // 동작한다 — dev-pilot 테스트 중엔 여전히 dev-pilot 프로젝트로, 그 외엔 프로덕션으로.
+  // devPilotClient.ts의 설계 계약상 dev-pilot은 autosave_drafts/content_versions만
+  // 격리하기 위한 것 — agenda_groups/agenda_items/agenda_sub_tasks/meetings/
+  // meeting_notes/quick_memos 등 canonical 테이블은 항상 production(`supabase`)을
+  // 써야 한다(회의록 MeetingNotesNew.tsx에서 동일 원인으로 발견/수정된 버그와 같은
+  // 클래스, 2026-09-04). activeSupabase는 useAutosave 호출 한 곳에만 남긴다.
   const pilotClient   = getDevPilotClient()
   const isDevPilot    = pilotClient !== null
   const activeSupabase = pilotClient ?? supabase
@@ -193,7 +192,7 @@ export default function QuickMemoPage() {
   const [subTaskCreated, setSubTaskCreated] = useState('')
 
   useEffect(() => {
-    activeSupabase.from('agenda_groups').select('id, name, color').order('sort_order').then(({ data }) => {
+    supabase.from('agenda_groups').select('id, name, color').order('sort_order').then(({ data }) => {
       setGroups((data ?? []) as AgendaGroupOption[])
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -205,9 +204,12 @@ export default function QuickMemoPage() {
   }, [])
 
   // ── Autosave (docs/autosave-architecture.md / autosave-db-design.md) ────
-  // activeSupabase를 그대로 써서 dev-pilot 테스트 중엔 dev-pilot 프로젝트로,
-  // 프로덕션에서는 실제 로그인 세션으로 production autosave_drafts/content_versions에
-  // 연결된다(STEP A-2). entityId(qid)가 아직 없으면 enabled=false로 완전히 비활성.
+  // autosave_drafts/content_versions만 쓰는 이 호출에 한해 activeSupabase를 그대로
+  // 써서 dev-pilot 테스트 중엔 dev-pilot 프로젝트로, 프로덕션에서는 실제 로그인
+  // 세션으로 production autosave_drafts/content_versions에 연결된다(STEP A-2).
+  // entityId(qid)가 아직 없으면 enabled=false로 완전히 비활성. canonical
+  // agenda_groups/agenda_items/agenda_sub_tasks/meetings/meeting_notes/quick_memos는
+  // 항상 production(`supabase`)을 쓴다.
   const draftValue = useMemo(() => ({ title, content, tag }), [title, content, tag])
   const autosave = useAutosave({
     supabase: activeSupabase,
@@ -338,7 +340,7 @@ export default function QuickMemoPage() {
   // ── 세부task ──────────────────────────────────────────────────────────────
   async function onGroupSelect(groupId: string) {
     setPickerLoading(true)
-    const { data } = await activeSupabase.from('agenda_items')
+    const { data } = await supabase.from('agenda_items')
       .select('id, title').eq('group_id', groupId).eq('status', 'active').order('sort_order')
     setPickerItems((data ?? []) as AgendaItemOption[])
     setPickerLoading(false)
@@ -347,9 +349,9 @@ export default function QuickMemoPage() {
 
   async function onItemSelect(agendaItemId: string) {
     setPickerLoading(true)
-    const { count } = await activeSupabase.from('agenda_sub_tasks')
+    const { count } = await supabase.from('agenda_sub_tasks')
       .select('*', { count: 'exact', head: true }).eq('agenda_item_id', agendaItemId)
-    await activeSupabase.from('agenda_sub_tasks').insert({
+    await supabase.from('agenda_sub_tasks').insert({
       agenda_item_id: agendaItemId, title: selText, status: 'active', sort_order: (count ?? 0) + 1,
     })
     setPickerLoading(false)
@@ -375,7 +377,7 @@ export default function QuickMemoPage() {
 
     if (tag === '회의관련') {
       const today = new Date().toISOString().slice(0, 10)
-      const { data: newMeeting, error: meetingError } = await activeSupabase.from('meetings')
+      const { data: newMeeting, error: meetingError } = await supabase.from('meetings')
         .insert({ title: title.trim(), meeting_date: today, category: '기타' })
         .select('id, title, meeting_date, category').single()
       if (meetingError || !newMeeting) {
@@ -384,7 +386,7 @@ export default function QuickMemoPage() {
         return
       }
       const now = new Date().toISOString()
-      const { error: noteError } = await activeSupabase.from('meeting_notes').insert({
+      const { error: noteError } = await supabase.from('meeting_notes').insert({
         meeting_id: newMeeting.id, title: title.trim(), content, is_prep: false,
         created_at: now, updated_at: now,
       })
@@ -398,7 +400,7 @@ export default function QuickMemoPage() {
       if (window.opener) window.opener.dispatchEvent(new CustomEvent('quick-meeting-created', { detail: newMeeting }))
       setSavedMsg('회의록에 저장됨!')
     } else {
-      const { data: newMemo, error } = await activeSupabase.from('quick_memos')
+      const { data: newMemo, error } = await supabase.from('quick_memos')
         .insert({ title: title.trim(), content, tag: [tag] })
         .select('id').single()
       if (error) {
