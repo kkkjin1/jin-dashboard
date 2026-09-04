@@ -17,9 +17,11 @@ interface Props {
   value: string | null
   color: string
   onChange: (v: string | null) => void
+  /** 값 텍스트 폰트 크기(px) — 기본 9. 여유 있는 레이아웃(모달 등)에서 더 크게 쓰고 싶을 때만 지정 */
+  valueSize?: number
 }
 
-export function DateCellPicker({ label, value, color, onChange }: Props) {
+export function DateCellPicker({ label, value, color, onChange, valueSize = 9 }: Props) {
   const [open, setOpen] = useState(false)
   const [pos, setPos] = useState({ top: 0, left: 0 })
   const [viewY, setViewY] = useState(() => value ? +value.slice(0, 4) : new Date().getFullYear())
@@ -145,10 +147,12 @@ export function DateCellPicker({ label, value, color, onChange }: Props) {
         className="flex items-center gap-1 cursor-pointer w-full group/datecell"
         onClick={openPicker}
       >
-        <span style={{ fontSize: 9, fontWeight: 600, color: 'rgba(148,163,184,0.7)', flexShrink: 0, width: 10 }}>
-          {label}
-        </span>
-        <span style={{ fontSize: 9, fontWeight: 500, color: value ? color : 'rgba(226,232,240,0.18)', flex: 1 }}>
+        {label && (
+          <span style={{ fontSize: 9, fontWeight: 600, color: 'rgba(148,163,184,0.7)', flexShrink: 0, whiteSpace: 'nowrap' }}>
+            {label}
+          </span>
+        )}
+        <span style={{ fontSize: valueSize, fontWeight: 500, color: value ? color : 'rgba(226,232,240,0.18)', flex: 1 }}>
           {value ? value.slice(5).replace('-', '/') : '—'}
         </span>
         {value && (

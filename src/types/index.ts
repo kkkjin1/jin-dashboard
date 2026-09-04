@@ -290,6 +290,35 @@ export interface AnnualGoalCategoryLabel {
   updated_at: string
 }
 
+// ── 테스트실무 (PoC: 연간목표 3단계 -> 4단계 실행 TASK) ─────────────
+// annual_goal_items/annual_goal_tasks는 그대로 참조만 하고 복제하지 않는다.
+
+export interface TestPracticeTask {
+  id: string
+  annual_goal_task_id: string
+  title: string
+  status: AnnualGoalStatus
+  assignee_id?: string | null
+  start_date?: string | null
+  due_date?: string | null
+  description?: string | null
+  completed_at?: string | null
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
+// 테스트실무 화면 전용 우선순위 — annual_goal_tasks.agreed_priority와 완전히 분리된 값.
+// annual_goal_tasks(연간목표 TASK)를 이 화면에서는 "과제 카드"로 취급하고, 그 카드에만 붙는다.
+export type AgendaPriority = 'P1' | 'P2' | 'P3'
+
+export interface TestPracticeAgendaPriority {
+  annual_goal_task_id: string
+  priority: AgendaPriority
+  created_at: string
+  updated_at: string
+}
+
 // ── 생각스케치 ────────────────────────────────────────────────────
 
 export interface SketchBoard {
