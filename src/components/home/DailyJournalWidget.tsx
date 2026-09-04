@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { useAutosave } from '@/hooks/useAutosave'
 import type { Task } from '@/types'
 
 interface MeetingMin { id: string; title: string; meeting_date?: string | null }
@@ -250,6 +251,13 @@ function serializeSections(s: Record<SectionKey, string>): string {
     .map(k => `## ${SECTION_META[k].label}\n${s[k].trim()}`)
     .join('\n\n')
 }
+// initData(최초 로드)와 applyRecovered(autosave 복구 적용) 양쪽에서 재사용하기
+// 위해 컴포넌트 바깥으로 뺌 — 로직은 기존 그대로, 위치만 이동.
+function extractMeal(sec: Record<SectionKey, string>) {
+  const meal = sec.meal
+  const l = meal.match(/점심[:\s]+([^\n]+)/); const d = meal.match(/저녁[:\s]+([^\n]+)/)
+  return { lunch: l ? l[1].trim() : '', dinner: d ? d[1].trim() : '' }
+}
 const TASK_STATUS_CLS: Record<string, string> = {
   active: 'bg-blue-50 text-blue-500',
   hold: 'bg-gray-100 text-gray-400',
@@ -257,6 +265,8 @@ const TASK_STATUS_CLS: Record<string, string> = {
 }
 
 export function JournalFullscreenEditor({ selectedDate, current, yesterday, meetings, supabaseClient, onSaved, onClose }: EditorProps) {
+  // autosave 도입 이전부터 있던 localStorage 초안 키. 더 이상 여기에 쓰지 않고
+  // (아래 useAutosave의 로컬 버퍼가 그 역할을 대신함), 최초 1회 이관 소스로만 읽는다.
   const JOURNAL_DRAFT_KEY = `journal_editor_draft_${selectedDate}`
 
   // localStorage draft 우선 복원, 없으면 Supabase 데이터
@@ -264,22 +274,17 @@ export function JournalFullscreenEditor({ selectedDate, current, yesterday, meet
     const fallbackContent = current?.content ?? ''
     const fallbackSections = parseSections(fallbackContent)
     const fallbackDraft = serializeSections(fallbackSections) || fallbackContent
-    const extractMeal = (sec: Record<SectionKey, string>) => {
-      const meal = sec.meal
-      const l = meal.match(/점심[:\s]+([^\n]+)/); const d = meal.match(/저녁[:\s]+([^\n]+)/)
-      return { lunch: l ? l[1].trim() : '', dinner: d ? d[1].trim() : '' }
-    }
     try {
-      const s = localStorage.getItem(`journal_editor_draft_${selectedDate}`)
+      const s = localStorage.getItem(JOURNAL_DRAFT_KEY)
       if (s) {
         const saved = JSON.parse(s) as { draft: string }
         if (saved.draft) {
           const sec = parseSections(saved.draft)
-          return { draft: saved.draft, sections: sec, ...extractMeal(sec) }
+          return { draft: saved.draft, sections: sec, ...extractMeal(sec), hadLegacy: true }
         }
       }
     } catch {}
-    return { draft: fallbackDraft, sections: fallbackSections, ...extractMeal(fallbackSections) }
+    return { draft: fallbackDraft, sections: fallbackSections, ...extractMeal(fallbackSections), hadLegacy: false }
   })
 
   const [sections, setSections] = useState<Record<SectionKey, string>>(initData.sections)
@@ -319,21 +324,86 @@ export function JournalFullscreenEditor({ selectedDate, current, yesterday, meet
   const [todayCtx, setTodayCtx] = useState<TodayCtx>({ memos: [], meetings: [], oneOnOnes: [], newTasks: [], taskNotes: [], scheduleItems: [], todos: [] })
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const meetingSearchRef = useRef<HTMLInputElement>(null)
-  const draftTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   useEffect(() => {
     setTimeout(() => textareaRef.current?.focus(), 80)
   }, [])
 
-  // 타이핑 500ms 후 localStorage draft 저장
+  // ── Autosave 안전망 ──────────────────────────────────────────────────────
+  // canonical daily_journals INSERT/UPDATE(doSave, 아래)는 그대로 유지 — 이 훅은
+  // autosave_drafts/content_versions에만 병행 기록한다. entityId로 daily_journals.id
+  // 대신 selectedDate(날짜)를 쓴다: 이 화면은 row가 아직 없는 날짜에서도 편집이
+  // 시작되므로(현재 null일 수 있음) row id 기반 qid/rebind 패턴이 필요해 보이지만,
+  // 실제로는 화면 전체가 "날짜당 최대 1건"을 불변식으로 다루고 있어(위 위젯의
+  // journals 맵이 date를 키로 씀, doSave도 date로 upsert 여부를 가른다) 날짜 자체가
+  // 이미 안정적인 자연 키다. row 존재 여부와 무관하게 날짜를 그대로 entityId로
+  // 쓰면 rebind 없이도 편집 시작 시점부터 canonical 저장 이후까지 같은 draft를
+  // 그대로 이어 쓸 수 있다 — 회의록/빠른메모의 qid+rebind보다 더 작은 변경.
+  const journalDraftValue = useMemo(
+    () => ({ draft, linkedMeetingIds, tags }),
+    [draft, linkedMeetingIds, tags],
+  )
+  const autosave = useAutosave({
+    supabase: supabaseClient,
+    enabled: true,
+    entityType: 'daily_journal',
+    entityId: selectedDate,
+    fieldKey: 'draft',
+    value: journalDraftValue,
+  })
+
+  function applyRecovered() {
+    if (!autosave.recovered) return
+    const v = autosave.recovered.value
+    const sec = parseSections(v.draft ?? '')
+    const meal = extractMeal(sec)
+    setSections(sec)
+    setDraft(v.draft ?? '')
+    setLunch(meal.lunch)
+    setDinner(meal.dinner)
+    setLinkedMeetingIds(v.linkedMeetingIds ?? [])
+    setTags(v.tags ?? [])
+    autosave.discardRecovered()
+  }
+
+  // 레거시 localStorage 초안(JOURNAL_DRAFT_KEY) 1회성 이관: initData가 이미
+  // 마운트 시 그 값을 draft/sections 초기 state에 반영해 두었으므로(위), 이
+  // 컴포넌트가 useAutosave보다 뒤에 선언한 이 effect가 도는 시점엔 useAutosave의
+  // on-value-change effect(마운트 시 동기 실행)가 그 초기값을 이미 새 로컬
+  // 버퍼(autosave_buffer_v1:daily_journal:{date}:draft)에 써 둔 뒤다. 새 버퍼가
+  // 실제로 이관된 값을 담고 있는 걸 확인한 뒤에만 레거시 키를 지운다 — 확인 전에
+  // 지우면, 새 버퍼 쓰기가 어떤 이유로 실패했을 때 유일한 백업을 날리게 된다.
+  const legacyCleanupPendingRef = useRef(initData.hadLegacy)
   useEffect(() => {
-    if (!draft.trim()) return
-    clearTimeout(draftTimer.current)
-    draftTimer.current = setTimeout(() => {
-      try { localStorage.setItem(JOURNAL_DRAFT_KEY, JSON.stringify({ draft })) } catch {}
-    }, 500)
+    if (!legacyCleanupPendingRef.current) return
+    legacyCleanupPendingRef.current = false
+    try {
+      const raw = localStorage.getItem(`autosave_buffer_v1:daily_journal:${selectedDate}:draft`)
+      if (raw) {
+        const parsed = JSON.parse(raw) as { value?: { draft?: string } }
+        if (parsed.value?.draft === draft) {
+          try { localStorage.removeItem(JOURNAL_DRAFT_KEY) } catch {}
+        }
+      }
+    } catch {}
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draft])
+  }, [])
+
+  // 타이핑 직후 새로고침/탭 닫기 시 canonical debounce 저장(Ctrl+Enter/저장 버튼
+  // 클릭 전)뿐 아니라 이 훅의 로컬 버퍼 기록(700ms debounce)까지 아직 안 돈 상태로
+  // 유실될 수 있다(one-on-one 세션 편집 화면에서 실측 확인된 것과 동일한 종류의
+  // 레이스) — pagehide/beforeunload 시점에 flush()를 강제로 걸어 최소한 그 순간의
+  // 값이라도 autosave_drafts에 밀어넣을 기회를 준다.
+  const journalFlush = autosave.flush
+  useEffect(() => {
+    function flushNow() { journalFlush() }
+    window.addEventListener('pagehide', flushNow)
+    window.addEventListener('beforeunload', flushNow)
+    return () => {
+      window.removeEventListener('pagehide', flushNow)
+      window.removeEventListener('beforeunload', flushNow)
+    }
+  }, [journalFlush])
 
   useEffect(() => {
     const dayStart = selectedDate + 'T00:00:00'
@@ -499,6 +569,16 @@ export function JournalFullscreenEditor({ selectedDate, current, yesterday, meet
             {/* 오늘 작성 영역 */}
             <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-3 min-h-0">
               <p className="text-[11px] font-semibold flex-shrink-0" style={{ color: D.t3 }}>{dateLabel} 회고</p>
+
+              {/* Autosave 복구 배너 — 자동 적용하지 않음(회의록/빠른메모와 동일 패턴) */}
+              {autosave.recovered && (
+                <div className="flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-lg text-[11px]"
+                  style={{ background: 'rgba(79,141,255,0.12)', border: '1px solid rgba(79,141,255,0.3)', color: '#7EB3FF' }}>
+                  <span className="flex-1">복구 가능한 자동저장 내용이 있습니다</span>
+                  <button onClick={applyRecovered} className="underline underline-offset-2">적용</button>
+                  <button onClick={() => autosave.discardRecovered()} className="underline underline-offset-2">무시</button>
+                </div>
+              )}
 
               {/* ── 업무 회고 (2×2) ── */}
               <div className="flex-shrink-0">
