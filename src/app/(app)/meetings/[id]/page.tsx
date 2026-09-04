@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { Meeting, Attachment } from '@/types'
 import { generateMeetingMd, downloadMd } from '@/lib/markdown'
 import { fetchMeetingNotes, wasEdited, type MeetingNoteRow } from '@/lib/meetingNotes'
+import { useAutosave, clearAutosaveBuffer } from '@/hooks/useAutosave'
 import dynamic from 'next/dynamic'
 import MarkdownContent from '@/components/MarkdownContent'
 import TextSelectionCapture from '@/components/TextSelectionCapture'
@@ -59,6 +60,7 @@ interface NoteAccordionProps {
 }
 
 function NoteAccordion({ note, isOpen, onToggle, onDelete, onEdit, onFullscreen, agendaItems, onAddToItem }: NoteAccordionProps) {
+  const supabase = createClient()
   const [editing, setEditing] = useState(false)
   const [editContent, setEditContent] = useState(note.content)
   const [editingTitle, setEditingTitle] = useState(false)
@@ -73,6 +75,40 @@ function NoteAccordion({ note, isOpen, onToggle, onDelete, onEdit, onFullscreen,
   const [addedToItem, setAddedToItem] = useState('')
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const pickerRef = useRef<HTMLDivElement>(null)
+
+  // Track B-5: canonical UPDATE(onEdit → editNote, 1500ms debounce)는 그대로 유지 —
+  // 이 훅은 autosave_drafts/content_versions에만 병행 기록하는 안전망(one_on_one
+  // titleAutosave/contentAutosave와 동일 패턴). entity_id는 항상 실존하는
+  // meeting_notes.id이므로 qid/rebind 불필요.
+  const titleAutosave = useAutosave({
+    supabase,
+    enabled: editingTitle,
+    entityType: 'meeting_note',
+    entityId: note.id,
+    fieldKey: 'title',
+    value: editTitle,
+  })
+  const contentAutosave = useAutosave({
+    supabase,
+    // '크게 편집'(로컬 fullscreen)도 같은 editContent/handleChange를 쓰므로 함께 보호.
+    enabled: editing || fullscreen,
+    entityType: 'meeting_note',
+    entityId: note.id,
+    fieldKey: 'content',
+    value: editContent,
+  })
+
+  function applyRecoveredTitle() {
+    if (!titleAutosave.recovered) return
+    setEditTitle(titleAutosave.recovered.value)
+    titleAutosave.discardRecovered()
+  }
+  function applyRecoveredContent() {
+    if (!contentAutosave.recovered) return
+    setEditContent(contentAutosave.recovered.value)
+    setTiptapKey(k => k + 1)
+    contentAutosave.discardRecovered()
+  }
 
   useEffect(() => {
     if (!showItemPicker) return
@@ -117,23 +153,34 @@ function NoteAccordion({ note, isOpen, onToggle, onDelete, onEdit, onFullscreen,
         <div className="flex items-center gap-2 min-w-0 flex-1">
           <span className="text-xs text-[rgba(226,232,240,0.4)] flex-shrink-0">{isOpen ? '▼' : '▶'}</span>
           {editingTitle ? (
-            <input
-              autoFocus
-              value={editTitle}
-              onClick={e => e.stopPropagation()}
-              onChange={e => setEditTitle(e.target.value)}
-              onBlur={e => {
-                const val = e.target.value.trim()
-                setEditingTitle(false)
-                onEdit(note.id, note.content, val || note.title)
-              }}
-              onKeyDown={e => {
-                if (e.nativeEvent.isComposing) return
-                if (e.key === 'Enter') { e.currentTarget.blur() }
-                if (e.key === 'Escape') { setEditTitle(note.title); setEditingTitle(false) }
-              }}
-              className="text-sm font-medium text-[rgba(226,232,240,0.8)] focus:outline-none border-b border-blue-300 bg-transparent min-w-0 flex-1"
-            />
+            <>
+              {titleAutosave.recovered && (
+                <div onClick={e => e.stopPropagation()}
+                  className="flex items-center gap-2 px-2 py-1 rounded-md text-[11px]"
+                  style={{ background: 'rgba(76,127,224,0.12)', border: '1px solid rgba(76,127,224,0.25)', color: '#9DBEF5' }}>
+                  <span className="flex-1">복구 가능한 자동저장 내용이 있습니다</span>
+                  <button onClick={applyRecoveredTitle} className="underline underline-offset-2">적용</button>
+                  <button onClick={() => titleAutosave.discardRecovered()} className="underline underline-offset-2">무시</button>
+                </div>
+              )}
+              <input
+                autoFocus
+                value={editTitle}
+                onClick={e => e.stopPropagation()}
+                onChange={e => setEditTitle(e.target.value)}
+                onBlur={e => {
+                  const val = e.target.value.trim()
+                  setEditingTitle(false)
+                  onEdit(note.id, note.content, val || note.title)
+                }}
+                onKeyDown={e => {
+                  if (e.nativeEvent.isComposing) return
+                  if (e.key === 'Enter') { e.currentTarget.blur() }
+                  if (e.key === 'Escape') { setEditTitle(note.title); setEditingTitle(false) }
+                }}
+                className="text-sm font-medium text-[rgba(226,232,240,0.8)] focus:outline-none border-b border-blue-300 bg-transparent min-w-0 flex-1"
+              />
+            </>
           ) : (
             <span
               className="text-sm font-medium text-[rgba(226,232,240,0.8)] truncate cursor-text hover:text-blue-600 transition-colors"
@@ -215,6 +262,14 @@ function NoteAccordion({ note, isOpen, onToggle, onDelete, onEdit, onFullscreen,
         <div className="px-4 pb-4 border-t border-gray-50">
           {editing ? (
             <>
+              {contentAutosave.recovered && (
+                <div className="mb-2 px-3 py-2 rounded-lg text-[12px] flex items-center gap-2"
+                  style={{ background: 'rgba(76,127,224,0.12)', border: '1px solid rgba(76,127,224,0.25)', color: '#9DBEF5' }}>
+                  <span className="flex-1">복구 가능한 자동저장 내용이 있습니다</span>
+                  <button onClick={applyRecoveredContent} className="underline underline-offset-2">적용</button>
+                  <button onClick={() => contentAutosave.discardRecovered()} className="underline underline-offset-2">무시</button>
+                </div>
+              )}
               <TiptapEditor
                 dark
                 key={tiptapKey}
@@ -298,6 +353,107 @@ export default function MeetingDetailPage() {
   const [newNoteKey, setNewNoteKey] = useState(0)
   const titleRef = useRef<HTMLInputElement>(null)
 
+  // Track B-5: 새 노트 작성 컴포즈 박스의 autosave entityId(create-flow 임시 id) —
+  // 탭별 격리 목적으로 sessionStorage에 회의별로 보관(MeetingNotesNew.tsx의
+  // QID_STORAGE_KEY와 동일 원리). 저장 성공 시 실제 meeting_notes.id로 rebind된다.
+  const [newNoteQid, setNewNoteQid] = useState('')
+  const [legacyMigrationPending, setLegacyMigrationPending] = useState(false)
+  const legacyMigrationDoneRef = useRef(false)
+  // qid를 active(useAutosave에 넘기기) 전에 캡처해 둔 legacy 이관 판단 — useAutosave의
+  // on-value-change effect가 이 qid로 활성화되는 순간 기본값을 버퍼에 먼저 써버리기
+  // 때문에, 그 이후(마이그레이션 effect 시점)에 버퍼 유무를 다시 확인하면 항상
+  // "이미 있음"으로 오판한다(실측 확인된 레이스). 그래서 활성화 직전 시점의
+  // 버퍼 상태를 여기 미리 저장해 두고, 마이그레이션 effect는 이 값만 읽는다.
+  const pendingLegacyRef = useRef<{ legacyContent: string; legacyTitle: string; hadExistingBuffer: boolean } | null>(null)
+
+  useEffect(() => {
+    const key = `meeting_note_new_qid_${id}`
+    let qid = ''
+    try { qid = sessionStorage.getItem(key) ?? '' } catch {}
+    if (!qid) {
+      qid = crypto.randomUUID()
+      try { sessionStorage.setItem(key, qid) } catch {}
+    }
+
+    let legacyContent = ''
+    let legacyTitle = ''
+    try { legacyContent = localStorage.getItem(`meeting_draft_${id}`) ?? '' } catch {}
+    try { legacyTitle = localStorage.getItem(`meeting_draft_title_${id}`) ?? '' } catch {}
+    if (legacyContent || legacyTitle) {
+      let hadExistingBuffer = false
+      try { hadExistingBuffer = !!localStorage.getItem(`autosave_buffer_v1:meeting_note:${qid}:draft`) } catch {}
+      pendingLegacyRef.current = { legacyContent, legacyTitle, hadExistingBuffer }
+    } else {
+      pendingLegacyRef.current = null
+    }
+
+    legacyMigrationDoneRef.current = false
+    setNewNoteQid(qid)
+  }, [id])
+
+  const newNoteDraftValue = useMemo(() => ({ title: noteTitle, content: noteInput }), [noteTitle, noteInput])
+  const newNoteAutosave = useAutosave({
+    supabase,
+    enabled: !!newNoteQid,
+    entityType: 'meeting_note',
+    entityId: newNoteQid,
+    fieldKey: 'draft',
+    value: newNoteDraftValue,
+  })
+
+  function applyNewNoteRecovered() {
+    if (!newNoteAutosave.recovered) return
+    const v = newNoteAutosave.recovered.value
+    setNoteTitle(v.title || defaultNoteTitle())
+    setNoteInput(v.content || '')
+    setNewNoteKey(k => k + 1)
+    newNoteAutosave.discardRecovered()
+  }
+
+  // Track B-5, legacy 초안 이관(1회성 브릿지): 판단 자체는 위 qid effect에서 이미
+  // 끝나 있음(pendingLegacyRef) — useAutosave가 이 qid로 활성화된 뒤에 버퍼 유무를
+  // 다시 확인하면 hook 자신이 방금 써넣은 기본값 때문에 항상 "이미 있음"으로
+  // 오판하기 때문(실측으로 확인된 레이스 — TEST 8에서 처음 드러남).
+  //   - hadExistingBuffer(활성화 전에 이미 있었음): 새 게 우선, legacy는 그대로 폐기
+  //   - 아니면: legacy 값을 현재 입력값으로 복구 → 그 state 변경이 useAutosave의
+  //     on-value-change effect(같은 컴포넌트 안에서 이 코드보다 먼저 선언되어 항상
+  //     먼저 실행됨)를 트리거해 새 버퍼에 즉시(동기) 기록된다.
+  useEffect(() => {
+    if (!newNoteQid || legacyMigrationDoneRef.current) return
+    legacyMigrationDoneRef.current = true
+
+    const pending = pendingLegacyRef.current
+    if (!pending) return
+
+    if (pending.hadExistingBuffer) {
+      try { localStorage.removeItem(`meeting_draft_${id}`) } catch {}
+      try { localStorage.removeItem(`meeting_draft_title_${id}`) } catch {}
+      return
+    }
+
+    if (pending.legacyContent) setNoteInput(pending.legacyContent)
+    if (pending.legacyTitle) setNoteTitle(pending.legacyTitle)
+    setNewNoteKey(k => k + 1)
+    setLegacyMigrationPending(true)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [newNoteQid])
+
+  // legacy 값이 새 버퍼에 실제로 반영된 걸 확인한 뒤에만 legacy key를 지운다.
+  useEffect(() => {
+    if (!legacyMigrationPending || !newNoteQid) return
+    try {
+      const raw = localStorage.getItem(`autosave_buffer_v1:meeting_note:${newNoteQid}:draft`)
+      if (raw) {
+        const parsed = JSON.parse(raw) as { value?: { title?: string; content?: string } }
+        if (parsed.value?.title === noteTitle && parsed.value?.content === noteInput) {
+          try { localStorage.removeItem(`meeting_draft_${id}`) } catch {}
+          try { localStorage.removeItem(`meeting_draft_title_${id}`) } catch {}
+          setLegacyMigrationPending(false)
+        }
+      }
+    } catch {}
+  }, [legacyMigrationPending, noteTitle, noteInput, newNoteQid, id])
+
   useEffect(() => {
     async function load() {
       const [meetingRes, notesGrouped, agendaLinksRes, attsRes, agendaRes] = await Promise.all([
@@ -334,11 +490,9 @@ export default function MeetingDetailPage() {
           category: i.agenda_groups?.category ?? '',
         })))
       }
-      // Restore draft if present
-      const draft = localStorage.getItem(`meeting_draft_${id}`)
-      const draftTitle = localStorage.getItem(`meeting_draft_title_${id}`)
-      if (draft) setNoteInput(draft)
-      if (draftTitle) setNoteTitle(draftTitle)
+      // Track B-5: legacy meeting_draft_*/meeting_draft_title_* 직접 복원은
+      // 제거됨 — 이제 새 autosave(entityType='meeting_note', fieldKey='draft')의
+      // 복구 배너 + 1회성 legacy 이관 브릿지(위 useEffect)가 이 역할을 대신한다.
     }
     load()
     setTimeout(() => titleRef.current?.focus(), 100)
@@ -373,14 +527,15 @@ export default function MeetingDetailPage() {
     }
   }
 
+  // Track B-5: legacy localStorage(meeting_draft_*) 직접 기록은 제거 —
+  // newNoteAutosave(entityType='meeting_note', entityId=newNoteQid, fieldKey='draft')의
+  // on-value-change effect가 동일 역할을 대신한다(value가 이 두 state를 그대로 감쌈).
   function handleNoteInputChange(val: string) {
     setNoteInput(val)
-    localStorage.setItem(`meeting_draft_${id}`, val)
   }
 
   function handleNoteTitleChange(val: string) {
     setNoteTitle(val)
-    localStorage.setItem(`meeting_draft_title_${id}`, val)
   }
 
   useEffect(() => {
@@ -465,6 +620,7 @@ export default function MeetingDetailPage() {
   async function saveNote() {
     if (!noteInput.replace(/<[^>]*>/g, '').trim() || !meeting) return
     const now = new Date().toISOString()
+    const savedQid = newNoteQid
     const { data } = await supabase.from('meeting_notes').insert({
       meeting_id: id,
       title: noteTitle.trim() || defaultNoteTitle(),
@@ -477,16 +633,59 @@ export default function MeetingDetailPage() {
       setRegularNotes(prev => [data as MeetingNoteRow, ...prev])
       setOpenIndexes(new Set([0]))
     }
+
+    // Track B-5: canonical INSERT가 실제로 성공한 뒤에만 'draft'(임시 qid)를
+    // 진짜 meeting_notes.id로 rebind — 실패 시 위에서 이미 return하지 않았으므로
+    // data가 없을 수 있고, 그 경우 rebind하지 않는다(draft는 그대로 보존해 재시도 가능).
+    if (data && savedQid) {
+      try {
+        const result = await newNoteAutosave.flush({ source: 'final', rebindToEntityId: data.id })
+        if (!result.rebind?.ok) {
+          console.error('meeting_note_new_autosave_rebind_failed', {
+            event: 'meeting_note_new_autosave_rebind_failed',
+            qid: savedQid,
+            canonicalId: data.id,
+            step: result.ok ? 'rebind' : 'sync',
+            error: result.rebind?.error ?? result.error ?? 'unknown',
+            timestamp: new Date().toISOString(),
+          })
+        }
+      } catch (e) {
+        console.error('meeting_note_new_autosave_rebind_failed', {
+          event: 'meeting_note_new_autosave_rebind_failed',
+          qid: savedQid,
+          canonicalId: data.id,
+          step: 'flush',
+          error: e instanceof Error ? e.message : 'unknown',
+          timestamp: new Date().toISOString(),
+        })
+      }
+      clearAutosaveBuffer('meeting_note', savedQid, 'draft')
+      try { sessionStorage.removeItem(`meeting_note_new_qid_${id}`) } catch {}
+      const freshQid = crypto.randomUUID()
+      try { sessionStorage.setItem(`meeting_note_new_qid_${id}`, freshQid) } catch {}
+      legacyMigrationDoneRef.current = true // 이미 legacy는 처리됐거나 애초에 없었음 — 새 qid에서 재실행 불필요
+      setNewNoteQid(freshQid)
+    }
+
     setNoteInput('')
     setNoteTitle(defaultNoteTitle())
     setNewNoteKey(k => k + 1)
-    localStorage.removeItem(`meeting_draft_${id}`)
-    localStorage.removeItem(`meeting_draft_title_${id}`)
   }
 
   // Track B-4: id(PK) 기준 단일 row DELETE — 더 이상 배열 index에 의존하지 않음.
+  // Track B-5: canonical DELETE 직후 이 note의 autosave_drafts row(title/content)도
+  // 명시적으로 지운다 — NoteAccordion이 언마운트되며 useAutosave의 pending debounce는
+  // 보통 그 자체로 취소되지만(on-value-change effect의 cleanup이 unmount-flush effect
+  // 보다 먼저 선언돼 먼저 실행되므로), 위 await 대기 중에 700ms debounce가 먼저 발화하는
+  // 경합은 이론상 남아 있어 서버 쪽 draft도 직접 정리한다. content_versions는
+  // append-only(UPDATE/DELETE 권한 없음, docs/autosave-rollout-plan.md item 26)라
+  // 건드리지 않는다 — 지워진 note의 이력이 남는 건 기존 rebind 시나리오와 동일하게 허용.
   async function deleteNote(noteId: string) {
     await supabase.from('meeting_notes').delete().eq('id', noteId)
+    await supabase.from('autosave_drafts').delete().eq('entity_type', 'meeting_note').eq('entity_id', noteId)
+    clearAutosaveBuffer('meeting_note', noteId, 'title')
+    clearAutosaveBuffer('meeting_note', noteId, 'content')
     setRegularNotes(prev => prev.filter(n => n.id !== noteId))
     setOpenIndexes(new Set([0]))
   }
@@ -655,6 +854,14 @@ export default function MeetingDetailPage() {
           <div className="mb-6">
             <h2 className="text-sm font-semibold text-[rgba(226,232,240,0.8)] mb-3">회의 내용</h2>
             <div className="bg-[rgba(255,255,255,0.06)] rounded-lg border border-[rgba(255,255,255,0.06)] p-4 mb-3">
+              {newNoteAutosave.recovered && (
+                <div className="mb-2 px-3 py-2 rounded-lg text-[12px] flex items-center gap-2"
+                  style={{ background: 'rgba(76,127,224,0.12)', border: '1px solid rgba(76,127,224,0.25)', color: '#9DBEF5' }}>
+                  <span className="flex-1">복구 가능한 자동저장 내용이 있습니다</span>
+                  <button onClick={applyNewNoteRecovered} className="underline underline-offset-2">적용</button>
+                  <button onClick={() => newNoteAutosave.discardRecovered()} className="underline underline-offset-2">무시</button>
+                </div>
+              )}
               <input value={noteTitle} onChange={e => handleNoteTitleChange(e.target.value)}
                 className="w-full text-xs font-medium text-[rgba(226,232,240,0.5)] focus:outline-none mb-2 border-b border-[rgba(255,255,255,0.06)] pb-1 bg-transparent"
                 placeholder="노트 제목" />
