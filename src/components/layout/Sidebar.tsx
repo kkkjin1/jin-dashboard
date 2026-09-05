@@ -9,6 +9,7 @@ import {
   Home, Trophy, MessageSquare, CalendarDays,
   StickyNote, Users, BookOpen, Settings, Brain, ChevronLeft, ChevronRight,
   NotebookPen, LayoutGrid, Target, LogOut, Compass, PenTool, FlaskConical,
+  ClipboardList,
 } from 'lucide-react'
 
 // ─── 고정 섹션 그룹 ──────────────────────────────────────────────────────────
@@ -20,6 +21,7 @@ const NAV_SECTIONS = [
       { href: '/project',    label: '프로젝트',  key: '2', icon: LayoutGrid },
       { href: '/annual-goals', label: '연간목표', key: '', icon: Compass },
       { href: '/test-practice', label: '테스트실무', key: '', icon: FlaskConical },
+      { href: '/work-report', label: '업무보고', key: '', icon: ClipboardList },
       { href: '/objective-review', label: '목표리뷰', key: '', icon: Target },
       { href: '/completed',       label: '완료 성과',       key: '',  icon: Trophy },
       { href: '/perf-review', label: '성과회고',   key: '',  icon: Trophy },

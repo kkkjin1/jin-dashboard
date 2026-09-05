@@ -390,3 +390,52 @@ export interface QuickTodo {
   created_at: string
   updated_at: string
 }
+
+// ── 업무보고 ────────────────────────────────────────────────────
+// 보고서(work_reports)와 주제(work_report_topics)는 분리되어 있고,
+// work_report_entries가 "이 report에서 이 topic에 무엇을 보고했는지"를 담는
+// 연결 레코드다. topic은 연결고리일 뿐이며, 과거 report의 entry는 topic이
+// 나중에 수정되어도 절대 바뀌지 않는 그 시점의 스냅샷이다.
+
+export type WorkReportTopicStatus = 'active' | 'archived'
+
+export interface WorkReportTopic {
+  id: string
+  title: string
+  status: WorkReportTopicStatus
+  created_at: string
+  updated_at: string
+  archived_at: string | null
+}
+
+export type WorkReportStatus = 'draft' | 'final'
+
+export interface WorkReport {
+  id: string
+  period_start: string
+  period_end: string
+  status: WorkReportStatus
+  summary: string
+  issues: string
+  next_steps: string
+  created_at: string
+  updated_at: string
+  finalized_at: string | null
+}
+
+export interface WorkReportEntry {
+  id: string
+  report_id: string
+  topic_id: string
+  sort_order: number
+  /** entry 생성 시점(또는 draft 상태에서 topic이 rename된 시점)의 topic 제목 스냅샷.
+   *  work_report_topics.title(master)이 나중에 바뀌어도 이 값은 그 report가 final이 된
+   *  이후로는 절대 바뀌지 않는다 — "당시 보고 내용"을 보여주는 화면은 이 값을 쓴다. */
+  topic_title_snapshot: string
+  report_text: string
+  executive_point: string
+  next_action: string
+  working_memo: string
+  created_at: string
+  updated_at: string
+}
