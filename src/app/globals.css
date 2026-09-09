@@ -360,12 +360,12 @@ html, body {
 .tiptap-input :is(ol, ul) > li, .tiptap-input-dark :is(ol, ul) > li, .note-html :is(ol, ul) > li, .note-html-dark :is(ol, ul) > li { position: relative; }
 .tiptap-input > ol, .tiptap-input-dark > ol, .note-html > ol, .note-html-dark > ol { padding-left: 1.4rem; counter-reset: notecnt var(--ol-start, 0); }
 .tiptap-input > ol > li, .tiptap-input-dark > ol > li, .note-html > ol > li, .note-html-dark > ol > li { counter-increment: notecnt; }
-.tiptap-input > ol > li::before, .tiptap-input-dark > ol > li::before, .note-html > ol > li::before, .note-html-dark > ol > li::before { content: counter(notecnt) "."; position: absolute; left: -1.4rem; width: 1.2rem; text-align: right; }
+.tiptap-input > ol > li::before, .tiptap-input-dark > ol > li::before, .note-html > ol > li::before, .note-html-dark > ol > li::before { content: counter(notecnt) "."; position: absolute; left: -1.4rem; width: 1.2rem; text-align: right; white-space: nowrap; }
 .tiptap-input > ul, .tiptap-input-dark > ul, .note-html > ul, .note-html-dark > ul { padding-left: 1.2rem; }
 .tiptap-input > ul > li::before, .tiptap-input-dark > ul > li::before, .note-html > ul > li::before, .note-html-dark > ul > li::before { content: "•"; position: absolute; left: -1.2rem; width: 1rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
 .tiptap-input :is(ol, ul) ol, .tiptap-input-dark :is(ol, ul) ol, .note-html :is(ol, ul) ol, .note-html-dark :is(ol, ul) ol { padding-left: 1.2rem; counter-reset: notecnt2 var(--ol-start, 0); }
 .tiptap-input :is(ol, ul) ol > li, .tiptap-input-dark :is(ol, ul) ol > li, .note-html :is(ol, ul) ol > li, .note-html-dark :is(ol, ul) ol > li { counter-increment: notecnt2; }
-.tiptap-input :is(ol, ul) ol > li::before, .tiptap-input-dark :is(ol, ul) ol > li::before, .note-html :is(ol, ul) ol > li::before, .note-html-dark :is(ol, ul) ol > li::before { content: counter(notecnt2) ")"; position: absolute; left: -1.2rem; width: 1rem; text-align: right; }
+.tiptap-input :is(ol, ul) ol > li::before, .tiptap-input-dark :is(ol, ul) ol > li::before, .note-html :is(ol, ul) ol > li::before, .note-html-dark :is(ol, ul) ol > li::before { content: counter(notecnt2) ")"; position: absolute; left: -1.2rem; width: 1rem; text-align: right; white-space: nowrap; }
 .tiptap-input :is(ol, ul) ul, .tiptap-input-dark :is(ol, ul) ul, .note-html :is(ol, ul) ul, .note-html-dark :is(ol, ul) ul { padding-left: 1.1rem; }
 .tiptap-input :is(ol, ul) ul > li::before, .tiptap-input-dark :is(ol, ul) ul > li::before, .note-html :is(ol, ul) ul > li::before, .note-html-dark :is(ol, ul) ul > li::before { content: "•"; position: absolute; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
 .tiptap-input :is(ol, ul) :is(ol, ul) :is(ol, ul), .tiptap-input-dark :is(ol, ul) :is(ol, ul) :is(ol, ul), .note-html :is(ol, ul) :is(ol, ul) :is(ol, ul), .note-html-dark :is(ol, ul) :is(ol, ul) :is(ol, ul) { padding-left: 1.1rem; }
@@ -411,10 +411,10 @@ html, body {
 .md-preview ul ul { list-style-type: circle; }
 .md-preview ol { list-style: none; counter-reset: mdol var(--ol-start, 0); padding-left: 1.2rem; margin: 0.2rem 0; }
 .md-preview ol > li { counter-increment: mdol; position: relative; }
-.md-preview ol > li::before { content: counter(mdol) "."; position: absolute; left: -1.2rem; width: 1rem; text-align: right; }
+.md-preview ol > li::before { content: counter(mdol) "."; position: absolute; left: -1.2rem; width: 1rem; text-align: right; white-space: nowrap; }
 .md-preview ol ol { list-style: none; counter-reset: mdol2 var(--ol-start, 0); padding-left: 1.1rem; }
 .md-preview ol ol > li { counter-increment: mdol2; }
-.md-preview ol ol > li::before { content: counter(mdol2) ")"; left: -1.1rem; width: 0.9rem; text-align: right; }
+.md-preview ol ol > li::before { content: counter(mdol2) ")"; left: -1.1rem; width: 0.9rem; text-align: right; white-space: nowrap; }
 .md-preview ol ol ol { list-style: none; padding-left: 1rem; }
 .md-preview ol ol ol > li { counter-increment: none; }
 .md-preview ol ol ol > li::before { content: "•"; left: -1rem; width: 0.8rem; text-align: center; font-size: 1.5em; line-height: 1.1; top: 0; }

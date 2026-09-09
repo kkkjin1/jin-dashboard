@@ -280,7 +280,16 @@ function pullAncestorSiblingOnDelete(editor: Editor): boolean {
     }
     ownerLiDepth -= 2
   }
-  if (targetIndex === -1) return true // nothing follows anywhere up the chain — no valid move, just swallow the key (no corrupting default, no needless transaction)
+  // Nothing follows anywhere up the list-nesting chain — whatever comes next
+  // in the document (if anything) lives outside every enclosing list entirely
+  // (e.g. a plain paragraph right after the whole list), so there's no list
+  // depth boundary left to cross. That's exactly the case Tiptap's default
+  // forward-join already handles correctly — only the list-to-list crossing
+  // above needed this custom transaction. Falling through to default here
+  // (instead of swallowing the key) is what makes Delete at the end of a
+  // last leaf item merge the next paragraph up, matching Backspace from the
+  // other direction.
+  if (targetIndex === -1) return false
 
   const targetParentList = $from.node(targetParentListDepth)
   const targetNode = targetParentList.child(targetIndex)
@@ -497,9 +506,13 @@ const CustomOrderedList = OrderedList.extend({
   renderHTML({ HTMLAttributes }) {
     const { start, type, ...rest } = HTMLAttributes
     const attrs = mergeAttributes(this.options.HTMLAttributes, rest)
+    // --ol-start는 CSS 커스텀 프로퍼티라 상속된다 — start===1이라고 style을 안 쓰면
+    // 조상 <ol>이 설정해둔 --ol-start를 그대로 물려받아 카운터가 엉뚱한 값에서 시작한다
+    // (예: start=2인 리스트 밑에 새로 생긴 start=1 하위 리스트가 "1)" 대신 "2)"로 보임).
+    // start값과 무관하게 항상 자기 자신에 명시해서 상속을 차단한다.
+    attrs.style = `--ol-start:${start - 1}`
     if (start !== 1) {
       attrs.start = start
-      attrs.style = `--ol-start:${start - 1}`
     }
     if (type && type !== '1') attrs.type = type
     return ['ol', attrs, 0]
