@@ -326,6 +326,8 @@ export interface SketchBoard {
   name: string
   /** 생성 시 고정 — 이후 전환 UI 없음(데이터 구조가 서로 다름) */
   board_type: 'mindmap' | 'freenote'
+  /** freenote 전용 — 문서 본문(contentEditable HTML) */
+  note_body: string
   created_at: string
   updated_at: string
 }
@@ -370,20 +372,21 @@ export interface SketchFrame {
 }
 
 // ── 생각스케치: 자유노트 ──────────────────────────────────────────
+/** 자유노트 문서 본문 위에 자유 배치되는 오버레이 요소 — 이미지 또는 포스트잇 박스 */
 export interface SketchNoteElement {
   id: string
   board_id: string
-  type: 'text' | 'image' | 'box'
-  /** text: HTML. image: Storage public URL. box: 미사용 */
+  type: 'image' | 'box'
+  /** image: Storage public URL. box: 포스트잇 메모(contentEditable HTML) */
   content: string
-  /** text(has_background=true일 때 카드 색) / box(테두리·채우기 색) — CategoryColorKey */
+  /** box 전용 — 테두리/채우기 색(CategoryColorKey). image는 미사용 */
   color: string
-  /** text 전용: false=배경 없는 투명 텍스트, true=카드형 배경 */
-  has_background: boolean
   position_x: number
   position_y: number
   width: number
   height: number
+  /** 자유 회전 각도(도, deg) */
+  rotation: number
   created_at: string
   updated_at: string
 }

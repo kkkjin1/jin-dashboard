@@ -1,30 +1,17 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import {
-  ReactFlow, ReactFlowProvider, Background, BackgroundVariant, Controls,
-  useNodesState, useReactFlow,
-  type Node, type NodeTypes, type OnNodeDrag,
-} from '@xyflow/react'
-import '@xyflow/react/dist/style.css'
 import { createClient } from '@/lib/supabase/client'
 import type { CategoryColorKey } from '@/lib/categoryColors'
-import { ArrowLeft, Type, Square } from 'lucide-react'
+import { ArrowLeft, Square } from 'lucide-react'
 import type { SketchBoard, SketchNoteElement } from '@/types'
-import {
-  NoteTextNodeComponent, NoteImageNodeComponent, NoteBoxNodeComponent,
-  type NoteTextData, type NoteImageData, type NoteBoxData,
-} from './FreeNoteNodes'
+import { useAutosave } from '@/hooks/useAutosave'
+import { ImageOverlay, BoxOverlay, toDisplayHtml, type OverlayBox } from './FreeNoteOverlays'
 
-// ── 상수 ──────────────────────────────────────────────────────────────────────
-const DEFAULT_TEXT_WIDTH = 240
-const DEFAULT_TEXT_HEIGHT = 90
-const DEFAULT_BOX_WIDTH = 280
-const DEFAULT_BOX_HEIGHT = 200
-const MAX_IMAGE_DIM = 420 // 붙여넣은 이미지의 초기 최대 변 길이(px) — 그 이상은 비율 유지해서 축소, 이후 리사이즈는 자유
-
-function viewportKey(boardId: string) { return `sketch_note_viewport_${boardId}` }
+const DEFAULT_BOX_WIDTH = 220
+const DEFAULT_BOX_HEIGHT = 160
+const MAX_IMAGE_DIM = 420 // 붙여넣은 이미지의 초기 최대 변 길이(px) — 이후 리사이즈는 자유
 
 async function convertToJpeg(blob: Blob): Promise<Blob> {
   return new Promise(resolve => {
@@ -57,138 +44,24 @@ function fitWithinMax(width: number, height: number, max: number): { width: numb
   return { width: Math.round(width * scale), height: Math.round(height * scale) }
 }
 
-// ── Node 빌더 ──────────────────────────────────────────────────────────────────
-type CommonHandlers = {
-  onDelete: (id: string) => void
-  onResize: (id: string, box: { x: number; y: number; width: number; height: number }) => void
-}
-
-function elementToNode(
-  el: SketchNoteElement,
-  handlers: {
-    text: Omit<NoteTextData, 'content' | 'color' | 'hasBackground' | 'autoFocus'>
-    box: Omit<NoteBoxData, 'color'>
-    image: CommonHandlers
-  },
-  extraData?: { autoFocus?: boolean },
-): Node {
-  const base = {
-    id: el.id,
-    position: { x: el.position_x, y: el.position_y },
-    style: { width: el.width, height: el.height },
-  }
-  if (el.type === 'text') {
-    return {
-      ...base,
-      type: 'notetext',
-      zIndex: 10,
-      data: {
-        content: el.content,
-        color: el.color as CategoryColorKey,
-        hasBackground: el.has_background,
-        ...handlers.text,
-        ...extraData,
-      },
-    }
-  }
-  if (el.type === 'image') {
-    return { ...base, type: 'noteimage', zIndex: 10, data: { src: el.content, ...handlers.image } }
-  }
-  return { ...base, type: 'notebox', zIndex: 0, data: { color: el.color as CategoryColorKey, ...handlers.box } }
-}
-
-// ── 메인 컴포넌트 ──────────────────────────────────────────────────────────────
-function FreeNoteCanvasInner({ boardId }: { boardId: string }) {
+export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
   const supabase = createClient()
-  const { screenToFlowPosition } = useReactFlow()
-  const wrapperRef = useRef<HTMLDivElement>(null)
-
-  const [initialViewport, setInitialViewport] = useState<{ x: number; y: number; zoom: number } | null>(null)
-  const [viewportReady, setViewportReady] = useState(false)
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(viewportKey(boardId))
-      if (raw) setInitialViewport(JSON.parse(raw))
-    } catch {}
-    setViewportReady(true)
-  }, [boardId])
-  function handleMoveEnd(_e: unknown, viewport: { x: number; y: number; zoom: number }) {
-    try { localStorage.setItem(viewportKey(boardId), JSON.stringify(viewport)) } catch {}
-  }
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const innerRef = useRef<HTMLDivElement>(null)
+  const bodyRef = useRef<HTMLDivElement>(null)
 
   const [board, setBoard] = useState<SketchBoard | null>(null)
   const [nameInput, setNameInput] = useState('')
+  const [elements, setElements] = useState<SketchNoteElement[]>([])
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
+  const [isEditingBody, setIsEditingBody] = useState(false)
   const [saveError, setSaveError] = useState('')
   const SAVE_ERROR_MSG = '저장 실패 — 화면에는 반영됐지만 서버에 저장되지 않았을 수 있습니다. 새로고침 후 다시 확인해주세요.'
 
-  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
-  const nodesRef = useRef<Node[]>([])
-  useEffect(() => { nodesRef.current = nodes }, [nodes])
-
-  // 캔버스 위 마지막 마우스 좌표(flow 좌표계) — 툴바 버튼/단축키로 새 요소를 만들 때
-  // "지금 보고 있는 자리"에 놓기 위해 추적한다.
-  const lastFlowPosRef = useRef<{ x: number; y: number } | null>(null)
-  function handlePaneMouseMove(e: React.MouseEvent) {
-    lastFlowPosRef.current = screenToFlowPosition({ x: e.clientX, y: e.clientY })
-  }
-
-  // ── canonical writes ──────────────────────────────────────────────────────
-  const handleContentChange = useCallback((id: string, content: string) => {
-    supabase.from('sketch_note_elements').update({ content }).eq('id', id)
-      .then(({ error }) => { if (error) console.error('텍스트 저장 실패:', error.message) })
-  }, [])
-
-  const handleColorChange = useCallback((id: string, color: CategoryColorKey) => {
-    setNodes(prev => prev.map(n => n.id === id ? { ...n, data: { ...n.data, color } } : n))
-    supabase.from('sketch_note_elements').update({ color }).eq('id', id)
-      .then(({ error }) => { setSaveError(error ? SAVE_ERROR_MSG : '') })
-  }, [setNodes])
-
-  const handleBackgroundToggle = useCallback((id: string, hasBackground: boolean) => {
-    setNodes(prev => prev.map(n => n.id === id ? { ...n, data: { ...n.data, hasBackground } } : n))
-    supabase.from('sketch_note_elements').update({ has_background: hasBackground }).eq('id', id)
-      .then(({ error }) => { setSaveError(error ? SAVE_ERROR_MSG : '') })
-  }, [setNodes])
-
-  const handleDelete = useCallback(async (id: string) => {
-    const el = nodesRef.current.find(n => n.id === id)
-    const { error } = await supabase.from('sketch_note_elements').delete().eq('id', id)
-    if (error) { alert('삭제에 실패했습니다.'); return }
-    setNodes(prev => prev.filter(n => n.id !== id))
-    // 이미지 스토리지 파일도 함께 정리 (실패해도 DB row는 이미 지워졌으니 무시)
-    if (el?.type === 'noteimage') {
-      const src = (el.data as NoteImageData).src
-      const path = src.split('/object/public/attachments/')[1]
-      if (path) await supabase.storage.from('attachments').remove([path])
-    }
-  }, [setNodes])
-
-  const handleResize = useCallback((id: string, box: { x: number; y: number; width: number; height: number }) => {
-    setNodes(prev => prev.map(n => n.id === id
-      ? { ...n, position: { x: box.x, y: box.y }, style: { ...n.style, width: box.width, height: box.height } }
-      : n))
-    supabase.from('sketch_note_elements')
-      .update({ position_x: box.x, position_y: box.y, width: box.width, height: box.height })
-      .eq('id', id)
-      .then(({ error }) => { setSaveError(error ? SAVE_ERROR_MSG : '') })
-  }, [setNodes])
-
-  const savePosition = useCallback((id: string, position: { x: number; y: number }) => {
-    supabase.from('sketch_note_elements').update({ position_x: position.x, position_y: position.y }).eq('id', id)
-      .then(({ error }) => { setSaveError(error ? SAVE_ERROR_MSG : '') })
-  }, [])
-
-  const textHandlers = useMemo(() => ({
-    onContentChange: handleContentChange, onColorChange: handleColorChange, onBackgroundToggle: handleBackgroundToggle, onDelete: handleDelete, onResize: handleResize, supabase,
-  }), [handleContentChange, handleColorChange, handleBackgroundToggle, handleDelete, handleResize, supabase])
-  const boxHandlers = useMemo(() => ({
-    onColorChange: handleColorChange, onDelete: handleDelete, onResize: handleResize,
-  }), [handleColorChange, handleDelete, handleResize])
-  const imageHandlers = useMemo(() => ({
-    onDelete: handleDelete, onResize: handleResize,
-  }), [handleDelete, handleResize])
+  const elementsRef = useRef<SketchNoteElement[]>([])
+  useEffect(() => { elementsRef.current = elements }, [elements])
 
   // ── 데이터 로딩 ───────────────────────────────────────────────────────────
   useEffect(() => {
@@ -196,77 +69,158 @@ function FreeNoteCanvasInner({ boardId }: { boardId: string }) {
       supabase.from('sketch_boards').select('*').eq('id', boardId).single(),
       supabase.from('sketch_note_elements').select('*').eq('board_id', boardId).order('created_at'),
     ]).then(([boardRes, elRes]) => {
-      if (boardRes.data) { setBoard(boardRes.data as SketchBoard); setNameInput(boardRes.data.name) }
-      const elements = (elRes.data ?? []) as SketchNoteElement[]
-      const handlers = { text: textHandlers, box: boxHandlers, image: imageHandlers }
-      const boxes = elements.filter(e => e.type === 'box').map(e => elementToNode(e, handlers))
-      const rest = elements.filter(e => e.type !== 'box').map(e => elementToNode(e, handlers))
-      setNodes([...boxes, ...rest])
+      if (boardRes.data) {
+        const b = boardRes.data as SketchBoard
+        setBoard(b)
+        setNameInput(b.name)
+        if (bodyRef.current) bodyRef.current.innerHTML = toDisplayHtml(b.note_body ?? '')
+      }
+      setElements((elRes.data ?? []) as SketchNoteElement[])
       setLoading(false)
     })
-    // 보드 최초 로딩은 boardId가 바뀔 때 한 번만 — textHandlers 등은 여기서 그
-    // 시점의 최신 값을 그대로 읽어 쓰면 충분하고 재조회 트리거로 삼지 않는다.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [boardId])
 
-  // ── 요소 생성 ─────────────────────────────────────────────────────────────
-  const pickCreatePos = useCallback((clientPos?: { x: number; y: number }): { x: number; y: number } => {
-    if (clientPos) return screenToFlowPosition(clientPos)
-    if (lastFlowPosRef.current) return lastFlowPosRef.current
-    const rect = wrapperRef.current?.getBoundingClientRect()
-    if (rect) return screenToFlowPosition({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 })
-    return { x: 0, y: 0 }
-  }, [screenToFlowPosition])
+  // 본문에 처음 진입하면 커서가 바로 깜빡이도록 자동 포커스(맨 끝으로)
+  useEffect(() => {
+    if (loading || !bodyRef.current) return
+    const el = bodyRef.current
+    el.focus()
+    const range = document.createRange()
+    range.selectNodeContents(el)
+    range.collapse(false)
+    const sel = window.getSelection()
+    sel?.removeAllRanges()
+    sel?.addRange(range)
+  }, [loading])
 
-  const createText = useCallback(async (pos: { x: number; y: number }) => {
-    const position_x = pos.x - DEFAULT_TEXT_WIDTH / 2
-    const position_y = pos.y - DEFAULT_TEXT_HEIGHT / 2
-    const { data, error } = await supabase.from('sketch_note_elements')
-      .insert({
-        board_id: boardId, type: 'text', content: '', color: 'blue', has_background: false,
-        position_x, position_y, width: DEFAULT_TEXT_WIDTH, height: DEFAULT_TEXT_HEIGHT,
-      })
-      .select().single()
-    if (error || !data) { console.error('텍스트 생성 실패:', error?.message); return }
-    setNodes(prev => [...prev, elementToNode(data as SketchNoteElement, { text: textHandlers, box: boxHandlers, image: imageHandlers }, { autoFocus: true })])
-  }, [boardId, supabase, setNodes, textHandlers, boxHandlers, imageHandlers])
+  // ── 본문(note_body) 저장 ─────────────────────────────────────────────────
+  const [autosaveBody, setAutosaveBody] = useState('')
+  const bodySaveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  useAutosave({
+    supabase, enabled: isEditingBody, entityType: 'sketch_board', entityId: boardId, fieldKey: 'note_body', value: autosaveBody,
+  })
 
-  const createBox = useCallback(async (pos: { x: number; y: number }) => {
-    const position_x = pos.x - DEFAULT_BOX_WIDTH / 2
-    const position_y = pos.y - DEFAULT_BOX_HEIGHT / 2
-    const { data, error } = await supabase.from('sketch_note_elements')
-      .insert({
-        board_id: boardId, type: 'box', content: '', color: 'neutral', has_background: false,
-        position_x, position_y, width: DEFAULT_BOX_WIDTH, height: DEFAULT_BOX_HEIGHT,
-      })
-      .select().single()
-    if (error || !data) { console.error('박스 생성 실패:', error?.message); return }
-    // 박스는 항상 다른 요소보다 아래에 렌더링되도록 배열 맨 앞에 둔다
-    setNodes(prev => [elementToNode(data as SketchNoteElement, { text: textHandlers, box: boxHandlers, image: imageHandlers }), ...prev])
-  }, [boardId, supabase, setNodes, textHandlers, boxHandlers, imageHandlers])
-
-  const createImage = useCallback(async (src: string, naturalSize: { width: number; height: number }, pos: { x: number; y: number }) => {
-    const { width, height } = fitWithinMax(naturalSize.width, naturalSize.height, MAX_IMAGE_DIM)
-    const position_x = pos.x - width / 2
-    const position_y = pos.y - height / 2
-    const { data, error } = await supabase.from('sketch_note_elements')
-      .insert({ board_id: boardId, type: 'image', content: src, color: 'blue', has_background: false, position_x, position_y, width, height })
-      .select().single()
-    if (error || !data) { console.error('이미지 요소 생성 실패:', error?.message); return }
-    setNodes(prev => [...prev, elementToNode(data as SketchNoteElement, { text: textHandlers, box: boxHandlers, image: imageHandlers })])
-  }, [boardId, supabase, setNodes, textHandlers, boxHandlers, imageHandlers])
-
-  function handlePaneDoubleClick(e: React.MouseEvent) {
-    if (!(e.target as HTMLElement).classList.contains('react-flow__pane')) return
-    void createText(screenToFlowPosition({ x: e.clientX, y: e.clientY }))
+  function handleBodyInput(e: React.FormEvent<HTMLDivElement>) {
+    const html = e.currentTarget.innerHTML
+    setAutosaveBody(html)
+    clearTimeout(bodySaveTimer.current)
+    bodySaveTimer.current = setTimeout(() => {
+      supabase.from('sketch_boards').update({ note_body: html }).eq('id', boardId)
+        .then(({ error }) => setSaveError(error ? SAVE_ERROR_MSG : ''))
+    }, 500)
   }
 
-  // ── 이미지 붙여넣기 ───────────────────────────────────────────────────────
+  // ── canonical writes(오버레이 요소) ───────────────────────────────────────
+  const handleOverlayChange = useCallback((id: string, box: OverlayBox) => {
+    setElements(prev => prev.map(el => el.id === id
+      ? { ...el, position_x: box.x, position_y: box.y, width: box.width, height: box.height, rotation: box.rotation }
+      : el))
+    supabase.from('sketch_note_elements')
+      .update({ position_x: box.x, position_y: box.y, width: box.width, height: box.height, rotation: box.rotation })
+      .eq('id', id)
+      .then(({ error }) => setSaveError(error ? SAVE_ERROR_MSG : ''))
+  }, [])
+
+  const handleColorChange = useCallback((id: string, color: CategoryColorKey) => {
+    setElements(prev => prev.map(el => el.id === id ? { ...el, color } : el))
+    supabase.from('sketch_note_elements').update({ color }).eq('id', id)
+      .then(({ error }) => setSaveError(error ? SAVE_ERROR_MSG : ''))
+  }, [])
+
+  const handleContentChange = useCallback((id: string, content: string) => {
+    setElements(prev => prev.map(el => el.id === id ? { ...el, content } : el))
+    supabase.from('sketch_note_elements').update({ content }).eq('id', id)
+      .then(({ error }) => { if (error) console.error('메모 저장 실패:', error.message) })
+  }, [])
+
+  const handleDelete = useCallback(async (id: string) => {
+    const el = elementsRef.current.find(e => e.id === id)
+    const { error } = await supabase.from('sketch_note_elements').delete().eq('id', id)
+    if (error) { alert('삭제에 실패했습니다.'); return }
+    setElements(prev => prev.filter(e => e.id !== id))
+    setSelectedId(prev => (prev === id ? null : prev))
+    if (el?.type === 'image') {
+      const path = el.content.split('/object/public/attachments/')[1]
+      if (path) await supabase.storage.from('attachments').remove([path])
+    }
+  }, [])
+
+  // 선택된 오버레이 요소(포스트잇/이미지)를 Delete/Backspace로 삭제 — 본문/메모 등
+  // 텍스트 편집 중일 때는 글자 지우기로 동작해야 하므로 건드리지 않는다.
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (!selectedId) return
+      if (e.key !== 'Delete' && e.key !== 'Backspace') return
+      const active = document.activeElement as HTMLElement | null
+      const tag = active?.tagName?.toLowerCase()
+      if (tag === 'input' || tag === 'textarea' || active?.getAttribute('contenteditable') === 'true') return
+      e.preventDefault()
+      void handleDelete(selectedId)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [selectedId, handleDelete])
+
+  // 새 오버레이 요소를 놓을 위치 — 현재 스크롤 뷰포트 안쪽, 겹치지 않도록 조금씩 어긋나게
+  const pickCreatePos = useCallback((): { x: number; y: number } => {
+    const scrollEl = scrollRef.current
+    const baseX = (scrollEl?.scrollLeft ?? 0) + 48
+    const baseY = (scrollEl?.scrollTop ?? 0) + 72
+    const cascade = (elementsRef.current.length % 6) * 22
+    return { x: baseX + cascade, y: baseY + cascade }
+  }, [])
+
+  // 낙관적 생성 — insert 응답을 기다리지 않고 즉시 화면에 놓은 뒤, 서버 id가 오면
+  // 그 사이 사용자가 이미 옮기거나 입력한 값(있다면)을 살려서 canonical id로 갈아끼운다.
+  const createBox = useCallback(async () => {
+    const pos = pickCreatePos()
+    const tempId = `temp_${Date.now()}_${Math.random().toString(36).slice(2)}`
+    const now = new Date().toISOString()
+    const optimistic: SketchNoteElement = {
+      id: tempId, board_id: boardId, type: 'box', content: '', color: 'amber',
+      position_x: pos.x, position_y: pos.y, width: DEFAULT_BOX_WIDTH, height: DEFAULT_BOX_HEIGHT, rotation: 0,
+      created_at: now, updated_at: now,
+    }
+    setElements(prev => [...prev, optimistic])
+    setSelectedId(tempId)
+
+    const { data, error } = await supabase.from('sketch_note_elements')
+      .insert({ board_id: boardId, type: 'box', content: '', color: 'amber', position_x: pos.x, position_y: pos.y, width: DEFAULT_BOX_WIDTH, height: DEFAULT_BOX_HEIGHT, rotation: 0 })
+      .select().single()
+    if (error || !data) {
+      console.error('박스 생성 실패:', error?.message)
+      setElements(prev => prev.filter(el => el.id !== tempId))
+      setSelectedId(prev => (prev === tempId ? null : prev))
+      return
+    }
+    const canonical = data as SketchNoteElement
+    setElements(prev => prev.map(el => {
+      if (el.id !== tempId) return el
+      const merged = { ...canonical, position_x: el.position_x, position_y: el.position_y, width: el.width, height: el.height, rotation: el.rotation, color: el.color, content: el.content }
+      // 임시 id로 들어온 중간 변경분(드래그/색상/메모)은 canonical id로 다시 써준다
+      supabase.from('sketch_note_elements')
+        .update({ position_x: merged.position_x, position_y: merged.position_y, width: merged.width, height: merged.height, rotation: merged.rotation, color: merged.color, content: merged.content })
+        .eq('id', merged.id)
+        .then(({ error: syncError }) => { if (syncError) setSaveError(SAVE_ERROR_MSG) })
+      return merged
+    }))
+    setSelectedId(prev => (prev === tempId ? canonical.id : prev))
+  }, [boardId, pickCreatePos])
+
+  const createImage = useCallback(async (src: string, naturalSize: { width: number; height: number }) => {
+    const { width, height } = fitWithinMax(naturalSize.width, naturalSize.height, MAX_IMAGE_DIM)
+    const pos = pickCreatePos()
+    const { data, error } = await supabase.from('sketch_note_elements')
+      .insert({ board_id: boardId, type: 'image', content: src, color: 'blue', position_x: pos.x, position_y: pos.y, width, height, rotation: 0 })
+      .select().single()
+    if (error || !data) { console.error('이미지 생성 실패:', error?.message); return }
+    setElements(prev => [...prev, data as SketchNoteElement])
+    setSelectedId((data as SketchNoteElement).id)
+  }, [boardId, pickCreatePos])
+
+  // ── 이미지 붙여넣기(본문 타이핑 중에도 동작) ─────────────────────────────
   useEffect(() => {
     async function onPaste(e: ClipboardEvent) {
-      const target = e.target as HTMLElement | null
-      const tag = target?.tagName?.toLowerCase()
-      if (tag === 'input' || tag === 'textarea' || target?.getAttribute('contenteditable') === 'true') return
       if (!e.clipboardData) return
       const items = Array.from(e.clipboardData.items)
       const imageItem = items.find(item => item.type.startsWith('image/'))
@@ -285,45 +239,27 @@ function FreeNoteCanvasInner({ boardId }: { boardId: string }) {
         const { error } = await supabase.storage.from('attachments').upload(path, jpgBlob, { contentType: 'image/jpeg' })
         if (error) { setSaveError('이미지 업로드에 실패했습니다.'); return }
         const { data: urlData } = supabase.storage.from('attachments').getPublicUrl(path)
-        await createImage(urlData.publicUrl, naturalSize, pickCreatePos())
+        await createImage(urlData.publicUrl, naturalSize)
       } finally {
         setUploading(false)
       }
     }
     window.addEventListener('paste', onPaste)
     return () => window.removeEventListener('paste', onPaste)
-  }, [boardId, supabase, createImage, pickCreatePos])
+  }, [boardId, createImage])
 
-  // ── 단축키 ────────────────────────────────────────────────────────────────
+  // 문서 전체 높이 — 오버레이 요소가 본문 끝보다 아래로 내려가면 그만큼 스크롤 영역을 늘림
+  const [minHeight, setMinHeight] = useState(600)
   useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || e.isComposing) return
-      const target = e.target as HTMLElement | null
-      const tag = target?.tagName?.toLowerCase()
-      if (tag === 'input' || tag === 'textarea' || target?.getAttribute('contenteditable') === 'true') return
-      if (e.key.toLowerCase() === 't') { e.preventDefault(); void createText(pickCreatePos()) }
-      if (e.key.toLowerCase() === 'b') { e.preventDefault(); void createBox(pickCreatePos()) }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [createText, createBox, pickCreatePos])
+    const bottoms = elements.map(el => el.position_y + el.height)
+    const bodyHeight = bodyRef.current?.scrollHeight ?? 0
+    setMinHeight(Math.max(600, bodyHeight + 200, ...(bottoms.length ? [Math.max(...bottoms) + 120] : [0])))
+  }, [elements, autosaveBody])
 
-  // ── 드래그 종료 시 위치 저장 ──────────────────────────────────────────────
-  const handleNodeDragStop: OnNodeDrag<Node> = useCallback((_e, node) => {
-    savePosition(node.id, node.position)
-  }, [savePosition])
+  function handleDeselectClick(e: React.MouseEvent) {
+    if (e.target === innerRef.current || e.target === scrollRef.current) setSelectedId(null)
+  }
 
-  const handleNodesDelete = useCallback((deleted: Node[]) => {
-    deleted.forEach(n => handleDelete(n.id))
-  }, [handleDelete])
-
-  const nodeTypes: NodeTypes = useMemo(() => ({
-    notetext: NoteTextNodeComponent,
-    noteimage: NoteImageNodeComponent,
-    notebox: NoteBoxNodeComponent,
-  }), [])
-
-  // ── Board name ─────────────────────────────────────────────────────────────
   async function saveBoardName() {
     const name = nameInput.trim()
     if (!name || !board || name === board.name) { setNameInput(board?.name ?? ''); return }
@@ -343,8 +279,6 @@ function FreeNoteCanvasInner({ boardId }: { boardId: string }) {
     </div>
   )
 
-  const elementCount = nodes.length
-
   return (
     <div className="h-full flex flex-col overflow-hidden">
       {/* 툴바 */}
@@ -363,23 +297,13 @@ function FreeNoteCanvasInner({ boardId }: { boardId: string }) {
           className="text-[18px] font-bold bg-transparent focus:outline-none min-w-0"
           style={{ color: '#E2E8F0' }}
         />
-        <span className="text-[11px] flex-shrink-0" style={{ color: 'rgba(226,232,240,0.3)' }}>요소 {elementCount}개</span>
 
         <button
-          onClick={() => void createText(pickCreatePos())}
-          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-[12.5px] font-medium transition-colors flex-shrink-0"
-          style={{ background: 'rgba(76,127,224,0.18)', border: '1px solid rgba(76,127,224,0.35)', color: '#9DBEF5' }}
-        >
-          <Type size={13} /> 텍스트
-          <span className="text-[10px] font-mono opacity-50">T</span>
-        </button>
-        <button
-          onClick={() => void createBox(pickCreatePos())}
-          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-[12.5px] font-medium transition-colors flex-shrink-0"
+          onClick={() => void createBox()}
+          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-[12.5px] font-medium transition-colors flex-shrink-0 ml-auto"
           style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(226,232,240,0.5)' }}
         >
-          <Square size={13} /> 박스
-          <span className="text-[10px] font-mono opacity-50">B</span>
+          <Square size={13} /> 포스트잇
         </button>
         {uploading && <span className="text-[11px] flex-shrink-0" style={{ color: 'rgba(226,232,240,0.4)' }}>이미지 업로드 중…</span>}
       </div>
@@ -393,48 +317,52 @@ function FreeNoteCanvasInner({ boardId }: { boardId: string }) {
         </div>
       )}
 
-      {/* 캔버스 */}
-      <div
-        ref={wrapperRef}
-        className="flex-1 min-h-0 rounded-2xl overflow-hidden relative"
-        style={{ border: '1px solid rgba(255,255,255,0.08)' }}
-        onDoubleClick={handlePaneDoubleClick}
-        onMouseMove={handlePaneMouseMove}
-      >
-        {viewportReady && (
-          <ReactFlow
-            nodes={nodes}
-            onNodesChange={onNodesChange}
-            onNodesDelete={handleNodesDelete}
-            deleteKeyCode={['Backspace', 'Delete']}
-            nodeTypes={nodeTypes}
-            onNodeDragStop={handleNodeDragStop}
-            onMoveEnd={handleMoveEnd}
-            colorMode="dark"
-            {...(initialViewport ? { defaultViewport: initialViewport } : { fitView: true })}
-            minZoom={0.2}
-            maxZoom={2}
-            proOptions={{ hideAttribution: true }}
-          >
-            <Background variant={BackgroundVariant.Dots} gap={22} size={1.4} color="rgba(255,255,255,0.14)" style={{ background: '#0F1319' }} />
-            <Controls showInteractive={false} />
-          </ReactFlow>
-        )}
+      {/* 문서 */}
+      <div ref={scrollRef} className="flex-1 min-h-0 rounded-2xl overflow-auto relative" style={{ border: '1px solid rgba(255,255,255,0.08)', background: '#0F1319' }} onMouseDown={handleDeselectClick}>
+        <div ref={innerRef} className="relative" style={{ minHeight, padding: '32px 40px' }}>
+          <div
+            ref={bodyRef}
+            contentEditable
+            suppressContentEditableWarning
+            onInput={handleBodyInput}
+            onFocus={() => setIsEditingBody(true)}
+            onBlur={() => setIsEditingBody(false)}
+            data-placeholder="여기에 바로 적어보세요…"
+            className="relative outline-none leading-relaxed freenote-body"
+            style={{ color: '#E2E8F0', fontSize: 15, maxWidth: 760, whiteSpace: 'pre-wrap', overflowWrap: 'break-word', minHeight: 200 }}
+          />
+          {elements.map(el => el.type === 'image' ? (
+            <ImageOverlay
+              key={el.id}
+              box={{ x: el.position_x, y: el.position_y, width: el.width, height: el.height, rotation: el.rotation }}
+              src={el.content}
+              selected={selectedId === el.id}
+              onSelect={() => setSelectedId(el.id)}
+              onChange={box => handleOverlayChange(el.id, box)}
+              onDelete={() => void handleDelete(el.id)}
+            />
+          ) : (
+            <BoxOverlay
+              key={el.id}
+              id={el.id}
+              box={{ x: el.position_x, y: el.position_y, width: el.width, height: el.height, rotation: el.rotation }}
+              color={el.color as CategoryColorKey}
+              content={el.content}
+              selected={selectedId === el.id}
+              onSelect={() => setSelectedId(el.id)}
+              onChange={box => handleOverlayChange(el.id, box)}
+              onDelete={() => void handleDelete(el.id)}
+              onColorChange={color => handleColorChange(el.id, color)}
+              onContentChange={content => handleContentChange(el.id, content)}
+              supabase={supabase}
+            />
+          ))}
+        </div>
       </div>
 
       <p className="text-center text-[11px] pt-2 flex-shrink-0" style={{ color: 'rgba(226,232,240,0.28)' }}>
-        {elementCount === 0
-          ? <>더블클릭 또는 <span className="font-mono">T</span> 키로 텍스트를, <span className="font-mono">B</span> 키로 박스를 만들고 <span className="font-mono">Ctrl+V</span>로 이미지를 붙여넣으세요</>
-          : <>더블클릭/<span className="font-mono">T</span> 텍스트 · <span className="font-mono">B</span> 박스 · <span className="font-mono">Ctrl+V</span> 이미지 붙여넣기</>}
+        바로 타이핑하세요 · <span className="font-mono">Ctrl+V</span>로 이미지 붙여넣기(크기·회전 조절 가능) · 포스트잇에 메모 작성 가능 · 선택 후 <span className="font-mono">Delete</span>로 삭제
       </p>
     </div>
-  )
-}
-
-export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
-  return (
-    <ReactFlowProvider>
-      <FreeNoteCanvasInner boardId={boardId} />
-    </ReactFlowProvider>
   )
 }

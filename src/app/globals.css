@@ -328,6 +328,13 @@ html, body {
   pointer-events: none;
 }
 
+/* ── 자유노트 본문 placeholder ── */
+.freenote-body:empty::before {
+  content: attr(data-placeholder);
+  color: rgba(226, 232, 240, 0.28);
+  pointer-events: none;
+}
+
 /* ── Pretendard 페이지 ── */
 .pretendard-page {
   font-family: 'Pretendard', 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
