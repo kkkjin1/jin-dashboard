@@ -324,6 +324,8 @@ export interface TestPracticeAgendaPriority {
 export interface SketchBoard {
   id: string
   name: string
+  /** 생성 시 고정 — 이후 전환 UI 없음(데이터 구조가 서로 다름) */
+  board_type: 'mindmap' | 'freenote'
   created_at: string
   updated_at: string
 }
@@ -363,6 +365,25 @@ export interface SketchFrame {
   width: number
   height: number
   collapsed: boolean
+  created_at: string
+  updated_at: string
+}
+
+// ── 생각스케치: 자유노트 ──────────────────────────────────────────
+export interface SketchNoteElement {
+  id: string
+  board_id: string
+  type: 'text' | 'image' | 'box'
+  /** text: HTML. image: Storage public URL. box: 미사용 */
+  content: string
+  /** text(has_background=true일 때 카드 색) / box(테두리·채우기 색) — CategoryColorKey */
+  color: string
+  /** text 전용: false=배경 없는 투명 텍스트, true=카드형 배경 */
+  has_background: boolean
+  position_x: number
+  position_y: number
+  width: number
+  height: number
   created_at: string
   updated_at: string
 }

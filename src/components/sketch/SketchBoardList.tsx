@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { format, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
-import { Trash2, PenTool } from 'lucide-react'
+import { Trash2, PenTool, LayoutGrid, StickyNote } from 'lucide-react'
 import type { SketchBoard } from '@/types'
 
 type BoardWithCount = SketchBoard & { sketch_cards?: { count: number }[] }
@@ -27,10 +27,10 @@ export default function SketchBoardList() {
 
   useEffect(() => { if (adding) inputRef.current?.focus() }, [adding])
 
-  async function handleAdd() {
+  async function handleAdd(boardType: 'mindmap' | 'freenote') {
     const name = newName.trim()
-    if (!name) { setAdding(false); return }
-    const { data, error } = await supabase.from('sketch_boards').insert({ name }).select().single()
+    if (!name) return
+    const { data, error } = await supabase.from('sketch_boards').insert({ name, board_type: boardType }).select().single()
     if (error || !data) { console.error('보드 생성 실패:', error?.message); return }
     router.push(`/sketch/${data.id}`)
   }
@@ -68,35 +68,59 @@ export default function SketchBoardList() {
       {/* 새 보드 입력 폼 */}
       {adding && (
         <div
-          className="flex-shrink-0 rounded-2xl px-5 py-4 mb-4 flex items-center gap-2"
+          className="flex-shrink-0 rounded-2xl px-5 py-4 mb-4 flex flex-col gap-3"
           style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
         >
-          <input
-            ref={inputRef}
-            value={newName}
-            onChange={e => setNewName(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleAdd()
-              if (e.key === 'Escape') { setAdding(false); setNewName('') }
-            }}
-            placeholder="보드 이름 입력 후 Enter (예: 채용, 평가보상)"
-            className="flex-1 text-[13px] bg-transparent focus:outline-none placeholder:text-[rgba(226,232,240,0.3)]"
-            style={{ color: '#E2E8F0' }}
-          />
-          <button
-            onClick={handleAdd}
-            className="text-[12px] px-4 py-1.5 rounded-lg transition-colors flex-shrink-0"
-            style={{ background: 'rgba(76,127,224,0.2)', border: '1px solid rgba(76,127,224,0.3)', color: '#9DBEF5' }}
-          >
-            만들기
-          </button>
-          <button
-            onClick={() => { setAdding(false); setNewName('') }}
-            className="text-[12px] px-3 py-1.5 rounded-lg transition-colors flex-shrink-0"
-            style={{ color: 'rgba(226,232,240,0.4)' }}
-          >
-            취소
-          </button>
+          <div className="flex items-center gap-2">
+            <input
+              ref={inputRef}
+              value={newName}
+              onChange={e => setNewName(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleAdd('mindmap')
+                if (e.key === 'Escape') { setAdding(false); setNewName('') }
+              }}
+              placeholder="보드 이름 입력 (예: 채용, 평가보상)"
+              className="flex-1 text-[13px] bg-transparent focus:outline-none placeholder:text-[rgba(226,232,240,0.3)]"
+              style={{ color: '#E2E8F0' }}
+            />
+            <button
+              onClick={() => { setAdding(false); setNewName('') }}
+              className="text-[12px] px-3 py-1.5 rounded-lg transition-colors flex-shrink-0"
+              style={{ color: 'rgba(226,232,240,0.4)' }}
+            >
+              취소
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => handleAdd('mindmap')}
+              disabled={!newName.trim()}
+              className="flex flex-col items-start gap-1 px-4 py-3 rounded-xl text-left transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{ background: 'rgba(76,127,224,0.12)', border: '1px solid rgba(76,127,224,0.3)' }}
+            >
+              <span className="flex items-center gap-1.5 text-[13px] font-medium" style={{ color: '#9DBEF5' }}>
+                <LayoutGrid size={14} /> 박스형 마인드맵
+              </span>
+              <span className="text-[11px]" style={{ color: 'rgba(226,232,240,0.4)' }}>
+                카드를 놓고 연결선으로 잇는 무한 캔버스
+              </span>
+            </button>
+            <button
+              onClick={() => handleAdd('freenote')}
+              disabled={!newName.trim()}
+              className="flex flex-col items-start gap-1 px-4 py-3 rounded-xl text-left transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{ background: 'rgba(95,191,163,0.12)', border: '1px solid rgba(95,191,163,0.3)' }}
+            >
+              <span className="flex items-center gap-1.5 text-[13px] font-medium" style={{ color: '#9BDCC7' }}>
+                <StickyNote size={14} /> 자유노트
+              </span>
+              <span className="text-[11px]" style={{ color: 'rgba(226,232,240,0.4)' }}>
+                텍스트·이미지·박스를 자유롭게 배치하는 캔버스
+              </span>
+            </button>
+          </div>
         </div>
       )}
 
@@ -130,10 +154,15 @@ export default function SketchBoardList() {
                 onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.08)')}
                 onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)')}
               >
-                <p className="text-[14px] font-semibold truncate pr-6" style={{ color: '#E2E8F0' }}>{board.name}</p>
+                <p className="flex items-center gap-1.5 text-[14px] font-semibold truncate pr-6" style={{ color: '#E2E8F0' }}>
+                  {board.board_type === 'freenote'
+                    ? <StickyNote size={12} className="flex-shrink-0" style={{ color: '#9BDCC7' }} />
+                    : <LayoutGrid size={12} className="flex-shrink-0" style={{ color: '#9DBEF5' }} />}
+                  {board.name}
+                </p>
                 <div className="flex items-center justify-between">
                   <span className="text-[11px]" style={{ color: 'rgba(226,232,240,0.35)' }}>
-                    카드 {board.sketch_cards?.[0]?.count ?? 0}개
+                    {board.board_type === 'freenote' ? '자유노트' : `카드 ${board.sketch_cards?.[0]?.count ?? 0}개`}
                   </span>
                   <span className="text-[10px]" style={{ color: 'rgba(226,232,240,0.28)' }}>
                     {format(parseISO(board.updated_at), 'M/d', { locale: ko })}
