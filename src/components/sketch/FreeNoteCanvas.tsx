@@ -329,7 +329,10 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
             onBlur={() => setIsEditingBody(false)}
             data-placeholder="여기에 바로 적어보세요…"
             className="relative outline-none leading-relaxed freenote-body"
-            style={{ color: '#E2E8F0', fontSize: 15, maxWidth: 760, whiteSpace: 'pre-wrap', overflowWrap: 'break-word', minHeight: 200 }}
+            // maxWidth: 760 고정값이었을 때는 창을 넓게 켜도 본문이 그 폭에서 멈춰 줄바꿈되고
+            // 오른쪽에 여백만 남는 문제가 있었다 — 좁은 화면(또는 좁은 창)에선 꽉 채우고,
+            // 아주 넓은 화면에서만 가독성을 위해 줄 길이 상한이 걸리도록 가변폭으로 변경.
+            style={{ color: '#E2E8F0', fontSize: 15, maxWidth: 'min(100%, 1100px)', whiteSpace: 'pre-wrap', overflowWrap: 'break-word', minHeight: 200 }}
           />
           {elements.map(el => el.type === 'image' ? (
             <ImageOverlay
