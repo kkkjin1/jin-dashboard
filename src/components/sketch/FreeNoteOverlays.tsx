@@ -5,6 +5,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { Trash2, RotateCw, Pen, Highlighter, Maximize2 } from 'lucide-react'
 import { CATEGORY_PALETTE, type CategoryColorKey } from '@/lib/categoryColors'
 import { useAutosave } from '@/hooks/useAutosave'
+import type { AutosaveFailureReason, AutosaveStatus } from '@/lib/autosave/types'
 import type { SketchCard, SketchEdge, SketchFrame, SketchTableData } from '@/types'
 
 const COLOR_KEYS = Object.keys(CATEGORY_PALETTE) as CategoryColorKey[]
@@ -12,6 +13,38 @@ const BASE_TEXT = '#E2E8F0'
 const TABLE_ACCENT = '#6BB6C7'
 const TABLE_ACCENT_BG = 'rgba(107,182,199,0.14)'
 const TABLE_ACCENT_BORDER = 'rgba(107,182,199,0.4)'
+
+// ── Autosave 상태 표시 — 눈에 띄지 않는 수준의 짧은 텍스트만(quick memo의
+// AutosaveStatusBadge와 동일한 "honest status" 원칙: 성공 안 했는데 저장됨으로
+// 보이는 표시는 하지 않는다). idle/local-saving/pending-sync처럼 매 타이핑마다
+// 바뀌는 상태는 너무 잦아서 오히려 산만해지므로 표시하지 않는다.
+export function AutosaveStatusHint({ status, failureReason }: { status: AutosaveStatus; failureReason: AutosaveFailureReason | null }) {
+  const map: Partial<Record<AutosaveStatus, { text: string; color: string }>> = {
+    syncing:  { text: '저장 중…', color: 'rgba(226,232,240,0.4)' },
+    saved:    { text: '저장됨', color: 'rgba(102,204,153,0.75)' },
+    retrying: { text: failureReason === 'network' ? '오프라인 — 재연결 시 저장' : '저장 재시도 중', color: '#F99E0B' },
+    error:    { text: '저장 실패(로컬 보관)', color: '#FC8181' },
+    conflict: { text: '충돌 발생', color: '#F99E0B' },
+  }
+  const cur = map[status]
+  if (!cur) return null
+  return <span className="text-[10px] flex-shrink-0" style={{ color: cur.color }}>{cur.text}</span>
+}
+
+// ── Autosave 복구 배너(포스트잇/표처럼 작은 카드용 컴팩트 버전) — 자동 적용하지
+// 않고 사용자가 적용/무시를 직접 고른다(architecture Ch.6). 카드마다 독립된
+// useAutosave 인스턴스를 쓰므로 여러 개가 동시에 있어도 서로 섞이지 않는다.
+function CompactRecoveryBanner({ onApply, onDiscard }: { onApply: () => void; onDiscard: () => void }) {
+  return (
+    <div className="flex-shrink-0 flex items-center gap-1.5 px-1.5 py-1 rounded text-[10px]"
+      style={{ background: 'rgba(76,127,224,0.16)', border: '1px solid rgba(76,127,224,0.35)', color: '#9DBEF5' }}
+      onPointerDown={e => e.stopPropagation()}>
+      <span className="flex-1 truncate">복구 가능한 내용 있음</span>
+      <button onClick={onApply} className="underline underline-offset-2 flex-shrink-0">적용</button>
+      <button onClick={onDiscard} className="underline underline-offset-2 flex-shrink-0">무시</button>
+    </div>
+  )
+}
 
 // ── 서식바(A-/A+/강조) — 문서 본문(FreeNoteCanvas)·포스트잇 공용 ────────────────
 // SketchCanvas.tsx의 카드 에디터가 이미 쓰는 block(줄) 단위 font-size 조절 +
@@ -446,8 +479,11 @@ export function BoxOverlay({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // content prop은 이미 canonical에서 로드된 값(부모 elements가 먼저 채워진 뒤에만
+  // 이 컴포넌트가 마운트됨)이라 여기서 seed하는 초기값 자체가 정확한 기준값이다 —
+  // 1on1/자유노트 본문과 달리 false recovery 방지를 위한 별도 처리가 필요 없다.
   const [autosaveContent, setAutosaveContent] = useState(content ?? '')
-  useAutosave({
+  const autosave = useAutosave({
     supabase, enabled: isEditing, entityType: 'sketch_note_element', entityId: id, fieldKey: 'content', value: autosaveContent,
   })
 
@@ -457,6 +493,16 @@ export function BoxOverlay({
     setAutosaveContent(html)
     clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(() => onContentChange(html), 500)
+  }
+
+  function applyRecovered() {
+    if (!autosave.recovered) return
+    const html = (autosave.recovered.value as string) ?? ''
+    autosave.discardRecovered()
+    clearTimeout(saveTimer.current)
+    setAutosaveContent(html)
+    if (editorRef.current) editorRef.current.innerHTML = toDisplayHtml(html)
+    onContentChange(html)
   }
 
   return (
@@ -474,6 +520,7 @@ export function BoxOverlay({
       ))}
     >
       <div className="w-full h-full rounded-lg p-2 flex flex-col gap-1 overflow-hidden" style={{ background: palette.bg, border: `1.5px solid ${palette.border}`, boxShadow: '0 4px 14px rgba(0,0,0,0.22)' }}>
+        {autosave.recovered && <CompactRecoveryBanner onApply={applyRecovered} onDiscard={() => autosave.discardRecovered()} />}
         {selected && <BlockFormatBar editorRef={editorRef} fallbackSize={13} />}
         <div
           ref={editorRef}
@@ -481,12 +528,13 @@ export function BoxOverlay({
           suppressContentEditableWarning
           onInput={handleInput}
           onFocus={() => setIsEditing(true)}
-          onBlur={() => setIsEditing(false)}
+          onBlur={() => { setIsEditing(false); void autosave.flush() }}
           onPointerDown={e => e.stopPropagation()}
           data-placeholder="메모…"
           className="freenote-body flex-1 min-h-0 outline-none overflow-y-auto scrollbar-hide leading-snug"
           style={{ color: BASE_TEXT, fontSize: 13, whiteSpace: 'pre-wrap', overflowWrap: 'break-word' }}
         />
+        {selected && <AutosaveStatusHint status={autosave.status} failureReason={autosave.failureReason} />}
       </div>
     </OverlayFrame>
   )
@@ -508,8 +556,9 @@ function placeCaretEnd(el: HTMLElement) {
 }
 
 export function TableOverlay({
-  box, data, selected, onSelect, onChange, onDelete, onDataChange,
+  id, box, data, selected, onSelect, onChange, onDelete, onDataChange, supabase,
 }: {
+  id: string
   box: OverlayBox
   data: SketchTableData
   selected: boolean
@@ -517,18 +566,55 @@ export function TableOverlay({
   onChange: (box: OverlayBox) => void
   onDelete: () => void
   onDataChange: (data: SketchTableData) => void
+  supabase: SupabaseClient
 }) {
+  // data prop은 이미 canonical에서 로드된 값(부모 elements가 먼저 채워진 뒤에만
+  // 이 컴포넌트가 마운트됨)이라 seed하는 초기값 자체가 정확한 기준값 — BoxOverlay와
+  // 동일한 이유로 false recovery 방지를 위한 별도 처리가 필요 없다.
   const [tableData, setTableData] = useState<SketchTableData>(data)
   // 현재 포커스된 셀 — 행/열 추가·삭제가 "이 셀 기준"으로 동작하게 한다. 저장되는
   // SketchTableData 자체에는 안 넣는다(구조 데이터가 아니라 일시적 UI 상태).
   const [activeCell, setActiveCell] = useState<{ r: number; c: number } | null>(null)
   const cellRefs = useRef(new Map<string, HTMLTableCellElement>())
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const containerRef = useRef<HTMLDivElement>(null)
+  // 표 전체 단위의 편집 상태 — 셀 하나하나에 걸지 않는 이유: Tab/클릭으로 셀
+  // 사이를 옮겨다닐 때마다 훅이 꺼졌다 켜졌다 하면 그때마다 bootstrap GET이
+  // 다시 돌아 과도한 요청이 생긴다(요청사항 4). 포커스가 표 컨테이너 밖으로
+  // 완전히 나갈 때만 꺼지고 flush 되도록 focus/blur를 컨테이너에서 capture한다.
+  const [isEditing, setIsEditing] = useState(false)
+
+  const autosave = useAutosave({
+    supabase, enabled: isEditing, entityType: 'sketch_note_element', entityId: id, fieldKey: 'table_data', value: tableData,
+  })
+
+  function handleContainerFocus() {
+    setIsEditing(true)
+  }
+  function handleContainerBlur(e: React.FocusEvent<HTMLDivElement>) {
+    const next = e.relatedTarget as Node | null
+    if (next && containerRef.current?.contains(next)) return // 셀/툴바 사이 이동 — 계속 편집 중
+    setIsEditing(false)
+    void autosave.flush()
+  }
 
   function persist(next: SketchTableData, immediate: boolean) {
     if (immediate) { onDataChange(next); return }
     clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(() => onDataChange(next), 500)
+  }
+
+  function applyRecovered() {
+    if (!autosave.recovered) return
+    const next = autosave.recovered.value as SketchTableData
+    autosave.discardRecovered()
+    clearTimeout(saveTimer.current)
+    // 셀 DOM은 최초 1회만 seed되고 이후엔 DOM이 진실 소스라(캐럿 보존), state만
+    // 바꿔서는 화면이 안 바뀐다 — seeded 플래그를 지워 다음 렌더에서 복구된
+    // 텍스트로 다시 seed되게 한다.
+    cellRefs.current.forEach(td => { delete td.dataset.seeded })
+    setTableData(next)
+    onDataChange(next)
   }
 
   function focusCell(r: number, c: number) {
@@ -654,7 +740,12 @@ export function TableOverlay({
 
   return (
     <OverlayFrame box={box} selected={selected} minWidth={240} minHeight={140} accentColor={TABLE_ACCENT} onSelect={onSelect} onChange={onChange} onDelete={onDelete}>
-      <div className="w-full h-full rounded-lg p-2 flex flex-col gap-1.5 overflow-hidden" style={{ background: bg, border: `1.5px solid ${border}` }}>
+      <div
+        ref={containerRef}
+        onFocusCapture={handleContainerFocus}
+        onBlurCapture={handleContainerBlur}
+        className="w-full h-full rounded-lg p-2 flex flex-col gap-1.5 overflow-hidden" style={{ background: bg, border: `1.5px solid ${border}` }}>
+        {autosave.recovered && <CompactRecoveryBanner onApply={applyRecovered} onDiscard={() => autosave.discardRecovered()} />}
         {selected && (
           <div className="flex items-center gap-1 flex-wrap flex-shrink-0">
             {mkBtn('+행', '현재 행 아래에 행 추가', addRow)}
@@ -711,8 +802,9 @@ export function TableOverlay({
             ))}
           </div>
         </div>
-        <div className="text-[10px] flex-shrink-0" style={{ color: 'rgba(226,232,240,0.35)' }}>
-          {tableData.rows.length}행 × {tableData.colWidths.length}열
+        <div className="flex items-center gap-2 text-[10px] flex-shrink-0" style={{ color: 'rgba(226,232,240,0.35)' }}>
+          <span>{tableData.rows.length}행 × {tableData.colWidths.length}열</span>
+          {selected && <AutosaveStatusHint status={autosave.status} failureReason={autosave.failureReason} />}
         </div>
       </div>
     </OverlayFrame>

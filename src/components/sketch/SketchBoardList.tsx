@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { clearAutosaveBuffer } from '@/hooks/useAutosave'
 import { format, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { Trash2, PenTool, LayoutGrid, StickyNote } from 'lucide-react'
@@ -50,7 +51,14 @@ export default function SketchBoardList() {
 
   async function deleteBoard(id: string, name: string) {
     if (!confirm(`'${name}' 보드를 삭제하시겠습니까? 안의 카드도 모두 삭제됩니다.`)) return
-    await supabase.from('sketch_boards').delete().eq('id', id)
+    const { error } = await supabase.from('sketch_boards').delete().eq('id', id)
+    // canonical DELETE 성공 이후에만 로컬 autosave 버퍼 정리 — 자식 sketch_note_elements는
+    // FK CASCADE로 같이 지워지지만, 그 각각의 버퍼(box content/table_data)까지 여기서
+    // 정리하려면 삭제 전에 자식 목록을 따로 조회해야 해서 현재 삭제 구조를 넘어서는
+    // 확장이 필요하다 — 이번 STEP에서는 board 자신의 note_body 버퍼만 정리한다.
+    if (!error) {
+      try { clearAutosaveBuffer('sketch_board', id, 'note_body') } catch {}
+    }
     setBoards(prev => prev.filter(b => b.id !== id))
   }
 

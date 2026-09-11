@@ -7,10 +7,10 @@ import { createClient } from '@/lib/supabase/client'
 import type { CategoryColorKey } from '@/lib/categoryColors'
 import { ArrowLeft, Square, Network, Table2 } from 'lucide-react'
 import type { SketchBoard, SketchNoteElement, SketchTableData } from '@/types'
-import { useAutosave } from '@/hooks/useAutosave'
+import { useAutosave, clearAutosaveBuffer } from '@/hooks/useAutosave'
 import {
   ImageOverlay, BoxOverlay, TableOverlay, MindmapCardOverlay,
-  toDisplayHtml, ensureEmptyBlocksHaveBr, BlockFormatBar, type OverlayBox,
+  toDisplayHtml, ensureEmptyBlocksHaveBr, BlockFormatBar, AutosaveStatusHint, type OverlayBox,
 } from './FreeNoteOverlays'
 
 // 마인드맵 카드를 확장할 때만 필요한 무거운 캔버스(React Flow)라, 자유노트를 열 때마다
@@ -87,6 +87,10 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
   const elementsRef = useRef<SketchNoteElement[]>([])
   useEffect(() => { elementsRef.current = elements }, [elements])
 
+  // ── 본문(note_body) autosave 안전망 값 — 데이터 로딩 effect보다 먼저 선언해야
+  // 로딩 완료 시 이 state를 canonical 값으로 seed할 수 있다(false recovery 방지, 아래).
+  const [autosaveBody, setAutosaveBody] = useState('')
+
   // ── 데이터 로딩 ───────────────────────────────────────────────────────────
   useEffect(() => {
     Promise.all([
@@ -97,6 +101,12 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
         const b = boardRes.data as SketchBoard
         setBoard(b)
         setNameInput(b.name)
+        // canonical 값이 아직 안 채워진 초기값('')과 로컬 autosave 버퍼를 비교하면
+        // 실제로는 아무것도 유실되지 않았는데도 매번 "복구 가능" 배너가 뜬다(1on1
+        // 세션 편집 화면에서 이미 재현/수정된 것과 동일한 종류의 false positive) —
+        // canonical 로드 직후 autosaveBody를 그 값으로 맞춰 훅의 mount-time 비교가
+        // 정확한 기준값을 보게 한다.
+        setAutosaveBody(b.note_body ?? '')
         if (bodyRef.current) bodyRef.current.innerHTML = toDisplayHtml(b.note_body ?? '')
       }
       setElements((elRes.data ?? []) as SketchNoteElement[])
@@ -118,24 +128,38 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
   }, [loading])
 
   // ── 본문(note_body) 저장 ─────────────────────────────────────────────────
-  const [autosaveBody, setAutosaveBody] = useState('')
   const bodySaveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  useAutosave({
+  const bodyAutosave = useAutosave({
     supabase, enabled: isEditingBody, entityType: 'sketch_board', entityId: boardId, fieldKey: 'note_body', value: autosaveBody,
   })
+
+  function saveBodyCanonical(html: string) {
+    supabase.from('sketch_boards').update({ note_body: html }).eq('id', boardId)
+      .then(({ error }) => setSaveError(error ? SAVE_ERROR_MSG : ''))
+  }
 
   function persistBody(html: string) {
     setAutosaveBody(html)
     clearTimeout(bodySaveTimer.current)
-    bodySaveTimer.current = setTimeout(() => {
-      supabase.from('sketch_boards').update({ note_body: html }).eq('id', boardId)
-        .then(({ error }) => setSaveError(error ? SAVE_ERROR_MSG : ''))
-    }, 500)
+    bodySaveTimer.current = setTimeout(() => saveBodyCanonical(html), 500)
   }
 
   function handleBodyInput(e: React.FormEvent<HTMLDivElement>) {
     ensureEmptyBlocksHaveBr(e.currentTarget)
     persistBody(e.currentTarget.innerHTML)
+  }
+
+  // 복구 배너 "적용" — 로컬 state/DOM을 되돌린 뒤, 대기 중이던 canonical debounce는
+  // 지우고 즉시 canonical에도 반영한다(1on1 세션 편집 화면의 applyRecoveredContent와
+  // 동일한 원칙 — state만 바꾸고 끝내면 다시 새로고침할 때 또 사라짐).
+  function applyRecoveredBody() {
+    if (!bodyAutosave.recovered) return
+    const html = (bodyAutosave.recovered.value as string) ?? ''
+    bodyAutosave.discardRecovered()
+    clearTimeout(bodySaveTimer.current)
+    setAutosaveBody(html)
+    if (bodyRef.current) bodyRef.current.innerHTML = toDisplayHtml(html)
+    saveBodyCanonical(html)
   }
 
   function placeCaretEndInBlock(el: HTMLElement) {
@@ -199,7 +223,7 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
   const handleContentChange = useCallback((id: string, content: string) => {
     setElements(prev => prev.map(el => el.id === id ? { ...el, content } : el))
     supabase.from('sketch_note_elements').update({ content }).eq('id', id)
-      .then(({ error }) => { if (error) console.error('메모 저장 실패:', error.message) })
+      .then(({ error }) => setSaveError(error ? SAVE_ERROR_MSG : ''))
   }, [])
 
   const handleDelete = useCallback(async (id: string) => {
@@ -208,6 +232,14 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
     if (error) { alert('삭제에 실패했습니다.'); return }
     setElements(prev => prev.filter(e => e.id !== id))
     setSelectedId(prev => (prev === id ? null : prev))
+    // canonical DELETE 성공 이후에만 로컬 autosave 버퍼 정리 — 실패해도 canonical
+    // 삭제 자체는 되돌리지 않는다(meeting_note/quick_memo delete와 동일 원칙).
+    // fieldKey는 요소 타입별 실제 사용 필드만(box→content, table→table_data);
+    // image/mindmap은 useAutosave를 쓰지 않으므로 정리할 버퍼가 없다.
+    try {
+      if (el?.type === 'box') clearAutosaveBuffer('sketch_note_element', id, 'content')
+      else if (el?.type === 'table') clearAutosaveBuffer('sketch_note_element', id, 'table_data')
+    } catch {}
     if (el?.type === 'image') {
       const path = el.content.split('/object/public/attachments/')[1]
       if (path) await supabase.storage.from('attachments').remove([path])
@@ -451,7 +483,18 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
           <Table2 size={13} /> 표
         </button>
         {uploading && <span className="text-[11px] flex-shrink-0" style={{ color: 'rgba(226,232,240,0.4)' }}>이미지 업로드 중…</span>}
+        <AutosaveStatusHint status={bodyAutosave.status} failureReason={bodyAutosave.failureReason} />
       </div>
+
+      {/* Autosave: 본문 복구 배너 — 자동 적용하지 않고 사용자가 선택 */}
+      {bodyAutosave.recovered && (
+        <div className="flex-shrink-0 mb-2 px-4 py-2.5 rounded-xl text-[12px] flex items-center gap-2"
+          style={{ background: 'rgba(76,127,224,0.1)', border: '1px solid rgba(76,127,224,0.3)', color: '#9DBEF5' }}>
+          <span className="flex-1">복구 가능한 자동저장 내용이 있습니다</span>
+          <button onClick={applyRecoveredBody} className="underline underline-offset-2">적용</button>
+          <button onClick={() => bodyAutosave.discardRecovered()} className="underline underline-offset-2">무시</button>
+        </div>
+      )}
 
       {saveError && (
         <div className="flex-shrink-0 mb-2 px-4 py-2.5 rounded-xl text-[12px] flex items-center gap-2"
@@ -474,7 +517,7 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
             suppressContentEditableWarning
             onInput={handleBodyInput}
             onFocus={() => setIsEditingBody(true)}
-            onBlur={() => setIsEditingBody(false)}
+            onBlur={() => { setIsEditingBody(false); void bodyAutosave.flush() }}
             data-placeholder="여기에 바로 적어보세요…"
             className="relative outline-none leading-relaxed freenote-body"
             // maxWidth: 760 고정값이었을 때는 창을 넓게 켜도 본문이 그 폭에서 멈춰 줄바꿈되고
@@ -517,6 +560,7 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
               return (
                 <TableOverlay
                   key={el.id}
+                  id={el.id}
                   box={box}
                   data={el.table_data ?? DEFAULT_TABLE_DATA}
                   selected={selectedId === el.id}
@@ -524,6 +568,7 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
                   onChange={b => handleOverlayChange(el.id, b)}
                   onDelete={() => void handleDelete(el.id)}
                   onDataChange={tableData => handleTableDataChange(el.id, tableData)}
+                  supabase={supabase}
                 />
               )
             }
