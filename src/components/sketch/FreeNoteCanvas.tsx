@@ -2,12 +2,27 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import dynamic from 'next/dynamic'
 import { createClient } from '@/lib/supabase/client'
 import type { CategoryColorKey } from '@/lib/categoryColors'
-import { ArrowLeft, Square } from 'lucide-react'
-import type { SketchBoard, SketchNoteElement } from '@/types'
+import { ArrowLeft, Square, Network, Table2 } from 'lucide-react'
+import type { SketchBoard, SketchNoteElement, SketchTableData } from '@/types'
 import { useAutosave } from '@/hooks/useAutosave'
-import { ImageOverlay, BoxOverlay, toDisplayHtml, type OverlayBox } from './FreeNoteOverlays'
+import {
+  ImageOverlay, BoxOverlay, TableOverlay, MindmapCardOverlay,
+  toDisplayHtml, ensureEmptyBlocksHaveBr, BlockFormatBar, type OverlayBox,
+} from './FreeNoteOverlays'
+
+// 마인드맵 카드를 확장할 때만 필요한 무거운 캔버스(React Flow)라, 자유노트를 열 때마다
+// 같이 불러오지 않도록 지연 로딩한다.
+const SketchCanvas = dynamic(() => import('./SketchCanvas'), {
+  ssr: false,
+  loading: () => <div className="h-full flex items-center justify-center text-[13px]" style={{ color: 'rgba(226,232,240,0.35)' }}>불러오는 중…</div>,
+})
+
+const DEFAULT_TABLE_DATA: SketchTableData = {
+  headerRow: true, transparentBg: false, colWidths: [110, 110, 110], rows: [['열 1', '열 2', '열 3'], ['', '', '']],
+}
 
 const DEFAULT_BOX_WIDTH = 220
 const DEFAULT_BOX_HEIGHT = 160
@@ -60,6 +75,15 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
   const [saveError, setSaveError] = useState('')
   const SAVE_ERROR_MSG = '저장 실패 — 화면에는 반영됐지만 서버에 저장되지 않았을 수 있습니다. 새로고침 후 다시 확인해주세요.'
 
+  // 마인드맵 카드를 확장 편집 중일 때만 값이 있음 — 그 카드가 가리키는 자식 보드를
+  // 전체화면으로 연다. 닫으면 mindmapRefreshTick을 올려서 카드 미리보기들이 다시 불러오게 한다.
+  const [expandedMindmap, setExpandedMindmap] = useState<{ elementId: string; boardId: string } | null>(null)
+  const [mindmapRefreshTick, setMindmapRefreshTick] = useState(0)
+  function closeMindmapModal() {
+    setExpandedMindmap(null)
+    setMindmapRefreshTick(t => t + 1)
+  }
+
   const elementsRef = useRef<SketchNoteElement[]>([])
   useEffect(() => { elementsRef.current = elements }, [elements])
 
@@ -100,14 +124,59 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
     supabase, enabled: isEditingBody, entityType: 'sketch_board', entityId: boardId, fieldKey: 'note_body', value: autosaveBody,
   })
 
-  function handleBodyInput(e: React.FormEvent<HTMLDivElement>) {
-    const html = e.currentTarget.innerHTML
+  function persistBody(html: string) {
     setAutosaveBody(html)
     clearTimeout(bodySaveTimer.current)
     bodySaveTimer.current = setTimeout(() => {
       supabase.from('sketch_boards').update({ note_body: html }).eq('id', boardId)
         .then(({ error }) => setSaveError(error ? SAVE_ERROR_MSG : ''))
     }, 500)
+  }
+
+  function handleBodyInput(e: React.FormEvent<HTMLDivElement>) {
+    ensureEmptyBlocksHaveBr(e.currentTarget)
+    persistBody(e.currentTarget.innerHTML)
+  }
+
+  function placeCaretEndInBlock(el: HTMLElement) {
+    const range = document.createRange()
+    range.selectNodeContents(el)
+    range.collapse(false)
+    const sel = window.getSelection()
+    sel?.removeAllRanges()
+    sel?.addRange(range)
+  }
+
+  // 워드의 "클릭하여 입력"과 같은 동작 — 본문이 짧아서 아직 없는 행(예: 2행까지만
+  // 썼는데 그보다 훨씬 아래)을 클릭해도, 그 자리까지 빈 줄을 채워서 정확히 그
+  // 행에 캐럿을 둔다. 본문도 카드도 아닌 빈 캔버스를 클릭했을 때만 호출된다.
+  function handleEmptyAreaClick(e: React.MouseEvent) {
+    const body = bodyRef.current, inner = innerRef.current
+    if (!body || !inner) return
+    e.preventDefault()
+    body.focus()
+    const innerRect = inner.getBoundingClientRect()
+    const clickY = e.clientY - innerRect.top
+    const lines = Array.from(body.children) as HTMLElement[]
+    if (!lines.length) return
+    const lineHeightPx = parseFloat(getComputedStyle(body).lineHeight) || parseFloat(getComputedStyle(body).fontSize) * 1.5 || 24
+    const relY = clickY - body.offsetTop
+    const targetIndex = Math.max(0, Math.round(relY / lineHeightPx))
+
+    if (targetIndex < lines.length) {
+      // 이미 있는 행 범위 안 — 그 행 끝에 캐럿(가로 위치는 클릭한 x가 아니라 그 줄 끝)
+      placeCaretEndInBlock(lines[targetIndex])
+    } else {
+      // 아직 없는 행 — 클릭한 행까지 빈 줄을 만들어 늘린 뒤 마지막 줄 끝에 캐럿
+      const toAdd = targetIndex - lines.length + 1
+      for (let i = 0; i < toAdd; i++) {
+        const div = document.createElement('div')
+        div.appendChild(document.createElement('br'))
+        body.appendChild(div)
+      }
+      placeCaretEndInBlock(body.lastElementChild as HTMLElement)
+    }
+    persistBody(body.innerHTML)
   }
 
   // ── canonical writes(오버레이 요소) ───────────────────────────────────────
@@ -142,7 +211,17 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
     if (el?.type === 'image') {
       const path = el.content.split('/object/public/attachments/')[1]
       if (path) await supabase.storage.from('attachments').remove([path])
+    } else if (el?.type === 'mindmap' && el.content) {
+      // 카드가 가리키던 자식 마인드맵 보드도 함께 삭제 — 그 보드의 카드/연결선/
+      // 프레임은 FK ON DELETE CASCADE로 알아서 같이 지워진다.
+      await supabase.from('sketch_boards').delete().eq('id', el.content)
     }
+  }, [])
+
+  const handleTableDataChange = useCallback((id: string, tableData: SketchTableData) => {
+    setElements(prev => prev.map(el => el.id === id ? { ...el, table_data: tableData } : el))
+    supabase.from('sketch_note_elements').update({ table_data: tableData }).eq('id', id)
+      .then(({ error }) => { if (error) setSaveError(SAVE_ERROR_MSG) })
   }, [])
 
   // 선택된 오버레이 요소(포스트잇/이미지)를 Delete/Backspace로 삭제 — 본문/메모 등
@@ -177,7 +256,7 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
     const tempId = `temp_${Date.now()}_${Math.random().toString(36).slice(2)}`
     const now = new Date().toISOString()
     const optimistic: SketchNoteElement = {
-      id: tempId, board_id: boardId, type: 'box', content: '', color: 'amber',
+      id: tempId, board_id: boardId, type: 'box', content: '', color: 'amber', table_data: null,
       position_x: pos.x, position_y: pos.y, width: DEFAULT_BOX_WIDTH, height: DEFAULT_BOX_HEIGHT, rotation: 0,
       created_at: now, updated_at: now,
     }
@@ -218,6 +297,45 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
     setSelectedId((data as SketchNoteElement).id)
   }, [boardId, pickCreatePos])
 
+  const createTable = useCallback(async () => {
+    const pos = pickCreatePos()
+    const { data, error } = await supabase.from('sketch_note_elements')
+      .insert({
+        board_id: boardId, type: 'table', content: '', color: 'blue',
+        position_x: pos.x, position_y: pos.y, width: 360, height: 190, rotation: 0,
+        table_data: DEFAULT_TABLE_DATA,
+      })
+      .select().single()
+    if (error || !data) { console.error('표 생성 실패:', error?.message); return }
+    setElements(prev => [...prev, data as SketchNoteElement])
+    setSelectedId((data as SketchNoteElement).id)
+  }, [boardId, pickCreatePos])
+
+  // 마인드맵 카드 — 실제로는 자유노트 위의 포스트잇 같은 카드일 뿐, 편집은 그 카드가
+  // 가리키는 자식 sketch_boards(board_type='mindmap')를 기존 SketchCanvas로 그대로 연다.
+  const createMindmap = useCallback(async () => {
+    const pos = pickCreatePos()
+    const { data: childBoard, error: boardError } = await supabase.from('sketch_boards')
+      .insert({ name: '새 마인드맵', board_type: 'mindmap', parent_board_id: boardId })
+      .select().single()
+    if (boardError || !childBoard) { console.error('마인드맵 보드 생성 실패:', boardError?.message); return }
+    const { data, error } = await supabase.from('sketch_note_elements')
+      .insert({
+        board_id: boardId, type: 'mindmap', content: childBoard.id as string, color: 'blue',
+        position_x: pos.x, position_y: pos.y, width: 380, height: 240, rotation: 0,
+      })
+      .select().single()
+    if (error || !data) {
+      console.error('마인드맵 카드 생성 실패:', error?.message)
+      await supabase.from('sketch_boards').delete().eq('id', childBoard.id as string)
+      return
+    }
+    const el = data as SketchNoteElement
+    setElements(prev => [...prev, el])
+    setSelectedId(el.id)
+    setExpandedMindmap({ elementId: el.id, boardId: childBoard.id as string })
+  }, [boardId, pickCreatePos])
+
   // ── 이미지 붙여넣기(본문 타이핑 중에도 동작) ─────────────────────────────
   useEffect(() => {
     async function onPaste(e: ClipboardEvent) {
@@ -256,8 +374,12 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
     setMinHeight(Math.max(600, bodyHeight + 200, ...(bottoms.length ? [Math.max(...bottoms) + 120] : [0])))
   }, [elements, autosaveBody])
 
-  function handleDeselectClick(e: React.MouseEvent) {
-    if (e.target === innerRef.current || e.target === scrollRef.current) setSelectedId(null)
+  function handleCanvasMouseDown(e: React.MouseEvent) {
+    if (e.target === scrollRef.current) { setSelectedId(null); return }
+    if (e.target === innerRef.current) {
+      setSelectedId(null)
+      handleEmptyAreaClick(e)
+    }
   }
 
   async function saveBoardName() {
@@ -299,11 +421,25 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
         />
 
         <button
-          onClick={() => void createBox()}
+          onClick={() => void createMindmap()}
           className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-[12.5px] font-medium transition-colors flex-shrink-0 ml-auto"
+          style={{ background: 'rgba(76,127,224,0.18)', border: '1px solid rgba(76,127,224,0.38)', color: '#9DBEF5' }}
+        >
+          <Network size={13} /> 마인드맵 카드
+        </button>
+        <button
+          onClick={() => void createBox()}
+          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-[12.5px] font-medium transition-colors flex-shrink-0"
           style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(226,232,240,0.5)' }}
         >
           <Square size={13} /> 포스트잇
+        </button>
+        <button
+          onClick={() => void createTable()}
+          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-[12.5px] font-medium transition-colors flex-shrink-0"
+          style={{ background: 'rgba(107,182,199,0.14)', border: '1px solid rgba(107,182,199,0.4)', color: '#A6D5E0' }}
+        >
+          <Table2 size={13} /> 표
         </button>
         {uploading && <span className="text-[11px] flex-shrink-0" style={{ color: 'rgba(226,232,240,0.4)' }}>이미지 업로드 중…</span>}
       </div>
@@ -318,8 +454,11 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
       )}
 
       {/* 문서 */}
-      <div ref={scrollRef} className="flex-1 min-h-0 rounded-2xl overflow-auto relative" style={{ border: '1px solid rgba(255,255,255,0.08)', background: '#0F1319' }} onMouseDown={handleDeselectClick}>
+      <div ref={scrollRef} className="flex-1 min-h-0 rounded-2xl overflow-auto relative" style={{ border: '1px solid rgba(255,255,255,0.08)', background: '#0F1319' }} onMouseDown={handleCanvasMouseDown}>
         <div ref={innerRef} className="relative" style={{ minHeight, padding: '32px 40px' }}>
+          <div className="mb-3.5">
+            <BlockFormatBar editorRef={bodyRef} fallbackSize={15} />
+          </div>
           <div
             ref={bodyRef}
             contentEditable
@@ -334,38 +473,82 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
             // 아주 넓은 화면에서만 가독성을 위해 줄 길이 상한이 걸리도록 가변폭으로 변경.
             style={{ color: '#E2E8F0', fontSize: 15, maxWidth: 'min(100%, 1100px)', whiteSpace: 'pre-wrap', overflowWrap: 'break-word', minHeight: 200 }}
           />
-          {elements.map(el => el.type === 'image' ? (
-            <ImageOverlay
-              key={el.id}
-              box={{ x: el.position_x, y: el.position_y, width: el.width, height: el.height, rotation: el.rotation }}
-              src={el.content}
-              selected={selectedId === el.id}
-              onSelect={() => setSelectedId(el.id)}
-              onChange={box => handleOverlayChange(el.id, box)}
-              onDelete={() => void handleDelete(el.id)}
-            />
-          ) : (
-            <BoxOverlay
-              key={el.id}
-              id={el.id}
-              box={{ x: el.position_x, y: el.position_y, width: el.width, height: el.height, rotation: el.rotation }}
-              color={el.color as CategoryColorKey}
-              content={el.content}
-              selected={selectedId === el.id}
-              onSelect={() => setSelectedId(el.id)}
-              onChange={box => handleOverlayChange(el.id, box)}
-              onDelete={() => void handleDelete(el.id)}
-              onColorChange={color => handleColorChange(el.id, color)}
-              onContentChange={content => handleContentChange(el.id, content)}
-              supabase={supabase}
-            />
-          ))}
+          {elements.map(el => {
+            const box = { x: el.position_x, y: el.position_y, width: el.width, height: el.height, rotation: el.rotation }
+            if (el.type === 'image') {
+              return (
+                <ImageOverlay
+                  key={el.id}
+                  box={box}
+                  src={el.content}
+                  selected={selectedId === el.id}
+                  onSelect={() => setSelectedId(el.id)}
+                  onChange={b => handleOverlayChange(el.id, b)}
+                  onDelete={() => void handleDelete(el.id)}
+                />
+              )
+            }
+            if (el.type === 'mindmap') {
+              return (
+                <MindmapCardOverlay
+                  key={el.id}
+                  box={box}
+                  childBoardId={el.content}
+                  selected={selectedId === el.id}
+                  onSelect={() => setSelectedId(el.id)}
+                  onChange={b => handleOverlayChange(el.id, b)}
+                  onDelete={() => void handleDelete(el.id)}
+                  onExpand={() => setExpandedMindmap({ elementId: el.id, boardId: el.content })}
+                  refreshToken={mindmapRefreshTick}
+                  supabase={supabase}
+                />
+              )
+            }
+            if (el.type === 'table') {
+              return (
+                <TableOverlay
+                  key={el.id}
+                  box={box}
+                  data={el.table_data ?? DEFAULT_TABLE_DATA}
+                  selected={selectedId === el.id}
+                  onSelect={() => setSelectedId(el.id)}
+                  onChange={b => handleOverlayChange(el.id, b)}
+                  onDelete={() => void handleDelete(el.id)}
+                  onDataChange={tableData => handleTableDataChange(el.id, tableData)}
+                />
+              )
+            }
+            return (
+              <BoxOverlay
+                key={el.id}
+                id={el.id}
+                box={box}
+                color={el.color as CategoryColorKey}
+                content={el.content}
+                selected={selectedId === el.id}
+                onSelect={() => setSelectedId(el.id)}
+                onChange={b => handleOverlayChange(el.id, b)}
+                onDelete={() => void handleDelete(el.id)}
+                onColorChange={color => handleColorChange(el.id, color)}
+                onContentChange={content => handleContentChange(el.id, content)}
+                supabase={supabase}
+              />
+            )
+          })}
         </div>
       </div>
 
       <p className="text-center text-[11px] pt-2 flex-shrink-0" style={{ color: 'rgba(226,232,240,0.28)' }}>
-        바로 타이핑하세요 · <span className="font-mono">Ctrl+V</span>로 이미지 붙여넣기(크기·회전 조절 가능) · 포스트잇에 메모 작성 가능 · 선택 후 <span className="font-mono">Delete</span>로 삭제
+        바로 타이핑하세요 · <span className="font-mono">Ctrl+V</span>로 이미지 붙여넣기(크기·회전 조절 가능) ·
+        <span className="font-mono">Alt+1</span> 빨간펜 · <span className="font-mono">Alt+2</span> 형광펜 ·
+        마인드맵 카드는 더블클릭(또는 확장 아이콘)으로 편집 · 표는 셀을 엑셀처럼 편집 · 선택 후 <span className="font-mono">Delete</span>로 삭제
       </p>
+
+      {expandedMindmap && (
+        <div className="fixed inset-0 z-50" style={{ background: '#0B0E13' }}>
+          <SketchCanvas boardId={expandedMindmap.boardId} onBack={closeMindmapModal} />
+        </div>
+      )}
     </div>
   )
 }

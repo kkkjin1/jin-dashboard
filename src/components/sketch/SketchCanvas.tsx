@@ -559,7 +559,7 @@ function frameToNode(frame: SketchFrame, handlers: Omit<FrameData, 'title' | 'co
 }
 
 // ── 메인 컴포넌트 ──────────────────────────────────────────────────────────────
-function SketchCanvasInner({ boardId }: { boardId: string }) {
+function SketchCanvasInner({ boardId, onBack }: { boardId: string; onBack?: () => void }) {
   const supabase = createClient()
   const { screenToFlowPosition } = useReactFlow()
   const wrapperRef = useRef<HTMLDivElement>(null)
@@ -1381,10 +1381,17 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
   if (!board) return (
     <div className="h-full flex flex-col items-center justify-center gap-3">
       <p className="text-[13px]" style={{ color: 'rgba(226,232,240,0.35)' }}>보드를 찾을 수 없습니다</p>
-      <Link href="/sketch" className="text-[12px] px-4 py-1.5 rounded-full transition-colors"
-        style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(226,232,240,0.5)' }}>
-        목록으로
-      </Link>
+      {onBack ? (
+        <button onClick={onBack} className="text-[12px] px-4 py-1.5 rounded-full transition-colors"
+          style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(226,232,240,0.5)' }}>
+          닫기
+        </button>
+      ) : (
+        <Link href="/sketch" className="text-[12px] px-4 py-1.5 rounded-full transition-colors"
+          style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(226,232,240,0.5)' }}>
+          목록으로
+        </Link>
+      )}
     </div>
   )
 
@@ -1394,12 +1401,22 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
     <div className="h-full flex flex-col overflow-hidden">
       {/* 툴바 */}
       <div className="flex-shrink-0 flex items-center gap-3 pt-6 pb-3">
-        <Link href="/sketch" className="p-1.5 rounded-lg transition-colors flex-shrink-0"
-          style={{ color: 'rgba(226,232,240,0.5)' }}
-          onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)')}
-          onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'transparent')}>
-          <ArrowLeft size={16} />
-        </Link>
+        {onBack ? (
+          // 자유노트의 마인드맵 카드에서 확장했을 때 — 페이지 이동 대신 모달을 닫는다.
+          <button onClick={onBack} title="닫기" className="p-1.5 rounded-lg transition-colors flex-shrink-0"
+            style={{ color: 'rgba(226,232,240,0.5)' }}
+            onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)')}
+            onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'transparent')}>
+            <ArrowLeft size={16} />
+          </button>
+        ) : (
+          <Link href="/sketch" className="p-1.5 rounded-lg transition-colors flex-shrink-0"
+            style={{ color: 'rgba(226,232,240,0.5)' }}
+            onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)')}
+            onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'transparent')}>
+            <ArrowLeft size={16} />
+          </Link>
+        )}
         <input
           value={nameInput}
           onChange={e => setNameInput(e.target.value)}
@@ -1542,10 +1559,10 @@ function SketchCanvasInner({ boardId }: { boardId: string }) {
   )
 }
 
-export default function SketchCanvas({ boardId }: { boardId: string }) {
+export default function SketchCanvas({ boardId, onBack }: { boardId: string; onBack?: () => void }) {
   return (
     <ReactFlowProvider>
-      <SketchCanvasInner boardId={boardId} />
+      <SketchCanvasInner boardId={boardId} onBack={onBack} />
     </ReactFlowProvider>
   )
 }

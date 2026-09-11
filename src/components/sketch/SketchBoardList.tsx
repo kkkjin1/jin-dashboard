@@ -21,16 +21,22 @@ export default function SketchBoardList() {
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    supabase.from('sketch_boards').select('*, sketch_cards(count)').order('updated_at', { ascending: false })
+    // 자유노트의 마인드맵 카드가 만든 자식 보드(parent_board_id 있음)는 목록에 안 보인다 —
+    // 카드 자체가 이미 자유노트 안에서 그 보드로의 진입점이라, 여기 또 노출되면 중복이다.
+    supabase.from('sketch_boards').select('*, sketch_cards(count)').is('parent_board_id', null).order('updated_at', { ascending: false })
       .then(({ data }) => { setBoards((data ?? []) as BoardWithCount[]); setLoading(false) })
   }, [])
 
   useEffect(() => { if (adding) inputRef.current?.focus() }, [adding])
 
-  async function handleAdd(boardType: 'mindmap' | 'freenote') {
+  // 보드 타입 선택 UI는 없앴다 — 마인드맵은 이제 독립 보드가 아니라 자유노트 위에
+  // 놓는 카드 하나(생성 시 자동으로 자식 보드가 만들어짐)라, 새로 만드는 보드는
+  // 항상 자유노트다. 기존에 만들어둔 박스형 마인드맵 보드는 그대로 열람은 되지만
+  // (SketchCanvas가 board_type을 그대로 지원) 새로 만들지는 않는다.
+  async function handleAdd() {
     const name = newName.trim()
     if (!name) return
-    const { data, error } = await supabase.from('sketch_boards').insert({ name, board_type: boardType }).select().single()
+    const { data, error } = await supabase.from('sketch_boards').insert({ name, board_type: 'freenote' }).select().single()
     if (error || !data) { console.error('보드 생성 실패:', error?.message); return }
     router.push(`/sketch/${data.id}`)
   }
@@ -77,13 +83,21 @@ export default function SketchBoardList() {
               value={newName}
               onChange={e => setNewName(e.target.value)}
               onKeyDown={e => {
-                if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleAdd('mindmap')
+                if (e.key === 'Enter' && !e.nativeEvent.isComposing) void handleAdd()
                 if (e.key === 'Escape') { setAdding(false); setNewName('') }
               }}
               placeholder="보드 이름 입력 (예: 채용, 평가보상)"
               className="flex-1 text-[13px] bg-transparent focus:outline-none placeholder:text-[rgba(226,232,240,0.3)]"
               style={{ color: '#E2E8F0' }}
             />
+            <button
+              onClick={() => void handleAdd()}
+              disabled={!newName.trim()}
+              className="text-[12px] px-3.5 py-1.5 rounded-lg font-medium transition-colors flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{ background: 'rgba(95,191,163,0.16)', border: '1px solid rgba(95,191,163,0.35)', color: '#9BDCC7' }}
+            >
+              만들기
+            </button>
             <button
               onClick={() => { setAdding(false); setNewName('') }}
               className="text-[12px] px-3 py-1.5 rounded-lg transition-colors flex-shrink-0"
@@ -92,35 +106,9 @@ export default function SketchBoardList() {
               취소
             </button>
           </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              onClick={() => handleAdd('mindmap')}
-              disabled={!newName.trim()}
-              className="flex flex-col items-start gap-1 px-4 py-3 rounded-xl text-left transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              style={{ background: 'rgba(76,127,224,0.12)', border: '1px solid rgba(76,127,224,0.3)' }}
-            >
-              <span className="flex items-center gap-1.5 text-[13px] font-medium" style={{ color: '#9DBEF5' }}>
-                <LayoutGrid size={14} /> 박스형 마인드맵
-              </span>
-              <span className="text-[11px]" style={{ color: 'rgba(226,232,240,0.4)' }}>
-                카드를 놓고 연결선으로 잇는 무한 캔버스
-              </span>
-            </button>
-            <button
-              onClick={() => handleAdd('freenote')}
-              disabled={!newName.trim()}
-              className="flex flex-col items-start gap-1 px-4 py-3 rounded-xl text-left transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              style={{ background: 'rgba(95,191,163,0.12)', border: '1px solid rgba(95,191,163,0.3)' }}
-            >
-              <span className="flex items-center gap-1.5 text-[13px] font-medium" style={{ color: '#9BDCC7' }}>
-                <StickyNote size={14} /> 자유노트
-              </span>
-              <span className="text-[11px]" style={{ color: 'rgba(226,232,240,0.4)' }}>
-                텍스트·이미지·박스를 자유롭게 배치하는 캔버스
-              </span>
-            </button>
-          </div>
+          <p className="text-[11px] flex items-center gap-1.5" style={{ color: 'rgba(226,232,240,0.35)' }}>
+            <StickyNote size={12} /> 텍스트·이미지·포스트잇·마인드맵 카드·표를 자유롭게 배치하는 자유노트로 만들어집니다.
+          </p>
         </div>
       )}
 

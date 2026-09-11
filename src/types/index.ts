@@ -328,6 +328,9 @@ export interface SketchBoard {
   board_type: 'mindmap' | 'freenote'
   /** freenote 전용 — 문서 본문(contentEditable HTML) */
   note_body: string
+  /** 자유노트의 "마인드맵 카드"가 만든 자식 보드일 때만 값이 있음(board_type='mindmap').
+   *  목록 화면(SketchBoardList)은 이 값이 있는 보드를 숨긴다. */
+  parent_board_id: string | null
   created_at: string
   updated_at: string
 }
@@ -372,15 +375,32 @@ export interface SketchFrame {
 }
 
 // ── 생각스케치: 자유노트 ──────────────────────────────────────────
-/** 자유노트 문서 본문 위에 자유 배치되는 오버레이 요소 — 이미지 또는 포스트잇 박스 */
+
+/** 표 카드(엑셀형) 전용 구조 데이터 — sketch_note_elements.table_data */
+export interface SketchTableData {
+  /** 첫 행을 머리글(굵게+배경)로 표시할지 */
+  headerRow: boolean
+  /** 카드 배경색 지우기(투명 모드) 여부 */
+  transparentBg: boolean
+  /** 컬럼별 너비(px) — rows[n].length와 항상 같은 길이 */
+  colWidths: number[]
+  /** 셀 텍스트(순수 텍스트, 서식 없음) — rows[행][열] */
+  rows: string[][]
+}
+
+/** 자유노트 문서 본문 위에 자유 배치되는 오버레이 요소 —
+ *  이미지 / 포스트잇 박스 / 마인드맵 카드 / 표 카드 */
 export interface SketchNoteElement {
   id: string
   board_id: string
-  type: 'image' | 'box'
-  /** image: Storage public URL. box: 포스트잇 메모(contentEditable HTML) */
+  type: 'image' | 'box' | 'mindmap' | 'table'
+  /** image: Storage public URL. box: 포스트잇 메모(contentEditable HTML).
+   *  mindmap: 자식 sketch_boards.id(board_type='mindmap'). table: 미사용(빈 문자열). */
   content: string
-  /** box 전용 — 테두리/채우기 색(CategoryColorKey). image는 미사용 */
+  /** box 전용 — 테두리/채우기 색(CategoryColorKey). 다른 타입은 미사용 */
   color: string
+  /** table 전용 구조 데이터. 다른 타입은 null */
+  table_data: SketchTableData | null
   position_x: number
   position_y: number
   width: number
