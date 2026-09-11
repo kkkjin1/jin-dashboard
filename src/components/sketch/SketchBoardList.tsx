@@ -23,8 +23,15 @@ export default function SketchBoardList() {
   useEffect(() => {
     // 자유노트의 마인드맵 카드가 만든 자식 보드(parent_board_id 있음)는 목록에 안 보인다 —
     // 카드 자체가 이미 자유노트 안에서 그 보드로의 진입점이라, 여기 또 노출되면 중복이다.
-    supabase.from('sketch_boards').select('*, sketch_cards(count)').is('parent_board_id', null).order('updated_at', { ascending: false })
-      .then(({ data }) => { setBoards((data ?? []) as BoardWithCount[]); setLoading(false) })
+    // parent_board_id 필터는 DB 쿼리가 아니라 클라이언트에서 거른다 — schema_v55.sql이
+    // 아직 적용 안 된 상태에서 배포돼도(존재하지 않는 컬럼으로 필터하면 쿼리 자체가
+    // 에러가 나 목록 전체가 비어버림) 안전하게 기존 목록이 그대로 보이게 하기 위함.
+    supabase.from('sketch_boards').select('*, sketch_cards(count)').order('updated_at', { ascending: false })
+      .then(({ data }) => {
+        const rows = (data ?? []) as BoardWithCount[]
+        setBoards(rows.filter(b => !b.parent_board_id))
+        setLoading(false)
+      })
   }, [])
 
   useEffect(() => { if (adding) inputRef.current?.focus() }, [adding])

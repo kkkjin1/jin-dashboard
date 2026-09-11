@@ -306,7 +306,11 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
         table_data: DEFAULT_TABLE_DATA,
       })
       .select().single()
-    if (error || !data) { console.error('표 생성 실패:', error?.message); return }
+    if (error || !data) {
+      console.error('표 생성 실패:', error?.message)
+      setSaveError('표 생성에 실패했습니다 — 서버 스키마가 아직 준비되지 않았을 수 있습니다.')
+      return
+    }
     setElements(prev => [...prev, data as SketchNoteElement])
     setSelectedId((data as SketchNoteElement).id)
   }, [boardId, pickCreatePos])
@@ -318,7 +322,11 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
     const { data: childBoard, error: boardError } = await supabase.from('sketch_boards')
       .insert({ name: '새 마인드맵', board_type: 'mindmap', parent_board_id: boardId })
       .select().single()
-    if (boardError || !childBoard) { console.error('마인드맵 보드 생성 실패:', boardError?.message); return }
+    if (boardError || !childBoard) {
+      console.error('마인드맵 보드 생성 실패:', boardError?.message)
+      setSaveError('마인드맵 카드 생성에 실패했습니다 — 서버 스키마가 아직 준비되지 않았을 수 있습니다.')
+      return
+    }
     const { data, error } = await supabase.from('sketch_note_elements')
       .insert({
         board_id: boardId, type: 'mindmap', content: childBoard.id as string, color: 'blue',
@@ -327,6 +335,7 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
       .select().single()
     if (error || !data) {
       console.error('마인드맵 카드 생성 실패:', error?.message)
+      setSaveError('마인드맵 카드 생성에 실패했습니다 — 서버 스키마가 아직 준비되지 않았을 수 있습니다.')
       await supabase.from('sketch_boards').delete().eq('id', childBoard.id as string)
       return
     }
