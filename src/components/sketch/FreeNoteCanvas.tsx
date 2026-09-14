@@ -107,12 +107,28 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
         // canonical 로드 직후 autosaveBody를 그 값으로 맞춰 훅의 mount-time 비교가
         // 정확한 기준값을 보게 한다.
         setAutosaveBody(b.note_body ?? '')
-        if (bodyRef.current) bodyRef.current.innerHTML = toDisplayHtml(b.note_body ?? '')
       }
       setElements((elRes.data ?? []) as SketchNoteElement[])
       setLoading(false)
     })
   }, [boardId])
+
+  // ── canonical 본문을 DOM에 주입 ──────────────────────────────────────────
+  // 위 로딩 effect의 .then() 시점엔 loading이 아직 true라 본문 div(437줄 가드로
+  // 트리에 없음)가 마운트되지 않은 상태라 bodyRef.current가 항상 null이었다 —
+  // 그래서 canonical note_body를 읽어와도 DOM에 반영이 안 되는 타이밍 버그가 있었다
+  // (DB 저장 자체는 정상, 화면 표시만 실패). loading이 false로 바뀌어 div가 실제로
+  // mount된 뒤 별도 effect에서 주입하고, board.id당 한 번만 실행되도록 가드해서
+  // 이후 사용자 입력을 덮어쓰지 않게 한다.
+  const bodyInjectedForRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (loading || !board) return
+    if (bodyInjectedForRef.current === board.id) return
+    if (bodyRef.current) {
+      bodyRef.current.innerHTML = toDisplayHtml(board.note_body ?? '')
+      bodyInjectedForRef.current = board.id
+    }
+  }, [board, loading])
 
   // 본문에 처음 진입하면 커서가 바로 깜빡이도록 자동 포커스(맨 끝으로)
   useEffect(() => {
