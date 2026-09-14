@@ -50,22 +50,22 @@ export default function TestPracticePage() {
   const summaryPct = summary && summary.total > 0 ? Math.round((summary.done / summary.total) * 100) : 0
 
   return (
-    <div className="flex flex-col h-full min-h-0 pt-4 md:pt-6 px-0" style={{ background: '#0F1319', minHeight: '100%' }}>
+    <div className="flex flex-col h-full min-h-0 pt-4 md:pt-6 px-0" style={{ background: 'var(--bg-page)', minHeight: '100%' }}>
       {/* ── 상단: 제목/설명 + 전체 실행 현황 요약 ── */}
       <div className="flex-shrink-0 mb-4 px-4 md:px-6 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-lg font-bold" style={{ color: '#E2E8F0' }}>테스트실무</h1>
-          <p className="text-xs mt-1" style={{ color: 'rgba(226,232,240,0.4)' }}>
+          <h1 className="text-lg font-bold" style={{ color: 'rgba(var(--text-rgb),1)' }}>테스트실무</h1>
+          <p className="text-xs mt-1" style={{ color: 'rgba(var(--text-rgb),0.4)' }}>
             연간목표 1~3단계(전략/맥락)를 그대로 불러와 4단계 실행 TASK(실행)를 만들어보는 PoC 화면입니다.
           </p>
         </div>
         {summary && summary.total > 0 && (
-          <div className="flex items-center gap-2.5 text-xs flex-shrink-0" style={{ color: 'rgba(226,232,240,0.5)' }}>
-            <span>실행 TASK 총 <b style={{ color: '#E2E8F0' }}>{summary.total}</b>개</span>
-            <span style={{ color: 'rgba(226,232,240,0.15)' }}>·</span>
-            <span>완료 <b style={{ color: '#E2E8F0' }}>{summary.done}</b>개</span>
-            <span style={{ color: 'rgba(226,232,240,0.15)' }}>·</span>
-            <span className="px-2 py-1 rounded-lg font-bold" style={{ background: summaryPct === 100 ? 'rgba(16,185,129,0.14)' : 'rgba(76,127,224,0.12)', color: summaryPct === 100 ? '#34D399' : '#8FB1F0' }}>
+          <div className="flex items-center gap-2.5 text-xs flex-shrink-0" style={{ color: 'rgba(var(--text-rgb),0.5)' }}>
+            <span>실행 TASK 총 <b style={{ color: 'rgba(var(--text-rgb),1)' }}>{summary.total}</b>개</span>
+            <span style={{ color: 'rgba(var(--text-rgb),0.15)' }}>·</span>
+            <span>완료 <b style={{ color: 'rgba(var(--text-rgb),1)' }}>{summary.done}</b>개</span>
+            <span style={{ color: 'rgba(var(--text-rgb),0.15)' }}>·</span>
+            <span className="px-2 py-1 rounded-lg font-bold" style={{ background: summaryPct === 100 ? 'rgba(16,185,129,0.14)' : 'rgba(76,127,224,0.12)', color: summaryPct === 100 ? '#34D399' : 'var(--accent-tint-text)' }}>
               전체 실행률 {summaryPct}%
             </span>
           </div>
@@ -73,7 +73,7 @@ export default function TestPracticePage() {
       </div>
 
       {/* ── 영역 탭 ── */}
-      <div className="flex-shrink-0 flex items-center gap-1.5 px-4 md:px-6 mb-4 overflow-x-auto scrollbar-hide" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: 10 }}>
+      <div className="flex-shrink-0 flex items-center gap-1.5 px-4 md:px-6 mb-4 overflow-x-auto scrollbar-hide" style={{ borderBottom: '1px solid rgba(var(--ink-rgb),0.08)', paddingBottom: 10 }}>
         {DISPLAY_CATS.map(c => {
           const isActive = cat === c
           const colors = CAT_ACTIVE_COLOR[c]
@@ -88,12 +88,12 @@ export default function TestPracticePage() {
                 boxShadow: '0 1px 6px rgba(0,0,0,0.25)',
               } : {
                 background: 'transparent',
-                color: 'rgba(226,232,240,0.45)',
+                color: 'rgba(var(--text-rgb),0.45)',
                 borderRadius: 8,
                 padding: '6px 14px',
               }}
-              onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLButtonElement).style.color = 'rgba(226,232,240,0.8)' }}
-              onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLButtonElement).style.color = 'rgba(226,232,240,0.45)' }}>
+              onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLButtonElement).style.color = 'rgba(var(--text-rgb),0.8)' }}
+              onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLButtonElement).style.color = 'rgba(var(--text-rgb),0.45)' }}>
               {isActive && c !== '전체' && (
                 <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: colors?.dot }} />
               )}

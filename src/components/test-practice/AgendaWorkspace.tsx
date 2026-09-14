@@ -87,7 +87,7 @@ export default function AgendaWorkspace({ category, allCats, categoryLabels, onM
 
   if (items.length === 0) {
     return (
-      <div className="text-sm py-10 text-center" style={{ color: 'rgba(226,232,240,0.35)' }}>
+      <div className="text-sm py-10 text-center" style={{ color: 'rgba(var(--text-rgb),0.35)' }}>
         이 영역에는 목표가 없습니다. 먼저 연간목표에서 목표/과제를 만들어주세요.
       </div>
     )
@@ -130,7 +130,7 @@ export default function AgendaWorkspace({ category, allCats, categoryLabels, onM
     />
   ) : (
     <div className="h-full flex items-center justify-center text-center px-6">
-      <span className="text-[12.5px]" style={{ color: 'rgba(226,232,240,0.3)' }}>
+      <span className="text-[12.5px]" style={{ color: 'rgba(var(--text-rgb),0.3)' }}>
         과제를 선택하면<br />실행 TASK와 상세 정보를 확인할 수 있습니다.
       </span>
     </div>
@@ -142,11 +142,11 @@ export default function AgendaWorkspace({ category, allCats, categoryLabels, onM
         <PinnedAgendaBoard items={pinned} selectedId={selectedId} onSelect={selectAgenda} />
 
         <div className="flex items-center justify-end gap-1.5 text-[11px] flex-shrink-0">
-          <span style={{ color: 'rgba(226,232,240,0.35)' }}>정렬</span>
+          <span style={{ color: 'rgba(var(--text-rgb),0.35)' }}>정렬</span>
           {(['priority', 'recent'] as SortMode[]).map(m => (
             <button key={m} onClick={() => setSortMode(m)}
               className="px-2 py-1 rounded-md font-semibold transition-colors"
-              style={sortMode === m ? { background: 'rgba(76,127,224,0.14)', color: '#8FB1F0' } : { color: 'rgba(226,232,240,0.4)' }}>
+              style={sortMode === m ? { background: 'rgba(76,127,224,0.14)', color: 'var(--accent-tint-text)' } : { color: 'rgba(var(--text-rgb),0.4)' }}>
               {m === 'priority' ? '우선순위' : '최근'}
             </button>
           ))}
@@ -164,15 +164,15 @@ export default function AgendaWorkspace({ category, allCats, categoryLabels, onM
             <div key={cat} className="flex flex-col">
               <button onClick={() => toggleTopic(cat)}
                 className="flex items-center justify-between w-full pb-3 mb-4"
-                style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-                <span className="flex items-center gap-2.5 text-[16px] font-extrabold" style={{ color: '#E2E8F0' }}>
+                style={{ borderBottom: '1px solid rgba(var(--ink-rgb),0.1)' }}>
+                <span className="flex items-center gap-2.5 text-[16px] font-extrabold" style={{ color: 'rgba(var(--text-rgb),1)' }}>
                   <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: dot }} />
                   {categoryLabels[cat] ?? fallbackLabel(cat)}
-                  <span className="font-medium text-[11px]" style={{ color: 'rgba(226,232,240,0.38)' }}>
+                  <span className="font-medium text-[11px]" style={{ color: 'rgba(var(--text-rgb),0.38)' }}>
                     과제 {catAgendas.length}{p1Count > 0 && ` · P1 ${p1Count}`}
                   </span>
                 </span>
-                <span className="text-[11px]" style={{ color: 'rgba(226,232,240,0.35)' }}>{collapsed ? '▼' : '▲'}</span>
+                <span className="text-[11px]" style={{ color: 'rgba(var(--text-rgb),0.35)' }}>{collapsed ? '▼' : '▲'}</span>
               </button>
 
               {!collapsed && (
@@ -185,8 +185,8 @@ export default function AgendaWorkspace({ category, allCats, categoryLabels, onM
                       <div key={item.id} className="flex flex-col gap-2.5">
                         <div className="flex items-center gap-2 pl-1">
                           <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: item.color }} />
-                          <span className="text-[14px] font-bold truncate" style={{ color: 'rgba(226,232,240,0.96)' }}>{item.title}</span>
-                          <span className="text-[11px] flex-shrink-0" style={{ color: 'rgba(226,232,240,0.3)' }}>· {itemAgendas.length}</span>
+                          <span className="text-[14px] font-bold truncate" style={{ color: 'rgba(var(--text-rgb),0.96)' }}>{item.title}</span>
+                          <span className="text-[11px] flex-shrink-0" style={{ color: 'rgba(var(--text-rgb),0.3)' }}>· {itemAgendas.length}</span>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                           {itemAgendas.map(agenda => (
@@ -213,7 +213,7 @@ export default function AgendaWorkspace({ category, allCats, categoryLabels, onM
 
       {/* 1280px 이상: 고정 상세 패널 */}
       <div className="hidden xl:block flex-shrink-0" style={{ width: 484 }}>
-        <div className="h-full rounded-2xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)' }}>
+        <div className="h-full rounded-2xl overflow-hidden" style={{ background: 'rgba(var(--ink-rgb),0.02)', border: '1px solid rgba(var(--ink-rgb),0.08)' }}>
           {detailPanel}
         </div>
       </div>
@@ -222,7 +222,7 @@ export default function AgendaWorkspace({ category, allCats, categoryLabels, onM
       {selectedAgenda && (
         <div className="xl:hidden fixed inset-0 z-40 flex justify-end">
           <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.5)' }} onClick={closeDetail} />
-          <div className="relative w-full max-w-[506px] h-full" style={{ background: '#0F1319', borderLeft: '1px solid rgba(255,255,255,0.1)' }}>
+          <div className="relative w-full max-w-[506px] h-full" style={{ background: 'var(--bg-page)', borderLeft: '1px solid rgba(var(--ink-rgb),0.1)' }}>
             {detailPanel}
           </div>
         </div>

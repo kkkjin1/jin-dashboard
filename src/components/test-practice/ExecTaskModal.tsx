@@ -11,14 +11,14 @@ const STATUS_LABEL: Record<AnnualGoalStatus, string> = { active: '진행중', ho
 const STATUS_CLS: Record<AnnualGoalStatus, string> = {
   active: 'bg-blue-500/10 text-blue-300 border-blue-500/25',
   hold:   'bg-amber-500/10 text-amber-300 border-amber-500/25',
-  done:   'bg-white/5 text-[rgba(226,232,240,0.4)] border-white/10',
+  done:   'bg-white/5 text-[rgba(var(--text-rgb),0.4)] border-white/10',
 }
 const STATUS_DOT: Record<AnnualGoalStatus, string> = { active: '#3B82F6', hold: '#F59E0B', done: '#10B981' }
 
 function MetaCell({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1.5 min-w-0">
-      <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'rgba(226,232,240,0.35)' }}>{label}</span>
+      <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'rgba(var(--text-rgb),0.35)' }}>{label}</span>
       <div className="min-w-0">{children}</div>
     </div>
   )
@@ -26,7 +26,7 @@ function MetaCell({ label, children }: { label: string; children: React.ReactNod
 
 type DescStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'failed'
 const DESC_STATUS_LABEL: Record<DescStatus, string> = { idle: '자동 저장', pending: '저장 중…', saving: '저장 중…', saved: '저장됨 ✓', failed: '저장 실패' }
-const DESC_STATUS_COLOR: Record<DescStatus, string> = { idle: 'rgba(226,232,240,0.25)', pending: 'rgba(226,232,240,0.35)', saving: 'rgba(226,232,240,0.35)', saved: '#38BE98', failed: '#F87171' }
+const DESC_STATUS_COLOR: Record<DescStatus, string> = { idle: 'rgba(var(--text-rgb),0.25)', pending: 'rgba(var(--text-rgb),0.35)', saving: 'rgba(var(--text-rgb),0.35)', saved: '#38BE98', failed: '#F87171' }
 
 interface Props {
   exec: TestPracticeTask
@@ -144,12 +144,12 @@ export default function ExecTaskModal({ exec, agendaTitle, onClose, onCycleStatu
       <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.55)' }} />
       <div
         className="relative w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl flex flex-col gap-5 px-5 md:px-6 pt-5 pb-8 scrollbar-hide"
-        style={{ background: '#161A22', border: '1px solid rgba(255,255,255,0.08)' }}
+        style={{ background: 'var(--surface-primary)', border: '1px solid rgba(var(--ink-rgb),0.08)' }}
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-2">
-          <span className="text-[11px] truncate" style={{ color: 'rgba(226,232,240,0.4)' }}>{agendaTitle}</span>
-          <button onClick={onClose} className="text-[15px] flex-shrink-0 px-1.5 hover:text-white transition-colors" style={{ color: 'rgba(226,232,240,0.4)' }}>×</button>
+          <span className="text-[11px] truncate" style={{ color: 'rgba(var(--text-rgb),0.4)' }}>{agendaTitle}</span>
+          <button onClick={onClose} className="text-[15px] flex-shrink-0 px-1.5 hover:text-white transition-colors" style={{ color: 'rgba(var(--text-rgb),0.4)' }}>×</button>
         </div>
 
         {(saveError || localError) && (
@@ -159,7 +159,7 @@ export default function ExecTaskModal({ exec, agendaTitle, onClose, onCycleStatu
         )}
 
         <div>
-          <div className="text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'rgba(226,232,240,0.35)' }}>실행 TASK</div>
+          <div className="text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'rgba(var(--text-rgb),0.35)' }}>실행 TASK</div>
           <div className="flex items-center gap-3">
             <button onClick={() => onCycleStatus(exec)} title={STATUS_LABEL[exec.status]}
               style={{ width: 12, height: 12, borderRadius: '50%', background: STATUS_DOT[exec.status], border: 'none', cursor: 'pointer', flexShrink: 0 }} />
@@ -169,18 +169,18 @@ export default function ExecTaskModal({ exec, agendaTitle, onClose, onCycleStatu
                 onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) saveTitle(); if (e.key === 'Escape') { setEditingTitle(false); setEditTitle(exec.title) } }}
                 onBlur={saveTitle}
                 className="flex-1 min-w-0 text-xl font-bold border-b-2 focus:outline-none bg-transparent pb-0.5"
-                style={{ color: '#E2E8F0', borderColor: '#4C7FE0' }} />
+                style={{ color: 'rgba(var(--text-rgb),1)', borderColor: 'var(--accent-primary)' }} />
             ) : (
               <h2 onClick={() => { setEditingTitle(true); setEditTitle(exec.title) }}
                 className="flex-1 min-w-0 text-xl font-bold cursor-text truncate transition-colors"
-                style={{ color: exec.status === 'done' ? 'rgba(226,232,240,0.4)' : '#E2E8F0', textDecoration: exec.status === 'done' ? 'line-through' : 'none' }}>
+                style={{ color: exec.status === 'done' ? 'rgba(var(--text-rgb),0.4)' : 'rgba(var(--text-rgb),1)', textDecoration: exec.status === 'done' ? 'line-through' : 'none' }}>
                 {exec.title}
               </h2>
             )}
           </div>
         </div>
 
-        <div className="rounded-2xl px-4 py-3.5" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+        <div className="rounded-2xl px-4 py-3.5" style={{ background: 'rgba(var(--ink-rgb),0.03)', border: '1px solid rgba(var(--ink-rgb),0.07)' }}>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-4">
             <MetaCell label="담당자">
               <GlassSelect value={assigneeId ?? ''} onChange={v => updateAssignee(v || null)} options={members.map(m => ({ value: m.id, label: m.name }))} placeholder="-" variant="pill" activeWhenFilled />
@@ -203,20 +203,20 @@ export default function ExecTaskModal({ exec, agendaTitle, onClose, onCycleStatu
           </div>
         </div>
 
-        <div className="rounded-2xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+        <div className="rounded-2xl overflow-hidden" style={{ background: 'rgba(var(--ink-rgb),0.03)', border: '1px solid rgba(var(--ink-rgb),0.07)' }}>
           <div className="px-4 pt-3.5 pb-1.5 flex items-center justify-between">
-            <span className="text-xs font-semibold" style={{ color: 'rgba(226,232,240,0.55)' }}>실무 내용</span>
+            <span className="text-xs font-semibold" style={{ color: 'rgba(var(--text-rgb),0.55)' }}>실무 내용</span>
             <span className="text-[10.5px]" style={{ color: DESC_STATUS_COLOR[descStatus] }}>{DESC_STATUS_LABEL[descStatus]}</span>
           </div>
           <TiptapEditor dark value={description} onChange={handleDescription} minHeight={160} className="px-4 pb-4" />
         </div>
 
         <div className="rounded-xl px-4 py-3 flex items-center justify-between gap-3" style={{ border: '1px solid rgba(239,68,68,0.18)', background: 'rgba(239,68,68,0.04)' }}>
-          <span className="text-xs" style={{ color: 'rgba(226,232,240,0.4)' }}>이 실행 TASK를 삭제하면 되돌릴 수 없습니다.</span>
+          <span className="text-xs" style={{ color: 'rgba(var(--text-rgb),0.4)' }}>이 실행 TASK를 삭제하면 되돌릴 수 없습니다.</span>
           {confirmingDelete ? (
             <div className="flex items-center gap-2 flex-shrink-0">
               <button onClick={handleDelete} className="text-xs font-semibold text-red-400 hover:text-red-300 transition-colors px-2 py-1">정말 삭제</button>
-              <button onClick={() => setConfirmingDelete(false)} className="text-xs text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)] transition-colors px-2 py-1">취소</button>
+              <button onClick={() => setConfirmingDelete(false)} className="text-xs text-[rgba(var(--text-rgb),0.4)] hover:text-[rgba(var(--text-rgb),0.7)] transition-colors px-2 py-1">취소</button>
             </div>
           ) : (
             <button onClick={() => setConfirmingDelete(true)}

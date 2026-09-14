@@ -30,7 +30,7 @@ interface GoalPath {
 function MetaCell({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1.5 min-w-0">
-      <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'rgba(226,232,240,0.35)' }}>{label}</span>
+      <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'rgba(var(--text-rgb),0.35)' }}>{label}</span>
       <div className="min-w-0">{children}</div>
     </div>
   )
@@ -155,7 +155,7 @@ export default function TestPracticeTaskDetailPage() {
           {goalPath && (
             <>
               <span>›</span>
-              <span style={{ color: 'rgba(226,232,240,0.5)' }}>{goalPath.categoryLabel}</span>
+              <span style={{ color: 'rgba(var(--text-rgb),0.5)' }}>{goalPath.categoryLabel}</span>
               <span>›</span>
               <span style={{ color: itemColor, fontWeight: 600 }}>{goalPath.itemTitle}</span>
               <span>›</span>
@@ -166,7 +166,7 @@ export default function TestPracticeTaskDetailPage() {
 
         {/* ── 실행 TASK 라벨 + 제목 + 상태 dot (연간목표 TASK 이름과 명확히 분리) ── */}
         <div>
-          <div className="text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'rgba(226,232,240,0.35)' }}>실행 TASK</div>
+          <div className="text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'rgba(var(--text-rgb),0.35)' }}>실행 TASK</div>
           <div className="flex items-center gap-3">
             <button onClick={cycleStatus} title={STATUS_LABEL[task.status]}
               style={{ width: 12, height: 12, borderRadius: '50%', background: STATUS_DOT[task.status], border: 'none', cursor: 'pointer', flexShrink: 0 }} />
@@ -178,8 +178,8 @@ export default function TestPracticeTaskDetailPage() {
                 className="flex-1 min-w-0 text-2xl font-bold text-gray-900 border-b-2 border-blue-400 focus:outline-none bg-transparent pb-0.5" />
             ) : (
               <h1 onClick={() => { setEditingTitle(true); setEditTitle(task.title) }}
-                className="flex-1 min-w-0 text-2xl font-bold cursor-text hover:text-[rgba(226,232,240,0.7)] transition-colors leading-tight truncate"
-                style={{ color: task.status === 'done' ? '#9CA3AF' : '#E2E8F0', textDecoration: task.status === 'done' ? 'line-through' : 'none' }}>
+                className="flex-1 min-w-0 text-2xl font-bold cursor-text hover:text-[rgba(var(--text-rgb),0.7)] transition-colors leading-tight truncate"
+                style={{ color: task.status === 'done' ? '#9CA3AF' : 'rgba(var(--text-rgb),1)', textDecoration: task.status === 'done' ? 'line-through' : 'none' }}>
                 {task.title}
               </h1>
             )}
@@ -213,18 +213,18 @@ export default function TestPracticeTaskDetailPage() {
         {/* ── 실무 내용 — 이 화면의 핵심 콘텐츠, 가장 넓은 편집 공간을 준다 ── */}
         <div className="surface-card rounded-2xl overflow-hidden" style={{ borderLeft: `3px solid ${itemColor}55` }}>
           <div className="px-5 pt-4 pb-2">
-            <span className="text-xs font-semibold" style={{ color: 'rgba(226,232,240,0.55)' }}>실무 내용</span>
+            <span className="text-xs font-semibold" style={{ color: 'rgba(var(--text-rgb),0.55)' }}>실무 내용</span>
           </div>
           <TiptapEditor dark value={description} onChange={handleDescription} minHeight={220} className="px-5 pb-5" />
         </div>
 
         {/* ── danger zone ── */}
         <div className="rounded-xl px-4 py-3 flex items-center justify-between gap-3" style={{ border: '1px solid rgba(239,68,68,0.18)', background: 'rgba(239,68,68,0.04)' }}>
-          <span className="text-xs" style={{ color: 'rgba(226,232,240,0.4)' }}>이 실행 TASK를 삭제하면 되돌릴 수 없습니다.</span>
+          <span className="text-xs" style={{ color: 'rgba(var(--text-rgb),0.4)' }}>이 실행 TASK를 삭제하면 되돌릴 수 없습니다.</span>
           {confirmingDelete ? (
             <div className="flex items-center gap-2 flex-shrink-0">
               <button onClick={deleteTask} className="text-xs font-semibold text-red-400 hover:text-red-300 transition-colors px-2 py-1">정말 삭제</button>
-              <button onClick={() => setConfirmingDelete(false)} className="text-xs text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)] transition-colors px-2 py-1">취소</button>
+              <button onClick={() => setConfirmingDelete(false)} className="text-xs text-[rgba(var(--text-rgb),0.4)] hover:text-[rgba(var(--text-rgb),0.7)] transition-colors px-2 py-1">취소</button>
             </div>
           ) : (
             <button onClick={() => setConfirmingDelete(true)}
