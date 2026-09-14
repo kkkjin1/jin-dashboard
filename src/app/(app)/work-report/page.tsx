@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { WorkReport, WorkReportEntry, WorkReportTopic } from '@/types'
 import TopicOutline, { isFixedKey, type OutlineTopicRow } from '@/components/work-report/TopicOutline'
-import ReportEditorPanel from '@/components/work-report/ReportEditorPanel'
+import ReportEditorPanel, { type ReportEditorPanelHandle } from '@/components/work-report/ReportEditorPanel'
 import ContextPanel from '@/components/work-report/ContextPanel'
 import PeriodMatrixView from '@/components/work-report/PeriodMatrixView'
 import TopicHistoryView from '@/components/work-report/TopicHistoryView'
@@ -33,6 +33,11 @@ export default function WorkReportPage() {
   // 직전 report의 entries를 이어받아 새 report에 carry-forward 하는 로직)에 쓴다.
   const entriesCacheRef = useRef<Map<string, WorkReportEntry[]>>(new Map())
   const loadedReportIds = useRef<Set<string>>(new Set())
+  // 지금 마운트된 ReportEditorPanel의 pending canonical debounce를 "보고 확정"
+  // 직전에 즉시 flush하기 위한 핸들 — topic/보고 전환은 그 컴포넌트가 key remount될
+  // 때 자체 unmount flush로 커버되지만, 확정은 remount 없이 같은 인스턴스에서
+  // readOnly만 바뀌므로 명시적으로 호출해야 한다(ReportEditorPanelHandle 참고).
+  const editorRef = useRef<ReportEditorPanelHandle>(null)
 
   const [currentReportId, setCurrentReportId] = useState<string | null>(null)
   const [selection, setSelection] = useState<string>('summary')
@@ -274,6 +279,10 @@ export default function WorkReportPage() {
     if (!currentReport) return
     if (currentReport.status === 'draft') {
       if (!confirm('이 보고를 확정할까요? 확정 후에는 읽기 전용으로 전환됩니다.')) return
+      // 확정 직전, 지금 화면에 남아있는 pending canonical debounce를 먼저
+      // 커밋한다 — 안 그러면 "입력 직후 즉시 확정" 시 마지막 입력이 final
+      // 스냅샷에서 빠질 수 있다(2026-09-14 재검증에서 확인된 결함 수정).
+      await editorRef.current?.flushPending()
       const { data } = await supabase
         .from('work_reports').update({ status: 'final', finalized_at: new Date().toISOString() })
         .eq('id', currentReport.id).select().single()
@@ -403,6 +412,7 @@ export default function WorkReportPage() {
               <div className="flex-1 min-w-0 h-full overflow-hidden">
                 <ReportEditorPanel
                   key={`${currentReport.id}:${selection}`}
+                  ref={editorRef}
                   supabase={supabase}
                   selection={selection}
                   report={currentReport}

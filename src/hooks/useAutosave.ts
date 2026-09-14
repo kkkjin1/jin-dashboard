@@ -23,7 +23,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { ensureAuthenticatedSession } from '@/lib/supabase/authSession'
+import { ensureAuthenticatedSession, getSessionUserIdSync } from '@/lib/supabase/authSession'
 import type {
   AutosaveBufferEnvelope,
   AutosaveConflictInfo,
@@ -37,13 +37,38 @@ const BACKOFF_MS = [2000, 4000, 8000, 15000]
 const BACKOFF_SLOW_MS = 30000
 const DEFAULT_DEBOUNCE_MS = 700
 
-function bufferKey(entityType: string, entityId: string, fieldKey: string) {
+// v1 keys were not user-scoped (`autosave_buffer_v1:{entityType}:{entityId}:{fieldKey}`)
+// — on a shared browser/profile, a different logged-in account could see a
+// previous user's unsynced draft (2026-09-14 security review). v2 adds the
+// user id (or 'unscoped' when it can't be resolved, e.g. logged out) as a
+// scoping segment so drafts never cross accounts on the same device.
+function bufferKeyV1(entityType: string, entityId: string, fieldKey: string) {
   return `autosave_buffer_v1:${entityType}:${entityId}:${fieldKey}`
 }
 
-function readBuffer<T>(entityType: string, entityId: string, fieldKey: string): AutosaveBufferEnvelope<T> | null {
+function bufferKeyV2(userId: string, entityType: string, entityId: string, fieldKey: string) {
+  return `autosave_buffer_v2:${userId}:${entityType}:${entityId}:${fieldKey}`
+}
+
+// One-time, best-effort migration of a pre-existing v1 (unscoped) buffer to
+// the current user's v2 slot, then removes the v1 key — run once per entity
+// key from the recovery-on-mount effect below, never on every render.
+function migrateV1ToV2(userId: string, entityType: string, entityId: string, fieldKey: string) {
   try {
-    const raw = localStorage.getItem(bufferKey(entityType, entityId, fieldKey))
+    const v1Key = bufferKeyV1(entityType, entityId, fieldKey)
+    const raw = localStorage.getItem(v1Key)
+    if (!raw) return
+    const v2Key = bufferKeyV2(userId, entityType, entityId, fieldKey)
+    if (!localStorage.getItem(v2Key)) localStorage.setItem(v2Key, raw)
+    localStorage.removeItem(v1Key)
+  } catch {
+    // best-effort — a failed migration just means the v1 draft (if any) stays unrecovered
+  }
+}
+
+function readBuffer<T>(userId: string, entityType: string, entityId: string, fieldKey: string): AutosaveBufferEnvelope<T> | null {
+  try {
+    const raw = localStorage.getItem(bufferKeyV2(userId, entityType, entityId, fieldKey))
     if (!raw) return null
     const parsed = JSON.parse(raw)
     if (parsed?.schemaVersion !== 1) return null // future/incompatible format — discard rather than misinterpret
@@ -53,10 +78,10 @@ function readBuffer<T>(entityType: string, entityId: string, fieldKey: string): 
   }
 }
 
-function writeBuffer<T>(envelope: AutosaveBufferEnvelope<T>): 'ok' | 'quota_exceeded' | 'error' {
+function writeBuffer<T>(userId: string, envelope: AutosaveBufferEnvelope<T>): 'ok' | 'quota_exceeded' | 'error' {
   try {
     localStorage.setItem(
-      bufferKey(envelope.entityType, envelope.entityId, envelope.fieldKey),
+      bufferKeyV2(userId, envelope.entityType, envelope.entityId, envelope.fieldKey),
       JSON.stringify(envelope),
     )
     return 'ok'
@@ -66,9 +91,14 @@ function writeBuffer<T>(envelope: AutosaveBufferEnvelope<T>): 'ok' | 'quota_exce
   }
 }
 
-function clearBuffer(entityType: string, entityId: string, fieldKey: string) {
-  try { localStorage.removeItem(bufferKey(entityType, entityId, fieldKey)) } catch {}
+function clearBuffer(userId: string, entityType: string, entityId: string, fieldKey: string) {
+  try { localStorage.removeItem(bufferKeyV2(userId, entityType, entityId, fieldKey)) } catch {}
 }
+
+// No resolvable session (logged out, or the sb-*-auth-token cookie shape
+// changes) still gets a stable, non-colliding bucket rather than silently
+// disabling the local buffer.
+const UNSCOPED_USER = 'unscoped'
 
 // Small deterministic non-cryptographic hash (FNV-1a) — sufficient for the
 // content-hash dedup rule (docs/autosave-db-design.md §4 Step 3); we only need
@@ -172,8 +202,10 @@ export function useAutosave<T>({
     rowExistsRef.current = false
     versionNoRef.current = 0
     const { entityType: et, entityId: eid, fieldKey: fk } = keyRef.current
+    const uid = getSessionUserIdSync() ?? UNSCOPED_USER
 
-    const buf = readBuffer<T>(et, eid, fk)
+    migrateV1ToV2(uid, et, eid, fk)
+    const buf = readBuffer<T>(uid, et, eid, fk)
     if (buf && JSON.stringify(buf.value) !== JSON.stringify(valueRef.current)) {
       setRecovered({ value: buf.value, updatedAt: buf.updatedAt })
       onRecoveredAvailable?.(buf.value)
@@ -423,7 +455,8 @@ export function useAutosave<T>({
     const { entityType: et, entityId: eid, fieldKey: fk } = keyRef.current
 
     if (mountedRef.current) setStatus('local-saving')
-    const bufResult = writeBuffer<T>({
+    const uid = getSessionUserIdSync() ?? UNSCOPED_USER
+    const bufResult = writeBuffer<T>(uid, {
       schemaVersion: 1, entityType: et, entityId: eid, fieldKey: fk,
       value, versionNo: versionNoRef.current, updatedAt: Date.now(),
     })
@@ -522,5 +555,26 @@ export function useAutosave<T>({
 }
 
 export function clearAutosaveBuffer(entityType: string, entityId: string, fieldKey: string) {
-  clearBuffer(entityType, entityId, fieldKey)
+  const uid = getSessionUserIdSync() ?? UNSCOPED_USER
+  clearBuffer(uid, entityType, entityId, fieldKey)
+  // Also drop any leftover pre-migration v1 (unscoped) key for this entity —
+  // callers use this after a successful final save, when the draft is no
+  // longer needed under either key format.
+  try { localStorage.removeItem(bufferKeyV1(entityType, entityId, fieldKey)) } catch {}
+}
+
+// Defense-in-depth for shared-browser/account-switch: v2 keys are already
+// scoped by user id, but call this from the logout handler so a next login
+// on the same browser never even has leftover buffer entries (of either key
+// version) to consider recovering, regardless of user-id scoping working as
+// expected (2026-09-14 security review).
+export function clearAllAutosaveBuffers() {
+  try {
+    const toRemove: string[] = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i)
+      if (k && k.startsWith('autosave_buffer_v')) toRemove.push(k)
+    }
+    for (const k of toRemove) localStorage.removeItem(k)
+  } catch {}
 }

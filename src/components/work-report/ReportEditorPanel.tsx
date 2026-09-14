@@ -1,12 +1,142 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import type { WorkReport, WorkReportEntry, WorkReportTopic } from '@/types'
 import { useAutosave } from '@/hooks/useAutosave'
 import { S, fmtDateFull, BADGE_LABEL, BADGE_COLOR, type TopicChangeBadge } from './style'
 import { isFixedKey, type FixedSectionKey } from './TopicOutline'
+
+// ── canonical(work_reports/work_report_entries) 저장 신뢰성 ──────────────
+//
+// 2026-09-14 자동저장/보안 재검증에서 확인된 결함: 기존 코드는 실제 UPDATE가
+// 성공하기도 전에 savedRef를 먼저 갱신했고(낙관적 마킹), 실패해도 재시도/에러
+// 표시가 전혀 없었다. 화면의 "자동저장됨" 라벨도 canonical이 아니라 useAutosave
+// (autosave_drafts 복구 버퍼) 상태만 반영해, canonical 저장이 조용히 실패해도
+// 사용자는 "저장됨"으로 오인할 수 있었다.
+//
+// useCanonicalSync는 이 두 문제를 최소 구조로 고친다: (1) savedRef는 UPDATE가
+// 실제로 성공한 뒤에만 갱신, (2) idle/saving/saved/failed 상태를 노출해 실패를
+// 화면에 그대로 보여줌, (3) 실패 시 1회 짧은 재시도(1.5s) — useAutosave.ts의
+// CAS/backoff 전체를 새로 들여오지 않고, 딱 필요한 만큼만.
+// unmount 시 pending debounce를 취소만 하고 흘려보내던 기존 버그도, 여기서는
+// useAutosave.ts의 "unmount flush (best-effort)" 패턴을 그대로 재사용해 고친다
+// (topic/보고 전환은 key remount라 이 unmount flush로 커버되지만, "final 확정"은
+// remount가 아니므로 flush()를 ref로 외부에 노출해 page.tsx가 확정 직전에
+// 명시적으로 호출한다 — 아래 useImperativeHandle 참고).
+type CanonicalStatus = 'idle' | 'saving' | 'saved' | 'failed'
+
+function canonicalStatusText(status: CanonicalStatus): string {
+  switch (status) {
+    case 'saving': return '저장 중…'
+    case 'saved': return '저장됨'
+    case 'failed': return '저장 실패'
+    default: return ''
+  }
+}
+
+function useCanonicalSync<T>({
+  supabase, table, id, draft, readOnly, onSaved, debounceMs = 1200, retryMs = 1500,
+}: {
+  supabase: SupabaseClient
+  table: string
+  id: string | null
+  draft: T | null
+  readOnly: boolean
+  onSaved: (row: unknown) => void
+  debounceMs?: number
+  retryMs?: number
+}): { status: CanonicalStatus; flush: () => Promise<void> } {
+  const [status, setStatus] = useState<CanonicalStatus>('idle')
+  const savedRef = useRef<T | null>(draft)
+  const idRef = useRef(id)
+  const draftRef = useRef(draft)
+  const readOnlyRef = useRef(readOnly)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const inFlightRef = useRef(false)
+
+  useEffect(() => { idRef.current = id }, [id])
+  useEffect(() => { draftRef.current = draft }, [draft])
+  useEffect(() => { readOnlyRef.current = readOnly }, [readOnly])
+
+  const attemptSave = useCallback(async (): Promise<boolean> => {
+    const currentId = idRef.current
+    const currentDraft = draftRef.current
+    if (!currentId || readOnlyRef.current || currentDraft == null) return true
+    if (JSON.stringify(currentDraft) === JSON.stringify(savedRef.current)) return true
+    if (inFlightRef.current) return false
+    inFlightRef.current = true
+    setStatus('saving')
+    try {
+      // `table`은 두 캐노니컬 테이블에 재사용하는 일반 string이라 supabase-js가
+      // 테이블별 정확한 Update row 타입을 추론할 수 없다 — 호출부(reportCanonical/
+      // entryCanonical)에서 이미 각 테이블에 맞는 T로 고정해 넘기므로 안전하다.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase.from(table) as any).update(currentDraft).eq('id', currentId).select().single()
+      inFlightRef.current = false
+      if (error || !data) {
+        setStatus('failed')
+        return false
+      }
+      // 실제로 보낸 draft 값에 대해서만 "저장됨"으로 마킹한다 — 요청이 진행되는
+      // 동안 더 최신 입력이 들어왔다면 draftRef.current가 이미 앞서 있으므로,
+      // 위 dirty-check가 그 값을 자동으로 다시 저장 대상으로 잡는다.
+      savedRef.current = currentDraft
+      setStatus('saved')
+      onSaved(data)
+      return true
+    } catch {
+      inFlightRef.current = false
+      setStatus('failed')
+      return false
+    }
+  }, [supabase, table, onSaved])
+
+  // 입력 변화에 따른 debounce 저장
+  useEffect(() => {
+    if (readOnly || id == null || draft == null) return
+    if (JSON.stringify(draft) === JSON.stringify(savedRef.current)) return
+    if (timerRef.current) clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => {
+      timerRef.current = null
+      void attemptSave().then(ok => {
+        if (!ok) {
+          if (retryTimerRef.current) clearTimeout(retryTimerRef.current)
+          retryTimerRef.current = setTimeout(() => { retryTimerRef.current = null; void attemptSave() }, retryMs)
+        }
+      })
+    }, debounceMs)
+    return () => { if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null } }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft, readOnly, id, debounceMs, retryMs])
+
+  useEffect(() => {
+    return () => { if (retryTimerRef.current) clearTimeout(retryTimerRef.current) }
+  }, [])
+
+  // unmount flush (best-effort) — useAutosave.ts:483-490과 동일한 패턴.
+  // topic/보고 전환은 ReportEditorPanel이 key remount되므로 이 unmount로 커버된다.
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current)
+        timerRef.current = null
+        void attemptSave()
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const flush = useCallback(async () => {
+    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null }
+    if (retryTimerRef.current) { clearTimeout(retryTimerRef.current); retryTimerRef.current = null }
+    await attemptSave()
+  }, [attemptSave])
+
+  return { status, flush }
+}
 
 const FIXED_META: Record<FixedSectionKey, { no: string; title: string; placeholder: string }> = {
   summary:     { no: '1', title: '핵심 요약',          placeholder: '이번 보고의 핵심을 3~5줄로 요약합니다.' },
@@ -73,30 +203,16 @@ function TextBox({
   )
 }
 
-function statusText(status: string): string {
-  switch (status) {
-    case 'saved': return '자동저장됨'
-    case 'syncing':
-    case 'local-saving':
-    case 'pending-sync': return '저장 중…'
-    case 'retrying': return '재시도 중…'
-    case 'conflict': return '충돌 발생'
-    default: return ''
-  }
+export type ReportEditorPanelHandle = {
+  // page.tsx가 "보고 확정" 직전에 호출 — 지금 화면에 남아있는 pending canonical
+  // debounce를 즉시 커밋한다("입력 직후 즉시 확정" 시 마지막 입력 유실 방지).
+  flushPending: () => Promise<void>
 }
 
-export default function ReportEditorPanel({
+const ReportEditorPanel = forwardRef<ReportEditorPanelHandle, Props>(function ReportEditorPanel({
   supabase, selection, report, topic, entry, prevEntry, prevReport, badge, readOnly, onEntrySaved, onReportSaved,
-}: Props) {
+}, ref) {
   const isFixed = isFixedKey(selection)
-
-  // readOnly의 "최신값"을 동기적으로 들고 있는 ref — 아래 두 debounce effect의 setTimeout
-  // 콜백이 실행되는 시점에 다시 확인한다. effect의 cleanup(clearTimeout)만으로는 "보고 확정"
-  // 처리(confirm 다이얼로그 + 네트워크 왕복 후 readOnly가 true로 바뀌는 데 걸리는 시간) 동안
-  // 이미 예약돼 있던 타이머가 그 사이에 발화해버리는 좁은 race window를 완전히 막지 못하므로,
-  // 실제 쓰기 직전에 한 번 더 확인해 final report에 뒤늦은 쓰기가 절대 들어가지 않게 한다.
-  const readOnlyRef = useRef(readOnly)
-  useEffect(() => { readOnlyRef.current = readOnly })
 
   // ── 고정 섹션(핵심요약/이슈/다음단계) 로컬 상태 — report 3필드를 항상 함께 들고 있는다.
   // report/selection이 바뀔 때의 리셋은 effect+setState가 아니라 page.tsx가 이 컴포넌트에
@@ -111,19 +227,15 @@ export default function ReportEditorPanel({
     () => ({ summary: summaryText, issues: issuesText, next_steps: nextStepsText }),
     [summaryText, issuesText, nextStepsText],
   )
-  const reportSavedRef = useRef<ReportDraft>(reportDraft)
-  useEffect(() => {
-    if (readOnly) return
-    if (JSON.stringify(reportDraft) === JSON.stringify(reportSavedRef.current)) return
-    const t = setTimeout(async () => {
-      if (readOnlyRef.current) return
-      reportSavedRef.current = reportDraft
-      const { data, error } = await supabase.from('work_reports').update(reportDraft).eq('id', report.id).select().single()
-      if (!error && data) onReportSaved(data as WorkReport)
-    }, 1200)
-    return () => clearTimeout(t)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reportDraft, readOnly, report.id])
+
+  const reportCanonical = useCanonicalSync<ReportDraft>({
+    supabase,
+    table: 'work_reports',
+    id: report.id,
+    draft: reportDraft,
+    readOnly,
+    onSaved: row => onReportSaved(row as WorkReport),
+  })
 
   const reportAutosave = useAutosave({
     supabase,
@@ -146,19 +258,22 @@ export default function ReportEditorPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   } : null, [entry?.id, reportText, execText, nextActionText, memoText])
 
-  const entrySavedRef = useRef<EntryDraft | null>(entryDraft)
-  useEffect(() => {
-    if (readOnly || !entry || !entryDraft) return
-    if (JSON.stringify(entryDraft) === JSON.stringify(entrySavedRef.current)) return
-    const t = setTimeout(async () => {
-      if (readOnlyRef.current) return
-      entrySavedRef.current = entryDraft
-      const { data, error } = await supabase.from('work_report_entries').update(entryDraft).eq('id', entry.id).select().single()
-      if (!error && data) onEntrySaved(data as WorkReportEntry)
-    }, 1200)
-    return () => clearTimeout(t)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entryDraft, readOnly, entry?.id])
+  const entryCanonical = useCanonicalSync<EntryDraft>({
+    supabase,
+    table: 'work_report_entries',
+    id: entry?.id ?? null,
+    draft: entryDraft,
+    readOnly,
+    onSaved: row => onEntrySaved(row as WorkReportEntry),
+  })
+
+  const activeCanonical = isFixed ? reportCanonical : entryCanonical
+
+  useImperativeHandle(ref, () => ({
+    flushPending: async () => {
+      await Promise.all([reportCanonical.flush(), entryCanonical.flush()])
+    },
+  }), [reportCanonical, entryCanonical])
 
   const entryAutosave = useAutosave({
     supabase,
@@ -217,7 +332,7 @@ export default function ReportEditorPanel({
           minHeight={360}
           placeholder={meta.placeholder}
           readOnly={readOnly}
-          statusLabel={statusText(activeAutosave.status)}
+          statusLabel={canonicalStatusText(activeCanonical.status)}
         />
       </div>
     )
@@ -266,7 +381,7 @@ export default function ReportEditorPanel({
           minHeight={220}
           placeholder="자유롭게 줄글로 작성합니다."
           readOnly={readOnly}
-          statusLabel={statusText(activeAutosave.status)}
+          statusLabel={canonicalStatusText(activeCanonical.status)}
         />
         <TextBox
           label="경영진에게 전달할 포인트 (의사결정 필요사항)"
@@ -306,4 +421,6 @@ export default function ReportEditorPanel({
       </div>
     </div>
   )
-}
+})
+
+export default ReportEditorPanel

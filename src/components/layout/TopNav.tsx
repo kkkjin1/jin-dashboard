@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { clearAllAutosaveBuffers } from '@/hooks/useAutosave'
 import {
   Home, Trophy, MessageSquare, CalendarDays,
   StickyNote, Users, BookOpen, Brain, NotebookPen, Settings,
@@ -101,6 +102,8 @@ export default function TopNav() {
   async function handleLogout() {
     const supabase = createClient()
     await supabase.auth.signOut()
+    // Shared-browser/account-switch safety net — see clearAllAutosaveBuffers() doc.
+    clearAllAutosaveBuffers()
     router.push('/login')
     router.refresh()
   }
