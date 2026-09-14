@@ -139,8 +139,8 @@ const TODAY_W = 400
 function StatItem({ icon, label, accent }: { icon: React.ReactNode; label: string; accent?: boolean }) {
   return (
     <div className="flex items-center gap-1.5">
-      <span className={accent ? 'text-[#4C7FE0]' : 'text-[rgba(226,232,240,0.3)]'}>{icon}</span>
-      <span className={`text-[11px] ${accent ? 'text-[rgba(226,232,240,0.6)]' : 'text-[rgba(226,232,240,0.4)]'}`}>{label}</span>
+      <span className={accent ? 'text-[var(--accent-primary)]' : 'text-[rgba(var(--text-rgb),0.3)]'}>{icon}</span>
+      <span className={`text-[11px] ${accent ? 'text-[rgba(var(--text-rgb),0.6)]' : 'text-[rgba(var(--text-rgb),0.4)]'}`}>{label}</span>
     </div>
   )
 }
@@ -206,20 +206,20 @@ function EntryModal({
       <div className="absolute inset-0" onClick={onClose} />
       <div
         className="relative w-full max-w-3xl flex flex-col rounded-2xl overflow-hidden"
-        style={{ background: '#1A2030', border: '1px solid rgba(255,255,255,0.1)', maxHeight: '90vh', boxShadow: '0 24px 80px rgba(0,0,0,0.5)' }}
+        style={{ background: 'var(--surface-elevated)', border: '1px solid rgba(var(--ink-rgb),0.1)', maxHeight: '90vh', boxShadow: 'var(--shadow-modal)' }}
       >
         {/* 헤더 */}
-        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid rgba(var(--ink-rgb),0.08)' }}>
           <div>
-            <p className="text-[11px] font-medium text-[rgba(226,232,240,0.4)] uppercase tracking-wide mb-0.5">{weekLabel}</p>
-            <h3 className="text-[16px] font-semibold text-[rgba(226,232,240,0.9)]">{objTitle}</h3>
+            <p className="text-[11px] font-medium text-[rgba(var(--text-rgb),0.4)] uppercase tracking-wide mb-0.5">{weekLabel}</p>
+            <h3 className="text-[16px] font-semibold text-[rgba(var(--text-rgb),0.9)]">{objTitle}</h3>
           </div>
           <div className="flex items-center gap-2">
             {!editing && (
               <button
                 onClick={() => setEditing(true)}
                 className="px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors"
-                style={{ background: 'rgba(76,127,224,0.15)', color: '#7EB3FF', border: '1px solid rgba(76,127,224,0.25)' }}
+                style={{ background: 'rgba(76,127,224,0.15)', color: 'var(--accent-text)', border: '1px solid rgba(76,127,224,0.25)' }}
               >
                 편집
               </button>
@@ -233,7 +233,7 @@ function EntryModal({
             </button>
             <button
               onClick={onClose}
-              className="w-8 h-8 flex items-center justify-center rounded-lg text-[rgba(226,232,240,0.35)] hover:text-[rgba(226,232,240,0.8)] hover:bg-[rgba(255,255,255,0.07)] transition-colors"
+              className="w-8 h-8 flex items-center justify-center rounded-lg text-[rgba(var(--text-rgb),0.35)] hover:text-[rgba(var(--text-rgb),0.8)] hover:bg-[rgba(var(--ink-rgb),0.07)] transition-colors"
             >
               <X size={16} />
             </button>
@@ -250,7 +250,7 @@ function EntryModal({
               autoFocus minHeight={460}
             />
           ) : (
-            <div className="text-[15px] leading-[1.8] text-[rgba(226,232,240,0.85)]">
+            <div className="text-[15px] leading-[1.8] text-[rgba(var(--text-rgb),0.85)]">
               <MarkdownContent content={entry.content} dark />
             </div>
           )}
@@ -258,10 +258,10 @@ function EntryModal({
 
         {/* 편집 푸터 */}
         {editing && (
-          <div className="flex items-center justify-end gap-2 px-6 py-3" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+          <div className="flex items-center justify-end gap-2 px-6 py-3" style={{ borderTop: '1px solid rgba(var(--ink-rgb),0.08)' }}>
             <button
               onClick={() => { setVal(entry.content); setEditing(false) }}
-              className="px-4 py-1.5 rounded-lg text-[12px] text-[rgba(226,232,240,0.45)] hover:text-[rgba(226,232,240,0.7)] transition-colors"
+              className="px-4 py-1.5 rounded-lg text-[12px] text-[rgba(var(--text-rgb),0.45)] hover:text-[rgba(var(--text-rgb),0.7)] transition-colors"
             >
               취소
             </button>
@@ -269,7 +269,7 @@ function EntryModal({
               onClick={handleSave}
               disabled={saving}
               className="px-4 py-1.5 rounded-lg text-[12px] font-medium transition-colors disabled:opacity-40"
-              style={{ background: 'rgba(76,127,224,0.2)', color: '#7EB3FF', border: '1px solid rgba(76,127,224,0.3)' }}
+              style={{ background: 'rgba(76,127,224,0.2)', color: 'var(--accent-text)', border: '1px solid rgba(76,127,224,0.3)' }}
             >
               {saving ? '저장 중…' : '저장'}
             </button>
@@ -327,7 +327,7 @@ function MatrixCell({
     <div
       ref={el => { el?.scrollIntoView({ inline: 'nearest', block: 'nearest' }) }}
       className="rounded-[12px] overflow-hidden border"
-      style={{ background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(76,127,224,0.3)', position: 'relative', zIndex: 20 }}
+      style={{ background: 'rgba(var(--ink-rgb),0.03)', borderColor: 'rgba(76,127,224,0.3)', position: 'relative', zIndex: 20 }}
       onBlur={e => { if (!wf.current) return; if (!e.currentTarget.contains(e.relatedTarget as Node)) save() }}
     >
       <TiptapEditor dark value={val} onChange={setVal} onSubmit={save}
@@ -341,10 +341,10 @@ function MatrixCell({
     const [, mm, dd] = weekStart.split('-')
     return (
       <div
-        className="relative group/cell rounded-[12px] border cursor-text hover:bg-[rgba(255,255,255,0.04)] transition-colors"
+        className="relative group/cell rounded-[12px] border cursor-text hover:bg-[rgba(var(--ink-rgb),0.04)] transition-colors"
         style={{
-          background: 'rgba(255,255,255,0.025)',
-          borderColor: 'rgba(255,255,255,0.06)',
+          background: 'rgba(var(--ink-rgb),0.025)',
+          borderColor: 'rgba(var(--ink-rgb),0.06)',
           padding: 16,
         }}
         onClick={() => { setModalEditMode(true); setModalOpen(true) }}
@@ -352,22 +352,22 @@ function MatrixCell({
         {/* 주차 헤더 */}
         <div className="flex items-center gap-2 mb-2.5">
           <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: WEEK_DOT_COLORS[weekIndex] }} />
-          <span className="text-[11px] font-semibold text-[rgba(226,232,240,0.65)]">{WEEK_REL_LABELS[weekIndex]}</span>
-          <span className="text-[10px] text-[rgba(226,232,240,0.3)]">({parseInt(mm)}/{parseInt(dd)})</span>
+          <span className="text-[11px] font-semibold text-[rgba(var(--text-rgb),0.65)]">{WEEK_REL_LABELS[weekIndex]}</span>
+          <span className="text-[10px] text-[rgba(var(--text-rgb),0.3)]">({parseInt(mm)}/{parseInt(dd)})</span>
         </div>
 
         {/* 구분선 */}
-        <div className="border-t border-[rgba(255,255,255,0.05)] mb-3" />
+        <div className="border-t border-[rgba(var(--ink-rgb),0.05)] mb-3" />
 
         {/* 업데이트 라벨 */}
-        <span className="block text-[11px] font-medium text-[rgba(226,232,240,0.45)] mb-2 tracking-wide uppercase">
+        <span className="block text-[11px] font-medium text-[rgba(var(--text-rgb),0.45)] mb-2 tracking-wide uppercase">
           업데이트
         </span>
 
         {/* 크게보기 버튼 — 읽기 모드로 열기 */}
         <button
           onClick={e => { e.stopPropagation(); setModalEditMode(false); setModalOpen(true) }}
-          className="absolute top-3 right-9 opacity-0 group-hover/cell:opacity-100 text-[rgba(226,232,240,0.25)] hover:text-[rgba(226,232,240,0.7)] transition-all p-0.5"
+          className="absolute top-3 right-9 opacity-0 group-hover/cell:opacity-100 text-[rgba(var(--text-rgb),0.25)] hover:text-[rgba(var(--text-rgb),0.7)] transition-all p-0.5"
           title="크게 보기 (읽기)"
         >
           <Maximize2 size={10} />
@@ -376,14 +376,14 @@ function MatrixCell({
         {/* 삭제 버튼 */}
         <button
           onClick={e => { e.stopPropagation(); onDelete(entry.id) }}
-          className="absolute top-3 right-3 opacity-0 group-hover/cell:opacity-100 text-[rgba(226,232,240,0.25)] hover:text-red-400 transition-all p-0.5"
+          className="absolute top-3 right-3 opacity-0 group-hover/cell:opacity-100 text-[rgba(var(--text-rgb),0.25)] hover:text-red-400 transition-all p-0.5"
         >
           <Trash2 size={10} />
         </button>
 
         {/* 본문 */}
         <div
-          className="overflow-auto scrollbar-none text-[14px] leading-[1.75] text-[rgba(226,232,240,0.82)]"
+          className="overflow-auto scrollbar-none text-[14px] leading-[1.75] text-[rgba(var(--text-rgb),0.82)]"
           style={{ maxHeight: 160 }}
         >
           <MarkdownContent content={entry.content} dark />
@@ -411,20 +411,20 @@ function MatrixCell({
       onClick={() => { setVal(''); setEditing(true) }}
       className="group/empty rounded-[12px] border cursor-pointer flex flex-col items-center justify-center gap-2 transition-all"
       style={{
-        background: 'rgba(255,255,255,0.015)',
-        borderColor: 'rgba(255,255,255,0.05)',
+        background: 'rgba(var(--ink-rgb),0.015)',
+        borderColor: 'rgba(var(--ink-rgb),0.05)',
         minHeight: 80,
         padding: 12,
         transition: 'background 0.15s, border-color 0.15s',
       }}
-      onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'rgba(255,255,255,0.04)'; el.style.borderColor = 'rgba(255,255,255,0.1)' }}
-      onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'rgba(255,255,255,0.015)'; el.style.borderColor = 'rgba(255,255,255,0.05)' }}
+      onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'rgba(var(--ink-rgb),0.04)'; el.style.borderColor = 'rgba(var(--ink-rgb),0.1)' }}
+      onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'rgba(var(--ink-rgb),0.015)'; el.style.borderColor = 'rgba(var(--ink-rgb),0.05)' }}
     >
-      <Plus size={16} className="text-[rgba(255,255,255,0.2)] group-hover/empty:text-[rgba(255,255,255,0.38)] transition-colors" />
-      <span className="text-[12px] text-[rgba(226,232,240,0.22)] text-center leading-tight block group-hover/empty:hidden">
+      <Plus size={16} className="text-[rgba(var(--ink-rgb),0.2)] group-hover/empty:text-[rgba(var(--ink-rgb),0.38)] transition-colors" />
+      <span className="text-[12px] text-[rgba(var(--text-rgb),0.22)] text-center leading-tight block group-hover/empty:hidden">
         메모 작성
       </span>
-      <span className="text-[11px] text-[rgba(226,232,240,0.5)] text-center leading-tight hidden group-hover/empty:block">
+      <span className="text-[11px] text-[rgba(var(--text-rgb),0.5)] text-center leading-tight hidden group-hover/empty:block">
         클릭하여 메모 작성
       </span>
     </div>
@@ -470,27 +470,27 @@ function ObjectiveRow({
       style={{
         marginTop: 0,
         borderRadius: 14,
-        border: '1px solid rgba(255,255,255,0.05)',
-        background: 'rgba(255,255,255,0.02)',
+        border: '1px solid rgba(var(--ink-rgb),0.05)',
+        background: 'rgba(var(--ink-rgb),0.02)',
         overflow: 'clip',
         transition: 'background 0.15s, border-color 0.15s',
       }}
-      onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'rgba(255,255,255,0.03)'; el.style.borderColor = 'rgba(255,255,255,0.09)' }}
-      onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'rgba(255,255,255,0.02)'; el.style.borderColor = 'rgba(255,255,255,0.05)' }}
+      onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'rgba(var(--ink-rgb),0.03)'; el.style.borderColor = 'rgba(var(--ink-rgb),0.09)' }}
+      onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'rgba(var(--ink-rgb),0.02)'; el.style.borderColor = 'rgba(var(--ink-rgb),0.05)' }}
     >
       {/* Left panel */}
       <div
         className="w-[280px] flex-shrink-0 flex items-start gap-2 px-4 py-2"
-        style={{ borderRight: '1px solid rgba(255,255,255,0.07)' }}
+        style={{ borderRight: '1px solid rgba(var(--ink-rgb),0.07)' }}
       >
         <div className="flex-1 min-w-0">
           {/* Goal badge */}
           <span
             className="inline-block text-[10px] font-semibold px-2 py-0.5 rounded mb-1.5 border"
             style={{
-              color: 'rgba(226,232,240,0.4)',
-              borderColor: 'rgba(255,255,255,0.1)',
-              background: 'rgba(255,255,255,0.04)',
+              color: 'rgba(var(--text-rgb),0.4)',
+              borderColor: 'rgba(var(--ink-rgb),0.1)',
+              background: 'rgba(var(--ink-rgb),0.04)',
             }}
           >
             Goal {index + 1}
@@ -502,11 +502,11 @@ function ObjectiveRow({
               onChange={e => setTitleVal(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) saveTitle(); if (e.key === 'Escape') { setTitleVal(obj.title); setEditTitle(false) } }}
               onBlur={() => { if (!wf.current) return; saveTitle() }}
-              className="text-[17px] font-semibold text-[#E5E7EB] bg-transparent border-b border-[rgba(255,255,255,0.2)] focus:outline-none w-full block" />
+              className="text-[17px] font-semibold text-[rgba(var(--text-rgb),0.92)] bg-transparent border-b border-[rgba(var(--ink-rgb),0.2)] focus:outline-none w-full block" />
           ) : (
             <span
               onClick={() => { setTitleVal(obj.title); setEditTitle(true) }}
-              className="text-[17px] font-semibold text-[rgba(226,232,240,0.92)] cursor-text block leading-snug"
+              className="text-[17px] font-semibold text-[rgba(var(--text-rgb),0.92)] cursor-text block leading-snug"
             >
               {obj.title}
             </span>
@@ -518,18 +518,18 @@ function ObjectiveRow({
               onChange={e => setDescVal(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) saveDesc(); if (e.key === 'Escape') { setDescVal(obj.description); setEditDesc(false) } }}
               onBlur={() => { if (!wf.current) return; saveDesc() }}
-              className="text-[12px] text-[rgba(226,232,240,0.55)] bg-transparent border-b border-[rgba(255,255,255,0.12)] focus:outline-none w-full mt-1.5" />
+              className="text-[12px] text-[rgba(var(--text-rgb),0.55)] bg-transparent border-b border-[rgba(var(--ink-rgb),0.12)] focus:outline-none w-full mt-1.5" />
           ) : obj.description ? (
             <span
               onClick={() => { setDescVal(obj.description); setEditDesc(true) }}
-              className="text-[12px] text-[rgba(226,232,240,0.58)] cursor-text block mt-1.5 leading-snug"
+              className="text-[12px] text-[rgba(var(--text-rgb),0.58)] cursor-text block mt-1.5 leading-snug"
             >
               {obj.description}
             </span>
           ) : (
             <span
               onClick={() => { setDescVal(''); setEditDesc(true) }}
-              className="text-[11px] text-transparent hover:text-[rgba(226,232,240,0.2)] cursor-text block mt-1.5 transition-colors select-none"
+              className="text-[11px] text-transparent hover:text-[rgba(var(--text-rgb),0.2)] cursor-text block mt-1.5 transition-colors select-none"
             >
               설명 추가
             </span>
@@ -537,18 +537,18 @@ function ObjectiveRow({
 
           {/* Progress — bar + 0% 인라인 */}
           <div className="mt-2.5 flex items-center gap-2">
-            <span className="text-[10px] font-medium text-[rgba(226,232,240,0.32)] tracking-wide uppercase flex-shrink-0">진행률</span>
-            <div className="flex-1 h-[2px] rounded-full bg-[rgba(255,255,255,0.07)]" />
-            <span className="text-[10px] font-semibold text-[rgba(226,232,240,0.38)] flex-shrink-0">0%</span>
+            <span className="text-[10px] font-medium text-[rgba(var(--text-rgb),0.32)] tracking-wide uppercase flex-shrink-0">진행률</span>
+            <div className="flex-1 h-[2px] rounded-full bg-[rgba(var(--ink-rgb),0.07)]" />
+            <span className="text-[10px] font-semibold text-[rgba(var(--text-rgb),0.38)] flex-shrink-0">0%</span>
           </div>
 
           {/* Assignee + Due Date — 한 줄 */}
           <div className="flex items-center gap-1.5 mt-2">
-            <div className="w-4 h-4 rounded-full flex-shrink-0 border border-[rgba(255,255,255,0.1)]" style={{ background: 'rgba(255,255,255,0.06)' }} />
-            <span className="text-[11px] text-[rgba(226,232,240,0.35)]">미지정</span>
-            <span className="text-[10px] text-[rgba(226,232,240,0.2)] mx-0.5">·</span>
-            <span className="text-[10px] font-medium text-[rgba(226,232,240,0.28)]">마감일</span>
-            <span className="text-[10px] text-[rgba(226,232,240,0.22)]">미설정</span>
+            <div className="w-4 h-4 rounded-full flex-shrink-0 border border-[rgba(var(--ink-rgb),0.1)]" style={{ background: 'rgba(var(--ink-rgb),0.06)' }} />
+            <span className="text-[11px] text-[rgba(var(--text-rgb),0.35)]">미지정</span>
+            <span className="text-[10px] text-[rgba(var(--text-rgb),0.2)] mx-0.5">·</span>
+            <span className="text-[10px] font-medium text-[rgba(var(--text-rgb),0.28)]">마감일</span>
+            <span className="text-[10px] text-[rgba(var(--text-rgb),0.22)]">미설정</span>
           </div>
         </div>
 
@@ -556,14 +556,14 @@ function ObjectiveRow({
           <button
             onClick={() => onArchive(obj.id)}
             title="완료 처리"
-            className="opacity-0 group-hover/row:opacity-100 text-[rgba(226,232,240,0.2)] hover:text-green-400 p-0.5 transition-all"
+            className="opacity-0 group-hover/row:opacity-100 text-[rgba(var(--text-rgb),0.2)] hover:text-green-400 p-0.5 transition-all"
           >
             <CheckCheck size={9} />
           </button>
           <button
             onClick={() => onDelete(obj.id)}
             title="삭제"
-            className="opacity-0 group-hover/row:opacity-100 text-[rgba(226,232,240,0.2)] hover:text-red-400 p-0.5 transition-all"
+            className="opacity-0 group-hover/row:opacity-100 text-[rgba(var(--text-rgb),0.2)] hover:text-red-400 p-0.5 transition-all"
           >
             <Trash2 size={9} />
           </button>
@@ -581,7 +581,7 @@ function ObjectiveRow({
             style={{
               width: col.isThisWeek ? TODAY_W : COL_W,
               background: col.isThisWeek ? 'rgba(76,127,224,0.05)' : 'transparent',
-              borderLeft: col.isThisWeek ? '1px solid rgba(76,127,224,0.15)' : '1px solid rgba(255,255,255,0.04)',
+              borderLeft: col.isThisWeek ? '1px solid rgba(76,127,224,0.15)' : '1px solid rgba(var(--ink-rgb),0.04)',
             }}
           >
             <MatrixCell
@@ -664,8 +664,8 @@ function GroupSection({
         borderRadius: 12,
         overflow: 'hidden',
         marginBottom: 8,
-        border: isDragOver ? '1px solid rgba(76,127,224,0.5)' : '1px solid rgba(255,255,255,0.09)',
-        background: 'rgba(255,255,255,0.06)',
+        border: isDragOver ? '1px solid rgba(76,127,224,0.5)' : '1px solid rgba(var(--ink-rgb),0.09)',
+        background: 'rgba(var(--ink-rgb),0.06)',
         opacity: isDragging ? 0.4 : 1,
         transition: 'opacity 0.15s, border-color 0.15s',
       }}
@@ -676,11 +676,11 @@ function GroupSection({
         className="flex items-center cursor-pointer select-none group/grp"
         style={{
           background: 'transparent',
-          borderBottom: '1px solid rgba(255,255,255,0.07)',
+          borderBottom: '1px solid rgba(var(--ink-rgb),0.07)',
           minHeight: 57,
           transition: 'background 0.15s',
         }}
-        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)' }}
+        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(var(--ink-rgb),0.04)' }}
         onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}
       >
         {/* Left panel (no sticky — overflow:hidden would break it) */}
@@ -691,13 +691,13 @@ function GroupSection({
           {/* Drag handle */}
           <GripVertical
             size={14}
-            className="flex-shrink-0 mr-1.5 text-[rgba(226,232,240,0.2)] cursor-grab active:cursor-grabbing hover:text-[rgba(226,232,240,0.45)] transition-colors"
+            className="flex-shrink-0 mr-1.5 text-[rgba(var(--text-rgb),0.2)] cursor-grab active:cursor-grabbing hover:text-[rgba(var(--text-rgb),0.45)] transition-colors"
             onClick={e => e.stopPropagation()}
           />
           {/* Expand icon */}
           <ChevronRight
             size={15}
-            className="flex-shrink-0 mr-3 text-[rgba(226,232,240,0.38)] transition-transform duration-[130ms]"
+            className="flex-shrink-0 mr-3 text-[rgba(var(--text-rgb),0.38)] transition-transform duration-[130ms]"
             style={{ transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}
           />
 
@@ -723,20 +723,20 @@ function GroupSection({
                 }}
                 onBlur={() => { if (!wfGrp.current) return; if (nameVal.trim()) onSaveGroupName(group.id, nameVal.trim()); setEditingName(false) }}
                 onClick={e => e.stopPropagation()}
-                className="text-[16px] font-bold text-[rgba(226,232,240,0.92)] bg-transparent border-b border-[rgba(255,255,255,0.25)] focus:outline-none w-full max-w-[200px]"
+                className="text-[16px] font-bold text-[rgba(var(--text-rgb),0.92)] bg-transparent border-b border-[rgba(var(--ink-rgb),0.25)] focus:outline-none w-full max-w-[200px]"
               />
             ) : (
               <span
-                className="text-[16px] font-bold text-[rgba(226,232,240,0.92)] block leading-snug cursor-text truncate"
+                className="text-[16px] font-bold text-[rgba(var(--text-rgb),0.92)] block leading-snug cursor-text truncate"
                 onClick={e => { e.stopPropagation(); setNameVal(group.name); setEditingName(true) }}
               >
                 {group.name}
               </span>
             )}
             <div className="flex items-center gap-2 mt-0.5">
-              <span className="text-[11px] text-[rgba(226,232,240,0.38)]">목표 {objectives.length}개</span>
-              <span className="text-[10px] text-[rgba(226,232,240,0.2)]">·</span>
-              <span className="text-[11px] text-[rgba(226,232,240,0.38)]">이번주 업데이트 {thisWeekCount}건</span>
+              <span className="text-[11px] text-[rgba(var(--text-rgb),0.38)]">목표 {objectives.length}개</span>
+              <span className="text-[10px] text-[rgba(var(--text-rgb),0.2)]">·</span>
+              <span className="text-[11px] text-[rgba(var(--text-rgb),0.38)]">이번주 업데이트 {thisWeekCount}건</span>
             </div>
           </div>
         </div>
@@ -755,7 +755,7 @@ function GroupSection({
             <span className="text-[11px] font-medium" style={{ color: 'rgba(34,197,94,0.85)' }}>보고 완료</span>
           </div>
           <button
-            className="w-7 h-7 flex items-center justify-center rounded-lg text-[rgba(226,232,240,0.3)] hover:bg-[rgba(255,255,255,0.06)] hover:text-[rgba(226,232,240,0.65)] transition-colors ml-2"
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-[rgba(var(--text-rgb),0.3)] hover:bg-[rgba(var(--ink-rgb),0.06)] hover:text-[rgba(var(--text-rgb),0.65)] transition-colors ml-2"
           >
             <MoreVertical size={14} />
           </button>
@@ -786,7 +786,7 @@ function GroupSection({
             {addingObj ? (
               <div
                 className="rounded-[12px] border px-5 py-4 flex flex-col gap-2"
-                style={{ borderColor: 'rgba(76,127,224,0.25)', background: 'rgba(255,255,255,0.02)' }}
+                style={{ borderColor: 'rgba(76,127,224,0.25)', background: 'rgba(var(--ink-rgb),0.02)' }}
               >
                 <input
                   autoFocus value={newTitle}
@@ -796,7 +796,7 @@ function GroupSection({
                     if (e.key === 'Escape') { setAddingObj(false); setNewTitle(''); setNewDesc('') }
                   }}
                   placeholder="목표 입력"
-                  className="text-[14px] font-semibold text-[#E5E7EB] placeholder:text-[#5B6270] border-b border-[rgba(255,255,255,0.2)] focus:outline-none bg-transparent w-full pb-1"
+                  className="text-[14px] font-semibold text-[rgba(var(--text-rgb),0.92)] placeholder:text-[var(--input-placeholder)] border-b border-[rgba(var(--ink-rgb),0.2)] focus:outline-none bg-transparent w-full pb-1"
                 />
                 <input
                   value={newDesc}
@@ -806,18 +806,18 @@ function GroupSection({
                     if (e.key === 'Escape') { setAddingObj(false); setNewTitle(''); setNewDesc('') }
                   }}
                   placeholder="설명 (선택)"
-                  className="text-[12px] text-[rgba(226,232,240,0.4)] placeholder:text-[#5B6270] border-b border-[rgba(255,255,255,0.12)] focus:outline-none bg-transparent w-full pb-1"
+                  className="text-[12px] text-[rgba(var(--text-rgb),0.4)] placeholder:text-[var(--input-placeholder)] border-b border-[rgba(var(--ink-rgb),0.12)] focus:outline-none bg-transparent w-full pb-1"
                 />
                 <div className="flex gap-2 mt-1">
-                  <button onClick={handleAddObj} className="text-xs text-[#4C7FE0] font-medium hover:opacity-70 transition-opacity">추가</button>
+                  <button onClick={handleAddObj} className="text-xs text-[var(--accent-primary)] font-medium hover:opacity-70 transition-opacity">추가</button>
                   <button onClick={() => { setAddingObj(false); setNewTitle(''); setNewDesc('') }}
-                    className="text-xs text-[rgba(226,232,240,0.35)] hover:text-[rgba(226,232,240,0.6)] transition-colors">취소</button>
+                    className="text-xs text-[rgba(var(--text-rgb),0.35)] hover:text-[rgba(var(--text-rgb),0.6)] transition-colors">취소</button>
                 </div>
               </div>
             ) : (
               <button
                 onClick={() => setAddingObj(true)}
-                className="w-full h-[52px] rounded-[12px] border border-dashed border-[rgba(255,255,255,0.08)] flex items-center justify-center gap-2 text-[13px] font-medium text-[rgba(226,232,240,0.55)] hover:bg-[rgba(255,255,255,0.025)] hover:border-[rgba(255,255,255,0.16)] hover:text-[rgba(226,232,240,0.8)] transition-all"
+                className="w-full h-[52px] rounded-[12px] border border-dashed border-[rgba(var(--ink-rgb),0.08)] flex items-center justify-center gap-2 text-[13px] font-medium text-[rgba(var(--text-rgb),0.55)] hover:bg-[rgba(var(--ink-rgb),0.025)] hover:border-[rgba(var(--ink-rgb),0.16)] hover:text-[rgba(var(--text-rgb),0.8)] transition-all"
                 style={{ background: 'transparent' }}
               >
                 <Plus size={13} />
@@ -889,14 +889,14 @@ function FeedPanel({
     <>
       <div
         className="flex-shrink-0 flex flex-col"
-        style={{ width: 272, margin: '0 8px 0 8px', borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.09)', background: '#161B24' }}
+        style={{ width: 272, margin: '0 8px 0 8px', borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(var(--ink-rgb),0.09)', background: 'var(--surface-primary)' }}
       >
         {/* 헤더 */}
         <div
           className="flex-shrink-0 flex items-center justify-between px-4 py-3"
-          style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}
+          style={{ borderBottom: '1px solid rgba(var(--ink-rgb),0.07)' }}
         >
-          <span className="text-[11px] font-bold text-[rgba(226,232,240,0.38)] uppercase tracking-[.06em]">
+          <span className="text-[11px] font-bold text-[rgba(var(--text-rgb),0.38)] uppercase tracking-[.06em]">
             이번 분기 활동
           </span>
           <span
@@ -911,15 +911,15 @@ function FeedPanel({
         {groups.length > 1 && (
           <div
             className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 overflow-x-auto scrollbar-none flex-wrap"
-            style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}
+            style={{ borderBottom: '1px solid rgba(var(--ink-rgb),0.07)' }}
           >
             <button
               onClick={() => setFilterGid(null)}
               className="text-[10px] font-semibold px-2.5 py-1 rounded-full flex-shrink-0 transition-all"
               style={{
-                background: !filterGid ? 'rgba(76,127,224,0.15)' : 'rgba(255,255,255,0.04)',
-                color: !filterGid ? 'rgba(76,127,224,0.9)' : 'rgba(226,232,240,0.4)',
-                border: `1px solid ${!filterGid ? 'rgba(76,127,224,0.25)' : 'rgba(255,255,255,0.07)'}`,
+                background: !filterGid ? 'rgba(76,127,224,0.15)' : 'rgba(var(--ink-rgb),0.04)',
+                color: !filterGid ? 'rgba(76,127,224,0.9)' : 'rgba(var(--text-rgb),0.4)',
+                border: `1px solid ${!filterGid ? 'rgba(76,127,224,0.25)' : 'rgba(var(--ink-rgb),0.07)'}`,
               }}
             >
               전체
@@ -933,9 +933,9 @@ function FeedPanel({
                   onClick={() => setFilterGid(active ? null : g.id)}
                   className="flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1 rounded-full flex-shrink-0 transition-all"
                   style={{
-                    background: active ? hexAlpha(c, 0.15) : 'rgba(255,255,255,0.04)',
-                    color: active ? c : 'rgba(226,232,240,0.4)',
-                    border: `1px solid ${active ? hexAlpha(c, 0.35) : 'rgba(255,255,255,0.07)'}`,
+                    background: active ? hexAlpha(c, 0.15) : 'rgba(var(--ink-rgb),0.04)',
+                    color: active ? c : 'rgba(var(--text-rgb),0.4)',
+                    border: `1px solid ${active ? hexAlpha(c, 0.35) : 'rgba(var(--ink-rgb),0.07)'}`,
                   }}
                 >
                   <div style={{ width: 5, height: 5, borderRadius: '50%', background: c, flexShrink: 0 }} />
@@ -949,7 +949,7 @@ function FeedPanel({
         {/* 피드 본문 */}
         <div className="flex-1 min-h-0 overflow-y-auto scrollbar-none py-1.5">
           {filtered.length === 0 ? (
-            <div className="flex items-center justify-center h-20 text-[12px] text-[rgba(226,232,240,0.28)]">
+            <div className="flex items-center justify-center h-20 text-[12px] text-[rgba(var(--text-rgb),0.28)]">
               업데이트 없음
             </div>
           ) : grouped.map(([weekStart, items]) => {
@@ -962,9 +962,9 @@ function FeedPanel({
                 {/* 날짜 그룹 헤더 */}
                 <div
                   className="flex items-center gap-2 px-4 py-1.5 sticky top-0"
-                  style={{ background: '#161B24' }}
+                  style={{ background: 'var(--surface-primary)' }}
                 >
-                  <span className="text-[10px] font-bold text-[rgba(226,232,240,0.28)] uppercase tracking-[.05em] flex-shrink-0">
+                  <span className="text-[10px] font-bold text-[rgba(var(--text-rgb),0.28)] uppercase tracking-[.05em] flex-shrink-0">
                     {label}
                   </span>
                   {isThis && (
@@ -975,8 +975,8 @@ function FeedPanel({
                       Live
                     </span>
                   )}
-                  <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.06)' }} />
-                  <span className="text-[10px] text-[rgba(226,232,240,0.22)] flex-shrink-0">{dateDisplay}</span>
+                  <div style={{ flex: 1, height: 1, background: 'rgba(var(--ink-rgb),0.06)' }} />
+                  <span className="text-[10px] text-[rgba(var(--text-rgb),0.22)] flex-shrink-0">{dateDisplay}</span>
                 </div>
 
                 {/* 항목들 */}
@@ -988,16 +988,16 @@ function FeedPanel({
                       <div
                         onClick={() => setModalItem(item)}
                         className="rounded-[10px] px-3 py-2 cursor-pointer transition-colors"
-                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)' }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(var(--ink-rgb),0.04)' }}
                         onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}
                       >
                         <div className="flex items-center gap-1.5 mb-1 min-w-0">
                           <div style={{ width: 6, height: 6, borderRadius: '50%', background: c, flexShrink: 0 }} />
-                          <span className="text-[11px] font-bold text-[rgba(226,232,240,0.85)] flex-shrink-0">{item.group.name}</span>
-                          <span className="text-[10px] text-[rgba(226,232,240,0.25)] flex-shrink-0">·</span>
-                          <span className="text-[11px] text-[rgba(226,232,240,0.48)] truncate">{item.objective.title}</span>
+                          <span className="text-[11px] font-bold text-[rgba(var(--text-rgb),0.85)] flex-shrink-0">{item.group.name}</span>
+                          <span className="text-[10px] text-[rgba(var(--text-rgb),0.25)] flex-shrink-0">·</span>
+                          <span className="text-[11px] text-[rgba(var(--text-rgb),0.48)] truncate">{item.objective.title}</span>
                         </div>
-                        <p className="text-[11.5px] leading-[1.55] text-[rgba(226,232,240,0.48)] line-clamp-2">
+                        <p className="text-[11.5px] leading-[1.55] text-[rgba(var(--text-rgb),0.48)] line-clamp-2">
                           {preview}
                         </p>
                       </div>
@@ -1207,12 +1207,12 @@ export default function ObjectivesTestPage() {
     <div className="flex flex-col h-full min-h-0">
 
       {/* ── PageHeader ────────────────────────────────────── */}
-      <div className="flex-shrink-0 px-6 py-3.5" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+      <div className="flex-shrink-0 px-6 py-3.5" style={{ borderBottom: '1px solid rgba(var(--ink-rgb),0.08)' }}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <h1 className="text-[26px] font-bold text-[#E2E8F0] leading-none">목표 리뷰</h1>
-            <Info size={13} className="text-[rgba(226,232,240,0.28)] flex-shrink-0" />
-            <span className="text-[11px] text-[rgba(226,232,240,0.45)] ml-0.5">
+            <h1 className="text-[26px] font-bold text-[rgba(var(--text-rgb),1)] leading-none">목표 리뷰</h1>
+            <Info size={13} className="text-[rgba(var(--text-rgb),0.28)] flex-shrink-0" />
+            <span className="text-[11px] text-[rgba(var(--text-rgb),0.45)] ml-0.5">
               주간 목표 진행상황을 리뷰합니다.
             </span>
           </div>
@@ -1231,9 +1231,9 @@ export default function ObjectivesTestPage() {
               onClick={() => setShowPrevWeeks(v => !v)}
               className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium border transition-all"
               style={{
-                background: showPrevWeeks ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.04)',
-                color: showPrevWeeks ? 'rgba(226,232,240,0.65)' : 'rgba(226,232,240,0.38)',
-                borderColor: showPrevWeeks ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.08)',
+                background: showPrevWeeks ? 'rgba(var(--ink-rgb),0.08)' : 'rgba(var(--ink-rgb),0.04)',
+                color: showPrevWeeks ? 'rgba(var(--text-rgb),0.65)' : 'rgba(var(--text-rgb),0.38)',
+                borderColor: showPrevWeeks ? 'rgba(var(--ink-rgb),0.14)' : 'rgba(var(--ink-rgb),0.08)',
               }}
             >
               {showPrevWeeks ? '이전주 접기' : '이전주 보기'}
@@ -1241,8 +1241,8 @@ export default function ObjectivesTestPage() {
             {/* MD 다운로드 */}
             <button
               onClick={exportMarkdown}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium border border-[rgba(255,255,255,0.08)] text-[rgba(226,232,240,0.45)] hover:text-[rgba(226,232,240,0.75)] hover:bg-[rgba(255,255,255,0.06)] transition-all"
-              style={{ background: 'rgba(255,255,255,0.04)' }}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium border border-[rgba(var(--ink-rgb),0.08)] text-[rgba(var(--text-rgb),0.45)] hover:text-[rgba(var(--text-rgb),0.75)] hover:bg-[rgba(var(--ink-rgb),0.06)] transition-all"
+              style={{ background: 'rgba(var(--ink-rgb),0.04)' }}
             >
               <Download size={12} />
               MD 저장
@@ -1263,22 +1263,22 @@ export default function ObjectivesTestPage() {
       </div>
 
       {/* ── QuarterNav ────────────────────────────────────── */}
-      <div className="flex-shrink-0 px-6 py-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+      <div className="flex-shrink-0 px-6 py-2" style={{ borderBottom: '1px solid rgba(var(--ink-rgb),0.08)' }}>
         <div className="flex items-center gap-4">
           {/* Year navigation */}
           <div className="flex items-center gap-1">
             <button
               onClick={() => setSelYear(y => y - 1)}
-              className="w-7 h-7 flex items-center justify-center rounded-full text-[rgba(226,232,240,0.4)] hover:bg-[rgba(255,255,255,0.07)] hover:text-[rgba(226,232,240,0.8)] transition-colors"
+              className="w-7 h-7 flex items-center justify-center rounded-full text-[rgba(var(--text-rgb),0.4)] hover:bg-[rgba(var(--ink-rgb),0.07)] hover:text-[rgba(var(--text-rgb),0.8)] transition-colors"
             >
               <ChevronLeft size={13} />
             </button>
-            <span className="text-[13px] font-semibold text-[rgba(226,232,240,0.82)] min-w-[38px] text-center select-none">
+            <span className="text-[13px] font-semibold text-[rgba(var(--text-rgb),0.82)] min-w-[38px] text-center select-none">
               {selYear}
             </span>
             <button
               onClick={() => setSelYear(y => y + 1)}
-              className="w-7 h-7 flex items-center justify-center rounded-full text-[rgba(226,232,240,0.4)] hover:bg-[rgba(255,255,255,0.07)] hover:text-[rgba(226,232,240,0.8)] transition-colors"
+              className="w-7 h-7 flex items-center justify-center rounded-full text-[rgba(var(--text-rgb),0.4)] hover:bg-[rgba(var(--ink-rgb),0.07)] hover:text-[rgba(var(--text-rgb),0.8)] transition-colors"
             >
               <ChevronRight size={13} />
             </button>
@@ -1292,8 +1292,8 @@ export default function ObjectivesTestPage() {
                 onClick={() => setSelQ(q)}
                 className={`px-4 h-[32px] rounded-full text-[12px] font-semibold border transition-all ${
                   selQ === q
-                    ? 'bg-[#4C7FE0] text-white border-[#4C7FE0]'
-                    : 'bg-[rgba(255,255,255,0.04)] border-[rgba(255,255,255,0.08)] text-[rgba(226,232,240,0.45)] hover:text-[rgba(226,232,240,0.78)] hover:bg-[rgba(255,255,255,0.07)] hover:border-[rgba(255,255,255,0.13)]'
+                    ? 'bg-[var(--accent-primary)] text-white border-[var(--accent-primary)]'
+                    : 'bg-[rgba(var(--ink-rgb),0.04)] border-[rgba(var(--ink-rgb),0.08)] text-[rgba(var(--text-rgb),0.45)] hover:text-[rgba(var(--text-rgb),0.78)] hover:bg-[rgba(var(--ink-rgb),0.07)] hover:border-[rgba(var(--ink-rgb),0.13)]'
                 }`}
               >
                 Q{q}
@@ -1304,46 +1304,46 @@ export default function ObjectivesTestPage() {
       </div>
 
       {/* ── StatsRow ──────────────────────────────────────── */}
-      <div className="flex-shrink-0 px-6 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+      <div className="flex-shrink-0 px-6 py-3" style={{ borderBottom: '1px solid rgba(var(--ink-rgb),0.08)' }}>
         <div className="flex items-center gap-2">
           {/* Card 1: 현재 분기 */}
           <div
-            className="flex flex-col justify-center px-4 rounded-[12px] border cursor-default hover:bg-[rgba(255,255,255,0.05)] transition-colors"
-            style={{ height: 64, background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)' }}
+            className="flex flex-col justify-center px-4 rounded-[12px] border cursor-default hover:bg-[rgba(var(--ink-rgb),0.05)] transition-colors"
+            style={{ height: 64, background: 'rgba(var(--ink-rgb),0.03)', borderColor: 'rgba(var(--ink-rgb),0.08)' }}
           >
             <div className="flex items-center gap-1.5 mb-1">
-              <Target size={11} className="text-[rgba(226,232,240,0.3)]" />
-              <span className="text-[11px] text-[rgba(226,232,240,0.38)]">현재 분기</span>
+              <Target size={11} className="text-[rgba(var(--text-rgb),0.3)]" />
+              <span className="text-[11px] text-[rgba(var(--text-rgb),0.38)]">현재 분기</span>
             </div>
             <div className="flex items-baseline gap-1.5 leading-none">
-              <span className="text-[22px] font-bold text-[rgba(226,232,240,0.88)]">Q{selQ}</span>
-              <span className="text-[13px] font-medium text-[rgba(226,232,240,0.45)]">{selYear}</span>
+              <span className="text-[22px] font-bold text-[rgba(var(--text-rgb),0.88)]">Q{selQ}</span>
+              <span className="text-[13px] font-medium text-[rgba(var(--text-rgb),0.45)]">{selYear}</span>
             </div>
           </div>
 
           {/* Card 2: 리뷰 상태 */}
           <div
-            className="flex flex-col justify-center px-4 rounded-[12px] border cursor-default hover:bg-[rgba(255,255,255,0.05)] transition-colors"
-            style={{ height: 64, background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)' }}
+            className="flex flex-col justify-center px-4 rounded-[12px] border cursor-default hover:bg-[rgba(var(--ink-rgb),0.05)] transition-colors"
+            style={{ height: 64, background: 'rgba(var(--ink-rgb),0.03)', borderColor: 'rgba(var(--ink-rgb),0.08)' }}
           >
             <div className="flex items-center gap-1.5 mb-1">
-              <Users size={11} className="text-[rgba(226,232,240,0.3)]" />
-              <span className="text-[11px] text-[rgba(226,232,240,0.38)]">리뷰 상태</span>
+              <Users size={11} className="text-[rgba(var(--text-rgb),0.3)]" />
+              <span className="text-[11px] text-[rgba(var(--text-rgb),0.38)]">리뷰 상태</span>
             </div>
             <div className="flex items-baseline gap-1.5 leading-none">
-              <span className="text-[22px] font-bold text-[rgba(226,232,240,0.88)]">{groups.length}</span>
+              <span className="text-[22px] font-bold text-[rgba(var(--text-rgb),0.88)]">{groups.length}</span>
               <span className="text-[11px] font-medium" style={{ color: 'rgba(34,197,94,0.75)' }}>보고 완료</span>
             </div>
           </div>
 
           {/* Card 3: 이번주 업데이트 */}
           <div
-            className="flex flex-col justify-center px-4 rounded-[12px] border cursor-default hover:bg-[rgba(255,255,255,0.05)] transition-colors"
-            style={{ height: 64, background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)' }}
+            className="flex flex-col justify-center px-4 rounded-[12px] border cursor-default hover:bg-[rgba(var(--ink-rgb),0.05)] transition-colors"
+            style={{ height: 64, background: 'rgba(var(--ink-rgb),0.03)', borderColor: 'rgba(var(--ink-rgb),0.08)' }}
           >
             <div className="flex items-center gap-1.5 mb-1">
               <Zap size={11} className="text-[rgba(76,127,224,0.5)]" />
-              <span className="text-[11px] text-[rgba(226,232,240,0.38)]">이번주 업데이트</span>
+              <span className="text-[11px] text-[rgba(var(--text-rgb),0.38)]">이번주 업데이트</span>
             </div>
             <span className="text-[22px] font-bold leading-none" style={{ color: 'rgba(76,127,224,0.88)' }}>
               {thisWeekEntries.length}
@@ -1361,20 +1361,20 @@ export default function ObjectivesTestPage() {
           {/* Team List */}
           <div style={{ minWidth: totalMinW }}>
             {loading ? (
-              <div className="flex items-center justify-center h-40 text-[13px] text-[rgba(226,232,240,0.4)]">불러오는 중…</div>
+              <div className="flex items-center justify-center h-40 text-[13px] text-[rgba(var(--text-rgb),0.4)]">불러오는 중…</div>
             ) : groups.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 gap-5">
-                <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)' }}>
-                  <Users size={24} className="text-[rgba(226,232,240,0.28)]" />
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(var(--ink-rgb),0.05)', border: '1px solid rgba(var(--ink-rgb),0.09)' }}>
+                  <Users size={24} className="text-[rgba(var(--text-rgb),0.28)]" />
                 </div>
                 <div className="text-center">
-                  <p className="text-[15px] font-semibold text-[rgba(226,232,240,0.62)] mb-1">아직 생성된 팀이 없습니다</p>
-                  <p className="text-[12px] text-[rgba(226,232,240,0.35)]">팀을 만들고 분기 목표를 관리하세요</p>
+                  <p className="text-[15px] font-semibold text-[rgba(var(--text-rgb),0.62)] mb-1">아직 생성된 팀이 없습니다</p>
+                  <p className="text-[12px] text-[rgba(var(--text-rgb),0.35)]">팀을 만들고 분기 목표를 관리하세요</p>
                 </div>
                 <button
                   onClick={() => setAddingGroup(true)}
                   className="flex items-center gap-2 px-5 py-2.5 rounded-full text-white text-[13px] font-semibold hover:opacity-85 transition-opacity"
-                  style={{ background: '#4C7FE0' }}
+                  style={{ background: 'var(--accent-primary)' }}
                 >
                   <Plus size={13} />
                   첫 번째 팀 만들기
@@ -1412,7 +1412,7 @@ export default function ObjectivesTestPage() {
                   />
                 ))}
                 {addingGroup && (
-                  <div className="flex items-center gap-2 px-4 py-3" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+                  <div className="flex items-center gap-2 px-4 py-3" style={{ borderTop: '1px solid rgba(var(--ink-rgb),0.07)' }}>
                     <input
                       autoFocus
                       value={newGroupName}
@@ -1423,7 +1423,7 @@ export default function ObjectivesTestPage() {
                       }}
                       placeholder="팀 이름 입력 후 Enter"
                       className="flex-1 text-[13px] bg-transparent focus:outline-none"
-                      style={{ color: 'rgba(226,232,240,0.85)', borderBottom: '1px solid rgba(255,255,255,0.18)' }}
+                      style={{ color: 'rgba(var(--text-rgb),0.85)', borderBottom: '1px solid rgba(var(--ink-rgb),0.18)' }}
                     />
                     <button onClick={addGroup}
                       className="text-[11px] px-3 py-1 rounded-full font-semibold transition-all"
@@ -1432,7 +1432,7 @@ export default function ObjectivesTestPage() {
                     </button>
                     <button onClick={() => { setAddingGroup(false); setNewGroupName('') }}
                       className="text-[11px] px-2 py-1 rounded-full transition-all"
-                      style={{ color: 'rgba(226,232,240,0.35)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                      style={{ color: 'rgba(var(--text-rgb),0.35)', border: '1px solid rgba(var(--ink-rgb),0.08)' }}>
                       취소
                     </button>
                   </div>

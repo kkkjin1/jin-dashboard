@@ -177,6 +177,9 @@ html, body {
   --fixed-meeting-text: #6EE7B7;
   --quick-todo-text: #F0B860;
   --dropdown-panel-bg: rgba(18, 21, 28, 0.97);
+
+  /* ── Phase 2D (Objective Review) ── */
+  --input-placeholder: #5B6270;
 }
 
 [data-theme="light"] {
@@ -225,6 +228,9 @@ html, body {
   --fixed-meeting-text: #047857;
   --quick-todo-text: #92400E;
   --dropdown-panel-bg: rgba(255, 255, 255, 0.97);
+
+  /* ── Phase 2D (Objective Review) ── */
+  --input-placeholder: #9CA3AF;
 }
 
 /* 테마 전환 시 부드러운 색 전환 — 명시적으로 지정한 요소에만 적용.
