@@ -54,7 +54,7 @@ export default function AnnualGoalsPage() {
         <h1 className="text-lg font-bold" style={{ color: '#E2E8F0' }}>연간목표</h1>
       </div>
 
-      {/* 범주 탭 — 본문 상단에 위치, 클릭 시 아래 컨텐츠가 바로 연동되어 필터링됨 */}
+      {/* 영역 탭 — 본문 상단에 위치, 클릭 시 아래 컨텐츠가 바로 연동되어 필터링됨 */}
       <div className="flex-shrink-0 flex items-center gap-1.5 px-4 md:px-6 mb-4 overflow-x-auto scrollbar-hide" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: 10 }}>
         {DISPLAY_CATS.map(c => (
           <button key={c} onClick={() => selectCat(c)}

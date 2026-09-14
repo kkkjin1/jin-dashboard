@@ -243,7 +243,7 @@ export default function AnnualGoalTaskDetailPage() {
   }
 
   if (loading) return <div className="flex items-center justify-center h-40 text-sm text-gray-400 animate-pulse">불러오는 중…</div>
-  if (!task) return <div className="flex items-center justify-center h-40 text-sm text-gray-400">세부task를 찾을 수 없습니다.</div>
+  if (!task) return <div className="flex items-center justify-center h-40 text-sm text-gray-400">과제를 찾을 수 없습니다.</div>
 
   const itemColor = itemInfo?.color ?? '#3B82F6'
   const selectedNote = notes.find(n => n.id === selectedNoteId) ?? null
@@ -409,7 +409,7 @@ export default function AnnualGoalTaskDetailPage() {
           </div>
           <div className="px-5 py-4">
             {attachments.length === 0 ? (
-              <p className="text-[10px] text-[rgba(226,232,240,0.3)]">이 세부task에 해당하는 파일을 첨부하세요</p>
+              <p className="text-[10px] text-[rgba(226,232,240,0.3)]">이 과제에 해당하는 파일을 첨부하세요</p>
             ) : (
               <div className="flex flex-wrap gap-1.5">
                 {attachments.map(att => (

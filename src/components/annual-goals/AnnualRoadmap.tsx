@@ -13,7 +13,7 @@ import { Compass, UserPlus, Users, ClipboardCheck, Coins, GraduationCap, Network
 const STATUS_LABEL: Record<string, string> = { active: '진행필요', hold: '진행중', done: '진행완료' }
 const MEMBER_COLORS = ['#3B82F6','#10B981','#8B5CF6','#F59E0B','#EC4899','#06B6D4','#EF4444','#84CC16','#F97316','#A78BFA']
 
-// 카테고리 pill 배지 전용 파스텔 톤 (bg/text) — 안건/세부task 행 옆의 작은 배지에만 사용
+// 카테고리 pill 배지 전용 파스텔 톤 (bg/text) — 목표/과제 행 옆의 작은 배지에만 사용
 const CATEGORY_BADGE: Record<string, { bg: string; text: string }> = {
   '1. 인재 확보':   { bg: '#C7D5E3', text: '#3F5670' },
   '2. 검증과 정렬': { bg: '#C7D9CE', text: '#46654F' },
@@ -23,7 +23,7 @@ const CATEGORY_BADGE: Record<string, { bg: string; text: string }> = {
 }
 function categoryBadge(cat: string) { return CATEGORY_BADGE[cat] ?? { bg: '#D1D5DB', text: '#374151' } }
 
-// 카테고리 "섹션 타이틀 행" 전용 — 개별 안건/세부task 행에는 쓰지 않음 (그 행들은 중립색으로 통일)
+// 카테고리 "섹션 타이틀 행" 전용 — 개별 목표/과제 행에는 쓰지 않음 (그 행들은 중립색으로 통일)
 const CATEGORY_SECTION_COLOR: Record<string, { bg: string; text: string }> = {
   '1. 인재 확보':   { bg: '#C7D5E3', text: '#3F5670' },
   '2. 검증과 정렬': { bg: '#DCEAE1', text: '#4F7160' },
@@ -35,11 +35,11 @@ function categorySectionColor(cat: string) { return CATEGORY_SECTION_COLOR[cat] 
 // 카테고리 표시용 라벨 — 저장/조회에 쓰는 원본 값('1. 인재 확보')에서 번호 prefix만 제거해 표시("인재 확보")
 function catLabel(cat: string) { return cat.replace(/^\d+\.\s*/, '') }
 
-// 안건/세부task 행 공통 중립 톤 (카테고리와 무관하게 통일)
+// 목표/과제 행 공통 중립 톤 (카테고리와 무관하게 통일)
 const NEUTRAL_TEXT = '#E5E7EB'
 const NEUTRAL_ACCENT = '#4C7FE0'
 
-// 안건 행 우측 컬럼(분류/기한/진행률) 폭 — 카드의 컬럼 라벨 서브행과 실제 안건 행이 이 값을 공유해 항상 같이 정렬됨
+// 목표 행 우측 컬럼(분류/기한/진행률) 폭 — 카드의 컬럼 라벨 서브행과 실제 목표 행이 이 값을 공유해 항상 같이 정렬됨
 const ITEM_ROW_COLS = { category: 88, deadline: 78, progress: 40 } as const
 
 // 상태(중요도/시급도) 배지 파스텔 톤 (bg/text)
@@ -49,7 +49,7 @@ const STATUS_BADGE: Record<string, { bg: string; text: string }> = {
   하: { bg: '#C7DBB9', text: '#446631' },
 }
 
-// HRM 기능 관점 (엑셀 1B.기능뷰 시트 기준 F1~F10) — 세부task의 hrm_function 값 그대로 사용
+// HRM 기능 관점 (엑셀 1B.기능뷰 시트 기준 F1~F10) — 과제의 hrm_function 값 그대로 사용
 const HRM_FUNCTIONS = [
   'F1. 인사기획·HR전략', 'F2. 채용·확보', 'F3. 인력운영·유지', 'F4. 평가·성과관리', 'F5. 보상',
   'F6. 교육·육성', 'F7. 조직·직무설계', 'F8. 노무·ER', 'F9. 조직문화·커뮤니케이션', 'F10. HR운영·시스템',
@@ -102,7 +102,7 @@ const PRIORITY_RANK: Record<string, number> = { '1순위': 0, '2순위': 1, '유
 const IMPORTANCE_RANK: Record<string, number> = { '상': 0, '중': 1, '하': 2 }
 const TRACK_RANK: Record<string, number> = { A: 0, B: 1, C: 2 }
 
-// 트랙 dot 전용 포인트 컬러 — 카테고리색과 별개, 세부task 행 좌측에 트랙을 한눈에 구분하는 용도
+// 트랙 dot 전용 포인트 컬러 — 카테고리색과 별개, 과제 행 좌측에 트랙을 한눈에 구분하는 용도
 const TRACK_DOT_COLOR: Record<string, string> = { A: '#378ADD', B: '#639922', C: '#9CA3AF' }
 
 function rank(v: string | null | undefined, table: Record<string, number>): number {
@@ -120,8 +120,8 @@ function priorityComparator(a: AnnualGoalTask, b: AnnualGoalTask): number {
 }
 
 const S = { bd: '1px solid rgba(255,255,255,0.08)', bdL: '1px solid rgba(255,255,255,0.14)', bg: '#13151C', t1: '#E2E8F0', t2: 'rgba(226,232,240,0.7)', t3: 'rgba(226,232,240,0.4)' }
-const W_ITEM = 130  // 로드맵: 안건 열 너비
-const W_TASK = 280  // 로드맵: 세부task 열 너비 (제목 잘림 완화를 위해 확장)
+const W_ITEM = 130  // 로드맵: 목표 열 너비
+const W_TASK = 280  // 로드맵: 과제 열 너비 (제목 잘림 완화를 위해 확장)
 const W_LEFT = W_ITEM + W_TASK
 
 function hexToRgba(hex: string, alpha: number) {
@@ -137,7 +137,7 @@ function mixHex(hexA: string, hexB: string, t: number) {
   return `#${mix.map(v => v.toString(16).padStart(2, '0')).join('')}`
 }
 
-// 로드맵 바 전용 — 안건(상위) 레벨 트랙 색: 카테고리 계열 안에서 세부task 트랙(CATEGORY_SECTION_COLOR.bg)보다 진하고 쨍한 solid 톤
+// 로드맵 바 전용 — 목표(상위) 레벨 트랙 색: 카테고리 계열 안에서 과제 트랙(CATEGORY_SECTION_COLOR.bg)보다 진하고 쨍한 solid 톤
 const CATEGORY_TRACK_UPPER: Record<string, string> = {
   '1. 인재 확보':   '#6B8FB3',
   '2. 검증과 정렬': '#7BAE94',
@@ -251,8 +251,8 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
   const [linkAgendaItemId, setLinkAgendaItemId] = useState<string | null>(null)
   const [linkSearch, setLinkSearch] = useState('')
   const [newLinkSubTaskTitle, setNewLinkSubTaskTitle] = useState('')
-  const [prioritySortCol, setPrioritySortCol] = useState<{ col: '범주' | '안건'; dir: 'asc' | 'desc' } | null>(null)
-  function togglePrioritySortCol(col: '범주' | '안건') {
+  const [prioritySortCol, setPrioritySortCol] = useState<{ col: '영역' | '목표'; dir: 'asc' | 'desc' } | null>(null)
+  function togglePrioritySortCol(col: '영역' | '목표') {
     setPrioritySortCol(prev => prev?.col === col ? { col, dir: prev.dir === 'asc' ? 'desc' : 'asc' } : { col, dir: 'asc' })
   }
 
@@ -302,13 +302,13 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
     setLoading(false)
   }
 
-  // ── 열림상태 토글 (안건 id 또는 기능뷰의 기능 키 — 기능 키는 DB에 저장하지 않음) ──
+  // ── 열림상태 토글 (목표 id 또는 기능뷰의 기능 키 — 기능 키는 DB에 저장하지 않음) ──
   function toggleOpenKey(key: string, persist: boolean) {
     const isOpen = openItems.has(key)
     setOpenItems(prev => { const s = new Set(prev); isOpen ? s.delete(key) : s.add(key); return s })
     if (persist) supabase.from('annual_goal_items').update({ is_open: !isOpen }).eq('id', key)
   }
-  // ── 안건(중분류) 토글/CRUD ───────────────────────────────────────
+  // ── 목표 토글/CRUD ───────────────────────────────────────
   async function toggleItem(id: string) {
     toggleOpenKey(id, true)
   }
@@ -332,7 +332,7 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
     await supabase.from('annual_goal_items').update({ target_deadline: date }).eq('id', itemId)
     setItems(p => p.map(i => i.id === itemId ? { ...i, target_deadline: date } : i))
   }
-  // ── 세부task(소분류) CRUD ────────────────────────────────────────
+  // ── 과제(소분류) CRUD ────────────────────────────────────────
   function toggleExpandTaskAdd(itemId: string) { setAddingTask(prev => prev === itemId ? null : itemId); setNewTTitle('') }
   async function addTask(itemId: string) {
     const title = newTTitle.trim(); if (!title) { setAddingTask(null); return }
@@ -412,7 +412,7 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
     setItems(p => p.map(item => { const idx = newOrder.findIndex(i => i.id === item.id); return idx >= 0 ? { ...item, sort_order: idx } : item }))
     for (let i = 0; i < newOrder.length; i++) {
       const { error } = await supabase.from('annual_goal_items').update({ sort_order: i }).eq('id', newOrder[i].id)
-      if (error) { setDndErr(`안건 순서 저장 실패: ${error.message}`); setTimeout(() => setDndErr(''), 4000); return }
+      if (error) { setDndErr(`목표 순서 저장 실패: ${error.message}`); setTimeout(() => setDndErr(''), 4000); return }
     }
   }
   async function reorderTask(dragId: string, targetId: string) {
@@ -428,7 +428,7 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
     setTasks(p => p.map(t => { const idx = newOrder.findIndex(x => x.id === t.id); return idx >= 0 ? { ...t, sort_order: idx } : t }))
     for (let i = 0; i < newOrder.length; i++) {
       const { error } = await supabase.from('annual_goal_tasks').update({ sort_order: i }).eq('id', newOrder[i].id)
-      if (error) { setDndErr(`세부task 순서 저장 실패: ${error.message}`); setTimeout(() => setDndErr(''), 4000); return }
+      if (error) { setDndErr(`과제 순서 저장 실패: ${error.message}`); setTimeout(() => setDndErr(''), 4000); return }
     }
   }
 
@@ -530,14 +530,14 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
               className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-full font-medium transition-all text-[rgba(226,232,240,0.5)] hover:text-[rgba(226,232,240,0.8)]"
               style={{ background: 'rgba(255,255,255,0.04)' }}>
               <ChevronsUpDown size={12} />
-              {allOpen ? '세부task 모두 접기' : '세부task 모두 펼치기'}
+              {allOpen ? '과제 모두 접기' : '과제 모두 펼치기'}
             </button>
           )
         })()}
       </div>
 
       {viewMode === 'priority' ? (
-        <span className="w-full" style={{ fontSize: 10, color: S.t3 }}>합의우선순위 1순위·2순위 세부task만 표시 · 정렬 기준: 합의우선순위 → 경영진중요도 → 트랙 → HR중요도 → HR시급도</span>
+        <span className="w-full" style={{ fontSize: 10, color: S.t3 }}>합의우선순위 1순위·2순위 과제만 표시 · 정렬 기준: 합의우선순위 → 경영진중요도 → 트랙 → HR중요도 → HR시급도</span>
       ) : prioritySort && (
         <span className="w-full" style={{ fontSize: 10, color: S.t3 }}>정렬 기준: 합의우선순위 → 경영진중요도 → 트랙 → HR중요도 → HR시급도</span>
       )}
@@ -573,7 +573,7 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
     </div>
   ) : null
 
-  // ── 우선순위 뷰 전용 — 프로젝트(안건 매트릭스) 세부task 연동 팝오버 ──
+  // ── 우선순위 뷰 전용 — 프로젝트(안건 매트릭스) 과제 연동 팝오버 ──
   const linkPickerTask = tasks.find(t => t.id === linkTaskId)
   const linkPicker = linkPickerTask && linkPickerPos ? (
     <div onClick={e => e.stopPropagation()}
@@ -634,7 +634,7 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
     </div>
   ) : null
 
-  // ── 세부task 한 행 렌더 (목록/기능/우선순위 모드 공용) ──────────────
+  // ── 과제 한 행 렌더 (목록/기능/우선순위 모드 공용) ──────────────
   function renderTaskRow(task: AnnualGoalTask, itemColor: string, contextBadge?: string, showFunctionCol = true, extraCol?: React.ReactNode, extraCells?: { key: string; width: number; content: React.ReactNode }[]) {
     return (
       <div key={task.id}
@@ -742,12 +742,12 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
     )
   }
 
-  // ── 세부task 테이블 컬럼 헤더 (목록/기능/우선순위 모드 공용) ────────
+  // ── 과제 테이블 컬럼 헤더 (목록/기능/우선순위 모드 공용) ────────
   function renderColumnHeader(showFunctionCol = true, showLinkCol = false, extraHeaderCols?: { key: string; label: string; width: number; sortDir?: 'asc' | 'desc' | null; onSortClick?: () => void }[]) {
     const hd: React.CSSProperties = { fontSize: 10, fontWeight: 700, color: S.t3, letterSpacing: '.05em', textTransform: 'uppercase', padding: '6px 8px', borderLeft: S.bdL }
     return (
       <div className="flex" style={{ borderTop: '0.5px solid rgba(255,255,255,0.06)' }}>
-        <div style={{ flex: 1, minWidth: 200, ...hd, borderLeft: 'none', paddingLeft: 20 }}>세부task</div>
+        <div style={{ flex: 1, minWidth: 200, ...hd, borderLeft: 'none', paddingLeft: 20 }}>과제</div>
         {(extraHeaderCols ?? []).map(c => (
           <div key={c.key} style={{ width: c.width, ...hd }}>
             {c.onSortClick ? (
@@ -771,7 +771,7 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
     )
   }
 
-  // ── 안건 행 렌더 (카테고리 색은 배지 하나로만 표시 — 행 자체는 중립색으로 통일) ─
+  // ── 목표 행 렌더 (카테고리 색은 배지 하나로만 표시 — 행 자체는 중립색으로 통일) ─
   function renderItemCard(item: AnnualGoalItem) {
     const itemTasksAll = tasks.filter(t => t.item_id === item.id).sort((a, b) => a.sort_order - b.sort_order)
     const doneItemTasks = itemTasksAll.filter(t => t.status === 'done')
@@ -788,7 +788,7 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
         onDrop={e => { e.preventDefault(); const dragId = _dragItemId; _dragItemId = null; if (dragId && dragId !== item.id) reorderItem(dragId, item.id); setDraggingItemId(null); setDragOverItemId(null) }}
         onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverItemId(null) }}
       >
-        {/* ── 안건 헤더: 얇은 한 줄 행, 지표는 오른쪽으로 정렬 ── */}
+        {/* ── 목표 헤더: 얇은 한 줄 행, 지표는 오른쪽으로 정렬 ── */}
         <div className="group/irow2 flex items-center gap-2 cursor-pointer hover:bg-[rgba(255,255,255,0.05)] transition-colors"
           style={{ padding: 16, background: itemBg, borderLeft: `3px solid ${dragOverItemId === item.id ? NEUTRAL_ACCENT : 'transparent'}` }}
           onClick={() => toggleItem(item.id)}>
@@ -860,7 +860,7 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
 
         {isOpen && (
           <>
-            {/* 세부task 표만 고정폭 컬럼을 쓰므로, 좁은 화면에서는 이 부분만 로컬 가로스크롤 — 카드 전체를 밀어내지 않음 */}
+            {/* 과제 표만 고정폭 컬럼을 쓰므로, 좁은 화면에서는 이 부분만 로컬 가로스크롤 — 카드 전체를 밀어내지 않음 */}
             <div style={{ overflowX: 'auto' }}>
               <div style={{ minWidth: 760 }}>
                 {renderColumnHeader()}
@@ -880,7 +880,7 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
               <div className="flex items-center gap-2 px-5 py-2.5">
                 <input autoFocus value={newTTitle} onChange={e => setNewTTitle(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) addTask(item.id); if (e.key === 'Escape') { setAddingTask(null); setNewTTitle('') } }}
-                  placeholder="세부task 입력 후 Enter"
+                  placeholder="과제 입력 후 Enter"
                   className="flex-1 border border-[rgba(255,255,255,0.15)] rounded-lg px-3 py-1.5 text-sm focus:outline-none bg-transparent text-[#E2E8F0]" />
                 <button onClick={() => addTask(item.id)} className="text-xs bg-[rgba(27,58,107,0.3)] text-[#93C5FD] border border-[rgba(27,58,107,0.5)] px-3 py-1.5 rounded-lg">추가</button>
                 <button onClick={() => { setAddingTask(null); setNewTTitle('') }} className="text-xs text-[rgba(226,232,240,0.4)] px-2 py-1">취소</button>
@@ -888,7 +888,7 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
             ) : (
               <div onClick={() => toggleExpandTaskAdd(item.id)}
                 className="flex items-center gap-1 px-5 py-3 text-xs text-[rgba(226,232,240,0.35)] hover:text-[rgba(226,232,240,0.6)] hover:bg-[rgba(255,255,255,0.04)] cursor-pointer transition-colors">
-                ＋ 세부task 추가
+                ＋ 과제 추가
               </div>
             )}
           </>
@@ -911,7 +911,7 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
                 const sectionColor = categorySectionColor(cat)
                 return (
                   <div key={cat} style={{ marginTop: ci === 0 ? 0 : 14, background: 'rgba(255,255,255,0.06)', border: '0.5px solid rgba(255,255,255,0.09)', borderRadius: 20, padding: '14px 24px', overflow: 'hidden' }}>
-                    {/* ── 범주(대분류) 헤더 — 카드 좌우 끝까지 꽉 채운 파스텔 배너, 상단 모서리만 카드 radius(20px)에 맞춤. padding 19px 균일(/project 실측 기준, 약 62px) ── */}
+                    {/* ── 영역(대분류) 헤더 — 카드 좌우 끝까지 꽉 채운 파스텔 배너, 상단 모서리만 카드 radius(20px)에 맞춤. padding 19px 균일(/project 실측 기준, 약 62px) ── */}
                     <div className="flex items-center" style={{
                       margin: '-14px -24px 0 -24px',
                       padding: '19px',
@@ -933,13 +933,13 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
                           <span onDoubleClick={() => startEditCat(cat)} title="더블클릭하여 이름 수정"
                             style={{ fontSize: 13, fontWeight: 800, color: sectionColor.text, flexShrink: 0, whiteSpace: 'nowrap', cursor: 'text' }}>{displayCat(cat)}</span>
                         )}
-                        <span style={{ fontSize: 11, fontWeight: 600, color: sectionColor.text, opacity: 0.75, flexShrink: 0, whiteSpace: 'nowrap' }}>{catItems.length}개 안건</span>
+                        <span style={{ fontSize: 11, fontWeight: 600, color: sectionColor.text, opacity: 0.75, flexShrink: 0, whiteSpace: 'nowrap' }}>{catItems.length}개 목표</span>
                       </div>
                     </div>
 
-                    {/* ── 컬럼 라벨 서브행 — 안건 행과 동일한 컬럼 폭(ITEM_ROW_COLS)을 공유해 좌/우 정렬선이 항상 일치. 좌우 패딩도 본문 행(16px)과 동일하게 맞춰 rem 스케일링에 따른 오차를 없앰 ── */}
+                    {/* ── 컬럼 라벨 서브행 — 목표 행과 동일한 컬럼 폭(ITEM_ROW_COLS)을 공유해 좌/우 정렬선이 항상 일치. 좌우 패딩도 본문 행(16px)과 동일하게 맞춰 rem 스케일링에 따른 오차를 없앰 ── */}
                     <div className="flex items-center" style={{ padding: '8px 16px', borderBottom: '0.5px solid rgba(255,255,255,0.06)' }}>
-                      <span style={{ flex: 1, marginLeft: 39, fontSize: 11, color: '#7d838d', fontWeight: 600 }}>안건</span>
+                      <span style={{ flex: 1, marginLeft: 39, fontSize: 11, color: '#7d838d', fontWeight: 600 }}>목표</span>
                       <div className="flex items-center gap-3 flex-shrink-0">
                         <span style={{ width: ITEM_ROW_COLS.category, flexShrink: 0, fontSize: 11, color: '#7d838d', fontWeight: 600 }}>분류</span>
                         <span style={{ width: ITEM_ROW_COLS.deadline, flexShrink: 0, fontSize: 11, color: '#7d838d', fontWeight: 600 }}>기한</span>
@@ -960,7 +960,7 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
                 <div className="flex items-center gap-2 px-5 py-3 flex-wrap">
                   <input autoFocus value={newIName} onChange={e => setNewIName(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) addItem(); if (e.key === 'Escape') { setAddingItem(false); setNewIName('') } }}
-                    placeholder="안건명(중분류) 입력 후 Enter"
+                    placeholder="목표명 입력 후 Enter"
                     className="border border-[rgba(255,255,255,0.15)] rounded-lg px-3 py-1.5 text-sm focus:outline-none w-48 bg-transparent text-[#E2E8F0]" />
                   {isAll && (
                     <div className="flex gap-1 flex-wrap">
@@ -977,7 +977,7 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
               ) : (
                 <div onClick={openAddItem}
                   className="flex items-center gap-1 px-5 py-3 text-xs text-[rgba(226,232,240,0.3)] hover:text-[rgba(226,232,240,0.6)] hover:bg-[rgba(255,255,255,0.04)] cursor-pointer transition-colors">
-                  ＋ 안건(중분류) 추가
+                  ＋ 목표 추가
                 </div>
               )}
             </div>
@@ -1030,7 +1030,7 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
                     <>
                       {/* ── 서브라벨행 ── */}
                       <div className="flex items-center" style={{ margin: '0 -24px', padding: '8px 24px', borderBottom: '0.5px solid rgba(255,255,255,0.08)' }}>
-                        <span style={{ flex: 1, fontSize: 11, color: '#7d838d', fontWeight: 600 }}>세부task</span>
+                        <span style={{ flex: 1, fontSize: 11, color: '#7d838d', fontWeight: 600 }}>과제</span>
                         <span style={{ fontSize: 11, color: '#7d838d', fontWeight: 600 }}>진행률</span>
                       </div>
 
@@ -1062,7 +1062,7 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
     )
   }
 
-  // ── 우선순위 뷰 (합의우선순위 1순위·2순위 세부task만 범주/안건 태그와 함께 평탄한 목록으로, 프로젝트 연동) ──
+  // ── 우선순위 뷰 (합의우선순위 1순위·2순위 과제만 영역/목표 태그와 함께 평탄한 목록으로, 프로젝트 연동) ──
   if (viewMode === 'priority') {
     const itemsById = Object.fromEntries(items.map(i => [i.id, i]))
     const agendaItemsById = Object.fromEntries(agendaItems.map(ai => [ai.id, ai]))
@@ -1073,8 +1073,8 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
     const orderedTasks = [...visibleTasks].sort((a, b) => {
       if (prioritySortCol) {
         const ai = itemsById[a.item_id], bi = itemsById[b.item_id]
-        const av = prioritySortCol.col === '범주' ? (ai ? displayCat(ai.category) : '') : (ai?.title ?? '')
-        const bv = prioritySortCol.col === '범주' ? (bi ? displayCat(bi.category) : '') : (bi?.title ?? '')
+        const av = prioritySortCol.col === '영역' ? (ai ? displayCat(ai.category) : '') : (ai?.title ?? '')
+        const bv = prioritySortCol.col === '영역' ? (bi ? displayCat(bi.category) : '') : (bi?.title ?? '')
         const cmp = av.localeCompare(bv, 'ko')
         if (cmp !== 0) return prioritySortCol.dir === 'asc' ? cmp : -cmp
       }
@@ -1086,14 +1086,14 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
         <div className="flex-1 min-h-0 overflow-auto px-4 md:px-6" onClick={() => { setPickerTaskId(null); closeLinkPicker() }}>
           <div className="pb-4" style={{ width: '100%' }}>
             {orderedTasks.length === 0 ? (
-              <div className="text-center py-10 text-xs" style={{ color: S.t3 }}>합의우선순위가 1순위·2순위로 지정된 세부task가 없습니다.</div>
+              <div className="text-center py-10 text-xs" style={{ color: S.t3 }}>합의우선순위가 1순위·2순위로 지정된 과제가 없습니다.</div>
             ) : (
               <div style={{ background: 'rgba(255,255,255,0.06)', border: '0.5px solid rgba(255,255,255,0.09)', borderRadius: 20, overflow: 'hidden' }}>
                 <div style={{ overflowX: 'auto' }}>
                   <div style={{ minWidth: 1160 }}>
                     {renderColumnHeader(false, true, [
-                      { key: 'category', label: '범주', width: 110, sortDir: prioritySortCol?.col === '범주' ? prioritySortCol.dir : null, onSortClick: () => togglePrioritySortCol('범주') },
-                      { key: 'item', label: '안건', width: 150, sortDir: prioritySortCol?.col === '안건' ? prioritySortCol.dir : null, onSortClick: () => togglePrioritySortCol('안건') },
+                      { key: 'category', label: '영역', width: 110, sortDir: prioritySortCol?.col === '영역' ? prioritySortCol.dir : null, onSortClick: () => togglePrioritySortCol('영역') },
+                      { key: 'item', label: '목표', width: 150, sortDir: prioritySortCol?.col === '목표' ? prioritySortCol.dir : null, onSortClick: () => togglePrioritySortCol('목표') },
                     ])}
                     {orderedTasks.map(task => {
                       const parentItem = itemsById[task.item_id]
@@ -1237,7 +1237,7 @@ function AnnualRoadmapView({
 
   const orderedItems = [...items].sort((a, b) => a.category.localeCompare(b.category) || a.sort_order - b.sort_order)
 
-  // ── 범주(대분류) 카드 — 목록 뷰와 동일한 카드 언어: 헤더 배너(카테고리 파스텔) + 서브라벨행(안건 | 월별 헤더) + 로컬 테이블(타임라인 바는 renderItemRows 그대로 재사용) ──
+  // ── 영역(대분류) 카드 — 목록 뷰와 동일한 카드 언어: 헤더 배너(카테고리 파스텔) + 서브라벨행(목표 | 월별 헤더) + 로컬 테이블(타임라인 바는 renderItemRows 그대로 재사용) ──
   function renderCategoryCard(cat: string, catItems: AnnualGoalItem[], ci: number) {
     const sc = categorySectionColor(cat)
     return (
@@ -1252,10 +1252,10 @@ function AnnualRoadmapView({
         }}>
           <span style={{ fontSize: 13, color: sc.text, opacity: 0.6, lineHeight: 1, userSelect: 'none' }}>⠿</span>
           <span style={{ fontSize: 13, fontWeight: 800, color: sc.text, flexShrink: 0, whiteSpace: 'nowrap' }}>{displayCat(cat)}</span>
-          <span style={{ fontSize: 11, fontWeight: 600, color: sc.text, opacity: 0.75, flexShrink: 0, whiteSpace: 'nowrap' }}>{catItems.length}개 안건</span>
+          <span style={{ fontSize: 11, fontWeight: 600, color: sc.text, opacity: 0.75, flexShrink: 0, whiteSpace: 'nowrap' }}>{catItems.length}개 목표</span>
         </div>
 
-        {/* 서브라벨행(안건 | 월별 헤더) + 로컬 테이블 — 타임라인 바 렌더링(renderItemRows)은 그대로 재사용 */}
+        {/* 서브라벨행(목표 | 월별 헤더) + 로컬 테이블 — 타임라인 바 렌더링(renderItemRows)은 그대로 재사용 */}
         <div style={{ overflowX: 'auto', margin: '0 -24px' }}>
           <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: W_LEFT + cols.length * W_COL, tableLayout: 'fixed' }}>
             <colgroup>
@@ -1265,7 +1265,7 @@ function AnnualRoadmapView({
             </colgroup>
             <thead>
               <tr>
-                <th colSpan={2} style={{ textAlign: 'left', padding: '8px 24px', fontSize: 11, color: '#7d838d', fontWeight: 600, borderBottom: '0.5px solid rgba(255,255,255,0.08)' }}>안건</th>
+                <th colSpan={2} style={{ textAlign: 'left', padding: '8px 24px', fontSize: 11, color: '#7d838d', fontWeight: 600, borderBottom: '0.5px solid rgba(255,255,255,0.08)' }}>목표</th>
                 {cols.map((col, ci2) => {
                   const isCur = col.start <= todayStr && todayStr <= col.end
                   return (
@@ -1289,7 +1289,7 @@ function AnnualRoadmapView({
     )
   }
 
-  // ── 안건 + 세부task 행 (들여쓰기로 계층 구분, 카테고리색 없이 중립톤) ──
+  // ── 목표 + 과제 행 (들여쓰기로 계층 구분, 카테고리색 없이 중립톤) ──
   function renderItemRows(item: AnnualGoalItem) {
     const itemTasksAll = tasks.filter(t => t.item_id === item.id).sort((a,b) => a.sort_order - b.sort_order)
     const doneTasks = itemTasksAll.filter(t => t.status === 'done')
@@ -1301,14 +1301,14 @@ function AnnualRoadmapView({
     const itemEndCands = itemTasksAll.map(t => t.roadmap_end_date).filter(Boolean).sort()
     const itemEnd = item.roadmap_end_date ?? (itemEndCands.length ? itemEndCands[itemEndCands.length - 1] : null)
     const progress = taskProgress(itemTasksAll)
-    // 타임라인 바 색 — 목록 뷰 카테고리 헤더와 동일한 톤을 재사용 (범주별로 항상 같은 색)
+    // 타임라인 바 색 — 목록 뷰 카테고리 헤더와 동일한 톤을 재사용 (영역별로 항상 같은 색)
     const sectionColorForBar = categorySectionColor(item.category)
     const catColor = sectionColorForBar.text
     // 트랙/채움 모두 opacity 블렌딩 없이 완전 불투명 solid hex로 구성 — 다크 페이지 배경과 섞여 탁해지는 문제를 원천적으로 없앰
-    const barTrackUpper = categoryTrackUpper(item.category)  // 안건(상위) 트랙 — 진하고 쨍한 신규 톤
-    const barTrack = hexToRgba(sectionColorForBar.bg, 1)      // 세부task(하위) 트랙 — 기존 옅은 헤더 pastel 톤 그대로 유지
-    const barFill = catColor                                  // 안건(상위) 채움 — catColor(text 톤) 그대로 solid
-    const barFillSub = mixHex(catColor, '#FFFFFF', 0.55)      // 세부task(하위) 채움 — catColor를 흰색과 섞은 옅은 solid 톤 (opacity 아님)
+    const barTrackUpper = categoryTrackUpper(item.category)  // 목표(상위) 트랙 — 진하고 쨍한 신규 톤
+    const barTrack = hexToRgba(sectionColorForBar.bg, 1)      // 과제(하위) 트랙 — 기존 옅은 헤더 pastel 톤 그대로 유지
+    const barFill = catColor                                  // 목표(상위) 채움 — catColor(text 톤) 그대로 solid
+    const barFillSub = mixHex(catColor, '#FFFFFF', 0.55)      // 과제(하위) 채움 — catColor를 흰색과 섞은 옅은 solid 톤 (opacity 아님)
 
     return (
       <Fragment key={item.id}>
@@ -1393,7 +1393,7 @@ function AnnualRoadmapView({
                   <td key={col.start} style={{ borderLeft: S.bd, padding: '8px 1px', verticalAlign: 'middle', background: isCur ? 'rgba(255,255,255,0.05)' : undefined }}>
                     {inRange && (
                       <div style={{
-                        // 세부task(하위) 바 — 안건 바(barTrackUpper, 12px)보다 얇고(8px) 옅은 solid 톤(barTrack/barFillSub)을 써서, 두께+색 둘 다로 상/하위가 구분됨
+                        // 과제(하위) 바 — 목표 바(barTrackUpper, 12px)보다 얇고(8px) 옅은 solid 톤(barTrack/barFillSub)을 써서, 두께+색 둘 다로 상/하위가 구분됨
                         height: 8, borderRadius: isFirst && isLast ? 4 : isFirst ? '4px 0 0 4px' : isLast ? '0 4px 4px 0' : 0,
                         background: task.status === 'done' ? barFillSub : barTrack,
                       }} />
