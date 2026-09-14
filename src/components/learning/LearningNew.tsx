@@ -105,19 +105,19 @@ export default function LearningNew() {
   }
 
   return (
-    <div className="h-full flex flex-col overflow-hidden" style={{ background: '#0F1319' }}>
+    <div className="h-full flex flex-col overflow-hidden" style={{ background: 'var(--bg-page)' }}>
 
       {/* 헤더 */}
       <div className="flex-shrink-0 flex items-start pt-6 pb-3">
         <div>
-          <h1 className="text-[20px] font-bold" style={{ color: '#E2E8F0' }}>학습자료</h1>
-          <p className="text-[12px] mt-0.5" style={{ color: 'rgba(226,232,240,0.35)' }}>아티클, 도서, 강의 등 학습 자료를 관리하세요.</p>
+          <h1 className="text-[20px] font-bold" style={{ color: 'rgba(var(--text-rgb),1)' }}>학습자료</h1>
+          <p className="text-[12px] mt-0.5" style={{ color: 'rgba(var(--text-rgb),0.35)' }}>아티클, 도서, 강의 등 학습 자료를 관리하세요.</p>
         </div>
         <div className="ml-auto">
           <button
             onClick={() => setAdding(true)}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-medium transition-colors"
-            style={{ background: 'rgba(76,127,224,0.18)', border: '1px solid rgba(76,127,224,0.35)', color: '#9DBEF5' }}
+            style={{ background: 'rgba(76,127,224,0.18)', border: '1px solid rgba(76,127,224,0.35)', color: 'var(--accent-soft)' }}
           >
             + 새 자료
           </button>
@@ -127,16 +127,16 @@ export default function LearningNew() {
       {/* 사이트 단축키 */}
       {siteShortcuts.length > 0 && (
         <div className="flex-shrink-0 flex items-center gap-2 pb-3 flex-wrap">
-          <span className="text-[11px] flex-shrink-0" style={{ color: 'rgba(226,232,240,0.3)' }}>빠른 링크</span>
+          <span className="text-[11px] flex-shrink-0" style={{ color: 'rgba(var(--text-rgb),0.3)' }}>빠른 링크</span>
           {siteShortcuts.map(s => (
             <a
               key={s.id}
               href={s.url}
               target="_blank" rel="noopener noreferrer"
               className="text-[12px] px-3 py-1 rounded-lg transition-colors"
-              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.09)', color: 'rgba(226,232,240,0.6)' }}
-              onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = '#E2E8F0')}
-              onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = 'rgba(226,232,240,0.6)')}
+              style={{ background: 'rgba(var(--ink-rgb),0.06)', border: '1px solid rgba(var(--ink-rgb),0.09)', color: 'rgba(var(--text-rgb),0.6)' }}
+              onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = 'rgba(var(--text-rgb),1)')}
+              onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = 'rgba(var(--text-rgb),0.6)')}
             >
               {s.title}
             </a>
@@ -148,7 +148,7 @@ export default function LearningNew() {
       {adding && (
         <div
           className="flex-shrink-0 rounded-2xl px-5 py-4 mb-3 flex flex-col gap-2"
-          style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
+          style={{ background: 'rgba(var(--ink-rgb),0.06)', border: '1px solid rgba(var(--ink-rgb),0.1)' }}
         >
           <input
             autoFocus
@@ -156,22 +156,22 @@ export default function LearningNew() {
             onChange={e => setAddTitle(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleAdd(); if (e.key === 'Escape') { setAdding(false); setAddTitle('') } }}
             placeholder="자료 제목 입력 후 Enter"
-            className="w-full text-[13px] bg-transparent focus:outline-none placeholder:text-[rgba(226,232,240,0.3)]"
-            style={{ color: '#E2E8F0' }}
+            className="w-full text-[13px] bg-transparent focus:outline-none placeholder:text-[rgba(var(--text-rgb),0.3)]"
+            style={{ color: 'rgba(var(--text-rgb),1)' }}
           />
           <div className="flex gap-2">
             <input
               value={addSource}
               onChange={e => setAddSource(e.target.value)}
               placeholder="출처 URL"
-              className="flex-1 text-[12px] px-3 py-1.5 rounded-lg bg-transparent focus:outline-none placeholder:text-[rgba(226,232,240,0.2)]"
-              style={{ color: 'rgba(226,232,240,0.7)', border: '1px solid rgba(255,255,255,0.08)' }}
+              className="flex-1 text-[12px] px-3 py-1.5 rounded-lg bg-transparent focus:outline-none placeholder:text-[rgba(var(--text-rgb),0.2)]"
+              style={{ color: 'rgba(var(--text-rgb),0.7)', border: '1px solid rgba(var(--ink-rgb),0.08)' }}
             />
             <select
               value={addTag}
               onChange={e => setAddTag(e.target.value)}
-              className="text-[12px] px-3 py-1.5 rounded-lg focus:outline-none [color-scheme:dark] [&>option]:bg-[#26282E]"
-              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.09)', color: 'rgba(226,232,240,0.7)' }}
+              className="text-[12px] px-3 py-1.5 rounded-lg focus:outline-none [&>option]:bg-[var(--select-option-bg)]"
+              style={{ background: 'rgba(var(--ink-rgb),0.06)', border: '1px solid rgba(var(--ink-rgb),0.09)', color: 'rgba(var(--text-rgb),0.7)' }}
             >
               <option value="">범주 선택</option>
               {customTags.map(t => <option key={t} value={t}>{t}</option>)}
@@ -179,14 +179,14 @@ export default function LearningNew() {
             <button
               onClick={handleAdd}
               className="text-[12px] px-4 py-1.5 rounded-lg transition-colors"
-              style={{ background: 'rgba(76,127,224,0.2)', border: '1px solid rgba(76,127,224,0.3)', color: '#9DBEF5' }}
+              style={{ background: 'rgba(76,127,224,0.2)', border: '1px solid rgba(76,127,224,0.3)', color: 'var(--accent-soft)' }}
             >
               추가
             </button>
             <button
               onClick={() => { setAdding(false); setAddTitle('') }}
               className="text-[12px] px-3 py-1.5 rounded-lg transition-colors"
-              style={{ color: 'rgba(226,232,240,0.4)' }}
+              style={{ color: 'rgba(var(--text-rgb),0.4)' }}
             >
               취소
             </button>
@@ -208,16 +208,16 @@ export default function LearningNew() {
         {loading ? (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pb-6">
             {[1, 2, 3, 4].map(i => (
-              <div key={i} className="h-56 rounded-2xl animate-pulse" style={{ background: 'rgba(255,255,255,0.04)' }} />
+              <div key={i} className="h-56 rounded-2xl animate-pulse" style={{ background: 'rgba(var(--ink-rgb),0.04)' }} />
             ))}
           </div>
         ) : groups.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-48 gap-3">
-            <p className="text-[13px]" style={{ color: 'rgba(226,232,240,0.3)' }}>조건에 맞는 자료가 없습니다</p>
+            <p className="text-[13px]" style={{ color: 'rgba(var(--text-rgb),0.3)' }}>조건에 맞는 자료가 없습니다</p>
             <button
               onClick={() => { setSearch(''); setStatusFilter('전체'); setMediaFilter('전체') }}
               className="text-[12px] px-4 py-1.5 rounded-full transition-colors"
-              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(226,232,240,0.5)' }}
+              style={{ background: 'rgba(var(--ink-rgb),0.06)', border: '1px solid rgba(var(--ink-rgb),0.1)', color: 'rgba(var(--text-rgb),0.5)' }}
             >
               필터 초기화
             </button>

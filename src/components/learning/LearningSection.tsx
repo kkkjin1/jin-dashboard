@@ -69,12 +69,12 @@ export default function LearningSection({ tag, allTags, resources, onNavigate, o
   return (
     <div
       className="rounded-2xl overflow-hidden flex flex-col"
-      style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)', height: 44 + ROW_H * VISIBLE_ROWS }}
+      style={{ background: 'rgba(var(--ink-rgb),0.025)', border: '1px solid rgba(var(--ink-rgb),0.07)', height: 44 + ROW_H * VISIBLE_ROWS }}
     >
       {/* 카드 헤더 — 범주명 클릭해서 바로 이름 변경 (미분류 제외) */}
       <div
         className="flex items-center gap-2 px-3.5 flex-shrink-0"
-        style={{ height: 44, borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+        style={{ height: 44, borderBottom: '1px solid rgba(var(--ink-rgb),0.06)' }}
       >
         <Icon size={14} className="flex-shrink-0" style={{ color: dot }} />
         {editing ? (
@@ -88,12 +88,12 @@ export default function LearningSection({ tag, allTags, resources, onNavigate, o
               if (e.key === 'Escape') setEditing(false)
             }}
             className="text-[13px] font-semibold flex-1 min-w-0 bg-transparent focus:outline-none"
-            style={{ color: '#E2E8F0' }}
+            style={{ color: 'rgba(var(--text-rgb),1)' }}
           />
         ) : (
           <span
             className="text-[13px] font-semibold flex-1 truncate"
-            style={{ color: '#E2E8F0', cursor: editable ? 'text' : 'default' }}
+            style={{ color: 'rgba(var(--text-rgb),1)', cursor: editable ? 'text' : 'default' }}
             onClick={startEdit}
             title={editable ? '클릭해서 이름 변경' : undefined}
           >
@@ -102,7 +102,7 @@ export default function LearningSection({ tag, allTags, resources, onNavigate, o
         )}
         <span
           className="text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0"
-          style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(226,232,240,0.4)', border: '1px solid rgba(255,255,255,0.08)' }}
+          style={{ background: 'rgba(var(--ink-rgb),0.06)', color: 'rgba(var(--text-rgb),0.4)', border: '1px solid rgba(var(--ink-rgb),0.08)' }}
         >
           {resources.length}
         </span>
@@ -111,7 +111,7 @@ export default function LearningSection({ tag, allTags, resources, onNavigate, o
       {/* 리소스 목록 — 6개 높이만큼만 보이고 나머지는 스크롤 (스크롤바는 투명) */}
       {resources.length === 0 ? (
         <div className="flex-1 flex items-center justify-center">
-          <p className="text-[11.5px]" style={{ color: 'rgba(226,232,240,0.25)' }}>자료 없음</p>
+          <p className="text-[11.5px]" style={{ color: 'rgba(var(--text-rgb),0.25)' }}>자료 없음</p>
         </div>
       ) : (
         <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">

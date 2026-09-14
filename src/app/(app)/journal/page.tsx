@@ -88,8 +88,8 @@ function downloadMd(content: string, from: string, to: string) {
 }
 
 const pill = 'text-xs px-3.5 py-1.5 rounded-full border font-medium transition-all whitespace-nowrap'
-const pOn  = 'bg-[#4C7FE0] text-white border-[#4C7FE0] shadow-sm'
-const pOff = 'bg-white/[0.06] backdrop-blur-xl border-white/[0.09] text-white/50 hover:bg-white/[0.1] hover:text-[#E2E8F0]'
+const pOn  = 'bg-[var(--accent-primary)] text-white border-[var(--accent-primary)] shadow-sm'
+const pOff = 'bg-[rgba(var(--ink-rgb),0.06)] backdrop-blur-xl border-[rgba(var(--ink-rgb),0.09)] text-[rgba(var(--ink-rgb),0.5)] hover:bg-[rgba(var(--ink-rgb),0.1)] hover:text-[rgba(var(--text-rgb),1)]'
 
 /* ── 행 컴포넌트 ── */
 function JournalRow({ journal, selected, onToggleSelect, onOpen, onDelete }: {
@@ -103,22 +103,22 @@ function JournalRow({ journal, selected, onToggleSelect, onOpen, onDelete }: {
   return (
     <div
       onClick={() => onOpen(journal)}
-      className={`group flex items-center gap-0 cursor-pointer select-none transition-colors ${selected ? 'bg-white/[0.06]' : 'hover:bg-white/[0.03]'}`}
-      style={{ padding: '9px 4px', borderBottom: '0.5px solid rgba(255,255,255,0.05)' }}>
+      className={`group flex items-center gap-0 cursor-pointer select-none transition-colors ${selected ? 'bg-[rgba(var(--ink-rgb),0.06)]' : 'hover:bg-[rgba(var(--ink-rgb),0.03)]'}`}
+      style={{ padding: '9px 4px', borderBottom: '0.5px solid rgba(var(--ink-rgb),0.05)' }}>
       <input type="checkbox" checked={selected}
         onChange={e => { e.stopPropagation(); onToggleSelect(journal.date) }}
         onClick={e => e.stopPropagation()}
         className="w-3 h-3 rounded accent-gray-400 flex-shrink-0 cursor-pointer mr-3" />
-      <div style={{ width: 2.5, height: 26, background: '#4C7FE0', flexShrink: 0, borderRadius: 2, marginRight: 8 }} />
-      <span style={{ fontSize: 12, fontWeight: 600, flexShrink: 0, width: 88, color: '#E2E8F0' }}>
+      <div style={{ width: 2.5, height: 26, background: 'var(--accent-primary)', flexShrink: 0, borderRadius: 2, marginRight: 8 }} />
+      <span style={{ fontSize: 12, fontWeight: 600, flexShrink: 0, width: 88, color: 'rgba(var(--text-rgb),1)' }}>
         {formatDateShort(journal.date)}
       </span>
-      <p style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#98A1B2', fontSize: 11 }}>
+      <p style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-secondary)', fontSize: 11 }}>
         {preview || '(내용 없음)'}
       </p>
       <button
         onClick={e => { e.stopPropagation(); onDelete(journal.date) }}
-        className="text-[9px] text-white/[0.28] hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0 ml-3">
+        className="text-[9px] text-[rgba(var(--ink-rgb),0.28)] hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0 ml-3">
         삭제
       </button>
     </div>
@@ -239,7 +239,7 @@ export default function JournalPage() {
   if (loading) return (
     <div className="p-6 flex flex-col gap-3">
       {[1, 2, 3, 4].map(i => (
-        <div key={i} className="h-10 animate-pulse rounded-xl" style={{ background: 'rgba(255,255,255,0.06)' }} />
+        <div key={i} className="h-10 animate-pulse rounded-xl" style={{ background: 'rgba(var(--ink-rgb),0.06)' }} />
       ))}
     </div>
   )
@@ -262,19 +262,19 @@ export default function JournalPage() {
 
       {/* 헤더 */}
       <div className="flex-shrink-0 pt-6 pb-4 flex items-center gap-3 flex-wrap">
-        <h1 className="text-xl font-bold text-[#E2E8F0] mr-auto">회고</h1>
+        <h1 className="text-xl font-bold text-[rgba(var(--text-rgb),1)] mr-auto">회고</h1>
         {selected.size > 0 && (
           <>
-            <span className="text-xs" style={{ color: 'rgba(226,232,240,0.5)' }}>{selected.size}개 선택</span>
+            <span className="text-xs" style={{ color: 'rgba(var(--text-rgb),0.5)' }}>{selected.size}개 선택</span>
             <button onClick={handleDownload} className={`${pill} ${pOn}`}>MD 다운로드</button>
           </>
         )}
-        <span className="text-xs text-white/50 border border-white/[0.09] px-3 py-1.5 rounded-full"
-          style={{ background: 'rgba(255,255,255,0.06)' }}>
+        <span className="text-xs text-[rgba(var(--ink-rgb),0.5)] border border-[rgba(var(--ink-rgb),0.09)] px-3 py-1.5 rounded-full"
+          style={{ background: 'rgba(var(--ink-rgb),0.06)' }}>
           총 {journals.length}건
         </span>
         <button onClick={openNewJournal}
-          className="text-sm bg-[#4C7FE0]/40 text-[#A8C4F0] border border-[#4C7FE0]/50 px-4 py-2 rounded-full hover:bg-[#4C7FE0]/60 transition-colors">
+          className="text-sm bg-[rgba(76,127,224,0.4)] text-[var(--accent-badge-text)] border border-[rgba(76,127,224,0.5)] px-4 py-2 rounded-full hover:bg-[rgba(76,127,224,0.6)] transition-colors">
           ✏️ 회고 작성하기
         </button>
       </div>
@@ -303,9 +303,9 @@ export default function JournalPage() {
       <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
         {displayed.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-40 gap-3">
-            <p className="text-sm" style={{ color: 'rgba(226,232,240,0.28)' }}>기간 내 회고가 없습니다</p>
+            <p className="text-sm" style={{ color: 'rgba(var(--text-rgb),0.28)' }}>기간 내 회고가 없습니다</p>
             <button onClick={openNewJournal}
-              className="text-xs border border-dashed border-white/[0.15] rounded-full px-4 py-2 text-white/40 hover:text-white/60 hover:border-white/25 transition-all">
+              className="text-xs border border-dashed border-[rgba(var(--ink-rgb),0.15)] rounded-full px-4 py-2 text-[rgba(var(--ink-rgb),0.4)] hover:text-[rgba(var(--ink-rgb),0.6)] hover:border-[rgba(var(--ink-rgb),0.25)] transition-all">
               ✏️ 오늘 회고 작성하기
             </button>
           </div>
@@ -318,21 +318,21 @@ export default function JournalPage() {
                 <div key={ym}>
                   <button onClick={() => toggleMonth(ym)}
                     className="flex items-center gap-2 w-full text-left group mb-2 py-1 pb-2"
-                    style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                    <span className="text-sm font-semibold text-white/70 group-hover:text-[#E2E8F0] transition-colors">
+                    style={{ borderBottom: '1px solid rgba(var(--ink-rgb),0.06)' }}>
+                    <span className="text-sm font-semibold text-[rgba(var(--ink-rgb),0.7)] group-hover:text-[rgba(var(--text-rgb),1)] transition-colors">
                       {formatMonthLabel(ym)}
                     </span>
-                    <span className="text-xs text-white/50 border border-white/[0.09] px-2 py-0.5 rounded-full"
-                      style={{ background: 'rgba(255,255,255,0.06)' }}>
+                    <span className="text-xs text-[rgba(var(--ink-rgb),0.5)] border border-[rgba(var(--ink-rgb),0.09)] px-2 py-0.5 rounded-full"
+                      style={{ background: 'rgba(var(--ink-rgb),0.06)' }}>
                       {items.length}건
                     </span>
                     {monthSelected > 0 && (
-                      <span className="text-[10px] text-[#A8C4F0] border border-[#4C7FE0]/40 px-2 py-0.5 rounded-full"
+                      <span className="text-[10px] text-[var(--accent-badge-text)] border border-[rgba(76,127,224,0.4)] px-2 py-0.5 rounded-full"
                         style={{ background: 'rgba(27,58,107,0.2)' }}>
                         {monthSelected}개 선택
                       </span>
                     )}
-                    <span className="text-xs text-white/[0.28] ml-auto group-hover:text-white/50 transition-colors">
+                    <span className="text-xs text-[rgba(var(--ink-rgb),0.28)] ml-auto group-hover:text-[rgba(var(--ink-rgb),0.5)] transition-colors">
                       {isCollapsed ? '▶' : '▼'}
                     </span>
                   </button>

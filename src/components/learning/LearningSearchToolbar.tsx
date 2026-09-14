@@ -77,7 +77,7 @@ export default function LearningSearchToolbar({
 
   const dropdownBase: React.CSSProperties = {
     position: 'absolute', top: 'calc(100% + 4px)', right: 0, zIndex: 100,
-    background: 'rgba(19,22,32,0.98)', border: '1px solid rgba(255,255,255,0.1)',
+    background: 'var(--dropdown-panel-bg)', border: '1px solid rgba(var(--ink-rgb),0.1)',
     borderRadius: 12, backdropFilter: 'blur(20px)', boxShadow: '0 16px 40px rgba(0,0,0,0.45)',
     minWidth: 110, padding: 4,
   }
@@ -85,21 +85,21 @@ export default function LearningSearchToolbar({
   return (
     <div
       className="flex-shrink-0 pb-3"
-      style={{ position: 'sticky', top: 0, zIndex: 40, background: '#0F1319' }}
+      style={{ position: 'sticky', top: 0, zIndex: 40, background: 'var(--bg-page)' }}
     >
       <div className="flex items-center gap-2">
         {/* 검색 */}
         <div
           className="flex items-center gap-2 flex-1 px-3 py-2 rounded-xl"
-          style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.09)' }}
+          style={{ background: 'rgba(var(--ink-rgb),0.06)', border: '1px solid rgba(var(--ink-rgb),0.09)' }}
         >
-          <Search size={13} style={{ color: 'rgba(226,232,240,0.35)', flexShrink: 0 }} />
+          <Search size={13} style={{ color: 'rgba(var(--text-rgb),0.35)', flexShrink: 0 }} />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="제목, 출처 검색..."
-            className="flex-1 bg-transparent text-[13px] focus:outline-none placeholder:text-[rgba(226,232,240,0.25)]"
-            style={{ color: '#E2E8F0' }}
+            className="flex-1 bg-transparent text-[13px] focus:outline-none placeholder:text-[rgba(var(--text-rgb),0.25)]"
+            style={{ color: 'rgba(var(--text-rgb),1)' }}
           />
         </div>
 
@@ -112,8 +112,8 @@ export default function LearningSearchToolbar({
               className="text-[12px] px-3 py-1.5 rounded-full transition-all flex-shrink-0"
               style={
                 statusFilter === s
-                  ? { background: '#4C7FE0', color: '#fff', fontWeight: 500 }
-                  : { background: 'rgba(255,255,255,0.05)', color: 'rgba(226,232,240,0.4)', border: '1px solid rgba(255,255,255,0.08)' }
+                  ? { background: 'var(--accent-primary)', color: '#fff', fontWeight: 500 }
+                  : { background: 'rgba(var(--ink-rgb),0.05)', color: 'rgba(var(--text-rgb),0.4)', border: '1px solid rgba(var(--ink-rgb),0.08)' }
               }
             >
               {s}
@@ -127,13 +127,13 @@ export default function LearningSearchToolbar({
             onClick={() => setMediaOpen(v => !v)}
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl transition-colors"
             style={{
-              background: mediaFilter !== '전체' ? 'rgba(76,127,224,0.12)' : 'rgba(255,255,255,0.06)',
-              border: mediaFilter !== '전체' ? '1px solid rgba(76,127,224,0.3)' : '1px solid rgba(255,255,255,0.09)',
+              background: mediaFilter !== '전체' ? 'rgba(76,127,224,0.12)' : 'rgba(var(--ink-rgb),0.06)',
+              border: mediaFilter !== '전체' ? '1px solid rgba(76,127,224,0.3)' : '1px solid rgba(var(--ink-rgb),0.09)',
             }}
           >
             <span className="text-[14px]">{MEDIA_EMOJI[mediaFilter]}</span>
-            <span className="text-[12px]" style={{ color: mediaFilter !== '전체' ? '#7EB3FF' : 'rgba(226,232,240,0.5)' }}>{mediaFilter}</span>
-            <ChevronDown size={11} style={{ color: 'rgba(226,232,240,0.35)' }} />
+            <span className="text-[12px]" style={{ color: mediaFilter !== '전체' ? 'var(--accent-text)' : 'rgba(var(--text-rgb),0.5)' }}>{mediaFilter}</span>
+            <ChevronDown size={11} style={{ color: 'rgba(var(--text-rgb),0.35)' }} />
           </button>
           {mediaOpen && (
             <div style={dropdownBase}>
@@ -142,8 +142,8 @@ export default function LearningSearchToolbar({
                   key={m}
                   onClick={() => { setMediaFilter(m); setMediaOpen(false) }}
                   className="w-full text-left text-[12px] px-3 py-1.5 rounded-lg transition-colors flex items-center gap-2"
-                  style={{ color: mediaFilter === m ? '#E2E8F0' : 'rgba(226,232,240,0.5)', background: mediaFilter === m ? 'rgba(255,255,255,0.08)' : 'transparent' }}
-                  onMouseEnter={e => { if (mediaFilter !== m) (e.currentTarget.style.background = 'rgba(255,255,255,0.05)') }}
+                  style={{ color: mediaFilter === m ? 'rgba(var(--text-rgb),1)' : 'rgba(var(--text-rgb),0.5)', background: mediaFilter === m ? 'rgba(var(--ink-rgb),0.08)' : 'transparent' }}
+                  onMouseEnter={e => { if (mediaFilter !== m) (e.currentTarget.style.background = 'rgba(var(--ink-rgb),0.05)') }}
                   onMouseLeave={e => { if (mediaFilter !== m) (e.currentTarget.style.background = 'transparent') }}
                 >
                   <span>{MEDIA_EMOJI[m]}</span>{m}
@@ -153,11 +153,11 @@ export default function LearningSearchToolbar({
           )}
         </div>
 
-        <span className="text-[11px] flex-shrink-0" style={{ color: 'rgba(226,232,240,0.35)' }}>총 {total}개</span>
+        <span className="text-[11px] flex-shrink-0" style={{ color: 'rgba(var(--text-rgb),0.35)' }}>총 {total}개</span>
       </div>
 
       {/* 범주 관리 pills — 드래그로 순서 변경(그리드 배치 순서), 더블클릭 이름변경, 호버 시 삭제 */}
-      <div className="flex items-center gap-1.5 flex-wrap pt-2.5" style={{ borderTop: '1px solid rgba(255,255,255,0.05)', marginTop: 4 }}>
+      <div className="flex items-center gap-1.5 flex-wrap pt-2.5" style={{ borderTop: '1px solid rgba(var(--ink-rgb),0.05)', marginTop: 4 }}>
         {customTags.map((tag, index) => (
           <div
             key={tag}
@@ -182,7 +182,7 @@ export default function LearningSearchToolbar({
                 onBlur={commitEditTag}
                 className="text-[11px] px-2.5 py-1 rounded-full focus:outline-none"
                 style={{
-                  background: 'rgba(76,127,224,0.12)', border: '1px solid rgba(76,127,224,0.4)', color: '#E2E8F0',
+                  background: 'rgba(76,127,224,0.12)', border: '1px solid rgba(76,127,224,0.4)', color: 'rgba(var(--text-rgb),1)',
                   width: `${Math.max(editValue.length * 12 + 24, 56)}px`,
                 }}
               />
@@ -190,7 +190,7 @@ export default function LearningSearchToolbar({
               <button
                 onDoubleClick={() => startEditTag(tag)}
                 className="text-[11px] px-2.5 py-1 rounded-full transition-all"
-                style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(226,232,240,0.5)', border: '1px solid rgba(255,255,255,0.08)' }}
+                style={{ background: 'rgba(var(--ink-rgb),0.05)', color: 'rgba(var(--text-rgb),0.5)', border: '1px solid rgba(var(--ink-rgb),0.08)' }}
               >
                 {tag}
               </button>
@@ -219,15 +219,15 @@ export default function LearningSearchToolbar({
             onBlur={commitAddTag}
             placeholder="범주명"
             className="text-[11px] px-2.5 py-1 rounded-full focus:outline-none flex-shrink-0"
-            style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.2)', color: '#E2E8F0', width: 68 }}
+            style={{ background: 'rgba(var(--ink-rgb),0.06)', border: '1px solid rgba(var(--ink-rgb),0.2)', color: 'rgba(var(--text-rgb),1)', width: 68 }}
           />
         ) : (
           <button
             onClick={() => setAddingTag(true)}
             className="flex items-center justify-center rounded-full flex-shrink-0 transition-colors"
-            style={{ width: 20, height: 20, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(226,232,240,0.35)' }}
-            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.09)')}
-            onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
+            style={{ width: 20, height: 20, background: 'rgba(var(--ink-rgb),0.05)', border: '1px solid rgba(var(--ink-rgb),0.08)', color: 'rgba(var(--text-rgb),0.35)' }}
+            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(var(--ink-rgb),0.09)')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'rgba(var(--ink-rgb),0.05)')}
           >
             <Plus size={10} />
           </button>

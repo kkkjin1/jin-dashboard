@@ -8,7 +8,7 @@ type Status = 'todo' | 'doing' | 'done'
 const MEDIA_EMOJI: Record<string, string> = { 책: '📚', 영상: '🎬', 아티클: '📰', 강의: '🎓', 기타: '📌' }
 const STATUS_LABEL: Record<Status, string> = { todo: '보기전', doing: '보는중', done: '완료' }
 const STATUS_STYLE: Record<Status, React.CSSProperties> = {
-  todo:  { background: 'rgba(255,255,255,0.06)', color: 'rgba(226,232,240,0.35)', border: '1px solid rgba(255,255,255,0.09)' },
+  todo:  { background: 'rgba(var(--ink-rgb),0.06)', color: 'rgba(var(--text-rgb),0.35)', border: '1px solid rgba(var(--ink-rgb),0.09)' },
   doing: { background: 'rgba(251,191,36,0.1)',   color: '#FBB924',                border: '1px solid rgba(251,191,36,0.25)' },
   done:  { background: 'rgba(34,197,94,0.1)',    color: '#4ADE80',                border: '1px solid rgba(34,197,94,0.2)' },
 }
@@ -33,9 +33,9 @@ export default function LearningRow({ resource, onNavigate, onCycleStatus }: Pro
   return (
     <div
       className="group flex items-center gap-2 cursor-pointer transition-colors"
-      style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', padding: '9px 12px', height: 42, boxSizing: 'border-box' }}
+      style={{ borderBottom: '1px solid rgba(var(--ink-rgb),0.05)', padding: '9px 12px', height: 42, boxSizing: 'border-box' }}
       onClick={onNavigate}
-      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.03)')}
+      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(var(--ink-rgb),0.03)')}
       onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
     >
       {/* 미디어 */}
@@ -44,14 +44,14 @@ export default function LearningRow({ resource, onNavigate, onCycleStatus }: Pro
       {/* 제목 */}
       <span
         className="text-[12.5px] font-medium truncate flex-1 min-w-0"
-        style={{ color: '#E2E8F0' }}
+        style={{ color: 'rgba(var(--text-rgb),1)' }}
       >
         {resource.title || '제목 없음'}
       </span>
 
       {/* 노트 수 */}
       {noteCount > 0 && (
-        <span className="flex items-center gap-0.5 flex-shrink-0" style={{ color: 'rgba(226,232,240,0.3)' }}>
+        <span className="flex items-center gap-0.5 flex-shrink-0" style={{ color: 'rgba(var(--text-rgb),0.3)' }}>
           <FileText size={10} />
           <span className="text-[10px]">{noteCount}</span>
         </span>

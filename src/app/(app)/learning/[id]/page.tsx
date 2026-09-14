@@ -10,11 +10,11 @@ import { generateLearningMd, downloadMd } from '@/lib/markdown'
 import SmartTextarea from '@/components/SmartTextarea'
 import FormattingToolbar from '@/components/FormattingToolbar'
 
-const T1 = 'rgba(226,232,240,0.9)'
-const T2 = 'rgba(226,232,240,0.5)'
-const T3 = 'rgba(226,232,240,0.28)'
-const CARD = 'bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.08)]'
-const INPUT_CLS = 'bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] rounded-lg px-3 py-1.5 focus:outline-none focus:border-[rgba(255,255,255,0.22)] transition-colors'
+const T1 = 'rgba(var(--text-rgb),0.9)'
+const T2 = 'rgba(var(--text-rgb),0.5)'
+const T3 = 'rgba(var(--text-rgb),0.28)'
+const CARD = 'bg-[rgba(var(--ink-rgb),0.05)] border border-[rgba(var(--ink-rgb),0.08)]'
+const INPUT_CLS = 'bg-[rgba(var(--ink-rgb),0.06)] border border-[rgba(var(--ink-rgb),0.09)] rounded-lg px-3 py-1.5 focus:outline-none focus:border-[rgba(var(--ink-rgb),0.22)] transition-colors'
 
 export default function LearningDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -144,7 +144,7 @@ export default function LearningDetailPage() {
           )}
           <button onClick={handleDownloadMd}
             className="text-xs px-3 py-1.5 rounded-lg border"
-            style={{ color: T2, borderColor: 'rgba(255,255,255,0.09)', background: 'rgba(255,255,255,0.05)' }}>
+            style={{ color: T2, borderColor: 'rgba(var(--ink-rgb),0.09)', background: 'rgba(var(--ink-rgb),0.05)' }}>
             MD 다운로드
           </button>
         </div>
@@ -160,7 +160,7 @@ export default function LearningDetailPage() {
             if (e.key === 'Enter') { updateResource({ title: titleInput }); noteAreaRef.current?.focus() }
             if (e.key === 'Escape') setTitleInput(resource.title)
           }}
-          onFocus={e => { e.currentTarget.style.borderBottomColor = 'rgba(255,255,255,0.2)' }}
+          onFocus={e => { e.currentTarget.style.borderBottomColor = 'rgba(var(--ink-rgb),0.2)' }}
           onBlur={e => { e.currentTarget.style.borderBottomColor = 'transparent'; if (titleInput.trim()) updateResource({ title: titleInput }) }}
           placeholder="학습자료 제목"
           className="text-2xl font-bold w-full focus:outline-none border-b-2 pb-1 bg-transparent transition-colors"
@@ -186,7 +186,7 @@ export default function LearningDetailPage() {
             {sourceInput.startsWith('http') && (
               <a href={sourceInput} target="_blank" rel="noopener noreferrer"
                 className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-lg border"
-                style={{ borderColor: 'rgba(255,255,255,0.09)', background: 'rgba(255,255,255,0.05)', color: T2 }}>
+                style={{ borderColor: 'rgba(var(--ink-rgb),0.09)', background: 'rgba(var(--ink-rgb),0.05)', color: T2 }}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
                   <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
@@ -205,8 +205,8 @@ export default function LearningDetailPage() {
                 onClick={() => updateResource({ media_type: resource.media_type === type ? null : type })}
                 className="text-xs px-3 py-1 rounded-full border transition-all"
                 style={resource.media_type === type
-                  ? { background: '#4C7FE0', color: 'rgba(220,230,252,0.9)', borderColor: 'rgba(76,127,224,0.5)' }
-                  : { background: 'rgba(255,255,255,0.05)', color: T2, borderColor: 'rgba(255,255,255,0.09)' }}>
+                  ? { background: 'var(--accent-primary)', color: 'rgba(220,230,252,0.9)', borderColor: 'rgba(76,127,224,0.5)' }
+                  : { background: 'rgba(var(--ink-rgb),0.05)', color: T2, borderColor: 'rgba(var(--ink-rgb),0.09)' }}>
                 {MEDIA_ICONS[type]} {type}
               </button>
             ))}
@@ -222,8 +222,8 @@ export default function LearningDetailPage() {
                 onClick={() => toggleTag(tag)}
                 className="text-xs px-3 py-1 rounded-full border transition-all"
                 style={(resource.tags ?? []).includes(tag)
-                  ? { background: '#4C7FE0', color: 'rgba(220,230,252,0.9)', borderColor: 'rgba(76,127,224,0.5)' }
-                  : { background: 'rgba(255,255,255,0.05)', color: T2, borderColor: 'rgba(255,255,255,0.09)' }}>
+                  ? { background: 'var(--accent-primary)', color: 'rgba(220,230,252,0.9)', borderColor: 'rgba(76,127,224,0.5)' }
+                  : { background: 'rgba(var(--ink-rgb),0.05)', color: T2, borderColor: 'rgba(var(--ink-rgb),0.09)' }}>
                 {tag}
               </button>
             ))}
@@ -248,10 +248,10 @@ export default function LearningDetailPage() {
                 noteAreaRef.current?.focus()
               }
             }}
-            onFocus={e => { e.currentTarget.style.borderBottomColor = 'rgba(255,255,255,0.2)' }}
+            onFocus={e => { e.currentTarget.style.borderBottomColor = 'rgba(var(--ink-rgb),0.2)' }}
             placeholder="핵심문구 1문장"
             className="w-full text-[13px] font-medium bg-transparent border-b focus:outline-none pb-2 mb-4 transition-colors"
-            style={{ color: 'rgba(226,232,240,0.75)', borderBottomColor: 'rgba(255,255,255,0.09)' }}
+            style={{ color: 'rgba(var(--text-rgb),0.75)', borderBottomColor: 'rgba(var(--ink-rgb),0.09)' }}
           />
           {/* 서식 도구 */}
           <FormattingToolbar textareaRef={noteAreaRef} value={noteContent} onChange={handleContentChange} />
@@ -274,7 +274,7 @@ export default function LearningDetailPage() {
       </div>
 
       {/* 삭제 */}
-      <div className="border-t pt-6" style={{ borderColor: 'rgba(255,255,255,0.07)' }}>
+      <div className="border-t pt-6" style={{ borderColor: 'rgba(var(--ink-rgb),0.07)' }}>
         <button
           onClick={deleteResource}
           disabled={deleting}
