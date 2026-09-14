@@ -57,8 +57,8 @@ function formatMonth(month: string): string {
 }
 
 const pill  = 'text-xs px-3.5 py-1.5 rounded-full border font-medium transition-all whitespace-nowrap'
-const pOn  = 'bg-[#4C7FE0] text-white border-[#4C7FE0] shadow-sm'
-const pOff = 'bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border-[rgba(255,255,255,0.09)] text-[rgba(226,232,240,0.5)] hover:text-[rgba(226,232,240,0.8)]'
+const pOn  = 'bg-[var(--accent-primary)] text-white border-[var(--accent-primary)] shadow-sm'
+const pOff = 'bg-[rgba(var(--ink-rgb),0.06)] backdrop-blur-xl border-[rgba(var(--ink-rgb),0.09)] text-[rgba(var(--text-rgb),0.5)] hover:text-[rgba(var(--text-rgb),0.8)]'
 
 // 팀원 행의 "오른쪽 메타 클러스터" 컬럼 구조 — 팀 · 진행 상태 · 다음 일정 · 메모 · 구분선 · 액션.
 // 정체성(아바타+이름) 영역은 이 grid 밖에서 flex-1로 남는 폭을 흡수하고, 이 grid는 항상
@@ -87,7 +87,7 @@ function daysLabel(d: number | null) {
 // ─── 팀원 목록 컬럼 헤더 (MemberRow와 동일한 구조/그리드 공유) ──────────────────
 function MemberListHeader() {
   const col = 'text-[9px] font-semibold uppercase tracking-wide text-center'
-  const colStyle = { color: 'rgba(226,232,240,0.28)' }
+  const colStyle = { color: 'rgba(var(--text-rgb),0.28)' }
   return (
     <div className="flex items-center justify-between gap-4 px-5 pb-1.5">
       <div className="flex items-center gap-3 min-w-[150px] max-w-[480px]" style={{ flex: '1 1 260px' }}>
@@ -116,28 +116,28 @@ function MemberRow({ member, sessions, role, teamLabel, onNewSession }: {
   const noteCount = last?.notes?.length ?? 0
 
   const roleStyle: React.CSSProperties | undefined =
-    role === '팀장' ? { background: 'rgba(76,127,224,0.15)', color: '#A8C4F0', border: '1px solid rgba(76,127,224,0.25)' }
-    : role === '파트장' ? { background: 'rgba(147,107,224,0.15)', color: '#C4A8F0', border: '1px solid rgba(147,107,224,0.25)' }
+    role === '팀장' ? { background: 'rgba(76,127,224,0.15)', color: 'var(--accent-badge-text)', border: '1px solid rgba(76,127,224,0.25)' }
+    : role === '파트장' ? { background: 'rgba(147,107,224,0.15)', color: 'var(--role-badge-purple-text)', border: '1px solid rgba(147,107,224,0.25)' }
     : undefined
 
-  const chipStyle: React.CSSProperties = { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }
+  const chipStyle: React.CSSProperties = { background: 'rgba(var(--ink-rgb),0.04)', border: '1px solid rgba(var(--ink-rgb),0.08)' }
 
   return (
-    <div className="flex items-center justify-between gap-4 px-5 py-3 hover:bg-[rgba(255,255,255,0.02)] transition-colors"
-      style={{ borderBottom: '1px solid rgba(255,255,255,0.045)' }}>
+    <div className="flex items-center justify-between gap-4 px-5 py-3 hover:bg-[rgba(var(--ink-rgb),0.02)] transition-colors"
+      style={{ borderBottom: '1px solid rgba(var(--ink-rgb),0.045)' }}>
 
       {/* 정체성: 아바타 + 이름 + 직책 + "마지막 O/O · N회" 한 줄 요약 — 남는 폭을 흡수하되 480px 상한 */}
       <div className="flex items-center gap-3 min-w-[150px] max-w-[480px]" style={{ flex: '1 1 260px' }}>
         <div className="w-[38px] h-[38px] rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0"
-          style={{ background: 'rgba(255,255,255,0.07)', color: 'rgba(226,232,240,0.6)', boxShadow: `0 0 0 2px ${daysRingColor(days)}` }}>
+          style={{ background: 'rgba(var(--ink-rgb),0.07)', color: 'rgba(var(--text-rgb),0.6)', boxShadow: `0 0 0 2px ${daysRingColor(days)}` }}>
           {member.name[0]}
         </div>
         <div className="min-w-0">
           <div className="flex items-center gap-1.5 min-w-0">
-            <span className="text-sm font-semibold truncate" style={{ color: '#E2E8F0' }}>{member.name}</span>
+            <span className="text-sm font-semibold truncate" style={{ color: 'rgba(var(--text-rgb),1)' }}>{member.name}</span>
             {roleStyle && <span className="text-[9px] px-1.5 py-0.5 rounded-full flex-shrink-0" style={roleStyle}>{role}</span>}
           </div>
-          <p className="text-[11px] truncate" style={{ color: 'rgba(226,232,240,0.35)' }}>
+          <p className="text-[11px] truncate" style={{ color: 'rgba(var(--text-rgb),0.35)' }}>
             {last?.session_date
               ? <>마지막 {format(parseISO(last.session_date), 'M/d (E)', { locale: ko })}<span className="mx-1 opacity-50">·</span>{ms.length}회</>
               : (ms.length > 0 ? `기록 ${ms.length}회 · 최근 날짜 없음` : '아직 진행한 1on1이 없음')}
@@ -148,7 +148,7 @@ function MemberRow({ member, sessions, role, teamLabel, onNewSession }: {
       {/* 오른쪽 메타 클러스터: 팀 · 진행 상태 · 다음 일정 · 메모 · 액션 — Header와 동일한 grid */}
       <div className="grid items-center gap-2.5 flex-shrink-0" style={{ gridTemplateColumns: MEMBER_META_COLS }}>
         <div className="flex justify-center">
-          <span className="text-[10px] px-2.5 py-1 rounded-full truncate max-w-full" style={{ ...chipStyle, color: 'rgba(226,232,240,0.45)' }}>
+          <span className="text-[10px] px-2.5 py-1 rounded-full truncate max-w-full" style={{ ...chipStyle, color: 'rgba(var(--text-rgb),0.45)' }}>
             {teamLabel}
           </span>
         </div>
@@ -161,25 +161,25 @@ function MemberRow({ member, sessions, role, teamLabel, onNewSession }: {
 
         <div className="flex justify-center">
           {last?.next_appointment_date ? (
-            <span className="text-[10px] px-2.5 py-1 rounded-full whitespace-nowrap" style={{ ...chipStyle, color: 'rgba(226,232,240,0.55)' }}>
+            <span className="text-[10px] px-2.5 py-1 rounded-full whitespace-nowrap" style={{ ...chipStyle, color: 'rgba(var(--text-rgb),0.55)' }}>
               {format(parseISO(last.next_appointment_date), 'M/d (E)', { locale: ko })}
             </span>
           ) : (
-            <span className="text-[10px]" style={{ color: 'rgba(226,232,240,0.2)' }}>—</span>
+            <span className="text-[10px]" style={{ color: 'rgba(var(--text-rgb),0.2)' }}>—</span>
           )}
         </div>
 
         <div className="flex justify-center">
           {noteCount > 0 ? (
-            <span className="text-[10px] px-2.5 py-1 rounded-full whitespace-nowrap" style={{ ...chipStyle, color: 'rgba(226,232,240,0.45)' }}>
+            <span className="text-[10px] px-2.5 py-1 rounded-full whitespace-nowrap" style={{ ...chipStyle, color: 'rgba(var(--text-rgb),0.45)' }}>
               {noteCount}건
             </span>
           ) : (
-            <span className="text-[10px]" style={{ color: 'rgba(226,232,240,0.2)' }}>—</span>
+            <span className="text-[10px]" style={{ color: 'rgba(var(--text-rgb),0.2)' }}>—</span>
           )}
         </div>
 
-        <div className="w-px h-5 justify-self-center" style={{ background: 'rgba(255,255,255,0.08)' }} />
+        <div className="w-px h-5 justify-self-center" style={{ background: 'rgba(var(--ink-rgb),0.08)' }} />
 
         {/* 액션 버튼 — 항상 노출(hover 조건 제거). "기록 보기"는 세션이 없으면 invisible로
             자리만 유지 — 그래야 앞의 팀/진행상태/다음일정/메모 컬럼이 행마다 밀리지 않는다. */}
@@ -187,7 +187,7 @@ function MemberRow({ member, sessions, role, teamLabel, onNewSession }: {
           {ms.length > 0 ? (
             <Link href={`/one-on-one/${member.id}`}
               className="text-[10px] px-2.5 py-1 rounded-lg transition-colors whitespace-nowrap"
-              style={{ border: '1px solid rgba(255,255,255,0.09)', color: 'rgba(226,232,240,0.5)' }}>
+              style={{ border: '1px solid rgba(var(--ink-rgb),0.09)', color: 'rgba(var(--text-rgb),0.5)' }}>
               기록 보기
             </Link>
           ) : (
@@ -195,7 +195,7 @@ function MemberRow({ member, sessions, role, teamLabel, onNewSession }: {
           )}
           <button onClick={() => onNewSession(member.id)}
             className="text-[10px] px-2.5 py-1 rounded-lg transition-colors whitespace-nowrap font-semibold"
-            style={{ background: 'rgba(76,127,224,0.15)', border: '1px solid rgba(76,127,224,0.3)', color: '#A8C4F0' }}>
+            style={{ background: 'rgba(76,127,224,0.15)', border: '1px solid rgba(76,127,224,0.3)', color: 'var(--accent-badge-text)' }}>
             1on1 진행
           </button>
         </div>
@@ -209,10 +209,10 @@ function PriorityRow({ member, right }: { member: Member; right: React.ReactNode
   return (
     <div className="flex items-center gap-2 py-[3px]">
       <div className="w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0"
-        style={{ background: 'rgba(255,255,255,0.07)', color: 'rgba(226,232,240,0.55)' }}>
+        style={{ background: 'rgba(var(--ink-rgb),0.07)', color: 'rgba(var(--text-rgb),0.55)' }}>
         {member.name[0]}
       </div>
-      <span className="flex-1 text-[11.5px] truncate" style={{ color: 'rgba(226,232,240,0.75)' }}>{member.name}</span>
+      <span className="flex-1 text-[11.5px] truncate" style={{ color: 'rgba(var(--text-rgb),0.75)' }}>{member.name}</span>
       {right}
     </div>
   )
@@ -262,7 +262,7 @@ function PriorityPanel({ members, sessions }: { members: Member[]; sessions: One
       empty: '예정된 일정이 없습니다',
       items: upcomingTop3.map(({ member, date }) => (
         <PriorityRow key={member.id} member={member}
-          right={<span className="text-[10px] flex-shrink-0" style={{ color: 'rgba(226,232,240,0.4)' }}>{format(parseISO(date), 'M/d (E)', { locale: ko })}</span>} />
+          right={<span className="text-[10px] flex-shrink-0" style={{ color: 'rgba(var(--text-rgb),0.4)' }}>{format(parseISO(date), 'M/d (E)', { locale: ko })}</span>} />
       )),
     },
     {
@@ -278,15 +278,15 @@ function PriorityPanel({ members, sessions }: { members: Member[]; sessions: One
 
   return (
     <div className="flex-[1_1_0%] min-w-[280px] rounded-3xl p-[18px] flex flex-col"
-      style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.09)' }}>
-      <p className="text-[12.5px] font-bold mb-0.5" style={{ color: '#E2E8F0' }}>우선순위</p>
-      <p className="text-[10.5px] mb-3.5" style={{ color: 'rgba(226,232,240,0.35)' }}>이번 주 챙길 팀원</p>
+      style={{ background: 'rgba(var(--ink-rgb),0.06)', border: '1px solid rgba(var(--ink-rgb),0.09)' }}>
+      <p className="text-[12.5px] font-bold mb-0.5" style={{ color: 'rgba(var(--text-rgb),1)' }}>우선순위</p>
+      <p className="text-[10.5px] mb-3.5" style={{ color: 'rgba(var(--text-rgb),0.35)' }}>이번 주 챙길 팀원</p>
       <div className="flex-1 flex flex-col justify-between">
         {sections.map((s, i) => (
-          <div key={s.title} className={i > 0 ? 'mt-4 pt-3.5' : ''} style={i > 0 ? { borderTop: '1px solid rgba(255,255,255,0.07)' } : undefined}>
-            <p className="text-[10.5px] font-semibold mb-2" style={{ color: 'rgba(226,232,240,0.5)' }}>{s.title}</p>
+          <div key={s.title} className={i > 0 ? 'mt-4 pt-3.5' : ''} style={i > 0 ? { borderTop: '1px solid rgba(var(--ink-rgb),0.07)' } : undefined}>
+            <p className="text-[10.5px] font-semibold mb-2" style={{ color: 'rgba(var(--text-rgb),0.5)' }}>{s.title}</p>
             <div className="space-y-1">
-              {s.items.length > 0 ? s.items : <p className="text-[10.5px]" style={{ color: 'rgba(226,232,240,0.25)' }}>{s.empty}</p>}
+              {s.items.length > 0 ? s.items : <p className="text-[10.5px]" style={{ color: 'rgba(var(--text-rgb),0.25)' }}>{s.empty}</p>}
             </div>
           </div>
         ))}
@@ -302,27 +302,27 @@ function AnalysisPanel({ feedbacks, onAssignType }: { feedbacks: MyFeedback[]; o
   const grouped = ANALYSIS_TYPES.map(type => ({ type, items: tagged.filter(f => f.feedback_type === type) })).filter(g => g.items.length > 0)
 
   if (feedbacks.length === 0) return (
-    <div className="bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] rounded-3xl px-5 py-6">
-      <p className="text-xs font-semibold text-[rgba(226,232,240,0.5)] mb-2">피드백 분석</p>
-      <p className="text-xs text-[rgba(226,232,240,0.35)]">피드백이 없습니다</p>
+    <div className="bg-[rgba(var(--ink-rgb),0.06)] border border-[rgba(var(--ink-rgb),0.09)] rounded-3xl px-5 py-6">
+      <p className="text-xs font-semibold text-[rgba(var(--text-rgb),0.5)] mb-2">피드백 분석</p>
+      <p className="text-xs text-[rgba(var(--text-rgb),0.35)]">피드백이 없습니다</p>
     </div>
   )
 
   return (
-    <div className="bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] rounded-3xl px-5 py-4">
-      <p className="text-xs font-semibold text-[rgba(226,232,240,0.5)] mb-4">피드백 분석</p>
+    <div className="bg-[rgba(var(--ink-rgb),0.06)] border border-[rgba(var(--ink-rgb),0.09)] rounded-3xl px-5 py-4">
+      <p className="text-xs font-semibold text-[rgba(var(--text-rgb),0.5)] mb-4">피드백 분석</p>
       <div className="space-y-4">
         {grouped.map(({ type, items }) => (
           <div key={type}>
             <div className="flex items-center gap-2 mb-2">
               <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${FEEDBACK_TYPE_STYLE[type]}`}>{type}</span>
-              <span className="text-xs text-[rgba(226,232,240,0.4)]">{items.length}건</span>
+              <span className="text-xs text-[rgba(var(--text-rgb),0.4)]">{items.length}건</span>
             </div>
             <ul className="space-y-1.5 pl-1">
               {items.map(item => (
-                <li key={item.id} className="group flex items-start gap-2 border-l-2 border-[rgba(255,255,255,0.09)] pl-2">
+                <li key={item.id} className="group flex items-start gap-2 border-l-2 border-[rgba(var(--ink-rgb),0.09)] pl-2">
                   <div className="flex-1 text-xs leading-relaxed"><MarkdownContent content={item.content} dark className="text-xs" /></div>
-                  <button onClick={() => onAssignType(item.id, null)} className="flex-shrink-0 text-xs text-[rgba(226,232,240,0.2)] hover:text-[rgba(226,232,240,0.4)] opacity-0 group-hover:opacity-100 transition-all">해제</button>
+                  <button onClick={() => onAssignType(item.id, null)} className="flex-shrink-0 text-xs text-[rgba(var(--text-rgb),0.2)] hover:text-[rgba(var(--text-rgb),0.4)] opacity-0 group-hover:opacity-100 transition-all">해제</button>
                 </li>
               ))}
             </ul>
@@ -330,10 +330,10 @@ function AnalysisPanel({ feedbacks, onAssignType }: { feedbacks: MyFeedback[]; o
         ))}
         {untagged.length > 0 && (
           <div>
-            <p className="text-xs text-[rgba(226,232,240,0.4)] mb-2">미분류 ({untagged.length}건):</p>
+            <p className="text-xs text-[rgba(var(--text-rgb),0.4)] mb-2">미분류 ({untagged.length}건):</p>
             <ul className="space-y-2 pl-1">
               {untagged.map(item => (
-                <li key={item.id} className="bg-[rgba(255,255,255,0.06)] rounded-2xl border border-[rgba(255,255,255,0.09)] p-2">
+                <li key={item.id} className="bg-[rgba(var(--ink-rgb),0.06)] rounded-2xl border border-[rgba(var(--ink-rgb),0.09)] p-2">
                   <div className="mb-1.5"><MarkdownContent content={item.content} dark className="text-xs" /></div>
                   <div className="flex gap-1">
                     {ANALYSIS_TYPES.map(t => (
@@ -364,13 +364,13 @@ function KeywordsPanel({ feedbacks }: { feedbacks: MyFeedback[] }) {
   }, [feedbacks])
 
   return (
-    <div className="bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] rounded-3xl px-5 py-4">
-      <p className="text-xs font-semibold text-[rgba(226,232,240,0.5)] mb-1">공통 키워드</p>
+    <div className="bg-[rgba(var(--ink-rgb),0.06)] border border-[rgba(var(--ink-rgb),0.09)] rounded-3xl px-5 py-4">
+      <p className="text-xs font-semibold text-[rgba(var(--text-rgb),0.5)] mb-1">공통 키워드</p>
       {keywords.length === 0
-        ? <p className="text-xs text-[rgba(226,232,240,0.3)] mt-2">피드백이 쌓이면 추출됩니다</p>
+        ? <p className="text-xs text-[rgba(var(--text-rgb),0.3)] mt-2">피드백이 쌓이면 추출됩니다</p>
         : <div className="flex flex-wrap gap-1.5 mt-3">
             {keywords.map(([word, count]) => (
-              <span key={word} className={`text-xs px-2 py-0.5 rounded-full border ${count >= 5 ? 'bg-[#90A7D8]/25 border-[#90A7D8]/40 text-[#1E3A6B] font-semibold' : 'bg-[rgba(255,255,255,0.06)] border-[rgba(255,255,255,0.09)] text-[rgba(226,232,240,0.5)]'}`}>
+              <span key={word} className={`text-xs px-2 py-0.5 rounded-full border ${count >= 5 ? 'bg-[#90A7D8]/25 border-[#90A7D8]/40 text-[#1E3A6B] font-semibold' : 'bg-[rgba(var(--ink-rgb),0.06)] border-[rgba(var(--ink-rgb),0.09)] text-[rgba(var(--text-rgb),0.5)]'}`}>
                 {word} <span className="opacity-40 text-[10px]">{count}</span>
               </span>
             ))}
@@ -395,24 +395,24 @@ function NextQuestionsPanel() {
   }
 
   return (
-    <div className="bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] rounded-3xl overflow-hidden">
-      <button onClick={() => setIsOpen(p => !p)} className="w-full flex items-center justify-between px-5 py-4 hover:bg-[rgba(255,255,255,0.04)] transition-colors">
-        <span className="text-xs font-semibold text-[rgba(226,232,240,0.7)]">다음 1on1 질문 준비</span>
+    <div className="bg-[rgba(var(--ink-rgb),0.06)] border border-[rgba(var(--ink-rgb),0.09)] rounded-3xl overflow-hidden">
+      <button onClick={() => setIsOpen(p => !p)} className="w-full flex items-center justify-between px-5 py-4 hover:bg-[rgba(var(--ink-rgb),0.04)] transition-colors">
+        <span className="text-xs font-semibold text-[rgba(var(--text-rgb),0.7)]">다음 1on1 질문 준비</span>
         <div className="flex items-center gap-2">
-          {questions.length > 0 && <span className="text-xs text-[rgba(226,232,240,0.4)] bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] px-2 py-0.5 rounded-full">{questions.length}개</span>}
-          <span className="text-[10px] text-[rgba(226,232,240,0.3)]">{isOpen ? '▼' : '▶'}</span>
+          {questions.length > 0 && <span className="text-xs text-[rgba(var(--text-rgb),0.4)] bg-[rgba(var(--ink-rgb),0.06)] border border-[rgba(var(--ink-rgb),0.09)] px-2 py-0.5 rounded-full">{questions.length}개</span>}
+          <span className="text-[10px] text-[rgba(var(--text-rgb),0.3)]">{isOpen ? '▼' : '▶'}</span>
         </div>
       </button>
       {isOpen && (
-        <div className="px-5 pb-4 border-t border-[rgba(255,255,255,0.09)]">
+        <div className="px-5 pb-4 border-t border-[rgba(var(--ink-rgb),0.09)]">
           {questions.length === 0
-            ? <p className="text-xs text-[rgba(226,232,240,0.3)] pt-3 pb-1">준비된 질문이 없습니다</p>
+            ? <p className="text-xs text-[rgba(var(--text-rgb),0.3)] pt-3 pb-1">준비된 질문이 없습니다</p>
             : <ul className="space-y-1.5 pt-3 pb-1">
                 {questions.map((q, i) => (
                   <li key={q.id} className="group flex items-start gap-1.5">
-                    <span className="text-xs text-[rgba(226,232,240,0.3)] flex-shrink-0 mt-0.5 w-4">{i + 1}.</span>
-                    <span className="flex-1 text-xs text-[rgba(226,232,240,0.8)] leading-relaxed">{q.text}</span>
-                    <button onClick={() => save(questions.filter(x => x.id !== q.id))} className="flex-shrink-0 text-xs text-[rgba(226,232,240,0.2)] hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all">삭제</button>
+                    <span className="text-xs text-[rgba(var(--text-rgb),0.3)] flex-shrink-0 mt-0.5 w-4">{i + 1}.</span>
+                    <span className="flex-1 text-xs text-[rgba(var(--text-rgb),0.8)] leading-relaxed">{q.text}</span>
+                    <button onClick={() => save(questions.filter(x => x.id !== q.id))} className="flex-shrink-0 text-xs text-[rgba(var(--text-rgb),0.2)] hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all">삭제</button>
                   </li>
                 ))}
               </ul>
@@ -420,7 +420,7 @@ function NextQuestionsPanel() {
           <div className="flex gap-2 mt-3">
             <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key !== 'Enter' || !input.trim()) return; save([...questions, { id: `${Date.now()}`, text: input.trim() }]); setInput('') }}
               placeholder="질문 입력 후 Enter"
-              className="flex-1 text-xs bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] rounded-full px-3 py-1.5 focus:outline-none placeholder-[rgba(226,232,240,0.3)]" />
+              className="flex-1 text-xs bg-[rgba(var(--ink-rgb),0.06)] border border-[rgba(var(--ink-rgb),0.09)] rounded-full px-3 py-1.5 focus:outline-none placeholder-[rgba(var(--text-rgb),0.3)]" />
           </div>
         </div>
       )}
@@ -505,18 +505,18 @@ function MyFeedbackView() {
     setFeedbacks(prev => prev.map(f => f.id === id ? { ...f, feedback_type: type } : f))
   }
 
-  if (loading) return <div className="p-8 text-sm text-[rgba(226,232,240,0.4)]">불러오는 중...</div>
+  if (loading) return <div className="p-8 text-sm text-[rgba(var(--text-rgb),0.4)]">불러오는 중...</div>
 
   return (
     <div className="flex gap-6 w-full min-h-0">
       <div className="flex-[65] min-w-0 flex flex-col gap-3">
         <div className="flex items-center gap-1.5">
           {PERIODS.map(p => <button key={p} onClick={() => setPeriod(p)} className={`${pill} ${period === p ? pOn : pOff}`}>{p}</button>)}
-          <span className="text-xs text-[rgba(226,232,240,0.4)] ml-auto">{filteredFeedbacks.length}건</span>
+          <span className="text-xs text-[rgba(var(--text-rgb),0.4)] ml-auto">{filteredFeedbacks.length}건</span>
         </div>
         {addingMonth !== currentMonth() && (
           <button onClick={() => openAddForm(currentMonth())}
-            className="text-xs bg-[rgba(255,255,255,0.06)] border border-dashed border-[rgba(255,255,255,0.09)] text-[rgba(226,232,240,0.5)] hover:text-[rgba(226,232,240,0.8)] rounded-2xl px-4 py-2.5 w-full transition-colors">
+            className="text-xs bg-[rgba(var(--ink-rgb),0.06)] border border-dashed border-[rgba(var(--ink-rgb),0.09)] text-[rgba(var(--text-rgb),0.5)] hover:text-[rgba(var(--text-rgb),0.8)] rounded-2xl px-4 py-2.5 w-full transition-colors">
             + 피드백 추가 ({formatMonth(currentMonth())})
           </button>
         )}
@@ -526,32 +526,32 @@ function MyFeedbackView() {
             const items = filteredFeedbacks.filter(f => f.month === month)
             const isAddingHere = addingMonth === month
             return (
-              <div key={month} className="bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] rounded-3xl overflow-hidden">
+              <div key={month} className="bg-[rgba(var(--ink-rgb),0.06)] border border-[rgba(var(--ink-rgb),0.09)] rounded-3xl overflow-hidden">
                 <div className="flex items-center justify-between px-5 py-3.5">
                   <button onClick={() => toggleMonth(month)} className="flex items-center gap-2 flex-1 text-left">
-                    <span className="text-sm font-semibold text-[rgba(226,232,240,0.8)]">{isOpen ? '▼' : '▶'} {formatMonth(month)}</span>
-                    <span className="text-xs text-[rgba(226,232,240,0.4)] bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] px-2 py-0.5 rounded-full">{items.length}건</span>
+                    <span className="text-sm font-semibold text-[rgba(var(--text-rgb),0.8)]">{isOpen ? '▼' : '▶'} {formatMonth(month)}</span>
+                    <span className="text-xs text-[rgba(var(--text-rgb),0.4)] bg-[rgba(var(--ink-rgb),0.06)] border border-[rgba(var(--ink-rgb),0.09)] px-2 py-0.5 rounded-full">{items.length}건</span>
                     {idx === 0 && <span className="text-[10px] text-[#2D5A45] bg-[#BADEC8]/30 border border-[#BADEC8]/40 px-2 py-0.5 rounded-full">최신</span>}
                   </button>
                   {!isAddingHere && <button onClick={() => openAddForm(month)} className={`text-xs ${pOff} !text-[10px] !px-2.5 !py-1`}>+ 추가</button>}
                 </div>
                 {isAddingHere && (
-                  <div className="px-5 pb-5 border-t border-[rgba(255,255,255,0.09)]">
+                  <div className="px-5 pb-5 border-t border-[rgba(var(--ink-rgb),0.09)]">
                     <div className="pt-4 space-y-3">
                       <div className="flex gap-2">
                         <div className="flex-1">
-                          <label className="text-xs text-[rgba(226,232,240,0.4)] mb-1 block">날짜</label>
-                          <input type="date" value={formDate} onChange={e => setFormDate(e.target.value)} className="text-sm bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] rounded-2xl px-3 py-1.5 focus:outline-none w-full" style={{ colorScheme: 'dark', color: 'rgba(226,232,240,0.8)' }} />
+                          <label className="text-xs text-[rgba(var(--text-rgb),0.4)] mb-1 block">날짜</label>
+                          <input type="date" value={formDate} onChange={e => setFormDate(e.target.value)} className="text-sm bg-[rgba(var(--ink-rgb),0.06)] border border-[rgba(var(--ink-rgb),0.09)] rounded-2xl px-3 py-1.5 focus:outline-none w-full" style={{ color: 'rgba(var(--text-rgb),0.8)' }} />
                         </div>
                         <div className="flex-1">
-                          <label className="text-xs text-[rgba(226,232,240,0.4)] mb-1 block">피드백 준 팀원</label>
-                          <select value={formMember} onChange={e => setFormMember(e.target.value)} className="text-sm bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] rounded-2xl px-3 py-1.5 focus:outline-none w-full text-[rgba(226,232,240,0.7)] [&>option]:bg-[#26282E]">
+                          <label className="text-xs text-[rgba(var(--text-rgb),0.4)] mb-1 block">피드백 준 팀원</label>
+                          <select value={formMember} onChange={e => setFormMember(e.target.value)} className="text-sm bg-[rgba(var(--ink-rgb),0.06)] border border-[rgba(var(--ink-rgb),0.09)] rounded-2xl px-3 py-1.5 focus:outline-none w-full text-[rgba(var(--text-rgb),0.7)] [&>option]:bg-[var(--select-option-bg)]">
                             <option value="">선택 안 함</option>
                             {members.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
                           </select>
                         </div>
                       </div>
-                      <div className="bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] rounded-2xl overflow-hidden px-3 py-2">
+                      <div className="bg-[rgba(var(--ink-rgb),0.06)] border border-[rgba(var(--ink-rgb),0.09)] rounded-2xl overflow-hidden px-3 py-2">
                         <TiptapEditor dark value={formContent} onChange={setFormContent} onSubmit={saveAdd} autoFocus minHeight={80} />
                       </div>
                       <div className="flex gap-2 justify-end">
@@ -562,26 +562,26 @@ function MyFeedbackView() {
                   </div>
                 )}
                 {isOpen && items.length > 0 && (
-                  <div className="px-5 pb-4 space-y-2 border-t border-[rgba(255,255,255,0.09)] pt-3">
+                  <div className="px-5 pb-4 space-y-2 border-t border-[rgba(var(--ink-rgb),0.09)] pt-3">
                     {items.sort((a, b) => (b.feedback_date ?? b.created_at).localeCompare(a.feedback_date ?? a.created_at)).map(item => (
-                      <div key={item.id} className="group flex items-start gap-2 bg-[rgba(255,255,255,0.06)] rounded-2xl px-3 py-2.5">
+                      <div key={item.id} className="group flex items-start gap-2 bg-[rgba(var(--ink-rgb),0.06)] rounded-2xl px-3 py-2.5">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5 mb-0.5">
                             {item.feedback_type && <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${FEEDBACK_TYPE_STYLE[item.feedback_type]}`}>{item.feedback_type}</span>}
-                            {item.from_member && <span className="text-xs font-medium text-[rgba(226,232,240,0.5)]">{item.from_member}</span>}
-                            {item.feedback_date && <span className="text-xs text-[rgba(226,232,240,0.4)]">{item.feedback_date.slice(5).replace('-', '/')}</span>}
+                            {item.from_member && <span className="text-xs font-medium text-[rgba(var(--text-rgb),0.5)]">{item.from_member}</span>}
+                            {item.feedback_date && <span className="text-xs text-[rgba(var(--text-rgb),0.4)]">{item.feedback_date.slice(5).replace('-', '/')}</span>}
                           </div>
                           <MarkdownContent content={item.content} dark className="text-sm leading-relaxed" />
                         </div>
                         <button onClick={async () => { await supabase.from('my_feedback').delete().eq('id', item.id); setFeedbacks(prev => prev.filter(f => f.id !== item.id)) }}
-                          className="flex-shrink-0 text-xs text-[rgba(226,232,240,0.3)] hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all px-1 py-0.5">삭제</button>
+                          className="flex-shrink-0 text-xs text-[rgba(var(--text-rgb),0.3)] hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all px-1 py-0.5">삭제</button>
                       </div>
                     ))}
                   </div>
                 )}
                 {isOpen && items.length === 0 && !isAddingHere && (
-                  <div className="px-5 pb-4 border-t border-[rgba(255,255,255,0.09)] pt-3">
-                    <p className="text-xs text-[rgba(226,232,240,0.4)]">이 달의 피드백이 없습니다</p>
+                  <div className="px-5 pb-4 border-t border-[rgba(var(--ink-rgb),0.09)] pt-3">
+                    <p className="text-xs text-[rgba(var(--text-rgb),0.4)]">이 달의 피드백이 없습니다</p>
                   </div>
                 )}
               </div>
@@ -686,25 +686,25 @@ export default function OneOnOnePage() {
       <div className="flex-shrink-0 pt-6 pb-0">
         {/* 타이틀 + 버튼 */}
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-xl font-bold" style={{ color: '#E2E8F0' }}>1on1</h1>
+          <h1 className="text-xl font-bold" style={{ color: 'rgba(var(--text-rgb),1)' }}>1on1</h1>
           {view === 'team' && (
             <Link href="/one-on-one/template" className={`${pill} ${pOff}`}>템플릿 관리</Link>
           )}
         </div>
 
         {/* 탭 바 */}
-        <div className="flex items-center gap-0" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+        <div className="flex items-center gap-0" style={{ borderBottom: '1px solid rgba(var(--ink-rgb),0.07)' }}>
           {(['team', 'my-feedback'] as const).map(v => {
             const label = v === 'team' ? '팀원 1on1' : '내 피드백'
             const active = view === v
             return (
               <button key={v} onClick={() => setView(v)}
                 className="relative px-4 py-2.5 text-sm font-semibold transition-colors"
-                style={{ color: active ? '#E2E8F0' : 'rgba(226,232,240,0.38)' }}>
+                style={{ color: active ? 'rgba(var(--text-rgb),1)' : 'rgba(var(--text-rgb),0.38)' }}>
                 {label}
                 {active && (
                   <span className="absolute bottom-0 left-0 right-0 h-[2px] rounded-t-full"
-                    style={{ background: '#4C7FE0' }} />
+                    style={{ background: 'var(--accent-primary)' }} />
                 )}
               </button>
             )
@@ -724,21 +724,21 @@ export default function OneOnOnePage() {
             {/* 통계 카드 3종 */}
             <div className="grid grid-cols-3 gap-3 mb-3">
               {[
-                { label: '전체 팀원', value: stats.total, unit: '명', accent: 'rgba(76,127,224,0.14)', border: 'rgba(76,127,224,0.22)', color: '#A8C4F0', icon: Users },
+                { label: '전체 팀원', value: stats.total, unit: '명', accent: 'rgba(76,127,224,0.14)', border: 'rgba(76,127,224,0.22)', color: 'var(--accent-badge-text)', icon: Users },
                 { label: '이번달 완료', value: stats.doneThisMonth, unit: `/ ${stats.total}명`, accent: 'rgba(186,222,200,0.1)', border: 'rgba(186,222,200,0.22)', color: '#BADEC8', icon: CheckCircle2 },
                 { label: '면담 필요', value: stats.needsMeeting, unit: '명', accent: 'rgba(235,166,152,0.1)', border: 'rgba(235,166,152,0.22)', color: '#EBA698', icon: AlertCircle },
               ].map(c => (
                 <div key={c.label} className="rounded-2xl px-4 py-2.5 flex items-center gap-2.5"
                   style={{ background: c.accent, border: `1px solid ${c.border}` }}>
                   <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
-                    style={{ background: 'rgba(255,255,255,0.08)' }}>
+                    style={{ background: 'rgba(var(--ink-rgb),0.08)' }}>
                     <c.icon size={14} style={{ color: c.color }} />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-[10px] mb-0.5 truncate" style={{ color: 'rgba(226,232,240,0.45)' }}>{c.label}</p>
+                    <p className="text-[10px] mb-0.5 truncate" style={{ color: 'rgba(var(--text-rgb),0.45)' }}>{c.label}</p>
                     <div className="flex items-baseline gap-1">
                       <span className="text-lg font-bold" style={{ color: c.color }}>{c.value}</span>
-                      <span className="text-[11px]" style={{ color: 'rgba(226,232,240,0.35)' }}>{c.unit}</span>
+                      <span className="text-[11px]" style={{ color: 'rgba(var(--text-rgb),0.35)' }}>{c.unit}</span>
                     </div>
                   </div>
                 </div>
@@ -747,16 +747,16 @@ export default function OneOnOnePage() {
 
             {/* 필터 + 검색 바 (팀 필터 · 퇴사자 · 검색을 한 줄로 통합) — 필터 묶음은 컨트롤로, 상태 배지는 데이터로 구분 */}
             <div className="flex items-center gap-2 flex-wrap mb-4">
-              <div className="flex items-center gap-1 flex-wrap rounded-full p-1" style={{ background: 'rgba(255,255,255,0.03)' }}>
+              <div className="flex items-center gap-1 flex-wrap rounded-full p-1" style={{ background: 'rgba(var(--ink-rgb),0.03)' }}>
                 {teamPill('__all', '전체', members.length)}
                 {grouped.map(g => teamPill(g.teamId, g.label, g.list.length))}
                 {archivedMembers.length > 0 && teamPill('__archived', '퇴사자', archivedMembers.length)}
               </div>
               <div className="relative ml-auto" style={{ width: 200 }}>
-                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'rgba(226,232,240,0.3)' }} />
+                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'rgba(var(--text-rgb),0.3)' }} />
                 <input value={memberQuery} onChange={e => setMemberQuery(e.target.value)} placeholder="팀원 검색"
-                  className="w-full text-xs bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] rounded-full pl-8 pr-3 py-1.5 focus:outline-none placeholder-[rgba(226,232,240,0.3)]"
-                  style={{ color: 'rgba(226,232,240,0.8)' }} />
+                  className="w-full text-xs bg-[rgba(var(--ink-rgb),0.06)] border border-[rgba(var(--ink-rgb),0.09)] rounded-full pl-8 pr-3 py-1.5 focus:outline-none placeholder-[rgba(var(--text-rgb),0.3)]"
+                  style={{ color: 'rgba(var(--text-rgb),0.8)' }} />
               </div>
             </div>
 
@@ -768,21 +768,21 @@ export default function OneOnOnePage() {
                 {selectedTeamId === '__archived' && (
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wide mb-3"
-                      style={{ color: 'rgba(226,232,240,0.35)' }}>퇴사자 아카이브</p>
-                    <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.04)' }}>
+                      style={{ color: 'rgba(var(--text-rgb),0.35)' }}>퇴사자 아카이브</p>
+                    <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid rgba(var(--ink-rgb),0.07)', background: 'rgba(var(--ink-rgb),0.04)' }}>
                       {archivedMembers.map((member, idx) => {
                         const ms = sessions.filter(s => s.member_id === member.id)
                         const last = ms[0]
                         return (
                           <div key={member.id} className="flex items-center gap-3 px-5 py-3"
-                            style={idx !== 0 ? { borderTop: '1px solid rgba(255,255,255,0.05)' } : {}}>
+                            style={idx !== 0 ? { borderTop: '1px solid rgba(var(--ink-rgb),0.05)' } : {}}>
                             <div className="w-8 h-8 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0"
-                              style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(226,232,240,0.25)' }}>
+                              style={{ background: 'rgba(var(--ink-rgb),0.05)', color: 'rgba(var(--text-rgb),0.25)' }}>
                               {member.name[0]}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium" style={{ color: 'rgba(226,232,240,0.4)' }}>{member.name}</p>
-                              <p className="text-[10px]" style={{ color: 'rgba(226,232,240,0.25)' }}>
+                              <p className="text-sm font-medium" style={{ color: 'rgba(var(--text-rgb),0.4)' }}>{member.name}</p>
+                              <p className="text-[10px]" style={{ color: 'rgba(var(--text-rgb),0.25)' }}>
                                 {last?.session_date ? `마지막 ${format(parseISO(last.session_date), 'M/d', { locale: ko })}` : '기록없음'}
                                 {ms.length > 0 && ` · ${ms.length}회`}
                               </p>
@@ -790,7 +790,7 @@ export default function OneOnOnePage() {
                             {ms.length > 0 && (
                               <Link href={`/one-on-one/${member.id}`}
                                 className="text-[10px] px-2.5 py-1 rounded-lg transition-colors"
-                                style={{ border: '1px solid rgba(255,255,255,0.09)', color: 'rgba(226,232,240,0.35)' }}>
+                                style={{ border: '1px solid rgba(var(--ink-rgb),0.09)', color: 'rgba(var(--text-rgb),0.35)' }}>
                                 기록 열람
                               </Link>
                             )}
@@ -804,7 +804,7 @@ export default function OneOnOnePage() {
                 {/* 팀원 목록 */}
                 {selectedTeamId !== '__archived' && (
                   visibleGroups.length === 0 ? (
-                    <p className="text-xs px-1 py-6 text-center" style={{ color: 'rgba(226,232,240,0.3)' }}>검색 결과가 없습니다</p>
+                    <p className="text-xs px-1 py-6 text-center" style={{ color: 'rgba(var(--text-rgb),0.3)' }}>검색 결과가 없습니다</p>
                   ) : (
                     <div className="space-y-5">
                       {visibleGroups.map(({ label, teamId, list }) => {
@@ -820,11 +820,11 @@ export default function OneOnOnePage() {
                             <div className="overflow-x-auto scrollbar-hide">
                               <div style={{ width: 'max-content', minWidth: '100%' }}>
                                 <div className="rounded-2xl overflow-hidden"
-                                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                                  style={{ background: 'rgba(var(--ink-rgb),0.04)', border: '1px solid rgba(var(--ink-rgb),0.07)' }}>
                                   <div className="flex items-center gap-3 px-5 pt-4 pb-2">
                                     <span className="text-xs font-semibold uppercase tracking-wide"
-                                      style={{ color: 'rgba(226,232,240,0.38)' }}>{sectionTitle}</span>
-                                    <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.06)' }} />
+                                      style={{ color: 'rgba(var(--text-rgb),0.38)' }}>{sectionTitle}</span>
+                                    <div className="flex-1 h-px" style={{ background: 'rgba(var(--ink-rgb),0.06)' }} />
                                   </div>
                                   <MemberListHeader />
                                   {list.map(member => (

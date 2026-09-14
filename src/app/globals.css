@@ -180,6 +180,12 @@ html, body {
 
   /* ── Phase 2D (Objective Review) ── */
   --input-placeholder: #5B6270;
+
+  /* ── Phase 2E (1on1) — 저알파 accent/role 배지의 텍스트. 배지 배경(hue)은
+     역할 구분 의미를 담고 있어 그대로 두고, 그 위 텍스트만 라이트에서
+     읽히도록 톤을 낮춘다(accent-text와 동일한 패턴). ── */
+  --accent-badge-text: #A8C4F0;
+  --role-badge-purple-text: #C4A8F0;
 }
 
 [data-theme="light"] {
@@ -231,6 +237,10 @@ html, body {
 
   /* ── Phase 2D (Objective Review) ── */
   --input-placeholder: #9CA3AF;
+
+  /* ── Phase 2E (1on1) ── */
+  --accent-badge-text: var(--accent-text);
+  --role-badge-purple-text: #6D4FC4;
 }
 
 /* 테마 전환 시 부드러운 색 전환 — 명시적으로 지정한 요소에만 적용.
