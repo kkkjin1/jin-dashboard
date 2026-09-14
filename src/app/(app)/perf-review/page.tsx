@@ -13,6 +13,7 @@ interface Meeting { id: string; title: string; meeting_date: string }
 interface CompletedTask { id: string; title: string; part: string | null; type: string | null }
 interface CompletedAgendaItem { id: string; title: string; group_name: string; group_color: string }
 interface CompletedSubTask { id: string; title: string; agenda_item_title: string; group_name: string; group_color: string }
+interface CompletedExecTask { id: string; title: string; agenda_title: string }
 interface DailyJournal { id: string; date: string; content: string }
 interface QuickMemo { id: string; title: string; tag: string[] | null; created_at: string }
 interface PeriodTodo { id: string; title: string; done: boolean; target_date: string; source: 'quick' | 'task' }
@@ -331,6 +332,7 @@ export default function CompletedTestPage() {
   const [completedTasks, setCompletedTasks] = useState<CompletedTask[]>([])
   const [completedAgenda, setCompletedAgenda] = useState<CompletedAgendaItem[]>([])
   const [completedSubTasks, setCompletedSubTasks] = useState<CompletedSubTask[]>([])
+  const [completedExecTasks, setCompletedExecTasks] = useState<CompletedExecTask[]>([])
   const [journals, setJournals] = useState<DailyJournal[]>([])
   const [viewJournal, setViewJournal] = useState<DailyJournal | null>(null)
   const [quickMemos, setQuickMemos] = useState<QuickMemo[]>([])
@@ -372,7 +374,7 @@ export default function CompletedTestPage() {
 
   useEffect(() => {
     setLoading(true)
-    setMeetings([]); setCompletedTasks([]); setCompletedAgenda([]); setCompletedSubTasks([]); setJournals([]); setQuickMemos([]); setPeriodTodos([]); setPeriodSchedule([])
+    setMeetings([]); setCompletedTasks([]); setCompletedAgenda([]); setCompletedSubTasks([]); setCompletedExecTasks([]); setJournals([]); setQuickMemos([]); setPeriodTodos([]); setPeriodSchedule([])
     Promise.all([
       supabase.from('meetings').select('id, title, meeting_date').gte('meeting_date', wsDate).lt('meeting_date', weDate).order('meeting_date'),
       supabase.from('tasks').select('id, title, part, type').eq('status', '완료').gte('updated_at', wsISO).lt('updated_at', weISO),
@@ -383,7 +385,9 @@ export default function CompletedTestPage() {
       supabase.from('quick_todos').select('id, title, done, target_date').gte('target_date', wsDate).lt('target_date', weDate).order('target_date'),
       supabase.from('task_todos').select('id, title, done, target_date').not('target_date', 'is', null).gte('target_date', wsDate).lt('target_date', weDate).order('target_date'),
       supabase.from('schedule_items').select('id, title, item_date, start_hour').gte('item_date', wsDate).lt('item_date', weDate).order('item_date').order('start_hour'),
-    ]).then(([mtgRes, taskRes, agendaRes, stRes, journalRes, memoRes, quickTodoRes, taskTodoRes, scheduleRes]) => {
+      // 테스트실무 실행 TASK — completed_at(완료 처리된 날짜)이 기간 내인 것
+      supabase.from('test_practice_tasks').select('id, title, annual_goal_tasks(title)').gte('completed_at', wsDate).lt('completed_at', weDate),
+    ]).then(([mtgRes, taskRes, agendaRes, stRes, journalRes, memoRes, quickTodoRes, taskTodoRes, scheduleRes, execRes]) => {
       setMeetings((mtgRes.data ?? []) as Meeting[])
       setCompletedTasks((taskRes.data ?? []) as CompletedTask[])
       setCompletedAgenda(
@@ -407,6 +411,13 @@ export default function CompletedTestPage() {
         ...(taskTodoRes.data ?? []).map((t: { id: string; title: string; done: boolean; target_date: string }) => ({ id: `t_${t.id}`, title: t.title, done: t.done, target_date: t.target_date, source: 'task' as const })),
       ].sort((a, b) => a.target_date.localeCompare(b.target_date)))
       setPeriodSchedule((scheduleRes.data ?? []) as PeriodScheduleItem[])
+      setCompletedExecTasks(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (execRes.data ?? []).map((e: any) => {
+          const at = Array.isArray(e.annual_goal_tasks) ? e.annual_goal_tasks[0] : e.annual_goal_tasks
+          return { id: e.id, title: e.title, agenda_title: at?.title ?? '' }
+        })
+      )
       setLoading(false)
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -472,7 +483,7 @@ export default function CompletedTestPage() {
   }
   function toggleSection(k: keyof typeof open) { setOpen(o => ({ ...o, [k]: !o[k] })) }
 
-  const allCompleted = [...completedAgenda, ...completedSubTasks, ...completedTasks]
+  const allCompleted = [...completedAgenda, ...completedSubTasks, ...completedTasks, ...completedExecTasks]
   const filledJournals = journals.filter(j => stripHtml(j.content ?? '').length > 2)
   const wBadge = mode === 'weekly' ? `W${isoWeekNum(weekStart)}` : `${parseInt(selectedMonth.split('-')[1])}월`
   const periodTitle = mode === 'weekly' ? fmtWeekTitle(weekStart) : fmtMonthTitle(selectedMonth)
@@ -572,6 +583,9 @@ export default function CompletedTestPage() {
                   ))}
                   {completedTasks.map(t => (
                     <CompletedItemRow key={`t_${t.id}`} typeLabel="업무" title={t.title ?? ''} tag={t.part ?? '업무'} tagBg="rgba(144,167,216,0.22)" tagColor="#90A7D8" />
+                  ))}
+                  {completedExecTasks.map(e => (
+                    <CompletedItemRow key={`e_${e.id}`} typeLabel="실행TASK" title={e.title ?? ''} tag={e.agenda_title || '실행TASK'} tagBg="rgba(76,127,224,0.18)" tagColor="#8FB1F0" />
                   ))}
                 </>
               }

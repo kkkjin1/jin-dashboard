@@ -9,7 +9,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Search, Plus, FileText, Clock, NotebookPen, Layers, CheckSquare, CalendarDays, StickyNote, Repeat2, X } from 'lucide-react'
 import ShortcutIcons from '@/components/ShortcutIcons'
-import type { TaskTodo, Meeting, QuickMemo, AgendaSubTask, ScheduleItem, QuickTodo } from '@/types'
+import type { TaskTodo, Meeting, QuickMemo, AgendaSubTask, ScheduleItem, QuickTodo, TestPracticeTask } from '@/types'
 import { fetchMeetingNotesByMeetingIds, type MeetingNotesGrouped, type MeetingNoteRow } from '@/lib/meetingNotes'
 import type { GoogleCalendarEvent } from '@/app/api/calendar/today/route'
 import { JournalFullscreenEditor, type DailyJournal } from '@/components/home/DailyJournalWidget'
@@ -37,6 +37,8 @@ type SubTaskWithContext = AgendaSubTask & {
   sub_task_notes?: { created_at: string; edited_at: string | null; content: string | null }[]
 }
 type TLExtra = { id: string; title: string; subtitle?: string }
+// 실행 TASK(테스트실무) — 시작일~완료일 범위에 오늘이 포함되는 것만 오늘 업무 카드에 노출
+type TodayExecTask = TestPracticeTask & { annual_goal_tasks: { title: string } | null }
 
 // ── Category Colors (고정 태그만; 팀명은 조직 설정에서 동적으로 옴) ──────────
 const CATEGORY_COLOR: Record<string, string> = {
@@ -853,6 +855,7 @@ export default function HomePage() {
   const router = useRouter()
   const [doneTasks,     setDoneTasks]     = useState<string[]>([])
   const [doneAgenda,    setDoneAgenda]    = useState<string[]>([])
+  const [doneExecTasks, setDoneExecTasks] = useState<string[]>([])
   const [doneQuick,     setDoneQuick]     = useState<string[]>([])
   const [quickTodos,    setQuickTodos]    = useState<QuickTodo[]>([])
   const [quickAddOpen,  setQuickAddOpen]  = useState(false)
@@ -881,6 +884,7 @@ export default function HomePage() {
 
   const [subTasks,      setSubTasks]      = useState<SubTaskWithContext[]>([])
   const [allTaskTodos,  setAllTaskTodos]  = useState<TodayTodo[]>([])
+  const [execTasksRaw, setExecTasksRaw] = useState<TodayExecTask[]>([])
   const [meetings,      setMeetings]      = useState<Meeting[]>([])
   const [notesByMeeting, setNotesByMeeting] = useState<Record<string, MeetingNotesGrouped>>({})
   const [memos,         setMemos]         = useState<QuickMemo[]>([])
@@ -910,10 +914,11 @@ export default function HomePage() {
     async function load() {
       const today     = todayStr()
       const yesterday = yesterdayStr()
+      const tomorrow  = shiftDateStr(today, 1)
       const [
         { data: stData }, { data: taskTodoData },
         { data: mData },  { data: mmData }, { data: jData },
-        { data: qtData },
+        { data: qtData }, { data: etData },
       ] = await Promise.all([
         sb.current.from('agenda_sub_tasks').select('*, agenda_items(id, title, agenda_groups(name, color, category)), sub_task_notes(created_at, edited_at, content)').eq('status', 'active').order('sort_order').limit(100),
         // schedule_tag는 배정 시점의 스냅샷이라 자정이 지나도 갱신되지 않음 — target_date를 기준으로 오늘/금주 분류
@@ -923,10 +928,14 @@ export default function HomePage() {
         sb.current.from('daily_journals').select('id, date, content, linked_task_ids, linked_meeting_ids, tags').in('date', [today, yesterday]),
         // 프로젝트/안건에 속하지 않는 즉석 추가 할일 — quick_todos 전용 테이블 (schedule 탭과 공유)
         sb.current.from('quick_todos').select('*').eq('target_date', today).eq('done', false).order('sort_order'),
+        // 테스트실무 실행 TASK — 시작일·완료일이 둘 다 지정되어 있고 오늘 또는 내일이 그 사이에 걸치는 것만 (미완료)
+        // 오늘/내일 여부는 클라이언트에서 today/tomorrowStr 기준으로 다시 나눠 판정한다 (execTasksRaw)
+        sb.current.from('test_practice_tasks').select('*, annual_goal_tasks(title)').lte('start_date', tomorrow).gte('due_date', today).neq('status', 'done'),
       ])
 
       setSubTasks((stData ?? []) as SubTaskWithContext[])
       setAllTaskTodos((taskTodoData ?? []) as TodayTodo[])
+      setExecTasksRaw((etData ?? []) as TodayExecTask[])
       const loadedMeetings = (mData ?? []) as Meeting[]
       setMeetings(loadedMeetings)
       setNotesByMeeting(await fetchMeetingNotesByMeetingIds(sb.current, loadedMeetings.map(m => m.id)))
@@ -1116,6 +1125,12 @@ export default function HomePage() {
     setTimeout(() => setSubTasks(p => p.filter(st => st.id !== id)), 600)
   }
 
+  async function completeExecTaskFromHome(id: string) {
+    setDoneExecTasks(p => [...p, id])
+    await sb.current.from('test_practice_tasks').update({ status: 'done', completed_at: today }).eq('id', id)
+    setTimeout(() => setExecTasksRaw(p => p.filter(t => t.id !== id)), 600)
+  }
+
   async function assignSubTaskDate(id: string, date: string) {
     setSubTasks(p => p.map(st => st.id === id ? { ...st, target_date: date } : st))
     await sb.current.from('agenda_sub_tasks').update({ target_date: date }).eq('id', id)
@@ -1248,6 +1263,9 @@ export default function HomePage() {
   // agenda_sub_tasks → date-based derived lists
   const todayAgendaItems       = subTasks.filter(st => st.target_date === today)
   const tomorrowAgendaItems    = subTasks.filter(st => st.target_date === tomorrowStr)
+  // 실행 TASK(테스트실무) — 시작일~완료일 범위에 오늘/내일이 포함되는 것만
+  const todayExecTasks    = execTasksRaw.filter(t => (t.start_date ?? '') <= today && (t.due_date ?? '') >= today)
+  const tomorrowExecTasks = execTasksRaw.filter(t => (t.start_date ?? '') <= tomorrowStr && (t.due_date ?? '') >= tomorrowStr)
   const weekAgendaItems        = subTasks.filter(st => st.target_date && st.target_date > tomorrowStr && st.target_date <= fridayStr)
   const unscheduledAgendaItems = subTasks.filter(st => !st.target_date)
   const futureAgendaItems      = subTasks.filter(st => st.target_date && st.target_date > fridayStr)
@@ -1677,7 +1695,7 @@ export default function HomePage() {
                 </div>
               )}
               {loading ? <div>{skel(4)}</div>
-                : todayTodos.length === 0 && quickTodos.length === 0 && todayAgendaItems.length === 0 && todayFixedMeetingsVisible.length === 0
+                : todayTodos.length === 0 && quickTodos.length === 0 && todayAgendaItems.length === 0 && todayExecTasks.length === 0 && todayFixedMeetingsVisible.length === 0
                     && tomorrowAgendaItems.length === 0 && tomorrowFixedMeetingsVisible.length === 0
                   ? <EmptyState
                       icon={<CheckSquare size={20} strokeWidth={1.5} />}
@@ -1696,7 +1714,7 @@ export default function HomePage() {
                             const linkedMeeting = meetings.find(m => m.title === s.title && m.meeting_date?.startsWith(today))
                             const prepNotes = notesByMeeting[linkedMeeting?.id ?? '']?.prep ?? []
                             const isLogged = !!linkedMeeting
-                            const total = todayFixedMeetingsVisible.length + todayTodos.length + quickTodos.length + todayAgendaItems.length
+                            const total = todayFixedMeetingsVisible.length + todayTodos.length + quickTodos.length + todayAgendaItems.length + todayExecTasks.length
                             return (
                               <div key={s.id} style={{ ...rd(i, total), paddingBottom: 2 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0 5px' }}>
@@ -1777,7 +1795,7 @@ export default function HomePage() {
                       {todayTodos.map((t, i) => {
                         const done = doneTasks.includes(t.id)
                         return (
-                          <ListRow key={t.id} style={{ ...rd(i, todayTodos.length + quickTodos.length + todayAgendaItems.length) }}>
+                          <ListRow key={t.id} style={{ ...rd(i, todayTodos.length + quickTodos.length + todayAgendaItems.length + todayExecTasks.length) }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0' }}>
                               <button
                                 onClick={() => toggleTask(t.id)}
@@ -1797,7 +1815,7 @@ export default function HomePage() {
                       {quickTodos.map((t, i) => {
                         const done = doneQuick.includes(t.id)
                         return (
-                          <ListRow key={t.id} style={{ ...rd(todayTodos.length + i, todayTodos.length + quickTodos.length + todayAgendaItems.length) }}>
+                          <ListRow key={t.id} style={{ ...rd(todayTodos.length + i, todayTodos.length + quickTodos.length + todayAgendaItems.length + todayExecTasks.length) }}>
                             <div className="group" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0' }}>
                               <button
                                 onClick={() => toggleQuickTodo(t.id)}
@@ -1822,7 +1840,7 @@ export default function HomePage() {
                       {todayAgendaItems.map((st, i) => {
                         const done = doneAgenda.includes(st.id)
                         const groupColor = st.agenda_items?.agenda_groups?.color ?? TEXT3
-                        const total = todayTodos.length + quickTodos.length + todayAgendaItems.length
+                        const total = todayTodos.length + quickTodos.length + todayAgendaItems.length + todayExecTasks.length
                         const globalIdx = todayTodos.length + quickTodos.length + i
                         return (
                           <ListRow key={st.id}
@@ -1845,8 +1863,29 @@ export default function HomePage() {
                           </ListRow>
                         )
                       })}
+                      {todayExecTasks.map((t, i) => {
+                        const done = doneExecTasks.includes(t.id)
+                        const total = todayTodos.length + quickTodos.length + todayAgendaItems.length + todayExecTasks.length
+                        const globalIdx = todayTodos.length + quickTodos.length + todayAgendaItems.length + i
+                        return (
+                          <ListRow key={t.id} style={{ ...rd(globalIdx, total) }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0' }}>
+                              <button
+                                onClick={() => completeExecTaskFromHome(t.id)}
+                                style={{ width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${done ? '#38BE98' : 'rgba(255,255,255,0.18)'}`, background: done ? '#38BE98' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer', transition: 'all 200ms ease-out' }}
+                              >
+                                {done && <svg width="6" height="6" viewBox="0 0 8 8" fill="none"><path d="M1.5 4L3 5.5L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+                              </button>
+                              <Link href={`/test-practice/tasks/${t.id}`} style={{ flex: 1, minWidth: 0, textDecoration: 'none' }}>
+                                <p style={{ fontSize: 14, fontWeight: done ? 400 : 500, color: done ? TEXT3 : TEXT1, textDecoration: done ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', transition: 'color 200ms' }}>{t.title}</p>
+                                {t.annual_goal_tasks && <p style={{ fontSize: 12, color: TEXT3, marginTop: 1 }}>{t.annual_goal_tasks.title}</p>}
+                              </Link>
+                            </div>
+                          </ListRow>
+                        )
+                      })}
                       {/* ── 내일 (고정회의 + 상세task, dimmed) ── */}
-                      {(tomorrowAgendaItems.length > 0 || tomorrowFixedMeetingsVisible.length > 0) && (
+                      {(tomorrowAgendaItems.length > 0 || tomorrowFixedMeetingsVisible.length > 0 || tomorrowExecTasks.length > 0) && (
                         <>
                           {(todayTodos.length > 0 || quickTodos.length > 0 || todayAgendaItems.length > 0) && (
                             <div style={{ borderTop: `1px solid ${DIVIDER}`, margin: '4px 0 6px' }} />
@@ -1976,6 +2015,19 @@ export default function HomePage() {
                               </ListRow>
                             )
                           })}
+                          {tomorrowExecTasks.length > 0 && (tomorrowFixedMeetingsVisible.length > 0 || tomorrowAgendaItems.length > 0) && (
+                            <div style={{ borderTop: `1px solid ${DIVIDER}`, margin: '2px 0 4px' }} />
+                          )}
+                          {tomorrowExecTasks.map((t, i) => (
+                            <ListRow key={t.id} style={{ ...rd(i, tomorrowExecTasks.length), opacity: 0.7 }}>
+                              <Link href={`/test-practice/tasks/${t.id}`} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0', textDecoration: 'none' }}>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <p style={{ fontSize: 14, color: TEXT2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</p>
+                                  {t.annual_goal_tasks && <p style={{ fontSize: 12, color: TEXT3, marginTop: 1 }}>{t.annual_goal_tasks.title}</p>}
+                                </div>
+                              </Link>
+                            </ListRow>
+                          ))}
                         </>
                       )}
                     </>
