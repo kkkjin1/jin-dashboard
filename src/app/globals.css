@@ -114,6 +114,41 @@ html, body {
   --sidebar-ring: oklch(0.708 0 0);
 }
 
+/* ═══════════════════════════════════════════════════════════
+   JIN semantic tokens — Phase 1 (tokenization only, no redesign)
+
+   실제 프로덕션 화면(AppShell/Sidebar/TopNav 등)이 쓰는 다크 팔레트를
+   역할 기반 토큰으로 옮긴 것. 값은 전부 기존 하드코딩 값을 그대로 복사
+   — 이 블록 자체는 시각 결과를 바꾸지 않는다.
+
+   .dark 클래스는 이 프로젝트에서 실제로 적용되지 않으므로(next-themes 등
+   미사용) 위 shadcn :root/.dark 토큰과 별개로, 이 값이 항상 유효한 기본값이다.
+   Light Theme 도입 시 [data-theme="light"] 블록을 추가해 override하는 방식으로
+   확장한다 — 지금은 dark 값만 정의하고 Light는 넣지 않는다.
+   ═══════════════════════════════════════════════════════════ */
+:root {
+  --bg-page: #0F1319;
+  --bg-sidebar: #161B24;
+
+  --surface-primary: #161B24;
+  --surface-secondary: #171B22;
+  --surface-hover: rgba(255, 255, 255, 0.04);
+  --surface-hover-strong: rgba(255, 255, 255, 0.05);
+  --surface-selected: rgba(76, 127, 224, 0.16);
+
+  --text-primary: #E7EAF0;
+  --text-secondary: #98A1B2;
+  --text-muted: #7B8397;
+  --text-hover: rgba(255, 255, 255, 0.7);
+  --text-hover-muted: rgba(255, 255, 255, 0.6);
+
+  --border-default: rgba(255, 255, 255, 0.06);
+  --border-strong: rgba(255, 255, 255, 0.07);
+
+  --accent-primary: #4C7FE0;
+  --accent-soft: #9DBEF5;
+}
+
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);

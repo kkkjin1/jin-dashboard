@@ -174,30 +174,30 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   return (
     <aside
       className={`h-screen flex flex-col overflow-hidden transition-[width] duration-200 ease-out flex-shrink-0 ${sidebarW}`}
-      style={{ background: '#161B24', borderRight: '1px solid rgba(255,255,255,0.06)' }}
+      style={{ background: 'var(--bg-sidebar)', borderRight: '1px solid var(--border-default)' }}
     >
       {/* ── 헤더 ── */}
       {collapsed ? (
-        <div className="flex flex-col items-center py-3 gap-2 border-b border-[rgba(255,255,255,0.06)] flex-shrink-0">
+        <div className="flex flex-col items-center py-3 gap-2 border-b border-[var(--border-default)] flex-shrink-0">
           <div className="w-7 h-7 rounded-full bg-[#1F2A44] flex items-center justify-center">
             <span className="text-[11px] font-bold text-white">진</span>
           </div>
           <button onClick={onToggle}
-            className="p-1 text-[#7B8397] hover:text-[rgba(255,255,255,0.7)] rounded-md transition-colors">
+            className="p-1 text-[var(--text-muted)] hover:text-[var(--text-hover)] rounded-md transition-colors">
             <ChevronRight size={14} />
           </button>
         </div>
       ) : (
-        <div className="py-3 px-4 border-b border-[rgba(255,255,255,0.06)] flex items-center gap-2.5 flex-shrink-0">
+        <div className="py-3 px-4 border-b border-[var(--border-default)] flex items-center gap-2.5 flex-shrink-0">
           <div className="w-7 h-7 rounded-full bg-[#1F2A44] flex items-center justify-center flex-shrink-0">
             <span className="text-[11px] font-bold text-white">진</span>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-[12.5px] font-semibold text-[#E7EAF0] truncate">김진일</p>
-            <p className="text-[10.5px] text-[#98A1B2] truncate">{teamName} 팀장</p>
+            <p className="text-[12.5px] font-semibold text-[var(--text-primary)] truncate">김진일</p>
+            <p className="text-[10.5px] text-[var(--text-secondary)] truncate">{teamName} 팀장</p>
           </div>
           <button onClick={onToggle}
-            className="flex-shrink-0 p-1 text-[#7B8397] hover:text-[rgba(255,255,255,0.7)] rounded-md transition-colors">
+            className="flex-shrink-0 p-1 text-[var(--text-muted)] hover:text-[var(--text-hover)] rounded-md transition-colors">
             <ChevronLeft size={14} />
           </button>
         </div>
@@ -209,15 +209,15 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
           <div key={section.label || `section-${si}`} className={si > 0 ? 'mt-3' : ''}>
             {/* 기타 섹션만 레이블 표시, 나머지는 구분선만 */}
             {!collapsed && section.label === '기타' && (
-              <p className="px-3 mb-1 text-[9.5px] font-semibold text-[#7B8397] uppercase tracking-widest">
+              <p className="px-3 mb-1 text-[9.5px] font-semibold text-[var(--text-muted)] uppercase tracking-widest">
                 기타
               </p>
             )}
             {!collapsed && section.label === '워크' && (
-              <div className="mx-3 mb-2 border-t border-[rgba(255,255,255,0.06)]" />
+              <div className="mx-3 mb-2 border-t border-[var(--border-default)]" />
             )}
             {collapsed && si > 0 && (
-              <div className="mx-3 mb-2 border-t border-[rgba(255,255,255,0.06)]" />
+              <div className="mx-3 mb-2 border-t border-[var(--border-default)]" />
             )}
 
             <ul className="space-y-0.5 px-2">
@@ -229,9 +229,9 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                       href={item.href}
                       className={`flex items-center rounded-xl text-[14px] transition-all duration-150 ease-out ${
                         collapsed ? 'justify-center py-2.5 px-2' : 'gap-3 px-3 py-2'
-                      } ${isActive ? 'text-[#9DBEF5] font-medium' : 'text-[#98A1B2]'}`}
-                      style={{ background: isActive ? 'rgba(76,127,224,0.16)' : 'transparent' }}
-                      onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)' }}
+                      } ${isActive ? 'text-[var(--accent-soft)] font-medium' : 'text-[var(--text-secondary)]'}`}
+                      style={{ background: isActive ? 'var(--surface-selected)' : 'transparent' }}
+                      onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = 'var(--surface-hover)' }}
                       onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
                     >
                       <item.icon size={17} strokeWidth={isActive ? 2 : 1.75} className="flex-shrink-0" />
@@ -257,23 +257,23 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
       </nav>
 
       {/* ── 하단 ── */}
-      <div className="flex-shrink-0 border-t border-[rgba(255,255,255,0.07)] p-2">
+      <div className="flex-shrink-0 border-t border-[var(--border-strong)] p-2">
         <div
-          className={`flex flex-wrap gap-1.5 pb-2 mb-2 border-b border-[rgba(255,255,255,0.07)] ${collapsed ? 'flex-col items-center' : 'items-center px-1'}`}
+          className={`flex flex-wrap gap-1.5 pb-2 mb-2 border-b border-[var(--border-strong)] ${collapsed ? 'flex-col items-center' : 'items-center px-1'}`}
           style={{ position: 'relative', zIndex: 2 }}
         >
           <ShortcutIcons size={collapsed ? 24 : 26} tooltipSide={collapsed ? 'right' : 'top'} />
         </div>
         {collapsed ? (
           <button onClick={handleLogout} title="로그아웃"
-            className="w-full flex justify-center p-2 rounded-lg text-[#7B8397] hover:bg-[rgba(255,255,255,0.05)] hover:text-[rgba(255,255,255,0.6)] transition-colors">
+            className="w-full flex justify-center p-2 rounded-lg text-[var(--text-muted)] hover:bg-[var(--surface-hover-strong)] hover:text-[var(--text-hover-muted)] transition-colors">
             <LogOut size={14} strokeWidth={1.75} />
           </button>
         ) : (
           <button onClick={handleLogout}
-            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-[rgba(255,255,255,0.05)] transition-colors text-left">
-            <LogOut size={14} strokeWidth={1.75} className="text-[#7B8397] flex-shrink-0" />
-            <span className="text-[12.5px] text-[#98A1B2]">로그아웃</span>
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-[var(--surface-hover-strong)] transition-colors text-left">
+            <LogOut size={14} strokeWidth={1.75} className="text-[var(--text-muted)] flex-shrink-0" />
+            <span className="text-[12.5px] text-[var(--text-secondary)]">로그아웃</span>
           </button>
         )}
       </div>

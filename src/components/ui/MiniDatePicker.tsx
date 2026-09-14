@@ -124,7 +124,7 @@ export function DateCellPicker({ label, value, color, onChange, valueSize = 9 }:
       </div>
 
       {/* 오늘 / 초기화 */}
-      <div className="mt-2.5 pt-2 border-t border-[rgba(255,255,255,0.06)] flex justify-between">
+      <div className="mt-2.5 pt-2 border-t border-[var(--border-default)] flex justify-between">
         <button onClick={e => { e.stopPropagation(); onChange(today); setOpen(false) }}
           className="text-[9px] text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.8)] transition-colors px-1">
           오늘

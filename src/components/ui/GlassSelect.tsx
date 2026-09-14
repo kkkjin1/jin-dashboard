@@ -88,7 +88,7 @@ export function GlassSelect({
       ? [
           'text-xs px-3.5 py-1.5 rounded-full border font-medium transition-all whitespace-nowrap cursor-pointer select-none',
           isActive
-            ? 'bg-[rgba(76,127,224,0.18)] border-[#4C7FE0] text-[rgba(226,232,240,0.9)]'
+            ? 'bg-[rgba(76,127,224,0.18)] border-[var(--accent-primary)] text-[rgba(226,232,240,0.9)]'
             : 'bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border-[rgba(255,255,255,0.09)] text-[rgba(226,232,240,0.5)] hover:text-[rgba(226,232,240,0.8)]',
         ].join(' ')
       : 'w-full text-[11px] cursor-pointer select-none px-1 flex items-center justify-center gap-1 transition-colors'

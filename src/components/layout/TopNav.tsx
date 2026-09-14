@@ -250,7 +250,7 @@ export default function TopNav() {
       {/* ── 모바일 상단 헤더 ── */}
       <header className="md:hidden flex items-center h-12 px-4 flex-shrink-0">
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 bg-[#4C7FE0] rounded-md flex items-center justify-center">
+          <div className="w-6 h-6 bg-[var(--accent-primary)] rounded-md flex items-center justify-center">
             <span className="text-[10px] font-bold text-white">인</span>
           </div>
           <span className="text-sm font-semibold" style={{ color: '#E2E8F0' }}>인사기획 워크</span>
@@ -259,14 +259,14 @@ export default function TopNav() {
 
       {/* ── 모바일 하단 네비 ── */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-[60]"
-        style={{ background: '#161B24', borderTop: '1px solid rgba(255,255,255,0.07)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+        style={{ background: 'var(--bg-sidebar)', borderTop: '1px solid var(--border-strong)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <div className="flex overflow-x-auto scrollbar-hide">
           {visibleItems.slice(0, 9).map(item => {
             const isActive = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)
             return (
               <Link key={item.href} href={item.href}
                 className="flex flex-col items-center gap-0.5 px-3 py-2.5 min-w-[3.5rem] flex-shrink-0 transition-colors"
-                style={{ color: isActive ? '#9DBEF5' : '#7B8397' }}>
+                style={{ color: isActive ? 'var(--accent-soft)' : 'var(--text-muted)' }}>
                 <item.icon size={18} strokeWidth={1.5} />
                 <span className="text-[9px] whitespace-nowrap">{item.label}</span>
               </Link>
@@ -274,7 +274,7 @@ export default function TopNav() {
           })}
           <button onClick={handleLogout}
             className="flex flex-col items-center gap-0.5 px-3 py-2.5 min-w-[3.5rem] flex-shrink-0 transition-colors"
-            style={{ color: '#7B8397' }}>
+            style={{ color: 'var(--text-muted)' }}>
             <LogOut size={18} strokeWidth={1.5} />
             <span className="text-[9px] whitespace-nowrap">로그아웃</span>
           </button>
