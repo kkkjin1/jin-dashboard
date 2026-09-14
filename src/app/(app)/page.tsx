@@ -43,31 +43,31 @@ const CATEGORY_COLOR: Record<string, string> = {
   '개인': '#83D5B6',
 }
 
-// ── Design Tokens ──────────────────────────────────────────────────────────
-const BG      = '#0F1319'   // neutral near-black, barely any hue
-const CARD    = '#161B24'   // neutral dark gray, minimal blue tint
-const CHOVER  = '#1C1E23'   // neutral hover
-const DIVIDER = 'rgba(255,255,255,0.06)'
-const TEXT1   = '#E7EAF0'
-const TEXT2   = '#98A1B2'
-const TEXT3   = '#7B8397'
-const ACCENT  = '#4C7FE0'
+// ── Design Tokens (globals.css semantic token 참조 — Light/Dark 자동 대응) ──
+const BG      = 'var(--bg-page)'
+const CARD    = 'var(--surface-primary)'
+const CHOVER  = 'var(--surface-hover-strong)'
+const DIVIDER = 'var(--border-default)'
+const TEXT1   = 'var(--text-primary)'
+const TEXT2   = 'var(--text-secondary)'
+const TEXT3   = 'var(--text-muted)'
+const ACCENT  = 'var(--accent-primary)'
 
 // Card base style
 const cardBase = (accent = false): React.CSSProperties => ({
   background: CARD,
-  border: `1px solid rgba(255,255,255,${accent ? '0.13' : '0.10'})`,
+  border: `1px solid rgba(var(--ink-rgb),${accent ? '0.13' : '0.10'})`,
   borderRadius: 16,
-  boxShadow: '0 2px 12px rgba(0,0,0,0.45), 0 1px 2px rgba(0,0,0,0.3)',
+  boxShadow: 'var(--shadow-card)',
   transition: 'background 150ms ease, border-color 150ms ease, box-shadow 150ms ease',
 })
 // hover is handled by CSS .dash-card:hover in globals.css (avoids stuck onMouseLeave)
 
 // Mobile keeps previous visual
-const SURFACE  = '#171B22'
+const SURFACE  = 'var(--surface-secondary)'
 const MSHADOW  =
-  'inset 0 1px 0 rgba(255,255,255,0.06), ' +
-  '0 0 0 1px rgba(255,255,255,0.06), ' +
+  'inset 0 1px 0 rgba(var(--ink-rgb),0.06), ' +
+  '0 0 0 1px rgba(var(--ink-rgb),0.06), ' +
   '0 18px 60px rgba(0,0,0,0.15)'
 const MCARD: React.CSSProperties = { background: SURFACE, boxShadow: MSHADOW, borderRadius: 24 }
 
@@ -131,7 +131,7 @@ function ListRow({ children, style, onClick, draggable, onDragStart, onMouseEnte
         borderRadius: 8,
         marginLeft: -10, marginRight: -10,
         paddingLeft: 10, paddingRight: 10,
-        background: h ? 'rgba(255,255,255,0.05)' : 'transparent',
+        background: h ? 'rgba(var(--ink-rgb),0.05)' : 'transparent',
         transition: 'background 120ms ease',
         cursor: draggable ? 'grab' : onClick ? 'pointer' : 'default',
         ...style,
@@ -218,14 +218,14 @@ function KpiChip({ dot, label, onClick }: { dot: string; label: string; onClick?
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 7,
         padding: '6px 13px', borderRadius: 999,
-        border: `1px solid ${h ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.10)'}`,
-        background: h ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.03)',
+        border: `1px solid ${h ? 'rgba(var(--ink-rgb),0.15)' : 'rgba(var(--ink-rgb),0.10)'}`,
+        background: h ? 'rgba(var(--ink-rgb),0.06)' : 'rgba(var(--ink-rgb),0.03)',
         transition: 'all 150ms ease', cursor: onClick ? 'pointer' : 'default', flexShrink: 0,
       }}
     >
       <div style={{ width: 7, height: 7, borderRadius: '50%', background: dot, flexShrink: 0, boxShadow: `0 0 6px ${dot}80` }} />
-      <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.72)', fontWeight: 500, whiteSpace: 'nowrap' }}>{label}</span>
-      {onClick && <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)', lineHeight: 1, marginLeft: -2 }}>+</span>}
+      <span style={{ fontSize: 12, color: 'rgba(var(--ink-rgb),0.72)', fontWeight: 500, whiteSpace: 'nowrap' }}>{label}</span>
+      {onClick && <span style={{ fontSize: 13, color: 'rgba(var(--ink-rgb),0.35)', lineHeight: 1, marginLeft: -2 }}>+</span>}
     </div>
   )
 }
@@ -534,13 +534,13 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <span style={{ display: 'flex', alignItems: 'center' }}><Clock size={14} strokeWidth={2} style={{ color: '#E05252' }} /></span>
           <span style={{ fontSize: 13, fontWeight: 600, color: TEXT1, letterSpacing: '-0.01em' }}>오늘의 타임라인</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 2, padding: '3px 6px', borderRadius: 6, background: 'rgba(91,126,196,0.12)', border: '1px solid rgba(91,126,196,0.26)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 2, padding: '3px 6px', borderRadius: 6, background: 'rgba(var(--accent-tint-rgb),0.12)', border: '1px solid rgba(var(--accent-tint-rgb),0.26)' }}>
             <button onClick={() => onNavigateDate(-1)}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8DAEE6', fontSize: 11, padding: '0 3px', lineHeight: 1 }}>‹</button>
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent-tint-text)', fontSize: 11, padding: '0 3px', lineHeight: 1 }}>‹</button>
             <span onClick={() => dateInputRef.current?.showPicker?.()}
               style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', padding: '0 3px' }}>
-              <CalendarDays size={10} strokeWidth={2} style={{ color: '#8DAEE6' }} />
-              <span style={{ fontSize: 11, color: '#8DAEE6', fontWeight: 600, letterSpacing: '-0.01em', whiteSpace: 'nowrap' }}>
+              <CalendarDays size={10} strokeWidth={2} style={{ color: 'var(--accent-tint-text)' }} />
+              <span style={{ fontSize: 11, color: 'var(--accent-tint-text)', fontWeight: 600, letterSpacing: '-0.01em', whiteSpace: 'nowrap' }}>
                 {isToday ? '오늘' : format(parseISO(selectedDate), 'M월 d일 (eee)', { locale: ko })}
               </span>
             </span>
@@ -548,11 +548,11 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
               onChange={e => { if (e.target.value) onPickDate(e.target.value) }}
               className="sr-only" />
             <button onClick={() => onNavigateDate(1)}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8DAEE6', fontSize: 11, padding: '0 3px', lineHeight: 1 }}>›</button>
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent-tint-text)', fontSize: 11, padding: '0 3px', lineHeight: 1 }}>›</button>
           </div>
           {!isToday && (
             <button onClick={onJumpToday}
-              style={{ fontSize: 10.5, color: TEXT3, background: 'none', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, padding: '3px 8px', cursor: 'pointer' }}>
+              style={{ fontSize: 10.5, color: TEXT3, background: 'none', border: '1px solid rgba(var(--ink-rgb),0.12)', borderRadius: 6, padding: '3px 8px', cursor: 'pointer' }}>
               오늘로
             </button>
           )}
@@ -560,9 +560,9 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
         <div ref={addRef} style={{ position: 'relative' }}>
           <button
             onClick={() => setAddOpen(p => !p)}
-            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', borderRadius: 8, border: '1px solid rgba(91,126,196,0.35)', background: 'rgba(91,126,196,0.10)', color: '#8DAEE6', fontSize: 11.5, fontWeight: 500, cursor: 'pointer', transition: 'all 150ms ease' }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(91,126,196,0.18)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(91,126,196,0.5)' }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(91,126,196,0.10)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(91,126,196,0.35)' }}
+            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', borderRadius: 8, border: '1px solid rgba(var(--accent-tint-rgb),0.35)', background: 'rgba(var(--accent-tint-rgb),0.10)', color: 'var(--accent-tint-text)', fontSize: 11.5, fontWeight: 500, cursor: 'pointer', transition: 'all 150ms ease' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(var(--accent-tint-rgb),0.18)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(var(--accent-tint-rgb),0.5)' }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(var(--accent-tint-rgb),0.10)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(var(--accent-tint-rgb),0.35)' }}
           >
             <Plus size={11} />
             업무 추가
@@ -572,7 +572,7 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
             <div style={{
               position: 'absolute', top: '100%', right: 0, marginTop: 8, zIndex: 30,
               width: 240, padding: 12, borderRadius: 12,
-              background: '#1C2129', border: '1px solid rgba(255,255,255,0.10)',
+              background: 'var(--surface-tooltip)', border: '1px solid rgba(var(--ink-rgb),0.10)',
               boxShadow: '0 12px 32px rgba(0,0,0,0.4)',
             }}>
               <input
@@ -584,7 +584,7 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
                   if (e.key === 'Escape') setAddOpen(false)
                 }}
                 placeholder="업무 제목 입력 후 Enter"
-                style={{ width: '100%', fontSize: 12.5, color: TEXT1, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 7, padding: '7px 9px', outline: 'none' }}
+                style={{ width: '100%', fontSize: 12.5, color: TEXT1, background: 'rgba(var(--ink-rgb),0.05)', border: '1px solid rgba(var(--ink-rgb),0.09)', borderRadius: 7, padding: '7px 9px', outline: 'none' }}
               />
               <p style={{ fontSize: 10, color: TEXT3, marginTop: 6 }}>현재 시각 근처에 추가되고, 이후 드래그로 옮길 수 있어요.</p>
             </div>
@@ -609,12 +609,12 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
 
         {/* Vertical grid lines */}
         {cw > 0 && hours.map((_, i) => (
-          <div key={i} style={{ position: 'absolute', left: i * hW, top: TL_TIME_H, bottom: 0, width: 1, background: 'rgba(255,255,255,0.05)', pointerEvents: 'none' }} />
+          <div key={i} style={{ position: 'absolute', left: i * hW, top: TL_TIME_H, bottom: 0, width: 1, background: 'rgba(var(--ink-rgb),0.05)', pointerEvents: 'none' }} />
         ))}
 
         {/* Lane track backgrounds */}
-        {cw > 0 && <div style={{ position: 'absolute', left: 0, right: 0, top: TL_LANE1_TOP, height: TL_LANE_H, borderRadius: 5, background: 'rgba(255,255,255,0.018)', pointerEvents: 'none' }} />}
-        {cw > 0 && <div style={{ position: 'absolute', left: 0, right: 0, top: TL_LANE2_TOP, height: TL_LANE_H, borderRadius: 5, background: 'rgba(255,255,255,0.018)', pointerEvents: 'none' }} />}
+        {cw > 0 && <div style={{ position: 'absolute', left: 0, right: 0, top: TL_LANE1_TOP, height: TL_LANE_H, borderRadius: 5, background: 'rgba(var(--ink-rgb),0.018)', pointerEvents: 'none' }} />}
+        {cw > 0 && <div style={{ position: 'absolute', left: 0, right: 0, top: TL_LANE2_TOP, height: TL_LANE_H, borderRadius: 5, background: 'rgba(var(--ink-rgb),0.018)', pointerEvents: 'none' }} />}
 
         {/* Past overlay */}
         {inRange && cw > 0 && (
@@ -623,7 +623,7 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
 
         {/* Current time — vertical line */}
         {inRange && cw > 0 && (
-          <div style={{ position: 'absolute', left: curX, top: TL_TIME_H, bottom: 0, width: 1.5, background: '#5B7EC4', pointerEvents: 'none', zIndex: 10 }} />
+          <div style={{ position: 'absolute', left: curX, top: TL_TIME_H, bottom: 0, width: 1.5, background: 'rgb(var(--accent-tint-rgb))', pointerEvents: 'none', zIndex: 10 }} />
         )}
 
         {/* Current time — pill badge */}
@@ -632,7 +632,7 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
             position: 'absolute',
             left: Math.max(0, curX - 22),
             top: 1,
-            background: '#5B7EC4',
+            background: 'rgb(var(--accent-tint-rgb))',
             color: '#fff',
             fontSize: 10,
             fontWeight: 700,
@@ -642,7 +642,7 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
             zIndex: 12,
             whiteSpace: 'nowrap',
             letterSpacing: '0.03em',
-            boxShadow: '0 0 8px rgba(91,126,196,0.38)',
+            boxShadow: '0 0 8px rgba(var(--accent-tint-rgb),0.38)',
           }}>
             {hourToStr(curH)}
           </div>
@@ -738,11 +738,11 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
             position: 'fixed', left: gTooltip.x, top: gTooltip.y - 8,
             transform: 'translate(-50%, -100%)',
             maxWidth: 260, padding: '8px 12px', borderRadius: 10,
-            background: '#1C2129', border: '1px solid rgba(66,133,244,0.35)',
+            background: 'var(--surface-tooltip)', border: '1px solid rgba(66,133,244,0.35)',
             boxShadow: '0 12px 32px rgba(0,0,0,0.45)',
             pointerEvents: 'none', zIndex: 9999,
           }}>
-            <div style={{ fontSize: 10, fontWeight: 600, color: '#8AB4F8', marginBottom: 3 }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--accent-tint-text)', marginBottom: 3 }}>
               📅 {gTooltip.ev.allDay ? '종일' : `${hourToStr(gTooltip.ev.start_hour)} – ${hourToStr(gTooltip.ev.start_hour + gTooltip.ev.duration_hours)}`}
             </div>
             <div style={{ fontSize: 12.5, fontWeight: 500, color: TEXT1, whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: 1.4 }}>
@@ -1267,7 +1267,7 @@ export default function HomePage() {
   const meetingsForJournal = meetings.map(m => ({ id: m.id, title: m.title, meeting_date: m.meeting_date ?? undefined }))
 
   const skel = (n: number) => Array.from({ length: n }, (_, i) => (
-    <div key={i} className="h-8 rounded-xl animate-pulse" style={{ background: 'rgba(255,255,255,0.04)', marginBottom: 6 }} />
+    <div key={i} className="h-8 rounded-xl animate-pulse" style={{ background: 'rgba(var(--ink-rgb),0.04)', marginBottom: 6 }} />
   ))
   const dots = ['#7A82D8', '#5E8FBF', '#38BE98', '#C87840']
 
@@ -1299,10 +1299,10 @@ export default function HomePage() {
                 onKeyDown={e => { if (e.key === 'Enter') addQuickTodo(); if (e.key === 'Escape') setQuickAddOpen(false) }}
                 placeholder="오늘 할 일을 바로 추가..."
                 className="flex-1 text-[13px] rounded-lg px-2.5 py-1.5 outline-none"
-                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)', color: TEXT1 }}
+                style={{ background: 'rgba(var(--ink-rgb),0.05)', border: '1px solid rgba(var(--ink-rgb),0.09)', color: TEXT1 }}
               />
               <button onClick={addQuickTodo} disabled={!quickAddTitle.trim()} className="text-[12px] px-3 rounded-lg"
-                style={{ background: quickAddTitle.trim() ? 'rgba(56,190,152,0.18)' : 'rgba(255,255,255,0.04)', border: `1px solid ${quickAddTitle.trim() ? 'rgba(56,190,152,0.35)' : 'rgba(255,255,255,0.07)'}`, color: quickAddTitle.trim() ? '#38BE98' : TEXT3 }}>
+                style={{ background: quickAddTitle.trim() ? 'rgba(56,190,152,0.18)' : 'rgba(var(--ink-rgb),0.04)', border: `1px solid ${quickAddTitle.trim() ? 'rgba(56,190,152,0.35)' : 'rgba(var(--ink-rgb),0.07)'}`, color: quickAddTitle.trim() ? '#38BE98' : TEXT3 }}>
                 추가
               </button>
             </div>
@@ -1316,7 +1316,7 @@ export default function HomePage() {
                     return (
                       <div key={t.id} className="flex items-center gap-3 py-2.5" style={rd(i, todayTodos.length + quickTodos.length)}>
                         <button onClick={() => toggleTask(t.id)} className="flex-shrink-0 rounded-full border-2 flex items-center justify-center"
-                          style={{ width: 18, height: 18, borderColor: done ? '#38BE98' : 'rgba(255,255,255,0.2)', background: done ? '#38BE98' : 'transparent' }}>
+                          style={{ width: 18, height: 18, borderColor: done ? '#38BE98' : 'rgba(var(--ink-rgb),0.2)', background: done ? '#38BE98' : 'transparent' }}>
                           {done && <svg width="7" height="7" viewBox="0 0 8 8" fill="none"><path d="M1.5 4L3 5.5L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
                         </button>
                         <div className="flex-1 min-w-0">
@@ -1332,7 +1332,7 @@ export default function HomePage() {
                     return (
                       <div key={t.id} className="flex items-center gap-3 py-2.5" style={rd(todayTodos.length + i, todayTodos.length + quickTodos.length)}>
                         <button onClick={() => toggleQuickTodo(t.id)} className="flex-shrink-0 rounded-full border-2 flex items-center justify-center"
-                          style={{ width: 18, height: 18, borderColor: done ? '#38BE98' : 'rgba(255,255,255,0.2)', background: done ? '#38BE98' : 'transparent' }}>
+                          style={{ width: 18, height: 18, borderColor: done ? '#38BE98' : 'rgba(var(--ink-rgb),0.2)', background: done ? '#38BE98' : 'transparent' }}>
                           {done && <svg width="7" height="7" viewBox="0 0 8 8" fill="none"><path d="M1.5 4L3 5.5L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
                         </button>
                         <div className="flex-1 min-w-0">
@@ -1400,7 +1400,7 @@ export default function HomePage() {
               : recentMeetings.map((m, i) => (
                   <Link key={m.id} href={`/meetings/${m.id}`}>
                     <div className="flex items-center gap-2.5 py-2.5" style={rd(i, recentMeetings.length)}>
-                      <div className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(255,255,255,0.07)' }}>
+                      <div className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(var(--ink-rgb),0.07)' }}>
                         <FileText size={11} strokeWidth={1.75} style={{ color: TEXT2 }} />
                       </div>
                       <div className="flex-1 min-w-0">
@@ -1443,7 +1443,7 @@ export default function HomePage() {
             </button>
           ) : (
             <button onClick={() => setShowJournal(true)} className="w-full py-5 flex flex-col items-center justify-center gap-2 rounded-xl"
-              style={{ border: '1px dashed rgba(255,255,255,0.1)' }}>
+              style={{ border: '1px dashed rgba(var(--ink-rgb),0.1)' }}>
               <NotebookPen size={18} strokeWidth={1.5} style={{ color: TEXT3 }} />
               <span className="text-[12px]" style={{ color: TEXT3 }}>오늘 회고 작성하기</span>
             </button>
@@ -1478,13 +1478,13 @@ export default function HomePage() {
               </div>
               <div
                 onClick={() => window.dispatchEvent(new Event('open-global-search'))}
-                onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = 'rgba(255,255,255,0.14)'; el.style.background = 'rgba(255,255,255,0.07)' }}
-                onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = 'rgba(255,255,255,0.08)'; el.style.background = 'rgba(255,255,255,0.04)' }}
-                style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8, width: 380, height: 30, borderRadius: 9, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', padding: '0 11px', cursor: 'pointer', transition: 'all 150ms ease' }}
+                onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = 'rgba(var(--ink-rgb),0.14)'; el.style.background = 'rgba(var(--ink-rgb),0.07)' }}
+                onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = 'rgba(var(--ink-rgb),0.08)'; el.style.background = 'rgba(var(--ink-rgb),0.04)' }}
+                style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8, width: 380, height: 30, borderRadius: 9, background: 'rgba(var(--ink-rgb),0.04)', border: '1px solid rgba(var(--ink-rgb),0.08)', padding: '0 11px', cursor: 'pointer', transition: 'all 150ms ease' }}
               >
-                <Search size={12} style={{ color: 'rgba(255,255,255,0.28)', flexShrink: 0 }} />
-                <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.26)', flex: 1 }}>검색 (과업, 안건, 회의록 등)</span>
-                <kbd style={{ fontSize: 10, padding: '1px 5px', borderRadius: 4, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.24)', fontFamily: 'monospace' }}>⌘K</kbd>
+                <Search size={12} style={{ color: 'rgba(var(--ink-rgb),0.28)', flexShrink: 0 }} />
+                <span style={{ fontSize: 12, color: 'rgba(var(--ink-rgb),0.26)', flex: 1 }}>검색 (과업, 안건, 회의록 등)</span>
+                <kbd style={{ fontSize: 10, padding: '1px 5px', borderRadius: 4, background: 'rgba(var(--ink-rgb),0.06)', border: '1px solid rgba(var(--ink-rgb),0.08)', color: 'rgba(var(--ink-rgb),0.24)', fontFamily: 'monospace' }}>⌘K</kbd>
               </div>
             </div>
           </div>
@@ -1540,7 +1540,7 @@ export default function HomePage() {
                   {/* 안건: resize ci=0 */}
                   <div style={{ position: 'relative', textAlign: 'center' }}>
                     <div onMouseDown={e => { e.preventDefault(); startStColResize(0, e.clientX) }} style={{ position: 'absolute', left: -4, top: -4, bottom: -4, width: 16, cursor: 'col-resize', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <div style={{ width: 1, height: 12, background: 'rgba(255,255,255,0.18)', borderRadius: 1, pointerEvents: 'none' }} />
+                      <div style={{ width: 1, height: 12, background: 'rgba(var(--ink-rgb),0.18)', borderRadius: 1, pointerEvents: 'none' }} />
                     </div>
                     <button onClick={() => toggleSort('안건')} style={{ fontSize: 10, fontWeight: 600, color: stSort?.col === '안건' ? TEXT2 : TEXT3, letterSpacing: '0.04em', textTransform: 'uppercase', background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 2, padding: 0, paddingLeft: 10 }}>
                       안건{stSort?.col === '안건' ? <span style={{ fontSize: 9 }}>{stSort.dir === 'asc' ? '↑' : '↓'}</span> : null}
@@ -1549,7 +1549,7 @@ export default function HomePage() {
                   {/* 상세TASK: resize ci=1 */}
                   <div style={{ position: 'relative', paddingLeft: 10 }}>
                     <div onMouseDown={e => { e.preventDefault(); startStColResize(1, e.clientX) }} style={{ position: 'absolute', left: -4, top: -4, bottom: -4, width: 16, cursor: 'col-resize', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <div style={{ width: 1, height: 12, background: 'rgba(255,255,255,0.18)', borderRadius: 1, pointerEvents: 'none' }} />
+                      <div style={{ width: 1, height: 12, background: 'rgba(var(--ink-rgb),0.18)', borderRadius: 1, pointerEvents: 'none' }} />
                     </div>
                     <button onClick={() => toggleSort('상세TASK')} style={{ fontSize: 10, fontWeight: 600, color: stSort?.col === '상세TASK' ? TEXT2 : TEXT3, letterSpacing: '0.04em', textTransform: 'uppercase', background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 2, padding: 0 }}>
                       상세TASK{stSort?.col === '상세TASK' ? <span style={{ fontSize: 9 }}>{stSort.dir === 'asc' ? '↑' : '↓'}</span> : null}
@@ -1558,14 +1558,14 @@ export default function HomePage() {
                   {/* 업데이트 내용: resize ci=2 */}
                   <div style={{ position: 'relative', paddingLeft: 10 }}>
                     <div onMouseDown={e => { e.preventDefault(); startStColResize(2, e.clientX) }} style={{ position: 'absolute', left: -4, top: -4, bottom: -4, width: 16, cursor: 'col-resize', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <div style={{ width: 1, height: 12, background: 'rgba(255,255,255,0.18)', borderRadius: 1, pointerEvents: 'none' }} />
+                      <div style={{ width: 1, height: 12, background: 'rgba(var(--ink-rgb),0.18)', borderRadius: 1, pointerEvents: 'none' }} />
                     </div>
                     <span style={{ fontSize: 10, fontWeight: 600, color: TEXT3, letterSpacing: '0.04em', textTransform: 'uppercase' }}>업데이트 내용</span>
                   </div>
                   {/* 업데이트: resize ci=3 */}
                   <div style={{ position: 'relative', textAlign: 'center' }}>
                     <div onMouseDown={e => { e.preventDefault(); startStColResize(3, e.clientX) }} style={{ position: 'absolute', left: -4, top: -4, bottom: -4, width: 16, cursor: 'col-resize', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <div style={{ width: 1, height: 12, background: 'rgba(255,255,255,0.18)', borderRadius: 1, pointerEvents: 'none' }} />
+                      <div style={{ width: 1, height: 12, background: 'rgba(var(--ink-rgb),0.18)', borderRadius: 1, pointerEvents: 'none' }} />
                     </div>
                     <button onClick={() => toggleSort('업데이트')} style={{ fontSize: 10, fontWeight: 600, color: stSort?.col === '업데이트' ? TEXT2 : TEXT3, letterSpacing: '0.04em', textTransform: 'uppercase', background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 2, padding: 0, paddingLeft: 10 }}>
                       업데이트{stSort?.col === '업데이트' ? <span style={{ fontSize: 9 }}>{stSort.dir === 'asc' ? '↑' : '↓'}</span> : null}
@@ -1574,7 +1574,7 @@ export default function HomePage() {
                   {/* 마감: resize ci=4 */}
                   <div style={{ position: 'relative', textAlign: 'center' }}>
                     <div onMouseDown={e => { e.preventDefault(); startStColResize(4, e.clientX) }} style={{ position: 'absolute', left: -4, top: -4, bottom: -4, width: 16, cursor: 'col-resize', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <div style={{ width: 1, height: 12, background: 'rgba(255,255,255,0.18)', borderRadius: 1, pointerEvents: 'none' }} />
+                      <div style={{ width: 1, height: 12, background: 'rgba(var(--ink-rgb),0.18)', borderRadius: 1, pointerEvents: 'none' }} />
                     </div>
                     <button onClick={() => toggleSort('마감')} style={{ fontSize: 10, fontWeight: 600, color: stSort?.col === '마감' ? TEXT2 : TEXT3, letterSpacing: '0.04em', textTransform: 'uppercase', background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 2, padding: 0, paddingLeft: 10 }}>
                       마감{stSort?.col === '마감' ? <span style={{ fontSize: 9 }}>{stSort.dir === 'asc' ? '↑' : '↓'}</span> : null}
@@ -1665,12 +1665,12 @@ export default function HomePage() {
                     onChange={e => setQuickAddTitle(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter') addQuickTodo(); if (e.key === 'Escape') setQuickAddOpen(false) }}
                     placeholder="오늘 할 일을 바로 추가..."
-                    style={{ flex: 1, fontSize: 13, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 7, padding: '6px 10px', color: TEXT1, outline: 'none' }}
+                    style={{ flex: 1, fontSize: 13, background: 'rgba(var(--ink-rgb),0.05)', border: '1px solid rgba(var(--ink-rgb),0.09)', borderRadius: 7, padding: '6px 10px', color: TEXT1, outline: 'none' }}
                   />
                   <button
                     onClick={addQuickTodo}
                     disabled={!quickAddTitle.trim()}
-                    style={{ fontSize: 12, padding: '0 12px', borderRadius: 7, background: quickAddTitle.trim() ? 'rgba(56,190,152,0.18)' : 'rgba(255,255,255,0.04)', border: `1px solid ${quickAddTitle.trim() ? 'rgba(56,190,152,0.35)' : 'rgba(255,255,255,0.07)'}`, color: quickAddTitle.trim() ? '#38BE98' : TEXT3, cursor: quickAddTitle.trim() ? 'pointer' : 'default' }}
+                    style={{ fontSize: 12, padding: '0 12px', borderRadius: 7, background: quickAddTitle.trim() ? 'rgba(56,190,152,0.18)' : 'rgba(var(--ink-rgb),0.04)', border: `1px solid ${quickAddTitle.trim() ? 'rgba(56,190,152,0.35)' : 'rgba(var(--ink-rgb),0.07)'}`, color: quickAddTitle.trim() ? '#38BE98' : TEXT3, cursor: quickAddTitle.trim() ? 'pointer' : 'default' }}
                   >
                     추가
                   </button>
@@ -1719,7 +1719,7 @@ export default function HomePage() {
                                   ) : (
                                     <button
                                       onClick={() => setFMemoOpen(p => ({ ...p, [s.id]: !p[s.id] }))}
-                                      style={{ fontSize: 11, padding: '2px 8px', borderRadius: 5, border: `1px solid ${isOpen ? 'rgba(56,190,152,0.35)' : 'rgba(255,255,255,0.08)'}`, background: isOpen ? 'rgba(56,190,152,0.12)' : 'transparent', color: isOpen ? '#38BE98' : TEXT3, cursor: 'pointer', flexShrink: 0, transition: 'all 150ms', whiteSpace: 'nowrap' }}
+                                      style={{ fontSize: 11, padding: '2px 8px', borderRadius: 5, border: `1px solid ${isOpen ? 'rgba(56,190,152,0.35)' : 'rgba(var(--ink-rgb),0.08)'}`, background: isOpen ? 'rgba(56,190,152,0.12)' : 'transparent', color: isOpen ? '#38BE98' : TEXT3, cursor: 'pointer', flexShrink: 0, transition: 'all 150ms', whiteSpace: 'nowrap' }}
                                     >
                                       {prepNotes.length > 0 ? `안건 ${prepNotes.length}` : '안건'}
                                     </button>
@@ -1752,14 +1752,14 @@ export default function HomePage() {
                                         }}
                                         placeholder="회의 안건 메모... (Ctrl+Enter 저장)"
                                         rows={2}
-                                        style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 7, padding: '6px 9px', fontSize: 12.5, color: TEXT1, resize: 'none', outline: 'none', lineHeight: 1.55, fontFamily: 'inherit', transition: 'border-color 150ms' }}
+                                        style={{ flex: 1, background: 'rgba(var(--ink-rgb),0.04)', border: '1px solid rgba(var(--ink-rgb),0.09)', borderRadius: 7, padding: '6px 9px', fontSize: 12.5, color: TEXT1, resize: 'none', outline: 'none', lineHeight: 1.55, fontFamily: 'inherit', transition: 'border-color 150ms' }}
                                         onFocus={e => { (e.target as HTMLTextAreaElement).style.borderColor = 'rgba(56,190,152,0.40)' }}
-                                        onBlur={e => { (e.target as HTMLTextAreaElement).style.borderColor = 'rgba(255,255,255,0.09)' }}
+                                        onBlur={e => { (e.target as HTMLTextAreaElement).style.borderColor = 'rgba(var(--ink-rgb),0.09)' }}
                                       />
                                       <button
                                         onClick={() => saveFixedMeetingMemo(s)}
                                         disabled={!text.trim() || saving}
-                                        style={{ fontSize: 11, padding: '5px 10px', borderRadius: 6, background: text.trim() ? 'rgba(56,190,152,0.18)' : 'rgba(255,255,255,0.04)', border: `1px solid ${text.trim() ? 'rgba(56,190,152,0.35)' : 'rgba(255,255,255,0.07)'}`, color: text.trim() ? '#38BE98' : TEXT3, cursor: text.trim() ? 'pointer' : 'default', flexShrink: 0, transition: 'all 150ms' }}
+                                        style={{ fontSize: 11, padding: '5px 10px', borderRadius: 6, background: text.trim() ? 'rgba(56,190,152,0.18)' : 'rgba(var(--ink-rgb),0.04)', border: `1px solid ${text.trim() ? 'rgba(56,190,152,0.35)' : 'rgba(var(--ink-rgb),0.07)'}`, color: text.trim() ? '#38BE98' : TEXT3, cursor: text.trim() ? 'pointer' : 'default', flexShrink: 0, transition: 'all 150ms' }}
                                       >
                                         {saving ? '…' : '저장'}
                                       </button>
@@ -1781,7 +1781,7 @@ export default function HomePage() {
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0' }}>
                               <button
                                 onClick={() => toggleTask(t.id)}
-                                style={{ width: 16, height: 16, borderRadius: '50%', border: `1.5px solid ${done ? '#38BE98' : 'rgba(255,255,255,0.18)'}`, background: done ? '#38BE98' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer', transition: 'all 200ms ease-out' }}
+                                style={{ width: 16, height: 16, borderRadius: '50%', border: `1.5px solid ${done ? '#38BE98' : 'rgba(var(--ink-rgb),0.18)'}`, background: done ? '#38BE98' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer', transition: 'all 200ms ease-out' }}
                               >
                                 {done && <svg width="6" height="6" viewBox="0 0 8 8" fill="none"><path d="M1.5 4L3 5.5L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
                               </button>
@@ -1801,7 +1801,7 @@ export default function HomePage() {
                             <div className="group" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0' }}>
                               <button
                                 onClick={() => toggleQuickTodo(t.id)}
-                                style={{ width: 16, height: 16, borderRadius: '50%', border: `1.5px solid ${done ? '#38BE98' : 'rgba(255,255,255,0.18)'}`, background: done ? '#38BE98' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer', transition: 'all 200ms ease-out' }}
+                                style={{ width: 16, height: 16, borderRadius: '50%', border: `1.5px solid ${done ? '#38BE98' : 'rgba(var(--ink-rgb),0.18)'}`, background: done ? '#38BE98' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer', transition: 'all 200ms ease-out' }}
                               >
                                 {done && <svg width="6" height="6" viewBox="0 0 8 8" fill="none"><path d="M1.5 4L3 5.5L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
                               </button>
@@ -1833,7 +1833,7 @@ export default function HomePage() {
                               <div style={{ width: 5, height: 5, borderRadius: 2, background: groupColor, flexShrink: 0, opacity: 0.85 }} />
                               <button
                                 onClick={() => completeSubTask(st.id)}
-                                style={{ width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${done ? '#38BE98' : 'rgba(255,255,255,0.18)'}`, background: done ? '#38BE98' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer', transition: 'all 200ms ease-out' }}
+                                style={{ width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${done ? '#38BE98' : 'rgba(var(--ink-rgb),0.18)'}`, background: done ? '#38BE98' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer', transition: 'all 200ms ease-out' }}
                               >
                                 {done && <svg width="6" height="6" viewBox="0 0 8 8" fill="none"><path d="M1.5 4L3 5.5L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
                               </button>
@@ -1881,7 +1881,7 @@ export default function HomePage() {
                                   ) : (
                                     <button
                                       onClick={() => setFMemoOpen(p => ({ ...p, [tmrKey]: !p[tmrKey] }))}
-                                      style={{ fontSize: 11, padding: '2px 8px', borderRadius: 5, border: `1px solid ${isOpen ? 'rgba(56,190,152,0.35)' : 'rgba(255,255,255,0.08)'}`, background: isOpen ? 'rgba(56,190,152,0.12)' : 'transparent', color: isOpen ? '#38BE98' : TEXT3, cursor: 'pointer', flexShrink: 0, transition: 'all 150ms', whiteSpace: 'nowrap' }}
+                                      style={{ fontSize: 11, padding: '2px 8px', borderRadius: 5, border: `1px solid ${isOpen ? 'rgba(56,190,152,0.35)' : 'rgba(var(--ink-rgb),0.08)'}`, background: isOpen ? 'rgba(56,190,152,0.12)' : 'transparent', color: isOpen ? '#38BE98' : TEXT3, cursor: 'pointer', flexShrink: 0, transition: 'all 150ms', whiteSpace: 'nowrap' }}
                                     >
                                       {prepNotes.length > 0 ? `안건 ${prepNotes.length}` : '안건'}
                                     </button>
@@ -1914,14 +1914,14 @@ export default function HomePage() {
                                         }}
                                         placeholder="회의 안건 메모... (Ctrl+Enter 저장)"
                                         rows={2}
-                                        style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 7, padding: '6px 9px', fontSize: 12.5, color: TEXT1, resize: 'none', outline: 'none', lineHeight: 1.55, fontFamily: 'inherit', transition: 'border-color 150ms' }}
+                                        style={{ flex: 1, background: 'rgba(var(--ink-rgb),0.04)', border: '1px solid rgba(var(--ink-rgb),0.09)', borderRadius: 7, padding: '6px 9px', fontSize: 12.5, color: TEXT1, resize: 'none', outline: 'none', lineHeight: 1.55, fontFamily: 'inherit', transition: 'border-color 150ms' }}
                                         onFocus={e => { (e.target as HTMLTextAreaElement).style.borderColor = 'rgba(56,190,152,0.40)' }}
-                                        onBlur={e => { (e.target as HTMLTextAreaElement).style.borderColor = 'rgba(255,255,255,0.09)' }}
+                                        onBlur={e => { (e.target as HTMLTextAreaElement).style.borderColor = 'rgba(var(--ink-rgb),0.09)' }}
                                       />
                                       <button
                                         onClick={() => saveFixedMeetingMemo(s, tomorrowStr, tmrKey)}
                                         disabled={!text.trim() || saving}
-                                        style={{ fontSize: 11, padding: '5px 10px', borderRadius: 6, background: text.trim() ? 'rgba(56,190,152,0.18)' : 'rgba(255,255,255,0.04)', border: `1px solid ${text.trim() ? 'rgba(56,190,152,0.35)' : 'rgba(255,255,255,0.07)'}`, color: text.trim() ? '#38BE98' : TEXT3, cursor: text.trim() ? 'pointer' : 'default', flexShrink: 0, transition: 'all 150ms' }}
+                                        style={{ fontSize: 11, padding: '5px 10px', borderRadius: 6, background: text.trim() ? 'rgba(56,190,152,0.18)' : 'rgba(var(--ink-rgb),0.04)', border: `1px solid ${text.trim() ? 'rgba(56,190,152,0.35)' : 'rgba(var(--ink-rgb),0.07)'}`, color: text.trim() ? '#38BE98' : TEXT3, cursor: text.trim() ? 'pointer' : 'default', flexShrink: 0, transition: 'all 150ms' }}
                                       >
                                         {saving ? '…' : '저장'}
                                       </button>
@@ -1958,7 +1958,7 @@ export default function HomePage() {
                                         </button>
                                       ))}
                                       <button onClick={() => setDatePickerStId(st.id)}
-                                        style={{ fontSize: 10.5, padding: '2px 7px', borderRadius: 5, border: `1px solid rgba(255,255,255,0.12)`, background: 'rgba(255,255,255,0.05)', color: TEXT3, cursor: 'pointer' }}>
+                                        style={{ fontSize: 10.5, padding: '2px 7px', borderRadius: 5, border: `1px solid rgba(var(--ink-rgb),0.12)`, background: 'rgba(var(--ink-rgb),0.05)', color: TEXT3, cursor: 'pointer' }}>
                                         날짜▾
                                       </button>
                                     </div>
@@ -1969,7 +1969,7 @@ export default function HomePage() {
                                     <input type="date" autoFocus
                                       onChange={e => { if (e.target.value) assignSubTaskDate(st.id, e.target.value) }}
                                       onBlur={() => { setDatePickerStId(null); setHoveredStId(null) }}
-                                      style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, padding: '3px 8px', fontSize: 12, color: TEXT1, outline: 'none', colorScheme: 'dark' }}
+                                      style={{ background: 'rgba(var(--ink-rgb),0.06)', border: '1px solid rgba(var(--ink-rgb),0.12)', borderRadius: 6, padding: '3px 8px', fontSize: 12, color: TEXT1, outline: 'none' }}
                                     />
                                   </div>
                                 )}
@@ -2056,9 +2056,9 @@ export default function HomePage() {
                           fontSize: 11,
                           padding: '3px 7px',
                           borderRadius: 7,
-                          border: `1px solid ${isActive ? 'rgba(91,126,196,0.35)' : 'rgba(255,255,255,0.07)'}`,
-                          background: isActive ? 'rgba(91,126,196,0.14)' : 'transparent',
-                          color: isActive ? '#8DAEE6' : TEXT3,
+                          border: `1px solid ${isActive ? 'rgba(var(--accent-tint-rgb),0.35)' : 'rgba(var(--ink-rgb),0.07)'}`,
+                          background: isActive ? 'rgba(var(--accent-tint-rgb),0.14)' : 'transparent',
+                          color: isActive ? 'var(--accent-tint-text)' : TEXT3,
                           cursor: 'pointer',
                           transition: 'all 150ms ease',
                           fontWeight: isActive ? 600 : 400,
@@ -2141,7 +2141,7 @@ export default function HomePage() {
                               <input type="date" autoFocus
                                 onChange={e => { if (e.target.value) assignSubTaskDate(st.id, e.target.value) }}
                                 onBlur={() => { setDatePickerStId(null); setHoveredStId(null) }}
-                                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, padding: '3px 8px', fontSize: 12, color: TEXT1, outline: 'none', colorScheme: 'dark' }}
+                                style={{ background: 'rgba(var(--ink-rgb),0.06)', border: '1px solid rgba(var(--ink-rgb),0.12)', borderRadius: 6, padding: '3px 8px', fontSize: 12, color: TEXT1, outline: 'none' }}
                               />
                             </div>
                           )}
@@ -2234,10 +2234,10 @@ export default function HomePage() {
             <div className="fixed inset-0 z-[70] flex items-center justify-center p-6"
               style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)' }}
               onClick={() => setMemoViewId(null)}>
-              <div style={{ width: '100%', maxWidth: 640, maxHeight: '80vh', display: 'flex', flexDirection: 'column', background: '#1A1D25', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 18, boxShadow: '0 32px 80px rgba(0,0,0,0.5)', overflow: 'hidden' }}
+              <div style={{ width: '100%', maxWidth: 640, maxHeight: '80vh', display: 'flex', flexDirection: 'column', background: 'var(--surface-modal2)', border: '1px solid rgba(var(--ink-rgb),0.08)', borderRadius: 18, boxShadow: '0 32px 80px rgba(0,0,0,0.5)', overflow: 'hidden' }}
                 onClick={e => e.stopPropagation()}>
                 {/* 헤더 */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.07)', flexShrink: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '16px 20px', borderBottom: '1px solid rgba(var(--ink-rgb),0.07)', flexShrink: 0 }}>
                   <div style={{ width: 8, height: 8, borderRadius: '50%', background: dotColor, boxShadow: `0 0 6px ${dotColor}80`, flexShrink: 0 }} />
                   <span style={{ fontSize: 15, fontWeight: 700, color: TEXT1, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{mv.title || '(제목 없음)'}</span>
                   <span style={{ fontSize: 11, color: TEXT3, flexShrink: 0 }}>{fmtDate(mv.created_at)}</span>
@@ -2254,9 +2254,9 @@ export default function HomePage() {
                   }
                 </div>
                 {/* 하단 액션 */}
-                <div style={{ padding: '12px 20px', borderTop: '1px solid rgba(255,255,255,0.07)', display: 'flex', gap: 8, flexShrink: 0 }}>
+                <div style={{ padding: '12px 20px', borderTop: '1px solid rgba(var(--ink-rgb),0.07)', display: 'flex', gap: 8, flexShrink: 0 }}>
                   <button onClick={() => { localStorage.setItem('memos_open_id', mv.id); router.push('/memos'); setMemoViewId(null) }}
-                    style={{ fontSize: 12, padding: '6px 14px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)', color: TEXT2, cursor: 'pointer' }}>
+                    style={{ fontSize: 12, padding: '6px 14px', borderRadius: 8, border: '1px solid rgba(var(--ink-rgb),0.12)', background: 'rgba(var(--ink-rgb),0.05)', color: TEXT2, cursor: 'pointer' }}>
                     편집하기 →
                   </button>
                 </div>
@@ -2272,7 +2272,7 @@ export default function HomePage() {
         <div className="fixed inset-0 z-[80] flex items-center justify-center p-6"
           style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)' }}
           onClick={() => setGcalPicker(null)}>
-          <div style={{ width: '100%', maxWidth: 380, background: '#1A1D25', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, boxShadow: '0 32px 80px rgba(0,0,0,0.5)', padding: 20 }}
+          <div style={{ width: '100%', maxWidth: 380, background: 'var(--surface-modal2)', border: '1px solid rgba(var(--ink-rgb),0.08)', borderRadius: 16, boxShadow: '0 32px 80px rgba(0,0,0,0.5)', padding: 20 }}
             onClick={e => e.stopPropagation()}>
             <p style={{ fontSize: 13, fontWeight: 600, color: TEXT1, marginBottom: 4 }}>📅 {gcalPicker.title}</p>
             <p style={{ fontSize: 11.5, color: TEXT3, marginBottom: 14 }}>회의록을 어느 범주에 만들까요?</p>

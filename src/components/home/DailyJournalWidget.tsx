@@ -516,13 +516,13 @@ export function JournalFullscreenEditor({ selectedDate, current, yesterday, meet
   const totalActivity = todayCtx.memos.length + todayCtx.meetings.length + todayCtx.oneOnOnes.length + todayCtx.newTasks.length + todayCtx.taskNotes.length + todayCtx.scheduleItems.length + todayCtx.todos.length
 
   const D = {
-    bg:      '#0F1319',
-    surface: 'rgba(255,255,255,0.03)',
-    border:  'rgba(255,255,255,0.08)',
-    divider: 'rgba(255,255,255,0.06)',
-    t1:      'rgba(226,232,240,0.85)',
-    t2:      'rgba(226,232,240,0.55)',
-    t3:      'rgba(226,232,240,0.3)',
+    bg:      'var(--bg-page)',
+    surface: 'rgba(var(--ink-rgb),0.03)',
+    border:  'rgba(var(--ink-rgb),0.08)',
+    divider: 'rgba(var(--ink-rgb),0.06)',
+    t1:      'rgba(var(--text-rgb),0.85)',
+    t2:      'rgba(var(--text-rgb),0.55)',
+    t3:      'rgba(var(--text-rgb),0.3)',
   }
 
   return (
@@ -542,7 +542,7 @@ export function JournalFullscreenEditor({ selectedDate, current, yesterday, meet
             onClick={doSave}
             disabled={!draft.trim() || saving}
             className="flex-shrink-0 text-xs px-3 py-1.5 rounded-lg disabled:opacity-40 transition-colors"
-            style={{ background: 'rgba(79,141,255,0.15)', color: '#7EB3FF', border: '1px solid rgba(79,141,255,0.3)' }}
+            style={{ background: 'rgba(var(--accent-soft-rgb),0.15)', color: 'var(--accent-text)', border: '1px solid rgba(var(--accent-soft-rgb),0.3)' }}
           >
             {saving ? '저장 중…' : '저장'}
           </button>
@@ -573,7 +573,7 @@ export function JournalFullscreenEditor({ selectedDate, current, yesterday, meet
               {/* Autosave 복구 배너 — 자동 적용하지 않음(회의록/빠른메모와 동일 패턴) */}
               {autosave.recovered && (
                 <div className="flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-lg text-[11px]"
-                  style={{ background: 'rgba(79,141,255,0.12)', border: '1px solid rgba(79,141,255,0.3)', color: '#7EB3FF' }}>
+                  style={{ background: 'rgba(var(--accent-soft-rgb),0.12)', border: '1px solid rgba(var(--accent-soft-rgb),0.3)', color: 'var(--accent-text)' }}>
                   <span className="flex-1">복구 가능한 자동저장 내용이 있습니다</span>
                   <button onClick={applyRecovered} className="underline underline-offset-2">적용</button>
                   <button onClick={() => autosave.discardRecovered()} className="underline underline-offset-2">무시</button>
@@ -587,10 +587,10 @@ export function JournalFullscreenEditor({ selectedDate, current, yesterday, meet
                   {(['done','insight','challenge','tomorrow'] as SectionKey[]).map(key => {
                     const m = SECTION_META[key]
                     return (
-                      <div key={key} className="flex flex-col gap-2 rounded-xl p-2.5" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
-                        <div className="flex items-center gap-1.5 pb-1.5" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                      <div key={key} className="flex flex-col gap-2 rounded-xl p-2.5" style={{ background: 'rgba(var(--ink-rgb),0.03)', border: '1px solid rgba(var(--ink-rgb),0.07)' }}>
+                        <div className="flex items-center gap-1.5 pb-1.5" style={{ borderBottom: '1px solid rgba(var(--ink-rgb),0.07)' }}>
                           <span style={{ fontSize: 13, lineHeight: 1 }}>{m.emoji}</span>
-                          <span className="text-[10px] font-semibold tracking-wide" style={{ color: 'rgba(226,232,240,0.7)' }}>{m.label}</span>
+                          <span className="text-[10px] font-semibold tracking-wide" style={{ color: 'rgba(var(--text-rgb),0.7)' }}>{m.label}</span>
                         </div>
                         <textarea ref={key === 'done' ? textareaRef : undefined}
                           rows={m.rows} value={sections[key]}
@@ -611,10 +611,10 @@ export function JournalFullscreenEditor({ selectedDate, current, yesterday, meet
                   {(['good','grateful'] as SectionKey[]).map(key => {
                     const m = SECTION_META[key]
                     return (
-                      <div key={key} className="flex flex-col gap-2 rounded-xl p-2.5" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
-                        <div className="flex items-center gap-1.5 pb-1.5" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                      <div key={key} className="flex flex-col gap-2 rounded-xl p-2.5" style={{ background: 'rgba(var(--ink-rgb),0.03)', border: '1px solid rgba(var(--ink-rgb),0.07)' }}>
+                        <div className="flex items-center gap-1.5 pb-1.5" style={{ borderBottom: '1px solid rgba(var(--ink-rgb),0.07)' }}>
                           <span style={{ fontSize: 13, lineHeight: 1 }}>{m.emoji}</span>
-                          <span className="text-[10px] font-semibold tracking-wide" style={{ color: 'rgba(226,232,240,0.7)' }}>{m.label}</span>
+                          <span className="text-[10px] font-semibold tracking-wide" style={{ color: 'rgba(var(--text-rgb),0.7)' }}>{m.label}</span>
                         </div>
                         <textarea rows={m.rows} value={sections[key]}
                           onChange={e => updateSection(key, e.target.value)}
@@ -627,10 +627,10 @@ export function JournalFullscreenEditor({ selectedDate, current, yesterday, meet
                 </div>
 
                 {/* 식사 */}
-                <div className="mt-2 rounded-xl p-2.5" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
-                  <div className="flex items-center gap-1.5 pb-1.5 mb-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                <div className="mt-2 rounded-xl p-2.5" style={{ background: 'rgba(var(--ink-rgb),0.03)', border: '1px solid rgba(var(--ink-rgb),0.07)' }}>
+                  <div className="flex items-center gap-1.5 pb-1.5 mb-2" style={{ borderBottom: '1px solid rgba(var(--ink-rgb),0.07)' }}>
                     <span style={{ fontSize: 13, lineHeight: 1 }}>🍽️</span>
-                    <span className="text-[10px] font-semibold tracking-wide" style={{ color: 'rgba(226,232,240,0.7)' }}>식사</span>
+                    <span className="text-[10px] font-semibold tracking-wide" style={{ color: 'rgba(var(--text-rgb),0.7)' }}>식사</span>
                   </div>
                   <div className="flex items-center gap-2 flex-1 min-w-0">
                     <span className="text-[10px]" style={{ color: D.t3 }}>점심</span>
@@ -644,10 +644,10 @@ export function JournalFullscreenEditor({ selectedDate, current, yesterday, meet
               </div>
 
               {/* ── 일반 ── */}
-              <div className="flex flex-col gap-2 rounded-xl p-2.5" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
-                <div className="flex items-center gap-1.5 pb-1.5" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+              <div className="flex flex-col gap-2 rounded-xl p-2.5" style={{ background: 'rgba(var(--ink-rgb),0.03)', border: '1px solid rgba(var(--ink-rgb),0.07)' }}>
+                <div className="flex items-center gap-1.5 pb-1.5" style={{ borderBottom: '1px solid rgba(var(--ink-rgb),0.07)' }}>
                   <span style={{ fontSize: 13, lineHeight: 1 }}>📝</span>
-                  <span className="text-[10px] font-semibold tracking-wide" style={{ color: 'rgba(226,232,240,0.7)' }}>일반</span>
+                  <span className="text-[10px] font-semibold tracking-wide" style={{ color: 'rgba(var(--text-rgb),0.7)' }}>일반</span>
                 </div>
                 <textarea rows={3} value={sections.general}
                   onChange={e => updateSection('general', e.target.value)}
@@ -663,7 +663,7 @@ export function JournalFullscreenEditor({ selectedDate, current, yesterday, meet
                     const m = meetings.find(x => x.id === mid)
                     return m ? (
                       <span key={mid} className="flex items-center gap-0.5 text-[10px] px-2 py-0.5 rounded-full"
-                        style={{ background: 'rgba(79,141,255,0.12)', color: '#7EB3FF', border: '1px solid rgba(79,141,255,0.25)' }}>
+                        style={{ background: 'rgba(var(--accent-soft-rgb),0.12)', color: 'var(--accent-text)', border: '1px solid rgba(var(--accent-soft-rgb),0.25)' }}>
                         @ {m.title}
                         <button onClick={() => setLinkedMeetingIds(prev => prev.filter(i => i !== mid))}
                           className="ml-0.5" style={{ color: 'rgba(126,179,255,0.6)' }}>×</button>
@@ -672,7 +672,7 @@ export function JournalFullscreenEditor({ selectedDate, current, yesterday, meet
                   })}
                   <button onClick={() => setShowMeetingPicker(p => !p)}
                     className="text-[11px] transition-colors" style={{ color: D.t3 }}
-                    onMouseEnter={e => (e.currentTarget.style.color = '#7EB3FF')}
+                    onMouseEnter={e => (e.currentTarget.style.color = 'var(--accent-text)')}
                     onMouseLeave={e => (e.currentTarget.style.color = D.t3)}>
                     @ 회의 연결
                   </button>
@@ -680,7 +680,7 @@ export function JournalFullscreenEditor({ selectedDate, current, yesterday, meet
 
                 {showMeetingPicker && (
                   <div className="rounded-xl p-3 flex flex-col gap-1 max-h-48 overflow-y-auto"
-                    style={{ background: '#1A2030', border: `1px solid ${D.border}` }}>
+                    style={{ background: 'var(--surface-elevated)', border: `1px solid ${D.border}` }}>
                     <input ref={meetingSearchRef} value={meetingSearch}
                       onChange={e => setMeetingSearch(e.target.value)}
                       placeholder="회의 검색…"
@@ -692,7 +692,7 @@ export function JournalFullscreenEditor({ selectedDate, current, yesterday, meet
                         <button key={m.id} onClick={() => linkMeeting(m.id)}
                           className="text-left text-sm px-2 py-1.5 rounded-lg truncate transition-colors"
                           style={{ color: D.t2 }}
-                          onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
+                          onMouseEnter={e => (e.currentTarget.style.background = 'rgba(var(--ink-rgb),0.06)')}
                           onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                           {m.title}
                           {m.meeting_date && <span className="ml-1.5 text-xs" style={{ color: D.t3 }}>{m.meeting_date}</span>}
@@ -705,7 +705,7 @@ export function JournalFullscreenEditor({ selectedDate, current, yesterday, meet
                 <div className="flex flex-wrap gap-1.5 items-center">
                   {tags.map(t => (
                     <span key={t} className="flex items-center gap-0.5 text-[10px] px-2 py-0.5 rounded-full"
-                      style={{ background: 'rgba(255,255,255,0.07)', color: D.t2, border: `1px solid ${D.border}` }}>
+                      style={{ background: 'rgba(var(--ink-rgb),0.07)', color: D.t2, border: `1px solid ${D.border}` }}>
                       #{t}
                       <button onClick={() => setTags(prev => prev.filter(x => x !== t))}
                         className="ml-0.5" style={{ color: D.t3 }}>×</button>
@@ -727,7 +727,7 @@ export function JournalFullscreenEditor({ selectedDate, current, yesterday, meet
           </div>
 
           {/* ── 우: 오늘 활동 피드 (고정 섹션) ── */}
-          <div className="md:w-1/2 flex flex-col border-t md:border-t-0 md:border-l border-[rgba(255,255,255,0.08)] min-h-0" style={{ background: D.surface }}>
+          <div className="md:w-1/2 flex flex-col border-t md:border-t-0 md:border-l border-[rgba(var(--ink-rgb),0.08)] min-h-0" style={{ background: D.surface }}>
             <div className="px-4 py-3 flex-shrink-0 flex items-center gap-2" style={{ borderBottom: `1px solid ${D.border}` }}>
               <p className="text-[11px] font-semibold flex-1" style={{ color: D.t2 }}>{dateLabel} 활동</p>
               {totalActivity > 0 && (
@@ -767,7 +767,7 @@ export function JournalFullscreenEditor({ selectedDate, current, yesterday, meet
                 {todayCtx.meetings.length > 0 ? todayCtx.meetings.map(m => (
                   <Link key={m.id} href={`/meetings/${m.id}`}
                     className="block text-[13px] truncate mb-1.5 transition-colors"
-                    style={{ color: '#7EB3FF' }}>
+                    style={{ color: 'var(--accent-text)' }}>
                     · {m.title}
                   </Link>
                 )) : <p className="text-[12px]" style={{ color: D.t3 }}>—</p>}
