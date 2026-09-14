@@ -104,7 +104,7 @@ export function GlassSelect({
         zIndex: 99999,
         boxShadow: '0 8px 32px rgba(0,0,0,0.55)',
       }}
-      className="bg-[rgba(18,21,28,0.97)] backdrop-blur-2xl border border-[rgba(255,255,255,0.12)] rounded-2xl py-1.5"
+      className="bg-[var(--dropdown-panel-bg)] backdrop-blur-2xl border border-[rgba(var(--ink-rgb),0.12)] rounded-2xl py-1.5"
       onClick={e => e.stopPropagation()}
     >
       <div
@@ -112,11 +112,11 @@ export function GlassSelect({
         className={[
           'mx-1.5 px-3 py-1.5 text-xs cursor-pointer transition-colors rounded-xl flex items-center gap-2',
           !value
-            ? 'bg-[rgba(255,255,255,0.08)] text-[rgba(226,232,240,0.65)]'
-            : 'text-[rgba(226,232,240,0.35)] hover:bg-[rgba(255,255,255,0.06)] hover:text-[rgba(226,232,240,0.6)]',
+            ? 'bg-[rgba(var(--ink-rgb),0.08)] text-[rgba(var(--text-rgb),0.65)]'
+            : 'text-[rgba(var(--text-rgb),0.35)] hover:bg-[rgba(var(--ink-rgb),0.06)] hover:text-[rgba(var(--text-rgb),0.6)]',
         ].join(' ')}
       >
-        <span className="w-2 h-2 rounded-full bg-[rgba(255,255,255,0.15)] flex-shrink-0" />
+        <span className="w-2 h-2 rounded-full bg-[rgba(var(--ink-rgb),0.15)] flex-shrink-0" />
         {placeholder === '-' ? '없음' : placeholder}
       </div>
       {options.map(opt => (
@@ -126,8 +126,8 @@ export function GlassSelect({
           className={[
             'mx-1.5 px-3 py-1.5 text-xs cursor-pointer transition-colors rounded-xl flex items-center gap-2',
             value === opt.value
-              ? 'text-[rgba(226,232,240,0.95)]'
-              : 'text-[rgba(226,232,240,0.7)] hover:bg-[rgba(255,255,255,0.08)] hover:text-[rgba(226,232,240,0.9)]',
+              ? 'text-[rgba(var(--text-rgb),0.95)]'
+              : 'text-[rgba(var(--text-rgb),0.7)] hover:bg-[rgba(var(--ink-rgb),0.08)] hover:text-[rgba(var(--text-rgb),0.9)]',
           ].join(' ')}
           style={value === opt.value && opt.color
             ? { background: `${opt.color}22` }

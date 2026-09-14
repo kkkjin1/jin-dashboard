@@ -59,13 +59,13 @@ function RecurrenceFields({ value, onChange }: { value: RecurrenceFormValue; onC
         type="date"
         value={value.date}
         onChange={e => onChange({ date: e.target.value })}
-        className="text-xs border border-[rgba(255,255,255,0.09)] rounded px-1.5 py-0.5 focus:outline-none text-[rgba(226,232,240,0.7)] bg-[rgba(255,255,255,0.06)]"
+        className="text-xs border border-[rgba(var(--ink-rgb),0.09)] rounded px-1.5 py-0.5 focus:outline-none text-[rgba(var(--text-rgb),0.7)] bg-[rgba(var(--ink-rgb),0.06)]"
       />
     )
   }
 
-  const pillOff = 'bg-[rgba(255,255,255,0.04)] border-[rgba(255,255,255,0.07)] text-[rgba(226,232,240,0.5)] hover:bg-[rgba(255,255,255,0.08)]'
-  const pillOn  = 'bg-[rgba(76,127,224,0.15)] border-[rgba(76,127,224,0.3)] text-[#9DBEF5]'
+  const pillOff = 'bg-[rgba(var(--ink-rgb),0.04)] border-[rgba(var(--ink-rgb),0.07)] text-[rgba(var(--text-rgb),0.5)] hover:bg-[rgba(var(--ink-rgb),0.08)]'
+  const pillOn  = 'bg-[rgba(76,127,224,0.15)] border-[rgba(76,127,224,0.3)] text-[var(--accent-soft)]'
 
   return (
     <div className="space-y-2">
@@ -73,7 +73,7 @@ function RecurrenceFields({ value, onChange }: { value: RecurrenceFormValue; onC
         {(['weekly', 'monthly'] as const).map(t => (
           <button key={t} type="button" onClick={() => onChange({ recur_type: t })}
             className={`text-[9px] px-2 py-0.5 rounded-full font-medium transition-colors ${
-              value.recur_type === t ? 'bg-[#4C7FE0] text-white' : 'bg-[rgba(255,255,255,0.06)] text-[rgba(226,232,240,0.4)] hover:bg-[rgba(255,255,255,0.08)]'
+              value.recur_type === t ? 'bg-[var(--accent-primary)] text-white' : 'bg-[rgba(var(--ink-rgb),0.06)] text-[rgba(var(--text-rgb),0.4)] hover:bg-[rgba(var(--ink-rgb),0.08)]'
             }`}>
             {t === 'weekly' ? '매주' : '매월'}
           </button>
@@ -82,11 +82,11 @@ function RecurrenceFields({ value, onChange }: { value: RecurrenceFormValue; onC
 
       {value.recur_type === 'monthly' ? (
         <div className="flex items-center gap-1.5">
-          <span className="text-xs text-[rgba(226,232,240,0.5)]">매월</span>
+          <span className="text-xs text-[rgba(var(--text-rgb),0.5)]">매월</span>
           <input type="number" min={1} max={31} value={value.day_of_month}
             onChange={e => onChange({ day_of_month: Math.max(1, Math.min(31, parseInt(e.target.value) || 1)) })}
-            className="w-12 text-xs border border-[rgba(255,255,255,0.09)] rounded px-1.5 py-0.5 focus:outline-none text-center text-[rgba(226,232,240,0.7)] bg-[rgba(255,255,255,0.06)]" />
-          <span className="text-xs text-[rgba(226,232,240,0.5)]">일</span>
+            className="w-12 text-xs border border-[rgba(var(--ink-rgb),0.09)] rounded px-1.5 py-0.5 focus:outline-none text-center text-[rgba(var(--text-rgb),0.7)] bg-[rgba(var(--ink-rgb),0.06)]" />
+          <span className="text-xs text-[rgba(var(--text-rgb),0.5)]">일</span>
         </div>
       ) : (
         <div className="flex gap-1">
@@ -98,7 +98,7 @@ function RecurrenceFields({ value, onChange }: { value: RecurrenceFormValue; onC
                   : [...value.days_of_week, d],
               })}
               className={`text-[9px] w-6 h-6 rounded-full font-medium transition-colors ${
-                value.days_of_week.includes(d) ? 'bg-[#4C7FE0] text-white' : 'bg-[rgba(255,255,255,0.06)] text-[rgba(226,232,240,0.4)] hover:bg-[rgba(255,255,255,0.08)]'
+                value.days_of_week.includes(d) ? 'bg-[var(--accent-primary)] text-white' : 'bg-[rgba(var(--ink-rgb),0.06)] text-[rgba(var(--text-rgb),0.4)] hover:bg-[rgba(var(--ink-rgb),0.08)]'
               }`}>
               {label}
             </button>
@@ -107,19 +107,19 @@ function RecurrenceFields({ value, onChange }: { value: RecurrenceFormValue; onC
       )}
 
       <div className="flex items-center gap-1.5">
-        <span className="text-[9px] text-[rgba(226,232,240,0.35)] whitespace-nowrap">시작</span>
-        <button type="button" onClick={() => shiftStartMonth(-1)} className="text-[10px] text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.8)] px-1">◀</button>
-        <span className="text-[11px] text-[rgba(226,232,240,0.7)] flex-1 text-center">{format(parseISO(value.start_date), 'yyyy년 M월')}</span>
-        <button type="button" onClick={() => shiftStartMonth(1)} className="text-[10px] text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.8)] px-1">▶</button>
+        <span className="text-[9px] text-[rgba(var(--text-rgb),0.35)] whitespace-nowrap">시작</span>
+        <button type="button" onClick={() => shiftStartMonth(-1)} className="text-[10px] text-[rgba(var(--text-rgb),0.4)] hover:text-[rgba(var(--text-rgb),0.8)] px-1">◀</button>
+        <span className="text-[11px] text-[rgba(var(--text-rgb),0.7)] flex-1 text-center">{format(parseISO(value.start_date), 'yyyy년 M월')}</span>
+        <button type="button" onClick={() => shiftStartMonth(1)} className="text-[10px] text-[rgba(var(--text-rgb),0.4)] hover:text-[rgba(var(--text-rgb),0.8)] px-1">▶</button>
       </div>
 
       <div className="flex items-center gap-1 flex-wrap">
-        <span className="text-[9px] text-[rgba(226,232,240,0.35)] w-full">종료</span>
+        <span className="text-[9px] text-[rgba(var(--text-rgb),0.35)] w-full">종료</span>
         <button type="button" onClick={() => applyDuration(1)} className={`text-[9px] px-2 py-0.5 rounded-full border transition-all ${pillOff}`}>1개월</button>
         <button type="button" onClick={() => applyDuration(2)} className={`text-[9px] px-2 py-0.5 rounded-full border transition-all ${pillOff}`}>2개월</button>
         <div className="flex items-center gap-0.5">
           <input type="number" min={1} value={customMonths} onChange={e => setCustomMonths(e.target.value.replace(/\D/g, ''))}
-            className="w-9 text-[9px] border border-[rgba(255,255,255,0.09)] rounded px-1 py-0.5 focus:outline-none text-center text-[rgba(226,232,240,0.7)] bg-[rgba(255,255,255,0.06)]" />
+            className="w-9 text-[9px] border border-[rgba(var(--ink-rgb),0.09)] rounded px-1 py-0.5 focus:outline-none text-center text-[rgba(var(--text-rgb),0.7)] bg-[rgba(var(--ink-rgb),0.06)]" />
           <button type="button" onClick={() => applyDuration(Math.max(1, parseInt(customMonths) || 1))}
             className={`text-[9px] px-2 py-0.5 rounded-full border transition-all ${pillOff}`}>개월</button>
         </div>
@@ -657,7 +657,7 @@ export default function SchedulePage() {
 
   function getMeetingStyle(category: string | null | undefined): CSSProperties {
     const key: CategoryColorKey = MEETING_CATEGORY[category ?? ''] ?? colorKeyFromName(category ?? '기타')
-    return { background: CATEGORY_PALETTE[key].bg, color: 'rgba(226,232,240,0.9)' }
+    return { background: CATEGORY_PALETTE[key].bg, color: 'rgba(var(--text-rgb),0.9)' }
   }
 
   function renderDay(day: Date, isOtherMonth: boolean) {
@@ -684,9 +684,9 @@ export default function SchedulePage() {
     return (
       <div key={day.toISOString()}
         onClick={() => setSelectedDay(isSameDay(day, selectedDay ?? new Date(0)) ? null : day)}
-        className={`min-h-24 p-1.5 rounded-2xl cursor-pointer transition-colors ${isToday ? 'ring-1 ring-[#BADEC8] ring-inset' : ''} ${isSelected ? 'bg-[rgba(255,255,255,0.06)]' : isOtherMonth ? 'bg-[rgba(255,255,255,0.06)] opacity-40' : 'hover:bg-[rgba(255,255,255,0.06)]'}`}>
+        className={`min-h-24 p-1.5 rounded-2xl cursor-pointer transition-colors ${isToday ? 'ring-1 ring-[#BADEC8] ring-inset' : ''} ${isSelected ? 'bg-[rgba(var(--ink-rgb),0.06)]' : isOtherMonth ? 'bg-[rgba(var(--ink-rgb),0.06)] opacity-40' : 'hover:bg-[rgba(var(--ink-rgb),0.06)]'}`}>
         <p className={`text-xs text-center mb-1.5 w-6 h-6 flex items-center justify-center rounded-full mx-auto ${
-          isToday ? 'bg-[#2D5A45] text-white font-bold' : isOtherMonth ? 'text-[rgba(226,232,240,0.3)]' : 'text-[rgba(226,232,240,0.7)]'
+          isToday ? 'bg-[#2D5A45] text-white font-bold' : isOtherMonth ? 'text-[rgba(var(--text-rgb),0.3)]' : 'text-[rgba(var(--text-rgb),0.7)]'
         }`}>
           {format(day, 'd')}
         </p>
@@ -698,7 +698,7 @@ export default function SchedulePage() {
                 <button key={`task-${dt.task.id}-${dt.dateType}-${idx}`}
                   onClick={e => { e.stopPropagation(); router.push(`/tasks/${dt.task.id}`) }}
                   className={`w-full text-left rounded-lg px-1.5 py-0.5 truncate text-[11px] leading-tight hover:opacity-80 font-medium ${
-                    dt.dateType === 'mid' ? 'bg-[#F3E482]/65 text-[rgba(226,232,240,0.9)]' : 'bg-[#90A7D8]/45 text-[rgba(226,232,240,0.9)]'
+                    dt.dateType === 'mid' ? 'bg-[#F3E482]/65 text-[rgba(var(--text-rgb),0.9)]' : 'bg-[#90A7D8]/45 text-[rgba(var(--text-rgb),0.9)]'
                   }`}
                   title={`${dt.dateType === 'mid' ? '중간공유' : '최종보고'} | ${dt.task.title}`}>
                   <span className="opacity-70">{dt.dateType === 'mid' ? '중간' : '최종'}</span>
@@ -731,7 +731,8 @@ export default function SchedulePage() {
               return (
                 <button key={`fixed-${s.id}-${idx}`}
                   onClick={e => { e.stopPropagation(); goToFixedMeeting(s, format(day, 'yyyy-MM-dd')) }}
-                  className="w-full text-left rounded-lg px-1.5 py-0.5 truncate text-[11px] leading-tight hover:opacity-80 bg-emerald-900/40 text-emerald-300 border border-emerald-700/40"
+                  className="w-full text-left rounded-lg px-1.5 py-0.5 truncate text-[11px] leading-tight hover:opacity-80 border"
+                  style={{ background: 'var(--fixed-meeting-bg)', color: 'var(--fixed-meeting-text)', borderColor: 'var(--fixed-meeting-border)' }}
                   title={`고정회의 | ${s.title} ${s.time} (클릭하면 회의록으로 이동)`}>
                   <span className="opacity-60 mr-0.5">↺</span>{s.time} {s.title}
                 </button>
@@ -758,34 +759,32 @@ export default function SchedulePage() {
               )
             }
           })}
-          {allItems.length > 4 && <p className="text-[10px] text-[rgba(226,232,240,0.4)] text-center">+{allItems.length - 4}</p>}
+          {allItems.length > 4 && <p className="text-[10px] text-[rgba(var(--text-rgb),0.4)] text-center">+{allItems.length - 4}</p>}
         </div>
       </div>
     )
   }
 
   const pillBase = 'text-xs px-3.5 py-1.5 rounded-full border font-medium transition-all whitespace-nowrap'
-  const pillActive = 'bg-[#4C7FE0] text-white border-[#4C7FE0] shadow-sm'
-  const pillInactive = 'bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border-[rgba(255,255,255,0.09)] text-[rgba(226,232,240,0.5)] hover:bg-[rgba(255,255,255,0.06)] hover:text-[rgba(226,232,240,0.8)]'
+  const pillActive = 'bg-[var(--accent-primary)] text-white border-[var(--accent-primary)] shadow-sm'
+  const pillInactive = 'bg-[rgba(var(--ink-rgb),0.06)] backdrop-blur-xl border-[rgba(var(--ink-rgb),0.09)] text-[rgba(var(--text-rgb),0.5)] hover:bg-[rgba(var(--ink-rgb),0.06)] hover:text-[rgba(var(--text-rgb),0.8)]'
 
   return (
     <div className="h-full flex flex-col overflow-hidden font-sans">
       <div className="flex-shrink-0 pt-6 pb-4 flex items-center justify-between">
-        <h1 className="text-xl font-bold text-[#E2E8F0]">일정</h1>
+        <h1 className="text-xl font-bold text-[rgba(var(--text-rgb),1)]">일정</h1>
       </div>
 
       {/* 필터 pills */}
       <div className="flex-shrink-0 flex items-center gap-2 overflow-x-auto scrollbar-hide mb-4">
         <select value={partFilter} onChange={e => setPartFilter(e.target.value)}
-          className={`${pillBase} bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border-[rgba(255,255,255,0.09)] text-[rgba(226,232,240,0.5)] focus:outline-none cursor-pointer [&>option]:bg-[#26282E] [&>option]:text-[rgba(226,232,240,0.8)]`}
-          style={{ colorScheme: 'dark' }}>
+          className={`${pillBase} bg-[rgba(var(--ink-rgb),0.06)] backdrop-blur-xl border-[rgba(var(--ink-rgb),0.09)] text-[rgba(var(--text-rgb),0.5)] focus:outline-none cursor-pointer [&>option]:bg-[var(--select-option-bg)] [&>option]:text-[rgba(var(--text-rgb),0.8)]`}>
           <option value="전체">전체 파트</option>
           {flatParts.map(fp => <option key={fp.id} value={fp.id}>{fp.label}</option>)}
         </select>
 
         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as TaskStatus | '전체')}
-          className={`${pillBase} bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border-[rgba(255,255,255,0.09)] text-[rgba(226,232,240,0.5)] focus:outline-none cursor-pointer [&>option]:bg-[#26282E] [&>option]:text-[rgba(226,232,240,0.8)]`}
-          style={{ colorScheme: 'dark' }}>
+          className={`${pillBase} bg-[rgba(var(--ink-rgb),0.06)] backdrop-blur-xl border-[rgba(var(--ink-rgb),0.09)] text-[rgba(var(--text-rgb),0.5)] focus:outline-none cursor-pointer [&>option]:bg-[var(--select-option-bg)] [&>option]:text-[rgba(var(--text-rgb),0.8)]`}>
           <option value="전체">전체 상태</option>
           <option value="진행필요">진행필요</option>
           <option value="진행중">진행중</option>
@@ -793,16 +792,14 @@ export default function SchedulePage() {
         </select>
 
         <select value={reportFilter} onChange={e => setReportFilter(e.target.value as '전체' | '중간공유' | '최종보고')}
-          className={`${pillBase} bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border-[rgba(255,255,255,0.09)] text-[rgba(226,232,240,0.5)] focus:outline-none cursor-pointer [&>option]:bg-[#26282E] [&>option]:text-[rgba(226,232,240,0.8)]`}
-          style={{ colorScheme: 'dark' }}>
+          className={`${pillBase} bg-[rgba(var(--ink-rgb),0.06)] backdrop-blur-xl border-[rgba(var(--ink-rgb),0.09)] text-[rgba(var(--text-rgb),0.5)] focus:outline-none cursor-pointer [&>option]:bg-[var(--select-option-bg)] [&>option]:text-[rgba(var(--text-rgb),0.8)]`}>
           <option value="전체">보고구분</option>
           <option value="중간공유">중간공유</option>
           <option value="최종보고">최종보고</option>
         </select>
 
         <select value={viewFilter} onChange={e => setViewFilter(e.target.value as '전체' | '업무만' | '회의만')}
-          className={`${pillBase} bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border-[rgba(255,255,255,0.09)] text-[rgba(226,232,240,0.5)] focus:outline-none cursor-pointer [&>option]:bg-[#26282E] [&>option]:text-[rgba(226,232,240,0.8)]`}
-          style={{ colorScheme: 'dark' }}>
+          className={`${pillBase} bg-[rgba(var(--ink-rgb),0.06)] backdrop-blur-xl border-[rgba(var(--ink-rgb),0.09)] text-[rgba(var(--text-rgb),0.5)] focus:outline-none cursor-pointer [&>option]:bg-[var(--select-option-bg)] [&>option]:text-[rgba(var(--text-rgb),0.8)]`}>
           <option value="전체">업무+회의</option>
           <option value="업무만">업무만</option>
           <option value="회의만">회의만</option>
@@ -824,36 +821,36 @@ export default function SchedulePage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pb-4">
 
           {/* 캘린더 */}
-          <div className="md:col-span-2 bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border border-[rgba(255,255,255,0.09)] rounded-3xl p-5 flex flex-col">
+          <div className="md:col-span-2 bg-[rgba(var(--ink-rgb),0.06)] backdrop-blur-xl border border-[rgba(var(--ink-rgb),0.09)] rounded-3xl p-5 flex flex-col">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="font-semibold text-[rgba(226,232,240,0.9)]">{format(current, 'yyyy년 M월', { locale: ko })}</h2>
-              <div className="flex items-center gap-1 bg-[rgba(255,255,255,0.06)] rounded-full p-1 border border-[rgba(255,255,255,0.09)]">
+              <h2 className="font-semibold text-[rgba(var(--text-rgb),0.9)]">{format(current, 'yyyy년 M월', { locale: ko })}</h2>
+              <div className="flex items-center gap-1 bg-[rgba(var(--ink-rgb),0.06)] rounded-full p-1 border border-[rgba(var(--ink-rgb),0.09)]">
                 <button onClick={() => setCurrent(d => new Date(d.getFullYear(), d.getMonth() - 1, 1))}
-                  className="px-2.5 py-1 text-sm text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)] hover:bg-[rgba(255,255,255,0.06)] rounded-full transition-all">←</button>
+                  className="px-2.5 py-1 text-sm text-[rgba(var(--text-rgb),0.4)] hover:text-[rgba(var(--text-rgb),0.7)] hover:bg-[rgba(var(--ink-rgb),0.06)] rounded-full transition-all">←</button>
                 <button onClick={() => setCurrent(new Date())}
-                  className="px-2.5 py-1 text-xs text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.8)] hover:bg-[rgba(255,255,255,0.06)] rounded-full transition-all font-medium">오늘</button>
+                  className="px-2.5 py-1 text-xs text-[rgba(var(--text-rgb),0.4)] hover:text-[rgba(var(--text-rgb),0.8)] hover:bg-[rgba(var(--ink-rgb),0.06)] rounded-full transition-all font-medium">오늘</button>
                 <button onClick={() => setCurrent(d => new Date(d.getFullYear(), d.getMonth() + 1, 1))}
-                  className="px-2.5 py-1 text-sm text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)] hover:bg-[rgba(255,255,255,0.06)] rounded-full transition-all">→</button>
+                  className="px-2.5 py-1 text-sm text-[rgba(var(--text-rgb),0.4)] hover:text-[rgba(var(--text-rgb),0.7)] hover:bg-[rgba(var(--ink-rgb),0.06)] rounded-full transition-all">→</button>
               </div>
             </div>
 
             <div className="grid grid-cols-7 gap-px flex-1">
               {['일','월','화','수','목','금','토'].map(d => (
-                <div key={d} className="text-center text-xs text-[rgba(226,232,240,0.4)] font-medium py-2">{d}</div>
+                <div key={d} className="text-center text-xs text-[rgba(var(--text-rgb),0.4)] font-medium py-2">{d}</div>
               ))}
               {prevDays.map(d => renderDay(d, true))}
               {days.map(d => renderDay(d, false))}
               {nextDays.map(d => renderDay(d, true))}
             </div>
 
-            <div className="flex items-center gap-4 mt-3 pt-3 border-t border-[rgba(255,255,255,0.09)] flex-wrap">
+            <div className="flex items-center gap-4 mt-3 pt-3 border-t border-[rgba(var(--ink-rgb),0.09)] flex-wrap">
               <div className="flex items-center gap-1.5">
                 <div className="w-3 h-2.5 bg-[#F3E482]/60 rounded border border-[#F3E482]/80" />
-                <span className="text-xs text-[rgba(226,232,240,0.4)]">중간공유</span>
+                <span className="text-xs text-[rgba(var(--text-rgb),0.4)]">중간공유</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <div className="w-3 h-2.5 bg-[#90A7D8]/40 rounded border border-[#90A7D8]/60" />
-                <span className="text-xs text-[rgba(226,232,240,0.4)]">최종보고</span>
+                <span className="text-xs text-[rgba(var(--text-rgb),0.4)]">최종보고</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <div className="flex gap-0.5">
@@ -861,23 +858,23 @@ export default function SchedulePage() {
                   <div className="w-2 h-2.5 bg-[#F3E482]/55 rounded" />
                   <div className="w-2 h-2.5 bg-[#90A7D8]/40 rounded" />
                 </div>
-                <span className="text-xs text-[rgba(226,232,240,0.4)]">회의</span>
+                <span className="text-xs text-[rgba(var(--text-rgb),0.4)]">회의</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <div className="w-3 h-2.5 bg-violet-50/80 rounded border border-violet-200/50" />
-                <span className="text-xs text-[rgba(226,232,240,0.4)]">할일</span>
+                <span className="text-xs text-[rgba(var(--text-rgb),0.4)]">할일</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <div className="w-3 h-2.5 bg-amber-100/70 rounded border border-amber-200/50" />
-                <span className="text-xs text-[rgba(226,232,240,0.4)]">즉석 할일</span>
+                <span className="text-xs text-[rgba(var(--text-rgb),0.4)]">즉석 할일</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <div className="w-3 h-2.5 bg-purple-100/70 rounded border border-purple-200/50" />
-                <span className="text-xs text-[rgba(226,232,240,0.4)]">1on1</span>
+                <span className="text-xs text-[rgba(var(--text-rgb),0.4)]">1on1</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <div className="w-3 h-2.5 bg-emerald-900/40 rounded border border-emerald-700/40" />
-                <span className="text-xs text-[rgba(226,232,240,0.4)]">고정회의</span>
+                <div className="w-3 h-2.5 rounded border" style={{ background: 'var(--fixed-meeting-bg)', borderColor: 'var(--fixed-meeting-border)' }} />
+                <span className="text-xs text-[rgba(var(--text-rgb),0.4)]">고정회의</span>
               </div>
               <div className="ml-auto">
                 <button onClick={() => setShowAnalysis(v => !v)}
@@ -888,30 +885,30 @@ export default function SchedulePage() {
             </div>
 
             {showAnalysis && (
-              <div className="mt-4 pt-4 border-t border-[rgba(255,255,255,0.09)]">
+              <div className="mt-4 pt-4 border-t border-[rgba(var(--ink-rgb),0.09)]">
                 <div className="flex items-center gap-2 mb-4">
-                  <span className="text-xs text-[rgba(226,232,240,0.4)] mr-1">기간</span>
+                  <span className="text-xs text-[rgba(var(--text-rgb),0.4)] mr-1">기간</span>
                   {(['이번주', '이번달', '직전월'] as const).map(p => (
                     <button key={p} onClick={() => setAnalysisPeriod(p)}
-                      className={`text-xs px-3 py-1 rounded-full transition-all ${analysisPeriod === p ? pillActive : 'bg-[rgba(255,255,255,0.06)] text-[rgba(226,232,240,0.5)] border border-[rgba(255,255,255,0.09)] hover:bg-[rgba(255,255,255,0.06)]'}`}>
+                      className={`text-xs px-3 py-1 rounded-full transition-all ${analysisPeriod === p ? pillActive : 'bg-[rgba(var(--ink-rgb),0.06)] text-[rgba(var(--text-rgb),0.5)] border border-[rgba(var(--ink-rgb),0.09)] hover:bg-[rgba(var(--ink-rgb),0.06)]'}`}>
                       {p}
                     </button>
                   ))}
                 </div>
                 <div className="grid grid-cols-3 gap-3 mb-4">
                   {[
-                    { label: '업무일', value: analysis.workDays, unit: '일', cls: 'bg-[rgba(255,255,255,0.06)]' },
+                    { label: '업무일', value: analysis.workDays, unit: '일', cls: 'bg-[rgba(var(--ink-rgb),0.06)]' },
                     { label: '회의 건수', value: analysis.meetingCount, unit: '건', cls: 'bg-rose-50/60' },
                     { label: '업무 마감', value: analysis.taskDeadlines, unit: '건', cls: 'bg-slate-50/60' },
                   ].map(s => (
-                    <div key={s.label} className={`${s.cls} rounded-2xl border border-[rgba(255,255,255,0.09)] p-3 text-center`}>
-                      <p className="text-xs text-[rgba(226,232,240,0.4)] mb-1">{s.label}</p>
-                      <p className="text-lg font-bold text-[rgba(226,232,240,0.9)]">{s.value}<span className="text-xs font-normal text-[rgba(226,232,240,0.4)] ml-0.5">{s.unit}</span></p>
+                    <div key={s.label} className={`${s.cls} rounded-2xl border border-[rgba(var(--ink-rgb),0.09)] p-3 text-center`}>
+                      <p className="text-xs text-[rgba(var(--text-rgb),0.4)] mb-1">{s.label}</p>
+                      <p className="text-lg font-bold text-[rgba(var(--text-rgb),0.9)]">{s.value}<span className="text-xs font-normal text-[rgba(var(--text-rgb),0.4)] ml-0.5">{s.unit}</span></p>
                     </div>
                   ))}
                 </div>
                 <div className="space-y-2">
-                  <div className="flex h-3.5 rounded-full overflow-hidden bg-[rgba(255,255,255,0.06)]">
+                  <div className="flex h-3.5 rounded-full overflow-hidden bg-[rgba(var(--ink-rgb),0.06)]">
                     {analysis.totalHours > 0 && (
                       <>
                         <div className="bg-rose-300 transition-all" style={{ width: `${Math.min(100, (analysis.meetingHours / analysis.totalHours) * 100)}%` }} />
@@ -919,8 +916,8 @@ export default function SchedulePage() {
                       </>
                     )}
                   </div>
-                  <p className="text-xs text-[rgba(226,232,240,0.5)]">
-                    총 <span className="font-semibold text-[rgba(226,232,240,0.8)]">{analysis.totalHours}h</span>{' · '}
+                  <p className="text-xs text-[rgba(var(--text-rgb),0.5)]">
+                    총 <span className="font-semibold text-[rgba(var(--text-rgb),0.8)]">{analysis.totalHours}h</span>{' · '}
                     회의 <span className="font-semibold text-rose-500">{analysis.meetingHours}h</span>{' · '}
                     집중 <span className="font-semibold text-[#2D5A45]">{analysis.focusHours}h</span>
                   </p>
@@ -933,34 +930,34 @@ export default function SchedulePage() {
           <div className="space-y-3">
 
             {/* 고정 회의 설정 */}
-            <div id="meetings" className="bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border border-[rgba(255,255,255,0.09)] rounded-3xl p-4">
+            <div id="meetings" className="bg-[rgba(var(--ink-rgb),0.06)] backdrop-blur-xl border border-[rgba(var(--ink-rgb),0.09)] rounded-3xl p-4">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-[rgba(226,232,240,0.8)]">📋 고정 회의</h3>
+                <h3 className="text-sm font-semibold text-[rgba(var(--text-rgb),0.8)]">📋 고정 회의</h3>
                 <button
                   onClick={() => setShowMeetingForm(p => !p)}
-                  className="text-[10px] text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.8)] transition-colors">
+                  className="text-[10px] text-[rgba(var(--text-rgb),0.4)] hover:text-[rgba(var(--text-rgb),0.8)] transition-colors">
                   {showMeetingForm ? '취소' : '+ 추가'}
                 </button>
               </div>
 
               {showMeetingForm && (
-                <div className="mb-3 p-2.5 bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] rounded-xl space-y-2">
+                <div className="mb-3 p-2.5 bg-[rgba(var(--ink-rgb),0.06)] border border-[rgba(var(--ink-rgb),0.09)] rounded-xl space-y-2">
                   <input
                     autoFocus
                     value={meetForm.title}
                     onChange={e => setMeetForm(p => ({ ...p, title: e.target.value }))}
                     onKeyDown={e => { if (e.key === 'Enter') addMeetingSchedule() }}
                     placeholder="회의명"
-                    className="w-full text-xs focus:outline-none border-b border-[rgba(255,255,255,0.06)] pb-1 bg-transparent text-[rgba(226,232,240,0.8)] placeholder:text-[rgba(226,232,240,0.3)]"
+                    className="w-full text-xs focus:outline-none border-b border-[rgba(var(--ink-rgb),0.06)] pb-1 bg-transparent text-[rgba(var(--text-rgb),0.8)] placeholder:text-[rgba(var(--text-rgb),0.3)]"
                   />
                   <div className="flex items-center gap-2">
                     <input
                       type="time"
                       value={meetForm.time}
                       onChange={e => setMeetForm(p => ({ ...p, time: e.target.value }))}
-                      className="text-xs border border-[rgba(255,255,255,0.09)] rounded px-1.5 py-0.5 focus:outline-none text-[rgba(226,232,240,0.7)] bg-[rgba(255,255,255,0.06)]"
+                      className="text-xs border border-[rgba(var(--ink-rgb),0.09)] rounded px-1.5 py-0.5 focus:outline-none text-[rgba(var(--text-rgb),0.7)] bg-[rgba(var(--ink-rgb),0.06)]"
                     />
-                    <label className="flex items-center gap-1 text-[10px] text-[rgba(226,232,240,0.5)] cursor-pointer">
+                    <label className="flex items-center gap-1 text-[10px] text-[rgba(var(--text-rgb),0.5)] cursor-pointer">
                       <input
                         type="checkbox"
                         checked={meetForm.is_recurring}
@@ -972,7 +969,7 @@ export default function SchedulePage() {
                   </div>
                   <RecurrenceFields value={meetForm} onChange={patch => setMeetForm(p => ({ ...p, ...patch }))} />
                   <div className="space-y-1">
-                    <p className="text-[9px] text-[rgba(226,232,240,0.35)]">회의록 범주</p>
+                    <p className="text-[9px] text-[rgba(var(--text-rgb),0.35)]">회의록 범주</p>
                     <div className="flex flex-wrap gap-1">
                       {meetingCategories.map(cat => {
                         const ck = MEETING_CATEGORY[cat] ?? colorKeyFromName(cat)
@@ -980,7 +977,7 @@ export default function SchedulePage() {
                         const sel = meetForm.category === cat
                         return (
                           <button key={cat} type="button" onClick={() => setMeetForm(prev => ({ ...prev, category: sel ? '' : cat }))}
-                            style={{ background: sel ? p.bg : 'rgba(255,255,255,0.04)', border: `1px solid ${sel ? p.border : 'rgba(255,255,255,0.07)'}`, color: sel ? p.text : 'rgba(226,232,240,0.4)' }}
+                            style={{ background: sel ? p.bg : 'rgba(var(--ink-rgb),0.04)', border: `1px solid ${sel ? p.border : 'rgba(var(--ink-rgb),0.07)'}`, color: sel ? p.text : 'rgba(var(--text-rgb),0.4)' }}
                             className="text-[9px] px-2 py-0.5 rounded-full transition-all">
                             {cat}
                           </button>
@@ -990,9 +987,9 @@ export default function SchedulePage() {
                   </div>
                   <div className="flex justify-end gap-1.5 pt-1">
                     <button onClick={() => setShowMeetingForm(false)}
-                      className="text-[10px] text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)]">취소</button>
+                      className="text-[10px] text-[rgba(var(--text-rgb),0.4)] hover:text-[rgba(var(--text-rgb),0.7)]">취소</button>
                     <button onClick={addMeetingSchedule} disabled={!meetForm.title.trim()}
-                      className="text-[10px] bg-[#4C7FE0] text-white px-2.5 py-1 rounded-full disabled:opacity-40">
+                      className="text-[10px] bg-[var(--accent-primary)] text-white px-2.5 py-1 rounded-full disabled:opacity-40">
                       저장
                     </button>
                   </div>
@@ -1001,27 +998,27 @@ export default function SchedulePage() {
 
               <div className="space-y-1">
                 {schedules.length === 0 ? (
-                  <p className="text-xs text-[rgba(226,232,240,0.3)] text-center py-2">등록된 고정 회의 없음</p>
+                  <p className="text-xs text-[rgba(var(--text-rgb),0.3)] text-center py-2">등록된 고정 회의 없음</p>
                 ) : (
                   schedules.map(s => {
                     if (editingId === s.id) {
                       return (
-                        <div key={s.id} className="p-2.5 bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.12)] rounded-xl space-y-2">
+                        <div key={s.id} className="p-2.5 bg-[rgba(var(--ink-rgb),0.06)] border border-[rgba(var(--ink-rgb),0.12)] rounded-xl space-y-2">
                           <input
                             autoFocus
                             value={editForm.title}
                             onChange={e => setEditForm(p => ({ ...p, title: e.target.value }))}
                             onKeyDown={e => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') setEditingId(null) }}
-                            className="w-full text-xs focus:outline-none border-b border-[rgba(255,255,255,0.06)] pb-1 bg-transparent text-[rgba(226,232,240,0.9)] placeholder:text-[rgba(226,232,240,0.3)]"
+                            className="w-full text-xs focus:outline-none border-b border-[rgba(var(--ink-rgb),0.06)] pb-1 bg-transparent text-[rgba(var(--text-rgb),0.9)] placeholder:text-[rgba(var(--text-rgb),0.3)]"
                           />
                           <div className="flex items-center gap-2">
                             <input
                               type="time"
                               value={editForm.time}
                               onChange={e => setEditForm(p => ({ ...p, time: e.target.value }))}
-                              className="text-xs border border-[rgba(255,255,255,0.09)] rounded px-1.5 py-0.5 focus:outline-none text-[rgba(226,232,240,0.7)] bg-[rgba(255,255,255,0.06)]"
+                              className="text-xs border border-[rgba(var(--ink-rgb),0.09)] rounded px-1.5 py-0.5 focus:outline-none text-[rgba(var(--text-rgb),0.7)] bg-[rgba(var(--ink-rgb),0.06)]"
                             />
-                            <label className="flex items-center gap-1 text-[10px] text-[rgba(226,232,240,0.5)] cursor-pointer">
+                            <label className="flex items-center gap-1 text-[10px] text-[rgba(var(--text-rgb),0.5)] cursor-pointer">
                               <input
                                 type="checkbox"
                                 checked={editForm.is_recurring}
@@ -1033,7 +1030,7 @@ export default function SchedulePage() {
                           </div>
                           <RecurrenceFields value={editForm} onChange={patch => setEditForm(p => ({ ...p, ...patch }))} />
                           <div className="space-y-1">
-                            <p className="text-[9px] text-[rgba(226,232,240,0.35)]">회의록 범주</p>
+                            <p className="text-[9px] text-[rgba(var(--text-rgb),0.35)]">회의록 범주</p>
                             <div className="flex flex-wrap gap-1">
                               {meetingCategories.map(cat => {
                                 const ck = MEETING_CATEGORY[cat] ?? colorKeyFromName(cat)
@@ -1041,7 +1038,7 @@ export default function SchedulePage() {
                                 const sel = editForm.category === cat
                                 return (
                                   <button key={cat} type="button" onClick={() => setEditForm(p => ({ ...p, category: sel ? '' : cat }))}
-                                    style={{ background: sel ? p2.bg : 'rgba(255,255,255,0.04)', border: `1px solid ${sel ? p2.border : 'rgba(255,255,255,0.07)'}`, color: sel ? p2.text : 'rgba(226,232,240,0.4)' }}
+                                    style={{ background: sel ? p2.bg : 'rgba(var(--ink-rgb),0.04)', border: `1px solid ${sel ? p2.border : 'rgba(var(--ink-rgb),0.07)'}`, color: sel ? p2.text : 'rgba(var(--text-rgb),0.4)' }}
                                     className="text-[9px] px-2 py-0.5 rounded-full transition-all">
                                     {cat}
                                   </button>
@@ -1051,9 +1048,9 @@ export default function SchedulePage() {
                           </div>
                           <div className="flex justify-end gap-1.5 pt-0.5">
                             <button onClick={() => setEditingId(null)}
-                              className="text-[10px] text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)]">취소</button>
+                              className="text-[10px] text-[rgba(var(--text-rgb),0.4)] hover:text-[rgba(var(--text-rgb),0.7)]">취소</button>
                             <button onClick={saveEdit} disabled={!editForm.title.trim()}
-                              className="text-[10px] bg-[#4C7FE0] text-white px-2.5 py-1 rounded-full disabled:opacity-40">
+                              className="text-[10px] bg-[var(--accent-primary)] text-white px-2.5 py-1 rounded-full disabled:opacity-40">
                               저장
                             </button>
                           </div>
@@ -1061,15 +1058,15 @@ export default function SchedulePage() {
                       )
                     }
                     return (
-                      <div key={s.id} className="group flex items-center gap-2 px-1.5 py-1.5 rounded-lg hover:bg-[rgba(255,255,255,0.06)] transition-colors">
-                        <span className="text-[11px] font-mono text-[rgba(226,232,240,0.4)] w-10 flex-shrink-0">{s.time}</span>
-                        <span className="flex-1 text-[11px] text-[rgba(226,232,240,0.8)] truncate">{s.title}</span>
+                      <div key={s.id} className="group flex items-center gap-2 px-1.5 py-1.5 rounded-lg hover:bg-[rgba(var(--ink-rgb),0.06)] transition-colors">
+                        <span className="text-[11px] font-mono text-[rgba(var(--text-rgb),0.4)] w-10 flex-shrink-0">{s.time}</span>
+                        <span className="flex-1 text-[11px] text-[rgba(var(--text-rgb),0.8)] truncate">{s.title}</span>
                         {s.category && (() => {
                           const ck = MEETING_CATEGORY[s.category] ?? colorKeyFromName(s.category)
                           const cp = CATEGORY_PALETTE[ck]
                           return <span className="text-[8px] px-1.5 py-0.5 rounded-full flex-shrink-0" style={{ background: cp.bg, color: cp.text, border: `1px solid ${cp.border}` }}>{s.category}</span>
                         })()}
-                        <span className="text-[8px] text-[rgba(226,232,240,0.3)] flex-shrink-0">
+                        <span className="text-[8px] text-[rgba(var(--text-rgb),0.3)] flex-shrink-0">
                           {!s.is_recurring
                             ? s.date
                             : s.recur_type === 'monthly'
@@ -1079,12 +1076,12 @@ export default function SchedulePage() {
                         </span>
                         <button
                           onClick={() => startEdit(s)}
-                          className="text-[9px] text-[rgba(226,232,240,0.2)] hover:text-[rgba(226,232,240,0.6)] opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 px-0.5">
+                          className="text-[9px] text-[rgba(var(--text-rgb),0.2)] hover:text-[rgba(var(--text-rgb),0.6)] opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 px-0.5">
                           ✎
                         </button>
                         <button
                           onClick={() => removeMeetingSchedule(s.id)}
-                          className="text-[9px] text-[rgba(226,232,240,0.2)] hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                          className="text-[9px] text-[rgba(var(--text-rgb),0.2)] hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
                           ×
                         </button>
                       </div>
@@ -1095,11 +1092,11 @@ export default function SchedulePage() {
             </div>
 
             {/* 전월 */}
-            <div className="bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border border-[rgba(255,255,255,0.09)] rounded-3xl overflow-hidden">
-              <button className="w-full flex items-center justify-between px-4 py-3 text-xs text-[rgba(226,232,240,0.5)] hover:bg-[rgba(255,255,255,0.06)] transition-colors"
+            <div className="bg-[rgba(var(--ink-rgb),0.06)] backdrop-blur-xl border border-[rgba(var(--ink-rgb),0.09)] rounded-3xl overflow-hidden">
+              <button className="w-full flex items-center justify-between px-4 py-3 text-xs text-[rgba(var(--text-rgb),0.5)] hover:bg-[rgba(var(--ink-rgb),0.06)] transition-colors"
                 onClick={() => setShowPrevCal(v => !v)}>
                 <span>{format(prevMonthNav, 'yy년 M월', { locale: ko })} (전월)</span>
-                <span className="text-[rgba(226,232,240,0.3)]">{showPrevCal ? '▲' : '▼'}</span>
+                <span className="text-[rgba(var(--text-rgb),0.3)]">{showPrevCal ? '▲' : '▼'}</span>
               </button>
               {showPrevCal && (
                 <div className="px-3 pb-3">
@@ -1109,11 +1106,11 @@ export default function SchedulePage() {
             </div>
 
             {/* 익월 */}
-            <div className="bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border border-[rgba(255,255,255,0.09)] rounded-3xl overflow-hidden">
-              <button className="w-full flex items-center justify-between px-4 py-3 text-xs text-[rgba(226,232,240,0.5)] hover:bg-[rgba(255,255,255,0.06)] transition-colors"
+            <div className="bg-[rgba(var(--ink-rgb),0.06)] backdrop-blur-xl border border-[rgba(var(--ink-rgb),0.09)] rounded-3xl overflow-hidden">
+              <button className="w-full flex items-center justify-between px-4 py-3 text-xs text-[rgba(var(--text-rgb),0.5)] hover:bg-[rgba(var(--ink-rgb),0.06)] transition-colors"
                 onClick={() => setShowNextCal(v => !v)}>
                 <span>{format(nextMonthNav, 'yy년 M월', { locale: ko })} (익월)</span>
-                <span className="text-[rgba(226,232,240,0.3)]">{showNextCal ? '▲' : '▼'}</span>
+                <span className="text-[rgba(var(--text-rgb),0.3)]">{showNextCal ? '▲' : '▼'}</span>
               </button>
               {showNextCal && (
                 <div className="px-3 pb-3">
@@ -1123,8 +1120,8 @@ export default function SchedulePage() {
             </div>
 
             {/* 선택한 날 일정 */}
-            <div className="bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border border-[rgba(255,255,255,0.09)] rounded-3xl p-4">
-              <h3 className="text-sm font-semibold text-[rgba(226,232,240,0.8)] mb-3">
+            <div className="bg-[rgba(var(--ink-rgb),0.06)] backdrop-blur-xl border border-[rgba(var(--ink-rgb),0.09)] rounded-3xl p-4">
+              <h3 className="text-sm font-semibold text-[rgba(var(--text-rgb),0.8)] mb-3">
                 {selectedDay ? `${format(selectedDay, 'M월 d일 (E)', { locale: ko })} 일정` : '날짜를 선택하세요'}
               </h3>
               {selectedDay && (
@@ -1134,23 +1131,23 @@ export default function SchedulePage() {
                     onChange={e => setQuickAddTitle(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter') addQuickTodoForDay(format(selectedDay, 'yyyy-MM-dd')) }}
                     placeholder="즉석 할일 추가..."
-                    className="flex-1 text-xs bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.09)] rounded-lg px-2.5 py-1.5 text-[rgba(226,232,240,0.85)] outline-none placeholder:text-[rgba(226,232,240,0.25)]"
+                    className="flex-1 text-xs bg-[rgba(var(--ink-rgb),0.05)] border border-[rgba(var(--ink-rgb),0.09)] rounded-lg px-2.5 py-1.5 text-[rgba(var(--text-rgb),0.85)] outline-none placeholder:text-[rgba(var(--text-rgb),0.25)]"
                   />
                   <button
                     onClick={() => addQuickTodoForDay(format(selectedDay, 'yyyy-MM-dd'))}
                     disabled={!quickAddTitle.trim()}
                     className="text-[11px] px-2.5 py-1.5 rounded-lg border transition-all disabled:opacity-40"
-                    style={{ background: 'rgba(240,184,96,0.15)', borderColor: 'rgba(240,184,96,0.3)', color: '#F0B860' }}>
+                    style={{ background: 'rgba(240,184,96,0.15)', borderColor: 'rgba(240,184,96,0.3)', color: 'var(--quick-todo-text)' }}>
                     추가
                   </button>
                 </div>
               )}
               {!selectedDay ? (
-                <p className="text-xs text-[rgba(226,232,240,0.3)] leading-relaxed">캘린더에서 날짜를 클릭하면 해당일 일정을 볼 수 있습니다</p>
+                <p className="text-xs text-[rgba(var(--text-rgb),0.3)] leading-relaxed">캘린더에서 날짜를 클릭하면 해당일 일정을 볼 수 있습니다</p>
               ) : (selectedDayTasks.length === 0 && selectedDayMeetings.length === 0 && selectedDayTodos.length === 0 && selectedDayQuickTodos.length === 0 && selectedDayOneOnOnes.length === 0 && selectedDayFixedMeetings.length === 0) ? (
-                <p className="text-xs text-[rgba(226,232,240,0.3)]">예정된 일정이 없습니다</p>
+                <p className="text-xs text-[rgba(var(--text-rgb),0.3)]">예정된 일정이 없습니다</p>
               ) : (
-                <div className="divide-y divide-[rgba(255,255,255,0.05)]">
+                <div className="divide-y divide-[rgba(var(--ink-rgb),0.05)]">
                   {getOrderedDayItems().map(item => {
                     const dotColor = item.type === 'meeting' ? '#BADEC8'
                       : item.type === 'todo' ? '#A78BFA'
@@ -1174,14 +1171,14 @@ export default function SchedulePage() {
                           else router.push(`/tasks/${(item.data as DayTask).task.id}`)
                         }}
                         title={item.type === 'quick' ? '클릭하면 완료 처리됩니다' : undefined}
-                        className="flex items-center gap-2 py-2 cursor-pointer hover:bg-[rgba(255,255,255,0.04)] rounded-lg transition-colors px-1 group">
+                        className="flex items-center gap-2 py-2 cursor-pointer hover:bg-[rgba(var(--ink-rgb),0.04)] rounded-lg transition-colors px-1 group">
                         <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: dotColor }} />
-                        <span className="text-[12px] text-[rgba(226,232,240,0.85)] truncate flex-1">{title}</span>
-                        {sub && <span className="text-[10px] text-[rgba(226,232,240,0.3)] flex-shrink-0 truncate max-w-[4rem]">{sub}</span>}
+                        <span className="text-[12px] text-[rgba(var(--text-rgb),0.85)] truncate flex-1">{title}</span>
+                        {sub && <span className="text-[10px] text-[rgba(var(--text-rgb),0.3)] flex-shrink-0 truncate max-w-[4rem]">{sub}</span>}
                         {item.type === 'quick' && (
                           <button
                             onClick={e => { e.stopPropagation(); removeQuickTodo((item.data as QuickTodo).id) }}
-                            className="text-[11px] text-[rgba(226,232,240,0.2)] hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                            className="text-[11px] text-[rgba(var(--text-rgb),0.2)] hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
                             ×
                           </button>
                         )}
@@ -1191,9 +1188,9 @@ export default function SchedulePage() {
                   {selectedDayOneOnOnes.map(o => (
                     <div key={`oo-panel-${o.id}`}
                       onClick={() => router.push(`/one-on-one/${o.member_id}`)}
-                      className="flex items-center gap-2 py-2 cursor-pointer hover:bg-[rgba(255,255,255,0.04)] rounded-lg transition-colors px-1">
+                      className="flex items-center gap-2 py-2 cursor-pointer hover:bg-[rgba(var(--ink-rgb),0.04)] rounded-lg transition-colors px-1">
                       <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: '#C084FC' }} />
-                      <span className="text-[12px] text-[rgba(226,232,240,0.85)] truncate flex-1">{o.member_name}</span>
+                      <span className="text-[12px] text-[rgba(var(--text-rgb),0.85)] truncate flex-1">{o.member_name}</span>
                       <span className="text-[10px] text-purple-400 flex-shrink-0">1on1</span>
                     </div>
                   ))}
@@ -1212,20 +1209,20 @@ export default function SchedulePage() {
                         <div key={`fixed-panel-${s.id}`} className="px-1 pb-1">
                           <div className="flex items-center gap-2 py-2">
                             <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: '#6EE7B7' }} />
-                            {s.time && <span className="text-[10px] font-mono text-emerald-400 flex-shrink-0">{s.time}</span>}
+                            {s.time && <span className="text-[10px] font-mono text-[var(--fixed-meeting-text)] flex-shrink-0">{s.time}</span>}
                             <span
                               onClick={() => goToFixedMeeting(s, dateStr)}
-                              className="text-[12px] text-[rgba(226,232,240,0.85)] truncate flex-1 cursor-pointer hover:underline"
+                              className="text-[12px] text-[rgba(var(--text-rgb),0.85)] truncate flex-1 cursor-pointer hover:underline"
                               title="클릭하면 회의록으로 이동">
                               {s.title}
                             </span>
                             {saved ? (
-                              <span className="text-[10px] text-emerald-400 flex-shrink-0">저장됨 ✓</span>
+                              <span className="text-[10px] text-[var(--fixed-meeting-text)] flex-shrink-0">저장됨 ✓</span>
                             ) : (
                               <button
                                 onClick={() => setFixedMemoOpen(p => ({ ...p, [key]: !p[key] }))}
                                 className="text-[10px] px-2 py-0.5 rounded flex-shrink-0 transition-all"
-                                style={{ border: `1px solid ${isOpen ? 'rgba(56,190,152,0.35)' : 'rgba(255,255,255,0.1)'}`, background: isOpen ? 'rgba(56,190,152,0.12)' : 'transparent', color: isOpen ? '#6EE7B7' : 'rgba(226,232,240,0.4)' }}>
+                                style={{ border: `1px solid ${isOpen ? 'rgba(56,190,152,0.35)' : 'rgba(var(--ink-rgb),0.1)'}`, background: isOpen ? 'rgba(56,190,152,0.12)' : 'transparent', color: isOpen ? 'var(--fixed-meeting-text)' : 'rgba(var(--text-rgb),0.4)' }}>
                                 {prepNotes.length > 0 ? `안건 ${prepNotes.length}` : '안건'}
                               </button>
                             )}
@@ -1233,7 +1230,7 @@ export default function SchedulePage() {
                           {prepNotes.length > 0 && !isOpen && (
                             <div className="ml-5 mb-1.5 space-y-0.5">
                               {prepNotes.slice(-3).map((n, ni) => (
-                                <p key={ni} className="text-[11px] text-[rgba(226,232,240,0.4)] truncate">· {n.content}</p>
+                                <p key={ni} className="text-[11px] text-[rgba(var(--text-rgb),0.4)] truncate">· {n.content}</p>
                               ))}
                             </div>
                           )}
@@ -1249,14 +1246,14 @@ export default function SchedulePage() {
                                 }}
                                 placeholder="회의 안건 메모... (Ctrl+Enter)"
                                 rows={2}
-                                className="flex-1 text-[12px] bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.09)] rounded-lg px-2.5 py-1.5 text-[rgba(226,232,240,0.85)] resize-none outline-none placeholder:text-[rgba(226,232,240,0.25)]"
+                                className="flex-1 text-[12px] bg-[rgba(var(--ink-rgb),0.04)] border border-[rgba(var(--ink-rgb),0.09)] rounded-lg px-2.5 py-1.5 text-[rgba(var(--text-rgb),0.85)] resize-none outline-none placeholder:text-[rgba(var(--text-rgb),0.25)]"
                                 style={{ fontFamily: 'inherit', lineHeight: 1.5 }}
                               />
                               <button
                                 onClick={() => saveScheduleFixedMemo(s, dateStr)}
                                 disabled={!text.trim() || saving}
                                 className="text-[11px] px-3 py-1 rounded-lg self-end transition-all"
-                                style={{ background: text.trim() ? 'rgba(56,190,152,0.16)' : 'rgba(255,255,255,0.04)', border: `1px solid ${text.trim() ? 'rgba(56,190,152,0.3)' : 'rgba(255,255,255,0.07)'}`, color: text.trim() ? '#6EE7B7' : 'rgba(226,232,240,0.3)', cursor: text.trim() ? 'pointer' : 'default' }}>
+                                style={{ background: text.trim() ? 'rgba(56,190,152,0.16)' : 'rgba(var(--ink-rgb),0.04)', border: `1px solid ${text.trim() ? 'rgba(56,190,152,0.3)' : 'rgba(var(--ink-rgb),0.07)'}`, color: text.trim() ? 'var(--fixed-meeting-text)' : 'rgba(var(--text-rgb),0.3)', cursor: text.trim() ? 'pointer' : 'default' }}>
                                 {saving ? '…' : '저장'}
                               </button>
                             </div>
@@ -1300,7 +1297,7 @@ function MiniCalInline({ monthDate, onClick }: { monthDate: Date; onClick: () =>
   return (
     <div className="grid grid-cols-7 text-center cursor-pointer" onClick={onClick}>
       {['일','월','화','수','목','금','토'].map((d, i) => (
-        <div key={d} className={`text-[9px] pb-0.5 ${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-[rgba(226,232,240,0.3)]'}`}>{d}</div>
+        <div key={d} className={`text-[9px] pb-0.5 ${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-[rgba(var(--text-rgb),0.3)]'}`}>{d}</div>
       ))}
       {Array.from({ length: mStartDow }, (_, i) => <div key={`p${i}`} />)}
       {mDays.map(d => {
@@ -1308,7 +1305,7 @@ function MiniCalInline({ monthDate, onClick }: { monthDate: Date; onClick: () =>
         const holiday = isKoreanHoliday(d)
         const isToday_ = isSameDay(d, today)
         return (
-          <div key={d.toISOString()} className={`text-[10px] h-6 flex items-center justify-center rounded-full ${isToday_ ? 'bg-red-500 text-white font-bold' : (dow === 0 || holiday) ? 'text-red-400' : dow === 6 ? 'text-blue-400' : 'text-[rgba(226,232,240,0.4)]'}`}>
+          <div key={d.toISOString()} className={`text-[10px] h-6 flex items-center justify-center rounded-full ${isToday_ ? 'bg-red-500 text-white font-bold' : (dow === 0 || holiday) ? 'text-red-400' : dow === 6 ? 'text-blue-400' : 'text-[rgba(var(--text-rgb),0.4)]'}`}>
             {format(d, 'd')}
           </div>
         )

@@ -169,6 +169,14 @@ html, body {
   --accent-tint-rgb: 91, 126, 196;
   --accent-tint-text: #8DAEE6;
   --accent-soft-rgb: 79, 141, 255;
+
+  /* ── Phase 2C (Schedule) ── */
+  --select-option-bg: #26282E;
+  --fixed-meeting-bg: rgba(6, 78, 59, 0.4);
+  --fixed-meeting-border: rgba(4, 120, 87, 0.4);
+  --fixed-meeting-text: #6EE7B7;
+  --quick-todo-text: #F0B860;
+  --dropdown-panel-bg: rgba(18, 21, 28, 0.97);
 }
 
 [data-theme="light"] {
@@ -209,6 +217,14 @@ html, body {
   --accent-tint-rgb: 76, 127, 224;
   --accent-tint-text: var(--accent-text);
   --accent-soft-rgb: 59, 107, 204;
+
+  /* ── Phase 2C (Schedule) ── */
+  --select-option-bg: #FFFFFF;
+  --fixed-meeting-bg: rgba(4, 120, 87, 0.12);
+  --fixed-meeting-border: rgba(4, 120, 87, 0.35);
+  --fixed-meeting-text: #047857;
+  --quick-todo-text: #92400E;
+  --dropdown-panel-bg: rgba(255, 255, 255, 0.97);
 }
 
 /* 테마 전환 시 부드러운 색 전환 — 명시적으로 지정한 요소에만 적용.
