@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { clearAllAutosaveBuffers } from '@/hooks/useAutosave'
 import ShortcutIcons from '@/components/ShortcutIcons'
+import ThemeToggle from '@/components/layout/ThemeToggle'
 import {
   Home, Trophy, MessageSquare, CalendarDays,
   StickyNote, Users, BookOpen, Settings, Brain, ChevronLeft, ChevronRight,
@@ -173,7 +174,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
   return (
     <aside
-      className={`h-screen flex flex-col overflow-hidden transition-[width] duration-200 ease-out flex-shrink-0 ${sidebarW}`}
+      className={`theme-transition h-screen flex flex-col overflow-hidden transition-[width] duration-200 ease-out flex-shrink-0 ${sidebarW}`}
       style={{ background: 'var(--bg-sidebar)', borderRight: '1px solid var(--border-default)' }}
     >
       {/* ── 헤더 ── */}
@@ -263,6 +264,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
           style={{ position: 'relative', zIndex: 2 }}
         >
           <ShortcutIcons size={collapsed ? 24 : 26} tooltipSide={collapsed ? 'right' : 'top'} />
+          <ThemeToggle size={collapsed ? 24 : 26} />
         </div>
         {collapsed ? (
           <button onClick={handleLogout} title="로그아웃"

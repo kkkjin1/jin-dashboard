@@ -21,14 +21,31 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  colorScheme: "light",
+  colorScheme: "dark",
   themeColor: "#4C7FE0",
 };
 
+// 하이드레이션 전에 동기 실행 — localStorage의 저장된 테마를 즉시 <html>에
+// 반영해 FOUC(다크↔라이트 깜빡임)를 막는다. 저장된 값이 없으면 dark(기존
+// Production 기본값)를 유지한다.
+const THEME_BOOTSTRAP_SCRIPT = `
+(function () {
+  try {
+    var t = localStorage.getItem('dashboard_theme');
+    if (t !== 'light' && t !== 'dark') t = 'dark';
+    document.documentElement.setAttribute('data-theme', t);
+    document.documentElement.style.colorScheme = t;
+  } catch (e) {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  }
+})();
+`;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ko" style={{ colorScheme: 'light' }} suppressHydrationWarning>
+    <html lang="ko" data-theme="dark" style={{ colorScheme: 'dark' }} suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP_SCRIPT }} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap" />

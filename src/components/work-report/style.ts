@@ -1,30 +1,33 @@
 // 업무보고 탭 공용 스타일 토큰 + 헬퍼. jin-dashboard의 기존 dark palette
-// (perf-review/objective-review 등에서 쓰는 rgba(226,232,240,x) 톤)를 그대로 따른다.
+// (perf-review/objective-review 등에서 쓰는 rgba(226,232,240,x) 톤)를 그대로 따르되,
+// Phase 2A부터는 globals.css의 --ink-rgb/--text-rgb(표면 틴트·텍스트의 raw RGB)를
+// 통해 Light Theme에서도 자동으로 대응되도록 var() 참조로 구성한다. alpha(투명도)는
+// 기존 값을 그대로 유지 — 값이 바뀌는 건 밝기(백/흑) 기준점 뿐이다.
 
 export const S = {
-  bg: '#0F1319',
-  panel: '#11151D',
-  card: 'rgba(255,255,255,0.04)',
-  cardHover: 'rgba(255,255,255,0.06)',
-  border: 'rgba(255,255,255,0.07)',
-  borderStrong: 'rgba(255,255,255,0.12)',
-  t1: 'rgba(226,232,240,0.92)',
-  t2: 'rgba(226,232,240,0.68)',
-  t3: 'rgba(226,232,240,0.45)',
-  t4: 'rgba(226,232,240,0.28)',
-  accent: '#4C7FE0',
+  bg: 'var(--bg-page)',
+  panel: 'var(--surface-panel)',
+  card: 'rgba(var(--ink-rgb),0.04)',
+  cardHover: 'rgba(var(--ink-rgb),0.06)',
+  border: 'rgba(var(--ink-rgb),0.07)',
+  borderStrong: 'rgba(var(--ink-rgb),0.12)',
+  t1: 'rgba(var(--text-rgb),0.92)',
+  t2: 'rgba(var(--text-rgb),0.68)',
+  t3: 'rgba(var(--text-rgb),0.45)',
+  t4: 'rgba(var(--text-rgb),0.28)',
+  accent: 'var(--accent-primary)',
   accentDim: 'rgba(76,127,224,0.15)',
   accentBorder: 'rgba(76,127,224,0.28)',
-  accentText: '#7EB3FF',
+  accentText: 'var(--accent-text)',
   danger: 'rgba(239,68,68,0.85)',
   r: '12px',
 } as const
 
 export const selectClass =
-  'text-[12px] px-2.5 py-1.5 rounded-lg focus:outline-none [color-scheme:dark] [&>option]:bg-[#1A2030]'
+  'text-[12px] px-2.5 py-1.5 rounded-lg focus:outline-none [&>option]:bg-[var(--surface-elevated)]'
 
 export const selectStyle: React.CSSProperties = {
-  background: 'rgba(255,255,255,0.05)',
+  background: 'rgba(var(--ink-rgb),0.05)',
   border: `1px solid ${S.border}`,
   color: S.t2,
 }

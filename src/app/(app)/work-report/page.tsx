@@ -321,13 +321,13 @@ export default function WorkReportPage() {
               <div className="flex items-center gap-1.5">
                 <input type="date" value={currentReport.period_start} disabled={readOnly}
                   onChange={e => handlePeriodChange('period_start', e.target.value)}
-                  className="text-[12px] px-2 py-1 rounded-lg [color-scheme:dark] disabled:opacity-50"
-                  style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${S.border}`, color: S.t2 }} />
+                  className="text-[12px] px-2 py-1 rounded-lg disabled:opacity-50"
+                  style={{ background: 'rgba(var(--ink-rgb),0.05)', border: `1px solid ${S.border}`, color: S.t2 }} />
                 <span style={{ color: S.t4 }}>~</span>
                 <input type="date" value={currentReport.period_end} disabled={readOnly}
                   onChange={e => handlePeriodChange('period_end', e.target.value)}
-                  className="text-[12px] px-2 py-1 rounded-lg [color-scheme:dark] disabled:opacity-50"
-                  style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${S.border}`, color: S.t2 }} />
+                  className="text-[12px] px-2 py-1 rounded-lg disabled:opacity-50"
+                  style={{ background: 'rgba(var(--ink-rgb),0.05)', border: `1px solid ${S.border}`, color: S.t2 }} />
               </div>
 
               {reportsDesc.length > 1 && (
@@ -348,7 +348,7 @@ export default function WorkReportPage() {
           )}
         </div>
 
-        <div className="flex items-center gap-1 rounded-xl p-1" style={{ background: 'rgba(255,255,255,0.04)' }}>
+        <div className="flex items-center gap-1 rounded-xl p-1" style={{ background: 'rgba(var(--ink-rgb),0.04)' }}>
           {([['write', '보고서 작성'], ['period', '기간별 전체 보기'], ['topic-history', '주제별 히스토리']] as const).map(([k, label]) => (
             <button
               key={k}
@@ -366,13 +366,13 @@ export default function WorkReportPage() {
             <>
               <button onClick={() => setFullViewOpen(true)}
                 className="px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors"
-                style={{ color: S.t3, background: 'rgba(255,255,255,0.04)' }}
+                style={{ color: S.t3, background: 'rgba(var(--ink-rgb),0.04)' }}
               >
                 문서로 보기
               </button>
               <button onClick={handleNewReport}
                 className="px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors"
-                style={{ color: S.t3, background: 'rgba(255,255,255,0.04)' }}
+                style={{ color: S.t3, background: 'rgba(var(--ink-rgb),0.04)' }}
               >
                 + 새 보고
               </button>
@@ -380,7 +380,7 @@ export default function WorkReportPage() {
                 className="px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-colors"
                 style={currentReport.status === 'draft'
                   ? { color: S.accentText, background: S.accentDim, border: `1px solid ${S.accentBorder}` }
-                  : { color: S.t3, background: 'rgba(255,255,255,0.04)' }}
+                  : { color: S.t3, background: 'rgba(var(--ink-rgb),0.04)' }}
               >
                 {currentReport.status === 'draft' ? '보고 확정' : '편집 재개'}
               </button>
@@ -430,7 +430,7 @@ export default function WorkReportPage() {
               <button
                 onClick={() => setContextDrawerOpen(true)}
                 className="xl:hidden flex-shrink-0 self-start mt-3 mr-2 px-2.5 py-1.5 rounded-lg text-[11px]"
-                style={{ color: S.t3, background: 'rgba(255,255,255,0.05)' }}
+                style={{ color: S.t3, background: 'rgba(var(--ink-rgb),0.05)' }}
               >
                 컨텍스트
               </button>

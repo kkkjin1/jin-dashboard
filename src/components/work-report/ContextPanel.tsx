@@ -28,7 +28,7 @@ function ReadonlyBlock({ text }: { text: string }) {
   return (
     <div
       className="px-3 py-2.5 rounded-lg text-[12.5px] leading-[1.65] whitespace-pre-wrap"
-      style={{ background: 'rgba(255,255,255,0.025)', border: `1px solid ${S.border}`, color: S.t2, minHeight: 72 }}
+      style={{ background: 'rgba(var(--ink-rgb),0.025)', border: `1px solid ${S.border}`, color: S.t2, minHeight: 72 }}
     >
       {text || <span style={{ color: S.t4 }}>(내용 없음)</span>}
     </div>

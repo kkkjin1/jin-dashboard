@@ -117,7 +117,7 @@ export default function TopicOutline({
                 onDragEnd={() => { setDragId(null); setDragOverId(null) }}
                 className="group/topic relative rounded-lg"
                 style={{
-                  background: active ? S.accentDim : isDragOver ? 'rgba(255,255,255,0.05)' : 'transparent',
+                  background: active ? S.accentDim : isDragOver ? 'rgba(var(--ink-rgb),0.05)' : 'transparent',
                   opacity: dragId === row.entry.id ? 0.4 : 1,
                   outline: isDragOver ? `1px dashed ${S.accentBorder}` : 'none',
                 }}
@@ -131,7 +131,7 @@ export default function TopicOutline({
                       onKeyDown={e => { if (e.key === 'Enter') commitRename(); if (e.key === 'Escape') setEditingId(null) }}
                       onBlur={commitRename}
                       className="flex-1 text-[12.5px] px-1.5 py-1 rounded outline-none"
-                      style={{ background: 'rgba(255,255,255,0.08)', color: S.t1 }}
+                      style={{ background: 'rgba(var(--ink-rgb),0.08)', color: S.t1 }}
                     />
                   </div>
                 ) : (
@@ -158,13 +158,13 @@ export default function TopicOutline({
                 )}
 
                 {!readOnly && !isEditing && (
-                  <div className="absolute right-1 top-1/2 -translate-y-1/2 hidden group-hover/topic:flex items-center gap-0.5" style={{ background: active ? '#1C2438' : '#161B24' }}>
-                    <button onClick={() => startRename(row.topic)} className="p-1 rounded hover:bg-[rgba(255,255,255,0.08)]" title="이름 수정">
+                  <div className="absolute right-1 top-1/2 -translate-y-1/2 hidden group-hover/topic:flex items-center gap-0.5" style={{ background: active ? 'var(--surface-active)' : 'var(--surface-primary)' }}>
+                    <button onClick={() => startRename(row.topic)} className="p-1 rounded hover:bg-[rgba(var(--ink-rgb),0.08)]" title="이름 수정">
                       <Pencil size={10} style={{ color: S.t3 }} />
                     </button>
                     <button
                       onClick={() => setMenuTopicId(m => m === row.topic.id ? null : row.topic.id)}
-                      className="p-1 rounded hover:bg-[rgba(255,255,255,0.08)]"
+                      className="p-1 rounded hover:bg-[rgba(var(--ink-rgb),0.08)]"
                       title="더 보기"
                     >
                       <Archive size={10} style={{ color: S.t3 }} />
@@ -178,11 +178,11 @@ export default function TopicOutline({
                 {menuTopicId === row.topic.id && (
                   <div
                     className="absolute right-1 top-full mt-0.5 z-10 rounded-lg py-1 text-[11px]"
-                    style={{ background: '#1A2030', border: `1px solid ${S.borderStrong}`, minWidth: 140 }}
+                    style={{ background: 'var(--surface-elevated)', border: `1px solid ${S.borderStrong}`, minWidth: 140 }}
                   >
                     <button
                       onClick={() => { onArchiveTopic(row.topic.id); setMenuTopicId(null) }}
-                      className="w-full text-left px-3 py-1.5 hover:bg-[rgba(255,255,255,0.06)]"
+                      className="w-full text-left px-3 py-1.5 hover:bg-[rgba(var(--ink-rgb),0.06)]"
                       style={{ color: S.t2 }}
                     >
                       주제 보관 (마스터 archive)
@@ -206,7 +206,7 @@ export default function TopicOutline({
                 onBlur={commitAdd}
                 placeholder="주제 이름"
                 className="w-full text-[12.5px] px-2 py-1.5 rounded-lg outline-none"
-                style={{ background: 'rgba(255,255,255,0.06)', color: S.t1, border: `1px solid ${S.accentBorder}` }}
+                style={{ background: 'rgba(var(--ink-rgb),0.06)', color: S.t1, border: `1px solid ${S.accentBorder}` }}
               />
               <datalist id="work-report-topic-suggestions">
                 {allActiveTopics.map(t => <option key={t.id} value={t.title} />)}
@@ -215,7 +215,7 @@ export default function TopicOutline({
           ) : (
             <button
               onClick={() => setAdding(true)}
-              className="w-full mt-1 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] transition-colors hover:bg-[rgba(255,255,255,0.04)]"
+              className="w-full mt-1 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] transition-colors hover:bg-[rgba(var(--ink-rgb),0.04)]"
               style={{ color: S.t3 }}
             >
               <Plus size={12} /> 하위 주제 추가

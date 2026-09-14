@@ -11,6 +11,7 @@ import {
   ChevronDown, LogOut, MoreHorizontal, LayoutGrid,
   GripVertical, Eye, EyeOff, X, Compass,
 } from 'lucide-react'
+import ThemeToggle from '@/components/layout/ThemeToggle'
 
 const ALL_NAV = [
   { href: '/',            label: '홈',       key: '1', icon: Home },
@@ -248,17 +249,18 @@ export default function TopNav() {
       </header>
 
       {/* ── 모바일 상단 헤더 ── */}
-      <header className="md:hidden flex items-center h-12 px-4 flex-shrink-0">
+      <header className="theme-transition md:hidden flex items-center justify-between h-12 px-4 flex-shrink-0">
         <div className="flex items-center gap-2">
           <div className="w-6 h-6 bg-[var(--accent-primary)] rounded-md flex items-center justify-center">
             <span className="text-[10px] font-bold text-white">인</span>
           </div>
-          <span className="text-sm font-semibold" style={{ color: '#E2E8F0' }}>인사기획 워크</span>
+          <span className="text-sm font-semibold" style={{ color: 'rgba(var(--text-rgb), 1)' }}>인사기획 워크</span>
         </div>
+        <ThemeToggle size={28} iconSize={15} />
       </header>
 
       {/* ── 모바일 하단 네비 ── */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-[60]"
+      <nav className="theme-transition md:hidden fixed bottom-0 left-0 right-0 z-[60]"
         style={{ background: 'var(--bg-sidebar)', borderTop: '1px solid var(--border-strong)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <div className="flex overflow-x-auto scrollbar-hide">
           {visibleItems.slice(0, 9).map(item => {

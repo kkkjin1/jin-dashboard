@@ -115,23 +115,31 @@ html, body {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   JIN semantic tokens — Phase 1 (tokenization only, no redesign)
+   JIN semantic tokens — Phase 1 (dark) + Phase 2A (light)
 
-   실제 프로덕션 화면(AppShell/Sidebar/TopNav 등)이 쓰는 다크 팔레트를
-   역할 기반 토큰으로 옮긴 것. 값은 전부 기존 하드코딩 값을 그대로 복사
-   — 이 블록 자체는 시각 결과를 바꾸지 않는다.
+   실제 프로덕션 화면(AppShell/Sidebar/TopNav/Work Report 등)이 쓰는 팔레트를
+   역할 기반 토큰으로 옮긴 것. dark 값은 기존 하드코딩 값을 그대로 복사했다
+   — <html>에 data-theme이 없을 때도(= 서버 렌더 직후) 이 기본 :root 값이
+   바로 dark이므로 항상 dark가 기본값이다. [data-theme="light"]가 있을 때만
+   light 값으로 override된다.
+
+   --ink-rgb / --text-rgb: 세부 컴포넌트(work-report 등)가 rgba(var(--ink-rgb),X)
+   형태로 다양한 opacity의 "표면 틴트/텍스트" 조합을 만들 때 쓰는 raw RGB triplet.
+   alpha는 컴포넌트마다 고정값(기존 hardcoded 값 그대로) — 여기서는 밝기(백/흑)만 뒤집는다.
 
    .dark 클래스는 이 프로젝트에서 실제로 적용되지 않으므로(next-themes 등
-   미사용) 위 shadcn :root/.dark 토큰과 별개로, 이 값이 항상 유효한 기본값이다.
-   Light Theme 도입 시 [data-theme="light"] 블록을 추가해 override하는 방식으로
-   확장한다 — 지금은 dark 값만 정의하고 Light는 넣지 않는다.
+   미사용) 위 shadcn :root/.dark 토큰과 별개로 동작한다.
    ═══════════════════════════════════════════════════════════ */
-:root {
+:root,
+[data-theme="dark"] {
   --bg-page: #0F1319;
   --bg-sidebar: #161B24;
 
   --surface-primary: #161B24;
   --surface-secondary: #171B22;
+  --surface-panel: #11151D;
+  --surface-elevated: #1A2030;
+  --surface-active: #1C2438;
   --surface-hover: rgba(255, 255, 255, 0.04);
   --surface-hover-strong: rgba(255, 255, 255, 0.05);
   --surface-selected: rgba(76, 127, 224, 0.16);
@@ -147,6 +155,50 @@ html, body {
 
   --accent-primary: #4C7FE0;
   --accent-soft: #9DBEF5;
+  --accent-text: #7EB3FF;
+
+  --ink-rgb: 255, 255, 255;
+  --text-rgb: 226, 232, 240;
+
+  --shadow-modal: 0 24px 80px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="light"] {
+  --bg-page: #F6F7F9;
+  --bg-sidebar: #F9FAFB;
+
+  --surface-primary: #FFFFFF;
+  --surface-secondary: #F3F4F6;
+  --surface-panel: #F9FAFB;
+  --surface-elevated: #FFFFFF;
+  --surface-active: #EEF2FA;
+  --surface-hover: rgba(17, 19, 22, 0.04);
+  --surface-hover-strong: rgba(17, 19, 22, 0.06);
+  --surface-selected: rgba(76, 127, 224, 0.10);
+
+  --text-primary: #17191C;
+  --text-secondary: #717784;
+  --text-muted: #9CA3AF;
+  --text-hover: rgba(17, 19, 22, 0.7);
+  --text-hover-muted: rgba(17, 19, 22, 0.6);
+
+  --border-default: #E5E7EB;
+  --border-strong: #DADDE3;
+
+  --accent-primary: #4C7FE0;
+  --accent-soft: #3B6BCC;
+  --accent-text: #3B6BCC;
+
+  --ink-rgb: 17, 19, 22;
+  --text-rgb: 23, 25, 28;
+
+  --shadow-modal: 0 12px 40px rgba(0, 0, 0, 0.08);
+}
+
+/* 테마 전환 시 부드러운 색 전환 — 명시적으로 지정한 요소에만 적용.
+   전역 * 선택자에 걸지 않는다(성능/의도치 않은 애니메이션 방지). */
+.theme-transition {
+  transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
 }
 
 .dark {
@@ -290,68 +342,72 @@ html, body {
    모바일 솔리드 라이트 테마 (max-width: 767px)
    Apple Notes · Toss 스타일 크림/화이트 솔리드 테마
    glassmorphism 완전 제거 → 불투명 깨끗한 솔리드 배경
-   ※ prefers-color-scheme: dark 블록보다 뒤에 위치해
-     모바일에서 항상 라이트 솔리드 테마가 최종 적용됨
+
+   Phase 2A: 예전엔 뷰포트 폭만으로 무조건 라이트를 강제했다(사용자가 Dark를
+   선택해도 모바일에서는 항상 라이트). 이제는 사용자가 명시적으로 선택한
+   테마가 우선한다 — 이 블록 전체를 html[data-theme="light"]로 스코프해서
+   Dark 선택 시에는 전혀 적용되지 않게 한다.
    ═══════════════════════════════════════════════════════════ */
 @media (max-width: 767px) {
 
-  /* 라이트모드 고정 */
-  :root {
+  html[data-theme="light"] {
     color-scheme: light;
+    background-color: #F6F7F8 !important;
+    color: #1c1917 !important;
   }
 
-  html, body {
+  html[data-theme="light"] body {
     background-color: #F6F7F8 !important;
     color: #1c1917 !important;
   }
 
   /* ── 글래스 카드 배경 → 솔리드 퓨어 화이트 ── */
-  [class~="bg-white/10"],
-  [class~="bg-white/15"],
-  [class~="bg-white/20"],
-  [class~="bg-white/25"],
-  [class~="bg-white/30"],
-  [class~="bg-white/35"],
-  [class~="bg-white/40"],
-  [class~="bg-white/50"],
-  [class~="bg-white/60"],
-  [class~="bg-white/70"],
-  [class~="bg-white/80"],
-  [class~="bg-white/90"] {
+  html[data-theme="light"] [class~="bg-white/10"],
+  html[data-theme="light"] [class~="bg-white/15"],
+  html[data-theme="light"] [class~="bg-white/20"],
+  html[data-theme="light"] [class~="bg-white/25"],
+  html[data-theme="light"] [class~="bg-white/30"],
+  html[data-theme="light"] [class~="bg-white/35"],
+  html[data-theme="light"] [class~="bg-white/40"],
+  html[data-theme="light"] [class~="bg-white/50"],
+  html[data-theme="light"] [class~="bg-white/60"],
+  html[data-theme="light"] [class~="bg-white/70"],
+  html[data-theme="light"] [class~="bg-white/80"],
+  html[data-theme="light"] [class~="bg-white/90"] {
     background-color: #ffffff !important;
   }
 
   /* ── backdrop-blur 전면 제거 (블루라이트·OS 필터 방어) ── */
-  [class~="backdrop-blur"],
-  [class~="backdrop-blur-sm"],
-  [class~="backdrop-blur-md"],
-  [class~="backdrop-blur-xl"],
-  [class~="backdrop-blur-2xl"],
-  [class~="backdrop-blur-3xl"] {
+  html[data-theme="light"] [class~="backdrop-blur"],
+  html[data-theme="light"] [class~="backdrop-blur-sm"],
+  html[data-theme="light"] [class~="backdrop-blur-md"],
+  html[data-theme="light"] [class~="backdrop-blur-xl"],
+  html[data-theme="light"] [class~="backdrop-blur-2xl"],
+  html[data-theme="light"] [class~="backdrop-blur-3xl"] {
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
   }
 
   /* ── 반투명 흰색 테두리 → stone-200 (#e7e5e4) ── */
-  [class~="border-white/30"],
-  [class~="border-white/40"],
-  [class~="border-white/50"],
-  [class~="border-white/55"],
-  [class~="border-white/60"],
-  [class~="border-white/70"],
-  [class~="border-white/80"] {
+  html[data-theme="light"] [class~="border-white/30"],
+  html[data-theme="light"] [class~="border-white/40"],
+  html[data-theme="light"] [class~="border-white/50"],
+  html[data-theme="light"] [class~="border-white/55"],
+  html[data-theme="light"] [class~="border-white/60"],
+  html[data-theme="light"] [class~="border-white/70"],
+  html[data-theme="light"] [class~="border-white/80"] {
     border-color: #e7e5e4 !important;
   }
 
   /* ── 폼 요소: 흰 배경 + 다크 텍스트 확보 ── */
-  input:not([type="checkbox"]):not([type="radio"]),
-  textarea,
-  select {
+  html[data-theme="light"] input:not([type="checkbox"]):not([type="radio"]),
+  html[data-theme="light"] textarea,
+  html[data-theme="light"] select {
     background-color: #ffffff;
     color: #1c1917;
   }
-  input::placeholder,
-  textarea::placeholder {
+  html[data-theme="light"] input::placeholder,
+  html[data-theme="light"] textarea::placeholder {
     color: #a8a29e;
   }
 }

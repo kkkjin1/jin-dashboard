@@ -78,18 +78,18 @@ export function GlassSelect({
   // inline variant: 담당자 선택 시 해당 멤버 색상으로 pill tint
   const inlineBg = selectedColor
     ? `${selectedColor}26`   // 15% opacity
-    : 'rgba(255,255,255,0.06)'
+    : 'rgba(var(--ink-rgb),0.06)'
   const inlineBorder = selectedColor
     ? `${selectedColor}55`   // 33% opacity
-    : 'rgba(255,255,255,0.1)'
+    : 'rgba(var(--ink-rgb),0.1)'
 
   const triggerClass =
     variant === 'pill'
       ? [
-          'text-xs px-3.5 py-1.5 rounded-full border font-medium transition-all whitespace-nowrap cursor-pointer select-none',
+          'theme-transition text-xs px-3.5 py-1.5 rounded-full border font-medium transition-all whitespace-nowrap cursor-pointer select-none',
           isActive
-            ? 'bg-[rgba(76,127,224,0.18)] border-[var(--accent-primary)] text-[rgba(226,232,240,0.9)]'
-            : 'bg-[rgba(255,255,255,0.06)] backdrop-blur-xl border-[rgba(255,255,255,0.09)] text-[rgba(226,232,240,0.5)] hover:text-[rgba(226,232,240,0.8)]',
+            ? 'bg-[rgba(76,127,224,0.18)] border-[var(--accent-primary)] text-[rgba(var(--text-rgb),0.9)]'
+            : 'bg-[rgba(var(--ink-rgb),0.06)] backdrop-blur-xl border-[rgba(var(--ink-rgb),0.09)] text-[rgba(var(--text-rgb),0.5)] hover:text-[rgba(var(--text-rgb),0.8)]',
         ].join(' ')
       : 'w-full text-[11px] cursor-pointer select-none px-1 flex items-center justify-center gap-1 transition-colors'
 
@@ -151,7 +151,7 @@ export function GlassSelect({
           ref={triggerRef}
           type="button"
           className={triggerClass}
-          style={{ color: selectedColor ?? 'rgba(226,232,240,0.28)' }}
+          style={{ color: selectedColor ?? 'rgba(var(--text-rgb),0.28)' }}
           onClick={toggle}
         >
           {selectedColor && avatarSize ? (

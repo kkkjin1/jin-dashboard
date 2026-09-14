@@ -27,14 +27,14 @@ export default function EntryDetailModal({ topicTitle, reportLabel, entry, onClo
       <div className="absolute inset-0" onClick={onClose} />
       <div
         className="relative w-full max-w-2xl flex flex-col rounded-2xl overflow-hidden"
-        style={{ background: '#1A2030', border: `1px solid ${S.borderStrong}`, maxHeight: '85vh', boxShadow: '0 24px 80px rgba(0,0,0,0.5)' }}
+        style={{ background: 'var(--surface-elevated)', border: `1px solid ${S.borderStrong}`, maxHeight: '85vh', boxShadow: 'var(--shadow-modal)' }}
       >
         <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: `1px solid ${S.border}` }}>
           <div>
             <p className="text-[11px] font-medium uppercase tracking-wide mb-0.5" style={{ color: S.t4 }}>{reportLabel}</p>
             <h3 className="text-[16px] font-semibold" style={{ color: S.t1 }}>{topicTitle}</h3>
           </div>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[rgba(255,255,255,0.07)]" style={{ color: S.t3 }}>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[rgba(var(--ink-rgb),0.07)]" style={{ color: S.t3 }}>
             <X size={16} />
           </button>
         </div>

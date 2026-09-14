@@ -72,16 +72,16 @@ export default function PeriodMatrixView({ supabase, topics, reports }: Props) {
           type="date"
           value={periodStart}
           onChange={e => setPeriodStart(e.target.value)}
-          className="text-[12px] px-2 py-1 rounded-lg [color-scheme:dark]"
-          style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${S.border}`, color: S.t2 }}
+          className="text-[12px] px-2 py-1 rounded-lg"
+          style={{ background: 'rgba(var(--ink-rgb),0.05)', border: `1px solid ${S.border}`, color: S.t2 }}
         />
         <span style={{ color: S.t4 }}>~</span>
         <input
           type="date"
           value={periodEnd}
           onChange={e => setPeriodEnd(e.target.value)}
-          className="text-[12px] px-2 py-1 rounded-lg [color-scheme:dark]"
-          style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${S.border}`, color: S.t2 }}
+          className="text-[12px] px-2 py-1 rounded-lg"
+          style={{ background: 'rgba(var(--ink-rgb),0.05)', border: `1px solid ${S.border}`, color: S.t2 }}
         />
         {loading && <span className="text-[11px]" style={{ color: S.t4 }}>불러오는 중…</span>}
       </div>

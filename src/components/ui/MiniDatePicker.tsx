@@ -148,16 +148,16 @@ export function DateCellPicker({ label, value, color, onChange, valueSize = 9 }:
         onClick={openPicker}
       >
         {label && (
-          <span style={{ fontSize: 9, fontWeight: 600, color: 'rgba(148,163,184,0.7)', flexShrink: 0, whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: 9, fontWeight: 600, color: 'rgba(var(--text-rgb),0.55)', flexShrink: 0, whiteSpace: 'nowrap' }}>
             {label}
           </span>
         )}
-        <span style={{ fontSize: valueSize, fontWeight: 500, color: value ? color : 'rgba(226,232,240,0.18)', flex: 1 }}>
+        <span style={{ fontSize: valueSize, fontWeight: 500, color: value ? color : 'rgba(var(--text-rgb),0.18)', flex: 1 }}>
           {value ? value.slice(5).replace('-', '/') : '—'}
         </span>
         {value && (
           <span
-            className="hidden group-hover/datecell:inline text-[8px] text-[rgba(226,232,240,0.25)] hover:text-red-400 cursor-pointer"
+            className="hidden group-hover/datecell:inline text-[8px] text-[rgba(var(--text-rgb),0.25)] hover:text-red-400 cursor-pointer"
             onClick={e => { e.stopPropagation(); onChange(null) }}>
             ×
           </span>

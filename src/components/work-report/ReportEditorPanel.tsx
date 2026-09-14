@@ -189,7 +189,7 @@ function TextBox({
           width: '100%',
           minHeight,
           resize: 'vertical',
-          background: 'rgba(255,255,255,0.03)',
+          background: 'rgba(var(--ink-rgb),0.03)',
           border: `1px solid ${S.border}`,
           borderRadius: S.r,
           padding: '12px 14px',
@@ -364,7 +364,7 @@ const ReportEditorPanel = forwardRef<ReportEditorPanelHandle, Props>(function Re
           </p>
           <div
             className="px-3.5 py-3 rounded-lg text-[13px] leading-[1.7] whitespace-pre-wrap"
-            style={{ background: 'rgba(255,255,255,0.025)', border: `1px solid ${S.border}`, color: S.t3 }}
+            style={{ background: 'rgba(var(--ink-rgb),0.025)', border: `1px solid ${S.border}`, color: S.t3 }}
           >
             {prevEntry.report_text || '(작성된 내용 없음)'}
           </div>
