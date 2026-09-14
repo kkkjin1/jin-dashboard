@@ -66,20 +66,20 @@ export function DateCellPicker({ label, value, color, onChange, valueSize = 9 }:
     <div
       ref={popupRef}
       style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 99999 }}
-      className="bg-[rgba(14,17,24,0.98)] backdrop-blur-2xl border border-[rgba(255,255,255,0.1)] rounded-2xl shadow-2xl p-3 select-none"
+      className="bg-[var(--dropdown-panel-bg)] backdrop-blur-2xl border border-[rgba(var(--ink-rgb),0.1)] rounded-2xl shadow-2xl p-3 select-none"
       onClick={e => e.stopPropagation()}
     >
       {/* 월 네비게이션 */}
       <div className="flex items-center justify-between mb-2.5 px-0.5">
         <button onClick={e => { e.stopPropagation(); prevMonth() }}
-          className="w-6 h-6 rounded-full flex items-center justify-center text-[rgba(226,232,240,0.5)] hover:bg-[rgba(255,255,255,0.08)] hover:text-white transition-colors text-sm">
+          className="w-6 h-6 rounded-full flex items-center justify-center text-[rgba(var(--text-rgb),0.5)] hover:bg-[rgba(var(--ink-rgb),0.08)] hover:text-[rgba(var(--ink-rgb),0.9)] transition-colors text-sm">
           ‹
         </button>
-        <span className="text-xs font-semibold text-[rgba(226,232,240,0.8)] tracking-wide">
+        <span className="text-xs font-semibold text-[rgba(var(--text-rgb),0.8)] tracking-wide">
           {viewY}년 {viewM + 1}월
         </span>
         <button onClick={e => { e.stopPropagation(); nextMonth() }}
-          className="w-6 h-6 rounded-full flex items-center justify-center text-[rgba(226,232,240,0.5)] hover:bg-[rgba(255,255,255,0.08)] hover:text-white transition-colors text-sm">
+          className="w-6 h-6 rounded-full flex items-center justify-center text-[rgba(var(--text-rgb),0.5)] hover:bg-[rgba(var(--ink-rgb),0.08)] hover:text-[rgba(var(--ink-rgb),0.9)] transition-colors text-sm">
           ›
         </button>
       </div>
@@ -87,7 +87,7 @@ export function DateCellPicker({ label, value, color, onChange, valueSize = 9 }:
       {/* 요일 헤더 */}
       <div className="grid grid-cols-7 mb-1">
         {DOW.map((d, i) => (
-          <div key={d} className={`text-center text-[9px] font-medium py-0.5 ${i === 0 ? 'text-red-400/60' : i === 6 ? 'text-blue-400/60' : 'text-[rgba(226,232,240,0.25)]'}`}>{d}</div>
+          <div key={d} className={`text-center text-[9px] font-medium py-0.5 ${i === 0 ? 'text-red-400/60' : i === 6 ? 'text-blue-400/60' : 'text-[rgba(var(--text-rgb),0.25)]'}`}>{d}</div>
         ))}
       </div>
 
@@ -108,12 +108,12 @@ export function DateCellPicker({ label, value, color, onChange, valueSize = 9 }:
                 isSelected
                   ? 'text-white'
                   : isToday
-                  ? 'bg-[rgba(59,130,246,0.18)] text-blue-300 font-semibold'
+                  ? 'bg-[rgba(59,130,246,0.18)] text-[var(--accent-badge-text)] font-semibold'
                   : dow === 0
-                  ? 'text-red-400/70 hover:bg-[rgba(255,255,255,0.06)]'
+                  ? 'text-red-400/70 hover:bg-[rgba(var(--ink-rgb),0.06)]'
                   : dow === 6
-                  ? 'text-blue-400/70 hover:bg-[rgba(255,255,255,0.06)]'
-                  : 'text-[rgba(226,232,240,0.65)] hover:bg-[rgba(255,255,255,0.06)]',
+                  ? 'text-blue-400/70 hover:bg-[rgba(var(--ink-rgb),0.06)]'
+                  : 'text-[rgba(var(--text-rgb),0.65)] hover:bg-[rgba(var(--ink-rgb),0.06)]',
               ].join(' ')}
               style={isSelected ? { background: color, opacity: 0.95 } : undefined}
             >
@@ -126,12 +126,12 @@ export function DateCellPicker({ label, value, color, onChange, valueSize = 9 }:
       {/* 오늘 / 초기화 */}
       <div className="mt-2.5 pt-2 border-t border-[var(--border-default)] flex justify-between">
         <button onClick={e => { e.stopPropagation(); onChange(today); setOpen(false) }}
-          className="text-[9px] text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.8)] transition-colors px-1">
+          className="text-[9px] text-[rgba(var(--text-rgb),0.4)] hover:text-[rgba(var(--text-rgb),0.8)] transition-colors px-1">
           오늘
         </button>
         {value && (
           <button onClick={e => { e.stopPropagation(); onChange(null); setOpen(false) }}
-            className="text-[9px] text-[rgba(226,232,240,0.3)] hover:text-red-400 transition-colors px-1">
+            className="text-[9px] text-[rgba(var(--text-rgb),0.3)] hover:text-red-400 transition-colors px-1">
             초기화
           </button>
         )}

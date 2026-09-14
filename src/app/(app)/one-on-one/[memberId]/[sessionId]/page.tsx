@@ -12,11 +12,11 @@ import dynamic from 'next/dynamic'
 import MarkdownContent from '@/components/MarkdownContent'
 const TiptapEditor = dynamic(() => import('@/components/TiptapEditor'), { ssr: false })
 
-const T1 = 'rgba(226,232,240,0.92)'
-const T2 = 'rgba(226,232,240,0.55)'
-const T3 = 'rgba(226,232,240,0.35)'
-const BORDER = 'rgba(255,255,255,0.08)'
-const MEMBER_COLOR = '#4C7FE0'
+const T1 = 'rgba(var(--text-rgb),0.92)'
+const T2 = 'rgba(var(--text-rgb),0.55)'
+const T3 = 'rgba(var(--text-rgb),0.35)'
+const BORDER = 'rgba(var(--ink-rgb),0.08)'
+const MEMBER_COLOR = 'var(--accent-primary)'
 
 export default function OneOnOneSessionPage() {
   const { memberId, sessionId } = useParams<{ memberId: string; sessionId: string }>()
@@ -280,12 +280,12 @@ export default function OneOnOneSessionPage() {
           {/* 날짜 */}
           <input type="date" value={session.session_date ?? ''}
             onChange={e => updateSession({ session_date: e.target.value || null })}
-            style={{ fontSize: 11, border: `1px solid ${BORDER}`, borderRadius: 7, padding: '3px 8px', background: 'rgba(255,255,255,0.05)', color: T2, outline: 'none', colorScheme: 'dark' }} />
+            style={{ fontSize: 11, border: `1px solid ${BORDER}`, borderRadius: 7, padding: '3px 8px', background: 'rgba(var(--ink-rgb),0.05)', color: T2, outline: 'none' }} />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <button onClick={handleDownload}
             style={{ fontSize: 11, color: T3, border: `1px solid ${BORDER}`, borderRadius: 8, padding: '4px 12px', background: 'transparent', cursor: 'pointer', transition: 'color 150ms, background 150ms' }}
-            onMouseEnter={e => { e.currentTarget.style.color = T2; e.currentTarget.style.background = 'rgba(255,255,255,0.05)' }}
+            onMouseEnter={e => { e.currentTarget.style.color = T2; e.currentTarget.style.background = 'rgba(var(--ink-rgb),0.05)' }}
             onMouseLeave={e => { e.currentTarget.style.color = T3; e.currentTarget.style.background = 'transparent' }}>
             MD 다운로드
           </button>
@@ -301,7 +301,7 @@ export default function OneOnOneSessionPage() {
           {/* 저장 실패 안내 — canonical write 실패 시 표시 */}
           {saveError && (
             <div className="flex items-center gap-2 rounded-xl"
-              style={{ padding: '10px 16px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#FC8181', fontSize: 12 }}>
+              style={{ padding: '10px 16px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: 'var(--error-badge-text)', fontSize: 12 }}>
               <span>⚠</span>
               <span style={{ flex: 1 }}>{saveError}</span>
               <button onClick={() => setSaveError('')} style={{ fontSize: 10, opacity: 0.7, background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }}>닫기</button>
@@ -311,7 +311,7 @@ export default function OneOnOneSessionPage() {
           {/* 제목 복구 배너 */}
           {titleAutosave.recovered && (
             <div className="flex items-center gap-2 rounded-lg"
-              style={{ padding: '8px 14px', background: 'rgba(76,127,224,0.12)', border: '1px solid rgba(76,127,224,0.25)', color: '#9DBEF5', fontSize: 12 }}>
+              style={{ padding: '8px 14px', background: 'rgba(76,127,224,0.12)', border: '1px solid rgba(76,127,224,0.25)', color: 'var(--accent-soft)', fontSize: 12 }}>
               <span style={{ flex: 1 }}>복구 가능한 자동저장 내용이 있습니다</span>
               <button onClick={applyRecoveredTitle} style={{ textDecoration: 'underline', background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: 12 }}>적용</button>
               <button onClick={() => titleAutosave.discardRecovered()} style={{ textDecoration: 'underline', background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: 12 }}>무시</button>
@@ -345,7 +345,7 @@ export default function OneOnOneSessionPage() {
             <div style={{ padding: '0 20px 16px' }}>
               {contentAutosave.recovered && (
                 <div className="flex items-center gap-2 rounded-lg"
-                  style={{ padding: '8px 14px', marginBottom: 8, background: 'rgba(76,127,224,0.12)', border: '1px solid rgba(76,127,224,0.25)', color: '#9DBEF5', fontSize: 12 }}>
+                  style={{ padding: '8px 14px', marginBottom: 8, background: 'rgba(76,127,224,0.12)', border: '1px solid rgba(76,127,224,0.25)', color: 'var(--accent-soft)', fontSize: 12 }}>
                   <span style={{ flex: 1 }}>복구 가능한 자동저장 내용이 있습니다</span>
                   <button onClick={applyRecoveredContent} style={{ textDecoration: 'underline', background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: 12 }}>적용</button>
                   <button onClick={() => contentAutosave.discardRecovered()} style={{ textDecoration: 'underline', background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: 12 }}>무시</button>
@@ -386,7 +386,7 @@ export default function OneOnOneSessionPage() {
             <div style={{ padding: '12px 20px 16px' }}>
               {nextAppointmentAutosave.recovered && (
                 <div className="flex items-center gap-2 rounded-lg"
-                  style={{ padding: '8px 14px', marginBottom: 8, background: 'rgba(76,127,224,0.12)', border: '1px solid rgba(76,127,224,0.25)', color: '#9DBEF5', fontSize: 12 }}>
+                  style={{ padding: '8px 14px', marginBottom: 8, background: 'rgba(76,127,224,0.12)', border: '1px solid rgba(76,127,224,0.25)', color: 'var(--accent-soft)', fontSize: 12 }}>
                   <span style={{ flex: 1 }}>복구 가능한 자동저장 내용이 있습니다</span>
                   <button onClick={applyRecoveredNextAppointment} style={{ textDecoration: 'underline', background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: 12 }}>적용</button>
                   <button onClick={() => nextAppointmentAutosave.discardRecovered()} style={{ textDecoration: 'underline', background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: 12 }}>무시</button>
@@ -396,7 +396,7 @@ export default function OneOnOneSessionPage() {
                 <span style={{ fontSize: 11, color: T2, fontWeight: 500, whiteSpace: 'nowrap' }}>다음 1on1 일자</span>
                 <input type="date" value={nextAppointmentDate}
                   onChange={e => { setNextAppointmentDate(e.target.value); saveNextAppointmentDate(e.target.value) }}
-                  style={{ fontSize: 11, border: `1px solid ${BORDER}`, borderRadius: 8, padding: '4px 8px', background: 'rgba(255,255,255,0.06)', color: T2, outline: 'none', colorScheme: 'dark' }} />
+                  style={{ fontSize: 11, border: `1px solid ${BORDER}`, borderRadius: 8, padding: '4px 8px', background: 'rgba(var(--ink-rgb),0.06)', color: T2, outline: 'none' }} />
                 {nextAppointmentDate && (
                   <button onClick={() => { setNextAppointmentDate(''); saveNextAppointmentDate('') }}
                     style={{ fontSize: 10, color: T3, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
@@ -415,7 +415,7 @@ export default function OneOnOneSessionPage() {
                 placeholder="다음 1on1에서 챙길 것들을 입력하세요"
                 rows={3}
                 style={{ width: '100%', fontSize: 13, color: T1, background: 'transparent', border: 'none', outline: 'none', resize: 'none', lineHeight: 1.65 }}
-                className="placeholder:text-[rgba(226,232,240,0.25)]" />
+                className="placeholder:text-[rgba(var(--text-rgb),0.25)]" />
             </div>
           </div>
 
@@ -447,7 +447,7 @@ export default function OneOnOneSessionPage() {
 
             {/* 이전 기록 (접기/펼치기) */}
             {prevContent && (
-              <div style={{ border: `1px solid ${BORDER}`, borderRadius: 14, overflow: 'hidden', background: 'rgba(255,255,255,0.03)' }}>
+              <div style={{ border: `1px solid ${BORDER}`, borderRadius: 14, overflow: 'hidden', background: 'rgba(var(--ink-rgb),0.03)' }}>
                 <button onClick={() => setPrevOpen(v => !v)}
                   style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', gap: 8 }}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>

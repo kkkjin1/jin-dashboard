@@ -44,24 +44,24 @@ export default function MeetingSection({ cat, meetings, dotColor, onSelect, note
   return (
     <div
       className="rounded-2xl overflow-hidden"
-      style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)' }}
+      style={{ background: 'rgba(var(--ink-rgb),0.025)', border: '1px solid rgba(var(--ink-rgb),0.07)' }}
     >
       {/* 섹션 헤더 */}
       <div
         className="flex items-center gap-2.5 px-4 py-3.5 cursor-pointer select-none"
-        style={{ borderBottom: meetings.length === 0 ? 'none' : '1px solid rgba(255,255,255,0.06)' }}
+        style={{ borderBottom: meetings.length === 0 ? 'none' : '1px solid rgba(var(--ink-rgb),0.06)' }}
         onClick={() => setExpanded(v => !v)}
       >
         <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: dotColor }} />
-        <span className="text-[14px] font-semibold flex-1" style={{ color: '#E2E8F0' }}>{cat}</span>
+        <span className="text-[14px] font-semibold flex-1" style={{ color: 'rgba(var(--text-rgb),1)' }}>{cat}</span>
         <span
           className="text-[11px] px-2 py-0.5 rounded-full flex-shrink-0"
-          style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(226,232,240,0.4)', border: '1px solid rgba(255,255,255,0.08)' }}
+          style={{ background: 'rgba(var(--ink-rgb),0.06)', color: 'rgba(var(--text-rgb),0.4)', border: '1px solid rgba(var(--ink-rgb),0.08)' }}
         >
           {meetings.length}건
         </span>
         {hasMore && (
-          <span style={{ color: 'rgba(226,232,240,0.3)' }}>
+          <span style={{ color: 'rgba(var(--text-rgb),0.3)' }}>
             {expanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
           </span>
         )}
@@ -77,7 +77,7 @@ export default function MeetingSection({ cat, meetings, dotColor, onSelect, note
             <button
               onClick={() => setExpanded(true)}
               className="w-full flex items-center justify-center gap-1 text-[11.5px] py-2 transition-colors"
-              style={{ color: 'rgba(226,232,240,0.4)' }}
+              style={{ color: 'rgba(var(--text-rgb),0.4)' }}
             >
               전체 {meetings.length}건 보기 <ChevronDown size={12} />
             </button>
@@ -95,7 +95,7 @@ export default function MeetingSection({ cat, meetings, dotColor, onSelect, note
             <button
               onClick={() => setExpanded(false)}
               className="w-full flex items-center justify-center gap-1 text-[11.5px] py-2 mt-1 transition-colors"
-              style={{ color: 'rgba(226,232,240,0.4)' }}
+              style={{ color: 'rgba(var(--text-rgb),0.4)' }}
             >
               접기 <ChevronUp size={12} />
             </button>

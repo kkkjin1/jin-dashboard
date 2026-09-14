@@ -10,10 +10,10 @@ import type { OneOnOneTemplate } from '@/types'
 import dynamic from 'next/dynamic'
 const TiptapEditor = dynamic(() => import('@/components/TiptapEditor'), { ssr: false })
 
-const T1 = 'rgba(226,232,240,0.92)'
-const T2 = 'rgba(226,232,240,0.55)'
-const T3 = 'rgba(226,232,240,0.35)'
-const BORDER = 'rgba(255,255,255,0.08)'
+const T1 = 'rgba(var(--text-rgb),0.92)'
+const T2 = 'rgba(var(--text-rgb),0.55)'
+const T3 = 'rgba(var(--text-rgb),0.35)'
+const BORDER = 'rgba(var(--ink-rgb),0.08)'
 
 function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, ' ').replace(/\s+/g, ' ').trim()
@@ -154,7 +154,7 @@ export default function OneOnOneTemplatePage() {
         </div>
         <button onClick={createTemplate}
           className="text-sm px-4 py-2 rounded-lg transition-colors"
-          style={{ background: 'rgba(76,127,224,0.1)', color: '#9DBEF5', border: '1px solid rgba(76,127,224,0.25)' }}
+          style={{ background: 'rgba(76,127,224,0.1)', color: 'var(--accent-soft)', border: '1px solid rgba(76,127,224,0.25)' }}
           onMouseEnter={e => (e.currentTarget.style.background = 'rgba(76,127,224,0.18)')}
           onMouseLeave={e => (e.currentTarget.style.background = 'rgba(76,127,224,0.1)')}>
           + 새 템플릿
@@ -168,7 +168,7 @@ export default function OneOnOneTemplatePage() {
       {loading ? (
         <div className="flex flex-col gap-2">
           {[1, 2].map(i => (
-            <div key={i} className="h-16 rounded-xl animate-pulse" style={{ background: 'rgba(255,255,255,0.04)' }} />
+            <div key={i} className="h-16 rounded-xl animate-pulse" style={{ background: 'rgba(var(--ink-rgb),0.04)' }} />
           ))}
         </div>
       ) : templates.length === 0 ? (
@@ -176,7 +176,7 @@ export default function OneOnOneTemplatePage() {
           <p className="text-sm" style={{ color: T3 }}>아직 템플릿이 없습니다</p>
           <button onClick={createTemplate}
             className="text-xs px-4 py-1.5 rounded-full transition-colors"
-            style={{ background: 'rgba(255,255,255,0.06)', border: `1px solid ${BORDER}`, color: T2 }}>
+            style={{ background: 'rgba(var(--ink-rgb),0.06)', border: `1px solid ${BORDER}`, color: T2 }}>
             첫 템플릿 만들기
           </button>
         </div>
@@ -186,9 +186,9 @@ export default function OneOnOneTemplatePage() {
             <div key={t.id}
               onClick={() => openTemplate(t)}
               className="group relative rounded-xl px-4 py-3 cursor-pointer transition-colors"
-              style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${BORDER}` }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.07)')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}>
+              style={{ background: 'rgba(var(--ink-rgb),0.04)', border: `1px solid ${BORDER}` }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(var(--ink-rgb),0.07)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'rgba(var(--ink-rgb),0.04)')}>
               <p className="text-sm font-semibold truncate pr-6" style={{ color: T1 }}>{t.title}</p>
               <p className="text-xs mt-1 truncate" style={{ color: T3 }}>
                 {format(parseISO(t.updated_at), 'yy.M.d', { locale: ko })} · {stripHtml(t.content).slice(0, 50) || '내용 없음'}

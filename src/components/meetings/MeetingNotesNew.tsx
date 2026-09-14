@@ -312,7 +312,7 @@ export default function MeetingNotesNew() {
     : ''
 
   return (
-    <div className="h-full flex gap-6 overflow-hidden" style={{ background: '#0F1319' }}>
+    <div className="h-full flex gap-6 overflow-hidden" style={{ background: 'var(--bg-page)' }}>
     {/* 리스트 폭 제한 — 화면 전체로 늘어나면 제목 뒤 태그/노트수까지 빈 공간이 길게 남아서
         컬럼 폭을 제한. 오른쪽 남는 공간은 회의 선택 시 미리보기 패널이 차지 */}
     <div className="h-full flex flex-col overflow-hidden" style={{ width: 720, maxWidth: '100%', flexShrink: 0 }}>
@@ -322,22 +322,22 @@ export default function MeetingNotesNew() {
       <div ref={headerRef} className="flex-shrink-0">
         {/* 헤더: 1행 제목 단독, 2행 검색(풀와이드) + 추가 버튼 — 메모 탭과 동일한 리듬 */}
         <div className="flex-shrink-0 pt-6 pb-3">
-          <h1 className="text-[20px] font-bold mb-3" style={{ color: '#E2E8F0' }}>회의록</h1>
+          <h1 className="text-[20px] font-bold mb-3" style={{ color: 'rgba(var(--text-rgb),1)' }}>회의록</h1>
           <div className="flex items-center gap-3">
-            <div className="flex-1 flex items-center gap-2 px-3 py-2 rounded-xl" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.09)' }}>
-              <Search size={14} style={{ color: 'rgba(226,232,240,0.35)', flexShrink: 0 }} />
+            <div className="flex-1 flex items-center gap-2 px-3 py-2 rounded-xl" style={{ background: 'rgba(var(--ink-rgb),0.06)', border: '1px solid rgba(var(--ink-rgb),0.09)' }}>
+              <Search size={14} style={{ color: 'rgba(var(--text-rgb),0.35)', flexShrink: 0 }} />
               <input
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="회의명, 키워드 검색..."
-                className="flex-1 bg-transparent text-[13px] focus:outline-none placeholder:text-[rgba(226,232,240,0.25)]"
-                style={{ color: '#E2E8F0' }}
+                className="flex-1 bg-transparent text-[13px] focus:outline-none placeholder:text-[rgba(var(--text-rgb),0.25)]"
+                style={{ color: 'rgba(var(--text-rgb),1)' }}
               />
             </div>
             <button
               onClick={openAddForm}
               className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-medium transition-colors flex-shrink-0"
-              style={{ background: 'rgba(76,127,224,0.18)', border: '1px solid rgba(76,127,224,0.35)', color: '#9DBEF5' }}
+              style={{ background: 'rgba(76,127,224,0.18)', border: '1px solid rgba(76,127,224,0.35)', color: 'var(--accent-soft)' }}
             >
               + 새 회의록
             </button>
@@ -348,13 +348,13 @@ export default function MeetingNotesNew() {
         {adding && (
           <div
             className="flex-shrink-0 rounded-2xl px-5 py-4 mb-3"
-            style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
+            style={{ background: 'rgba(var(--ink-rgb),0.06)', border: '1px solid rgba(var(--ink-rgb),0.1)' }}
           >
             {/* Autosave: 복구 배너 — 자동 적용하지 않음 */}
             {autosave.recovered && (
               <div
                 className="mb-2 px-3 py-2 rounded-lg text-[12px] flex items-center gap-2"
-                style={{ background: 'rgba(76,127,224,0.12)', border: '1px solid rgba(76,127,224,0.25)', color: '#9DBEF5' }}
+                style={{ background: 'rgba(76,127,224,0.12)', border: '1px solid rgba(76,127,224,0.25)', color: 'var(--accent-soft)' }}
               >
                 <span className="flex-1">복구 가능한 자동저장 내용이 있습니다</span>
                 <button onClick={applyRecovered} className="underline underline-offset-2">적용</button>
@@ -371,14 +371,14 @@ export default function MeetingNotesNew() {
               }}
               onBlur={handleAdd}
               placeholder="회의 제목 입력 후 Enter"
-              className="w-full text-[13px] bg-transparent focus:outline-none placeholder:text-[rgba(226,232,240,0.3)]"
-              style={{ color: '#E2E8F0' }}
+              className="w-full text-[13px] bg-transparent focus:outline-none placeholder:text-[rgba(var(--text-rgb),0.3)]"
+              style={{ color: 'rgba(var(--text-rgb),1)' }}
             />
 
             {/* 저장 실패 안내 — 실패 시 폼/입력값은 지우지 않으므로 재시도하면 됨 */}
             {addError && (
               <div className="mt-2 px-3 py-2 rounded-lg text-[12px] flex items-center gap-2"
-                style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#FC8181' }}>
+                style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: 'var(--error-badge-text)' }}>
                 <span>⚠</span>
                 <span className="flex-1">{addError}</span>
               </div>
@@ -401,16 +401,16 @@ export default function MeetingNotesNew() {
         {loading ? (
           <div className="space-y-3 pb-6">
             {[1, 2, 3].map(i => (
-              <div key={i} className="h-40 rounded-2xl animate-pulse" style={{ background: 'rgba(255,255,255,0.04)' }} />
+              <div key={i} className="h-40 rounded-2xl animate-pulse" style={{ background: 'rgba(var(--ink-rgb),0.04)' }} />
             ))}
           </div>
         ) : groups.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-48 gap-3">
-            <p className="text-[13px]" style={{ color: 'rgba(226,232,240,0.3)' }}>조건에 맞는 회의록이 없습니다</p>
+            <p className="text-[13px]" style={{ color: 'rgba(var(--text-rgb),0.3)' }}>조건에 맞는 회의록이 없습니다</p>
             <button
               onClick={() => { setSearch(''); setDateSelection(null); setTeamFilter('전체') }}
               className="text-[12px] px-4 py-1.5 rounded-full transition-colors"
-              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(226,232,240,0.5)' }}
+              style={{ background: 'rgba(var(--ink-rgb),0.06)', border: '1px solid rgba(var(--ink-rgb),0.1)', color: 'rgba(var(--text-rgb),0.5)' }}
             >
               필터 초기화
             </button>
@@ -438,13 +438,13 @@ export default function MeetingNotesNew() {
     <div className="flex-1 min-w-0 h-full overflow-y-auto scrollbar-hide" style={{ marginTop: headerHeight }}>
       {selected ? (
         <div className="pr-1 pb-6">
-          <div className="rounded-2xl p-5" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.09)' }}>
+          <div className="rounded-2xl p-5" style={{ background: 'rgba(var(--ink-rgb),0.06)', border: '1px solid rgba(var(--ink-rgb),0.09)' }}>
             <div className="flex items-center justify-between mb-4">
-              <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'rgba(226,232,240,0.4)' }}>회의 미리보기</span>
-              <button onClick={() => setSelected(null)} className="text-lg leading-none transition-colors" style={{ color: 'rgba(226,232,240,0.28)' }}>×</button>
+              <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'rgba(var(--text-rgb),0.4)' }}>회의 미리보기</span>
+              <button onClick={() => setSelected(null)} className="text-lg leading-none transition-colors" style={{ color: 'rgba(var(--text-rgb),0.28)' }}>×</button>
             </div>
 
-            <h2 className="text-base font-semibold mb-2.5" style={{ color: '#E2E8F0' }}>{selected.title || '제목 없음'}</h2>
+            <h2 className="text-base font-semibold mb-2.5" style={{ color: 'rgba(var(--text-rgb),1)' }}>{selected.title || '제목 없음'}</h2>
 
             <div className="flex items-center gap-2 mb-4">
               {selected.category && (
@@ -453,29 +453,29 @@ export default function MeetingNotesNew() {
                 </span>
               )}
               {selectedDateLabel && (
-                <span className="text-[11px]" style={{ color: 'rgba(226,232,240,0.35)' }}>{selectedDateLabel}</span>
+                <span className="text-[11px]" style={{ color: 'rgba(var(--text-rgb),0.35)' }}>{selectedDateLabel}</span>
               )}
             </div>
 
             <div className="mb-4">
-              <p className="text-[11px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: 'rgba(226,232,240,0.4)' }}>최근 노트</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: 'rgba(var(--text-rgb),0.4)' }}>최근 노트</p>
               {latestNote ? (
                 <p
                   className="text-[13px] leading-relaxed"
-                  style={{ color: 'rgba(226,232,240,0.7)', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
+                  style={{ color: 'rgba(var(--text-rgb),0.7)', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
                 >
                   {stripHtml(latestNote.content)}
                 </p>
               ) : (
-                <p className="text-[13px]" style={{ color: 'rgba(226,232,240,0.25)' }}>기록된 노트가 없습니다</p>
+                <p className="text-[13px]" style={{ color: 'rgba(var(--text-rgb),0.25)' }}>기록된 노트가 없습니다</p>
               )}
             </div>
 
             <div className="flex items-center gap-4 mb-5">
-              <span className="text-[11px]" style={{ color: 'rgba(226,232,240,0.4)' }}>
+              <span className="text-[11px]" style={{ color: 'rgba(var(--text-rgb),0.4)' }}>
                 첨부 {previewCounts ? previewCounts.attachments : '…'}
               </span>
-              <span className="text-[11px]" style={{ color: 'rgba(226,232,240,0.4)' }}>
+              <span className="text-[11px]" style={{ color: 'rgba(var(--text-rgb),0.4)' }}>
                 연관업무 {previewCounts ? previewCounts.links : '…'}
               </span>
             </div>
@@ -483,7 +483,7 @@ export default function MeetingNotesNew() {
             <button
               onClick={() => router.push(`/meetings/${selected.id}`)}
               className="w-full flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-medium transition-colors"
-              style={{ background: 'rgba(76,127,224,0.18)', border: '1px solid rgba(76,127,224,0.35)', color: '#9DBEF5' }}
+              style={{ background: 'rgba(76,127,224,0.18)', border: '1px solid rgba(76,127,224,0.35)', color: 'var(--accent-soft)' }}
             >
               자세히 보기 →
             </button>
@@ -491,7 +491,7 @@ export default function MeetingNotesNew() {
         </div>
       ) : (
         <div className="h-full flex items-center justify-center">
-          <p className="text-[12px]" style={{ color: 'rgba(226,232,240,0.2)' }}>회의를 선택하면 여기에 미리보기가 표시됩니다</p>
+          <p className="text-[12px]" style={{ color: 'rgba(var(--text-rgb),0.2)' }}>회의를 선택하면 여기에 미리보기가 표시됩니다</p>
         </div>
       )}
     </div>

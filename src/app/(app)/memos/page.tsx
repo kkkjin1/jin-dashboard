@@ -45,12 +45,12 @@ function dateDividerLabel(iso: string | null | undefined): string {
 }
 
 const pill  = 'text-xs px-3.5 py-1.5 rounded-full border font-medium transition-all whitespace-nowrap'
-const pOn  = 'bg-[#4C7FE0] text-white border-[#4C7FE0] shadow-sm'
-const pOff = 'bg-white/[0.06] backdrop-blur-xl border-white/[0.09] text-white/50 hover:bg-white/[0.1] hover:text-[#E2E8F0]'
+const pOn  = 'bg-[var(--accent-primary)] text-white border-[var(--accent-primary)] shadow-sm'
+const pOff = 'bg-[rgba(var(--ink-rgb),0.06)] backdrop-blur-xl border-[rgba(var(--ink-rgb),0.09)] text-[rgba(var(--text-rgb),0.5)] hover:bg-[rgba(var(--ink-rgb),0.1)] hover:text-[rgba(var(--text-rgb),1)]'
 
 // 상세 패널의 수정모드 에디터 박스에 쓰는 프레임 톤
-const FRAME_STYLE: React.CSSProperties = { background: 'rgba(255,255,255,0.035)', border: '1px solid rgba(255,255,255,0.07)' }
-const DROPDOWN_STYLE: React.CSSProperties = { background: '#1C2129', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 12px 32px rgba(0,0,0,0.4)' }
+const FRAME_STYLE: React.CSSProperties = { background: 'rgba(var(--ink-rgb),0.035)', border: '1px solid rgba(var(--ink-rgb),0.07)' }
+const DROPDOWN_STYLE: React.CSSProperties = { background: 'var(--surface-tooltip)', border: '1px solid rgba(var(--ink-rgb),0.1)', boxShadow: '0 12px 32px rgba(0,0,0,0.4)' }
 
 function inlineDraftKey(tag: MemoTag) { return `memo_inlineadd_draft_${tag}` }
 
@@ -100,7 +100,7 @@ function MemoListRow({ memo, onEdit, onDelete, draggable: drag, onDragStart, onD
   const borderClass = isOpen ? 'border-[rgba(76,127,224,0.55)]' : 'border-transparent'
   const bgClass = pinned
     ? 'bg-[rgba(224,165,107,0.05)] hover:bg-[rgba(224,165,107,0.08)]'
-    : 'bg-white/[0.025] hover:bg-white/[0.05]'
+    : 'bg-[rgba(var(--ink-rgb),0.025)] hover:bg-[rgba(var(--ink-rgb),0.05)]'
   return (
     <div
       draggable={drag}
@@ -112,11 +112,11 @@ function MemoListRow({ memo, onEdit, onDelete, draggable: drag, onDragStart, onD
       style={{ padding: '12px', marginBottom: 8 }}>
       {/* 문서 아이콘 — 카테고리 색 대신 중립톤 (레퍼런스 디자인 반영) */}
       <div className="flex items-center justify-center rounded-lg flex-shrink-0" style={{ width: 28, height: 28, background: 'rgba(107,155,224,0.14)' }}>
-        <FileText size={14} style={{ color: '#8FB3E8' }} />
+        <FileText size={14} style={{ color: 'var(--accent-badge-text)' }} />
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <p className="flex-1 min-w-0 text-[13.5px] font-medium text-[#E2E8F0]" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <p className="flex-1 min-w-0 text-[13.5px] font-medium text-[rgba(var(--text-rgb),1)]" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {memo.title}
           </p>
           <div className="flex items-center gap-1 flex-shrink-0">
@@ -124,18 +124,18 @@ function MemoListRow({ memo, onEdit, onDelete, draggable: drag, onDragStart, onD
               <span key={t} className="text-[10px] px-2 py-1 rounded-full border font-medium" style={memoTagStyle(t)}>{t}</span>
             ))}
             {extraCount > 0 && (
-              <span className="text-[10px] px-1.5 py-1 rounded-full border font-medium text-white/40 border-white/10 bg-white/[0.03]">
+              <span className="text-[10px] px-1.5 py-1 rounded-full border font-medium text-[rgba(var(--text-rgb),0.4)] border-[rgba(var(--ink-rgb),0.1)] bg-[rgba(var(--ink-rgb),0.03)]">
                 +{extraCount}
               </span>
             )}
           </div>
-          <span style={{ fontSize: 11, color: '#7B8397', flexShrink: 0 }}>
+          <span style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>
             {(() => { try { return format(parseISO(memo.created_at), 'M/d', { locale: ko }) } catch { return '' } })()}
           </span>
           {/* ⋮ 더보기 — 삭제 (오조작 방지: hover 즉시삭제 대신 확인 클릭 한 단계 추가) */}
           <div className="relative flex-shrink-0" ref={menuRef}>
             <button onClick={e => { e.stopPropagation(); setMenuOpen(v => !v) }}
-              className="flex items-center justify-center w-5 h-5 rounded text-white/30 hover:text-white/70 hover:bg-white/[0.08] opacity-0 group-hover:opacity-100 transition-all">
+              className="flex items-center justify-center w-5 h-5 rounded text-[rgba(var(--text-rgb),0.3)] hover:text-[rgba(var(--text-rgb),0.7)] hover:bg-[rgba(var(--ink-rgb),0.08)] opacity-0 group-hover:opacity-100 transition-all">
               <MoreVertical size={14} />
             </button>
             {menuOpen && (
@@ -149,7 +149,7 @@ function MemoListRow({ memo, onEdit, onDelete, draggable: drag, onDragStart, onD
           </div>
         </div>
         {memo.content && (
-          <p className="text-[12px] text-[#8992A3] mt-1" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <p className="text-[12px] text-[var(--text-secondary)] mt-1" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {stripHtml(memo.content)}
           </p>
         )}
@@ -286,14 +286,14 @@ function MemoDetailPanel({ memo, categories, onSave, onAutoSave, onDelete, onClo
       <div className="flex-shrink-0 px-5 pt-5">
         {/* 상단: 라벨 + 닫기 */}
         <div className="flex items-center justify-between mb-3">
-          <span className="text-[11px] font-semibold text-white/40 uppercase tracking-wide">메모 상세</span>
-          <button onClick={onClose} className="text-white/[0.28] hover:text-white/70 text-lg leading-none flex-shrink-0 transition-colors">×</button>
+          <span className="text-[11px] font-semibold text-[rgba(var(--text-rgb),0.4)] uppercase tracking-wide">메모 상세</span>
+          <button onClick={onClose} className="text-[rgba(var(--text-rgb),0.28)] hover:text-[rgba(var(--text-rgb),0.7)] text-lg leading-none flex-shrink-0 transition-colors">×</button>
         </div>
 
         {/* Autosave: 복구 배너 — 새로고침/크래시로 유실될 뻔한 마지막 입력 복원. 자동 적용하지 않고 사용자가 직접 선택 */}
         {autosave.recovered && (
           <div className="mb-3 px-3 py-2 rounded-lg text-xs flex items-center gap-2"
-            style={{ background: 'rgba(76,127,224,0.1)', border: '1px solid rgba(76,127,224,0.3)', color: '#A8C4F0' }}>
+            style={{ background: 'rgba(76,127,224,0.1)', border: '1px solid rgba(76,127,224,0.3)', color: 'var(--accent-badge-text)' }}>
             <span className="flex-1">복구 가능한 자동저장 내용이 있습니다</span>
             <button onClick={applyRecovered} className="underline underline-offset-2">적용</button>
             <button onClick={() => autosave.discardRecovered()} className="underline underline-offset-2">무시</button>
@@ -303,7 +303,7 @@ function MemoDetailPanel({ memo, categories, onSave, onAutoSave, onDelete, onClo
         {/* Autosave: 충돌 배너 — 자동 병합하지 않고 사용자가 선택 */}
         {autosave.conflict && (
           <div className="mb-3 px-3 py-2 rounded-lg text-xs flex flex-col gap-1.5"
-            style={{ background: 'rgba(249,158,11,0.1)', border: '1px solid rgba(249,158,11,0.35)', color: '#F0B84C' }}>
+            style={{ background: 'rgba(249,158,11,0.1)', border: '1px solid rgba(249,158,11,0.35)', color: 'var(--quick-todo-text)' }}>
             <span>다른 창/기기에서 이 메모가 변경되었습니다 — 자동 병합하지 않습니다.</span>
             <div className="flex items-center gap-2">
               <button onClick={() => autosave.resolveConflict('keep-mine')} className="underline underline-offset-2">
@@ -326,19 +326,19 @@ function MemoDetailPanel({ memo, categories, onSave, onAutoSave, onDelete, onClo
         <div className="flex items-center gap-1 mb-3">
           <button onClick={togglePin}
             className={`flex items-center gap-1 text-[11px] font-medium px-2.5 py-1.5 rounded-lg transition-all ${
-              tags.includes('공지') ? 'bg-[#4C7FE0]/25 text-[#A8C4F0]' : 'text-white/45 hover:bg-white/[0.06] hover:text-white/70'
+              tags.includes('공지') ? 'bg-[#4C7FE0]/25 text-[var(--accent-badge-text)]' : 'text-[rgba(var(--text-rgb),0.45)] hover:bg-[rgba(var(--ink-rgb),0.06)] hover:text-[rgba(var(--text-rgb),0.7)]'
             }`}>
             📌 고정
           </button>
           <button onClick={() => setViewMode(v => v === 'edit' ? 'read' : 'edit')}
             className={`flex items-center gap-1 text-[11px] font-medium px-2.5 py-1.5 rounded-lg transition-all ${
-              viewMode === 'edit' ? 'bg-[#4C7FE0]/25 text-[#A8C4F0]' : 'text-white/45 hover:bg-white/[0.06] hover:text-white/70'
+              viewMode === 'edit' ? 'bg-[#4C7FE0]/25 text-[var(--accent-badge-text)]' : 'text-[rgba(var(--text-rgb),0.45)] hover:bg-[rgba(var(--ink-rgb),0.06)] hover:text-[rgba(var(--text-rgb),0.7)]'
             }`}>
             ✎ 수정
           </button>
           <div className="relative" ref={moveRef}>
             <button onClick={() => setMoveOpen(v => !v)}
-              className="flex items-center gap-1 text-[11px] font-medium px-2.5 py-1.5 rounded-lg text-white/45 hover:bg-white/[0.06] hover:text-white/70 transition-all">
+              className="flex items-center gap-1 text-[11px] font-medium px-2.5 py-1.5 rounded-lg text-[rgba(var(--text-rgb),0.45)] hover:bg-[rgba(var(--ink-rgb),0.06)] hover:text-[rgba(var(--text-rgb),0.7)] transition-all">
               ↗ 이동
             </button>
             {moveOpen && (
@@ -349,7 +349,7 @@ function MemoDetailPanel({ memo, categories, onSave, onAutoSave, onDelete, onClo
                     // 태그 편집(위 칩)이 사실상 이동 역할을 겸함 — 별도 폴더 구조가 생기면 여기서 구현
                     setMoveOpen(false)
                   }}
-                  className="w-full text-left text-xs px-3 py-2 text-white/40 cursor-not-allowed">
+                  className="w-full text-left text-xs px-3 py-2 text-[rgba(var(--text-rgb),0.4)] cursor-not-allowed">
                   카테고리 이동 (준비 중)
                 </button>
               </div>
@@ -357,7 +357,7 @@ function MemoDetailPanel({ memo, categories, onSave, onAutoSave, onDelete, onClo
           </div>
           <div className="relative ml-auto" ref={moreRef}>
             <button onClick={() => setMoreOpen(v => !v)}
-              className="flex items-center justify-center w-7 h-7 rounded-lg text-white/45 hover:bg-white/[0.06] hover:text-white/70 transition-all">
+              className="flex items-center justify-center w-7 h-7 rounded-lg text-[rgba(var(--text-rgb),0.45)] hover:bg-[rgba(var(--ink-rgb),0.06)] hover:text-[rgba(var(--text-rgb),0.7)] transition-all">
               ⋯
             </button>
             {moreOpen && (
@@ -387,10 +387,10 @@ function MemoDetailPanel({ memo, categories, onSave, onAutoSave, onDelete, onClo
             {tagPickerOpen && (
               <div className="absolute left-0 top-full mt-1 py-1 rounded-xl z-10 min-w-[130px]" style={DROPDOWN_STYLE}>
                 {pickerCandidates.length === 0 ? (
-                  <p className="text-[11px] text-white/30 px-3 py-2 whitespace-nowrap">모든 태그가 선택됨</p>
+                  <p className="text-[11px] text-[rgba(var(--text-rgb),0.3)] px-3 py-2 whitespace-nowrap">모든 태그가 선택됨</p>
                 ) : pickerCandidates.map(t => (
                   <button key={t} onClick={() => { setTags(prev => withTag(prev, t)); setTagPickerOpen(false) }}
-                    className="w-full text-left text-xs px-3 py-2 text-white/70 hover:bg-white/[0.06] transition-colors flex items-center gap-2">
+                    className="w-full text-left text-xs px-3 py-2 text-[rgba(var(--text-rgb),0.7)] hover:bg-[rgba(var(--ink-rgb),0.06)] transition-colors flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: memoTagSolid(t) }} />
                     {t}
                   </button>
@@ -405,28 +405,28 @@ function MemoDetailPanel({ memo, categories, onSave, onAutoSave, onDelete, onClo
           <input value={title} onChange={e => setTitle(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') commitSave() }}
             placeholder="제목"
-            className="w-full text-base font-semibold text-[#E2E8F0] pb-2 mb-1.5 focus:outline-none bg-transparent flex-shrink-0 placeholder:text-white/30"
-            style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }} />
+            className="w-full text-base font-semibold text-[rgba(var(--text-rgb),1)] pb-2 mb-1.5 focus:outline-none bg-transparent flex-shrink-0 placeholder:text-[rgba(var(--text-rgb),0.3)]"
+            style={{ borderBottom: '1px solid rgba(var(--ink-rgb),0.06)' }} />
         ) : (
-          <h2 className="text-base font-semibold text-[#E2E8F0] pb-2 mb-1.5">{title || '(제목 없음)'}</h2>
+          <h2 className="text-base font-semibold text-[rgba(var(--text-rgb),1)] pb-2 mb-1.5">{title || '(제목 없음)'}</h2>
         )}
         {/* 작성일 + 작성자 */}
         <div className="flex items-center gap-4 mb-3">
           {createdLabel && (
-            <div className="flex items-center gap-1.5 text-[11px] text-white/35">
+            <div className="flex items-center gap-1.5 text-[11px] text-[rgba(var(--text-rgb),0.35)]">
               <Calendar size={12} /> {createdLabel}
             </div>
           )}
-          <div className="flex items-center gap-1.5 text-[11px] text-white/35">
+          <div className="flex items-center gap-1.5 text-[11px] text-[rgba(var(--text-rgb),0.35)]">
             <User size={12} /> 김진일
           </div>
         </div>
-        <div className="h-px bg-white/[0.07]" />
+        <div className="h-px bg-[rgba(var(--ink-rgb),0.07)]" />
       </div>
 
       {/* 스크롤 본문 — 내용(읽기/수정). 1인 툴 특성상 관련메모/댓글은 실효성 없어 제외 */}
       <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide mx-5 pt-4 pb-4">
-        <p className="text-[11px] font-semibold text-white/40 uppercase tracking-wide mb-2">내용</p>
+        <p className="text-[11px] font-semibold text-[rgba(var(--text-rgb),0.4)] uppercase tracking-wide mb-2">내용</p>
         {viewMode === 'edit' ? (
           <div className="rounded-2xl overflow-hidden" style={FRAME_STYLE}>
             <TiptapEditor
@@ -440,14 +440,14 @@ function MemoDetailPanel({ memo, categories, onSave, onAutoSave, onDelete, onClo
             />
           </div>
         ) : (
-          content ? <MarkdownContent content={content} dark /> : <p className="text-white/25 text-sm">내용 없음</p>
+          content ? <MarkdownContent content={content} dark /> : <p className="text-[rgba(var(--text-rgb),0.25)] text-sm">내용 없음</p>
         )}
       </div>
 
       {/* 하단: 자동저장 상태 + 저장 (삭제는 오조작 방지를 위해 상단 ⋯더보기로 이동) */}
       {viewMode === 'edit' && (
         <div className="flex justify-end items-center gap-3 flex-shrink-0 p-5 pt-4">
-          <p className="text-[10px] text-white/[0.28]">
+          <p className="text-[10px] text-[rgba(var(--text-rgb),0.28)]">
             {autoSaveStatus === 'saving' ? '저장 중…' :
              autoSaveStatus === 'saved'  ? '✓ 자동저장됨' :
              'Ctrl+Enter 저장 · Esc 닫기'}
@@ -659,28 +659,28 @@ export default function MemosPage() {
     <div className="h-full flex flex-col overflow-hidden font-sans">
       {/* 헤더: 1행 제목 단독, 2행 검색(풀와이드) + 액션 — 레퍼런스 레이아웃 */}
       <div className="flex-shrink-0 pt-6 pb-4">
-        <h1 className="text-xl font-bold text-[#E2E8F0] mb-3">메모</h1>
+        <h1 className="text-xl font-bold text-[rgba(var(--text-rgb),1)] mb-3">메모</h1>
 
         <div className="flex items-center gap-3">
           {/* 검색 — 제목/내용/태그 대상. 풀와이드 */}
           <div className="flex-1 flex items-center gap-2 px-3 py-2 rounded-xl"
-            style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.09)' }}>
-            <Search size={14} style={{ color: 'rgba(226,232,240,0.35)', flexShrink: 0 }} />
+            style={{ background: 'rgba(var(--ink-rgb),0.06)', border: '1px solid rgba(var(--ink-rgb),0.09)' }}>
+            <Search size={14} style={{ color: 'rgba(var(--text-rgb),0.35)', flexShrink: 0 }} />
             <input
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="메모 검색 (제목, 내용, 태그)"
-              className="flex-1 min-w-0 bg-transparent text-[13px] focus:outline-none placeholder:text-[rgba(226,232,240,0.25)]"
-              style={{ color: '#E2E8F0' }}
+              className="flex-1 min-w-0 bg-transparent text-[13px] focus:outline-none placeholder:text-[rgba(var(--text-rgb),0.25)]"
+              style={{ color: 'rgba(var(--text-rgb),1)' }}
             />
             {searchQuery && (
               <button onClick={() => setSearchQuery('')}
-                className="text-white/30 hover:text-white/60 transition-colors flex-shrink-0 text-xs leading-none">✕</button>
+                className="text-[rgba(var(--text-rgb),0.3)] hover:text-[rgba(var(--text-rgb),0.6)] transition-colors flex-shrink-0 text-xs leading-none">✕</button>
             )}
           </div>
 
           <button onClick={() => (showAddForm ? setShowAddForm(false) : openAddForm())}
-            className="text-sm bg-[#4C7FE0]/40 text-[#A8C4F0] border border-[#4C7FE0]/50 px-4 py-2 rounded-full hover:bg-[#4C7FE0]/60 transition-colors flex-shrink-0">
+            className="text-sm bg-[#4C7FE0]/40 text-[var(--accent-badge-text)] border border-[#4C7FE0]/50 px-4 py-2 rounded-full hover:bg-[#4C7FE0]/60 transition-colors flex-shrink-0">
             + 메모 추가
           </button>
         </div>
@@ -689,7 +689,7 @@ export default function MemosPage() {
       {/* 빠른 추가 폼 */}
       {showAddForm && (
         <div className="flex-shrink-0 backdrop-blur-xl rounded-3xl p-5 mb-3 flex-shrink-0"
-          style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.09)', boxShadow: '0 4px 16px rgba(0,0,0,0.2)' }}>
+          style={{ background: 'rgba(var(--ink-rgb),0.06)', border: '1px solid rgba(var(--ink-rgb),0.09)', boxShadow: '0 4px 16px rgba(0,0,0,0.2)' }}>
           <div className="flex gap-1.5 mb-3 flex-wrap">
             {categories.map(t => (
               <button key={t} onClick={() => setNewTags(prev => prev.includes(t) ? withoutTag(prev, t) : withTag(prev, t))}
@@ -702,8 +702,8 @@ export default function MemosPage() {
           <input ref={newTitleRef} autoFocus value={newTitle} onChange={e => setNewTitle(e.target.value)}
             onKeyDown={e => { if (e.key === 'Escape') setShowAddForm(false) }}
             placeholder="제목 (필수)"
-            className="w-full text-sm font-semibold text-[#E2E8F0] focus:outline-none pb-2 mb-3 bg-transparent placeholder:text-white/30"
-            style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }} />
+            className="w-full text-sm font-semibold text-[rgba(var(--text-rgb),1)] focus:outline-none pb-2 mb-3 bg-transparent placeholder:text-[rgba(var(--text-rgb),0.3)]"
+            style={{ borderBottom: '1px solid rgba(var(--ink-rgb),0.06)' }} />
           <SmartTextarea
             value={newContent}
             onChange={setNewContent}
@@ -712,10 +712,10 @@ export default function MemosPage() {
               if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); handleAddSave() }
             }}
             placeholder={`내용을 입력하세요...\n- 리스트, → 화살표, Ctrl+B 굵게`}
-            className="w-full text-sm text-[#E2E8F0] bg-transparent focus:outline-none resize-none scrollbar-hide placeholder:text-white/25 p-3 rounded-xl mb-1"
+            className="w-full text-sm text-[rgba(var(--text-rgb),1)] bg-transparent focus:outline-none resize-none scrollbar-hide placeholder:text-[rgba(var(--text-rgb),0.25)] p-3 rounded-xl mb-1"
             style={{
-              background: 'rgba(255,255,255,0.03)',
-              border: '1px solid rgba(255,255,255,0.06)',
+              background: 'rgba(var(--ink-rgb),0.03)',
+              border: '1px solid rgba(var(--ink-rgb),0.06)',
               minHeight: 130,
               lineHeight: 1.65,
             }}
@@ -732,12 +732,12 @@ export default function MemosPage() {
         <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide">
           {['전체', ...categories].map(tag => {
             const active = filterTag === tag
-            const activeColor = tag === '전체' ? '#4C7FE0' : memoTagSolid(tag)
+            const activeColor = tag === '전체' ? 'var(--accent-primary)' : memoTagSolid(tag)
             return (
               <div key={tag}
                 onClick={() => setFilterTag(tag)}
                 className={`group relative flex items-center justify-center gap-1.5 text-[11px] leading-none font-medium rounded-lg border transition-all whitespace-nowrap cursor-pointer flex-shrink-0 ${
-                  active ? 'text-white' : 'text-white/50 border-white/[0.09] hover:text-white/75 hover:border-white/[0.16]'
+                  active ? 'text-white' : 'text-[rgba(var(--text-rgb),0.5)] border-[rgba(var(--ink-rgb),0.09)] hover:text-[rgba(var(--text-rgb),0.75)] hover:border-[rgba(var(--ink-rgb),0.16)]'
                 }`}
                 style={{
                   padding: tag === '전체' ? '8px 12px' : '8px 10px',
@@ -745,7 +745,7 @@ export default function MemosPage() {
                   borderColor: active ? activeColor : undefined,
                 }}>
                 {tag !== '전체' && (
-                  <span className="rounded-full flex-shrink-0" style={{ width: 8, height: 8, background: active ? 'rgba(255,255,255,0.85)' : memoTagSolid(tag) }} />
+                  <span className="rounded-full flex-shrink-0" style={{ width: 8, height: 8, background: active ? 'rgba(var(--ink-rgb),0.85)' : memoTagSolid(tag) }} />
                 )}
                 {tag}
                 {tag !== '전체' && (
@@ -755,7 +755,7 @@ export default function MemosPage() {
                 {/* 범주 삭제 — hover 시에만 노출 (전체는 삭제 불가) */}
                 {tag !== '전체' && (
                   <button onClick={e => { e.stopPropagation(); deleteCategory(tag) }}
-                    className={`opacity-0 group-hover:opacity-100 transition-opacity leading-none text-[12px] ${active ? 'text-white/70 hover:text-white' : 'text-white/40 hover:text-red-400'}`}>
+                    className={`opacity-0 group-hover:opacity-100 transition-opacity leading-none text-[12px] ${active ? 'text-[rgba(var(--text-rgb),0.7)] hover:text-white' : 'text-[rgba(var(--text-rgb),0.4)] hover:text-red-400'}`}>
                     ×
                   </button>
                 )}
@@ -772,10 +772,10 @@ export default function MemosPage() {
               onBlur={commitAddCategory}
               placeholder="범주명"
               className="text-[11px] rounded-lg focus:outline-none flex-shrink-0"
-              style={{ padding: '8px 10px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(76,127,224,0.4)', color: '#E2E8F0', width: 90 }} />
+              style={{ padding: '8px 10px', background: 'rgba(var(--ink-rgb),0.06)', border: '1px solid rgba(76,127,224,0.4)', color: 'rgba(var(--text-rgb),1)', width: 90 }} />
           ) : (
             <button onClick={() => setAddingCat(true)}
-              className="flex items-center justify-center rounded-lg border border-dashed border-white/[0.14] text-white/30 hover:text-white/60 hover:border-white/[0.25] transition-all flex-shrink-0"
+              className="flex items-center justify-center rounded-lg border border-dashed border-[rgba(var(--ink-rgb),0.14)] text-[rgba(var(--text-rgb),0.3)] hover:text-[rgba(var(--text-rgb),0.6)] hover:border-[rgba(var(--ink-rgb),0.25)] transition-all flex-shrink-0"
               style={{ padding: '8px 10px' }}>
               <Plus size={12} />
             </button>
@@ -783,10 +783,10 @@ export default function MemosPage() {
         </div>
         {/* 정렬/보기 — 정렬은 항상 최신순(실제 동작과 일치), 리스트뷰 아이콘은 추후 뷰 전환용 placeholder */}
         <div className="flex items-center gap-1.5 flex-shrink-0">
-          <span className="flex items-center gap-1 text-[11px] font-medium rounded-lg border border-white/[0.09] text-white/50" style={{ padding: '8px 10px' }}>
+          <span className="flex items-center gap-1 text-[11px] font-medium rounded-lg border border-[rgba(var(--ink-rgb),0.09)] text-[rgba(var(--text-rgb),0.5)]" style={{ padding: '8px 10px' }}>
             최신순 <ChevronDown size={11} />
           </span>
-          <button className="flex items-center justify-center rounded-lg border border-white/[0.09] text-white/50 hover:text-white/75 hover:border-white/[0.16] transition-all" style={{ padding: '8px' }}>
+          <button className="flex items-center justify-center rounded-lg border border-[rgba(var(--ink-rgb),0.09)] text-[rgba(var(--text-rgb),0.5)] hover:text-[rgba(var(--text-rgb),0.75)] hover:border-[rgba(var(--ink-rgb),0.16)] transition-all" style={{ padding: '8px' }}>
             <List size={13} />
           </button>
         </div>
@@ -796,15 +796,15 @@ export default function MemosPage() {
       <div className="flex-1 min-h-0 flex gap-4 overflow-hidden">
       {/* 콘텐츠 — 고정 영역 + 시간순 통합 리스트. 상세 패널과 대칭 이루는 바깥 박스 */}
       <div className="flex-1 min-w-0 rounded-2xl overflow-hidden flex flex-col"
-        style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.09)' }}>
+        style={{ background: 'rgba(var(--ink-rgb),0.06)', border: '1px solid rgba(var(--ink-rgb),0.09)' }}>
         <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide p-4">
           {/* 고정 영역 — 최상단 별도 섹션. 전체 필터에서만 노출, 없으면 자연스럽게 숨김 */}
           {filterTag === '전체' && noticeMemos.length > 0 && (
             <div className="mb-5">
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-[11px]">📌</span>
-                <span className="text-xs font-bold text-white/70">고정</span>
-                <span className="text-[11px] text-white/50 bg-white/[0.08] px-1.5 py-0.5 rounded-md">{noticeMemos.length}</span>
+                <span className="text-xs font-bold text-[rgba(var(--text-rgb),0.7)]">고정</span>
+                <span className="text-[11px] text-[rgba(var(--text-rgb),0.5)] bg-[rgba(var(--ink-rgb),0.08)] px-1.5 py-0.5 rounded-md">{noticeMemos.length}</span>
               </div>
               {noticeMemos.map(memo => (
                 <MemoListRow key={memo.id} memo={memo} onEdit={setEditing} onDelete={deleteMemo}
@@ -816,10 +816,10 @@ export default function MemosPage() {
           )}
 
           {/* 최근 메모 — 카테고리 섹션 없이 시간순 단일 리스트, 날짜 변경 시에만 구분선 */}
-          <p className="text-xs font-bold text-white/70 mb-2">최근 메모</p>
+          <p className="text-xs font-bold text-[rgba(var(--text-rgb),0.7)] mb-2">최근 메모</p>
           {isEmpty ? (
             <div className="flex flex-col items-center justify-center h-40 gap-2">
-              <p className="text-white/[0.28] text-sm">
+              <p className="text-[rgba(var(--text-rgb),0.28)] text-sm">
                 {searchTrimmed
                   ? `'${searchTrimmed}'에 해당하는 메모가 없습니다`
                   : filterTag === '전체'
@@ -827,7 +827,7 @@ export default function MemosPage() {
                     : '해당 조건의 메모가 없습니다'}
               </p>
               {(searchTrimmed || filterTag !== '전체') && (
-                <button onClick={() => { setSearchQuery(''); setFilterTag('전체') }} className={`${pill} ${pOff} text-white/50`}>전체 보기</button>
+                <button onClick={() => { setSearchQuery(''); setFilterTag('전체') }} className={`${pill} ${pOff} text-[rgba(var(--text-rgb),0.5)]`}>전체 보기</button>
               )}
             </div>
           ) : (
@@ -846,9 +846,9 @@ export default function MemosPage() {
                     <div key={memo.id}>
                       {showDivider && (
                         <div className={`flex items-center gap-2 pb-1.5 ${idx === 0 ? '' : 'pt-3'}`}>
-                          <span className="text-[11px] font-semibold text-white/40 whitespace-nowrap">{dateDividerLabel(memo.created_at)}</span>
-                          <span className="text-[10px] text-white/40 bg-white/[0.06] px-1.5 py-0.5 rounded-md">{dayCounts.get(dayKey)}</span>
-                          <div className="flex-1 h-px bg-white/[0.06]" />
+                          <span className="text-[11px] font-semibold text-[rgba(var(--text-rgb),0.4)] whitespace-nowrap">{dateDividerLabel(memo.created_at)}</span>
+                          <span className="text-[10px] text-[rgba(var(--text-rgb),0.4)] bg-[rgba(var(--ink-rgb),0.06)] px-1.5 py-0.5 rounded-md">{dayCounts.get(dayKey)}</span>
+                          <div className="flex-1 h-px bg-[rgba(var(--ink-rgb),0.06)]" />
                         </div>
                       )}
                       <MemoListRow memo={memo} onEdit={setEditing} onDelete={deleteMemo}
@@ -861,7 +861,7 @@ export default function MemosPage() {
               })()}
               {hasMore && (
                 <button onClick={() => setVisibleCount(c => c + PAGE_SIZE)}
-                  className="w-full flex items-center justify-center gap-1.5 mt-2 text-[12px] text-white/50 hover:text-white/75 transition-colors rounded-xl border-[0.5px] border-border"
+                  className="w-full flex items-center justify-center gap-1.5 mt-2 text-[12px] text-[rgba(var(--text-rgb),0.5)] hover:text-[rgba(var(--text-rgb),0.75)] transition-colors rounded-xl border-[0.5px] border-border"
                   style={{ padding: '10px' }}>
                   더 불러오기 <ChevronDown size={13} />
                 </button>
@@ -893,13 +893,13 @@ export default function MemosPage() {
           className={editing
             ? 'w-full max-w-[420px] md:max-w-none md:w-full h-full rounded-l-2xl md:rounded-2xl overflow-hidden flex flex-col'
             : 'w-full h-full rounded-2xl overflow-hidden flex flex-col'}
-          style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.09)', boxShadow: editing ? '0 8px 28px rgba(0,0,0,0.3)' : undefined }}
+          style={{ background: 'rgba(var(--ink-rgb),0.06)', border: '1px solid rgba(var(--ink-rgb),0.09)', boxShadow: editing ? '0 8px 28px rgba(0,0,0,0.3)' : undefined }}
           onClick={editing ? (e => e.stopPropagation()) : undefined}>
           {editing ? (
             <MemoDetailPanel key={editing.id} memo={editing} categories={categories} onSave={saveEdit} onAutoSave={autoSave} onDelete={deleteMemo} onClose={() => setEditing(null)} />
           ) : (
             <div className="h-full flex items-center justify-center">
-              <p className="text-white/20 text-sm">메모를 선택하면 여기에 표시됩니다</p>
+              <p className="text-[rgba(var(--text-rgb),0.2)] text-sm">메모를 선택하면 여기에 표시됩니다</p>
             </div>
           )}
         </div>
@@ -926,7 +926,7 @@ function InlineAddForm({ inlineTags, setInlineTags, openInlineForm, inlineTitle,
   }
   return inlineTags ? (
     <div className="backdrop-blur-xl rounded-3xl p-4"
-      style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.09)', boxShadow: '0 4px 12px rgba(0,0,0,0.18)' }}>
+      style={{ background: 'rgba(var(--ink-rgb),0.06)', border: '1px solid rgba(var(--ink-rgb),0.09)', boxShadow: '0 4px 12px rgba(0,0,0,0.18)' }}>
       <div className="flex gap-1.5 mb-3 flex-wrap">
         {ALL_TAGS.map(t => (
           <button key={t} onClick={() => setInlineTags(prev => prev
@@ -941,12 +941,12 @@ function InlineAddForm({ inlineTags, setInlineTags, openInlineForm, inlineTitle,
       <input ref={inlineTitleRef} autoFocus value={inlineTitle} onChange={e => setInlineTitle(e.target.value)}
         onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); inlineContentRef.current?.focus() } if (e.key === 'Escape') cancel() }}
         placeholder="제목 (필수)"
-        className="w-full text-sm font-semibold text-[#E2E8F0] focus:outline-none pb-1.5 mb-1.5 bg-transparent placeholder:text-white/30"
-        style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }} />
+        className="w-full text-sm font-semibold text-[rgba(var(--text-rgb),1)] focus:outline-none pb-1.5 mb-1.5 bg-transparent placeholder:text-[rgba(var(--text-rgb),0.3)]"
+        style={{ borderBottom: '1px solid rgba(var(--ink-rgb),0.06)' }} />
       <textarea ref={inlineContentRef} value={inlineContent} onChange={e => setInlineContent(e.target.value)}
         onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleInlineSave() }}
         placeholder="내용 (선택)" rows={2}
-        className="w-full text-xs focus:outline-none resize-none text-white/50 bg-transparent placeholder:text-white/30" />
+        className="w-full text-xs focus:outline-none resize-none text-[rgba(var(--text-rgb),0.5)] bg-transparent placeholder:text-[rgba(var(--text-rgb),0.3)]" />
       <div className="flex gap-1 justify-end mt-2">
         <button onClick={cancel} className={`${pill} ${pOff} !text-[10px] !px-2.5 !py-1`}>취소</button>
         <button onClick={handleInlineSave} disabled={!inlineTitle.trim()} className={`${pill} ${pOn} !text-[10px] !px-2.5 !py-1 disabled:opacity-40`}>저장</button>
@@ -954,7 +954,7 @@ function InlineAddForm({ inlineTags, setInlineTags, openInlineForm, inlineTitle,
     </div>
   ) : (
     <button onClick={() => openInlineForm('업무관련')}
-      className="w-full backdrop-blur-xl border border-dashed border-white/[0.09] rounded-3xl py-6 hover:bg-white/[0.06] hover:border-white/[0.15] transition-all text-white/[0.28] hover:text-white/50 text-xs font-medium">
+      className="w-full backdrop-blur-xl border border-dashed border-[rgba(var(--ink-rgb),0.09)] rounded-3xl py-6 hover:bg-[rgba(var(--ink-rgb),0.06)] hover:border-[rgba(var(--ink-rgb),0.15)] transition-all text-[rgba(var(--text-rgb),0.28)] hover:text-[rgba(var(--text-rgb),0.5)] text-xs font-medium">
       + 메모 추가
     </button>
   )

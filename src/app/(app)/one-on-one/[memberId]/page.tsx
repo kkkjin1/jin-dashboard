@@ -9,10 +9,10 @@ import { format, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import MarkdownContent from '@/components/MarkdownContent'
 
-const T1 = 'rgba(226,232,240,0.92)'
-const T2 = 'rgba(226,232,240,0.55)'
-const T3 = 'rgba(226,232,240,0.35)'
-const BORDER = 'rgba(255,255,255,0.08)'
+const T1 = 'rgba(var(--text-rgb),0.92)'
+const T2 = 'rgba(var(--text-rgb),0.55)'
+const T3 = 'rgba(var(--text-rgb),0.35)'
+const BORDER = 'rgba(var(--ink-rgb),0.08)'
 
 function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, ' ').replace(/\s+/g, ' ').trim()
@@ -33,12 +33,12 @@ function SessionPreviewCard({ session, memberId, isSelected, onClick }: {
         padding: '11px 14px',
         borderRadius: 12,
         cursor: 'pointer',
-        background: isSelected ? 'rgba(76,127,224,0.16)' : 'rgba(255,255,255,0.04)',
+        background: isSelected ? 'rgba(76,127,224,0.16)' : 'rgba(var(--ink-rgb),0.04)',
         border: `1px solid ${isSelected ? 'rgba(76,127,224,0.35)' : BORDER}`,
         transition: 'background 120ms, border-color 120ms',
       }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
-        <p style={{ fontSize: 13, fontWeight: 600, color: isSelected ? '#93C5FD' : T1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>
+        <p style={{ fontSize: 13, fontWeight: 600, color: isSelected ? 'var(--accent-badge-text)' : T1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>
           {session.title || '제목 없음'}
         </p>
         {session.next_appointment && (
@@ -68,7 +68,7 @@ function SessionDetail({ session, memberId }: { session: OneOnOne; memberId: str
         </div>
         <Link href={`/one-on-one/${memberId}/${session.id}`}
           style={{ fontSize: 11, color: T3, border: `1px solid ${BORDER}`, borderRadius: 8, padding: '5px 12px', textDecoration: 'none', flexShrink: 0, whiteSpace: 'nowrap', transition: 'color 150ms, background 150ms', background: 'transparent' }}
-          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = T1; (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)' }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = T1; (e.currentTarget as HTMLElement).style.background = 'rgba(var(--ink-rgb),0.06)' }}
           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = T3; (e.currentTarget as HTMLElement).style.background = 'transparent' }}>
           편집 →
         </Link>
@@ -188,11 +188,11 @@ export default function MemberOneOnOnePage() {
           </Link>
           <div style={{ width: 1, height: 14, background: BORDER }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(76,127,224,0.2)', border: '1.5px solid rgba(76,127,224,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#93C5FD', fontWeight: 700, fontSize: 13 }}>
+            <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(76,127,224,0.2)', border: '1.5px solid rgba(76,127,224,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-badge-text)', fontWeight: 700, fontSize: 13 }}>
               {member.name[0]}
             </div>
             <span style={{ fontSize: 17, fontWeight: 700, color: T1 }}>{member.name}</span>
-            <span style={{ fontSize: 11, color: T3, background: 'rgba(255,255,255,0.07)', border: `1px solid ${BORDER}`, borderRadius: 6, padding: '1px 7px' }}>{member.part}</span>
+            <span style={{ fontSize: 11, color: T3, background: 'rgba(var(--ink-rgb),0.07)', border: `1px solid ${BORDER}`, borderRadius: 6, padding: '1px 7px' }}>{member.part}</span>
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -203,7 +203,7 @@ export default function MemberOneOnOnePage() {
             </button>
           )}
           <button onClick={() => setShowModal(true)}
-            style={{ fontSize: 12, padding: '6px 14px', borderRadius: 8, background: 'rgba(76,127,224,0.15)', color: '#93C5FD', border: '1px solid rgba(76,127,224,0.3)', cursor: 'pointer', transition: 'background 150ms' }}
+            style={{ fontSize: 12, padding: '6px 14px', borderRadius: 8, background: 'rgba(76,127,224,0.15)', color: 'var(--accent-badge-text)', border: '1px solid rgba(76,127,224,0.3)', cursor: 'pointer', transition: 'background 150ms' }}
             onMouseEnter={e => (e.currentTarget.style.background = 'rgba(76,127,224,0.22)')}
             onMouseLeave={e => (e.currentTarget.style.background = 'rgba(76,127,224,0.15)')}>
             + 새 1on1
@@ -266,7 +266,7 @@ export default function MemberOneOnOnePage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 320, overflowY: 'auto' }} className="scrollbar-hide">
               <button onClick={() => createSession(null)} disabled={creating}
                 style={{ textAlign: 'left', padding: '12px 16px', borderRadius: 12, border: `1px solid ${BORDER}`, background: 'transparent', cursor: 'pointer', transition: 'background 150ms', width: '100%', flexShrink: 0 }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
+                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(var(--ink-rgb),0.06)')}
                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                 <p style={{ fontSize: 13, fontWeight: 500, color: T1, marginBottom: 2 }}>빈 양식</p>
                 <p style={{ fontSize: 11, color: T3 }}>백지 상태로 시작</p>
@@ -274,7 +274,7 @@ export default function MemberOneOnOnePage() {
               {templates.map(t => (
                 <button key={t.id} onClick={() => createSession(t.id)} disabled={creating}
                   style={{ textAlign: 'left', padding: '12px 16px', borderRadius: 12, border: `1px solid ${BORDER}`, background: 'transparent', cursor: 'pointer', transition: 'background 150ms', width: '100%', flexShrink: 0 }}
-                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(var(--ink-rgb),0.06)')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                   <p style={{ fontSize: 13, fontWeight: 500, color: T1, marginBottom: 2 }}>{t.title}</p>
                   <p style={{ fontSize: 11, color: T3 }}>템플릿으로 시작</p>
@@ -282,7 +282,7 @@ export default function MemberOneOnOnePage() {
               ))}
               {templates.length === 0 && (
                 <p style={{ fontSize: 11, color: T3, padding: '0 4px' }}>
-                  저장된 템플릿이 없습니다 · <Link href="/one-on-one/template" style={{ color: '#93C5FD' }}>템플릿 만들기</Link>
+                  저장된 템플릿이 없습니다 · <Link href="/one-on-one/template" style={{ color: 'var(--accent-badge-text)' }}>템플릿 만들기</Link>
                 </p>
               )}
             </div>

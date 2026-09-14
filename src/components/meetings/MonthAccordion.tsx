@@ -46,7 +46,7 @@ export default function MonthAccordion({ months, catAccent, onNavigate, noteCoun
           style={
             activeKey === 'all'
               ? { background: catAccent, color: '#fff' }
-              : { background: 'rgba(255,255,255,0.06)', color: 'rgba(226,232,240,0.45)', border: '1px solid rgba(255,255,255,0.08)' }
+              : { background: 'rgba(var(--ink-rgb),0.06)', color: 'rgba(var(--text-rgb),0.45)', border: '1px solid rgba(var(--ink-rgb),0.08)' }
           }
         >
           전체 <span className="opacity-70 font-normal">({totalCount})</span>
@@ -63,7 +63,7 @@ export default function MonthAccordion({ months, catAccent, onNavigate, noteCoun
               style={
                 isActive
                   ? { background: catAccent, color: '#fff' }
-                  : { background: 'rgba(255,255,255,0.06)', color: 'rgba(226,232,240,0.45)', border: '1px solid rgba(255,255,255,0.08)' }
+                  : { background: 'rgba(var(--ink-rgb),0.06)', color: 'rgba(var(--text-rgb),0.45)', border: '1px solid rgba(var(--ink-rgb),0.08)' }
               }
             >
               {fmtYM(mg.ym)} <span className="opacity-70 font-normal">({mg.items.length})</span>
@@ -75,12 +75,12 @@ export default function MonthAccordion({ months, catAccent, onNavigate, noteCoun
       {/* 컬럼 헤더 */}
       <div
         className="flex items-center gap-3 px-4 pb-1.5"
-        style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+        style={{ borderBottom: '1px solid rgba(var(--ink-rgb),0.06)' }}
       >
-        <span className="w-[88px] flex-shrink-0 text-[10px] font-medium uppercase tracking-wide" style={{ color: 'rgba(226,232,240,0.28)' }}>날짜</span>
-        <span className="flex-1 text-[10px] font-medium uppercase tracking-wide" style={{ color: 'rgba(226,232,240,0.28)' }}>회의명</span>
-        <span className="w-[72px] text-center text-[10px] font-medium uppercase tracking-wide flex-shrink-0" style={{ color: 'rgba(226,232,240,0.28)' }}>태그</span>
-        <span className="w-[52px] text-right text-[10px] font-medium uppercase tracking-wide flex-shrink-0" style={{ color: 'rgba(226,232,240,0.28)' }}>노트</span>
+        <span className="w-[88px] flex-shrink-0 text-[10px] font-medium uppercase tracking-wide" style={{ color: 'rgba(var(--text-rgb),0.28)' }}>날짜</span>
+        <span className="flex-1 text-[10px] font-medium uppercase tracking-wide" style={{ color: 'rgba(var(--text-rgb),0.28)' }}>회의명</span>
+        <span className="w-[72px] text-center text-[10px] font-medium uppercase tracking-wide flex-shrink-0" style={{ color: 'rgba(var(--text-rgb),0.28)' }}>태그</span>
+        <span className="w-[52px] text-right text-[10px] font-medium uppercase tracking-wide flex-shrink-0" style={{ color: 'rgba(var(--text-rgb),0.28)' }}>노트</span>
         <span className="w-6 flex-shrink-0" />
       </div>
 

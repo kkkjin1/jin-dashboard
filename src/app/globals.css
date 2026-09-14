@@ -186,6 +186,15 @@ html, body {
      읽히도록 톤을 낮춘다(accent-text와 동일한 패턴). ── */
   --accent-badge-text: #A8C4F0;
   --role-badge-purple-text: #C4A8F0;
+
+  /* ── Phase 3 (Settings) ── */
+  --select-option-bg-2: #1e2130;
+  --action-text-blue: #93c5fd;
+
+  /* ── Phase 3 (remaining pages) — 저알파 error/warning 틴트 배경 위
+     파스텔 텍스트. 배경(error/warning hue)은 그대로 두고 텍스트만
+     라이트에서 읽히도록 진하게 조정. ── */
+  --error-badge-text: #FC8181;
 }
 
 [data-theme="light"] {
@@ -241,6 +250,13 @@ html, body {
   /* ── Phase 2E (1on1) ── */
   --accent-badge-text: var(--accent-text);
   --role-badge-purple-text: #6D4FC4;
+
+  /* ── Phase 3 (Settings) ── */
+  --select-option-bg-2: #FFFFFF;
+  --action-text-blue: var(--accent-text);
+
+  /* ── Phase 3 (remaining pages) ── */
+  --error-badge-text: #DC2626;
 }
 
 /* 테마 전환 시 부드러운 색 전환 — 명시적으로 지정한 요소에만 적용.
@@ -313,6 +329,11 @@ html, body {
   border-color: rgba(255,255,255,0.14) !important;
   box-shadow: 0 4px 14px rgba(0,0,0,0.38) !important;
 }
+[data-theme="light"] .dash-card:hover {
+  background: var(--surface-hover-strong) !important;
+  border-color: var(--border-strong) !important;
+  box-shadow: var(--shadow-card) !important;
+}
 
 /*
   ══════════════════════════════════════════════════════════════
@@ -350,6 +371,12 @@ html, body {
     inset 0 1px 0 rgba(255, 255, 255, 0.06),
     0 0 0 1px rgba(255, 255, 255, 0.075),
     0 18px 60px rgba(0, 0, 0, 0.15);
+}
+[data-theme="light"] .surface-card {
+  background-color: var(--surface-elevated);
+  background-image: none;
+  border: 1px solid var(--border-default);
+  box-shadow: var(--shadow-card);
 }
 
 /* ── Dark-theme rich HTML content (TiptapEditor output) ── */

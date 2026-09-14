@@ -205,7 +205,7 @@ export default function SearchToolbar({
     right: 0,
     zIndex: 100,
     background: 'rgba(19,22,32,0.98)',
-    border: '1px solid rgba(255,255,255,0.1)',
+    border: '1px solid rgba(var(--ink-rgb),0.1)',
     borderRadius: 12,
     backdropFilter: 'blur(20px)',
     boxShadow: '0 16px 40px rgba(0,0,0,0.45)',
@@ -216,7 +216,7 @@ export default function SearchToolbar({
   const hasDate = !!dateSelection
 
   return (
-    <div className="flex-shrink-0" style={{ position: 'sticky', top: 0, zIndex: 40, background: '#0F1319', paddingBottom: 12 }}>
+    <div className="flex-shrink-0" style={{ position: 'sticky', top: 0, zIndex: 40, background: 'var(--bg-page)', paddingBottom: 12 }}>
       {/* 달력 + 정렬 */}
       <div className="flex items-center gap-2 mb-3">
         {/* 달력 피커 */}
@@ -225,18 +225,18 @@ export default function SearchToolbar({
             onClick={() => { setCalOpen(v => !v); setRangeStart(null) }}
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl flex-shrink-0 transition-colors"
             style={{
-              background: hasDate ? 'rgba(76,127,224,0.12)' : 'rgba(255,255,255,0.06)',
-              border: hasDate ? '1px solid rgba(76,127,224,0.3)' : '1px solid rgba(255,255,255,0.09)',
+              background: hasDate ? 'rgba(76,127,224,0.12)' : 'rgba(var(--ink-rgb),0.06)',
+              border: hasDate ? '1px solid rgba(76,127,224,0.3)' : '1px solid rgba(var(--ink-rgb),0.09)',
             }}
           >
-            <Calendar size={13} style={{ color: hasDate ? '#7EB3FF' : 'rgba(226,232,240,0.4)' }} />
-            <span className="text-[12px]" style={{ color: hasDate ? '#7EB3FF' : 'rgba(226,232,240,0.5)' }}>{calLabel}</span>
+            <Calendar size={13} style={{ color: hasDate ? 'var(--accent-text)' : 'rgba(var(--text-rgb),0.4)' }} />
+            <span className="text-[12px]" style={{ color: hasDate ? 'var(--accent-text)' : 'rgba(var(--text-rgb),0.5)' }}>{calLabel}</span>
             {hasDate && (
               <span
                 onClick={e => { e.stopPropagation(); setDateSelection(null) }}
                 className="flex items-center ml-0.5 cursor-pointer"
               >
-                <X size={10} style={{ color: 'rgba(226,232,240,0.5)' }} />
+                <X size={10} style={{ color: 'rgba(var(--text-rgb),0.5)' }} />
               </span>
             )}
           </button>
@@ -246,15 +246,15 @@ export default function SearchToolbar({
               <div className="flex gap-3">
                 {/* 왼쪽: 기간 선택 */}
                 <div className="flex flex-col gap-1" style={{ minWidth: 88 }}>
-                  <p className="text-[10px] mb-1" style={{ color: 'rgba(226,232,240,0.3)' }}>기간 선택</p>
+                  <p className="text-[10px] mb-1" style={{ color: 'rgba(var(--text-rgb),0.3)' }}>기간 선택</p>
                   <button
                     onClick={() => { setDateSelection(null); setRangeStart(null); setCalOpen(false) }}
                     className="text-left text-[12px] px-3 py-1.5 rounded-lg transition-colors"
                     style={{
                       background: !dateSelection ? 'rgba(76,127,224,0.15)' : 'transparent',
-                      color: !dateSelection ? '#7EB3FF' : 'rgba(226,232,240,0.55)',
+                      color: !dateSelection ? 'var(--accent-text)' : 'rgba(var(--text-rgb),0.55)',
                     }}
-                    onMouseEnter={e => { if (dateSelection) e.currentTarget.style.background = 'rgba(255,255,255,0.05)' }}
+                    onMouseEnter={e => { if (dateSelection) e.currentTarget.style.background = 'rgba(var(--ink-rgb),0.05)' }}
                     onMouseLeave={e => { if (dateSelection) e.currentTarget.style.background = 'transparent' }}
                   >
                     전체
@@ -266,9 +266,9 @@ export default function SearchToolbar({
                       className="text-left text-[12px] px-3 py-1.5 rounded-lg transition-colors"
                       style={{
                         background: dateSelection?.label === label ? 'rgba(76,127,224,0.15)' : 'transparent',
-                        color: dateSelection?.label === label ? '#7EB3FF' : 'rgba(226,232,240,0.55)',
+                        color: dateSelection?.label === label ? 'var(--accent-text)' : 'rgba(var(--text-rgb),0.55)',
                       }}
-                      onMouseEnter={e => { if (dateSelection?.label !== label) e.currentTarget.style.background = 'rgba(255,255,255,0.05)' }}
+                      onMouseEnter={e => { if (dateSelection?.label !== label) e.currentTarget.style.background = 'rgba(var(--ink-rgb),0.05)' }}
                       onMouseLeave={e => { if (dateSelection?.label !== label) e.currentTarget.style.background = 'transparent' }}
                     >
                       {label}
@@ -277,11 +277,11 @@ export default function SearchToolbar({
                 </div>
 
                 {/* 구분선 */}
-                <div style={{ width: 1, background: 'rgba(255,255,255,0.07)', flexShrink: 0 }} />
+                <div style={{ width: 1, background: 'rgba(var(--ink-rgb),0.07)', flexShrink: 0 }} />
 
                 {/* 오른쪽: 달력 */}
                 <div className="flex-1">
-                  <p className="text-[10px] mb-2" style={{ color: rangeStart ? '#7EB3FF' : 'rgba(226,232,240,0.3)' }}>
+                  <p className="text-[10px] mb-2" style={{ color: rangeStart ? 'var(--accent-text)' : 'rgba(var(--text-rgb),0.3)' }}>
                     {rangeStart
                       ? `시작일 ${format(new Date(rangeStart + 'T00:00:00'), 'M/d', { locale: ko })} 선택됨 — 종료일을 클릭하세요`
                       : '날짜 선택 (클릭 두 번으로 구간 지정 가능)'}
@@ -291,20 +291,20 @@ export default function SearchToolbar({
                     <button
                       onClick={() => setCalViewMonth(subMonths(calViewMonth, 1))}
                       className="p-1 rounded-lg transition-colors"
-                      style={{ color: 'rgba(226,232,240,0.6)' }}
-                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
+                      style={{ color: 'rgba(var(--text-rgb),0.6)' }}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(var(--ink-rgb),0.06)')}
                       onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                     >
                       <ChevronLeft size={13} />
                     </button>
-                    <span className="text-[12px] font-medium" style={{ color: '#E2E8F0' }}>
+                    <span className="text-[12px] font-medium" style={{ color: 'rgba(var(--text-rgb),1)' }}>
                       {format(calViewMonth, 'yyyy년 M월', { locale: ko })}
                     </span>
                     <button
                       onClick={() => setCalViewMonth(addMonths(calViewMonth, 1))}
                       className="p-1 rounded-lg transition-colors"
-                      style={{ color: 'rgba(226,232,240,0.6)' }}
-                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
+                      style={{ color: 'rgba(var(--text-rgb),0.6)' }}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(var(--ink-rgb),0.06)')}
                       onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                     >
                       <ChevronRight size={13} />
@@ -314,7 +314,7 @@ export default function SearchToolbar({
                   {/* 요일 헤더 */}
                   <div className="grid grid-cols-7 mb-1">
                     {['일','월','화','수','목','금','토'].map(d => (
-                      <div key={d} className="text-center text-[10px] pb-1" style={{ color: 'rgba(226,232,240,0.3)' }}>{d}</div>
+                      <div key={d} className="text-center text-[10px] pb-1" style={{ color: 'rgba(var(--text-rgb),0.3)' }}>{d}</div>
                     ))}
                   </div>
 
@@ -335,12 +335,12 @@ export default function SearchToolbar({
                           className="flex items-center justify-center text-[11px] rounded-full transition-colors"
                           style={{
                             width: 28, height: 28,
-                            background: filled ? '#4C7FE0' : isInRange ? 'rgba(76,127,224,0.22)' : isToday ? 'rgba(76,127,224,0.18)' : 'transparent',
-                            color: filled ? '#fff' : isInRange ? '#7EB3FF' : isToday ? '#7EB3FF' : 'rgba(226,232,240,0.65)',
+                            background: filled ? 'var(--accent-primary)' : isInRange ? 'rgba(76,127,224,0.22)' : isToday ? 'rgba(76,127,224,0.18)' : 'transparent',
+                            color: filled ? '#fff' : isInRange ? 'var(--accent-text)' : isToday ? 'var(--accent-text)' : 'rgba(var(--text-rgb),0.65)',
                             fontWeight: filled || isToday ? 500 : 400,
                             boxShadow: isRangeStart ? '0 0 0 2px rgba(76,127,224,0.5)' : 'none',
                           }}
-                          onMouseEnter={e => { if (!filled) e.currentTarget.style.background = 'rgba(255,255,255,0.07)' }}
+                          onMouseEnter={e => { if (!filled) e.currentTarget.style.background = 'rgba(var(--ink-rgb),0.07)' }}
                           onMouseLeave={e => { if (!filled) e.currentTarget.style.background = isInRange ? 'rgba(76,127,224,0.22)' : isToday ? 'rgba(76,127,224,0.18)' : 'transparent' }}
                         >
                           {day}
@@ -359,11 +359,11 @@ export default function SearchToolbar({
           <button
             onClick={() => setSortOpen(v => !v)}
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl flex-shrink-0 transition-colors"
-            style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.09)' }}
+            style={{ background: 'rgba(var(--ink-rgb),0.06)', border: '1px solid rgba(var(--ink-rgb),0.09)' }}
           >
-            <ArrowUpDown size={13} style={{ color: 'rgba(226,232,240,0.4)' }} />
-            <span className="text-[12px]" style={{ color: 'rgba(226,232,240,0.5)' }}>{sortOrder}</span>
-            <ChevronDown size={11} style={{ color: 'rgba(226,232,240,0.35)' }} />
+            <ArrowUpDown size={13} style={{ color: 'rgba(var(--text-rgb),0.4)' }} />
+            <span className="text-[12px]" style={{ color: 'rgba(var(--text-rgb),0.5)' }}>{sortOrder}</span>
+            <ChevronDown size={11} style={{ color: 'rgba(var(--text-rgb),0.35)' }} />
           </button>
           {sortOpen && (
             <div style={dropdownBase}>
@@ -372,8 +372,8 @@ export default function SearchToolbar({
                   key={s}
                   onClick={() => { setSortOrder(s); setSortOpen(false) }}
                   className="w-full text-left text-[12px] px-3 py-1.5 rounded-lg transition-colors"
-                  style={{ color: sortOrder === s ? '#E2E8F0' : 'rgba(226,232,240,0.5)', background: sortOrder === s ? 'rgba(255,255,255,0.08)' : 'transparent' }}
-                  onMouseEnter={e => { if (sortOrder !== s) (e.currentTarget.style.background = 'rgba(255,255,255,0.05)') }}
+                  style={{ color: sortOrder === s ? 'rgba(var(--text-rgb),1)' : 'rgba(var(--text-rgb),0.5)', background: sortOrder === s ? 'rgba(var(--ink-rgb),0.08)' : 'transparent' }}
+                  onMouseEnter={e => { if (sortOrder !== s) (e.currentTarget.style.background = 'rgba(var(--ink-rgb),0.05)') }}
                   onMouseLeave={e => { if (sortOrder !== s) (e.currentTarget.style.background = 'transparent') }}
                 >
                   {s}
@@ -391,8 +391,8 @@ export default function SearchToolbar({
           className="text-[12px] px-3 py-1.5 rounded-full transition-all flex-shrink-0"
           style={
             teamFilter === '전체'
-              ? { background: '#4C7FE0', color: '#fff', fontWeight: 500 }
-              : { background: 'rgba(255,255,255,0.05)', color: 'rgba(226,232,240,0.4)', border: '1px solid rgba(255,255,255,0.08)' }
+              ? { background: 'var(--accent-primary)', color: '#fff', fontWeight: 500 }
+              : { background: 'rgba(var(--ink-rgb),0.05)', color: 'rgba(var(--text-rgb),0.4)', border: '1px solid rgba(var(--ink-rgb),0.08)' }
           }
         >
           전체
@@ -424,7 +424,7 @@ export default function SearchToolbar({
                 style={{
                   background: 'rgba(76,127,224,0.12)',
                   border: '1px solid rgba(76,127,224,0.4)',
-                  color: '#E2E8F0',
+                  color: 'rgba(var(--text-rgb),1)',
                   width: `${Math.max(editValue.length * 13 + 28, 60)}px`,
                 }}
               />
@@ -435,8 +435,8 @@ export default function SearchToolbar({
                 className="text-[12px] px-3 py-1.5 rounded-full transition-all"
                 style={
                   teamFilter === team
-                    ? { background: '#4C7FE0', color: '#fff', fontWeight: 500 }
-                    : { background: 'rgba(255,255,255,0.05)', color: 'rgba(226,232,240,0.4)', border: '1px solid rgba(255,255,255,0.08)' }
+                    ? { background: 'var(--accent-primary)', color: '#fff', fontWeight: 500 }
+                    : { background: 'rgba(var(--ink-rgb),0.05)', color: 'rgba(var(--text-rgb),0.4)', border: '1px solid rgba(var(--ink-rgb),0.08)' }
                 }
               >
                 {team}
@@ -466,21 +466,21 @@ export default function SearchToolbar({
             onBlur={commitAdd}
             placeholder="팀명"
             className="text-[12px] px-3 py-1.5 rounded-full focus:outline-none flex-shrink-0"
-            style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.2)', color: '#E2E8F0', width: 72 }}
+            style={{ background: 'rgba(var(--ink-rgb),0.06)', border: '1px solid rgba(var(--ink-rgb),0.2)', color: 'rgba(var(--text-rgb),1)', width: 72 }}
           />
         ) : (
           <button
             onClick={() => setAddingTeam(true)}
             className="flex items-center justify-center rounded-full flex-shrink-0 transition-colors"
-            style={{ width: 24, height: 24, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(226,232,240,0.35)' }}
-            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.09)')}
-            onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
+            style={{ width: 24, height: 24, background: 'rgba(var(--ink-rgb),0.05)', border: '1px solid rgba(var(--ink-rgb),0.08)', color: 'rgba(var(--text-rgb),0.35)' }}
+            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(var(--ink-rgb),0.09)')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'rgba(var(--ink-rgb),0.05)')}
           >
             <Plus size={11} />
           </button>
         )}
 
-        <span className="ml-auto text-[11px] flex-shrink-0" style={{ color: 'rgba(226,232,240,0.35)' }}>총 {total}건</span>
+        <span className="ml-auto text-[11px] flex-shrink-0" style={{ color: 'rgba(var(--text-rgb),0.35)' }}>총 {total}건</span>
       </div>
     </div>
   )
