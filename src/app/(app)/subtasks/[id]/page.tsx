@@ -53,7 +53,7 @@ function NoteTitleInput({ note, placeholder, onSave }: {
       }}
       onBlur={() => { const t = val.trim(); if (t !== (note.title ?? '')) onSave(t) }}
       placeholder={placeholder}
-      className="text-xs font-medium bg-transparent border-b border-transparent hover:border-[rgba(255,255,255,0.2)] focus:border-[rgba(255,255,255,0.35)] focus:outline-none transition-colors cursor-text text-[rgba(226,232,240,0.8)] placeholder:text-[rgba(226,232,240,0.3)]"
+      className="text-xs font-medium bg-transparent border-b border-transparent hover:border-[rgba(var(--ink-rgb),0.2)] focus:border-[rgba(var(--ink-rgb),0.35)] focus:outline-none transition-colors cursor-text text-[rgba(var(--text-rgb),0.8)] placeholder:text-[rgba(var(--text-rgb),0.3)]"
       style={{ minWidth: '40px', maxWidth: '240px', fieldSizing: 'content' } as React.CSSProperties}
     />
   )
@@ -278,7 +278,7 @@ export default function SubTaskDetailPage() {
     setAttachments(prev => prev.filter(a => a.id !== att.id))
   }
 
-  if (!subTask) return <div className="p-8 text-[rgba(226,232,240,0.4)] text-sm animate-pulse">불러오는 중...</div>
+  if (!subTask) return <div className="p-8 text-[rgba(var(--text-rgb),0.4)] text-sm animate-pulse">불러오는 중...</div>
 
   const agendaTitle = subTask.agenda_items?.title ?? ''
   const groupName = subTask.agenda_items?.agenda_groups?.name ?? ''
@@ -286,18 +286,18 @@ export default function SubTaskDetailPage() {
   const selectedNote = notes.find(n => n.id === selectedNoteId) ?? null
 
   const DateList = ({ onSelect, width }: { onSelect: (id: string) => void; width: number }) => (
-    <div style={{ width, borderRight: '1px solid rgba(255,255,255,0.07)', flexShrink: 0, background: 'rgba(255,255,255,0.025)', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+    <div style={{ width, borderRight: '1px solid rgba(var(--ink-rgb),0.07)', flexShrink: 0, background: 'rgba(var(--ink-rgb),0.025)', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
       {notes.map(note => {
         const isSel = note.id === selectedNoteId
         return (
           <button key={note.id} onClick={() => onSelect(note.id)}
-            style={{ padding: '8px', fontSize: 11, textAlign: 'center', background: isSel ? `${groupColor}22` : 'transparent', color: isSel ? groupColor : 'rgba(226,232,240,0.45)', fontWeight: isSel ? 700 : 400, cursor: 'pointer', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'block', width: '100%', lineHeight: 1.4 }}>
+            style={{ padding: '8px', fontSize: 11, textAlign: 'center', background: isSel ? `${groupColor}22` : 'transparent', color: isSel ? groupColor : 'rgba(var(--text-rgb),0.45)', fontWeight: isSel ? 700 : 400, cursor: 'pointer', border: 'none', borderBottom: '1px solid rgba(var(--ink-rgb),0.05)', display: 'block', width: '100%', lineHeight: 1.4 }}>
             {formatNoteDate(note.created_at)}
           </button>
         )
       })}
       {notes.length === 0 && (
-        <div style={{ padding: '16px 8px', fontSize: 10, color: '#CBD5E1', textAlign: 'center' }}>기록 없음</div>
+        <div style={{ padding: '16px 8px', fontSize: 10, color: 'var(--text-muted)', textAlign: 'center' }}>기록 없음</div>
       )}
     </div>
   )
@@ -339,12 +339,12 @@ export default function SubTaskDetailPage() {
                 onChange={e => setTitleInput(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') saveTitle(); if (e.key === 'Escape') setEditingTitle(false) }}
                 onBlur={saveTitle}
-                className="text-2xl font-bold text-[#E2E8F0] w-full border-b-2 border-blue-400 focus:outline-none bg-transparent pb-0.5" />
+                className="text-2xl font-bold text-[rgba(var(--text-rgb),1)] w-full border-b-2 border-blue-400 focus:outline-none bg-transparent pb-0.5" />
             ) : (
               <h1
                 onClick={() => { setEditingTitle(true); setTitleInput(subTask.title) }}
-                className="text-2xl font-bold cursor-text hover:text-[rgba(226,232,240,0.7)] transition-colors leading-tight"
-                style={{ color: subTask.status === 'done' ? '#9CA3AF' : '#E2E8F0', textDecoration: subTask.status === 'done' ? 'line-through' : 'none' }}>
+                className="text-2xl font-bold cursor-text hover:text-[rgba(var(--text-rgb),0.7)] transition-colors leading-tight"
+                style={{ color: subTask.status === 'done' ? '#9CA3AF' : 'rgba(var(--text-rgb),1)', textDecoration: subTask.status === 'done' ? 'line-through' : 'none' }}>
                 {subTask.title}
               </h1>
             )}
@@ -354,15 +354,15 @@ export default function SubTaskDetailPage() {
                 {STATUS_LABEL[subTask.status as AgendaItemStatus]}
               </button>
               <select value={subTask.assignee_id ?? ''} onChange={e => updateAssignee(e.target.value)}
-                className="text-xs border border-[rgba(255,255,255,0.1)] rounded-lg px-2 py-1 focus:outline-none bg-[#26282E] text-[rgba(226,232,240,0.75)] [color-scheme:dark]">
+                className="text-xs border border-[rgba(var(--ink-rgb),0.1)] rounded-lg px-2 py-1 focus:outline-none bg-[var(--select-option-bg)] text-[rgba(var(--text-rgb),0.75)]">
                 <option value="">담당자 미지정</option>
                 {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
               </select>
               <div className="flex items-center gap-1.5">
-                <span className="text-xs text-[rgba(226,232,240,0.4)]">마감</span>
+                <span className="text-xs text-[rgba(var(--text-rgb),0.4)]">마감</span>
                 <input type="date" value={subTask.due_date ?? ''}
                   onChange={e => updateDueDate(e.target.value)}
-                  className="text-xs border border-[rgba(255,255,255,0.1)] rounded-lg px-2 py-1 focus:outline-none bg-[rgba(255,255,255,0.06)] text-[rgba(226,232,240,0.75)] [color-scheme:dark]" />
+                  className="text-xs border border-[rgba(var(--ink-rgb),0.1)] rounded-lg px-2 py-1 focus:outline-none bg-[rgba(var(--ink-rgb),0.06)] text-[rgba(var(--text-rgb),0.75)]" />
               </div>
             </div>
           </div>
@@ -370,10 +370,10 @@ export default function SubTaskDetailPage() {
 
         {/* 업데이트 로그 — surface-card + 날짜 패널 */}
         <div className="surface-card rounded-2xl overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-3 border-b border-[rgba(255,255,255,0.06)]">
-            <span className="text-xs font-semibold text-[rgba(226,232,240,0.4)] uppercase tracking-wider">업데이트 로그</span>
+          <div className="flex items-center justify-between px-5 py-3 border-b border-[rgba(var(--ink-rgb),0.06)]">
+            <span className="text-xs font-semibold text-[rgba(var(--text-rgb),0.4)] uppercase tracking-wider">업데이트 로그</span>
             <button onClick={addNoteEntry} disabled={addingNote}
-              className="text-xs text-[#5DBD97] hover:text-[#4aab84] disabled:text-[rgba(226,232,240,0.25)] disabled:cursor-not-allowed border border-[#5DBD97]/30 disabled:border-[rgba(255,255,255,0.08)] rounded-lg px-3 py-1 transition-colors">
+              className="text-xs text-[#5DBD97] hover:text-[#4aab84] disabled:text-[rgba(var(--text-rgb),0.25)] disabled:cursor-not-allowed border border-[#5DBD97]/30 disabled:border-[rgba(var(--ink-rgb),0.08)] rounded-lg px-3 py-1 transition-colors">
               {addingNote ? '추가 중…' : '+ 새 기록'}
             </button>
           </div>
@@ -391,9 +391,9 @@ export default function SubTaskDetailPage() {
                     />
                     <div className="flex items-center gap-1.5">
                       <button onClick={() => deleteNote(selectedNote.id)}
-                        className="text-[10px] text-[rgba(226,232,240,0.3)] hover:text-red-400 transition-colors px-1">삭제</button>
+                        className="text-[10px] text-[rgba(var(--text-rgb),0.3)] hover:text-red-400 transition-colors px-1">삭제</button>
                       <button onClick={() => setExpandNote(true)}
-                        className="text-[10px] text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)] px-2 py-0.5 rounded hover:bg-[rgba(255,255,255,0.07)] transition-colors flex-shrink-0">
+                        className="text-[10px] text-[rgba(var(--text-rgb),0.4)] hover:text-[rgba(var(--text-rgb),0.7)] px-2 py-0.5 rounded hover:bg-[rgba(var(--ink-rgb),0.07)] transition-colors flex-shrink-0">
                         크게 편집
                       </button>
                     </div>
@@ -403,7 +403,7 @@ export default function SubTaskDetailPage() {
                     minHeight={120} className="px-4 py-1" />
                 </>
               ) : (
-                <div style={{ padding: '24px', color: '#8FA0B5', fontSize: 12, textAlign: 'center' }}>+ 새 기록을 추가하세요</div>
+                <div style={{ padding: '24px', color: 'var(--text-muted)', fontSize: 12, textAlign: 'center' }}>+ 새 기록을 추가하세요</div>
               )}
             </div>
           </div>
@@ -411,34 +411,34 @@ export default function SubTaskDetailPage() {
 
         {/* 첨부파일 — surface-card */}
         <div className="surface-card rounded-2xl overflow-hidden">
-          <div className="px-5 py-3 border-b border-[rgba(255,255,255,0.06)]">
-            <span className="text-xs font-semibold text-[rgba(226,232,240,0.4)] uppercase tracking-wider">첨부파일</span>
+          <div className="px-5 py-3 border-b border-[rgba(var(--ink-rgb),0.06)]">
+            <span className="text-xs font-semibold text-[rgba(var(--text-rgb),0.4)] uppercase tracking-wider">첨부파일</span>
           </div>
           <div className="px-5 py-4 flex flex-col gap-3">
             <div className="flex gap-2">
               <input value={linkName} onChange={e => setLinkName(e.target.value)}
                 placeholder="링크 이름 (선택)"
-                className="w-32 text-xs border border-[rgba(255,255,255,0.1)] rounded-lg px-3 py-2 focus:outline-none bg-[rgba(255,255,255,0.06)] text-[rgba(226,232,240,0.75)] placeholder:text-[rgba(226,232,240,0.25)]" />
+                className="w-32 text-xs border border-[rgba(var(--ink-rgb),0.1)] rounded-lg px-3 py-2 focus:outline-none bg-[rgba(var(--ink-rgb),0.06)] text-[rgba(var(--text-rgb),0.75)] placeholder:text-[rgba(var(--text-rgb),0.25)]" />
               <input value={linkUrl} onChange={e => setLinkUrl(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') addLink() }}
                 placeholder="https://..."
-                className="flex-1 text-xs border border-[rgba(255,255,255,0.1)] rounded-lg px-3 py-2 focus:outline-none bg-[rgba(255,255,255,0.06)] text-[rgba(226,232,240,0.75)] placeholder:text-[rgba(226,232,240,0.25)]" />
+                className="flex-1 text-xs border border-[rgba(var(--ink-rgb),0.1)] rounded-lg px-3 py-2 focus:outline-none bg-[rgba(var(--ink-rgb),0.06)] text-[rgba(var(--text-rgb),0.75)] placeholder:text-[rgba(var(--text-rgb),0.25)]" />
               <button onClick={addLink}
-                className="text-xs bg-[rgba(76,127,224,0.1)] text-[#4C7FE0] border border-[rgba(76,127,224,0.25)] px-3 py-2 rounded-lg hover:bg-[rgba(76,127,224,0.18)] transition-colors whitespace-nowrap">
+                className="text-xs bg-[rgba(76,127,224,0.1)] text-[var(--accent-primary)] border border-[rgba(76,127,224,0.25)] px-3 py-2 rounded-lg hover:bg-[rgba(76,127,224,0.18)] transition-colors whitespace-nowrap">
                 링크 추가
               </button>
             </div>
-            <label className="flex items-center gap-2 cursor-pointer text-xs text-[rgba(226,232,240,0.5)] hover:text-[rgba(226,232,240,0.75)] w-fit">
-              <span className="bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-lg px-3 py-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors">
+            <label className="flex items-center gap-2 cursor-pointer text-xs text-[rgba(var(--text-rgb),0.5)] hover:text-[rgba(var(--text-rgb),0.75)] w-fit">
+              <span className="bg-[rgba(var(--ink-rgb),0.05)] border border-[rgba(var(--ink-rgb),0.1)] rounded-lg px-3 py-2 hover:bg-[rgba(var(--ink-rgb),0.08)] transition-colors">
                 {uploading ? '업로드 중...' : '파일 선택'}
               </span>
-              <span className="text-[rgba(226,232,240,0.3)]">또는 이미지를 붙여넣으세요 (Ctrl+V)</span>
+              <span className="text-[rgba(var(--text-rgb),0.3)]">또는 이미지를 붙여넣으세요 (Ctrl+V)</span>
               <input type="file" multiple className="hidden" onChange={handleFileUpload} disabled={uploading} />
             </label>
             {attachments.length > 0 && (
               <div className="flex flex-col gap-1.5">
                 {attachments.map(att => (
-                  <div key={att.id} className="flex items-center gap-2 p-2.5 bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.07)] rounded-lg group">
+                  <div key={att.id} className="flex items-center gap-2 p-2.5 bg-[rgba(var(--ink-rgb),0.04)] border border-[rgba(var(--ink-rgb),0.07)] rounded-lg group">
                     {att.type === '파일' && att.url.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={att.url} alt="" className="w-10 h-10 object-cover rounded cursor-pointer flex-shrink-0"
@@ -447,15 +447,15 @@ export default function SubTaskDetailPage() {
                       <span className="text-base flex-shrink-0">{att.type === '링크' ? '🔗' : '📄'}</span>
                     )}
                     <a href={att.url} target="_blank" rel="noopener noreferrer"
-                      className="flex-1 text-xs text-[rgba(226,232,240,0.65)] hover:text-blue-400 truncate">{att.name}</a>
+                      className="flex-1 text-xs text-[rgba(var(--text-rgb),0.65)] hover:text-blue-400 truncate">{att.name}</a>
                     <button onClick={() => deleteAttachment(att)}
-                      className="text-[10px] text-[rgba(226,232,240,0.3)] hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">삭제</button>
+                      className="text-[10px] text-[rgba(var(--text-rgb),0.3)] hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">삭제</button>
                   </div>
                 ))}
               </div>
             )}
             {attachments.length === 0 && (
-              <p className="text-xs text-[rgba(226,232,240,0.3)] py-1">첨부된 파일이 없습니다</p>
+              <p className="text-xs text-[rgba(var(--text-rgb),0.3)] py-1">첨부된 파일이 없습니다</p>
             )}
           </div>
         </div>
@@ -463,8 +463,8 @@ export default function SubTaskDetailPage() {
 
       {/* 관련 학습자료 */}
       <div className="surface-card rounded-2xl overflow-hidden">
-        <div className="px-5 py-3 border-b border-[rgba(255,255,255,0.06)]">
-          <span className="text-xs font-semibold text-[rgba(226,232,240,0.4)] uppercase tracking-wider">관련 학습자료</span>
+        <div className="px-5 py-3 border-b border-[rgba(var(--ink-rgb),0.06)]">
+          <span className="text-xs font-semibold text-[rgba(var(--text-rgb),0.4)] uppercase tracking-wider">관련 학습자료</span>
         </div>
         <div className="px-5 py-4 flex flex-col gap-3">
           {/* 태그 선택 */}
@@ -475,8 +475,8 @@ export default function SubTaskDetailPage() {
                 <button key={tag} onClick={() => toggleTag(tag)}
                   className="text-xs px-2.5 py-1 rounded-full border transition-all"
                   style={selected
-                    ? { background: '#4C7FE0', color: 'rgba(220,230,252,0.9)', borderColor: 'rgba(76,127,224,0.5)' }
-                    : { background: 'rgba(255,255,255,0.05)', color: 'rgba(226,232,240,0.5)', borderColor: 'rgba(255,255,255,0.09)' }}>
+                    ? { background: 'var(--accent-primary)', color: 'rgba(220,230,252,0.9)', borderColor: 'rgba(76,127,224,0.5)' }
+                    : { background: 'rgba(var(--ink-rgb),0.05)', color: 'rgba(var(--text-rgb),0.5)', borderColor: 'rgba(var(--ink-rgb),0.09)' }}>
                   {tag}
                 </button>
               )
@@ -485,14 +485,14 @@ export default function SubTaskDetailPage() {
           {/* 매칭된 학습자료 목록 */}
           {(subTask.tags ?? []).length > 0 && (
             relatedResources.length === 0
-              ? <p className="text-xs text-[rgba(226,232,240,0.3)] py-1">매칭되는 학습자료 없음</p>
+              ? <p className="text-xs text-[rgba(var(--text-rgb),0.3)] py-1">매칭되는 학습자료 없음</p>
               : <div className="flex flex-col gap-1.5 mt-1">
                   {relatedResources.map(r => (
                     <a key={r.id} href={`/learning/${r.id}`}
-                      className="flex items-start gap-3 p-3 rounded-xl border border-[rgba(255,255,255,0.07)] bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.07)] transition-colors group">
+                      className="flex items-start gap-3 p-3 rounded-xl border border-[rgba(var(--ink-rgb),0.07)] bg-[rgba(var(--ink-rgb),0.04)] hover:bg-[rgba(var(--ink-rgb),0.07)] transition-colors group">
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-[rgba(226,232,240,0.85)] truncate group-hover:text-[rgba(226,232,240,1)] transition-colors">{r.title}</p>
-                        {r.source && <p className="text-[10px] text-[rgba(226,232,240,0.35)] mt-0.5 truncate">{r.source}</p>}
+                        <p className="text-xs font-medium text-[rgba(var(--text-rgb),0.85)] truncate group-hover:text-[rgba(var(--text-rgb),1)] transition-colors">{r.title}</p>
+                        {r.source && <p className="text-[10px] text-[rgba(var(--text-rgb),0.35)] mt-0.5 truncate">{r.source}</p>}
                         {(r.tags ?? []).length > 0 && (
                           <div className="flex gap-1 mt-1.5 flex-wrap">
                             {(r.tags ?? []).map(t => (
@@ -501,7 +501,7 @@ export default function SubTaskDetailPage() {
                           </div>
                         )}
                       </div>
-                      <span className="text-[rgba(226,232,240,0.2)] group-hover:text-[rgba(226,232,240,0.4)] text-xs flex-shrink-0 mt-0.5">→</span>
+                      <span className="text-[rgba(var(--text-rgb),0.2)] group-hover:text-[rgba(var(--text-rgb),0.4)] text-xs flex-shrink-0 mt-0.5">→</span>
                     </a>
                   ))}
                 </div>
@@ -511,32 +511,32 @@ export default function SubTaskDetailPage() {
 
       {/* 크게 편집 오버레이 */}
       {expandNote && selectedNote && (
-        <div className="fixed inset-0 z-[200] flex flex-col" style={{ background: '#0F1319' }}>
+        <div className="fixed inset-0 z-[200] flex flex-col" style={{ background: 'var(--bg-page)' }}>
           <div className="flex items-center justify-between px-5 py-3 flex-shrink-0"
-            style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', borderLeft: `4px solid ${groupColor}` }}>
+            style={{ borderBottom: '1px solid rgba(var(--ink-rgb),0.08)', borderLeft: `4px solid ${groupColor}` }}>
             <div>
-              <div className="text-[10px] text-[rgba(226,232,240,0.4)] font-semibold uppercase tracking-wider mb-0.5">업데이트 로그</div>
-              <div className="text-sm font-semibold text-[rgba(226,232,240,0.9)]">{subTask.title}</div>
+              <div className="text-[10px] text-[rgba(var(--text-rgb),0.4)] font-semibold uppercase tracking-wider mb-0.5">업데이트 로그</div>
+              <div className="text-sm font-semibold text-[rgba(var(--text-rgb),0.9)]">{subTask.title}</div>
             </div>
             <div className="flex items-center gap-2">
               <button onClick={addNoteEntry} disabled={addingNote}
-                className="text-xs text-[#5DBD97] hover:text-[#4aab84] disabled:text-[rgba(226,232,240,0.25)] disabled:cursor-not-allowed border border-[#5DBD97]/30 rounded-lg px-3 py-1.5 transition-colors">
+                className="text-xs text-[#5DBD97] hover:text-[#4aab84] disabled:text-[rgba(var(--text-rgb),0.25)] disabled:cursor-not-allowed border border-[#5DBD97]/30 rounded-lg px-3 py-1.5 transition-colors">
                 {addingNote ? '추가 중…' : '+ 새 기록'}
               </button>
               <button onClick={() => setExpandNote(false)}
-                className="flex items-center gap-1.5 text-xs text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)] px-3 py-1.5 rounded-lg hover:bg-[rgba(255,255,255,0.06)] transition-colors border border-[rgba(255,255,255,0.08)]">
+                className="flex items-center gap-1.5 text-xs text-[rgba(var(--text-rgb),0.4)] hover:text-[rgba(var(--text-rgb),0.7)] px-3 py-1.5 rounded-lg hover:bg-[rgba(var(--ink-rgb),0.06)] transition-colors border border-[rgba(var(--ink-rgb),0.08)]">
                 <span>ESC</span><span> 닫기</span>
               </button>
             </div>
           </div>
           <div className="flex-1 min-h-0 flex">
             {/* 날짜 목록 */}
-            <div style={{ width: 100, borderRight: '1px solid rgba(255,255,255,0.07)', flexShrink: 0, background: 'rgba(255,255,255,0.03)', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+            <div style={{ width: 100, borderRight: '1px solid rgba(var(--ink-rgb),0.07)', flexShrink: 0, background: 'rgba(var(--ink-rgb),0.03)', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
               {notes.map(note => {
                 const isSel = note.id === selectedNoteId
                 return (
                   <button key={note.id} onClick={() => setSelectedNoteId(note.id)}
-                    style={{ padding: '10px 12px', fontSize: 12, textAlign: 'center', background: isSel ? `${groupColor}22` : 'transparent', color: isSel ? groupColor : 'rgba(226,232,240,0.4)', fontWeight: isSel ? 700 : 400, cursor: 'pointer', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'block', width: '100%', lineHeight: 1.3 }}>
+                    style={{ padding: '10px 12px', fontSize: 12, textAlign: 'center', background: isSel ? `${groupColor}22` : 'transparent', color: isSel ? groupColor : 'rgba(var(--text-rgb),0.4)', fontWeight: isSel ? 700 : 400, cursor: 'pointer', border: 'none', borderBottom: '1px solid rgba(var(--ink-rgb),0.05)', display: 'block', width: '100%', lineHeight: 1.3 }}>
                     {formatNoteDate(note.created_at)}
                   </button>
                 )

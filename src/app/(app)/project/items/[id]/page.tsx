@@ -54,7 +54,7 @@ function NoteTitleInput({
       onClick={e => e.stopPropagation()}
       onFocus={e => e.stopPropagation()}
       placeholder={placeholder}
-      className="text-xs font-medium bg-transparent border-b border-transparent hover:border-[rgba(255,255,255,0.2)] focus:border-[rgba(255,255,255,0.35)] focus:outline-none transition-colors cursor-text text-[rgba(226,232,240,0.8)] placeholder:text-[rgba(226,232,240,0.3)]"
+      className="text-xs font-medium bg-transparent border-b border-transparent hover:border-[rgba(var(--ink-rgb),0.2)] focus:border-[rgba(var(--ink-rgb),0.35)] focus:outline-none transition-colors cursor-text text-[rgba(var(--text-rgb),0.8)] placeholder:text-[rgba(var(--text-rgb),0.3)]"
       style={{ minWidth: '40px', maxWidth: '100%', fieldSizing: 'content' } as React.CSSProperties}
     />
   )
@@ -202,15 +202,15 @@ function SubTaskAccordion({
     <div
       ref={onAccordionRef}
       className="rounded-xl border overflow-hidden transition-all"
-      style={{ borderColor: isFocus && isOpen ? stColor : 'rgba(255,255,255,0.08)', boxShadow: isFocus && isOpen ? `0 0 0 2px ${stColor}30` : 'none' }}>
+      style={{ borderColor: isFocus && isOpen ? stColor : 'rgba(var(--ink-rgb),0.08)', boxShadow: isFocus && isOpen ? `0 0 0 2px ${stColor}30` : 'none' }}>
       {/* 아코디언 헤더 — 외부 div onClick으로 토글, 내부 인터랙티브 요소는 stopPropagation */}
       <div
         onClick={() => toggleST(st.id)}
-        className="relative flex items-center gap-2.5 px-4 py-4 select-none group/acc hover:bg-[rgba(255,255,255,0.06)] transition-colors cursor-pointer"
-        style={{ background: isOpen ? `${stColor}18` : 'rgba(255,255,255,0.03)' }}>
+        className="relative flex items-center gap-2.5 px-4 py-4 select-none group/acc hover:bg-[rgba(var(--ink-rgb),0.06)] transition-colors cursor-pointer"
+        style={{ background: isOpen ? `${stColor}18` : 'rgba(var(--ink-rgb),0.03)' }}>
         {/* ▶ 비주얼 (클릭은 외부 div가 처리) */}
         <span className="flex-shrink-0 p-1 -m-1" style={{ fontSize: 8, lineHeight: 1 }}>
-          <span style={{ display: 'inline-block', transition: 'transform .15s', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', color: '#8FA0B5' }}>▶</span>
+          <span style={{ display: 'inline-block', transition: 'transform .15s', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', color: 'var(--text-muted)' }}>▶</span>
         </span>
         {/* 상태 점 */}
         <button type="button"
@@ -231,12 +231,12 @@ function SubTaskAccordion({
               }}
               onBlur={saveSTTitle}
               className="text-sm font-semibold bg-transparent border-b-2 border-blue-400 focus:outline-none w-full"
-              style={{ color: st.status === 'done' ? '#9CA3AF' : '#E2E8F0', textDecoration: st.status === 'done' ? 'line-through' : 'none' }}
+              style={{ color: st.status === 'done' ? '#9CA3AF' : 'rgba(var(--text-rgb),1)', textDecoration: st.status === 'done' ? 'line-through' : 'none' }}
             />
           </div>
         ) : (
           <span className="flex-1 min-w-0 text-sm font-semibold truncate"
-            style={{ color: st.status === 'done' ? '#9CA3AF' : '#E2E8F0', textDecoration: st.status === 'done' ? 'line-through' : 'none' }}>
+            style={{ color: st.status === 'done' ? '#9CA3AF' : 'rgba(var(--text-rgb),1)', textDecoration: st.status === 'done' ? 'line-through' : 'none' }}>
             {st.title}
           </span>
         )}
@@ -244,7 +244,7 @@ function SubTaskAccordion({
         {!isEditing && (
           <button type="button"
             onClick={e => { e.stopPropagation(); setEditingSTId(st.id); setEditingSTVal(st.title) }}
-            className="opacity-0 group-hover/acc:opacity-60 hover:!opacity-100 transition-opacity text-[rgba(226,232,240,0.5)] hover:text-[rgba(226,232,240,0.9)] text-[10px] px-0.5 flex-shrink-0"
+            className="opacity-0 group-hover/acc:opacity-60 hover:!opacity-100 transition-opacity text-[rgba(var(--text-rgb),0.5)] hover:text-[rgba(var(--text-rgb),0.9)] text-[10px] px-0.5 flex-shrink-0"
             title="이름 수정">✏</button>
         )}
         {/* 날짜 뱃지 */}
@@ -260,7 +260,7 @@ function SubTaskAccordion({
               {stDateLabel(st.target_date)} ×
             </button>
           ) : (
-            <div className="absolute right-28 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-0 pointer-events-none group-hover/acc:opacity-100 group-hover/acc:pointer-events-auto transition-opacity z-20 bg-[rgba(20,25,32,0.92)] rounded-md px-1 py-0.5 backdrop-blur-sm shadow-lg">
+            <div className="absolute right-28 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-0 pointer-events-none group-hover/acc:opacity-100 group-hover/acc:pointer-events-auto transition-opacity z-20 bg-[var(--dropdown-panel-bg)] rounded-md px-1 py-0.5 backdrop-blur-sm shadow-lg">
               <button onClick={e => { e.stopPropagation(); updateSubTaskDate(st.id, sched.today) }}    className="text-[9px] px-1.5 py-0.5 rounded bg-red-50   text-red-600   hover:bg-red-100   border border-red-100   font-medium">오늘</button>
               <button onClick={e => { e.stopPropagation(); updateSubTaskDate(st.id, sched.tomorrow) }} className="text-[9px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-100 font-medium">내일</button>
               <button onClick={e => { e.stopPropagation(); updateSubTaskDate(st.id, sched.friday) }}   className="text-[9px] px-1.5 py-0.5 rounded bg-blue-50  text-blue-600  hover:bg-blue-100  border border-blue-100  font-medium">금주</button>
@@ -275,10 +275,10 @@ function SubTaskAccordion({
           {deletingST === st.id ? (
             <>
               <button onClick={e => { e.stopPropagation(); deleteSubTask(st.id) }} className="text-[10px] text-red-500 font-semibold px-1">삭제</button>
-              <button onClick={e => { e.stopPropagation(); setDeletingST(null) }} className="text-[10px] text-[rgba(226,232,240,0.4)] px-1">취소</button>
+              <button onClick={e => { e.stopPropagation(); setDeletingST(null) }} className="text-[10px] text-[rgba(var(--text-rgb),0.4)] px-1">취소</button>
             </>
           ) : (
-            <button onClick={e => { e.stopPropagation(); setDeletingST(st.id) }} className="text-[10px] text-[rgba(226,232,240,0.3)] hover:text-red-400 transition-colors px-1">삭제</button>
+            <button onClick={e => { e.stopPropagation(); setDeletingST(st.id) }} className="text-[10px] text-[rgba(var(--text-rgb),0.3)] hover:text-red-400 transition-colors px-1">삭제</button>
           )}
         </div>
         <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold flex-shrink-0 ml-1 ${STATUS_CLS[st.status as Status]}`}>
@@ -289,8 +289,8 @@ function SubTaskAccordion({
           value={st.assignee_id ?? ''}
           onChange={e => { e.stopPropagation(); updateSTAssignee(st.id, e.target.value || null) }}
           onClick={e => e.stopPropagation()}
-          className="ml-1.5 text-xs bg-transparent border-none outline-none cursor-pointer flex-shrink-0 [&>option]:bg-[#1E2228]"
-          style={{ color: st.assignee_id ? 'rgba(226,232,240,0.8)' : 'rgba(226,232,240,0.35)', colorScheme: 'dark' }}>
+          className="ml-1.5 text-xs bg-transparent border-none outline-none cursor-pointer flex-shrink-0 [&>option]:bg-[var(--select-option-bg)]"
+          style={{ color: st.assignee_id ? 'rgba(var(--text-rgb),0.8)' : 'rgba(var(--text-rgb),0.35)' }}>
           <option value="">-</option>
           {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
         </select>
@@ -303,24 +303,24 @@ function SubTaskAccordion({
           상단에서 이미 계산됨 — note autosave 훅이 무조건적으로 참조하기 위함) */}
       {isOpen && (() => {
         return (
-          <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' }}>
+          <div style={{ borderTop: '1px solid rgba(var(--ink-rgb),0.07)', background: 'rgba(var(--ink-rgb),0.02)' }}>
             {/* ── 마일스톤 날짜 (담당자 지정 시) ── */}
             {st.assignee_id && (
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-4 py-2.5" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }} onClick={e => e.stopPropagation()}>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-4 py-2.5" style={{ borderBottom: '1px solid rgba(var(--ink-rgb),0.07)' }} onClick={e => e.stopPropagation()}>
                 <label className="flex items-center gap-1.5">
-                  <span className="text-[9px] text-[rgba(226,232,240,0.35)] uppercase tracking-wider flex-shrink-0">중간보고</span>
+                  <span className="text-[9px] text-[rgba(var(--text-rgb),0.35)] uppercase tracking-wider flex-shrink-0">중간보고</span>
                   <input type="date"
                     value={st.mid_date ?? ''}
                     onChange={e => updateSTMidDate(st.id, e.target.value || null)}
-                    className="text-[11px] bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] rounded-md px-2 py-0.5 text-[rgba(226,232,240,0.75)] focus:outline-none [color-scheme:dark]"
+                    className="text-[11px] bg-[rgba(var(--ink-rgb),0.06)] border border-[rgba(var(--ink-rgb),0.1)] rounded-md px-2 py-0.5 text-[rgba(var(--text-rgb),0.75)] focus:outline-none"
                   />
                 </label>
                 <label className="flex items-center gap-1.5">
-                  <span className="text-[9px] text-[rgba(226,232,240,0.35)] uppercase tracking-wider flex-shrink-0">완료일자</span>
+                  <span className="text-[9px] text-[rgba(var(--text-rgb),0.35)] uppercase tracking-wider flex-shrink-0">완료일자</span>
                   <input type="date"
                     value={st.due_date ?? ''}
                     onChange={e => updateSTDueDate(st.id, e.target.value || null)}
-                    className="text-[11px] bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] rounded-md px-2 py-0.5 text-[rgba(226,232,240,0.75)] focus:outline-none [color-scheme:dark]"
+                    className="text-[11px] bg-[rgba(var(--ink-rgb),0.06)] border border-[rgba(var(--ink-rgb),0.1)] rounded-md px-2 py-0.5 text-[rgba(var(--text-rgb),0.75)] focus:outline-none"
                   />
                 </label>
               </div>
@@ -328,11 +328,11 @@ function SubTaskAccordion({
             {/* 날짜 목록 + 에디터 */}
             <div style={{ display: 'flex', minHeight: 160 }}>
               {/* 왼쪽: 날짜 목록 */}
-              <div style={{ width: 80, borderRight: '1px solid rgba(255,255,255,0.07)', flexShrink: 0, background: 'rgba(255,255,255,0.03)', display: 'flex', flexDirection: 'column' }}>
+              <div style={{ width: 80, borderRight: '1px solid rgba(var(--ink-rgb),0.07)', flexShrink: 0, background: 'rgba(var(--ink-rgb),0.03)', display: 'flex', flexDirection: 'column' }}>
                 <button
                   onClick={e => { e.stopPropagation(); addNoteEntry(st) }}
                   disabled={addingNoteFor === st.id}
-                  style={{ padding: '7px 8px', fontSize: 10, color: '#5DBD97', background: 'none', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.07)', cursor: 'pointer', textAlign: 'center', fontWeight: 600, flexShrink: 0, opacity: addingNoteFor === st.id ? 0.4 : 1 }}>
+                  style={{ padding: '7px 8px', fontSize: 10, color: '#5DBD97', background: 'none', border: 'none', borderBottom: '1px solid rgba(var(--ink-rgb),0.07)', cursor: 'pointer', textAlign: 'center', fontWeight: 600, flexShrink: 0, opacity: addingNoteFor === st.id ? 0.4 : 1 }}>
                   {addingNoteFor === st.id ? '…' : '+ 추가'}
                 </button>
                 <div style={{ flex: 1, overflowY: 'auto' }}>
@@ -341,13 +341,13 @@ function SubTaskAccordion({
                     return (
                       <button key={note.id}
                         onClick={e => { e.stopPropagation(); setSelectedNoteIds(p => ({ ...p, [st.id]: note.id })) }}
-                        style={{ width: '100%', padding: '7px 8px', fontSize: 11, textAlign: 'center', background: isSelected ? `${stColor}22` : 'transparent', color: isSelected ? stColor : 'rgba(226,232,240,0.45)', fontWeight: isSelected ? 700 : 400, cursor: 'pointer', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'block', lineHeight: 1.3 }}>
+                        style={{ width: '100%', padding: '7px 8px', fontSize: 11, textAlign: 'center', background: isSelected ? `${stColor}22` : 'transparent', color: isSelected ? stColor : 'rgba(var(--text-rgb),0.45)', fontWeight: isSelected ? 700 : 400, cursor: 'pointer', border: 'none', borderBottom: '1px solid rgba(var(--ink-rgb),0.05)', display: 'block', lineHeight: 1.3 }}>
                         {formatNoteDate(note.created_at)}
                       </button>
                     )
                   })}
                   {allNotes.length === 0 && (
-                    <div style={{ padding: '16px 8px', fontSize: 10, color: '#CBD5E1', textAlign: 'center' }}>기록 없음</div>
+                    <div style={{ padding: '16px 8px', fontSize: 10, color: 'var(--text-muted)', textAlign: 'center' }}>기록 없음</div>
                   )}
                 </div>
               </div>
@@ -363,7 +363,7 @@ function SubTaskAccordion({
                         onValueChange={setNoteTitleVal}
                       />
                       <button onClick={e => { e.stopPropagation(); setExpandFor(st.id) }}
-                        className="text-[10px] text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)] px-2 py-0.5 rounded hover:bg-[rgba(255,255,255,0.07)] transition-colors flex-shrink-0">
+                        className="text-[10px] text-[rgba(var(--text-rgb),0.4)] hover:text-[rgba(var(--text-rgb),0.7)] px-2 py-0.5 rounded hover:bg-[rgba(var(--ink-rgb),0.07)] transition-colors flex-shrink-0">
                         크게 편집
                       </button>
                     </div>
@@ -378,27 +378,27 @@ function SubTaskAccordion({
                     />
                   </>
                 ) : (
-                  <div style={{ padding: '24px', color: '#8FA0B5', fontSize: 12, textAlign: 'center' }}>+ 추가를 눌러 첫 기록을 남기세요</div>
+                  <div style={{ padding: '24px', color: 'var(--text-muted)', fontSize: 12, textAlign: 'center' }}>+ 추가를 눌러 첫 기록을 남기세요</div>
                 )}
               </div>
             </div>
             {/* 서브태스크 첨부파일 */}
-            <div className="border-t border-[rgba(255,255,255,0.07)] px-5 py-3">
+            <div className="border-t border-[rgba(var(--ink-rgb),0.07)] px-5 py-3">
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: stColor }}>
                   📎 {st.title} · 첨부파일
                 </span>
-                <label className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md cursor-pointer transition-colors ${uploadingFor === st.id ? 'text-[rgba(226,232,240,0.3)]' : 'bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.12)] text-[rgba(226,232,240,0.5)] hover:border-[rgba(255,255,255,0.22)] hover:text-[rgba(226,232,240,0.8)]'}`}>
+                <label className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md cursor-pointer transition-colors ${uploadingFor === st.id ? 'text-[rgba(var(--text-rgb),0.3)]' : 'bg-[rgba(var(--ink-rgb),0.06)] border border-[rgba(var(--ink-rgb),0.12)] text-[rgba(var(--text-rgb),0.5)] hover:border-[rgba(var(--ink-rgb),0.22)] hover:text-[rgba(var(--text-rgb),0.8)]'}`}>
                   {uploadingFor === st.id ? '업로드 중…' : '파일 추가'}
                   <input type="file" multiple className="hidden" onChange={e => handleUpload(e, st.id)} disabled={uploadingFor === st.id} />
                 </label>
               </div>
               {stAtts(st.id).length === 0 ? (
-                <p className="text-[10px] text-[rgba(226,232,240,0.35)]">이 하위 태스크에만 연결된 파일을 첨부하세요</p>
+                <p className="text-[10px] text-[rgba(var(--text-rgb),0.35)]">이 하위 태스크에만 연결된 파일을 첨부하세요</p>
               ) : (
                 <div className="flex flex-wrap gap-1.5">
                   {stAtts(st.id).map(att => (
-                    <div key={att.id} className="flex items-center gap-1 text-[11px] bg-[rgba(255,255,255,0.05)] border rounded-lg px-2.5 py-1 group/att"
+                    <div key={att.id} className="flex items-center gap-1 text-[11px] bg-[rgba(var(--ink-rgb),0.05)] border rounded-lg px-2.5 py-1 group/att"
                       style={{ borderColor: `${stColor}40` }}>
                       <a href={att.url} target="_blank" rel="noopener noreferrer"
                         className="hover:underline transition-colors truncate max-w-[180px]"
@@ -406,7 +406,7 @@ function SubTaskAccordion({
                         📄 {att.name}
                       </a>
                       <button onClick={() => deleteAttachment(att)}
-                        className="text-[rgba(226,232,240,0.3)] hover:text-red-400 transition-colors opacity-0 group-hover/att:opacity-100 ml-0.5">×</button>
+                        className="text-[rgba(var(--text-rgb),0.3)] hover:text-red-400 transition-colors opacity-0 group-hover/att:opacity-100 ml-0.5">×</button>
                     </div>
                   ))}
                 </div>
@@ -414,7 +414,7 @@ function SubTaskAccordion({
             </div>
 
             {/* 관련 학습자료 */}
-            <div className="border-t border-[rgba(255,255,255,0.07)] px-5 py-3">
+            <div className="border-t border-[rgba(var(--ink-rgb),0.07)] px-5 py-3">
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: stColor }}>
                   📚 관련 학습자료
@@ -427,8 +427,8 @@ function SubTaskAccordion({
                     <button key={tag} onClick={() => toggleTag(tag)}
                       className="text-[10px] px-2 py-0.5 rounded-full border transition-all"
                       style={selected
-                        ? { background: '#4C7FE0', color: 'rgba(220,230,252,0.9)', borderColor: 'rgba(76,127,224,0.5)' }
-                        : { background: 'rgba(255,255,255,0.05)', color: 'rgba(226,232,240,0.4)', borderColor: 'rgba(255,255,255,0.09)' }}>
+                        ? { background: 'var(--accent-primary)', color: 'rgba(220,230,252,0.9)', borderColor: 'rgba(76,127,224,0.5)' }
+                        : { background: 'rgba(var(--ink-rgb),0.05)', color: 'rgba(var(--text-rgb),0.4)', borderColor: 'rgba(var(--ink-rgb),0.09)' }}>
                       {tag}
                     </button>
                   )
@@ -436,14 +436,14 @@ function SubTaskAccordion({
               </div>
               {(st.tags ?? []).length > 0 && (
                 relatedResources.length === 0
-                  ? <p className="text-[10px] text-[rgba(226,232,240,0.3)]">매칭되는 학습자료 없음</p>
+                  ? <p className="text-[10px] text-[rgba(var(--text-rgb),0.3)]">매칭되는 학습자료 없음</p>
                   : <div className="flex flex-col gap-1">
                       {relatedResources.map(r => (
                         <button key={r.id} onClick={() => onOpenResource(r)}
-                          className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-[rgba(255,255,255,0.07)] bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.06)] transition-colors group/lr text-left w-full">
-                          <span className="text-[10px] text-[rgba(226,232,240,0.7)] truncate flex-1 group-hover/lr:text-[rgba(226,232,240,0.95)]">{r.title}</span>
-                          {r.source && <span className="text-[9px] text-[rgba(226,232,240,0.3)] truncate max-w-[100px]">{r.source}</span>}
-                          <span className="text-[rgba(226,232,240,0.2)] group-hover/lr:text-[rgba(226,232,240,0.4)] text-[10px] flex-shrink-0">→</span>
+                          className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-[rgba(var(--ink-rgb),0.07)] bg-[rgba(var(--ink-rgb),0.03)] hover:bg-[rgba(var(--ink-rgb),0.06)] transition-colors group/lr text-left w-full">
+                          <span className="text-[10px] text-[rgba(var(--text-rgb),0.7)] truncate flex-1 group-hover/lr:text-[rgba(var(--text-rgb),0.95)]">{r.title}</span>
+                          {r.source && <span className="text-[9px] text-[rgba(var(--text-rgb),0.3)] truncate max-w-[100px]">{r.source}</span>}
+                          <span className="text-[rgba(var(--text-rgb),0.2)] group-hover/lr:text-[rgba(var(--text-rgb),0.4)] text-[10px] flex-shrink-0">→</span>
                         </button>
                       ))}
                     </div>
@@ -947,7 +947,7 @@ export default function AgendaItemDetailPage() {
         {/* 저장 실패 안내 — canonical write 실패 시 공통 표시(STEP D Group 2) */}
         {saveError && (
           <div className="px-4 py-2.5 rounded-xl text-xs flex items-center gap-2"
-            style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#FC8181' }}>
+            style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: 'var(--error-badge-text)' }}>
             <span>⚠</span>
             <span className="flex-1">{saveError}</span>
             <button onClick={() => setSaveError('')} className="text-[10px] opacity-70 hover:opacity-100 flex-shrink-0">닫기</button>
@@ -968,8 +968,8 @@ export default function AgendaItemDetailPage() {
             ) : (
               <h1
                 onClick={() => { setEditingTitle(true); setEditTitle(item.title) }}
-                className="text-2xl font-bold cursor-text hover:text-[rgba(226,232,240,0.7)] transition-colors leading-tight"
-                style={{ color: item.status === 'done' ? '#9CA3AF' : '#E2E8F0', textDecoration: item.status === 'done' ? 'line-through' : 'none' }}>
+                className="text-2xl font-bold cursor-text hover:text-[rgba(var(--text-rgb),0.7)] transition-colors leading-tight"
+                style={{ color: item.status === 'done' ? '#9CA3AF' : 'rgba(var(--text-rgb),1)', textDecoration: item.status === 'done' ? 'line-through' : 'none' }}>
                 {item.title}
               </h1>
             )}
@@ -979,7 +979,7 @@ export default function AgendaItemDetailPage() {
                 {STATUS_LABEL[item.status as Status]}
               </button>
               {subTasks.length > 0 && (
-                <span className="text-xs text-[rgba(226,232,240,0.5)] bg-white/[0.06] border border-white/[0.09] px-2.5 py-1 rounded-full">
+                <span className="text-xs text-[rgba(var(--text-rgb),0.5)] bg-white/[0.06] border border-white/[0.09] px-2.5 py-1 rounded-full">
                   하위태스크 {doneCount}/{subTasks.length}
                 </span>
               )}
@@ -989,10 +989,10 @@ export default function AgendaItemDetailPage() {
 
         {/* ── 전반적인 메모 박스 ── */}
         <div className="surface-card rounded-2xl overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-3 border-b border-[rgba(255,255,255,0.06)]">
-            <span className="text-xs font-semibold text-[rgba(226,232,240,0.4)] uppercase tracking-wider">업무 개요 · 메모</span>
+          <div className="flex items-center justify-between px-5 py-3 border-b border-[rgba(var(--ink-rgb),0.06)]">
+            <span className="text-xs font-semibold text-[rgba(var(--text-rgb),0.4)] uppercase tracking-wider">업무 개요 · 메모</span>
             <button onClick={() => setExpandFor('description')}
-              className="text-[10px] text-[rgba(226,232,240,0.3)] hover:text-[rgba(226,232,240,0.65)] px-2 py-0.5 rounded hover:bg-[rgba(255,255,255,0.06)] transition-colors">
+              className="text-[10px] text-[rgba(var(--text-rgb),0.3)] hover:text-[rgba(var(--text-rgb),0.65)] px-2 py-0.5 rounded hover:bg-[rgba(var(--ink-rgb),0.06)] transition-colors">
               크게 편집
             </button>
           </div>
@@ -1004,27 +1004,27 @@ export default function AgendaItemDetailPage() {
             className="px-5 py-4"
           />
           {/* 업무 첨부파일 */}
-          <div className="border-t border-[rgba(255,255,255,0.06)] px-5 py-3" style={{ background: 'rgba(255,255,255,0.02)' }}>
+          <div className="border-t border-[rgba(var(--ink-rgb),0.06)] px-5 py-3" style={{ background: 'rgba(var(--ink-rgb),0.02)' }}>
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-[10px] font-semibold text-[rgba(226,232,240,0.35)] uppercase tracking-wider">업무 첨부파일</span>
-              <label className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md cursor-pointer transition-colors ${uploadingFor === 'item' ? 'bg-[rgba(255,255,255,0.04)] text-[rgba(226,232,240,0.25)]' : 'bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] text-[rgba(226,232,240,0.5)] hover:border-[rgba(255,255,255,0.2)] hover:text-[rgba(226,232,240,0.8)]'}`}>
+              <span className="text-[10px] font-semibold text-[rgba(var(--text-rgb),0.35)] uppercase tracking-wider">업무 첨부파일</span>
+              <label className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md cursor-pointer transition-colors ${uploadingFor === 'item' ? 'bg-[rgba(var(--ink-rgb),0.04)] text-[rgba(var(--text-rgb),0.25)]' : 'bg-[rgba(var(--ink-rgb),0.06)] border border-[rgba(var(--ink-rgb),0.1)] text-[rgba(var(--text-rgb),0.5)] hover:border-[rgba(var(--ink-rgb),0.2)] hover:text-[rgba(var(--text-rgb),0.8)]'}`}>
                 📎 {uploadingFor === 'item' ? '업로드 중…' : '파일 추가'}
                 <input type="file" multiple className="hidden" onChange={e => handleUpload(e, 'item')} disabled={uploadingFor === 'item'} />
               </label>
               {uploadError && <span className="text-[10px] text-red-400 ml-1">{uploadError}</span>}
             </div>
             {itemAtts.length === 0 ? (
-              <p className="text-[10px] text-[rgba(226,232,240,0.3)]">이 업무 전체에 해당하는 파일을 첨부하세요</p>
+              <p className="text-[10px] text-[rgba(var(--text-rgb),0.3)]">이 업무 전체에 해당하는 파일을 첨부하세요</p>
             ) : (
               <div className="flex flex-wrap gap-1.5">
                 {itemAtts.map(att => (
-                  <div key={att.id} className="flex items-center gap-1 text-[11px] bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] rounded-lg px-2.5 py-1 group/att">
+                  <div key={att.id} className="flex items-center gap-1 text-[11px] bg-[rgba(var(--ink-rgb),0.06)] border border-[rgba(var(--ink-rgb),0.1)] rounded-lg px-2.5 py-1 group/att">
                     <a href={att.url} target="_blank" rel="noopener noreferrer"
-                      className="text-[rgba(226,232,240,0.65)] hover:text-[rgba(226,232,240,0.9)] hover:underline transition-colors truncate max-w-[180px]">
+                      className="text-[rgba(var(--text-rgb),0.65)] hover:text-[rgba(var(--text-rgb),0.9)] hover:underline transition-colors truncate max-w-[180px]">
                       📄 {att.name}
                     </a>
                     <button onClick={() => deleteAttachment(att)}
-                      className="text-[rgba(226,232,240,0.2)] hover:text-red-400 transition-colors opacity-0 group-hover/att:opacity-100 ml-0.5">×</button>
+                      className="text-[rgba(var(--text-rgb),0.2)] hover:text-red-400 transition-colors opacity-0 group-hover/att:opacity-100 ml-0.5">×</button>
                   </div>
                 ))}
               </div>
@@ -1085,7 +1085,7 @@ export default function AgendaItemDetailPage() {
           ))}
 
           {/* 하위태스크 추가 */}
-          <div className="rounded-xl border border-dashed border-[rgba(255,255,255,0.12)] overflow-hidden">
+          <div className="rounded-xl border border-dashed border-[rgba(var(--ink-rgb),0.12)] overflow-hidden">
             {addingSubTask ? (
               <div className="flex items-center gap-2 px-4 py-3">
                 <input autoFocus value={newSTTitle}
@@ -1093,12 +1093,12 @@ export default function AgendaItemDetailPage() {
                   onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) addSubTask(); if (e.key === 'Escape') { setAddingSubTask(false); setNewSTTitle('') } }}
                   placeholder="하위 태스크 이름 입력 후 Enter (프로젝트탭과 자동 연동)"
                   className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-gray-400" />
-                <button onClick={addSubTask} className="text-xs bg-[rgba(76,127,224,0.1)] text-[#4C7FE0] border border-[rgba(76,127,224,0.25)] px-3 py-1.5 rounded-lg">추가</button>
+                <button onClick={addSubTask} className="text-xs bg-[rgba(76,127,224,0.1)] text-[var(--accent-primary)] border border-[rgba(76,127,224,0.25)] px-3 py-1.5 rounded-lg">추가</button>
                 <button onClick={() => { setAddingSubTask(false); setNewSTTitle('') }} className="text-xs text-gray-400 px-2">취소</button>
               </div>
             ) : (
               <button onClick={() => setAddingSubTask(true)}
-                className="w-full flex items-center gap-1.5 px-4 py-3 text-xs text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)] hover:bg-[rgba(255,255,255,0.04)] transition-colors">
+                className="w-full flex items-center gap-1.5 px-4 py-3 text-xs text-[rgba(var(--text-rgb),0.4)] hover:text-[rgba(var(--text-rgb),0.7)] hover:bg-[rgba(var(--ink-rgb),0.04)] transition-colors">
                 <span style={{ fontSize: 13 }}>＋</span>
                 <span>하위 태스크 추가 (프로젝트탭과 쌍방 연동)</span>
               </button>
@@ -1117,21 +1117,21 @@ export default function AgendaItemDetailPage() {
       {expandFor && (() => {
         if (expandFor === 'description') {
           return (
-            <div className="fixed inset-0 z-[200] flex flex-col" style={{ background: '#0F1319' }}>
+            <div className="fixed inset-0 z-[200] flex flex-col" style={{ background: 'var(--bg-page)' }}>
               <div className="flex items-center justify-between px-5 py-3 flex-shrink-0"
-                style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', borderLeft: `4px solid ${groupColor}` }}>
+                style={{ borderBottom: '1px solid rgba(var(--ink-rgb),0.08)', borderLeft: `4px solid ${groupColor}` }}>
                 <div>
-                  <div className="text-[10px] text-[rgba(226,232,240,0.4)] font-semibold uppercase tracking-wider mb-0.5">업무 개요 · 메모</div>
-                  <div className="text-sm font-semibold text-[rgba(226,232,240,0.9)]">{item?.title ?? ''}</div>
+                  <div className="text-[10px] text-[rgba(var(--text-rgb),0.4)] font-semibold uppercase tracking-wider mb-0.5">업무 개요 · 메모</div>
+                  <div className="text-sm font-semibold text-[rgba(var(--text-rgb),0.9)]">{item?.title ?? ''}</div>
                 </div>
                 <button onClick={() => setExpandFor(null)}
-                  className="flex items-center gap-1.5 text-xs text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)] px-3 py-1.5 rounded-lg hover:bg-[rgba(255,255,255,0.06)] transition-colors border border-[rgba(255,255,255,0.08)]">
+                  className="flex items-center gap-1.5 text-xs text-[rgba(var(--text-rgb),0.4)] hover:text-[rgba(var(--text-rgb),0.7)] px-3 py-1.5 rounded-lg hover:bg-[rgba(var(--ink-rgb),0.06)] transition-colors border border-[rgba(var(--ink-rgb),0.08)]">
                   <span>ESC</span><span> 닫기</span>
                 </button>
               </div>
               {saveError && (
                 <div className="mx-8 mt-3 px-4 py-2.5 rounded-xl text-xs flex items-center gap-2 flex-shrink-0"
-                  style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#FC8181' }}>
+                  style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: 'var(--error-badge-text)' }}>
                   <span>⚠</span>
                   <span className="flex-1">{saveError}</span>
                   <button onClick={() => setSaveError('')} className="text-[10px] opacity-70 hover:opacity-100 flex-shrink-0">닫기</button>
@@ -1149,27 +1149,27 @@ export default function AgendaItemDetailPage() {
         const selectedNote = allNotes.find(n => n.id === selId) ?? null
         const expandStColor = expandST.status === 'done' ? '#9CA3AF' : (expandST.status === 'hold' ? '#F59E0B' : groupColor)
         return (
-          <div className="fixed inset-0 z-[200] flex flex-col" style={{ background: '#0F1319' }}>
+          <div className="fixed inset-0 z-[200] flex flex-col" style={{ background: 'var(--bg-page)' }}>
             <div className="flex items-center justify-between px-5 py-3 flex-shrink-0"
-              style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', borderLeft: `4px solid ${expandStColor}` }}>
+              style={{ borderBottom: '1px solid rgba(var(--ink-rgb),0.08)', borderLeft: `4px solid ${expandStColor}` }}>
               <div>
-                <div className="text-[10px] text-[rgba(226,232,240,0.4)] font-semibold uppercase tracking-wider mb-0.5">세부task · 노트</div>
-                <div className="text-sm font-semibold text-[rgba(226,232,240,0.9)]">{expandST.title}</div>
+                <div className="text-[10px] text-[rgba(var(--text-rgb),0.4)] font-semibold uppercase tracking-wider mb-0.5">세부task · 노트</div>
+                <div className="text-sm font-semibold text-[rgba(var(--text-rgb),0.9)]">{expandST.title}</div>
               </div>
               <div className="flex items-center gap-2">
                 <button onClick={() => addNoteEntry(expandST)} disabled={addingNoteFor === expandST.id}
-                  className="text-xs text-[#5DBD97] hover:text-[#4aab84] disabled:text-[rgba(226,232,240,0.25)] disabled:cursor-not-allowed border border-[#5DBD97]/30 disabled:border-[rgba(255,255,255,0.08)] rounded-lg px-3 py-1.5 transition-colors">
+                  className="text-xs text-[#5DBD97] hover:text-[#4aab84] disabled:text-[rgba(var(--text-rgb),0.25)] disabled:cursor-not-allowed border border-[#5DBD97]/30 disabled:border-[rgba(var(--ink-rgb),0.08)] rounded-lg px-3 py-1.5 transition-colors">
                   {addingNoteFor === expandST.id ? '추가 중…' : '+ 새 기록'}
                 </button>
                 <button onClick={() => setExpandFor(null)}
-                  className="flex items-center gap-1.5 text-xs text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)] px-3 py-1.5 rounded-lg hover:bg-[rgba(255,255,255,0.06)] transition-colors border border-[rgba(255,255,255,0.08)]">
+                  className="flex items-center gap-1.5 text-xs text-[rgba(var(--text-rgb),0.4)] hover:text-[rgba(var(--text-rgb),0.7)] px-3 py-1.5 rounded-lg hover:bg-[rgba(var(--ink-rgb),0.06)] transition-colors border border-[rgba(var(--ink-rgb),0.08)]">
                   <span>ESC</span><span> 닫기</span>
                 </button>
               </div>
             </div>
             {saveError && (
               <div className="mx-5 mt-3 px-4 py-2.5 rounded-xl text-xs flex items-center gap-2 flex-shrink-0"
-                style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#FC8181' }}>
+                style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: 'var(--error-badge-text)' }}>
                 <span>⚠</span>
                 <span className="flex-1">{saveError}</span>
                 <button onClick={() => setSaveError('')} className="text-[10px] opacity-70 hover:opacity-100 flex-shrink-0">닫기</button>
@@ -1177,13 +1177,13 @@ export default function AgendaItemDetailPage() {
             )}
             <div className="flex-1 min-h-0 flex">
               {/* 왼쪽: 날짜 목록 */}
-              <div style={{ width: 100, borderRight: '1px solid rgba(255,255,255,0.07)', flexShrink: 0, background: 'rgba(255,255,255,0.03)', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+              <div style={{ width: 100, borderRight: '1px solid rgba(var(--ink-rgb),0.07)', flexShrink: 0, background: 'rgba(var(--ink-rgb),0.03)', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
                 {allNotes.map(note => {
                   const isSelected = note.id === selId
                   return (
                     <button key={note.id}
                       onClick={() => setSelectedNoteIds(p => ({ ...p, [expandST.id]: note.id }))}
-                      style={{ padding: '10px 12px', fontSize: 12, textAlign: 'center', background: isSelected ? `${expandStColor}22` : 'transparent', color: isSelected ? expandStColor : 'rgba(226,232,240,0.4)', fontWeight: isSelected ? 700 : 400, cursor: 'pointer', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'block', width: '100%', lineHeight: 1.3 }}>
+                      style={{ padding: '10px 12px', fontSize: 12, textAlign: 'center', background: isSelected ? `${expandStColor}22` : 'transparent', color: isSelected ? expandStColor : 'rgba(var(--text-rgb),0.4)', fontWeight: isSelected ? 700 : 400, cursor: 'pointer', border: 'none', borderBottom: '1px solid rgba(var(--ink-rgb),0.05)', display: 'block', width: '100%', lineHeight: 1.3 }}>
                       {formatNoteDate(note.created_at)}
                     </button>
                   )
@@ -1207,7 +1207,7 @@ export default function AgendaItemDetailPage() {
                     />
                   </>
                 ) : (
-                  <div className="flex items-center justify-center h-full text-sm text-[rgba(226,232,240,0.3)]">+ 새 기록을 추가하세요</div>
+                  <div className="flex items-center justify-center h-full text-sm text-[rgba(var(--text-rgb),0.3)]">+ 새 기록을 추가하세요</div>
                 )}
               </div>
             </div>
@@ -1229,8 +1229,8 @@ export default function AgendaItemDetailPage() {
       className="fixed top-0 right-0 h-full z-50 flex flex-col overflow-hidden"
       style={{
         width: 400,
-        background: '#161B22',
-        borderLeft: '1px solid rgba(255,255,255,0.08)',
+        background: 'var(--surface-primary)',
+        borderLeft: '1px solid rgba(var(--ink-rgb),0.08)',
         transform: panelResource ? 'translateX(0)' : 'translateX(100%)',
         transition: 'transform 0.25s ease',
         boxShadow: panelResource ? '-8px 0 32px rgba(0,0,0,0.4)' : 'none',
@@ -1238,12 +1238,12 @@ export default function AgendaItemDetailPage() {
       {panelResource && (
         <>
           <div className="flex items-start justify-between px-5 py-4 flex-shrink-0"
-            style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+            style={{ borderBottom: '1px solid rgba(var(--ink-rgb),0.07)' }}>
             <div className="flex-1 min-w-0 pr-3">
-              <p className="text-[11px] text-[rgba(226,232,240,0.35)] mb-1">📚 학습자료</p>
-              <h2 className="text-[15px] font-semibold text-[rgba(226,232,240,0.95)] leading-snug">{panelResource.title}</h2>
+              <p className="text-[11px] text-[rgba(var(--text-rgb),0.35)] mb-1">📚 학습자료</p>
+              <h2 className="text-[15px] font-semibold text-[rgba(var(--text-rgb),0.95)] leading-snug">{panelResource.title}</h2>
               {panelResource.source && (
-                <p className="text-[11px] text-[rgba(226,232,240,0.4)] mt-0.5 truncate">{panelResource.source}</p>
+                <p className="text-[11px] text-[rgba(var(--text-rgb),0.4)] mt-0.5 truncate">{panelResource.source}</p>
               )}
               {(panelResource.tags ?? []).length > 0 && (
                 <div className="flex gap-1 mt-2 flex-wrap">
@@ -1255,7 +1255,7 @@ export default function AgendaItemDetailPage() {
               )}
             </div>
             <button onClick={() => setPanelResource(null)}
-              className="text-[rgba(226,232,240,0.35)] hover:text-[rgba(226,232,240,0.7)] transition-colors text-lg leading-none flex-shrink-0 mt-0.5">
+              className="text-[rgba(var(--text-rgb),0.35)] hover:text-[rgba(var(--text-rgb),0.7)] transition-colors text-lg leading-none flex-shrink-0 mt-0.5">
               ✕
             </button>
           </div>
@@ -1265,26 +1265,26 @@ export default function AgendaItemDetailPage() {
                 {note.summary && (
                   <div className="mb-3 px-3 py-2.5 rounded-lg"
                     style={{ background: 'rgba(76,127,224,0.08)', borderLeft: '3px solid rgba(76,127,224,0.5)' }}>
-                    <p className="text-[12px] font-medium text-[rgba(226,232,240,0.8)] leading-relaxed">{note.summary}</p>
+                    <p className="text-[12px] font-medium text-[rgba(var(--text-rgb),0.8)] leading-relaxed">{note.summary}</p>
                   </div>
                 )}
                 {note.content && (
                   <div
-                    className="prose prose-invert prose-sm max-w-none text-[12px] text-[rgba(226,232,240,0.7)] leading-relaxed"
+                    className="prose prose-invert prose-sm max-w-none text-[12px] text-[rgba(var(--text-rgb),0.7)] leading-relaxed"
                     dangerouslySetInnerHTML={{ __html: note.content }}
                   />
                 )}
                 {panelResource.notes.length > 1 && i < panelResource.notes.length - 1 && (
-                  <hr className="mt-4" style={{ borderColor: 'rgba(255,255,255,0.07)' }} />
+                  <hr className="mt-4" style={{ borderColor: 'rgba(var(--ink-rgb),0.07)' }} />
                 )}
               </div>
             ))}
             {panelResource.notes.length === 0 && (
-              <p className="text-[12px] text-[rgba(226,232,240,0.3)]">내용 없음</p>
+              <p className="text-[12px] text-[rgba(var(--text-rgb),0.3)]">내용 없음</p>
             )}
           </div>
           <div className="px-5 py-3 flex-shrink-0"
-            style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+            style={{ borderTop: '1px solid rgba(var(--ink-rgb),0.07)' }}>
             <a href={`/learning/${panelResource.id}`}
               className="text-[11px] text-[rgba(76,127,224,0.7)] hover:text-[rgba(76,127,224,1)] transition-colors">
               학습자료 탭에서 전체 보기 →

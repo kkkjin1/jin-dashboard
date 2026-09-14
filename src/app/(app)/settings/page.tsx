@@ -30,15 +30,15 @@ const PINNED = ['/', '/settings']
 
 // ── 스타일 상수 ───────────────────────────────────────────────────
 const card: React.CSSProperties = {
-  background: 'rgba(255,255,255,0.06)',
-  border: '1px solid rgba(255,255,255,0.09)',
+  background: 'rgba(var(--ink-rgb),0.06)',
+  border: '1px solid rgba(var(--ink-rgb),0.09)',
   borderRadius: 20,
   overflow: 'hidden',
 }
 const inp: React.CSSProperties = {
-  background: 'rgba(255,255,255,0.06)',
-  border: '1px solid rgba(255,255,255,0.09)',
-  color: '#E2E8F0',
+  background: 'rgba(var(--ink-rgb),0.06)',
+  border: '1px solid rgba(var(--ink-rgb),0.09)',
+  color: 'rgba(var(--text-rgb),1)',
   borderRadius: 8,
   padding: '7px 12px',
   fontSize: 13,
@@ -209,9 +209,9 @@ export default function SettingsPage() {
   }
 
   function roleBadgeStyle(role: string): React.CSSProperties {
-    if (role === '팀장') return { background: 'rgba(76,127,224,0.15)', color: '#A8C4F0', border: '1px solid rgba(76,127,224,0.25)' }
-    if (role === '파트장') return { background: 'rgba(147,107,224,0.15)', color: '#C4A8F0', border: '1px solid rgba(147,107,224,0.25)' }
-    return { background: 'rgba(255,255,255,0.06)', color: 'rgba(226,232,240,0.4)', border: '1px solid rgba(255,255,255,0.09)' }
+    if (role === '팀장') return { background: 'rgba(76,127,224,0.15)', color: 'var(--accent-badge-text)', border: '1px solid rgba(76,127,224,0.25)' }
+    if (role === '파트장') return { background: 'rgba(147,107,224,0.15)', color: 'var(--role-badge-purple-text)', border: '1px solid rgba(147,107,224,0.25)' }
+    return { background: 'rgba(var(--ink-rgb),0.06)', color: 'rgba(var(--text-rgb),0.4)', border: '1px solid rgba(var(--ink-rgb),0.09)' }
   }
 
   // ── 팀원 추가 ──────────────────────────────────────────────────
@@ -356,13 +356,13 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="h-full overflow-y-auto scrollbar-hide" style={{ background: '#0F1319' }}>
+    <div className="h-full overflow-y-auto scrollbar-hide" style={{ background: 'var(--bg-page)' }}>
     <div className="p-8 max-w-lg">
-      <h1 className="text-xl font-bold mb-6" style={{ color: '#E2E8F0' }}>설정</h1>
+      <h1 className="text-xl font-bold mb-6" style={{ color: 'rgba(var(--text-rgb),1)' }}>설정</h1>
 
       {/* ══ 조직 구조 ══════════════════════════════════════════ */}
       <section className="mb-8">
-        <h2 className="text-sm font-semibold mb-3" style={{ color: 'rgba(226,232,240,0.5)' }}>조직 구조</h2>
+        <h2 className="text-sm font-semibold mb-3" style={{ color: 'rgba(var(--text-rgb),0.5)' }}>조직 구조</h2>
 
         {/* 팀 추가 */}
         <div className="flex gap-2 mb-4">
@@ -372,13 +372,13 @@ export default function SettingsPage() {
             style={{ ...inp, flex: 1 }} />
           <button onClick={addTeam}
             className="text-sm px-4 py-1.5 rounded-lg transition-colors"
-            style={{ background: 'rgba(76,127,224,0.2)', border: '1px solid rgba(76,127,224,0.35)', color: '#A8C4F0' }}>
+            style={{ background: 'rgba(76,127,224,0.2)', border: '1px solid rgba(76,127,224,0.35)', color: 'var(--accent-badge-text)' }}>
             팀 추가
           </button>
         </div>
 
         {org.length === 0 && (
-          <p className="text-xs text-center py-6" style={{ color: 'rgba(226,232,240,0.25)', border: '1px dashed rgba(255,255,255,0.08)', borderRadius: 12 }}>
+          <p className="text-xs text-center py-6" style={{ color: 'rgba(var(--text-rgb),0.25)', border: '1px dashed rgba(var(--ink-rgb),0.08)', borderRadius: 12 }}>
             팀을 추가해 조직 구조를 만들어 보세요
           </p>
         )}
@@ -392,7 +392,7 @@ export default function SettingsPage() {
             return (
               <div key={team.id} style={card}>
                 {/* 팀 헤더 */}
-                <div className="flex items-center gap-2 px-4 py-3 group" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                <div className="flex items-center gap-2 px-4 py-3 group" style={{ borderBottom: '1px solid rgba(var(--ink-rgb),0.06)' }}>
                   {editingTeamNameId === team.id ? (
                     <input
                       value={teamNameInput}
@@ -405,17 +405,17 @@ export default function SettingsPage() {
                     <button
                       onClick={() => { setEditingTeamNameId(team.id); setTeamNameInput(team.name) }}
                       className="text-sm font-semibold flex-1 text-left"
-                      style={{ color: '#E2E8F0' }}
+                      style={{ color: 'rgba(var(--text-rgb),1)' }}
                       title="클릭해서 팀명 변경">
                       {team.name}
                     </button>
                   )}
-                  <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: 'rgba(76,127,224,0.12)', color: '#A8C4F0', border: '1px solid rgba(76,127,224,0.2)' }}>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: 'rgba(76,127,224,0.12)', color: 'var(--accent-badge-text)', border: '1px solid rgba(76,127,224,0.2)' }}>
                     {teamMemberCount}명
                   </span>
                   <button onClick={() => deleteTeam(team.id)}
                     className="text-xs transition-colors hover:text-red-400"
-                    style={{ color: 'rgba(226,232,240,0.25)' }}>삭제</button>
+                    style={{ color: 'rgba(var(--text-rgb),0.25)' }}>삭제</button>
                 </div>
 
                 {/* 팀원 목록 (파트별) */}
@@ -427,13 +427,13 @@ export default function SettingsPage() {
                     return (
                       <div key={part?.id ?? 'direct'}>
                         {part && (
-                          <div className="px-4 pt-2.5 pb-1" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                            <span className="text-[10px] font-semibold" style={{ color: 'rgba(226,232,240,0.3)' }}>{part.name}</span>
+                          <div className="px-4 pt-2.5 pb-1" style={{ borderTop: '1px solid rgba(var(--ink-rgb),0.05)' }}>
+                            <span className="text-[10px] font-semibold" style={{ color: 'rgba(var(--text-rgb),0.3)' }}>{part.name}</span>
                           </div>
                         )}
                         {list.map(m => (
                           <div key={m.id} className="flex items-center gap-2.5 px-4 py-2.5 group"
-                            style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                            style={{ borderTop: '1px solid rgba(var(--ink-rgb),0.05)' }}>
                             {editId === m.id ? (
                               <>
                                 <input value={editName} onChange={e => setEditName(e.target.value)}
@@ -441,40 +441,40 @@ export default function SettingsPage() {
                                   style={{ ...inp, flex: 1, padding: '4px 8px', fontSize: 12 }} />
                                 <select value={editTeamId} onChange={e => { setEditTeamId(e.target.value); setEditPartId('') }}
                                   style={{ ...inp, padding: '4px 8px', fontSize: 12, cursor: 'pointer' }}>
-                                  <option value="" style={{ background: '#1e2130' }}>팀</option>
-                                  {org.map(t => <option key={t.id} value={t.id} style={{ background: '#1e2130' }}>{t.name}</option>)}
+                                  <option value="" style={{ background: 'var(--select-option-bg-2)' }}>팀</option>
+                                  {org.map(t => <option key={t.id} value={t.id} style={{ background: 'var(--select-option-bg-2)' }}>{t.name}</option>)}
                                 </select>
                                 {selectedEditTeam && selectedEditTeam.parts.length > 0 && (
                                   <select value={editPartId} onChange={e => setEditPartId(e.target.value)}
                                     style={{ ...inp, padding: '4px 8px', fontSize: 12, cursor: 'pointer' }}>
-                                    <option value="" style={{ background: '#1e2130' }}>파트</option>
-                                    {selectedEditTeam.parts.map(p => <option key={p.id} value={p.id} style={{ background: '#1e2130' }}>{p.name}</option>)}
+                                    <option value="" style={{ background: 'var(--select-option-bg-2)' }}>파트</option>
+                                    {selectedEditTeam.parts.map(p => <option key={p.id} value={p.id} style={{ background: 'var(--select-option-bg-2)' }}>{p.name}</option>)}
                                   </select>
                                 )}
                                 <select value={editRole} onChange={e => setEditRole(e.target.value)}
                                   style={{ ...inp, padding: '4px 8px', fontSize: 12, cursor: 'pointer', minWidth: 64 }}>
-                                  {['팀원', '파트장', '팀장'].map(r => <option key={r} value={r} style={{ background: '#1e2130' }}>{r}</option>)}
+                                  {['팀원', '파트장', '팀장'].map(r => <option key={r} value={r} style={{ background: 'var(--select-option-bg-2)' }}>{r}</option>)}
                                 </select>
                                 <button onClick={() => updateMember(m.id)} disabled={!editTeamId}
-                                  className="text-xs" style={{ color: editTeamId ? '#93c5fd' : 'rgba(226,232,240,0.2)', cursor: editTeamId ? 'pointer' : 'default' }}>저장</button>
-                                <button onClick={() => setEditId(null)} className="text-xs" style={{ color: 'rgba(226,232,240,0.4)' }}>취소</button>
+                                  className="text-xs" style={{ color: editTeamId ? 'var(--action-text-blue)' : 'rgba(var(--text-rgb),0.2)', cursor: editTeamId ? 'pointer' : 'default' }}>저장</button>
+                                <button onClick={() => setEditId(null)} className="text-xs" style={{ color: 'rgba(var(--text-rgb),0.4)' }}>취소</button>
                               </>
                             ) : (
                               <>
                                 <div className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-medium flex-shrink-0"
-                                  style={{ background: 'rgba(255,255,255,0.1)', color: 'rgba(226,232,240,0.5)' }}>
+                                  style={{ background: 'rgba(var(--ink-rgb),0.1)', color: 'rgba(var(--text-rgb),0.5)' }}>
                                   {m.name[0]}
                                 </div>
-                                <span className="flex-1 text-sm" style={{ color: '#E2E8F0' }}>{m.name}</span>
+                                <span className="flex-1 text-sm" style={{ color: 'rgba(var(--text-rgb),1)' }}>{m.name}</span>
                                 {memberRoles[m.id] && (
                                   <span className="text-[9px] px-1.5 py-0.5 rounded-full" style={roleBadgeStyle(memberRoles[m.id])}>
                                     {memberRoles[m.id]}
                                   </span>
                                 )}
                                 <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <button onClick={() => startEdit(m)} className="text-xs" style={{ color: 'rgba(226,232,240,0.5)' }}>수정</button>
-                                  <button onClick={() => archiveMember(m.id)} className="text-xs" style={{ color: 'rgba(226,232,240,0.28)' }}>퇴사</button>
-                                  <button onClick={() => deleteMember(m.id)} className="text-xs hover:text-red-400 transition-colors" style={{ color: 'rgba(226,232,240,0.2)' }}>삭제</button>
+                                  <button onClick={() => startEdit(m)} className="text-xs" style={{ color: 'rgba(var(--text-rgb),0.5)' }}>수정</button>
+                                  <button onClick={() => archiveMember(m.id)} className="text-xs" style={{ color: 'rgba(var(--text-rgb),0.28)' }}>퇴사</button>
+                                  <button onClick={() => deleteMember(m.id)} className="text-xs hover:text-red-400 transition-colors" style={{ color: 'rgba(var(--text-rgb),0.2)' }}>삭제</button>
                                 </div>
                               </>
                             )}
@@ -486,7 +486,7 @@ export default function SettingsPage() {
                 })()}
 
                 {/* 파트 목록 + 추가 */}
-                <div className="px-4 py-2" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                <div className="px-4 py-2" style={{ borderTop: '1px solid rgba(var(--ink-rgb),0.05)' }}>
                   {team.parts.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 py-1">
                       {team.parts.map(part => {
@@ -494,7 +494,7 @@ export default function SettingsPage() {
                         const partKey = `${team.id}_${part.id}`
                         return (
                           <div key={part.id} className="flex items-center gap-1 pl-2.5 pr-1.5 py-1 rounded-lg"
-                            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                            style={{ background: 'rgba(var(--ink-rgb),0.04)', border: '1px solid rgba(var(--ink-rgb),0.07)' }}>
                             {editingPartNameId === partKey ? (
                               <input
                                 value={partNameInput}
@@ -505,14 +505,14 @@ export default function SettingsPage() {
                                 style={{ ...inp, padding: '2px 6px', fontSize: 12, width: 80 }} />
                             ) : (
                               <button onClick={() => { setEditingPartNameId(partKey); setPartNameInput(part.name) }}
-                                className="text-xs" style={{ color: '#E2E8F0' }} title="클릭해서 파트명 변경">
+                                className="text-xs" style={{ color: 'rgba(var(--text-rgb),1)' }} title="클릭해서 파트명 변경">
                                 {part.name}
                               </button>
                             )}
-                            <span className="text-[9px] px-1 rounded-full" style={{ color: '#A8C4F0', background: 'rgba(76,127,224,0.12)' }}>{cnt}</span>
+                            <span className="text-[9px] px-1 rounded-full" style={{ color: 'var(--accent-badge-text)', background: 'rgba(76,127,224,0.12)' }}>{cnt}</span>
                             <button onClick={() => deletePart(team.id, part.id)}
                               className="text-[10px] ml-0.5 hover:text-red-400 transition-colors"
-                              style={{ color: 'rgba(226,232,240,0.2)' }}>×</button>
+                              style={{ color: 'rgba(var(--text-rgb),0.2)' }}>×</button>
                           </div>
                         )
                       })}
@@ -528,7 +528,7 @@ export default function SettingsPage() {
                       style={{ ...inp, flex: 1, fontSize: 12, padding: '5px 10px' }} />
                     <button onClick={() => addPart(team.id)}
                       className="text-[11px] px-3 py-1 rounded-lg transition-colors"
-                      style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.09)', color: 'rgba(226,232,240,0.6)' }}>
+                      style={{ background: 'rgba(var(--ink-rgb),0.06)', border: '1px solid rgba(var(--ink-rgb),0.09)', color: 'rgba(var(--text-rgb),0.6)' }}>
                       + 파트
                     </button>
                   </div>
@@ -541,7 +541,7 @@ export default function SettingsPage() {
 
       {/* ══ 팀원 추가 ═══════════════════════════════════════════ */}
       <section className="mb-8">
-        <h2 className="text-sm font-semibold mb-3" style={{ color: 'rgba(226,232,240,0.5)' }}>팀원 추가</h2>
+        <h2 className="text-sm font-semibold mb-3" style={{ color: 'rgba(var(--text-rgb),0.5)' }}>팀원 추가</h2>
         <div style={card}>
           <div className="px-4 py-4 flex flex-col gap-2">
             <input value={newName} onChange={e => setNewName(e.target.value)}
@@ -551,27 +551,27 @@ export default function SettingsPage() {
             <div className="flex gap-2">
               <select value={newTeamId} onChange={e => { setNewTeamId(e.target.value); setNewPartId('') }}
                 style={{ ...inp, flex: 1, cursor: 'pointer' }}>
-                <option value="" style={{ background: '#1e2130' }}>팀 선택</option>
-                {org.map(t => <option key={t.id} value={t.id} style={{ background: '#1e2130' }}>{t.name}</option>)}
+                <option value="" style={{ background: 'var(--select-option-bg-2)' }}>팀 선택</option>
+                {org.map(t => <option key={t.id} value={t.id} style={{ background: 'var(--select-option-bg-2)' }}>{t.name}</option>)}
               </select>
               {selectedTeam && selectedTeam.parts.length > 0 && (
                 <select value={newPartId} onChange={e => setNewPartId(e.target.value)}
                   style={{ ...inp, flex: 1, cursor: 'pointer' }}>
-                  <option value="" style={{ background: '#1e2130' }}>파트 선택</option>
-                  {selectedTeam.parts.map(p => <option key={p.id} value={p.id} style={{ background: '#1e2130' }}>{p.name}</option>)}
+                  <option value="" style={{ background: 'var(--select-option-bg-2)' }}>파트 선택</option>
+                  {selectedTeam.parts.map(p => <option key={p.id} value={p.id} style={{ background: 'var(--select-option-bg-2)' }}>{p.name}</option>)}
                 </select>
               )}
               <select value={newRole} onChange={e => setNewRole(e.target.value)}
                 style={{ ...inp, cursor: 'pointer', minWidth: 72 }}>
-                {['팀원', '파트장', '팀장'].map(r => <option key={r} value={r} style={{ background: '#1e2130' }}>{r}</option>)}
+                {['팀원', '파트장', '팀장'].map(r => <option key={r} value={r} style={{ background: 'var(--select-option-bg-2)' }}>{r}</option>)}
               </select>
             </div>
             <button onClick={addMember} disabled={!newName.trim() || !newTeamId}
               className="text-sm py-2 rounded-lg transition-colors"
               style={{
-                background: newName.trim() && newTeamId ? 'rgba(76,127,224,0.25)' : 'rgba(255,255,255,0.04)',
+                background: newName.trim() && newTeamId ? 'rgba(76,127,224,0.25)' : 'rgba(var(--ink-rgb),0.04)',
                 border: '1px solid rgba(76,127,224,0.3)',
-                color: newName.trim() && newTeamId ? '#A8C4F0' : 'rgba(226,232,240,0.25)',
+                color: newName.trim() && newTeamId ? 'var(--accent-badge-text)' : 'rgba(var(--text-rgb),0.25)',
                 cursor: newName.trim() && newTeamId ? 'pointer' : 'default',
               }}>
               추가
@@ -583,11 +583,11 @@ export default function SettingsPage() {
       {/* ══ 미배정 팀원 ══════════════════════════════════════════ */}
       {unassigned.length > 0 && (
         <section className="mb-8">
-          <h2 className="text-sm font-semibold mb-3" style={{ color: 'rgba(226,232,240,0.28)' }}>미배정 ({unassigned.length}명)</h2>
+          <h2 className="text-sm font-semibold mb-3" style={{ color: 'rgba(var(--text-rgb),0.28)' }}>미배정 ({unassigned.length}명)</h2>
           <div style={card}>
             {unassigned.map((m, idx) => (
               <div key={m.id} className="flex items-center gap-3 px-4 py-3 group"
-                style={idx !== 0 ? { borderTop: '1px solid rgba(255,255,255,0.06)' } : {}}>
+                style={idx !== 0 ? { borderTop: '1px solid rgba(var(--ink-rgb),0.06)' } : {}}>
                 {editId === m.id ? (
                   <>
                     <input value={editName} onChange={e => setEditName(e.target.value)}
@@ -595,32 +595,32 @@ export default function SettingsPage() {
                       style={{ ...inp, flex: 1, padding: '4px 8px', fontSize: 12 }} />
                     <select value={editTeamId} onChange={e => { setEditTeamId(e.target.value); setEditPartId('') }}
                       style={{ ...inp, padding: '4px 8px', fontSize: 12, cursor: 'pointer' }}>
-                      <option value="" style={{ background: '#1e2130' }}>팀</option>
-                      {org.map(t => <option key={t.id} value={t.id} style={{ background: '#1e2130' }}>{t.name}</option>)}
+                      <option value="" style={{ background: 'var(--select-option-bg-2)' }}>팀</option>
+                      {org.map(t => <option key={t.id} value={t.id} style={{ background: 'var(--select-option-bg-2)' }}>{t.name}</option>)}
                     </select>
                     {selectedEditTeam && selectedEditTeam.parts.length > 0 && (
                       <select value={editPartId} onChange={e => setEditPartId(e.target.value)}
                         style={{ ...inp, padding: '4px 8px', fontSize: 12, cursor: 'pointer' }}>
-                        <option value="" style={{ background: '#1e2130' }}>파트</option>
-                        {selectedEditTeam.parts.map(p => <option key={p.id} value={p.id} style={{ background: '#1e2130' }}>{p.name}</option>)}
+                        <option value="" style={{ background: 'var(--select-option-bg-2)' }}>파트</option>
+                        {selectedEditTeam.parts.map(p => <option key={p.id} value={p.id} style={{ background: 'var(--select-option-bg-2)' }}>{p.name}</option>)}
                       </select>
                     )}
                     <select value={editRole} onChange={e => setEditRole(e.target.value)}
                       style={{ ...inp, padding: '4px 8px', fontSize: 12, cursor: 'pointer', minWidth: 64 }}>
-                      {['팀원', '파트장', '팀장'].map(r => <option key={r} value={r} style={{ background: '#1e2130' }}>{r}</option>)}
+                      {['팀원', '파트장', '팀장'].map(r => <option key={r} value={r} style={{ background: 'var(--select-option-bg-2)' }}>{r}</option>)}
                     </select>
-                    <button onClick={() => updateMember(m.id)} className="text-xs" style={{ color: '#93c5fd' }}>저장</button>
-                    <button onClick={() => setEditId(null)} className="text-xs" style={{ color: 'rgba(226,232,240,0.4)' }}>취소</button>
+                    <button onClick={() => updateMember(m.id)} className="text-xs" style={{ color: 'var(--action-text-blue)' }}>저장</button>
+                    <button onClick={() => setEditId(null)} className="text-xs" style={{ color: 'rgba(var(--text-rgb),0.4)' }}>취소</button>
                   </>
                 ) : (
                   <>
                     <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0"
-                      style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(226,232,240,0.28)' }}>{m.name[0]}</div>
-                    <span className="flex-1 text-sm" style={{ color: 'rgba(226,232,240,0.5)' }}>{m.name}</span>
+                      style={{ background: 'rgba(var(--ink-rgb),0.06)', color: 'rgba(var(--text-rgb),0.28)' }}>{m.name[0]}</div>
+                    <span className="flex-1 text-sm" style={{ color: 'rgba(var(--text-rgb),0.5)' }}>{m.name}</span>
                     <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => startEdit(m)} className="text-xs" style={{ color: 'rgba(226,232,240,0.5)' }}>배정</button>
-                      <button onClick={() => archiveMember(m.id)} className="text-xs" style={{ color: 'rgba(226,232,240,0.28)' }}>퇴사</button>
-                      <button onClick={() => deleteMember(m.id)} className="text-xs hover:text-red-400 transition-colors" style={{ color: 'rgba(226,232,240,0.2)' }}>삭제</button>
+                      <button onClick={() => startEdit(m)} className="text-xs" style={{ color: 'rgba(var(--text-rgb),0.5)' }}>배정</button>
+                      <button onClick={() => archiveMember(m.id)} className="text-xs" style={{ color: 'rgba(var(--text-rgb),0.28)' }}>퇴사</button>
+                      <button onClick={() => deleteMember(m.id)} className="text-xs hover:text-red-400 transition-colors" style={{ color: 'rgba(var(--text-rgb),0.2)' }}>삭제</button>
                     </div>
                   </>
                 )}
@@ -633,36 +633,36 @@ export default function SettingsPage() {
       {/* ══ 퇴사자 ══════════════════════════════════════════════ */}
       {archived.length > 0 && (
         <section className="mb-8">
-          <h2 className="text-sm font-semibold mb-3" style={{ color: 'rgba(226,232,240,0.28)' }}>퇴사자 — 1on1·업무 보존 ({archived.length}명)</h2>
+          <h2 className="text-sm font-semibold mb-3" style={{ color: 'rgba(var(--text-rgb),0.28)' }}>퇴사자 — 1on1·업무 보존 ({archived.length}명)</h2>
           <div style={card}>
             {archived.map((m, idx) => (
               <div key={m.id} className="flex items-center gap-3 px-4 py-3 group"
-                style={idx !== 0 ? { borderTop: '1px solid rgba(255,255,255,0.06)' } : {}}>
+                style={idx !== 0 ? { borderTop: '1px solid rgba(var(--ink-rgb),0.06)' } : {}}>
                 <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0"
-                  style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(226,232,240,0.28)' }}>{m.name[0]}</div>
+                  style={{ background: 'rgba(var(--ink-rgb),0.06)', color: 'rgba(var(--text-rgb),0.28)' }}>{m.name[0]}</div>
                 <div className="flex-1 min-w-0">
-                  <span className="text-sm" style={{ color: 'rgba(226,232,240,0.5)' }}>{m.name}</span>
+                  <span className="text-sm" style={{ color: 'rgba(var(--text-rgb),0.5)' }}>{m.name}</span>
                   {m.archived_at && (
-                    <span className="text-[10px] ml-2" style={{ color: 'rgba(226,232,240,0.28)' }}>
+                    <span className="text-[10px] ml-2" style={{ color: 'rgba(var(--text-rgb),0.28)' }}>
                       {format(parseISO(m.archived_at), 'yyyy.MM.dd', { locale: ko })} 퇴사
                     </span>
                   )}
                 </div>
                 <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button onClick={() => unarchiveMember(m.id)} className="text-xs" style={{ color: 'rgba(226,232,240,0.5)' }}>복직</button>
-                  <button onClick={() => hardDelete(m.id)} className="text-xs" style={{ color: 'rgba(226,232,240,0.28)' }}>완전삭제</button>
+                  <button onClick={() => unarchiveMember(m.id)} className="text-xs" style={{ color: 'rgba(var(--text-rgb),0.5)' }}>복직</button>
+                  <button onClick={() => hardDelete(m.id)} className="text-xs" style={{ color: 'rgba(var(--text-rgb),0.28)' }}>완전삭제</button>
                 </div>
               </div>
             ))}
           </div>
-          <p className="text-[10px] mt-1.5 px-1" style={{ color: 'rgba(226,232,240,0.25)' }}>1on1 기록은 1on1 탭 퇴사자 아카이브에서 열람 가능합니다</p>
+          <p className="text-[10px] mt-1.5 px-1" style={{ color: 'rgba(var(--text-rgb),0.25)' }}>1on1 기록은 1on1 탭 퇴사자 아카이브에서 열람 가능합니다</p>
         </section>
       )}
 
       {/* ══ 메뉴 설정 ════════════════════════════════════════════ */}
       <section className="mb-8">
-        <h2 className="text-sm font-semibold mb-1" style={{ color: 'rgba(226,232,240,0.5)' }}>메뉴 표시 / 순서</h2>
-        <p className="text-[10px] mb-3" style={{ color: 'rgba(226,232,240,0.28)' }}>드래그로 순서 변경 · 토글로 숨김</p>
+        <h2 className="text-sm font-semibold mb-1" style={{ color: 'rgba(var(--text-rgb),0.5)' }}>메뉴 표시 / 순서</h2>
+        <p className="text-[10px] mb-3" style={{ color: 'rgba(var(--text-rgb),0.28)' }}>드래그로 순서 변경 · 토글로 숨김</p>
         <div style={card}>
           {orderedNav.map(item => {
             const pinned = PINNED.includes(item.href)
@@ -683,12 +683,12 @@ export default function SettingsPage() {
                   borderTop: over ? '1px solid rgba(76,127,224,0.3)' : '1px solid transparent',
                   cursor: 'grab',
                 }}>
-                <span style={{ color: 'rgba(226,232,240,0.2)', userSelect: 'none', flexShrink: 0 }}>⠿</span>
-                <span className="flex-1 text-sm" style={{ color: pinned ? 'rgba(226,232,240,0.35)' : '#E2E8F0' }}>{item.label}</span>
-                {pinned && <span className="text-[9px] px-1.5 py-0.5 rounded" style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(226,232,240,0.25)' }}>고정</span>}
+                <span style={{ color: 'rgba(var(--text-rgb),0.2)', userSelect: 'none', flexShrink: 0 }}>⠿</span>
+                <span className="flex-1 text-sm" style={{ color: pinned ? 'rgba(var(--text-rgb),0.35)' : 'rgba(var(--text-rgb),1)' }}>{item.label}</span>
+                {pinned && <span className="text-[9px] px-1.5 py-0.5 rounded" style={{ background: 'rgba(var(--ink-rgb),0.05)', color: 'rgba(var(--text-rgb),0.25)' }}>고정</span>}
                 <div onClick={() => !pinned && toggleMenu(item.href)} style={{
                   width: 36, height: 20, borderRadius: 10,
-                  background: isOn ? (pinned ? 'rgba(76,127,224,0.3)' : 'rgba(76,127,224,0.7)') : 'rgba(255,255,255,0.12)',
+                  background: isOn ? (pinned ? 'rgba(76,127,224,0.3)' : 'rgba(76,127,224,0.7)') : 'rgba(var(--ink-rgb),0.12)',
                   cursor: pinned ? 'default' : 'pointer',
                   position: 'relative', flexShrink: 0,
                   transition: 'background 0.2s', opacity: pinned ? 0.5 : 1,
@@ -704,7 +704,7 @@ export default function SettingsPage() {
               </div>
             )
           })}
-          <p className="text-[10px] px-4 py-2" style={{ color: 'rgba(226,232,240,0.2)', borderTop: '1px solid rgba(255,255,255,0.04)' }}>홈·설정은 항상 표시됩니다</p>
+          <p className="text-[10px] px-4 py-2" style={{ color: 'rgba(var(--text-rgb),0.2)', borderTop: '1px solid rgba(var(--ink-rgb),0.04)' }}>홈·설정은 항상 표시됩니다</p>
         </div>
       </section>
     </div>

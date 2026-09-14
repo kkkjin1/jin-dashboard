@@ -33,34 +33,34 @@ export default function ProjectPage() {
   const resolvedCatValue = catValue[cat] ?? '전체'
 
   return (
-    <div className="flex flex-col h-full min-h-0 pt-4 md:pt-6 px-0" style={{ background: '#0F1319', minHeight: '100%' }}>
+    <div className="flex flex-col h-full min-h-0 pt-4 md:pt-6 px-0" style={{ background: 'var(--bg-page)', minHeight: '100%' }}>
       {/* 헤더 */}
       <div className="flex-shrink-0 flex items-center gap-3 mb-5 px-4 md:px-6 overflow-x-auto scrollbar-hide">
-        <h1 className="text-lg font-bold whitespace-nowrap flex-shrink-0" style={{ color: '#E2E8F0' }}>프로젝트</h1>
+        <h1 className="text-lg font-bold whitespace-nowrap flex-shrink-0" style={{ color: 'rgba(var(--text-rgb),1)' }}>프로젝트</h1>
         <div className="flex items-center gap-1.5 flex-shrink-0">
           {displayCats.map(c => (
             <button key={c} onClick={() => selectCat(c)}
               className="text-xs px-3.5 py-1.5 rounded-full font-semibold transition-all whitespace-nowrap"
               style={cat === c ? {
-                background: '#4C7FE0',
+                background: 'var(--accent-primary)',
                 color: '#E2E8F0',
-                border: '1px solid #4C7FE0',
+                border: '1px solid var(--accent-primary)',
                 boxShadow: '0 1px 4px rgba(0,0,0,0.3)',
               } : {
-                background: 'rgba(255,255,255,0.06)',
-                border: '1px solid rgba(255,255,255,0.09)',
-                color: 'rgba(226,232,240,0.5)',
+                background: 'rgba(var(--ink-rgb),0.06)',
+                border: '1px solid rgba(var(--ink-rgb),0.09)',
+                color: 'rgba(var(--text-rgb),0.5)',
               }}
               onMouseEnter={e => {
                 if (cat !== c) {
-                  (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.1)'
-                  ;(e.currentTarget as HTMLButtonElement).style.color = '#E2E8F0'
+                  (e.currentTarget as HTMLButtonElement).style.background = 'rgba(var(--ink-rgb),0.1)'
+                  ;(e.currentTarget as HTMLButtonElement).style.color = 'rgba(var(--text-rgb),1)'
                 }
               }}
               onMouseLeave={e => {
                 if (cat !== c) {
-                  (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.06)'
-                  ;(e.currentTarget as HTMLButtonElement).style.color = 'rgba(226,232,240,0.5)'
+                  (e.currentTarget as HTMLButtonElement).style.background = 'rgba(var(--ink-rgb),0.06)'
+                  ;(e.currentTarget as HTMLButtonElement).style.color = 'rgba(var(--text-rgb),0.5)'
                 }
               }}>
               {c}

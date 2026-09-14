@@ -206,14 +206,14 @@ export default function CompletedPage() {
 
   const overviewCards = [
     {
-      key: 'total', label: '전체 완료', icon: CheckSquare, iconColor: 'rgba(226,232,240,0.6)',
+      key: 'total', label: '전체 완료', icon: CheckSquare, iconColor: 'rgba(var(--text-rgb),0.6)',
       value: total,
       sub: range ? (delta === 0 ? '지난 기간과 동일' : `${delta > 0 ? '▲' : '▼'} ${Math.abs(delta)}건`) : '전체 누적',
-      subColor: !range ? '#7d838d' : delta > 0 ? '#7BAE94' : delta < 0 ? '#D98B8B' : '#7d838d',
+      subColor: !range ? 'var(--text-muted)' : delta > 0 ? '#7BAE94' : delta < 0 ? '#D98B8B' : 'var(--text-muted)',
     },
-    { key: '기획', label: '기획', icon: Lightbulb, iconColor: ACH_COLOR['기획'], value: countOf('기획'), sub: `${pctOf('기획')}%`, subColor: '#7d838d' },
-    { key: '운영', label: '운영', icon: Settings, iconColor: ACH_COLOR['운영'], value: countOf('운영'), sub: `${pctOf('운영')}%`, subColor: '#7d838d' },
-    { key: '개선', label: '개선', icon: TrendingUp, iconColor: ACH_COLOR['개선'], value: countOf('개선'), sub: `${pctOf('개선')}%`, subColor: '#7d838d' },
+    { key: '기획', label: '기획', icon: Lightbulb, iconColor: ACH_COLOR['기획'], value: countOf('기획'), sub: `${pctOf('기획')}%`, subColor: 'var(--text-muted)' },
+    { key: '운영', label: '운영', icon: Settings, iconColor: ACH_COLOR['운영'], value: countOf('운영'), sub: `${pctOf('운영')}%`, subColor: 'var(--text-muted)' },
+    { key: '개선', label: '개선', icon: TrendingUp, iconColor: ACH_COLOR['개선'], value: countOf('개선'), sub: `${pctOf('개선')}%`, subColor: 'var(--text-muted)' },
   ]
 
   return (
@@ -228,19 +228,19 @@ export default function CompletedPage() {
       )}
 
       <div className="flex-shrink-0 pt-6 pb-4">
-        <h1 className="text-xl font-bold text-[#E2E8F0]">완료 성과</h1>
+        <h1 className="text-xl font-bold text-[rgba(var(--text-rgb),1)]">완료 성과</h1>
       </div>
 
       {/* 기간 선택 + 날짜 네비게이션 */}
       <div className="flex-shrink-0 flex items-center gap-3 flex-wrap mb-5">
-        <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: 3, display: 'flex', gap: 2 }}>
+        <div style={{ background: 'rgba(var(--ink-rgb),0.04)', borderRadius: 10, padding: 3, display: 'flex', gap: 2 }}>
           {QUICK_PERIODS.map(p => (
             <button key={p} onClick={() => setQuickPeriod(p)}
               className="transition-all"
               style={{
                 padding: '6px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600,
-                background: quickPeriod === p ? 'rgba(255,255,255,0.1)' : 'transparent',
-                color: quickPeriod === p ? '#E2E8F0' : 'rgba(226,232,240,0.45)',
+                background: quickPeriod === p ? 'rgba(var(--ink-rgb),0.1)' : 'transparent',
+                color: quickPeriod === p ? 'rgba(var(--text-rgb),1)' : 'rgba(var(--text-rgb),0.45)',
               }}>
               {p}
             </button>
@@ -248,15 +248,15 @@ export default function CompletedPage() {
         </div>
 
         {range && (
-          <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: 10, padding: '6px 10px', display: 'flex', alignItems: 'center', gap: 10 }}>
-            <button onClick={() => shift(-1)} className="flex items-center transition-colors" style={{ color: 'rgba(226,232,240,0.5)' }}>
+          <div style={{ background: 'rgba(var(--ink-rgb),0.05)', borderRadius: 10, padding: '6px 10px', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <button onClick={() => shift(-1)} className="flex items-center transition-colors" style={{ color: 'rgba(var(--text-rgb),0.5)' }}>
               <ChevronLeft size={15} />
             </button>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: '#E2E8F0', whiteSpace: 'nowrap' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: 'rgba(var(--text-rgb),1)', whiteSpace: 'nowrap' }}>
               <Calendar size={13} style={{ opacity: 0.5 }} />
               {range.label}
             </span>
-            <button onClick={() => shift(1)} className="flex items-center transition-colors" style={{ color: 'rgba(226,232,240,0.5)' }}>
+            <button onClick={() => shift(1)} className="flex items-center transition-colors" style={{ color: 'rgba(var(--text-rgb),0.5)' }}>
               <ChevronRight size={15} />
             </button>
           </div>
@@ -266,16 +266,16 @@ export default function CompletedPage() {
       <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
         {/* 오버뷰 통계 카드 */}
         <div className="grid grid-cols-2 md:grid-cols-4 mb-6"
-          style={{ background: 'rgba(255,255,255,0.06)', border: '0.5px solid rgba(255,255,255,0.09)', borderRadius: 20, overflow: 'hidden' }}>
+          style={{ background: 'rgba(var(--ink-rgb),0.06)', border: '0.5px solid rgba(var(--ink-rgb),0.09)', borderRadius: 20, overflow: 'hidden' }}>
           {overviewCards.map((card, i) => {
             const Icon = card.icon
             return (
-              <div key={card.key} style={{ padding: '20px 24px', borderRight: i < overviewCards.length - 1 ? '0.5px solid rgba(255,255,255,0.08)' : undefined }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'rgba(226,232,240,0.5)', marginBottom: 10 }}>
+              <div key={card.key} style={{ padding: '20px 24px', borderRight: i < overviewCards.length - 1 ? '0.5px solid rgba(var(--ink-rgb),0.08)' : undefined }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'rgba(var(--text-rgb),0.5)', marginBottom: 10 }}>
                   <Icon size={13} style={{ color: card.iconColor, flexShrink: 0 }} />
                   {card.label}
                 </div>
-                <div style={{ fontSize: 24, fontWeight: 500, color: '#E2E8F0', lineHeight: 1 }}>
+                <div style={{ fontSize: 24, fontWeight: 500, color: 'rgba(var(--text-rgb),1)', lineHeight: 1 }}>
                   {card.value}<span style={{ fontSize: 12, fontWeight: 400, marginLeft: 3, opacity: 0.5 }}>건</span>
                 </div>
                 <div style={{ fontSize: 11, color: card.subColor, marginTop: 8 }}>{card.sub}</div>
@@ -292,7 +292,7 @@ export default function CompletedPage() {
               style={{
                 padding: '6px 16px', borderRadius: 999, fontSize: 13, fontWeight: 600,
                 background: filterType === f ? '#378ADD' : 'transparent',
-                color: filterType === f ? '#fff' : 'rgba(226,232,240,0.45)',
+                color: filterType === f ? '#fff' : 'rgba(var(--text-rgb),0.45)',
               }}>
               {f}
             </button>
@@ -301,9 +301,9 @@ export default function CompletedPage() {
 
         {/* 그룹별 카드 목록 */}
         {loading ? (
-          <p className="text-sm text-[rgba(226,232,240,0.3)] text-center py-12">불러오는 중...</p>
+          <p className="text-sm text-[rgba(var(--text-rgb),0.3)] text-center py-12">불러오는 중...</p>
         ) : groups.length === 0 ? (
-          <p className="text-sm text-[rgba(226,232,240,0.3)] text-center py-12">프로젝트 탭에 그룹이 없습니다</p>
+          <p className="text-sm text-[rgba(var(--text-rgb),0.3)] text-center py-12">프로젝트 탭에 그룹이 없습니다</p>
         ) : (
           <div className="pb-6">
             {groups.map((g, idx) => {
@@ -311,29 +311,29 @@ export default function CompletedPage() {
               const groupColor = groupColorOf(g)
               return (
                 <div key={g.id}
-                  style={{ marginTop: idx === 0 ? 0 : 14, background: 'rgba(255,255,255,0.06)', border: '0.5px solid rgba(255,255,255,0.09)', borderRadius: 20, padding: '14px 24px', overflow: 'hidden' }}>
+                  style={{ marginTop: idx === 0 ? 0 : 14, background: 'rgba(var(--ink-rgb),0.06)', border: '0.5px solid rgba(var(--ink-rgb),0.09)', borderRadius: 20, padding: '14px 24px', overflow: 'hidden' }}>
                   {/* 헤더 배너 — 프로젝트 탭과 동일한 그룹 색상 규칙 */}
                   <div className="flex items-center justify-between" style={{ margin: '-14px -24px 0 -24px', padding: '19px', background: hexToRgba(groupColor, 0.16), borderTopLeftRadius: 20, borderTopRightRadius: 20 }}>
                     <div className="flex items-center">
                       <span style={{ width: 32, flexShrink: 0, fontSize: 13, opacity: 0.6, color: groupColor, userSelect: 'none', cursor: 'grab' }}>⠿</span>
                       <span style={{ width: 8, height: 8, borderRadius: '50%', background: groupColor, flexShrink: 0, marginRight: 8 }} />
-                      <span style={{ fontSize: 13, fontWeight: 800, color: '#E2E8F0' }}>{g.name}</span>
+                      <span style={{ fontSize: 13, fontWeight: 800, color: 'rgba(var(--text-rgb),1)' }}>{g.name}</span>
                       <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 600, color: hexToRgba(groupColor, 0.85) }}>{groupRows.length}건 완료</span>
                     </div>
                     <button onClick={() => setAddModalGroup(g)}
                       className="transition-colors"
-                      style={{ fontSize: 12, fontWeight: 600, padding: '5px 14px', borderRadius: 999, background: hexToRgba(groupColor, 0.22), color: '#E2E8F0', border: `1px solid ${hexToRgba(groupColor, 0.45)}` }}>
+                      style={{ fontSize: 12, fontWeight: 600, padding: '5px 14px', borderRadius: 999, background: hexToRgba(groupColor, 0.22), color: 'rgba(var(--text-rgb),1)', border: `1px solid ${hexToRgba(groupColor, 0.45)}` }}>
                       + 성과 추가
                     </button>
                   </div>
 
                   {/* 컬럼 라벨 서브행 — 본문 행과 동일한 좌우 패딩/컬럼 폭을 공유해 정렬선을 맞춤 */}
                   {groupRows.length > 0 && (
-                    <div className="flex items-center" style={{ padding: '10px 16px 8px', borderBottom: '0.5px solid rgba(255,255,255,0.06)' }}>
-                      <span style={{ flex: 1, fontSize: 11, color: '#7d838d', fontWeight: 600 }}>업무명</span>
+                    <div className="flex items-center" style={{ padding: '10px 16px 8px', borderBottom: '0.5px solid rgba(var(--ink-rgb),0.06)' }}>
+                      <span style={{ flex: 1, fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>업무명</span>
                       <div className="flex items-center gap-2.5 flex-shrink-0">
-                        <span style={{ width: 42, textAlign: 'center', fontSize: 11, color: '#7d838d', fontWeight: 600 }}>출처</span>
-                        <span style={{ width: 78, textAlign: 'center', fontSize: 11, color: '#7d838d', fontWeight: 600 }}>분류</span>
+                        <span style={{ width: 42, textAlign: 'center', fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>출처</span>
+                        <span style={{ width: 78, textAlign: 'center', fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>분류</span>
                         <span style={{ width: 16, flexShrink: 0 }} />
                       </div>
                     </div>
@@ -341,44 +341,44 @@ export default function CompletedPage() {
 
                   {/* 본문 행 */}
                   {groupRows.length === 0 ? (
-                    <div style={{ padding: '22px 16px', textAlign: 'center', fontSize: 12, color: 'rgba(226,232,240,0.3)' }}>
+                    <div style={{ padding: '22px 16px', textAlign: 'center', fontSize: 12, color: 'rgba(var(--text-rgb),0.3)' }}>
                       이 기간에 완료된 항목이 없습니다
                     </div>
                   ) : (
                     groupRows.map(row => (
-                      <div key={row.id} className="group/row flex items-center gap-2.5 transition-colors hover:bg-[rgba(255,255,255,0.04)]"
-                        style={{ padding: '11px 16px', borderBottom: '0.5px solid rgba(255,255,255,0.06)' }}>
+                      <div key={row.id} className="group/row flex items-center gap-2.5 transition-colors hover:bg-[rgba(var(--ink-rgb),0.04)]"
+                        style={{ padding: '11px 16px', borderBottom: '0.5px solid rgba(var(--ink-rgb),0.06)' }}>
                         {row.source === 'auto' ? (
                           <Link href={`/subtasks/${row.id}`}
-                            style={{ flex: 1, fontSize: 13, color: '#E2E8F0', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                            style={{ flex: 1, fontSize: 13, color: 'rgba(var(--text-rgb),1)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
                             className="hover:underline">
                             {row.title}
                           </Link>
                         ) : (
-                          <span style={{ flex: 1, fontSize: 13, color: '#E2E8F0', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.title}</span>
+                          <span style={{ flex: 1, fontSize: 13, color: 'rgba(var(--text-rgb),1)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.title}</span>
                         )}
                         <div className="flex items-center gap-2.5 flex-shrink-0">
                           <span style={{
                             width: 42, textAlign: 'center', fontSize: 10, fontWeight: 600, padding: '2px 0', borderRadius: 999,
-                            background: row.source === 'auto' ? 'rgba(255,255,255,0.06)' : 'rgba(76,127,224,0.15)',
-                            color: row.source === 'auto' ? 'rgba(226,232,240,0.4)' : '#A8C4F0',
+                            background: row.source === 'auto' ? 'rgba(var(--ink-rgb),0.06)' : 'rgba(76,127,224,0.15)',
+                            color: row.source === 'auto' ? 'rgba(var(--text-rgb),0.4)' : 'var(--accent-badge-text)',
                           }}>
                             {row.source === 'auto' ? '자동' : '수기'}
                           </span>
                           <select value={row.achievementType ?? ''} onChange={e => updateRowType(row, (e.target.value || null) as AchievementType | null)}
                             style={{
                               width: 78, fontSize: 10, fontWeight: 600, padding: '3px 4px', borderRadius: 999, border: 'none', cursor: 'pointer', outline: 'none', textAlign: 'center', textAlignLast: 'center',
-                              background: row.achievementType ? `${ACH_COLOR[row.achievementType]}2A` : 'rgba(255,255,255,0.06)',
-                              color: row.achievementType ? ACH_COLOR[row.achievementType] : 'rgba(226,232,240,0.35)',
+                              background: row.achievementType ? `${ACH_COLOR[row.achievementType]}2A` : 'rgba(var(--ink-rgb),0.06)',
+                              color: row.achievementType ? ACH_COLOR[row.achievementType] : 'rgba(var(--text-rgb),0.35)',
                             }}>
-                            <option value="" style={{ background: '#1e2130', color: '#E2E8F0' }}>미분류</option>
-                            {ACH_TYPES.map(t => <option key={t} value={t} style={{ background: '#1e2130', color: '#E2E8F0' }}>{t}</option>)}
+                            <option value="" style={{ background: 'var(--select-option-bg)', color: 'rgba(var(--text-rgb),1)' }}>미분류</option>
+                            {ACH_TYPES.map(t => <option key={t} value={t} style={{ background: 'var(--select-option-bg)', color: 'rgba(var(--text-rgb),1)' }}>{t}</option>)}
                           </select>
                           <div style={{ width: 16, flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
                             {row.source === 'manual' && (
                               <button onClick={() => deleteManualAchievement(row.id)}
                                 className="opacity-0 group-hover/row:opacity-100 transition-all"
-                                style={{ fontSize: 12, color: 'rgba(226,232,240,0.3)' }}>
+                                style={{ fontSize: 12, color: 'rgba(var(--text-rgb),0.3)' }}>
                                 ×
                               </button>
                             )}
@@ -428,17 +428,17 @@ function AddAchievementModal({
       onClick={onClose}>
       <div
         className="backdrop-blur-xl rounded-3xl p-6 w-full max-w-md flex flex-col gap-4"
-        style={{ background: 'rgba(30,33,42,0.95)', border: '1px solid rgba(255,255,255,0.09)', boxShadow: '0 20px 40px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.07) inset' }}
+        style={{ background: 'var(--surface-elevated)', border: '1px solid rgba(var(--ink-rgb),0.09)', boxShadow: '0 20px 40px rgba(0,0,0,0.4), 0 1px 0 rgba(var(--ink-rgb),0.07) inset' }}
         onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-sm font-bold text-[rgba(226,232,240,0.9)]">성과 직접 추가</h2>
-            <p className="text-xs mt-0.5 flex items-center gap-1.5" style={{ color: 'rgba(226,232,240,0.5)' }}>
+            <h2 className="text-sm font-bold text-[rgba(var(--text-rgb),0.9)]">성과 직접 추가</h2>
+            <p className="text-xs mt-0.5 flex items-center gap-1.5" style={{ color: 'rgba(var(--text-rgb),0.5)' }}>
               <span style={{ width: 7, height: 7, borderRadius: '50%', background: group.color || '#9CA3AF', flexShrink: 0 }} />
               {group.name}
             </p>
           </div>
-          <button onClick={onClose} className="text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.8)] text-lg leading-none transition-colors">×</button>
+          <button onClick={onClose} className="text-[rgba(var(--text-rgb),0.4)] hover:text-[rgba(var(--text-rgb),0.8)] text-lg leading-none transition-colors">×</button>
         </div>
 
         <div className="flex gap-1.5 flex-wrap">
@@ -460,25 +460,24 @@ function AddAchievementModal({
         <input ref={titleRef} autoFocus value={title} onChange={e => setTitle(e.target.value)}
           onKeyDown={e => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') handleSave() }}
           placeholder="제목 (필수)"
-          className="w-full text-sm font-semibold text-[#E2E8F0] focus:outline-none pb-2 bg-transparent placeholder:text-white/30"
-          style={{ borderBottom: '1px solid rgba(255,255,255,0.09)' }} />
+          className="w-full text-sm font-semibold text-[rgba(var(--text-rgb),1)] focus:outline-none pb-2 bg-transparent placeholder:text-[rgba(var(--ink-rgb),0.3)]"
+          style={{ borderBottom: '1px solid rgba(var(--ink-rgb),0.09)' }} />
 
         <textarea value={content} onChange={e => setContent(e.target.value)}
           placeholder="설명 (선택)" rows={3}
-          className="w-full text-sm text-[#E2E8F0] bg-transparent focus:outline-none resize-none placeholder:text-white/25 p-3 rounded-xl"
-          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }} />
+          className="w-full text-sm text-[rgba(var(--text-rgb),1)] bg-transparent focus:outline-none resize-none placeholder:text-[rgba(var(--ink-rgb),0.25)] p-3 rounded-xl"
+          style={{ background: 'rgba(var(--ink-rgb),0.04)', border: '1px solid rgba(var(--ink-rgb),0.07)' }} />
 
         <div className="flex items-center justify-between">
           <input type="month" value={month} onChange={e => setMonth(e.target.value)}
-            className="text-xs text-[rgba(226,232,240,0.7)] bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.09)] rounded-full px-3 py-1.5 focus:outline-none"
-            style={{ colorScheme: 'dark' }} />
+            className="text-xs text-[rgba(var(--text-rgb),0.7)] bg-[rgba(var(--ink-rgb),0.06)] border border-[rgba(var(--ink-rgb),0.09)] rounded-full px-3 py-1.5 focus:outline-none" />
           <div className="flex gap-2">
             <button onClick={onClose}
-              className="text-xs px-4 py-2 rounded-full border bg-[rgba(255,255,255,0.06)] border-[rgba(255,255,255,0.09)] text-[rgba(226,232,240,0.5)] hover:bg-[rgba(255,255,255,0.1)] transition-all">
+              className="text-xs px-4 py-2 rounded-full border bg-[rgba(var(--ink-rgb),0.06)] border-[rgba(var(--ink-rgb),0.09)] text-[rgba(var(--text-rgb),0.5)] hover:bg-[rgba(var(--ink-rgb),0.1)] transition-all">
               취소
             </button>
             <button onClick={handleSave} disabled={!title.trim()}
-              className="text-xs px-4 py-2 rounded-full border bg-[#4C7FE0] border-[#4C7FE0] text-white shadow-sm disabled:opacity-40 transition-all">
+              className="text-xs px-4 py-2 rounded-full border bg-[var(--accent-primary)] border-[var(--accent-primary)] text-white shadow-sm disabled:opacity-40 transition-all">
               추가
             </button>
           </div>
