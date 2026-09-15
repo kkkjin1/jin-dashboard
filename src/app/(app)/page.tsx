@@ -618,11 +618,6 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
         {cw > 0 && <div style={{ position: 'absolute', left: 0, right: 0, top: TL_LANE1_TOP, height: TL_LANE_H, borderRadius: 5, background: 'rgba(var(--ink-rgb),0.018)', pointerEvents: 'none' }} />}
         {cw > 0 && <div style={{ position: 'absolute', left: 0, right: 0, top: TL_LANE2_TOP, height: TL_LANE_H, borderRadius: 5, background: 'rgba(var(--ink-rgb),0.018)', pointerEvents: 'none' }} />}
 
-        {/* Past overlay — subtle base tint only; must sit below event cards (z-index 4+) so their own colors stay intact */}
-        {inRange && cw > 0 && (
-          <div style={{ position: 'absolute', left: 0, top: TL_TIME_H, bottom: 0, width: curX, background: 'rgba(var(--ink-rgb),0.08)', pointerEvents: 'none', zIndex: 1 }} />
-        )}
-
         {/* Current time — vertical line */}
         {inRange && cw > 0 && (
           <div style={{ position: 'absolute', left: curX, top: TL_TIME_H, bottom: 0, width: 1.5, background: 'rgb(var(--accent-tint-rgb))', pointerEvents: 'none', zIndex: 10 }} />
