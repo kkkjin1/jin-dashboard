@@ -723,8 +723,8 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
                 display: 'flex', flexDirection: 'column', justifyContent: 'center',
                 overflow: 'hidden', userSelect: 'none', zIndex: 5,
               }}>
-              <span style={{ fontSize: 9.5, fontWeight: 600, color: 'rgba(255,255,255,0.50)', lineHeight: 1, marginBottom: 3 }}>{ev.allDay ? '종일' : hourToStr(ev.start_hour)}</span>
-              <span style={{ fontSize: 11.5, fontWeight: 500, color: 'rgba(255,255,255,0.88)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }}>📅 {ev.title}</span>
+              <span style={{ fontSize: 9.5, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1, marginBottom: 3 }}>{ev.allDay ? '종일' : hourToStr(ev.start_hour)}</span>
+              <span style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }}>📅 {ev.title}</span>
             </div>
           )
         })}
