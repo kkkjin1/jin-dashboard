@@ -29,6 +29,11 @@ function isContentEmpty(html: string): boolean {
   return text.length === 0
 }
 
+// 'card' = Post-it/카드보드 카드처럼 고정 박스 안에서 flex-1로 채우고 넘치면
+// 스크롤(기존 동작). 'document' = 자유노트 본문(note_body)처럼 카드 경계 없이
+// 문서 흐름을 따라 자연스럽게 늘어나야 하는 표면 — flex-1/overflow를 걸지 않는다.
+type SketchTextEditorVariant = 'card' | 'document'
+
 export interface SketchTextEditorProps {
   content: string
   onContentChange: (html: string) => void
@@ -38,21 +43,32 @@ export interface SketchTextEditorProps {
   fallbackFontSize: number
   placeholder?: string
   textColor: string
+  variant?: SketchTextEditorVariant
+}
+
+function surfaceClassName(variant: SketchTextEditorVariant): string {
+  return variant === 'document'
+    ? 'freenote-body tiptap-input leading-relaxed outline-none relative'
+    : 'freenote-body tiptap-input flex-1 min-h-0 overflow-y-auto scrollbar-hide leading-snug outline-none'
 }
 
 /** 비편집 상태 — 가벼운 정적 HTML 프리뷰. Tiptap 인스턴스 없음. */
 function SketchPreview({
-  content, fallbackFontSize, placeholder, textColor, onMouseDown,
+  content, fallbackFontSize, placeholder, textColor, variant, onMouseDown,
 }: {
   content: string
   fallbackFontSize: number
   placeholder?: string
   textColor: string
+  variant: SketchTextEditorVariant
   onMouseDown: (e: React.MouseEvent) => void
 }) {
   const empty = isContentEmpty(content)
-  const className = "freenote-body tiptap-input flex-1 min-h-0 overflow-y-auto scrollbar-hide leading-snug outline-none"
-  const style: React.CSSProperties = { color: textColor, fontSize: fallbackFontSize, cursor: 'text', whiteSpace: 'pre-wrap', overflowWrap: 'break-word' }
+  const className = surfaceClassName(variant)
+  const style: React.CSSProperties = {
+    color: textColor, fontSize: fallbackFontSize, cursor: 'text', whiteSpace: 'pre-wrap', overflowWrap: 'break-word',
+    ...(variant === 'document' ? { minHeight: 200, maxWidth: 'min(100%, 1100px)' } : {}),
+  }
   // ol/h1 등이 .tiptap-input의 "직계 자식"이어야 globals.css의 `.tiptap-input > ol` 류
   // 선택자(리스트 마커, heading 여백)가 먹는다 — 그래서 내용을 감싸는 별도 wrapper
   // div 없이 이 div 자체에 dangerouslySetInnerHTML을 건다(EditorContent도 마찬가지
@@ -79,13 +95,14 @@ function SketchPreview({
 
 /** 편집 상태 — 실제 Tiptap 인스턴스가 마운트되는 동안만 존재(언마운트 시 editor.destroy()). */
 function MountedSketchEditor({
-  content, onContentChange, onExitEdit, fallbackFontSize, textColor, initialCaretPosRef,
+  content, onContentChange, onExitEdit, fallbackFontSize, textColor, variant, initialCaretPosRef,
 }: {
   content: string
   onContentChange: (html: string) => void
   onExitEdit: () => void
   fallbackFontSize: number
   textColor: string
+  variant: SketchTextEditorVariant
   initialCaretPosRef: React.RefObject<CaretPos | null>
 }) {
   const onContentChangeRef = useRef(onContentChange)
@@ -140,8 +157,9 @@ function MountedSketchEditor({
     content: legacyToHtml(content),
     editorProps: {
       attributes: {
-        class: 'freenote-body tiptap-input flex-1 min-h-0 overflow-y-auto scrollbar-hide leading-snug outline-none',
-        style: `color:${textColor}; font-size:${fallbackFontSize}px; white-space:pre-wrap; overflow-wrap:break-word;`,
+        class: surfaceClassName(variant),
+        style: `color:${textColor}; font-size:${fallbackFontSize}px; white-space:pre-wrap; overflow-wrap:break-word;`
+          + (variant === 'document' ? ' min-height:200px; max-width:min(100%, 1100px);' : ''),
       },
       handleKeyDown: stableKeyDown,
       transformPastedText: (text: string) => text.replace(/\n{3,}/g, '\n\n'),
@@ -203,7 +221,7 @@ function MountedSketchEditor({
   if (!editor) return null
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col gap-1" onPointerDown={e => e.stopPropagation()}>
+    <div className={variant === 'document' ? 'flex flex-col gap-1' : 'flex-1 min-h-0 flex flex-col gap-1'} onPointerDown={e => e.stopPropagation()}>
       <div
         className="nodrag nopan flex items-center gap-1 px-1.5 py-1 rounded-lg flex-shrink-0"
         style={{ background: 'rgba(var(--ink-rgb),0.06)', border: '1px solid rgba(var(--ink-rgb),0.08)', width: 'fit-content' }}
@@ -238,14 +256,14 @@ function MountedSketchEditor({
           title="형광펜 (Alt+2)"
         ><Highlighter size={12} /></button>
       </div>
-      <EditorContent editor={editor} className="flex-1 min-h-0 overflow-y-auto scrollbar-hide" />
+      <EditorContent editor={editor} className={variant === 'document' ? undefined : 'flex-1 min-h-0 overflow-y-auto scrollbar-hide'} />
     </div>
   )
 }
 
 /** 진입점 — editing 여부에 따라 프리뷰/Tiptap을 스위칭한다. */
 export function SketchTextEditor({
-  content, onContentChange, editing, onEnterEdit, onExitEdit, fallbackFontSize, placeholder, textColor,
+  content, onContentChange, editing, onEnterEdit, onExitEdit, fallbackFontSize, placeholder, textColor, variant = 'card',
 }: SketchTextEditorProps) {
   const caretPosRef = useRef<CaretPos | null>(null)
 
@@ -256,6 +274,7 @@ export function SketchTextEditor({
         fallbackFontSize={fallbackFontSize}
         placeholder={placeholder}
         textColor={textColor}
+        variant={variant}
         onMouseDown={e => {
           e.stopPropagation()
           caretPosRef.current = { x: e.clientX, y: e.clientY }
@@ -272,6 +291,7 @@ export function SketchTextEditor({
       onExitEdit={onExitEdit}
       fallbackFontSize={fallbackFontSize}
       textColor={textColor}
+      variant={variant}
       initialCaretPosRef={caretPosRef}
     />
   )

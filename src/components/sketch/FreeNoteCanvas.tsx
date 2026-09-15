@@ -11,8 +11,9 @@ import { useAutosave, clearAutosaveBuffer } from '@/hooks/useAutosave'
 import { parseSpreadsheetClipboard } from '@/lib/spreadsheetClipboard'
 import {
   ImageOverlay, BoxOverlay, TableOverlay, MindmapCardOverlay,
-  toDisplayHtml, ensureEmptyBlocksHaveBr, BlockFormatBar, AutosaveStatusHint, type OverlayBox,
+  AutosaveStatusHint, type OverlayBox,
 } from './FreeNoteOverlays'
+import { SketchTextEditor } from './SketchTextEditor'
 
 // 마인드맵 카드를 확장할 때만 필요한 무거운 캔버스(React Flow)라, 자유노트를 열 때마다
 // 같이 불러오지 않도록 지연 로딩한다.
@@ -64,7 +65,9 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
   const supabase = createClient()
   const scrollRef = useRef<HTMLDivElement>(null)
   const innerRef = useRef<HTMLDivElement>(null)
-  const bodyRef = useRef<HTMLDivElement>(null)
+  // SketchTextEditor는 자체 DOM을 소유하므로 직접 조작하지 않는다 — 이 ref는 오직
+  // 렌더된 본문 높이를 읽어(scrollHeight) 캔버스 minHeight를 계산하는 용도.
+  const bodyWrapperRef = useRef<HTMLDivElement>(null)
 
   const [board, setBoard] = useState<SketchBoard | null>(null)
   const [nameInput, setNameInput] = useState('')
@@ -91,6 +94,10 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
   // ── 본문(note_body) autosave 안전망 값 — 데이터 로딩 effect보다 먼저 선언해야
   // 로딩 완료 시 이 state를 canonical 값으로 seed할 수 있다(false recovery 방지, 아래).
   const [autosaveBody, setAutosaveBody] = useState('')
+  // 복구 배너("적용")로 content를 되돌릴 때 SketchTextEditor를 강제 재마운트하기
+  // 위한 key — Tiptap은 마운트 시 content를 한 번만 읽는 비제어 컴포넌트라 이 방법이
+  // 가장 안전하다(BoxOverlay의 동일 패턴 참고).
+  const [bodyRemountKey, setBodyRemountKey] = useState(0)
 
   // ── 데이터 로딩 ───────────────────────────────────────────────────────────
   useEffect(() => {
@@ -114,34 +121,11 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
     })
   }, [boardId])
 
-  // ── canonical 본문을 DOM에 주입 ──────────────────────────────────────────
-  // 위 로딩 effect의 .then() 시점엔 loading이 아직 true라 본문 div(437줄 가드로
-  // 트리에 없음)가 마운트되지 않은 상태라 bodyRef.current가 항상 null이었다 —
-  // 그래서 canonical note_body를 읽어와도 DOM에 반영이 안 되는 타이밍 버그가 있었다
-  // (DB 저장 자체는 정상, 화면 표시만 실패). loading이 false로 바뀌어 div가 실제로
-  // mount된 뒤 별도 effect에서 주입하고, board.id당 한 번만 실행되도록 가드해서
-  // 이후 사용자 입력을 덮어쓰지 않게 한다.
-  const bodyInjectedForRef = useRef<string | null>(null)
+  // 본문에 처음 진입하면 바로 편집 가능하도록 — SketchTextEditor가 editing=true를
+  // 받으면 알아서 Tiptap을 마운트하고 문서 끝에 포커스를 놓는다(내부 RAF 재시도 포함).
   useEffect(() => {
-    if (loading || !board) return
-    if (bodyInjectedForRef.current === board.id) return
-    if (bodyRef.current) {
-      bodyRef.current.innerHTML = toDisplayHtml(board.note_body ?? '')
-      bodyInjectedForRef.current = board.id
-    }
-  }, [board, loading])
-
-  // 본문에 처음 진입하면 커서가 바로 깜빡이도록 자동 포커스(맨 끝으로)
-  useEffect(() => {
-    if (loading || !bodyRef.current) return
-    const el = bodyRef.current
-    el.focus()
-    const range = document.createRange()
-    range.selectNodeContents(el)
-    range.collapse(false)
-    const sel = window.getSelection()
-    sel?.removeAllRanges()
-    sel?.addRange(range)
+    if (loading) return
+    setIsEditingBody(true)
   }, [loading])
 
   // ── 본문(note_body) 저장 ─────────────────────────────────────────────────
@@ -161,63 +145,18 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
     bodySaveTimer.current = setTimeout(() => saveBodyCanonical(html), 500)
   }
 
-  function handleBodyInput(e: React.FormEvent<HTMLDivElement>) {
-    ensureEmptyBlocksHaveBr(e.currentTarget)
-    persistBody(e.currentTarget.innerHTML)
-  }
-
-  // 복구 배너 "적용" — 로컬 state/DOM을 되돌린 뒤, 대기 중이던 canonical debounce는
-  // 지우고 즉시 canonical에도 반영한다(1on1 세션 편집 화면의 applyRecoveredContent와
-  // 동일한 원칙 — state만 바꾸고 끝내면 다시 새로고침할 때 또 사라짐).
+  // 복구 배너 "적용" — state를 되돌린 뒤, 대기 중이던 canonical debounce는 지우고
+  // 즉시 canonical에도 반영한다. Tiptap은 마운트 시 content를 한 번만 읽는 비제어
+  // 컴포넌트라, 이미 마운트된 인스턴스에 새 값을 반영하려면 key를 바꿔 재마운트해야
+  // 한다(BoxOverlay의 동일 패턴 참고).
   function applyRecoveredBody() {
     if (!bodyAutosave.recovered) return
     const html = (bodyAutosave.recovered.value as string) ?? ''
     bodyAutosave.discardRecovered()
     clearTimeout(bodySaveTimer.current)
     setAutosaveBody(html)
-    if (bodyRef.current) bodyRef.current.innerHTML = toDisplayHtml(html)
     saveBodyCanonical(html)
-  }
-
-  function placeCaretEndInBlock(el: HTMLElement) {
-    const range = document.createRange()
-    range.selectNodeContents(el)
-    range.collapse(false)
-    const sel = window.getSelection()
-    sel?.removeAllRanges()
-    sel?.addRange(range)
-  }
-
-  // 워드의 "클릭하여 입력"과 같은 동작 — 본문이 짧아서 아직 없는 행(예: 2행까지만
-  // 썼는데 그보다 훨씬 아래)을 클릭해도, 그 자리까지 빈 줄을 채워서 정확히 그
-  // 행에 캐럿을 둔다. 본문도 카드도 아닌 빈 캔버스를 클릭했을 때만 호출된다.
-  function handleEmptyAreaClick(e: React.MouseEvent) {
-    const body = bodyRef.current, inner = innerRef.current
-    if (!body || !inner) return
-    e.preventDefault()
-    body.focus()
-    const innerRect = inner.getBoundingClientRect()
-    const clickY = e.clientY - innerRect.top
-    const lines = Array.from(body.children) as HTMLElement[]
-    if (!lines.length) return
-    const lineHeightPx = parseFloat(getComputedStyle(body).lineHeight) || parseFloat(getComputedStyle(body).fontSize) * 1.5 || 24
-    const relY = clickY - body.offsetTop
-    const targetIndex = Math.max(0, Math.round(relY / lineHeightPx))
-
-    if (targetIndex < lines.length) {
-      // 이미 있는 행 범위 안 — 그 행 끝에 캐럿(가로 위치는 클릭한 x가 아니라 그 줄 끝)
-      placeCaretEndInBlock(lines[targetIndex])
-    } else {
-      // 아직 없는 행 — 클릭한 행까지 빈 줄을 만들어 늘린 뒤 마지막 줄 끝에 캐럿
-      const toAdd = targetIndex - lines.length + 1
-      for (let i = 0; i < toAdd; i++) {
-        const div = document.createElement('div')
-        div.appendChild(document.createElement('br'))
-        body.appendChild(div)
-      }
-      placeCaretEndInBlock(body.lastElementChild as HTMLElement)
-    }
-    persistBody(body.innerHTML)
+    setBodyRemountKey(k => k + 1)
   }
 
   // ── canonical writes(오버레이 요소) ───────────────────────────────────────
@@ -465,15 +404,18 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
   const [minHeight, setMinHeight] = useState(600)
   useEffect(() => {
     const bottoms = elements.map(el => el.position_y + el.height)
-    const bodyHeight = bodyRef.current?.scrollHeight ?? 0
+    const bodyHeight = bodyWrapperRef.current?.scrollHeight ?? 0
     setMinHeight(Math.max(600, bodyHeight + 200, ...(bottoms.length ? [Math.max(...bottoms) + 120] : [0])))
   }, [elements, autosaveBody])
 
   function handleCanvasMouseDown(e: React.MouseEvent) {
     if (e.target === scrollRef.current) { setSelectedId(null); return }
     if (e.target === innerRef.current) {
+      // 본문도 카드도 아닌 빈 캔버스(본문 아래 여백)를 클릭 — 본문 편집모드로
+      // 들어가면 SketchTextEditor가 문서 끝에 포커스를 놓는다. 클릭한 세로 위치에
+      // 맞춰 빈 줄을 미리 채워주던 예전 동작은 새 구조에서는 생략한다.
       setSelectedId(null)
-      handleEmptyAreaClick(e)
+      setIsEditingBody(true)
     }
   }
 
@@ -562,23 +504,20 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
       {/* 문서 */}
       <div ref={scrollRef} className="flex-1 min-h-0 rounded-2xl overflow-auto relative" style={{ border: '1px solid rgba(var(--ink-rgb),0.08)', background: 'var(--bg-page)' }} onMouseDown={handleCanvasMouseDown}>
         <div ref={innerRef} className="relative" style={{ minHeight, padding: '32px 40px' }}>
-          <div className="mb-3.5">
-            <BlockFormatBar editorRef={bodyRef} fallbackSize={15} />
+          <div ref={bodyWrapperRef}>
+            <SketchTextEditor
+              key={bodyRemountKey}
+              content={autosaveBody}
+              onContentChange={persistBody}
+              editing={isEditingBody}
+              onEnterEdit={() => setIsEditingBody(true)}
+              onExitEdit={() => { setIsEditingBody(false); void bodyAutosave.flush() }}
+              fallbackFontSize={15}
+              placeholder="여기에 바로 적어보세요…"
+              textColor="var(--text-primary)"
+              variant="document"
+            />
           </div>
-          <div
-            ref={bodyRef}
-            contentEditable
-            suppressContentEditableWarning
-            onInput={handleBodyInput}
-            onFocus={() => setIsEditingBody(true)}
-            onBlur={() => { setIsEditingBody(false); void bodyAutosave.flush() }}
-            data-placeholder="여기에 바로 적어보세요…"
-            className="relative outline-none leading-relaxed freenote-body"
-            // maxWidth: 760 고정값이었을 때는 창을 넓게 켜도 본문이 그 폭에서 멈춰 줄바꿈되고
-            // 오른쪽에 여백만 남는 문제가 있었다 — 좁은 화면(또는 좁은 창)에선 꽉 채우고,
-            // 아주 넓은 화면에서만 가독성을 위해 줄 길이 상한이 걸리도록 가변폭으로 변경.
-            style={{ color: 'var(--text-primary)', fontSize: 15, maxWidth: 'min(100%, 1100px)', whiteSpace: 'pre-wrap', overflowWrap: 'break-word', minHeight: 200 }}
-          />
           {elements.map(el => {
             const box = { x: el.position_x, y: el.position_y, width: el.width, height: el.height, rotation: el.rotation }
             if (el.type === 'image') {
