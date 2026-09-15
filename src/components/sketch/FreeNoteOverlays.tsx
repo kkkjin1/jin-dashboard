@@ -5,6 +5,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { Trash2, RotateCw, Pen, Highlighter, Maximize2 } from 'lucide-react'
 import { CATEGORY_PALETTE, type CategoryColorKey } from '@/lib/categoryColors'
 import { snapRotation } from '@/lib/sketchGeometry'
+import { SketchTextEditor } from './SketchTextEditor'
 import { useAutosave } from '@/hooks/useAutosave'
 import type { AutosaveFailureReason, AutosaveStatus } from '@/lib/autosave/types'
 import type { SketchCard, SketchEdge, SketchFrame, SketchTableData } from '@/types'
@@ -471,17 +472,12 @@ export function BoxOverlay({
   supabase: SupabaseClient
 }) {
   const palette = CATEGORY_PALETTE[color]
-  const editorRef = useRef<HTMLDivElement>(null)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const [isEditing, setIsEditing] = useState(false)
-
-  // 최초 1회만 innerHTML 세팅 — 이후엔 DOM이 진실 소스(커서 위치 보존)
-  useEffect(() => {
-    const el = editorRef.current
-    if (!el) return
-    el.innerHTML = toDisplayHtml(content)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  // 복구(recovered) 적용 시 마운트된 Tiptap 인스턴스를 새 content로 강제 재마운트하기
+  // 위한 key — Tiptap은 마운트 시 content를 한 번만 읽는 비제어 컴포넌트라 이 방법이
+  // 가장 안전하다(다른 페이지의 key={selectedNote.id} 패턴과 동일한 원리).
+  const [remountKey, setRemountKey] = useState(0)
 
   // content prop은 이미 canonical에서 로드된 값(부모 elements가 먼저 채워진 뒤에만
   // 이 컴포넌트가 마운트됨)이라 여기서 seed하는 초기값 자체가 정확한 기준값이다 —
@@ -491,9 +487,7 @@ export function BoxOverlay({
     supabase, enabled: isEditing, entityType: 'sketch_note_element', entityId: id, fieldKey: 'content', value: autosaveContent,
   })
 
-  function handleInput(e: React.FormEvent<HTMLDivElement>) {
-    ensureEmptyBlocksHaveBr(e.currentTarget)
-    const html = e.currentTarget.innerHTML
+  function handleContentChange(html: string) {
     setAutosaveContent(html)
     clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(() => onContentChange(html), 500)
@@ -505,8 +499,8 @@ export function BoxOverlay({
     autosave.discardRecovered()
     clearTimeout(saveTimer.current)
     setAutosaveContent(html)
-    if (editorRef.current) editorRef.current.innerHTML = toDisplayHtml(html)
     onContentChange(html)
+    setRemountKey(k => k + 1)
   }
 
   return (
@@ -525,18 +519,16 @@ export function BoxOverlay({
     >
       <div className="w-full h-full rounded-lg p-2 flex flex-col gap-1 overflow-hidden" style={{ background: palette.bg, border: `1.5px solid ${palette.border}`, boxShadow: '0 4px 14px rgba(0,0,0,0.22)' }}>
         {autosave.recovered && <CompactRecoveryBanner onApply={applyRecovered} onDiscard={() => autosave.discardRecovered()} />}
-        {selected && <BlockFormatBar editorRef={editorRef} fallbackSize={13} />}
-        <div
-          ref={editorRef}
-          contentEditable
-          suppressContentEditableWarning
-          onInput={handleInput}
-          onFocus={() => setIsEditing(true)}
-          onBlur={() => { setIsEditing(false); void autosave.flush() }}
-          onPointerDown={e => e.stopPropagation()}
-          data-placeholder="메모…"
-          className="freenote-body flex-1 min-h-0 outline-none overflow-y-auto scrollbar-hide leading-snug"
-          style={{ color: BASE_TEXT, fontSize: 13, whiteSpace: 'pre-wrap', overflowWrap: 'break-word' }}
+        <SketchTextEditor
+          key={remountKey}
+          content={autosaveContent}
+          onContentChange={handleContentChange}
+          editing={isEditing}
+          onEnterEdit={() => { onSelect(); setIsEditing(true) }}
+          onExitEdit={() => { setIsEditing(false); void autosave.flush() }}
+          fallbackFontSize={13}
+          placeholder="메모…"
+          textColor={BASE_TEXT}
         />
         {selected && <AutosaveStatusHint status={autosave.status} failureReason={autosave.failureReason} />}
       </div>

@@ -18,6 +18,7 @@ import { CATEGORY_PALETTE, type CategoryColorKey } from '@/lib/categoryColors'
 import { ArrowLeft, Plus, Trash2, GripVertical, Frame } from 'lucide-react'
 import type { SketchBoard, SketchCard, SketchEdge, SketchFrame } from '@/types'
 import { FrameNodeComponent, type FrameData, type FrameNodeType } from './FrameNode'
+import { SketchTextEditor } from './SketchTextEditor'
 
 // ── 상수 ──────────────────────────────────────────────────────────────────────
 const COLOR_KEYS = Object.keys(CATEGORY_PALETTE) as CategoryColorKey[]
@@ -36,13 +37,10 @@ const EDGE_STYLE = { stroke: EDGE_COLOR, strokeWidth: 1.5 }
 const EDGE_STYLE_HOVER = { stroke: EDGE_COLOR_HOVER, strokeWidth: 2 }
 const EDGE_STYLE_SELECTED = { stroke: EDGE_COLOR_SELECTED, strokeWidth: 2.5 }
 const EDGE_MARKER = { type: MarkerType.ArrowClosed, color: EDGE_COLOR, width: 16, height: 16 }
-// 카드 내부 텍스트 크기 — block(줄) 단위로 독립 조절. DEFAULT_FONT_SIZE는 카드
-// 전체의 fallback 기본값(레거시 card.font_size 및 새 카드 최초값)으로만 쓰이고,
-// 실제 조절은 block별 style.fontSize(인라인)에 저장된다.
+// 카드 내부 텍스트 크기 — block(줄) 단위로 독립 조절(SketchTextEditor/tiptapFontSize.ts가
+// 실제 조절 로직을 담당). DEFAULT_FONT_SIZE는 카드 전체의 fallback 기본값(레거시
+// card.font_size 및 새 카드 최초값)으로만 쓰인다.
 const DEFAULT_FONT_SIZE = 12.5
-const MIN_FONT_SIZE = 9
-const MAX_FONT_SIZE = 48
-const FONT_SIZE_STEP = 1.5
 
 // ── Edge helpers ───────────────────────────────────────────────────────────────
 function edgeFromRow(row: SketchEdge): Edge {
@@ -92,8 +90,6 @@ type CardData = {
   fontSize: number
   onContentChange: (id: string, content: string) => void
   onColorChange: (id: string, color: CategoryColorKey) => void
-  /** block(줄) font-size 변경 — before/after는 카드 content 전체 HTML 스냅샷(undo/redo용) */
-  onBlockFontSizeChange: (id: string, beforeHtml: string, afterHtml: string) => void
   onDelete: (id: string) => void
   onResize: (id: string, box: { x: number; y: number; width: number; height: number }) => void
   supabase: SupabaseClient
@@ -102,121 +98,22 @@ type CardData = {
 }
 type CardNode = Node<CardData, 'sticky'>
 
-// 예전 저장분은 순수 텍스트라 그대로 HTML로 꽂으면 <, &, > 가 깨짐 — 우리가 저장한
-// 적 있는(빨간펜 span 등 태그 포함) 콘텐츠만 HTML로 신뢰하고, 그 외엔 escape 처리
-function toDisplayHtml(content: string): string {
-  if (/<(span|br|div)[\s/>]/i.test(content)) return content
-  return content.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-}
-
-// ── Block(줄) 단위 font-size 헬퍼 ────────────────────────────────────────────
-// Chrome의 contentEditable은 Enter로 줄을 나누면 두 번째 줄부터 <div>로 감싸고,
-// 첫 줄만 감싸는 요소 없이 root의 loose child로 남는다 — 이 첫 줄에도 개별
-// font-size를 걸 수 있도록, 처음 만지는 시점에 <div>로 한 번 감싸준다(그 전까지는
-// 화면에도 저장 데이터에도 아무 영향 없음 — 실제로 이 카드의 block font-size를
-// 조작할 때만 호출되므로, 건드리지 않은 기존 카드의 content는 그대로 보존된다).
-// 이 파일이 '@xyflow/react'의 Node 타입을 import해서 전역 DOM Node를 가리는 중이라,
-// DOM Node를 가리킬 때는 globalThis.Node로 명시한다.
-function normalizeLeadingText(root: HTMLElement) {
-  const first = root.firstChild
-  if (!first) return
-  if (first.nodeType === globalThis.Node.ELEMENT_NODE && (first as Element).tagName === 'DIV') return
-
-  // 지금 타이핑 중인 caret이 옮기는 영역(첫 줄) 안에 있으면 반드시 위치를
-  // 되살려야 한다 — 그냥 두면 Chrome이 "다음 입력을 어디에 이어붙일지"를
-  // 잃어버려서, 이후 입력이 문서 맨 앞 등 엉뚱한 곳에 꽂히는 심각한 버그가 있었다
-  // (실제로 발견: "Block A" 입력 → Enter → "Block B" 입력 시 두 번째 줄이 아니라
-  // 첫 줄 맨 앞에 "Block B"가 끼어들어가 "Block BBlock A"가 되는 현상).
-  const sel = window.getSelection()
-  const hadSelectionHere = !!(sel && sel.rangeCount > 0 && sel.anchorNode && root.contains(sel.anchorNode))
-  const restoreNode = hadSelectionHere ? sel!.anchorNode : null
-  const restoreOffset = hadSelectionHere ? sel!.anchorOffset : 0
-
-  const wrapper = document.createElement('div')
-  let node: ChildNode | null = root.firstChild
-  while (node && !(node.nodeType === globalThis.Node.ELEMENT_NODE && (node as Element).tagName === 'DIV')) {
-    const next: ChildNode | null = node.nextSibling
-    wrapper.appendChild(node)
-    node = next
-  }
-  root.insertBefore(wrapper, root.firstChild)
-
-  if (hadSelectionHere && restoreNode && sel) {
-    try {
-      const range = document.createRange()
-      range.setStart(restoreNode, restoreOffset)
-      range.collapse(true)
-      sel.removeAllRanges()
-      sel.addRange(range)
-    } catch {}
-  }
-}
-
-// node로부터 위로 올라가며 root의 direct child(= block)를 찾는다.
-function closestBlock(root: HTMLElement, node: globalThis.Node | null): HTMLElement | null {
-  let cur: globalThis.Node | null = node
-  while (cur && cur !== root) {
-    if (cur.parentNode === root) return cur as HTMLElement
-    cur = cur.parentNode
-  }
-  return null
-}
-
-// 현재 selection이 속한 block(들)을 반환한다 — cursor만 있으면 1개, 여러 block에
-// 걸쳐 드래그 선택했으면 그 사이 block 전부. selection이 이 root 안에 없거나
-// 아직 아무 곳에도 커서를 둔 적 없으면 첫 번째 block(없으면 빈 배열)으로 fallback.
-function resolveSelectedBlocks(root: HTMLElement): HTMLElement[] {
-  normalizeLeadingText(root)
-  const fallback = (): HTMLElement[] => {
-    const first = root.firstElementChild as HTMLElement | null
-    return first ? [first] : []
-  }
-  const sel = window.getSelection()
-  if (!sel || sel.rangeCount === 0 || !sel.anchorNode || !root.contains(sel.anchorNode)) return fallback()
-  const startBlock = closestBlock(root, sel.anchorNode)
-  const endBlock = closestBlock(root, sel.focusNode)
-  if (!startBlock) return fallback()
-  if (!endBlock || startBlock === endBlock) return [startBlock]
-  const children = Array.from(root.children) as HTMLElement[]
-  const i1 = children.indexOf(startBlock)
-  const i2 = children.indexOf(endBlock)
-  if (i1 === -1 || i2 === -1) return [startBlock]
-  const [lo, hi] = i1 <= i2 ? [i1, i2] : [i2, i1]
-  return children.slice(lo, hi + 1)
-}
-
-// A-/현재px/A+ 라벨 갱신용 — DOM을 건드리지 않는 읽기 전용 버전. 이 조회는
-// selectionchange마다(즉 타이핑 중 매 키 입력마다) 호출되므로, resolveSelectedBlocks처럼
-// 정규화(DOM mutation)를 하면 안 된다 — 첫 줄이 아직 <div>로 안 감싸져 있으면
-// 그냥 카드 기본값을 보여주고, 실제 정규화는 조작(버튼/단축키) 시점에만 한다.
-function peekCurrentBlockFontSize(root: HTMLElement, cardDefault: number): number {
-  const sel = window.getSelection()
-  if (!sel || sel.rangeCount === 0 || !sel.anchorNode || !root.contains(sel.anchorNode)) {
-    const first = root.firstElementChild as HTMLElement | null
-    return first ? getBlockFontSize(first) : cardDefault
-  }
-  const block = closestBlock(root, sel.anchorNode)
-  return block ? getBlockFontSize(block) : cardDefault
-}
-
-function getBlockFontSize(block: HTMLElement): number {
-  const n = parseFloat(getComputedStyle(block).fontSize)
-  return Number.isNaN(n) ? DEFAULT_FONT_SIZE : n
-}
-
-const RED = '#EF4444'
 const BASE_TEXT = 'var(--text-primary)' // 구조색 — 카드 셸 자체는 중립색(고정), 텍스트만 테마에 맞춰 반전
 
 function StickyCardNode({ id, data, selected }: NodeProps<CardNode>) {
-  const editorRef = useRef<HTMLDivElement>(null)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const palette = CATEGORY_PALETTE[data.color]
-  const [isEditing, setIsEditing] = useState(false)
+  // Tab으로 만든 자식 카드는 마운트 시 1회 자동으로 편집모드 진입한다(data.autoFocus는
+  // 생성 시점에만 실어 보내는 값 — useState 초기화 함수는 최초 마운트에만 실행되므로
+  // 리렌더돼도 다시 트리거되지 않는다). React Flow가 새 노드 크기를 측정하는 동안
+  // (visibility:hidden) focus가 조용히 씹히는 문제는 SketchTextEditor 내부의 RAF
+  // 재시도 로직이 그대로 처리한다.
+  const [isEditing, setIsEditing] = useState(() => !!data.autoFocus)
   // 텍스트 선택 드래그 중(마우스 버튼 down)에는 왼쪽 절반 드래그 오버레이가 마우스
   // 이벤트를 가로채면 안 됨 — 그래야 선택 드래그가 카드 왼쪽으로 넘어가도 끊기지
   // 않는다. isEditing(포커스 여부)로 게이팅하면, 입력을 마치고 드래그 없이 바로
   // 왼쪽 핸들을 클릭했을 때 그 클릭이 오버레이를 그대로 통과해 여전히 focus된
-  // (그리고 nodrag인) contentEditable에 떨어져버려 blur도, 드래그 시작도 안 되는
+  // (그리고 nodrag인) 편집영역에 떨어져버려 blur도, 드래그 시작도 안 되는
   // 버그가 있었다 — 그래서 "실제 드래그 중"만 별도로 추적한다.
   const [isSelecting, setIsSelecting] = useState(false)
 
@@ -232,71 +129,10 @@ function StickyCardNode({ id, data, selected }: NodeProps<CardNode>) {
     return () => window.removeEventListener('mouseup', onWindowMouseUp)
   }, [isSelecting])
 
-  // block(줄)별 font-size UI(A-/현재px/A+)가 대상으로 삼는 값 — "현재 selection이
-  // 속한 block"의 실효 font-size(자기 style 없으면 카드 기본값 상속)를 반영한다.
-  const [currentBlockFontSize, setCurrentBlockFontSize] = useState(data.fontSize)
-
-  // 최초 1회만 innerHTML 세팅 — 이후엔 DOM이 진실 소스라 React가 다시 덮어쓰면
-  // (매 렌더마다) 커서 위치가 튀어버림
-  useEffect(() => {
-    const el = editorRef.current
-    if (!el) return
-    el.innerHTML = toDisplayHtml(data.content)
-    setCurrentBlockFontSize(peekCurrentBlockFontSize(el, data.fontSize))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  // 이 카드 안에서 커서/선택 영역이 바뀔 때마다 A-/현재px/A+ 표시를 그 block
-  // 기준으로 갱신한다. selectionchange는 document 전역 이벤트라 다른 카드를
-  // 편집 중일 때도 발생하므로, 이 카드의 에디터 안에 selection이 있을 때만 반응.
-  // 타이핑 중에도(키 입력마다) 계속 발생하는 이벤트라 여기서는 절대 DOM을
-  // 건드리지 않는 peekCurrentBlockFontSize만 쓴다 — resolveSelectedBlocks(정규화
-  // 포함)를 여기서 썼다가 타이핑 커서가 엉뚱한 곳으로 튀는 버그가 있었다.
-  useEffect(() => {
-    function onSelectionChange() {
-      const el = editorRef.current
-      if (!el) return
-      const sel = window.getSelection()
-      if (!sel || !sel.anchorNode || !el.contains(sel.anchorNode)) return
-      setCurrentBlockFontSize(peekCurrentBlockFontSize(el, data.fontSize))
-    }
-    document.addEventListener('selectionchange', onSelectionChange)
-    return () => document.removeEventListener('selectionchange', onSelectionChange)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  // Tab으로 만든 자식 카드만 마운트 시 1회 자동으로 편집모드 진입 (data.autoFocus는
-  // 생성 시점에만 실어 보내는 값이라 리렌더돼도 다시 안 트리거됨 — deps [] 고정).
-  // 새로 추가된 노드는 React Flow가 실제 크기를 측정(ResizeObserver)하기 전까지
-  // wrapper div에 style.visibility='hidden'을 직접 걸어둔다 — 그 구간에
-  // element.focus()를 호출하면 브라우저가 조용히 무시한다(포커스 불가능한
-  // 엘리먼트). 측정이 끝나 visibility가 풀릴 때까지 프레임 단위로 재시도.
-  useEffect(() => {
-    if (!data.autoFocus) return
-    let rafId: number
-    let attempts = 0
-    const tryFocus = () => {
-      const el = editorRef.current
-      if (!el) return
-      const hidden = getComputedStyle(el).visibility === 'hidden'
-      if (hidden && attempts < 30) {
-        attempts += 1
-        rafId = requestAnimationFrame(tryFocus)
-        return
-      }
-      el.focus()
-    }
-    rafId = requestAnimationFrame(tryFocus)
-    return () => cancelAnimationFrame(rafId)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
   // Autosave (카드 본문, 텍스트 필드 우선 STEP) — canonical UPDATE(onContentChange)는
   // 그대로 유지, 이 훅은 autosave_drafts/content_versions에만 병행 기록한다.
-  // 이 상태는 오직 훅에 넘길 값 추적용이라 editorRef.innerHTML을 되돌려쓰지 않음
-  // (DOM이 계속 진실 소스, 커서 위치 보존). entity_id는 항상 실존하는
-  // sketch_cards.id이므로 qid/rebind 불필요. 카드가 많을 때 마운트 시 동시
-  // 부트스트랩 요청이 몰리지 않도록 세부task title과 동일하게 편집 중(포커스)에만 활성화.
+  // 카드가 많을 때 마운트 시 동시 부트스트랩 요청이 몰리지 않도록 세부task title과
+  // 동일하게 편집 중(포커스)에만 활성화.
   const [autosaveContent, setAutosaveContent] = useState(data.content)
   useAutosave({
     supabase: data.supabase,
@@ -307,52 +143,10 @@ function StickyCardNode({ id, data, selected }: NodeProps<CardNode>) {
     value: autosaveContent,
   })
 
-  function handleInput(e: React.FormEvent<HTMLDivElement>) {
-    const html = e.currentTarget.innerHTML
+  function handleContentChange(html: string) {
     setAutosaveContent(html)
     clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(() => data.onContentChange(id, html), 500)
-  }
-
-  // A-/A+ 버튼과 단축키가 공유하는 실제 조작 — "현재 selection이 속한 block(들)"의
-  // font-size만 바꾼다(카드 전체 X). before/after 전체 content HTML을 캡처해서
-  // 기존 canonical write(onContentChange)로 저장하고, undo/redo 히스토리에도 등록한다.
-  function adjustBlockFontSize(delta: number) {
-    const root = editorRef.current
-    if (!root) return
-    const blocks = resolveSelectedBlocks(root)
-    if (blocks.length === 0) return
-    const beforeHtml = root.innerHTML
-    blocks.forEach(block => {
-      const next = Math.min(MAX_FONT_SIZE, Math.max(MIN_FONT_SIZE, +(getBlockFontSize(block) + delta).toFixed(1)))
-      block.style.fontSize = `${next}px`
-    })
-    const afterHtml = root.innerHTML
-    setAutosaveContent(afterHtml)
-    setCurrentBlockFontSize(getBlockFontSize(blocks[0]))
-    data.onBlockFontSizeChange(id, beforeHtml, afterHtml)
-  }
-
-  // 다른 서식은 없어도 "빨간펜"(Alt+1) 만은 지원 — 선택 영역 있으면 그 부분만, 없으면 전체 토글
-  function toggleRedPen() {
-    document.execCommand('styleWithCSS', false, 'true')
-    const current = document.queryCommandValue('foreColor')
-    const isRed = current === 'rgb(239, 68, 68)' || current.toLowerCase() === RED.toLowerCase()
-    document.execCommand('foreColor', false, isRed ? BASE_TEXT : RED)
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
-    if (e.altKey && e.key === '1') { e.preventDefault(); toggleRedPen(); return }
-    // Cmd/Ctrl+Shift+. → 현재 block +1.5px, Cmd/Ctrl+Shift+, → -1.5px. e.code로
-    // 판정해야 한다 — Shift를 누른 상태의 e.key는 '.'이 아니라 '>'(미국 배열
-    // 기준)로 넘어온다. stopPropagation으로 React Flow의 전역 키 핸들러(삭제/
-    // 다중선택 등)까지 이 키 입력이 전파되지 않게 막는다 — 편집 중(이 핸들러가
-    // 붙어있는 contentEditable에 포커스가 있을 때)에만 동작.
-    if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.code === 'Period' || e.code === 'Comma')) {
-      e.preventDefault()
-      e.stopPropagation()
-      adjustBlockFontSize(e.code === 'Period' ? FONT_SIZE_STEP : -FONT_SIZE_STEP)
-    }
   }
 
   return (
@@ -396,54 +190,26 @@ function StickyCardNode({ id, data, selected }: NodeProps<CardNode>) {
             <Trash2 size={12} />
           </button>
         </div>
-        <div className="nodrag nopan flex items-center gap-0.5">
-          <button
-            className="w-3.5 h-3.5 flex items-center justify-center rounded text-[10px] leading-none font-bold opacity-50 hover:opacity-100 transition-opacity flex-shrink-0"
-            style={{ color: BASE_TEXT }}
-            disabled={currentBlockFontSize <= MIN_FONT_SIZE}
-            // mousedown 기본동작(포커스 이동 시 selection 정리)을 막아, 지금
-            // cursor/선택이 있던 block을 그대로 조작 대상으로 쓸 수 있게 한다.
-            onMouseDown={e => e.preventDefault()}
-            onClick={() => adjustBlockFontSize(-FONT_SIZE_STEP)}
-            title="현재 텍스트 블록 글씨 작게 (Ctrl/Cmd+Shift+,)"
-          >
-            A−
-          </button>
-          <span className="text-[9px] font-mono opacity-40 w-6 text-center flex-shrink-0 select-none" style={{ color: BASE_TEXT }}>
-            {Math.round(currentBlockFontSize)}px
-          </span>
-          <button
-            className="w-3.5 h-3.5 flex items-center justify-center rounded text-[10px] leading-none font-bold opacity-50 hover:opacity-100 transition-opacity flex-shrink-0"
-            style={{ color: BASE_TEXT }}
-            disabled={currentBlockFontSize >= MAX_FONT_SIZE}
-            onMouseDown={e => e.preventDefault()}
-            onClick={() => adjustBlockFontSize(FONT_SIZE_STEP)}
-            title="현재 텍스트 블록 글씨 크게 (Ctrl/Cmd+Shift+.)"
-          >
-            A+
-          </button>
-        </div>
       </div>
 
       <div className="flex-1 min-h-0 relative px-2 pb-2">
         <div
-          ref={editorRef}
-          contentEditable
-          // tabIndex 없는 contentEditable은 클릭으로는 focus가 걸리지만
-          // element.focus()로는 (크롬에서) 조용히 실패한다 — Tab 자식 생성 후
-          // 자동 편집모드 진입(programmatic focus)이 필요해서 -1로 스크립트
-          // focus만 가능하게 열어둔다(일반 Tab 키 순회 대상에는 안 들어감).
-          tabIndex={-1}
-          suppressContentEditableWarning
-          onInput={handleInput}
-          onKeyDown={handleKeyDown}
-          onFocus={() => setIsEditing(true)}
-          onBlur={() => { setIsEditing(false); setIsSelecting(false) }}
+          className="nodrag nopan absolute inset-0 flex flex-col"
+          style={{ padding: '4px 10px 4px 16px' }}
           onMouseDown={() => setIsSelecting(true)}
           onMouseUp={() => setIsSelecting(false)}
-          className="nodrag nopan scrollbar-hide absolute inset-0 w-full h-full overflow-y-auto bg-transparent focus:outline-none leading-snug"
-          style={{ color: BASE_TEXT, padding: '4px 10px 4px 16px', whiteSpace: 'pre-wrap', overflowWrap: 'break-word', fontSize: data.fontSize }}
-        />
+        >
+          <SketchTextEditor
+            content={autosaveContent}
+            onContentChange={handleContentChange}
+            editing={isEditing}
+            onEnterEdit={() => setIsEditing(true)}
+            onExitEdit={() => { setIsEditing(false); setIsSelecting(false) }}
+            fallbackFontSize={data.fontSize}
+            placeholder=""
+            textColor={BASE_TEXT}
+          />
+        </div>
         <div
           className={`absolute inset-y-0 left-0 w-1/2 flex items-center justify-center cursor-grab active:cursor-grabbing ${isSelecting ? 'pointer-events-none' : ''}`}
         >
@@ -740,30 +506,6 @@ function SketchCanvasInner({ boardId, onBack }: { boardId: string; onBack?: () =
     }
   }, [])
 
-  // block font-size는 StickyCardNode 안(raw DOM)에서 직접 바뀐다 — 여기서는 그
-  // 결과 HTML을 canonical write로 저장하고, undo/redo에 등록만 한다. content는
-  // React node.data에 실시간으로 반영되지 않는 uncontrolled 구조(마운트 시 1회만
-  // innerHTML 세팅)라, undo/redo가 화면에 보이려면 실제 DOM에도 직접 반영해야 한다.
-  const findCardEditor = useCallback((id: string): HTMLElement | null => {
-    return document.querySelector(`.react-flow__node[data-id="${id}"] [contenteditable]`)
-  }, [])
-
-  const handleBlockFontSizeChange = useCallback((id: string, beforeHtml: string, afterHtml: string) => {
-    handleContentChange(id, afterHtml)
-    pushHistory({
-      undo: () => {
-        const el = findCardEditor(id)
-        if (el) el.innerHTML = beforeHtml
-        handleContentChange(id, beforeHtml)
-      },
-      redo: () => {
-        const el = findCardEditor(id)
-        if (el) el.innerHTML = afterHtml
-        handleContentChange(id, afterHtml)
-      },
-    })
-  }, [handleContentChange, findCardEditor])
-
   const handleDelete = useCallback(async (id: string) => {
     const result = await deleteCardCascade(id)
     if (!result) { alert('카드 삭제에 실패했습니다.'); return }
@@ -783,11 +525,10 @@ function SketchCanvasInner({ boardId, onBack }: { boardId: string; onBack?: () =
   const cardHandlers = useMemo(() => ({
     onContentChange: handleContentChange,
     onColorChange: handleColorChange,
-    onBlockFontSizeChange: handleBlockFontSizeChange,
     onDelete: handleDelete,
     onResize: handleCardResize,
     supabase,
-  }), [handleContentChange, handleColorChange, handleBlockFontSizeChange, handleDelete, handleCardResize, supabase])
+  }), [handleContentChange, handleColorChange, handleDelete, handleCardResize, supabase])
   useEffect(() => { cardHandlersRef.current = cardHandlers }, [cardHandlers])
 
   // ── 프레임 handlers ───────────────────────────────────────────────────────
