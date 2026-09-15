@@ -8,6 +8,7 @@ import type { CategoryColorKey } from '@/lib/categoryColors'
 import { ArrowLeft, Square, Network, Table2 } from 'lucide-react'
 import type { SketchBoard, SketchNoteElement, SketchTableData } from '@/types'
 import { useAutosave, clearAutosaveBuffer } from '@/hooks/useAutosave'
+import { parseSpreadsheetClipboard } from '@/lib/spreadsheetClipboard'
 import {
   ImageOverlay, BoxOverlay, TableOverlay, MindmapCardOverlay,
   toDisplayHtml, ensureEmptyBlocksHaveBr, BlockFormatBar, AutosaveStatusHint, type OverlayBox,
@@ -363,6 +364,34 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
     setSelectedId((data as SketchNoteElement).id)
   }, [boardId, pickCreatePos])
 
+  // Excel/Google Sheets에서 복사한 셀 범위를 워크스페이스 빈 곳에 붙여넣었을 때 —
+  // TEXT로 들어가 탭/공백 모양만 표처럼 보이는 대신 실제 Table 요소를 만든다.
+  const createTableFromMatrix = useCallback(async (matrix: string[][]) => {
+    const pos = pickCreatePos()
+    const colCount = Math.max(1, matrix[0]?.length ?? 1)
+    const tableData: SketchTableData = {
+      headerRow: false, transparentBg: false,
+      colWidths: new Array(colCount).fill(100),
+      rows: matrix,
+    }
+    const width = Math.min(900, Math.max(240, colCount * 100 + 20))
+    const height = Math.min(700, Math.max(140, matrix.length * 32 + 60))
+    const { data, error } = await supabase.from('sketch_note_elements')
+      .insert({
+        board_id: boardId, type: 'table', content: '', color: 'blue',
+        position_x: pos.x, position_y: pos.y, width, height, rotation: 0,
+        table_data: tableData,
+      })
+      .select().single()
+    if (error || !data) {
+      console.error('붙여넣은 표 생성 실패:', error?.message)
+      setSaveError('붙여넣은 표 생성에 실패했습니다 — 서버 스키마가 아직 준비되지 않았을 수 있습니다.')
+      return
+    }
+    setElements(prev => [...prev, data as SketchNoteElement])
+    setSelectedId((data as SketchNoteElement).id)
+  }, [boardId, pickCreatePos])
+
   // 마인드맵 카드 — 실제로는 자유노트 위의 포스트잇 같은 카드일 뿐, 편집은 그 카드가
   // 가리키는 자식 sketch_boards(board_type='mindmap')를 기존 SketchCanvas로 그대로 연다.
   const createMindmap = useCallback(async () => {
@@ -399,7 +428,16 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
       if (!e.clipboardData) return
       const items = Array.from(e.clipboardData.items)
       const imageItem = items.find(item => item.type.startsWith('image/'))
-      if (!imageItem) return
+      if (!imageItem) {
+        // 이미지가 아니면 Excel/Google Sheets 셀 범위인지 확인 — 맞으면 실제 Table
+        // 요소를 만들고, 현재 포커스된 편집 영역(텍스트 카드 등)에도 원본 paste가
+        // 동시에 꽂히지 않도록 preventDefault로 막는다. 표 셀 안에서의 paste는
+        // TableOverlay 자신의 onPaste가 먼저 stopPropagation으로 처리하므로 여기까지
+        // 오지 않는다.
+        const matrix = parseSpreadsheetClipboard(e.clipboardData)
+        if (matrix) { e.preventDefault(); await createTableFromMatrix(matrix) }
+        return
+      }
       e.preventDefault()
       const blob = imageItem.getAsFile()
       if (!blob) return
@@ -421,7 +459,7 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
     }
     window.addEventListener('paste', onPaste)
     return () => window.removeEventListener('paste', onPaste)
-  }, [boardId, createImage])
+  }, [boardId, createImage, createTableFromMatrix])
 
   // 문서 전체 높이 — 오버레이 요소가 본문 끝보다 아래로 내려가면 그만큼 스크롤 영역을 늘림
   const [minHeight, setMinHeight] = useState(600)

@@ -5,6 +5,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { Trash2, RotateCw, Pen, Highlighter, Maximize2 } from 'lucide-react'
 import { CATEGORY_PALETTE, type CategoryColorKey } from '@/lib/categoryColors'
 import { snapRotation } from '@/lib/sketchGeometry'
+import { parseSpreadsheetClipboard } from '@/lib/spreadsheetClipboard'
 import { SketchTextEditor } from './SketchTextEditor'
 import { useAutosave } from '@/hooks/useAutosave'
 import type { AutosaveFailureReason, AutosaveStatus } from '@/lib/autosave/types'
@@ -711,6 +712,47 @@ export function TableOverlay({
     }
   }
 
+  // Excel/Google Sheets에서 복사한 셀 범위를 표 안의 특정 셀에 붙여넣으면, 그 셀을
+  // 기준으로 행/열에 실제로 분배한다. 일반 텍스트(스프레드시트 모양이 아님)는 여기서
+  // 아무것도 하지 않고 그대로 반환해 브라우저 기본 붙여넣기(기존 동작)에 맡긴다.
+  function handleCellPaste(e: React.ClipboardEvent<HTMLTableCellElement>, r: number, c: number) {
+    if (!e.clipboardData) return
+    const matrix = parseSpreadsheetClipboard(e.clipboardData)
+    if (!matrix) return
+    e.preventDefault()
+    e.stopPropagation()
+
+    const pastedCols = Math.max(1, ...matrix.map(row => row.length))
+    const neededRows = r + matrix.length
+    const neededCols = c + pastedCols
+
+    let rows = tableData.rows.map(row => [...row])
+    const colWidths = [...tableData.colWidths]
+    while (colWidths.length < neededCols) colWidths.push(100)
+    if (colWidths.length > (rows[0]?.length ?? 0)) {
+      rows = rows.map(row => {
+        const padded = [...row]
+        while (padded.length < colWidths.length) padded.push('')
+        return padded
+      })
+    }
+    while (rows.length < neededRows) rows.push(new Array(colWidths.length).fill(''))
+
+    matrix.forEach((mRow, ri) => {
+      mRow.forEach((val, ci) => { rows[r + ri][c + ci] = val })
+    })
+    const next = { ...tableData, rows, colWidths }
+
+    // 셀 DOM은 최초 1회만 seed되고 이후엔 DOM이 진실 소스라, 여러 칸이 한 번에
+    // 바뀌는 이 경로에서는 seeded 플래그를 지워 다음 렌더에서 새 값으로 다시 채워지게 한다.
+    cellRefs.current.forEach((td, key) => {
+      const [kr, kc] = key.split(':').map(Number)
+      if (kr >= r && kr < r + matrix.length && kc >= c && kc < c + pastedCols) delete td.dataset.seeded
+    })
+    setTableData(next)
+    persistImmediate(next)
+  }
+
   function startColResize(e: React.PointerEvent, colIndex: number) {
     e.stopPropagation(); e.preventDefault()
     const sx = e.clientX
@@ -795,6 +837,7 @@ export function TableOverlay({
                         onFocus={() => setActiveCell({ r: ri, c: ci })}
                         onInput={e => updateCellText(ri, ci, e.currentTarget.textContent ?? '')}
                         onKeyDown={e => handleCellKeyDown(e, ri, ci)}
+                        onPaste={e => handleCellPaste(e, ri, ci)}
                         onPointerDown={e => { if (isEditing) e.stopPropagation() }}
                         className="outline-none"
                         style={{
