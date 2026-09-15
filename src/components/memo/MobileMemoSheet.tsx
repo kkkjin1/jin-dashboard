@@ -170,16 +170,17 @@ export default function MobileMemoSheet() {
       <div className="fixed inset-0 bg-black/40 z-[70]" onClick={handleClose} />
 
       {/* 바텀시트 */}
-      <div className="fixed bottom-0 left-0 right-0 z-[80] bg-white rounded-t-3xl shadow-2xl"
+      <div className="fixed bottom-0 left-0 right-0 z-[80] rounded-t-3xl"
+        style={{ background: 'var(--surface-elevated)', boxShadow: 'var(--shadow-modal)' }}
         onClick={e => e.stopPropagation()}>
 
         {/* 핸들 + 닫기 버튼 */}
         <div className="flex items-center justify-between px-5 pt-4 pb-2">
-          <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto absolute left-1/2 -translate-x-1/2 top-3" />
-          <span className="text-sm font-semibold text-gray-700">빠른 메모</span>
+          <div className="w-10 h-1 rounded-full mx-auto absolute left-1/2 -translate-x-1/2 top-3 bg-[rgba(var(--ink-rgb),0.15)]" />
+          <span className="text-sm font-semibold text-[var(--text-primary)]">빠른 메모</span>
           <button
             onClick={handleClose}
-            className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 text-lg font-light hover:bg-gray-200 transition-colors">
+            className="w-8 h-8 flex items-center justify-center rounded-full text-lg font-light transition-colors bg-[rgba(var(--ink-rgb),0.06)] text-[var(--text-muted)] hover:bg-[rgba(var(--ink-rgb),0.1)]">
             ×
           </button>
         </div>
@@ -187,7 +188,8 @@ export default function MobileMemoSheet() {
         <div className="px-5 pb-6 space-y-3">
           {/* Autosave PoC: 복구 배너 (dev pilot 전용) — 자동 적용하지 않음 */}
           {isDevPilot && autosave.recovered && (
-            <div className="px-3 py-2 rounded-lg text-xs flex items-center gap-2 bg-blue-50 border border-blue-100 text-blue-700">
+            <div className="px-3 py-2 rounded-lg text-xs flex items-center gap-2"
+              style={{ background: 'rgba(76,127,224,0.12)', border: '1px solid rgba(76,127,224,0.3)', color: 'var(--accent-badge-text)' }}>
               <span className="flex-1">복구 가능한 자동저장 내용이 있습니다</span>
               <button onClick={applyRecovered} className="underline underline-offset-2">적용</button>
               <button onClick={() => autosave.discardRecovered()} className="underline underline-offset-2">무시</button>
@@ -201,7 +203,7 @@ export default function MobileMemoSheet() {
                 className={`text-xs px-3 py-1.5 rounded-full font-medium transition-all ${
                   tag === t
                     ? TAG_COLORS[t] + ' ring-2 ring-offset-1 ring-current'
-                    : 'bg-gray-100 text-gray-400'
+                    : 'bg-[rgba(var(--ink-rgb),0.06)] text-[var(--text-muted)]'
                 }`}>
                 {t}
               </button>
@@ -215,7 +217,7 @@ export default function MobileMemoSheet() {
             onChange={e => setTitle(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') handleSave() }}
             placeholder="메모 제목"
-            className="w-full text-base font-medium text-gray-800 placeholder-gray-300 focus:outline-none border-b border-gray-100 pb-2 bg-transparent"
+            className="w-full text-base font-medium focus:outline-none pb-2 bg-transparent text-[rgba(var(--text-rgb),0.9)] placeholder:text-[rgba(var(--text-rgb),0.3)] border-b border-[rgba(var(--ink-rgb),0.08)]"
           />
 
           {/* 내용 (선택) */}
@@ -224,7 +226,7 @@ export default function MobileMemoSheet() {
             onChange={e => setContent(e.target.value)}
             placeholder="내용 (선택)"
             rows={3}
-            className="w-full text-sm text-gray-600 placeholder-gray-300 focus:outline-none resize-none bg-transparent"
+            className="w-full text-sm focus:outline-none resize-none bg-transparent text-[rgba(var(--text-rgb),0.7)] placeholder:text-[rgba(var(--text-rgb),0.3)]"
           />
 
           {/* 저장 실패 안내 — 실패 시 제목/내용은 지우지 않으므로 재시도하면 됨 */}

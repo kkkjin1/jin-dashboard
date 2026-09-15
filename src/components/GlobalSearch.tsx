@@ -119,39 +119,40 @@ export default function GlobalSearch() {
   return (
     <>
       <div className="fixed inset-0 bg-black/30 z-[60]" onClick={() => { setOpen(false); setQuery('') }} />
-      <div className="fixed top-[20%] left-1/2 -translate-x-1/2 w-[560px] max-w-[90vw] bg-white rounded-2xl shadow-2xl z-[60] overflow-hidden">
-        <div className="flex items-center gap-3 px-4 py-3.5 border-b border-gray-100">
-          <span className="text-gray-400 text-sm">🔍</span>
+      <div className="fixed top-[20%] left-1/2 -translate-x-1/2 w-[560px] max-w-[90vw] rounded-2xl z-[60] overflow-hidden"
+        style={{ background: 'var(--surface-modal2)', border: '1px solid rgba(var(--ink-rgb),0.08)', boxShadow: 'var(--shadow-modal)' }}>
+        <div className="flex items-center gap-3 px-4 py-3.5 border-b border-[rgba(var(--ink-rgb),0.07)]">
+          <span className="text-[var(--text-muted)] text-sm">🔍</span>
           <input
             ref={inputRef}
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder="안건 · 세부업무 · 업무 · 회의록 · 메모 검색..."
-            className="flex-1 text-sm text-gray-700 focus:outline-none bg-transparent"
+            className="flex-1 text-sm text-[var(--text-primary)] focus:outline-none bg-transparent placeholder:text-[rgba(var(--text-rgb),0.35)]"
           />
-          <kbd className="text-[10px] text-gray-300 bg-gray-100 px-2 py-0.5 rounded">ESC</kbd>
+          <kbd className="text-[10px] text-[var(--text-muted)] bg-[rgba(var(--ink-rgb),0.06)] px-2 py-0.5 rounded">ESC</kbd>
         </div>
         <div className="max-h-[400px] overflow-y-auto">
           {!q ? (
-            <p className="text-xs text-gray-300 text-center py-6">검색어를 입력하세요</p>
+            <p className="text-xs text-[var(--text-muted)] text-center py-6">검색어를 입력하세요</p>
           ) : !hasResults ? (
-            <p className="text-xs text-gray-400 text-center py-6">검색 결과 없음</p>
+            <p className="text-xs text-[var(--text-muted)] text-center py-6">검색 결과 없음</p>
           ) : (
-            <div className="divide-y divide-gray-50">
+            <div className="divide-y divide-[rgba(var(--ink-rgb),0.06)]">
               {matchedAgendaItems.length > 0 && (
                 <div className="px-3 py-2">
-                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">프로젝트 안건</p>
+                  <p className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1.5">프로젝트 안건</p>
                   {matchedAgendaItems.map(a => {
                     const titleHit = a.title?.toLowerCase().includes(q)
                     const snippet = !titleHit ? bodySnippet(a.desc, q) : ''
                     return (
-                      <div key={a.id} className="py-2 px-2 hover:bg-gray-50 rounded-lg cursor-pointer"
+                      <div key={a.id} className="py-2 px-2 hover:bg-[var(--surface-hover)] rounded-lg cursor-pointer"
                         onClick={() => { router.push(`/project/items/${a.id}`); setOpen(false); setQuery('') }}>
                         <div className="flex items-center gap-2.5">
                           <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 flex-shrink-0">{a.group_name || '안건'}</span>
-                          <span className="text-sm text-gray-800 truncate">{a.title || '제목 없음'}</span>
+                          <span className="text-sm text-[rgba(var(--text-rgb),0.9)] truncate">{a.title || '제목 없음'}</span>
                         </div>
-                        {snippet && <p className="text-[10.5px] text-gray-400 mt-0.5 pl-1 truncate">본문: {snippet}</p>}
+                        {snippet && <p className="text-[10.5px] text-[var(--text-muted)] mt-0.5 pl-1 truncate">본문: {snippet}</p>}
                       </div>
                     )
                   })}
@@ -159,32 +160,32 @@ export default function GlobalSearch() {
               )}
               {matchedAgendaSubTasks.length > 0 && (
                 <div className="px-3 py-2">
-                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">세부업무</p>
+                  <p className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1.5">세부업무</p>
                   {matchedAgendaSubTasks.map(s => (
-                    <div key={s.id} className="py-2 px-2 hover:bg-gray-50 rounded-lg flex items-center gap-2.5 cursor-pointer"
+                    <div key={s.id} className="py-2 px-2 hover:bg-[var(--surface-hover)] rounded-lg flex items-center gap-2.5 cursor-pointer"
                       onClick={() => { router.push(`/project/items/${s.agenda_item_id}?focus=${s.id}`); setOpen(false); setQuery('') }}>
                       <span className="text-xs text-purple-300 flex-shrink-0">└</span>
-                      <span className="text-sm text-gray-800 truncate">{s.title || '제목 없음'}</span>
-                      <span className="text-[10px] text-gray-300 ml-auto flex-shrink-0 truncate max-w-[100px]">{s.item_title}</span>
+                      <span className="text-sm text-[rgba(var(--text-rgb),0.9)] truncate">{s.title || '제목 없음'}</span>
+                      <span className="text-[10px] text-[rgba(var(--text-rgb),0.35)] ml-auto flex-shrink-0 truncate max-w-[100px]">{s.item_title}</span>
                     </div>
                   ))}
                 </div>
               )}
               {matchedTasks.length > 0 && (
                 <div className="px-3 py-2">
-                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">업무</p>
+                  <p className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1.5">업무</p>
                   {matchedTasks.map(t => {
                     const titleHit = t.title?.toLowerCase().includes(q)
                     const snippet = !titleHit ? bodySnippet(taskBodies[t.id] ?? '', q) : ''
                     return (
                       <Link key={t.id} href={`/tasks/${t.id}`} onClick={() => { setOpen(false); setQuery('') }}>
-                        <div className="py-2 px-2 hover:bg-gray-50 rounded-lg">
+                        <div className="py-2 px-2 hover:bg-[var(--surface-hover)] rounded-lg">
                           <div className="flex items-center gap-2.5">
                             <span className={`text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0 ${STATUS_COLORS[t.status] ?? 'bg-gray-100 text-gray-500'}`}>{t.status}</span>
-                            <span className="text-sm text-gray-800 truncate">{t.title || '제목 없음'}</span>
-                            <span className="text-xs text-gray-300 ml-auto flex-shrink-0">{t.part} · {t.type}</span>
+                            <span className="text-sm text-[rgba(var(--text-rgb),0.9)] truncate">{t.title || '제목 없음'}</span>
+                            <span className="text-xs text-[rgba(var(--text-rgb),0.35)] ml-auto flex-shrink-0">{t.part} · {t.type}</span>
                           </div>
-                          {snippet && <p className="text-[10.5px] text-gray-400 mt-0.5 pl-1 truncate">본문: {snippet}</p>}
+                          {snippet && <p className="text-[10.5px] text-[var(--text-muted)] mt-0.5 pl-1 truncate">본문: {snippet}</p>}
                         </div>
                       </Link>
                     )
@@ -193,17 +194,17 @@ export default function GlobalSearch() {
               )}
               {matchedMeetings.length > 0 && (
                 <div className="px-3 py-2">
-                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">회의록</p>
+                  <p className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1.5">회의록</p>
                   {matchedMeetings.map(m => {
                     const titleHit = m.title?.toLowerCase().includes(q)
                     const snippet = !titleHit ? bodySnippet(meetingBodies[m.id] ?? '', q) : ''
                     return (
-                      <div key={m.id} className="group/row py-2 px-2 hover:bg-gray-50 rounded-lg">
+                      <div key={m.id} className="group/row py-2 px-2 hover:bg-[var(--surface-hover)] rounded-lg">
                         <div className="flex items-center gap-2">
                           <Link href={`/meetings/${m.id}`} onClick={() => { setOpen(false); setQuery('') }}
                             className="flex items-center gap-2 flex-1 min-w-0">
                             <span className="text-xs text-emerald-400 flex-shrink-0">💬</span>
-                            <span className="text-sm text-gray-800 truncate">{m.title || '제목 없음'}</span>
+                            <span className="text-sm text-[rgba(var(--text-rgb),0.9)] truncate">{m.title || '제목 없음'}</span>
                           </Link>
                           <button
                             onClick={async e => {
@@ -216,7 +217,7 @@ export default function GlobalSearch() {
                             삭제
                           </button>
                         </div>
-                        {snippet && <p className="text-[10.5px] text-gray-400 mt-0.5 pl-5 truncate">본문: {snippet}</p>}
+                        {snippet && <p className="text-[10.5px] text-[var(--text-muted)] mt-0.5 pl-5 truncate">본문: {snippet}</p>}
                       </div>
                     )
                   })}
@@ -224,20 +225,20 @@ export default function GlobalSearch() {
               )}
               {matchedMemos.length > 0 && (
                 <div className="px-3 py-2">
-                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">메모</p>
+                  <p className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1.5">메모</p>
                   {matchedMemos.map(m => {
                     const titleHit = m.title?.toLowerCase().includes(q)
                     const snippet = !titleHit ? bodySnippet(m.body, q) : ''
                     return (
                       <Link key={m.id} href="/memos"
                         onClick={() => { localStorage.setItem('memos_open_id', m.id); setOpen(false); setQuery('') }}>
-                        <div className="py-2 px-2 hover:bg-gray-50 rounded-lg">
+                        <div className="py-2 px-2 hover:bg-[var(--surface-hover)] rounded-lg">
                           <div className="flex items-center gap-2">
-                            <span className="text-xs text-gray-400">📝</span>
-                            <span className="text-sm text-gray-800 truncate">{m.title || '제목 없음'}</span>
-                            <span className="text-[10px] text-gray-300 ml-auto flex-shrink-0">{m.tag.join(', ')}</span>
+                            <span className="text-xs text-[var(--text-muted)]">📝</span>
+                            <span className="text-sm text-[rgba(var(--text-rgb),0.9)] truncate">{m.title || '제목 없음'}</span>
+                            <span className="text-[10px] text-[rgba(var(--text-rgb),0.35)] ml-auto flex-shrink-0">{m.tag.join(', ')}</span>
                           </div>
-                          {snippet && <p className="text-[10.5px] text-gray-400 mt-0.5 pl-5 truncate">본문: {snippet}</p>}
+                          {snippet && <p className="text-[10.5px] text-[var(--text-muted)] mt-0.5 pl-5 truncate">본문: {snippet}</p>}
                         </div>
                       </Link>
                     )
@@ -247,8 +248,8 @@ export default function GlobalSearch() {
             </div>
           )}
         </div>
-        <div className="px-4 py-2 border-t border-gray-50 flex items-center gap-3">
-          <span className="text-[10px] text-gray-300">Ctrl+K 열기/닫기 · ESC 닫기 · Enter 이동</span>
+        <div className="px-4 py-2 border-t border-[rgba(var(--ink-rgb),0.06)] flex items-center gap-3">
+          <span className="text-[10px] text-[var(--text-muted)]">Ctrl+K 열기/닫기 · ESC 닫기 · Enter 이동</span>
         </div>
       </div>
     </>
