@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { Trash2, RotateCw, Pen, Highlighter, Maximize2 } from 'lucide-react'
 import { CATEGORY_PALETTE, type CategoryColorKey } from '@/lib/categoryColors'
+import { snapRotation } from '@/lib/sketchGeometry'
 import { useAutosave } from '@/hooks/useAutosave'
 import type { AutosaveFailureReason, AutosaveStatus } from '@/lib/autosave/types'
 import type { SketchCard, SketchEdge, SketchFrame, SketchTableData } from '@/types'
@@ -375,7 +376,8 @@ function OverlayFrame({
     function angleAt(clientX: number, clientY: number): number {
       const rect = rootRef.current!.getBoundingClientRect()
       const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2
-      return (Math.atan2(clientY - cy, clientX - cx) * 180) / Math.PI + 90
+      const raw = (Math.atan2(clientY - cy, clientX - cx) * 180) / Math.PI + 90
+      return snapRotation(raw)
     }
     function onMove(ev: PointerEvent) {
       setLive({ ...startBox, rotation: angleAt(ev.clientX, ev.clientY) })
