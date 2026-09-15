@@ -69,14 +69,14 @@ const LIGHT = {
   markerSub: 'text-gray-500',
 }
 const DARK = {
-  h1: 'text-xl font-bold text-[rgba(226,232,240,0.95)] mt-3 mb-1',
-  h2: 'text-lg font-semibold text-[rgba(226,232,240,0.9)] mt-2 mb-1',
-  h3: 'text-base font-semibold text-[rgba(226,232,240,0.85)] mt-1.5 mb-0.5',
-  body: 'text-[rgba(226,232,240,0.8)] leading-relaxed',
-  sub: 'text-[rgba(226,232,240,0.65)] leading-relaxed',
-  marker: 'text-[rgba(226,232,240,0.4)]',
-  markerBullet: 'text-[rgba(226,232,240,0.7)]',
-  markerSub: 'text-[rgba(226,232,240,0.45)]',
+  h1: 'text-xl font-bold text-[rgba(var(--text-rgb),0.95)] mt-3 mb-1',
+  h2: 'text-lg font-semibold text-[rgba(var(--text-rgb),0.9)] mt-2 mb-1',
+  h3: 'text-base font-semibold text-[rgba(var(--text-rgb),0.85)] mt-1.5 mb-0.5',
+  body: 'text-[rgba(var(--text-rgb),0.8)] leading-relaxed',
+  sub: 'text-[rgba(var(--text-rgb),0.65)] leading-relaxed',
+  marker: 'text-[rgba(var(--text-rgb),0.4)]',
+  markerBullet: 'text-[rgba(var(--text-rgb),0.7)]',
+  markerSub: 'text-[rgba(var(--text-rgb),0.45)]',
 }
 
 function renderLine(line: string, keyVal: string | number, dark?: boolean): React.ReactNode {
@@ -150,9 +150,9 @@ function renderLine(line: string, keyVal: string | number, dark?: boolean): Reac
 
 function ToggleBlock({ title, lines, blockKey, dark }: { title: string; lines: string[]; blockKey: string; dark?: boolean }) {
   const [open, setOpen] = useState(false)
-  const toggleText = dark ? 'text-[rgba(226,232,240,0.6)] hover:text-[rgba(226,232,240,0.9)]' : 'text-gray-600 hover:text-gray-900'
-  const arrowColor = dark ? 'text-[rgba(226,232,240,0.35)]' : 'text-gray-400'
-  const borderColor = dark ? 'border-[rgba(255,255,255,0.08)]' : 'border-gray-100'
+  const toggleText = dark ? 'text-[rgba(var(--text-rgb),0.6)] hover:text-[rgba(var(--text-rgb),0.9)]' : 'text-gray-600 hover:text-gray-900'
+  const arrowColor = dark ? 'text-[rgba(var(--text-rgb),0.35)]' : 'text-gray-400'
+  const borderColor = dark ? 'border-[rgba(var(--ink-rgb),0.08)]' : 'border-gray-100'
   return (
     <div className="my-1.5">
       <button

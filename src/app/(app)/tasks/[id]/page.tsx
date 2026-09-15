@@ -103,10 +103,10 @@ function NoteAccordion({ note, isOpen, onToggle, onDelete, onEdit, onEditTitle }
   }
 
   return (
-    <div className="bg-white rounded-lg border border-gray-100 overflow-hidden group">
-      <div className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors">
+    <div className="bg-[rgba(var(--ink-rgb),0.06)] rounded-lg border border-[rgba(var(--ink-rgb),0.06)] overflow-hidden group">
+      <div className="flex items-center justify-between px-4 py-3 hover:bg-[rgba(var(--ink-rgb),0.03)] transition-colors">
         <div className="flex items-center gap-2 min-w-0 flex-1 cursor-pointer" onClick={onToggle}>
-          <span className="text-xs text-gray-400 flex-shrink-0">{isOpen ? '▼' : '▶'}</span>
+          <span className="text-xs text-[rgba(var(--text-rgb),0.4)] flex-shrink-0">{isOpen ? '▼' : '▶'}</span>
           {editingTitle ? (
             <input
               autoFocus
@@ -115,28 +115,28 @@ function NoteAccordion({ note, isOpen, onToggle, onDelete, onEdit, onEditTitle }
               onBlur={handleSaveTitle}
               onKeyDown={e => { if (e.key === 'Enter') handleSaveTitle(); if (e.key === 'Escape') { setEditTitle(note.title ?? ''); setEditingTitle(false) } }}
               onClick={e => e.stopPropagation()}
-              className="text-sm font-medium text-gray-700 focus:outline-none border-b border-gray-300 bg-transparent flex-1"
+              className="text-sm font-medium text-[rgba(var(--text-rgb),0.8)] focus:outline-none border-b border-[rgba(var(--ink-rgb),0.15)] bg-transparent flex-1"
             />
           ) : (
             <span
-              className="text-sm font-medium text-gray-700 flex-shrink-0 hover:text-blue-500 cursor-text"
+              className="text-sm font-medium text-[rgba(var(--text-rgb),0.8)] flex-shrink-0 hover:text-blue-500 cursor-text"
               onClick={e => { e.stopPropagation(); setEditingTitle(true); setEditTitle(note.title ?? '') }}
               title="클릭하여 제목 수정">
               {displayTitle}
             </span>
           )}
-          {editedLabel && <span className="text-xs text-gray-400 flex-shrink-0">{editedLabel}</span>}
+          {editedLabel && <span className="text-xs text-[rgba(var(--text-rgb),0.4)] flex-shrink-0">{editedLabel}</span>}
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          <span className="text-xs text-gray-300 truncate max-w-40">{!isOpen && note.content.replace(/<[^>]*>/g, '').slice(0, 40)}</span>
+          <span className="text-xs text-[rgba(var(--text-rgb),0.3)] truncate max-w-40">{!isOpen && note.content.replace(/<[^>]*>/g, '').slice(0, 40)}</span>
           <button onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(note.content).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000) }) }}
-            className="text-xs text-gray-300 hover:text-gray-600 transition-colors opacity-0 group-hover:opacity-100">
+            className="text-xs text-[rgba(var(--text-rgb),0.3)] hover:text-[rgba(var(--text-rgb),0.7)] transition-colors opacity-0 group-hover:opacity-100">
             {copied ? '✓' : '복사'}
           </button>
           <button onClick={e => { e.stopPropagation(); setEditing(true); setEditContent(note.content) }}
-            className="text-xs text-gray-300 hover:text-blue-500 transition-colors opacity-0 group-hover:opacity-100">수정</button>
+            className="text-xs text-[rgba(var(--text-rgb),0.3)] hover:text-blue-500 transition-colors opacity-0 group-hover:opacity-100">수정</button>
           <button onClick={e => { e.stopPropagation(); onDelete(note.id) }}
-            className="text-xs text-gray-200 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100">삭제</button>
+            className="text-xs text-[rgba(var(--text-rgb),0.2)] hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100">삭제</button>
         </div>
       </div>
       {fullscreen && (
@@ -153,6 +153,7 @@ function NoteAccordion({ note, isOpen, onToggle, onDelete, onEdit, onEditTitle }
           {editing ? (
             <>
               <TiptapEditor
+                dark
                 key={tiptapKey}
                 value={editContent}
                 onChange={handleContentChange}
@@ -165,23 +166,23 @@ function NoteAccordion({ note, isOpen, onToggle, onDelete, onEdit, onEditTitle }
               <div className="flex items-center justify-between mt-3">
                 <span className={`text-xs transition-opacity ${autoSaved ? 'text-emerald-500 opacity-100' : 'opacity-0'}`}>자동저장됨</span>
                 <div className="flex gap-2">
-                  <button onClick={() => setEditing(false)} className="text-xs text-gray-400 hover:text-gray-600 px-3 py-1 rounded-lg">취소</button>
-                  <button onClick={handleSaveEdit} className="text-xs bg-[rgba(76,127,224,0.1)] text-[#4C7FE0] border border-[rgba(76,127,224,0.25)] px-3 py-1 rounded-lg hover:bg-[rgba(76,127,224,0.18)]">저장</button>
+                  <button onClick={() => setEditing(false)} className="text-xs text-[rgba(var(--text-rgb),0.4)] hover:text-[rgba(var(--text-rgb),0.7)] px-3 py-1 rounded-lg">취소</button>
+                  <button onClick={handleSaveEdit} className="text-xs bg-[rgba(76,127,224,0.1)] text-[var(--accent-primary)] border border-[rgba(76,127,224,0.25)] px-3 py-1 rounded-lg hover:bg-[rgba(76,127,224,0.18)]">저장</button>
                 </div>
               </div>
             </>
           ) : (
             <>
-              <MarkdownContent content={note.content} className="pt-3" />
+              <MarkdownContent content={note.content} dark className="pt-3" />
               <div className="flex items-center gap-3 mt-2">
                 <button
                   onClick={() => { setEditing(true); setEditContent(note.content) }}
-                  className="text-xs text-gray-400 hover:text-blue-500 transition-colors">
+                  className="text-xs text-[rgba(var(--text-rgb),0.4)] hover:text-blue-500 transition-colors">
                   ✏ 편집
                 </button>
                 <button
                   onClick={() => { setEditContent(note.content); setFullscreen(true) }}
-                  className="text-xs text-gray-400 hover:text-blue-500 transition-colors">
+                  className="text-xs text-[rgba(var(--text-rgb),0.4)] hover:text-blue-500 transition-colors">
                   ⛶ 크게 편집
                 </button>
               </div>
@@ -641,7 +642,7 @@ export default function TaskDetailPage() {
     downloadMd(md, task.title)
   }
 
-  if (!task) return <div className="p-8 text-gray-400 text-sm animate-pulse">불러오는 중...</div>
+  if (!task) return <div className="p-8 text-[rgba(var(--text-rgb),0.4)] text-sm animate-pulse">불러오는 중...</div>
 
   const member = members.find(m => m.id === task.assignee_id)
 
@@ -664,33 +665,33 @@ export default function TaskDetailPage() {
 
       {showRetroModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-2xl shadow-2xl p-6 w-[480px] max-w-[90vw]">
-            <h3 className="font-bold text-gray-900 mb-1">업무 완료 회고</h3>
-            <p className="text-xs text-gray-400 mb-4">인사이트를 남기면 나중에 검색할 수 있습니다.</p>
+          <div className="rounded-2xl shadow-2xl p-6 w-[480px] max-w-[90vw]" style={{ background: 'var(--surface-modal2)' }}>
+            <h3 className="font-bold text-[rgba(var(--text-rgb),1)] mb-1">업무 완료 회고</h3>
+            <p className="text-xs text-[rgba(var(--text-rgb),0.4)] mb-4">인사이트를 남기면 나중에 검색할 수 있습니다.</p>
             <div className="space-y-3">
               <div>
                 <label className="text-xs font-semibold text-green-600 mb-1 block">좋았던 점</label>
-                <div className="border border-gray-200 rounded-lg overflow-hidden">
-                  <TiptapEditor value={retroGood} onChange={setRetroGood} minHeight={56} />
+                <div className="border border-[rgba(var(--ink-rgb),0.09)] rounded-lg overflow-hidden">
+                  <TiptapEditor dark value={retroGood} onChange={setRetroGood} minHeight={56} />
                 </div>
               </div>
               <div>
                 <label className="text-xs font-semibold text-amber-600 mb-1 block">아쉬웠던 점</label>
-                <div className="border border-gray-200 rounded-lg overflow-hidden">
-                  <TiptapEditor value={retroBad} onChange={setRetroBad} minHeight={56} />
+                <div className="border border-[rgba(var(--ink-rgb),0.09)] rounded-lg overflow-hidden">
+                  <TiptapEditor dark value={retroBad} onChange={setRetroBad} minHeight={56} />
                 </div>
               </div>
               <div>
                 <label className="text-xs font-semibold text-red-600 mb-1 block">개선 필요한 점</label>
-                <div className="border border-gray-200 rounded-lg overflow-hidden">
-                  <TiptapEditor value={retroImprovement} onChange={setRetroImprovement} minHeight={56} />
+                <div className="border border-[rgba(var(--ink-rgb),0.09)] rounded-lg overflow-hidden">
+                  <TiptapEditor dark value={retroImprovement} onChange={setRetroImprovement} minHeight={56} />
                 </div>
               </div>
             </div>
             <div className="flex justify-between items-center mt-4">
-              <button onClick={() => saveRetro(true)} className="text-xs text-gray-400 hover:text-gray-600">건너뛰기</button>
+              <button onClick={() => saveRetro(true)} className="text-xs text-[rgba(var(--text-rgb),0.4)] hover:text-[rgba(var(--text-rgb),0.7)]">건너뛰기</button>
               <div className="flex gap-2">
-                <button onClick={() => setShowRetroModal(false)} className="text-xs text-gray-400 hover:text-gray-600 px-3 py-1.5">취소</button>
+                <button onClick={() => setShowRetroModal(false)} className="text-xs text-[rgba(var(--text-rgb),0.4)] hover:text-[rgba(var(--text-rgb),0.7)] px-3 py-1.5">취소</button>
                 <button onClick={() => saveRetro(false)}
                   className="text-xs bg-green-600 text-white px-4 py-1.5 rounded-lg hover:bg-green-700">
                   저장하고 완료
@@ -703,15 +704,15 @@ export default function TaskDetailPage() {
 
       {/* 뒤로가기 + 너비조절 + MD 다운로드 */}
       <div className="flex items-center justify-between mb-8">
-        <Link href="/" className="text-sm text-gray-400 hover:text-gray-600 inline-flex items-center gap-1">← 홈</Link>
+        <Link href="/" className="text-sm text-[rgba(var(--text-rgb),0.4)] hover:text-[rgba(var(--text-rgb),0.7)] inline-flex items-center gap-1">← 홈</Link>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setContentWidth(prev => prev ? null : 720)}
-            className={`text-xs border rounded-md px-3 py-1.5 transition-colors ${contentWidth ? 'border-blue-200 text-blue-500 bg-blue-50 hover:bg-blue-100' : 'border-gray-200 text-gray-400 hover:bg-white'}`}
+            className={`text-xs border rounded-md px-3 py-1.5 transition-colors ${contentWidth ? 'border-blue-200 text-blue-500 bg-blue-50 hover:bg-blue-100' : 'border-[rgba(var(--ink-rgb),0.09)] text-[rgba(var(--text-rgb),0.4)] hover:bg-[rgba(var(--ink-rgb),0.06)]'}`}
           >
             {contentWidth ? '↔ 전체 너비' : '⟵ 좁게 보기'} <span className="opacity-50">[q]</span>
           </button>
-          <button onClick={handleDownloadMd} className="text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-white transition-colors">
+          <button onClick={handleDownloadMd} className="text-xs text-[rgba(var(--text-rgb),0.4)] hover:text-[rgba(var(--text-rgb),0.7)] border border-[rgba(var(--ink-rgb),0.09)] rounded-lg px-3 py-1.5 hover:bg-[rgba(var(--ink-rgb),0.06)] transition-colors">
             MD 다운로드
           </button>
         </div>
@@ -723,11 +724,11 @@ export default function TaskDetailPage() {
           onKeyDown={e => { if (e.key === 'Tab') { e.preventDefault(); noteTitleRef.current?.focus() } if (e.key === 'Enter') { updateTask({ title: titleInput }) } if (e.key === 'Escape') setTitleInput(task.title) }}
           onBlur={() => { if (titleInput.trim()) updateTask({ title: titleInput }) }}
           placeholder="업무 제목"
-          className="text-2xl font-bold text-gray-900 w-full focus:outline-none border-b-2 border-transparent focus:border-red-300 pb-1 transition-colors bg-transparent" />
+          className="text-2xl font-bold text-[rgba(var(--text-rgb),1)] w-full focus:outline-none border-b-2 border-transparent focus:border-red-300 pb-1 transition-colors bg-transparent" />
       </div>
 
       {/* 가로 상태바: 상태 / 담당자 / 파트 / 유형 / 날짜들 */}
-      <div className="flex items-center gap-2 mb-5 pb-4 border-b border-gray-100 flex-wrap">
+      <div className="flex items-center gap-2 mb-5 pb-4 border-b border-[rgba(var(--ink-rgb),0.06)] flex-wrap">
         <select value={task.status} onChange={e => {
           const newStatus = e.target.value as TaskStatus
           if (newStatus === '완료') {
@@ -739,36 +740,36 @@ export default function TaskDetailPage() {
             updateTask({ status: newStatus })
           }
         }}
-          className={`text-xs px-3 py-1.5 rounded font-medium border-0 cursor-pointer focus:outline-none ${STATUS_COLORS[task.status]}`}>
+          className={`text-xs px-3 py-1.5 rounded font-medium border-0 cursor-pointer focus:outline-none [&>option]:bg-[var(--select-option-bg)] [&>option]:text-[rgba(var(--text-rgb),0.8)] ${STATUS_COLORS[task.status]}`}>
           {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
 
-        <div className="w-px h-3.5 bg-gray-200" />
+        <div className="w-px h-3.5 bg-[rgba(var(--ink-rgb),0.09)]" />
 
         <select value={task.assignee_id ?? ''} onChange={e => updateTask({ assignee_id: e.target.value || null })}
-          className="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none bg-white text-gray-600">
+          className="text-xs border border-[rgba(var(--ink-rgb),0.09)] rounded-lg px-2.5 py-1.5 focus:outline-none bg-[rgba(var(--ink-rgb),0.06)] text-[rgba(var(--text-rgb),0.7)] [&>option]:bg-[var(--select-option-bg)] [&>option]:text-[rgba(var(--text-rgb),0.8)]">
           <option value="">담당자 없음</option>
           {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
         </select>
 
         <select value={task.part} onChange={e => updateTask({ part: e.target.value as Part })}
-          className="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none bg-white text-gray-600">
+          className="text-xs border border-[rgba(var(--ink-rgb),0.09)] rounded-lg px-2.5 py-1.5 focus:outline-none bg-[rgba(var(--ink-rgb),0.06)] text-[rgba(var(--text-rgb),0.7)] [&>option]:bg-[var(--select-option-bg)] [&>option]:text-[rgba(var(--text-rgb),0.8)]">
           {partOptions.map(p => <option key={p} value={p}>{p}</option>)}
         </select>
 
         <select value={task.type} onChange={e => updateTask({ type: e.target.value as TaskType })}
-          className="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none bg-white text-gray-600">
+          className="text-xs border border-[rgba(var(--ink-rgb),0.09)] rounded-lg px-2.5 py-1.5 focus:outline-none bg-[rgba(var(--ink-rgb),0.06)] text-[rgba(var(--text-rgb),0.7)] [&>option]:bg-[var(--select-option-bg)] [&>option]:text-[rgba(var(--text-rgb),0.8)]">
           <option value="기획">기획</option>
           <option value="개선">개선</option>
           <option value="운영">운영</option>
         </select>
 
-        <div className="w-px h-3.5 bg-gray-200" />
+        <div className="w-px h-3.5 bg-[rgba(var(--ink-rgb),0.09)]" />
 
         <div className="flex items-center gap-1">
-          <span className="text-xs text-gray-400">시작</span>
+          <span className="text-xs text-[rgba(var(--text-rgb),0.4)]">시작</span>
           <input type="date" value={task.start_date ?? ''} onChange={e => updateTask({ start_date: e.target.value || null })}
-            className="text-xs border border-gray-200 rounded px-1.5 py-1 focus:outline-none" />
+            className="text-xs border border-[rgba(var(--ink-rgb),0.09)] rounded px-1.5 py-1 focus:outline-none" />
         </div>
         <div className="flex items-center gap-1">
           <span className="text-xs text-amber-500">중간</span>
@@ -784,12 +785,13 @@ export default function TaskDetailPage() {
 
       {/* 노트 입력 영역 - 전체 너비 */}
       <div className="mb-6">
-        <h2 className="text-sm font-semibold text-gray-700 mb-3">맥락 / 노트</h2>
-        <div className="bg-white rounded-lg border border-gray-100 p-4 mb-3">
+        <h2 className="text-sm font-semibold text-[rgba(var(--text-rgb),0.8)] mb-3">맥락 / 노트</h2>
+        <div className="bg-[rgba(var(--ink-rgb),0.06)] rounded-lg border border-[rgba(var(--ink-rgb),0.06)] p-4 mb-3">
           <input ref={noteTitleRef} value={noteTitle} onChange={e => setNoteTitle(e.target.value)}
             onKeyDown={e => { if (e.key === 'Tab') { e.preventDefault() } }}
-            className="w-full text-xs font-medium text-gray-500 focus:outline-none mb-2 border-b border-gray-100 pb-1 bg-transparent" placeholder="노트 제목" />
+            className="w-full text-xs font-medium text-[rgba(var(--text-rgb),0.5)] focus:outline-none mb-2 border-b border-[rgba(var(--ink-rgb),0.06)] pb-1 bg-transparent" placeholder="노트 제목" />
           <TiptapEditor
+            dark
             key={newNoteKey}
             value={noteInput}
             onChange={setNoteInput}
@@ -797,7 +799,7 @@ export default function TaskDetailPage() {
             onExpand={() => setShowFullscreenNew(true)}
             minHeight={200}
           />
-          <div className="text-[11px] text-gray-200 mt-2 leading-relaxed select-none pointer-events-none">
+          <div className="text-[11px] text-[rgba(var(--text-rgb),0.2)] mt-2 leading-relaxed select-none pointer-events-none">
             날짜: [중간공유 6/20] · [최종보고 7/10] · [시작 6/1]<br />
             확장: [담당자 김다슬] · [유형 기획] · [상태 진행중] · [파트 {partOptions[0] ?? '개인'}]
           </div>
@@ -826,7 +828,7 @@ export default function TaskDetailPage() {
           {/* 저장된 노트 아코디언 리스트 */}
           <div className="space-y-2 mb-6">
             {notes.length === 0 ? (
-              <p className="text-sm text-gray-300 text-center py-4">아직 기록된 맥락이 없습니다</p>
+              <p className="text-sm text-[rgba(var(--text-rgb),0.3)] text-center py-4">아직 기록된 맥락이 없습니다</p>
             ) : (
               notes.map(note => (
                 <NoteAccordion key={note.id} note={note} isOpen={openNoteIds.has(note.id)}
@@ -837,25 +839,25 @@ export default function TaskDetailPage() {
 
           {/* 첨부파일/링크 섹션 */}
           <div className="mb-6">
-            <h2 className="text-sm font-semibold text-gray-700 mb-3">첨부파일 / 링크</h2>
-            <div className="bg-white rounded-lg border border-gray-100 p-4 mb-3 space-y-2">
+            <h2 className="text-sm font-semibold text-[rgba(var(--text-rgb),0.8)] mb-3">첨부파일 / 링크</h2>
+            <div className="bg-[rgba(var(--ink-rgb),0.06)] rounded-lg border border-[rgba(var(--ink-rgb),0.06)] p-4 mb-3 space-y-2">
               <div className="flex gap-2">
-                <label className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg cursor-pointer transition-colors ${uploading ? 'bg-gray-50 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'}`}>
+                <label className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg cursor-pointer transition-colors ${uploading ? 'bg-[rgba(var(--ink-rgb),0.03)] text-[rgba(var(--text-rgb),0.3)]' : 'bg-[rgba(var(--ink-rgb),0.06)] hover:bg-[rgba(var(--ink-rgb),0.12)] text-[rgba(var(--text-rgb),0.7)]'}`}>
                   📎 {uploading ? '업로드 중...' : '파일 첨부'}
                   <input type="file" multiple className="hidden" onChange={handleFileUpload} disabled={uploading} />
                 </label>
               </div>
               <div className="flex gap-2">
                 <input value={linkUrl} onChange={e => setLinkUrl(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addLink() }}
-                  placeholder="링크 URL" className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none" />
+                  placeholder="링크 URL" className="flex-1 text-sm border border-[rgba(var(--ink-rgb),0.09)] rounded-lg px-3 py-1.5 focus:outline-none" />
                 <input value={linkName} onChange={e => setLinkName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addLink() }}
-                  placeholder="표시 이름 (선택)" className="w-32 text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none" />
-                <button onClick={addLink} className="text-xs bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-lg transition-colors flex-shrink-0">추가</button>
+                  placeholder="표시 이름 (선택)" className="w-32 text-sm border border-[rgba(var(--ink-rgb),0.09)] rounded-lg px-3 py-1.5 focus:outline-none" />
+                <button onClick={addLink} className="text-xs bg-[rgba(var(--ink-rgb),0.06)] hover:bg-[rgba(var(--ink-rgb),0.12)] px-3 py-1.5 rounded-lg transition-colors flex-shrink-0">추가</button>
               </div>
             </div>
             <div className="space-y-1.5">
               {attachments.length === 0 ? (
-                <p className="text-sm text-gray-300 text-center py-3">첨부된 파일이 없습니다</p>
+                <p className="text-sm text-[rgba(var(--text-rgb),0.3)] text-center py-3">첨부된 파일이 없습니다</p>
               ) : (
                 attachments.map(att => {
                   const ext = att.name.split('.').pop()?.toLowerCase() ?? ''
@@ -863,14 +865,14 @@ export default function TaskDetailPage() {
                   const isPdf = ext === 'pdf'
                   const icon = att.type === '링크' ? '🔗' : isImage ? '🖼️' : isPdf ? '📄' : ['xlsx','xls','csv'].includes(ext) ? '📊' : ['docx','doc'].includes(ext) ? '📝' : ['pptx','ppt'].includes(ext) ? '📊' : ['zip','rar','7z'].includes(ext) ? '📦' : '📎'
                   return (
-                    <div key={att.id} className="bg-white rounded-lg border border-gray-100 overflow-hidden group">
+                    <div key={att.id} className="bg-[rgba(var(--ink-rgb),0.06)] rounded-lg border border-[rgba(var(--ink-rgb),0.06)] overflow-hidden group">
                       <div className="px-4 py-2.5 flex items-center justify-between">
                         {isImage ? (
                           <button onClick={() => setPreviewImg(att.url)} className="text-sm text-blue-500 hover:text-blue-700 hover:underline truncate flex-1 text-left">{icon} {att.name}</button>
                         ) : (
                           <a href={att.url} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-500 hover:text-blue-700 hover:underline truncate flex-1">{icon} {att.name}</a>
                         )}
-                        <button onClick={() => deleteAttachment(att)} className="text-xs text-gray-200 hover:text-red-400 ml-3 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">삭제</button>
+                        <button onClick={() => deleteAttachment(att)} className="text-xs text-[rgba(var(--text-rgb),0.2)] hover:text-red-400 ml-3 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">삭제</button>
                       </div>
                       {isImage && (
                         <div className="px-4 pb-3 cursor-pointer" onClick={() => setPreviewImg(att.url)}>
@@ -888,29 +890,29 @@ export default function TaskDetailPage() {
           {task.retrospective && (stripHtml(task.retrospective.good ?? '') || stripHtml(task.retrospective.bad ?? '') || stripHtml(task.retrospective.improvement ?? '')) && (
             <div className="mb-6">
               <button onClick={() => setShowRetro(prev => !prev)}
-                className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-3 hover:text-gray-900 transition-colors">
-                <span className="text-xs text-gray-400">{showRetro ? '▼' : '▶'}</span>
+                className="flex items-center gap-2 text-sm font-semibold text-[rgba(var(--text-rgb),0.8)] mb-3 hover:text-[rgba(var(--text-rgb),1)] transition-colors">
+                <span className="text-xs text-[rgba(var(--text-rgb),0.4)]">{showRetro ? '▼' : '▶'}</span>
                 완료 회고
-                {!showRetro && <span className="text-xs font-normal text-gray-400">보기</span>}
+                {!showRetro && <span className="text-xs font-normal text-[rgba(var(--text-rgb),0.4)]">보기</span>}
               </button>
               {showRetro && (
-                <div className="bg-white rounded-lg border border-gray-100 p-4 space-y-3">
+                <div className="bg-[rgba(var(--ink-rgb),0.06)] rounded-lg border border-[rgba(var(--ink-rgb),0.06)] p-4 space-y-3">
                   {stripHtml(task.retrospective.good ?? '') && (
                     <div>
                       <p className="text-xs font-semibold text-green-600 mb-1">좋았던 점</p>
-                      <MarkdownContent content={task.retrospective.good ?? ''} className="text-sm text-gray-700" />
+                      <MarkdownContent content={task.retrospective.good ?? ''} dark className="text-sm text-[rgba(var(--text-rgb),0.8)]" />
                     </div>
                   )}
                   {stripHtml(task.retrospective.bad ?? '') && (
                     <div>
                       <p className="text-xs font-semibold text-amber-600 mb-1">아쉬웠던 점</p>
-                      <MarkdownContent content={task.retrospective.bad ?? ''} className="text-sm text-gray-700" />
+                      <MarkdownContent content={task.retrospective.bad ?? ''} dark className="text-sm text-[rgba(var(--text-rgb),0.8)]" />
                     </div>
                   )}
                   {stripHtml(task.retrospective.improvement ?? '') && (
                     <div>
                       <p className="text-xs font-semibold text-red-600 mb-1">개선 필요한 점</p>
-                      <MarkdownContent content={task.retrospective.improvement ?? ''} className="text-sm text-gray-700" />
+                      <MarkdownContent content={task.retrospective.improvement ?? ''} dark className="text-sm text-[rgba(var(--text-rgb),0.8)]" />
                     </div>
                   )}
                 </div>
@@ -921,15 +923,15 @@ export default function TaskDetailPage() {
           {/* 관련 회고 */}
           {relatedJournals.length > 0 && (
             <div className="mb-6">
-              <h3 className="text-sm font-semibold text-gray-700 mb-3">관련 회고</h3>
+              <h3 className="text-sm font-semibold text-[rgba(var(--text-rgb),0.8)] mb-3">관련 회고</h3>
               <div className="space-y-2">
                 {relatedJournals.map(j => {
                   const d = new Date(j.date + 'T00:00:00')
                   const label = `${d.getMonth()+1}/${d.getDate()}`
                   return (
-                    <div key={j.id} className="bg-gray-50 rounded-lg px-3 py-2">
-                      <p className="text-[10px] text-gray-400 mb-1">{label}</p>
-                      <p className="text-xs text-gray-600 line-clamp-2 leading-relaxed">{j.content}</p>
+                    <div key={j.id} className="bg-[rgba(var(--ink-rgb),0.03)] rounded-lg px-3 py-2">
+                      <p className="text-[10px] text-[rgba(var(--text-rgb),0.4)] mb-1">{label}</p>
+                      <p className="text-xs text-[rgba(var(--text-rgb),0.7)] line-clamp-2 leading-relaxed">{j.content}</p>
                     </div>
                   )
                 })}
@@ -938,7 +940,7 @@ export default function TaskDetailPage() {
           )}
 
           {/* 삭제 버튼 */}
-          <div className="border-t border-gray-100 pt-6">
+          <div className="border-t border-[rgba(var(--ink-rgb),0.06)] pt-6">
             <button onClick={deleteTask} disabled={deleting} className="text-sm text-red-400 hover:text-red-600 transition-colors">이 업무 삭제</button>
           </div>
         </div>
@@ -949,28 +951,28 @@ export default function TaskDetailPage() {
           {/* 할일 목록 */}
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-3">
-              <h3 className="text-sm font-semibold text-gray-700">할일 목록</h3>
+              <h3 className="text-sm font-semibold text-[rgba(var(--text-rgb),0.8)]">할일 목록</h3>
               <input
                 value={shortName}
                 onChange={e => setShortName(e.target.value)}
                 onBlur={e => updateShortName(e.target.value.trim())}
                 onKeyDown={e => { if (e.key === 'Enter') updateShortName(shortName.trim()) }}
                 placeholder="단축명"
-                className="text-xs border-b border-gray-200 focus:outline-none focus:border-gray-400 text-gray-400 placeholder:text-gray-200 w-16 bg-transparent"
+                className="text-xs border-b border-[rgba(var(--ink-rgb),0.09)] focus:outline-none focus:border-[rgba(var(--ink-rgb),0.2)] text-[rgba(var(--text-rgb),0.4)] placeholder:text-[rgba(var(--text-rgb),0.2)] w-16 bg-transparent"
               />
             </div>
-            <div className="bg-white rounded-lg border border-gray-100 p-4">
+            <div className="bg-[rgba(var(--ink-rgb),0.06)] rounded-lg border border-[rgba(var(--ink-rgb),0.06)] p-4">
               <div className="flex gap-2 mb-3">
                 <input
                   value={todoInput}
                   onChange={e => setTodoInput(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') addTodo() }}
                   placeholder="할일 추가 후 Enter"
-                  className="flex-1 text-sm text-gray-700 focus:outline-none border-b border-gray-200 pb-1 bg-transparent placeholder:text-gray-300"
+                  className="flex-1 text-sm text-[rgba(var(--text-rgb),0.8)] focus:outline-none border-b border-[rgba(var(--ink-rgb),0.09)] pb-1 bg-transparent placeholder:text-[rgba(var(--text-rgb),0.3)]"
                 />
               </div>
               {todos.length === 0 ? (
-                <p className="text-xs text-gray-300 text-center py-2">할일을 추가하세요</p>
+                <p className="text-xs text-[rgba(var(--text-rgb),0.3)] text-center py-2">할일을 추가하세요</p>
               ) : (
                 <div className="space-y-2">
                   {todos.map(todo => (
@@ -978,9 +980,9 @@ export default function TaskDetailPage() {
                       <input type="checkbox" checked={todo.done}
                         onChange={() => toggleTodoDone(todo.id, !todo.done)}
                         className="w-3.5 h-3.5 rounded accent-emerald-500 flex-shrink-0 cursor-pointer" />
-                      <span className={`text-sm flex-1 min-w-0 truncate ${todo.done ? 'line-through text-gray-300' : 'text-gray-700'}`}>
+                      <span className={`text-sm flex-1 min-w-0 truncate ${todo.done ? 'line-through text-[rgba(var(--text-rgb),0.3)]' : 'text-[rgba(var(--text-rgb),0.8)]'}`}>
                         {shortName && (
-                          <span className="text-[10px] text-gray-400 font-mono mr-1.5">{shortName}{todos.indexOf(todo) + 1}</span>
+                          <span className="text-[10px] text-[rgba(var(--text-rgb),0.4)] font-mono mr-1.5">{shortName}{todos.indexOf(todo) + 1}</span>
                         )}
                         {todo.title}
                       </span>
@@ -991,7 +993,7 @@ export default function TaskDetailPage() {
                             <button key={tag}
                               onClick={() => updateTodoDate(todo.id, currentBucket === tag ? null : tag)}
                               className={`text-[10px] px-1.5 py-0.5 rounded transition-colors font-medium ${
-                                currentBucket === tag ? TODO_TAG_ACTIVE[tag] : 'text-gray-300 hover:text-gray-500'
+                                currentBucket === tag ? TODO_TAG_ACTIVE[tag] : 'text-[rgba(var(--text-rgb),0.3)] hover:text-[rgba(var(--text-rgb),0.5)]'
                               }`}>
                               {TODO_TAG_LABELS[tag]}
                             </button>
@@ -1004,34 +1006,34 @@ export default function TaskDetailPage() {
                             className={`text-[10px] px-1.5 py-0.5 rounded transition-colors font-medium ${
                               todo.target_date
                                 ? 'bg-violet-50 text-violet-600 border border-violet-200'
-                                : 'text-gray-300 hover:text-gray-500'
+                                : 'text-[rgba(var(--text-rgb),0.3)] hover:text-[rgba(var(--text-rgb),0.5)]'
                             }`}>
                             {todo.target_date
                               ? (() => { const d = new Date(todo.target_date + 'T00:00:00'); return `${d.getMonth()+1}/${d.getDate()}` })()
                               : '날짜'}
                           </button>
                           {openDatePickerTodoId === todo.id && (
-                            <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl p-3 z-20 min-w-[200px]">
-                              <p className="text-[10px] text-gray-400 mb-1.5 font-medium">담당자</p>
+                            <div className="absolute right-0 top-full mt-1 bg-[var(--dropdown-panel-bg)] border border-[rgba(var(--ink-rgb),0.09)] rounded-xl shadow-xl p-3 z-20 min-w-[200px]">
+                              <p className="text-[10px] text-[rgba(var(--text-rgb),0.4)] mb-1.5 font-medium">담당자</p>
                               <select
                                 value={todoAssigneeMap[todo.id] ?? (task.assignee_id ?? '')}
                                 onChange={e => setTodoAssigneeId(todo.id, e.target.value || null)}
-                                className="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none text-gray-600 bg-white mb-3">
+                                className="w-full text-xs border border-[rgba(var(--ink-rgb),0.09)] rounded-lg px-2 py-1.5 focus:outline-none text-[rgba(var(--text-rgb),0.7)] bg-[rgba(var(--ink-rgb),0.06)] mb-3 [&>option]:bg-[var(--select-option-bg)] [&>option]:text-[rgba(var(--text-rgb),0.8)]">
                                 <option value="">미지정 (업무 담당자)</option>
                                 {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                               </select>
-                              <p className="text-[10px] text-gray-400 mb-1.5 font-medium">날짜</p>
+                              <p className="text-[10px] text-[rgba(var(--text-rgb),0.4)] mb-1.5 font-medium">날짜</p>
                               <input type="date"
                                 value={todo.target_date ?? ''}
                                 onChange={e => {
                                   updateTodoSpecificDate(todo.id, e.target.value || null)
                                   setOpenDatePickerTodoId(null)
                                 }}
-                                className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none text-gray-600 w-full" />
+                                className="text-xs border border-[rgba(var(--ink-rgb),0.09)] rounded-lg px-2 py-1.5 focus:outline-none text-[rgba(var(--text-rgb),0.7)] w-full" />
                               {todo.target_date && (
                                 <button
                                   onClick={() => { updateTodoSpecificDate(todo.id, null); setOpenDatePickerTodoId(null) }}
-                                  className="text-[10px] text-gray-300 hover:text-red-400 mt-1.5 block w-full text-center transition-colors">
+                                  className="text-[10px] text-[rgba(var(--text-rgb),0.3)] hover:text-red-400 mt-1.5 block w-full text-center transition-colors">
                                   날짜 제거
                                 </button>
                               )}
@@ -1039,7 +1041,7 @@ export default function TaskDetailPage() {
                           )}
                         </div>
                         <button onClick={() => deleteTodo(todo.id)}
-                          className="text-gray-200 hover:text-red-400 text-base opacity-0 group-hover:opacity-100 transition-all leading-none ml-0.5">×</button>
+                          className="text-[rgba(var(--text-rgb),0.2)] hover:text-red-400 text-base opacity-0 group-hover:opacity-100 transition-all leading-none ml-0.5">×</button>
                       </div>
                     </div>
                   ))}
@@ -1049,53 +1051,53 @@ export default function TaskDetailPage() {
           </div>
 
           {/* 연관 회의록 섹션 */}
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">연관 회의록</h3>
-          <div className="bg-white rounded-lg border border-gray-100 p-5">
+          <h3 className="text-sm font-semibold text-[rgba(var(--text-rgb),0.8)] mb-3">연관 회의록</h3>
+          <div className="bg-[rgba(var(--ink-rgb),0.06)] rounded-lg border border-[rgba(var(--ink-rgb),0.06)] p-5">
 
             <div className="flex gap-2 mb-4">
               <select value={selectedMeetingId} onChange={e => setSelectedMeetingId(e.target.value)}
-                className="flex-1 text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none bg-white text-gray-600">
+                className="flex-1 text-xs border border-[rgba(var(--ink-rgb),0.09)] rounded-lg px-2.5 py-1.5 focus:outline-none bg-[rgba(var(--ink-rgb),0.06)] text-[rgba(var(--text-rgb),0.7)] [&>option]:bg-[var(--select-option-bg)] [&>option]:text-[rgba(var(--text-rgb),0.8)]">
                 <option value="">회의록 연결...</option>
                 {allMeetings.filter(m => !linkedMeetings.some(lm => lm.id === m.id)).map(m => (
                   <option key={m.id} value={m.id}>{m.title || '(제목 없음)'}{m.meeting_date ? ` · ${m.meeting_date}` : ''}</option>
                 ))}
               </select>
               <button onClick={linkMeeting} disabled={!selectedMeetingId}
-                className="text-xs bg-gray-100 hover:bg-gray-200 px-2.5 py-1.5 rounded-lg disabled:opacity-30 transition-colors">연결</button>
+                className="text-xs bg-[rgba(var(--ink-rgb),0.06)] hover:bg-[rgba(var(--ink-rgb),0.12)] px-2.5 py-1.5 rounded-lg disabled:opacity-30 transition-colors">연결</button>
               <button onClick={createAndLinkMeeting}
                 className="text-xs bg-[#5DBD97] text-white px-2.5 py-1.5 rounded-lg hover:bg-[#4aab84] transition-colors whitespace-nowrap">새 회의록</button>
             </div>
 
             {linkedMeetings.length === 0 ? (
-              <p className="text-xs text-gray-300 text-center py-6">연결된 회의록이 없습니다</p>
+              <p className="text-xs text-[rgba(var(--text-rgb),0.3)] text-center py-6">연결된 회의록이 없습니다</p>
             ) : (
               <div className="space-y-2">
                 {linkedMeetings.map(m => {
                   const isExp = expandedMeetingIds.has(m.id)
                   return (
-                    <div key={m.id} className="border border-gray-100 rounded-lg overflow-hidden group/meeting">
-                      <div className="flex items-center justify-between px-3 py-2.5 bg-gray-50">
+                    <div key={m.id} className="border border-[rgba(var(--ink-rgb),0.06)] rounded-lg overflow-hidden group/meeting">
+                      <div className="flex items-center justify-between px-3 py-2.5 bg-[rgba(var(--ink-rgb),0.04)]">
                         <button onClick={() => setExpandedMeetingIds(prev => { const s = new Set(prev); isExp ? s.delete(m.id) : s.add(m.id); return s })}
                           className="flex items-center gap-2 flex-1 min-w-0 text-left">
-                          <span className="text-xs text-gray-400 flex-shrink-0">{isExp ? '▼' : '▶'}</span>
+                          <span className="text-xs text-[rgba(var(--text-rgb),0.4)] flex-shrink-0">{isExp ? '▼' : '▶'}</span>
                           <div className="min-w-0">
-                            <p className="text-sm font-medium text-gray-700 hover:text-gray-900 truncate">
-                              {m.title || <span className="text-gray-300 italic">제목 없음</span>}
+                            <p className="text-sm font-medium text-[rgba(var(--text-rgb),0.8)] hover:text-[rgba(var(--text-rgb),1)] truncate">
+                              {m.title || <span className="text-[rgba(var(--text-rgb),0.3)] italic">제목 없음</span>}
                             </p>
-                            {m.meeting_date && <p className="text-xs text-gray-400">{formatDate(m.meeting_date)}</p>}
+                            {m.meeting_date && <p className="text-xs text-[rgba(var(--text-rgb),0.4)]">{formatDate(m.meeting_date)}</p>}
                           </div>
                         </button>
                         <div className="flex items-center gap-2 flex-shrink-0 ml-2">
                           <Link href={`/meetings/${m.id}`}
-                            className="text-xs text-gray-300 hover:text-blue-500 opacity-0 group-hover/meeting:opacity-100 transition-all">↗</Link>
+                            className="text-xs text-[rgba(var(--text-rgb),0.3)] hover:text-blue-500 opacity-0 group-hover/meeting:opacity-100 transition-all">↗</Link>
                           <button onClick={() => unlinkMeeting(m.id)}
-                            className="text-xs text-gray-200 hover:text-red-400 opacity-0 group-hover/meeting:opacity-100 transition-all">해제</button>
+                            className="text-xs text-[rgba(var(--text-rgb),0.2)] hover:text-red-400 opacity-0 group-hover/meeting:opacity-100 transition-all">해제</button>
                         </div>
                       </div>
                       {isExp && (() => {
                         const allNotes = m.notes ?? []
                         if (allNotes.length === 0) return (
-                          <p className="text-xs text-gray-300 text-center py-2.5">회의 내용 없음</p>
+                          <p className="text-xs text-[rgba(var(--text-rgb),0.3)] text-center py-2.5">회의 내용 없음</p>
                         )
                         const PREVIEW = 3
                         const showAll = showAllNotesMeetingIds.has(m.id)
@@ -1109,16 +1111,16 @@ export default function TaskDetailPage() {
                           return (
                             <div key={globalIdx} className="border-t border-gray-50 first:border-t-0">
                               <button onClick={() => toggleMeetingNote(m.id, globalIdx)}
-                                className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-gray-50/80 transition-colors">
-                                <span className="text-xs text-gray-300 flex-shrink-0">{isNoteOpen ? '▼' : '▶'}</span>
-                                <span className="text-xs font-medium text-gray-600 truncate flex-1">{note.title || '노트'}</span>
+                                className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-[rgba(var(--ink-rgb),0.04)] transition-colors">
+                                <span className="text-xs text-[rgba(var(--text-rgb),0.3)] flex-shrink-0">{isNoteOpen ? '▼' : '▶'}</span>
+                                <span className="text-xs font-medium text-[rgba(var(--text-rgb),0.7)] truncate flex-1">{note.title || '노트'}</span>
                                 {!isNoteOpen && note.content && (
-                                  <span className="text-xs text-gray-300 truncate max-w-24 flex-shrink-0">{note.content.slice(0, 20)}</span>
+                                  <span className="text-xs text-[rgba(var(--text-rgb),0.3)] truncate max-w-24 flex-shrink-0">{note.content.slice(0, 20)}</span>
                                 )}
                               </button>
                               {isNoteOpen && (
                                 <div className="px-3 pb-3 pl-7">
-                                  <MarkdownContent content={note.content} className="text-xs text-gray-600 leading-relaxed" />
+                                  <MarkdownContent content={note.content} dark className="text-xs text-[rgba(var(--text-rgb),0.7)] leading-relaxed" />
                                 </div>
                               )}
                             </div>
@@ -1129,7 +1131,7 @@ export default function TaskDetailPage() {
                           <div>
                             {olderNotes.length > 0 && (
                               <button onClick={() => toggleShowAllMeetingNotes(m.id)}
-                                className="w-full text-center text-xs text-gray-400 hover:text-gray-600 py-1.5 border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                                className="w-full text-center text-xs text-[rgba(var(--text-rgb),0.4)] hover:text-[rgba(var(--text-rgb),0.7)] py-1.5 border-b border-gray-50 hover:bg-[rgba(var(--ink-rgb),0.04)] transition-colors">
                                 {showAll ? '▲ 이전 기록 접기' : `▼ 이전 기록 ${olderNotes.length}개 더 보기`}
                               </button>
                             )}
