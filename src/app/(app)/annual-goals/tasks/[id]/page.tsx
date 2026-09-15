@@ -43,7 +43,7 @@ function NoteTitleInput({ note, placeholder, onSave }: { note: AnnualGoalTaskNot
       }}
       onBlur={() => { const t = val.trim(); if (t !== (note.title ?? '')) onSave(t) }}
       placeholder={placeholder}
-      className="text-xs font-medium bg-transparent border-b border-transparent hover:border-[rgba(255,255,255,0.2)] focus:border-[rgba(255,255,255,0.35)] focus:outline-none transition-colors cursor-text text-[rgba(226,232,240,0.8)] placeholder:text-[rgba(226,232,240,0.3)]"
+      className="text-xs font-medium bg-transparent border-b border-transparent hover:border-[rgba(var(--ink-rgb),0.2)] focus:border-[rgba(var(--ink-rgb),0.35)] focus:outline-none transition-colors cursor-text text-[rgba(var(--text-rgb),0.8)] placeholder:text-[rgba(var(--text-rgb),0.3)]"
       style={{ minWidth: '40px', maxWidth: '100%', fieldSizing: 'content' } as React.CSSProperties}
     />
   )
@@ -275,8 +275,8 @@ export default function AnnualGoalTaskDetailPage() {
                 className="text-2xl font-bold text-gray-900 w-full border-b-2 border-blue-400 focus:outline-none bg-transparent pb-0.5" />
             ) : (
               <h1 onClick={() => { setEditingTitle(true); setEditTitle(task.title) }}
-                className="text-2xl font-bold cursor-text hover:text-[rgba(226,232,240,0.7)] transition-colors leading-tight"
-                style={{ color: task.status === 'done' ? '#9CA3AF' : '#E2E8F0', textDecoration: task.status === 'done' ? 'line-through' : 'none' }}>
+                className="text-2xl font-bold cursor-text hover:text-[rgba(var(--text-rgb),0.7)] transition-colors leading-tight"
+                style={{ color: task.status === 'done' ? '#9CA3AF' : 'rgba(var(--text-rgb),1)', textDecoration: task.status === 'done' ? 'line-through' : 'none' }}>
                 {task.title}
               </h1>
             )}
@@ -285,7 +285,7 @@ export default function AnnualGoalTaskDetailPage() {
                 {STATUS_LABEL[task.status as Status]}
               </button>
               {task.track && <span className="text-xs px-2.5 py-1 rounded-full font-semibold" style={{ color: TRACK_COLOR[task.track], background: `${TRACK_COLOR[task.track]}1E` }}>트랙 {task.track}</span>}
-              {task.maturity_level != null && <span className="text-xs text-[rgba(226,232,240,0.5)] bg-white/[0.06] border border-white/[0.09] px-2.5 py-1 rounded-full">성숙도 {task.maturity_level}</span>}
+              {task.maturity_level != null && <span className="text-xs text-[rgba(var(--text-rgb),0.5)] bg-white/[0.06] border border-white/[0.09] px-2.5 py-1 rounded-full">성숙도 {task.maturity_level}</span>}
             </div>
           </div>
         </div>
@@ -293,32 +293,32 @@ export default function AnnualGoalTaskDetailPage() {
         {/* ── 엑셀 원본 참고 카드 (읽기전용) ── */}
         {(task.maturity_rationale || task.hr_importance || task.hr_urgency || task.suggested_period || task.hrm_function || task.notes) && (
           <div className="surface-card rounded-2xl overflow-hidden">
-            <div className="px-5 py-3 border-b border-[rgba(255,255,255,0.06)]">
-              <span className="text-xs font-semibold text-[rgba(226,232,240,0.4)] uppercase tracking-wider">HR 전략 프레임 원본 참고</span>
+            <div className="px-5 py-3 border-b border-[rgba(var(--ink-rgb),0.06)]">
+              <span className="text-xs font-semibold text-[rgba(var(--text-rgb),0.4)] uppercase tracking-wider">HR 전략 프레임 원본 참고</span>
             </div>
             <div className="px-5 py-4 grid grid-cols-2 gap-x-6 gap-y-2.5 text-xs">
-              {task.hr_importance && <div><span className="text-[rgba(226,232,240,0.35)]">HR 중요도</span> <span className="text-[rgba(226,232,240,0.8)] font-medium ml-1">{task.hr_importance}</span></div>}
-              {task.hr_urgency && <div><span className="text-[rgba(226,232,240,0.35)]">HR 시급도</span> <span className="text-[rgba(226,232,240,0.8)] font-medium ml-1">{task.hr_urgency}</span></div>}
-              {task.suggested_period && <div><span className="text-[rgba(226,232,240,0.35)]">실행 제안 구간</span> <span className="text-[rgba(226,232,240,0.8)] font-medium ml-1">{task.suggested_period}</span></div>}
-              {task.hrm_function && <div><span className="text-[rgba(226,232,240,0.35)]">HRM 기능</span> <span className="text-[rgba(226,232,240,0.8)] font-medium ml-1">{task.hrm_function}</span></div>}
-              {task.maturity_rationale && <div className="col-span-2"><span className="text-[rgba(226,232,240,0.35)]">성숙도 판단 근거</span> <span className="text-[rgba(226,232,240,0.7)] ml-1">{task.maturity_rationale}</span></div>}
-              {task.notes && <div className="col-span-2"><span className="text-[rgba(226,232,240,0.35)]">비고</span> <span className="text-[rgba(226,232,240,0.7)] ml-1">{task.notes}</span></div>}
+              {task.hr_importance && <div><span className="text-[rgba(var(--text-rgb),0.35)]">HR 중요도</span> <span className="text-[rgba(var(--text-rgb),0.8)] font-medium ml-1">{task.hr_importance}</span></div>}
+              {task.hr_urgency && <div><span className="text-[rgba(var(--text-rgb),0.35)]">HR 시급도</span> <span className="text-[rgba(var(--text-rgb),0.8)] font-medium ml-1">{task.hr_urgency}</span></div>}
+              {task.suggested_period && <div><span className="text-[rgba(var(--text-rgb),0.35)]">실행 제안 구간</span> <span className="text-[rgba(var(--text-rgb),0.8)] font-medium ml-1">{task.suggested_period}</span></div>}
+              {task.hrm_function && <div><span className="text-[rgba(var(--text-rgb),0.35)]">HRM 기능</span> <span className="text-[rgba(var(--text-rgb),0.8)] font-medium ml-1">{task.hrm_function}</span></div>}
+              {task.maturity_rationale && <div className="col-span-2"><span className="text-[rgba(var(--text-rgb),0.35)]">성숙도 판단 근거</span> <span className="text-[rgba(var(--text-rgb),0.7)] ml-1">{task.maturity_rationale}</span></div>}
+              {task.notes && <div className="col-span-2"><span className="text-[rgba(var(--text-rgb),0.35)]">비고</span> <span className="text-[rgba(var(--text-rgb),0.7)] ml-1">{task.notes}</span></div>}
             </div>
           </div>
         )}
 
         {/* ── 우선순위 편집 ── */}
         <div className="surface-card rounded-2xl overflow-hidden">
-          <div className="px-5 py-3 border-b border-[rgba(255,255,255,0.06)]">
-            <span className="text-xs font-semibold text-[rgba(226,232,240,0.4)] uppercase tracking-wider">우선순위</span>
+          <div className="px-5 py-3 border-b border-[rgba(var(--ink-rgb),0.06)]">
+            <span className="text-xs font-semibold text-[rgba(var(--text-rgb),0.4)] uppercase tracking-wider">우선순위</span>
           </div>
           <div className="px-5 py-4 flex items-center gap-6 flex-wrap">
             <div className="flex items-center gap-2">
-              <span className="text-xs text-[rgba(226,232,240,0.5)]">경영진 중요도</span>
+              <span className="text-xs text-[rgba(var(--text-rgb),0.5)]">경영진 중요도</span>
               <GlassSelect value={task.exec_importance ?? ''} onChange={v => updateExecImportance((v || null) as ImportanceLevel | null)} options={IMPORTANCE_OPTIONS} placeholder="미정" variant="pill" activeWhenFilled />
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-xs text-[rgba(226,232,240,0.5)]">합의 우선순위</span>
+              <span className="text-xs text-[rgba(var(--text-rgb),0.5)]">합의 우선순위</span>
               <GlassSelect value={task.agreed_priority ?? ''} onChange={v => updateAgreedPriority((v || null) as AgreedPriority | null)} options={PRIORITY_OPTIONS} placeholder="미정" variant="pill" activeWhenFilled />
             </div>
           </div>
@@ -326,23 +326,23 @@ export default function AnnualGoalTaskDetailPage() {
 
         {/* ── 담당자 / 일정 ── */}
         <div className="surface-card rounded-2xl overflow-hidden">
-          <div className="px-5 py-3 border-b border-[rgba(255,255,255,0.06)]">
-            <span className="text-xs font-semibold text-[rgba(226,232,240,0.4)] uppercase tracking-wider">담당자 · 일정</span>
+          <div className="px-5 py-3 border-b border-[rgba(var(--ink-rgb),0.06)]">
+            <span className="text-xs font-semibold text-[rgba(var(--text-rgb),0.4)] uppercase tracking-wider">담당자 · 일정</span>
           </div>
           <div className="px-5 py-4 flex items-center gap-6 flex-wrap">
             <div className="flex items-center gap-2">
-              <span className="text-xs text-[rgba(226,232,240,0.5)]">담당자</span>
+              <span className="text-xs text-[rgba(var(--text-rgb),0.5)]">담당자</span>
               <GlassSelect value={task.assignee_id ?? ''} onChange={v => updateAssignee(v || null)} options={members.map(m => ({ value: m.id, label: m.name }))} placeholder="-" variant="pill" activeWhenFilled />
             </div>
             {task.assignee_id && (
               <>
-                <DateCellPicker label="중간보고" value={task.mid_date ?? null} color="#93C5FD" onChange={updateMidDate} />
+                <DateCellPicker label="중간보고" value={task.mid_date ?? null} color="var(--accent-badge-text)" onChange={updateMidDate} />
                 <DateCellPicker label="완료일자" value={task.due_date ?? null} color="#86EFAC" onChange={updateDueDate} />
               </>
             )}
           </div>
-          <div className="px-5 pb-4 flex items-center gap-6 flex-wrap" style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 12 }}>
-            <span className="text-xs text-[rgba(226,232,240,0.5)]">로드맵 기간</span>
+          <div className="px-5 pb-4 flex items-center gap-6 flex-wrap" style={{ borderTop: '1px solid rgba(var(--ink-rgb),0.05)', paddingTop: 12 }}>
+            <span className="text-xs text-[rgba(var(--text-rgb),0.5)]">로드맵 기간</span>
             <DateCellPicker label="시작" value={task.roadmap_start_date ?? null} color={itemColor} onChange={updateRoadmapStart} />
             <DateCellPicker label="종료" value={task.roadmap_end_date ?? null} color={itemColor} onChange={updateRoadmapEnd} />
           </div>
@@ -350,23 +350,23 @@ export default function AnnualGoalTaskDetailPage() {
 
         {/* ── 설명 ── */}
         <div className="surface-card rounded-2xl overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-3 border-b border-[rgba(255,255,255,0.06)]">
-            <span className="text-xs font-semibold text-[rgba(226,232,240,0.4)] uppercase tracking-wider">설명 · 메모</span>
-            <button onClick={() => setExpanded('description')} className="text-[10px] text-[rgba(226,232,240,0.3)] hover:text-[rgba(226,232,240,0.65)] px-2 py-0.5 rounded hover:bg-[rgba(255,255,255,0.06)] transition-colors">크게 편집</button>
+          <div className="flex items-center justify-between px-5 py-3 border-b border-[rgba(var(--ink-rgb),0.06)]">
+            <span className="text-xs font-semibold text-[rgba(var(--text-rgb),0.4)] uppercase tracking-wider">설명 · 메모</span>
+            <button onClick={() => setExpanded('description')} className="text-[10px] text-[rgba(var(--text-rgb),0.3)] hover:text-[rgba(var(--text-rgb),0.65)] px-2 py-0.5 rounded hover:bg-[rgba(var(--ink-rgb),0.06)] transition-colors">크게 편집</button>
           </div>
           <TiptapEditor dark value={description} onChange={handleDescription} minHeight={120} className="px-5 py-4" />
         </div>
 
         {/* ── 날짜별 노트 ── */}
         <div className="surface-card rounded-2xl overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-3 border-b border-[rgba(255,255,255,0.06)]">
-            <span className="text-xs font-semibold text-[rgba(226,232,240,0.4)] uppercase tracking-wider">진행 기록</span>
-            <button onClick={() => setExpanded('notes')} className="text-[10px] text-[rgba(226,232,240,0.3)] hover:text-[rgba(226,232,240,0.65)] px-2 py-0.5 rounded hover:bg-[rgba(255,255,255,0.06)] transition-colors">크게 편집</button>
+          <div className="flex items-center justify-between px-5 py-3 border-b border-[rgba(var(--ink-rgb),0.06)]">
+            <span className="text-xs font-semibold text-[rgba(var(--text-rgb),0.4)] uppercase tracking-wider">진행 기록</span>
+            <button onClick={() => setExpanded('notes')} className="text-[10px] text-[rgba(var(--text-rgb),0.3)] hover:text-[rgba(var(--text-rgb),0.65)] px-2 py-0.5 rounded hover:bg-[rgba(var(--ink-rgb),0.06)] transition-colors">크게 편집</button>
           </div>
           <div style={{ display: 'flex', minHeight: 160 }}>
-            <div style={{ width: 80, borderRight: '1px solid rgba(255,255,255,0.07)', flexShrink: 0, background: 'rgba(255,255,255,0.03)', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ width: 80, borderRight: '1px solid rgba(var(--ink-rgb),0.07)', flexShrink: 0, background: 'rgba(var(--ink-rgb),0.03)', display: 'flex', flexDirection: 'column' }}>
               <button onClick={addNoteEntry} disabled={addingNote}
-                style={{ padding: '7px 8px', fontSize: 10, color: '#5DBD97', background: 'none', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.07)', cursor: 'pointer', textAlign: 'center', fontWeight: 600, flexShrink: 0, opacity: addingNote ? 0.4 : 1 }}>
+                style={{ padding: '7px 8px', fontSize: 10, color: '#5DBD97', background: 'none', border: 'none', borderBottom: '1px solid rgba(var(--ink-rgb),0.07)', cursor: 'pointer', textAlign: 'center', fontWeight: 600, flexShrink: 0, opacity: addingNote ? 0.4 : 1 }}>
                 {addingNote ? '…' : '+ 추가'}
               </button>
               <div style={{ flex: 1, overflowY: 'auto' }}>
@@ -374,12 +374,12 @@ export default function AnnualGoalTaskDetailPage() {
                   const isSelected = note.id === selectedNoteId
                   return (
                     <button key={note.id} onClick={() => setSelectedNoteId(note.id)}
-                      style={{ width: '100%', padding: '7px 8px', fontSize: 11, textAlign: 'center', background: isSelected ? `${itemColor}22` : 'transparent', color: isSelected ? itemColor : 'rgba(226,232,240,0.45)', fontWeight: isSelected ? 700 : 400, cursor: 'pointer', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'block', lineHeight: 1.3 }}>
+                      style={{ width: '100%', padding: '7px 8px', fontSize: 11, textAlign: 'center', background: isSelected ? `${itemColor}22` : 'transparent', color: isSelected ? itemColor : 'rgba(var(--text-rgb),0.45)', fontWeight: isSelected ? 700 : 400, cursor: 'pointer', border: 'none', borderBottom: '1px solid rgba(var(--ink-rgb),0.05)', display: 'block', lineHeight: 1.3 }}>
                       {formatNoteDate(note.created_at)}
                     </button>
                   )
                 })}
-                {notes.length === 0 && <div style={{ padding: '16px 8px', fontSize: 10, color: '#CBD5E1', textAlign: 'center' }}>기록 없음</div>}
+                {notes.length === 0 && <div style={{ padding: '16px 8px', fontSize: 10, color: 'var(--text-muted)', textAlign: 'center' }}>기록 없음</div>}
               </div>
             </div>
             <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
@@ -391,7 +391,7 @@ export default function AnnualGoalTaskDetailPage() {
                   <TiptapEditor dark key={selectedNote.id} value={selectedNote.content} onChange={v => handleNoteChange(selectedNote.id, v)} minHeight={100} className="px-4 py-1" />
                 </>
               ) : (
-                <div style={{ padding: 24, color: '#8FA0B5', fontSize: 12, textAlign: 'center' }}>+ 추가를 눌러 첫 기록을 남기세요</div>
+                <div style={{ padding: 24, color: 'var(--text-muted)', fontSize: 12, textAlign: 'center' }}>+ 추가를 눌러 첫 기록을 남기세요</div>
               )}
             </div>
           </div>
@@ -399,9 +399,9 @@ export default function AnnualGoalTaskDetailPage() {
 
         {/* ── 첨부파일 ── */}
         <div className="surface-card rounded-2xl overflow-hidden">
-          <div className="px-5 py-3 border-b border-[rgba(255,255,255,0.06)] flex items-center gap-2">
-            <span className="text-xs font-semibold text-[rgba(226,232,240,0.4)] uppercase tracking-wider">첨부파일</span>
-            <label className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md cursor-pointer transition-colors ${uploading ? 'bg-[rgba(255,255,255,0.04)] text-[rgba(226,232,240,0.25)]' : 'bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] text-[rgba(226,232,240,0.5)] hover:border-[rgba(255,255,255,0.2)] hover:text-[rgba(226,232,240,0.8)]'}`}>
+          <div className="px-5 py-3 border-b border-[rgba(var(--ink-rgb),0.06)] flex items-center gap-2">
+            <span className="text-xs font-semibold text-[rgba(var(--text-rgb),0.4)] uppercase tracking-wider">첨부파일</span>
+            <label className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md cursor-pointer transition-colors ${uploading ? 'bg-[rgba(var(--ink-rgb),0.04)] text-[rgba(var(--text-rgb),0.25)]' : 'bg-[rgba(var(--ink-rgb),0.06)] border border-[rgba(var(--ink-rgb),0.1)] text-[rgba(var(--text-rgb),0.5)] hover:border-[rgba(var(--ink-rgb),0.2)] hover:text-[rgba(var(--text-rgb),0.8)]'}`}>
               📎 {uploading ? '업로드 중…' : '파일 추가'}
               <input type="file" multiple className="hidden" onChange={handleUpload} disabled={uploading} />
             </label>
@@ -409,13 +409,13 @@ export default function AnnualGoalTaskDetailPage() {
           </div>
           <div className="px-5 py-4">
             {attachments.length === 0 ? (
-              <p className="text-[10px] text-[rgba(226,232,240,0.3)]">이 과제에 해당하는 파일을 첨부하세요</p>
+              <p className="text-[10px] text-[rgba(var(--text-rgb),0.3)]">이 과제에 해당하는 파일을 첨부하세요</p>
             ) : (
               <div className="flex flex-wrap gap-1.5">
                 {attachments.map(att => (
-                  <div key={att.id} className="flex items-center gap-1 text-[11px] bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] rounded-lg px-2.5 py-1 group/att">
-                    <a href={att.url} target="_blank" rel="noopener noreferrer" className="text-[rgba(226,232,240,0.65)] hover:text-[rgba(226,232,240,0.9)] hover:underline transition-colors truncate max-w-[180px]">📄 {att.name}</a>
-                    <button onClick={() => deleteAttachment(att)} className="text-[rgba(226,232,240,0.2)] hover:text-red-400 transition-colors opacity-0 group-hover/att:opacity-100 ml-0.5">×</button>
+                  <div key={att.id} className="flex items-center gap-1 text-[11px] bg-[rgba(var(--ink-rgb),0.06)] border border-[rgba(var(--ink-rgb),0.1)] rounded-lg px-2.5 py-1 group/att">
+                    <a href={att.url} target="_blank" rel="noopener noreferrer" className="text-[rgba(var(--text-rgb),0.65)] hover:text-[rgba(var(--text-rgb),0.9)] hover:underline transition-colors truncate max-w-[180px]">📄 {att.name}</a>
+                    <button onClick={() => deleteAttachment(att)} className="text-[rgba(var(--text-rgb),0.2)] hover:text-red-400 transition-colors opacity-0 group-hover/att:opacity-100 ml-0.5">×</button>
                   </div>
                 ))}
               </div>
@@ -428,13 +428,13 @@ export default function AnnualGoalTaskDetailPage() {
       {expanded && (() => {
         if (expanded === 'description') {
           return (
-            <div className="fixed inset-0 z-[200] flex flex-col" style={{ background: '#0F1319' }}>
-              <div className="flex items-center justify-between px-5 py-3 flex-shrink-0" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', borderLeft: `4px solid ${itemColor}` }}>
+            <div className="fixed inset-0 z-[200] flex flex-col" style={{ background: 'var(--bg-page)' }}>
+              <div className="flex items-center justify-between px-5 py-3 flex-shrink-0" style={{ borderBottom: '1px solid rgba(var(--ink-rgb),0.08)', borderLeft: `4px solid ${itemColor}` }}>
                 <div>
-                  <div className="text-[10px] text-[rgba(226,232,240,0.4)] font-semibold uppercase tracking-wider mb-0.5">설명 · 메모</div>
-                  <div className="text-sm font-semibold text-[rgba(226,232,240,0.9)]">{task.title}</div>
+                  <div className="text-[10px] text-[rgba(var(--text-rgb),0.4)] font-semibold uppercase tracking-wider mb-0.5">설명 · 메모</div>
+                  <div className="text-sm font-semibold text-[rgba(var(--text-rgb),0.9)]">{task.title}</div>
                 </div>
-                <button onClick={() => setExpanded(null)} className="flex items-center gap-1.5 text-xs text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)] px-3 py-1.5 rounded-lg hover:bg-[rgba(255,255,255,0.06)] transition-colors border border-[rgba(255,255,255,0.08)]">
+                <button onClick={() => setExpanded(null)} className="flex items-center gap-1.5 text-xs text-[rgba(var(--text-rgb),0.4)] hover:text-[rgba(var(--text-rgb),0.7)] px-3 py-1.5 rounded-lg hover:bg-[rgba(var(--ink-rgb),0.06)] transition-colors border border-[rgba(var(--ink-rgb),0.08)]">
                   <span>ESC</span><span> 닫기</span>
                 </button>
               </div>
@@ -445,29 +445,29 @@ export default function AnnualGoalTaskDetailPage() {
           )
         }
         return (
-          <div className="fixed inset-0 z-[200] flex flex-col" style={{ background: '#0F1319' }}>
-            <div className="flex items-center justify-between px-5 py-3 flex-shrink-0" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', borderLeft: `4px solid ${itemColor}` }}>
+          <div className="fixed inset-0 z-[200] flex flex-col" style={{ background: 'var(--bg-page)' }}>
+            <div className="flex items-center justify-between px-5 py-3 flex-shrink-0" style={{ borderBottom: '1px solid rgba(var(--ink-rgb),0.08)', borderLeft: `4px solid ${itemColor}` }}>
               <div>
-                <div className="text-[10px] text-[rgba(226,232,240,0.4)] font-semibold uppercase tracking-wider mb-0.5">진행 기록</div>
-                <div className="text-sm font-semibold text-[rgba(226,232,240,0.9)]">{task.title}</div>
+                <div className="text-[10px] text-[rgba(var(--text-rgb),0.4)] font-semibold uppercase tracking-wider mb-0.5">진행 기록</div>
+                <div className="text-sm font-semibold text-[rgba(var(--text-rgb),0.9)]">{task.title}</div>
               </div>
               <div className="flex items-center gap-2">
                 <button onClick={addNoteEntry} disabled={addingNote}
-                  className="text-xs text-[#5DBD97] hover:text-[#4aab84] disabled:text-[rgba(226,232,240,0.25)] disabled:cursor-not-allowed border border-[#5DBD97]/30 disabled:border-[rgba(255,255,255,0.08)] rounded-lg px-3 py-1.5 transition-colors">
+                  className="text-xs text-[#5DBD97] hover:text-[#4aab84] disabled:text-[rgba(var(--text-rgb),0.25)] disabled:cursor-not-allowed border border-[#5DBD97]/30 disabled:border-[rgba(var(--ink-rgb),0.08)] rounded-lg px-3 py-1.5 transition-colors">
                   {addingNote ? '추가 중…' : '+ 새 기록'}
                 </button>
-                <button onClick={() => setExpanded(null)} className="flex items-center gap-1.5 text-xs text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)] px-3 py-1.5 rounded-lg hover:bg-[rgba(255,255,255,0.06)] transition-colors border border-[rgba(255,255,255,0.08)]">
+                <button onClick={() => setExpanded(null)} className="flex items-center gap-1.5 text-xs text-[rgba(var(--text-rgb),0.4)] hover:text-[rgba(var(--text-rgb),0.7)] px-3 py-1.5 rounded-lg hover:bg-[rgba(var(--ink-rgb),0.06)] transition-colors border border-[rgba(var(--ink-rgb),0.08)]">
                   <span>ESC</span><span> 닫기</span>
                 </button>
               </div>
             </div>
             <div className="flex-1 min-h-0 flex">
-              <div style={{ width: 100, borderRight: '1px solid rgba(255,255,255,0.07)', flexShrink: 0, background: 'rgba(255,255,255,0.03)', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+              <div style={{ width: 100, borderRight: '1px solid rgba(var(--ink-rgb),0.07)', flexShrink: 0, background: 'rgba(var(--ink-rgb),0.03)', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
                 {notes.map(note => {
                   const isSelected = note.id === selectedNoteId
                   return (
                     <button key={note.id} onClick={() => setSelectedNoteId(note.id)}
-                      style={{ padding: '10px 12px', fontSize: 12, textAlign: 'center', background: isSelected ? `${itemColor}22` : 'transparent', color: isSelected ? itemColor : 'rgba(226,232,240,0.4)', fontWeight: isSelected ? 700 : 400, cursor: 'pointer', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'block', width: '100%', lineHeight: 1.3 }}>
+                      style={{ padding: '10px 12px', fontSize: 12, textAlign: 'center', background: isSelected ? `${itemColor}22` : 'transparent', color: isSelected ? itemColor : 'rgba(var(--text-rgb),0.4)', fontWeight: isSelected ? 700 : 400, cursor: 'pointer', border: 'none', borderBottom: '1px solid rgba(var(--ink-rgb),0.05)', display: 'block', width: '100%', lineHeight: 1.3 }}>
                       {formatNoteDate(note.created_at)}
                     </button>
                   )
@@ -482,7 +482,7 @@ export default function AnnualGoalTaskDetailPage() {
                     <TiptapEditor dark key={selectedNote.id} value={selectedNote.content} onChange={v => handleNoteChange(selectedNote.id, v)} autoFocus minHeight={300} className="px-8 py-4" />
                   </>
                 ) : (
-                  <div className="flex items-center justify-center h-full text-sm text-[rgba(226,232,240,0.3)]">+ 새 기록을 추가하세요</div>
+                  <div className="flex items-center justify-center h-full text-sm text-[rgba(var(--text-rgb),0.3)]">+ 새 기록을 추가하세요</div>
                 )}
               </div>
             </div>

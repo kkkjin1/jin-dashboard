@@ -84,27 +84,27 @@ function parseJournal(html: string): { title: string; preview: string } {
 
 // ─── Style tokens ──────────────────────────────────────────────────────────
 const S = {
-  bg: '#0F1319',
+  bg: 'var(--bg-page)',
   headerGrad: 'linear-gradient(180deg, rgba(76,127,224,0.07) 0%, rgba(15,19,25,0) 100%)',
-  card: 'rgba(255,255,255,0.04)',
-  cardRetro: 'rgba(255,255,255,0.03)',
-  t1: 'rgba(226,232,240,0.92)',
-  t2: 'rgba(226,232,240,0.72)',
-  t3: 'rgba(226,232,240,0.45)',
-  t4: 'rgba(226,232,240,0.28)',
-  accent: '#4C7FE0',
+  card: 'rgba(var(--ink-rgb),0.04)',
+  cardRetro: 'rgba(var(--ink-rgb),0.03)',
+  t1: 'rgba(var(--text-rgb),0.92)',
+  t2: 'rgba(var(--text-rgb),0.72)',
+  t3: 'rgba(var(--text-rgb),0.45)',
+  t4: 'rgba(var(--text-rgb),0.28)',
+  accent: 'var(--accent-primary)',
   accentDim: 'rgba(76,127,224,0.15)',
   accentBorder: 'rgba(76,127,224,0.28)',
   r: '14px',
-  rowBorder: 'rgba(255,255,255,0.04)',
+  rowBorder: 'rgba(var(--ink-rgb),0.04)',
 }
 
 // 회고 완성도(retroFilled 0~3)에 따른 pill 색상
 const RETRO_COLORS = [
-  'rgba(255,255,255,0.20)',   // 0: 활동 있으나 회고 미작성
+  'rgba(var(--ink-rgb),0.20)',   // 0: 활동 있으나 회고 미작성
   'rgba(125,196,160,0.88)',   // 1/3 — 초록
   'rgba(232,197,71,0.88)',    // 2/3 — 황
-  '#4C7FE0',                  // 3/3 — 파랑
+  'var(--accent-primary)',                  // 3/3 — 파랑
 ]
 
 // ─── WeekPills ─────────────────────────────────────────────────────────────
@@ -136,8 +136,8 @@ function WeekPills({ weekStart, journals, meetings, quickMemos, retroFilled }: P
             <span style={{ fontSize: 9.5, fontWeight: isToday ? 700 : 400, color: isToday ? S.t2 : S.t4 }}>{label}</span>
             <div style={{
               width: 14, height: PILL_H, borderRadius: 8, overflow: 'hidden',
-              background: 'rgba(255,255,255,0.07)',
-              border: isToday ? `1.5px solid rgba(255,255,255,0.28)` : `1px solid rgba(255,255,255,0.07)`,
+              background: 'rgba(var(--ink-rgb),0.07)',
+              border: isToday ? `1.5px solid rgba(var(--ink-rgb),0.28)` : `1px solid rgba(var(--ink-rgb),0.07)`,
               position: 'relative',
             }}>
               {/* 활동 채움: 있으면 100%, 없으면 0% */}
@@ -155,7 +155,7 @@ function WeekPills({ weekStart, journals, meetings, quickMemos, retroFilled }: P
                   position: 'absolute', bottom: 5, left: '50%',
                   transform: 'translateX(-50%)',
                   width: 4, height: 4, borderRadius: '50%',
-                  background: hasActivity ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.45)',
+                  background: hasActivity ? 'rgba(var(--ink-rgb),0.95)' : 'rgba(var(--ink-rgb),0.45)',
                   zIndex: 2,
                 }} />
               )}
@@ -201,7 +201,7 @@ function SummaryCard({ icon, iconBg, label, count, countUnit, loading, open, onT
         <span style={{ fontSize: 9, color: S.t4, display: 'inline-block', transform: open ? 'rotate(0deg)' : 'rotate(180deg)', transition: 'transform 0.2s' }}>▲</span>
       </div>
       {open && (
-        <div className="scrollbar-hide" style={{ flex: 1, minHeight: 0, overflowY: 'auto', borderTop: `1px solid rgba(255,255,255,0.055)` }}>
+        <div className="scrollbar-hide" style={{ flex: 1, minHeight: 0, overflowY: 'auto', borderTop: `1px solid rgba(var(--ink-rgb),0.055)` }}>
           {children}
         </div>
       )}
@@ -235,7 +235,7 @@ function JournalRow({ date, title, preview, onClick }: { date: string; title: st
   return (
     <div
       onClick={onClick}
-      onMouseEnter={e => { if (onClick) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)' }}
+      onMouseEnter={e => { if (onClick) (e.currentTarget as HTMLElement).style.background = 'rgba(var(--ink-rgb),0.03)' }}
       onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}
       style={{ display: 'flex', gap: 12, padding: '10px 16px', borderBottom: `1px solid ${S.rowBorder}`, cursor: onClick ? 'pointer' : 'default', transition: 'background 0.12s' }}
     >
@@ -252,7 +252,7 @@ function TodoRow({ date, title, done }: { date: string; title: string; done: boo
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderBottom: `1px solid ${S.rowBorder}` }}>
       <span style={{ width: 32, fontSize: 11, color: S.t4, flexShrink: 0 }}>{fmtDateShort(date)}</span>
       <span style={{ flex: 1, fontSize: 12.5, color: S.t2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</span>
-      <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, background: done ? 'rgba(186,222,200,0.25)' : 'rgba(255,255,255,0.08)', color: done ? '#7DC4A0' : S.t4, flexShrink: 0 }}>
+      <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, background: done ? 'rgba(186,222,200,0.25)' : 'rgba(var(--ink-rgb),0.08)', color: done ? '#7DC4A0' : S.t4, flexShrink: 0 }}>
         {done ? '완료' : '미완료'}
       </span>
     </div>
@@ -296,7 +296,7 @@ function RetroField({ label, dotColor, headerBg, placeholder, editorKey, value, 
   }
   return (
     <div onClick={handleClick} style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: S.cardRetro, borderRadius: S.r, overflow: 'hidden', cursor: 'text' }}>
-      <div style={{ background: headerBg, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '15px 16px 14px', borderBottom: `1px solid rgba(255,255,255,0.06)`, flexShrink: 0 }}>
+      <div style={{ background: headerBg, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '15px 16px 14px', borderBottom: `1px solid rgba(var(--ink-rgb),0.06)`, flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ width: 8, height: 8, borderRadius: '50%', background: dotColor, display: 'inline-block', flexShrink: 0 }} />
           <span style={{ fontSize: 13, fontWeight: 700, color: S.t1 }}>{label}</span>
@@ -494,7 +494,7 @@ export default function CompletedTestPage() {
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: S.bg, overflow: 'hidden' }}>
 
       {/* ── Header ──────────────────────────────────────────────────────── */}
-      <div style={{ flexShrink: 0, background: S.headerGrad, borderBottom: `1px solid rgba(255,255,255,0.07)`, padding: '16px 24px 0' }}>
+      <div style={{ flexShrink: 0, background: S.headerGrad, borderBottom: `1px solid rgba(var(--ink-rgb),0.07)`, padding: '16px 24px 0' }}>
 
         {/* 상단 2-column: 좌(타이틀+기간네비) / 우(탭만) */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, marginBottom: 16 }}>
@@ -506,7 +506,7 @@ export default function CompletedTestPage() {
               <span style={{ fontSize: 9.5, fontWeight: 700, padding: '2px 7px', borderRadius: 20, background: 'rgba(251,146,60,0.18)', color: 'rgba(251,146,60,0.82)', letterSpacing: '0.04em' }}>test</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <button onClick={prevPeriod} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid rgba(255,255,255,0.09)`, background: 'rgba(255,255,255,0.055)', color: S.t3, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>‹</button>
+              <button onClick={prevPeriod} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid rgba(var(--ink-rgb),0.09)`, background: 'rgba(var(--ink-rgb),0.055)', color: S.t3, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>‹</button>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span style={{ padding: '3px 10px', borderRadius: 20, background: S.accentDim, border: `1px solid ${S.accentBorder}`, fontSize: 11, fontWeight: 700, color: S.accent, letterSpacing: '0.04em', flexShrink: 0 }}>{wBadge}</span>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -514,12 +514,12 @@ export default function CompletedTestPage() {
                   {periodRange && <span style={{ fontSize: 11, color: S.t3, lineHeight: 1.25 }}>{periodRange}</span>}
                 </div>
               </div>
-              <button onClick={nextPeriod} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid rgba(255,255,255,0.09)`, background: 'rgba(255,255,255,0.055)', color: S.t3, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>›</button>
+              <button onClick={nextPeriod} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid rgba(var(--ink-rgb),0.09)`, background: 'rgba(var(--ink-rgb),0.055)', color: S.t3, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>›</button>
             </div>
           </div>
 
           {/* 우: 탭만 */}
-          <div style={{ display: 'flex', background: 'rgba(255,255,255,0.06)', borderRadius: 10, padding: 3, gap: 2 }}>
+          <div style={{ display: 'flex', background: 'rgba(var(--ink-rgb),0.06)', borderRadius: 10, padding: 3, gap: 2 }}>
             {(['weekly', 'monthly'] as Mode[]).map(m => (
               <button key={m} onClick={() => setMode(m)} style={{
                 padding: '4px 14px', borderRadius: 7, border: 'none', cursor: 'pointer',
@@ -585,7 +585,7 @@ export default function CompletedTestPage() {
                     <CompletedItemRow key={`t_${t.id}`} typeLabel="업무" title={t.title ?? ''} tag={t.part ?? '업무'} tagBg="rgba(144,167,216,0.22)" tagColor="#90A7D8" />
                   ))}
                   {completedExecTasks.map(e => (
-                    <CompletedItemRow key={`e_${e.id}`} typeLabel="실행TASK" title={e.title ?? ''} tag={e.agenda_title || '실행TASK'} tagBg="rgba(76,127,224,0.18)" tagColor="#8FB1F0" />
+                    <CompletedItemRow key={`e_${e.id}`} typeLabel="실행TASK" title={e.title ?? ''} tag={e.agenda_title || '실행TASK'} tagBg="rgba(76,127,224,0.18)" tagColor="var(--accent-tint-text)" />
                   ))}
                 </>
               }
@@ -647,7 +647,7 @@ export default function CompletedTestPage() {
         >
           <div
             onClick={e => e.stopPropagation()}
-            style={{ width: '100%', maxWidth: 640, maxHeight: '78vh', margin: '0 16px', display: 'flex', flexDirection: 'column', background: '#191D25', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, boxShadow: '0 32px 80px rgba(0,0,0,0.5)', overflow: 'hidden' }}
+            style={{ width: '100%', maxWidth: 640, maxHeight: '78vh', margin: '0 16px', display: 'flex', flexDirection: 'column', background: 'var(--surface-modal2)', border: '1px solid rgba(var(--ink-rgb),0.08)', borderRadius: 16, boxShadow: '0 32px 80px rgba(0,0,0,0.5)', overflow: 'hidden' }}
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: `1px solid ${S.rowBorder}`, flexShrink: 0 }}>
               <span style={{ fontSize: 14, fontWeight: 700, color: S.t1 }}>📓 {fmtDateFull(viewJournal.date)}</span>

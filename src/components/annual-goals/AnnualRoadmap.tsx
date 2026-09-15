@@ -36,8 +36,8 @@ function categorySectionColor(cat: string) { return CATEGORY_SECTION_COLOR[cat] 
 function catLabel(cat: string) { return cat.replace(/^\d+\.\s*/, '') }
 
 // 목표/과제 행 공통 중립 톤 (카테고리와 무관하게 통일)
-const NEUTRAL_TEXT = '#E5E7EB'
-const NEUTRAL_ACCENT = '#4C7FE0'
+const NEUTRAL_TEXT = 'rgba(var(--text-rgb),1)'
+const NEUTRAL_ACCENT = 'var(--accent-primary)'
 
 // 목표 행 우측 컬럼(분류/기한/진행률) 폭 — 카드의 컬럼 라벨 서브행과 실제 목표 행이 이 값을 공유해 항상 같이 정렬됨
 const ITEM_ROW_COLS = { category: 88, deadline: 78, progress: 40 } as const
@@ -119,7 +119,7 @@ function priorityComparator(a: AnnualGoalTask, b: AnnualGoalTask): number {
   )
 }
 
-const S = { bd: '1px solid rgba(255,255,255,0.08)', bdL: '1px solid rgba(255,255,255,0.14)', bg: '#13151C', t1: '#E2E8F0', t2: 'rgba(226,232,240,0.7)', t3: 'rgba(226,232,240,0.4)' }
+const S = { bd: '1px solid rgba(var(--ink-rgb),0.08)', bdL: '1px solid rgba(var(--ink-rgb),0.14)', bg: 'var(--surface-panel)', t1: 'rgba(var(--text-rgb),1)', t2: 'rgba(var(--text-rgb),0.7)', t3: 'rgba(var(--text-rgb),0.4)' }
 const W_ITEM = 130  // 로드맵: 목표 열 너비
 const W_TASK = 280  // 로드맵: 과제 열 너비 (제목 잘림 완화를 위해 확장)
 const W_LEFT = W_ITEM + W_TASK
@@ -155,7 +155,7 @@ function ProgressRing({ pct, color, size = 22 }: { pct: number; color: string; s
   return (
     <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }} title={`${pct}%`}>
       <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth={stroke} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(var(--ink-rgb),0.12)" strokeWidth={stroke} />
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round"
           strokeDasharray={c} strokeDashoffset={c * (1 - pct / 100)} style={{ transition: 'stroke-dashoffset .2s' }} />
       </svg>
@@ -455,13 +455,13 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
 
   // ── 세그먼트 컨트롤 공용 스타일 (트랙 + 활성 pill, 테두리 없음) ──────
   function segmentTrack(children: React.ReactNode) {
-    return <div className="flex items-center gap-0.5 rounded-lg p-0.5" style={{ background: 'rgba(255,255,255,0.04)' }}>{children}</div>
+    return <div className="flex items-center gap-0.5 rounded-lg p-0.5" style={{ background: 'rgba(var(--ink-rgb),0.04)' }}>{children}</div>
   }
   function segmentBtn(active: boolean, onClick: () => void, label: React.ReactNode) {
     return (
       <button onClick={onClick}
-        className={`text-xs px-3 py-1 rounded-md transition-all font-medium ${active ? 'text-[#E2E8F0]' : 'text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)]'}`}
-        style={{ background: active ? 'rgba(255,255,255,0.1)' : 'transparent' }}>
+        className={`text-xs px-3 py-1 rounded-md transition-all font-medium ${active ? 'text-[rgba(var(--text-rgb),1)]' : 'text-[rgba(var(--text-rgb),0.4)] hover:text-[rgba(var(--text-rgb),0.7)]'}`}
+        style={{ background: active ? 'rgba(var(--ink-rgb),0.1)' : 'transparent' }}>
         {label}
       </button>
     )
@@ -480,21 +480,21 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
         </>)}
         {viewMode === 'roadmap' && zoom.level === 'year' && (
           <div className="flex items-center gap-1.5">
-            <button onClick={() => setYearNav(p => p - 1)} className="text-[rgba(226,232,240,0.4)] hover:text-[#E2E8F0] text-base px-1 leading-none">‹</button>
-            <span className="text-sm font-semibold text-[rgba(226,232,240,0.7)] w-16 text-center">{yearNav}년</span>
-            <button onClick={() => setYearNav(p => p + 1)} className="text-[rgba(226,232,240,0.4)] hover:text-[#E2E8F0] text-base px-1 leading-none">›</button>
+            <button onClick={() => setYearNav(p => p - 1)} className="text-[rgba(var(--text-rgb),0.4)] hover:text-[rgba(var(--text-rgb),1)] text-base px-1 leading-none">‹</button>
+            <span className="text-sm font-semibold text-[rgba(var(--text-rgb),0.7)] w-16 text-center">{yearNav}년</span>
+            <button onClick={() => setYearNav(p => p + 1)} className="text-[rgba(var(--text-rgb),0.4)] hover:text-[rgba(var(--text-rgb),1)] text-base px-1 leading-none">›</button>
           </div>
         )}
         {viewMode === 'roadmap' && zoom.level === 'week' && (
           <div className="flex items-center gap-1">
             <button onClick={() => setZoom({ level: 'year' })}
-              className="text-xs px-3 py-1 rounded-full font-medium text-[#93C5FD]" style={{ background: 'rgba(255,255,255,0.06)' }}>
+              className="text-xs px-3 py-1 rounded-full font-medium text-[var(--accent-badge-text)]" style={{ background: 'rgba(var(--ink-rgb),0.06)' }}>
               ◀ 연간으로 · {zoom.headerLabel}
             </button>
             {zoom.month != null && (
               <>
-                <button onClick={() => shiftZoomMonth(-1)} title="직전월" className="text-[rgba(226,232,240,0.4)] hover:text-[#E2E8F0] text-base px-1.5 leading-none">‹</button>
-                <button onClick={() => shiftZoomMonth(1)} title="다음월" className="text-[rgba(226,232,240,0.4)] hover:text-[#E2E8F0] text-base px-1.5 leading-none">›</button>
+                <button onClick={() => shiftZoomMonth(-1)} title="직전월" className="text-[rgba(var(--text-rgb),0.4)] hover:text-[rgba(var(--text-rgb),1)] text-base px-1.5 leading-none">‹</button>
+                <button onClick={() => shiftZoomMonth(1)} title="다음월" className="text-[rgba(var(--text-rgb),0.4)] hover:text-[rgba(var(--text-rgb),1)] text-base px-1.5 leading-none">›</button>
               </>
             )}
           </div>
@@ -505,8 +505,8 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
       <div className="flex items-center gap-2 flex-wrap">
         {viewMode !== 'priority' && (
           <button onClick={() => setPrioritySort(p => !p)}
-            className={`flex items-center gap-1 text-xs px-3 py-1.5 rounded-full font-medium transition-all ${prioritySort ? 'text-[#E2E8F0]' : 'text-[rgba(226,232,240,0.5)] hover:text-[rgba(226,232,240,0.8)]'}`}
-            style={{ background: prioritySort ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.04)' }}>
+            className={`flex items-center gap-1 text-xs px-3 py-1.5 rounded-full font-medium transition-all ${prioritySort ? 'text-[rgba(var(--text-rgb),1)]' : 'text-[rgba(var(--text-rgb),0.5)] hover:text-[rgba(var(--text-rgb),0.8)]'}`}
+            style={{ background: prioritySort ? 'rgba(var(--ink-rgb),0.1)' : 'rgba(var(--ink-rgb),0.04)' }}>
             <ArrowUpDown size={12} />
             우선순위순 정렬
           </button>
@@ -527,8 +527,8 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
           const allOpen = sectionKeys.every(k => openItems.has(k))
           return (
             <button onClick={() => setOpenItems(allOpen ? new Set() : new Set(sectionKeys))}
-              className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-full font-medium transition-all text-[rgba(226,232,240,0.5)] hover:text-[rgba(226,232,240,0.8)]"
-              style={{ background: 'rgba(255,255,255,0.04)' }}>
+              className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-full font-medium transition-all text-[rgba(var(--text-rgb),0.5)] hover:text-[rgba(var(--text-rgb),0.8)]"
+              style={{ background: 'rgba(var(--ink-rgb),0.04)' }}>
               <ChevronsUpDown size={12} />
               {allOpen ? '과제 모두 접기' : '과제 모두 펼치기'}
             </button>
@@ -541,7 +541,7 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
       ) : prioritySort && (
         <span className="w-full" style={{ fontSize: 10, color: S.t3 }}>정렬 기준: 합의우선순위 → 경영진중요도 → 트랙 → HR중요도 → HR시급도</span>
       )}
-      {dndErr && <span className="w-full" style={{ fontSize: 11, color: '#FCA5A5' }}>{dndErr}</span>}
+      {dndErr && <span className="w-full" style={{ fontSize: 11, color: 'var(--error-badge-text)' }}>{dndErr}</span>}
     </div>
   )
 
@@ -639,7 +639,7 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
     return (
       <div key={task.id}
         className="group/trow flex hover:bg-[rgba(59,130,246,0.04)] transition-colors"
-        style={{ opacity: draggingTaskId === task.id ? 0.35 : 1, borderTop: dragOverTaskId === task.id ? '2px solid #3B82F6' : '0.5px solid rgba(255,255,255,0.06)', cursor: 'pointer' }}
+        style={{ opacity: draggingTaskId === task.id ? 0.35 : 1, borderTop: dragOverTaskId === task.id ? '2px solid #3B82F6' : '0.5px solid rgba(var(--ink-rgb),0.06)', cursor: 'pointer' }}
         draggable={!prioritySort}
         onDragStart={e => { e.stopPropagation(); _dragTaskId = task.id; e.dataTransfer.effectAllowed = 'move'; setDraggingTaskId(task.id) }}
         onDragEnd={e => { e.stopPropagation(); _dragTaskId = null; setDraggingTaskId(null); setDragOverTaskId(null) }}
@@ -665,12 +665,12 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
               {task.status === 'done' && <span style={{ color: 'white', fontSize: 9, fontWeight: 800, lineHeight: 1 }}>✓</span>}
               {task.status === 'hold' && <span style={{ color: '#6366F1', fontSize: 7, lineHeight: 1 }}>▶</span>}
             </button>
-            {contextBadge && <span style={{ fontSize: 9, color: S.t3, background: 'rgba(255,255,255,0.06)', padding: '1px 5px', borderRadius: 4, flexShrink: 0, whiteSpace: 'nowrap' }}>{contextBadge}</span>}
+            {contextBadge && <span style={{ fontSize: 9, color: S.t3, background: 'rgba(var(--ink-rgb),0.06)', padding: '1px 5px', borderRadius: 4, flexShrink: 0, whiteSpace: 'nowrap' }}>{contextBadge}</span>}
             {editingTaskId === task.id ? (
               <input autoFocus value={editTTitle} onChange={e => setEditTTitle(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) updateTask(task.id); if (e.key === 'Escape') setEditingTaskId(null) }}
                 onClick={e => e.stopPropagation()}
-                className="border border-[rgba(255,255,255,0.15)] rounded px-2 py-0.5 text-xs focus:outline-none flex-1 min-w-0 bg-transparent"
+                className="border border-[rgba(var(--ink-rgb),0.15)] rounded px-2 py-0.5 text-xs focus:outline-none flex-1 min-w-0 bg-transparent"
                 style={{ color: S.t2 }} />
             ) : (
               <span style={{ fontSize: 13, color: task.status === 'done' ? S.t3 : S.t1, textDecoration: task.status === 'done' ? 'line-through' : 'none', lineHeight: 1.35, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -685,7 +685,7 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
           </div>
         ))}
         <div style={{ width: 40, borderLeft: S.bdL, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          {task.track && <span style={{ fontSize: 9, fontWeight: 700, color: '#c9cdd3', background: 'rgba(255,255,255,0.06)', padding: '1px 6px', borderRadius: 999 }}>{task.track}</span>}
+          {task.track && <span style={{ fontSize: 9, fontWeight: 700, color: 'rgba(var(--text-rgb),0.85)', background: 'rgba(var(--ink-rgb),0.06)', padding: '1px 6px', borderRadius: 999 }}>{task.track}</span>}
         </div>
         <div style={{ width: 92, padding: '7px 8px', borderLeft: S.bdL, display: 'flex', alignItems: 'center' }}>
           <GlassSelect
@@ -699,14 +699,14 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
         </div>
         <div style={{ width: 100, padding: '7px 8px', borderLeft: S.bdL, display: 'flex', alignItems: 'center' }} onClick={e => openSchedulePicker(e, task.id)}>
           {formatSchedule(task, scheduleUnit) ? (
-            <span style={{ fontSize: 11, color: task.roadmap_start_date ? '#9aa1ab' : S.t3, cursor: 'pointer' }}>{formatSchedule(task, scheduleUnit)}</span>
+            <span style={{ fontSize: 11, color: task.roadmap_start_date ? 'var(--text-secondary)' : S.t3, cursor: 'pointer' }}>{formatSchedule(task, scheduleUnit)}</span>
           ) : (
-            <span style={{ fontSize: 10, color: 'rgba(226,232,240,0.2)', cursor: 'pointer' }}>+ 설정</span>
+            <span style={{ fontSize: 10, color: 'rgba(var(--text-rgb),0.2)', cursor: 'pointer' }}>+ 설정</span>
           )}
         </div>
         {showFunctionCol && (
           <div style={{ width: 68, padding: '7px 4px', borderLeft: S.bdL, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            {task.hrm_function && <span style={{ fontSize: 9, fontWeight: 600, color: '#c9cdd3', background: 'rgba(255,255,255,0.06)', padding: '1px 6px', borderRadius: 999 }}>{hrmFunctionShort(task.hrm_function)}</span>}
+            {task.hrm_function && <span style={{ fontSize: 9, fontWeight: 600, color: 'rgba(var(--text-rgb),0.85)', background: 'rgba(var(--ink-rgb),0.06)', padding: '1px 6px', borderRadius: 999 }}>{hrmFunctionShort(task.hrm_function)}</span>}
           </div>
         )}
         <div style={{ width: 46, padding: '7px 4px', borderLeft: S.bdL, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -726,15 +726,15 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
         <div style={{ width: 56, padding: '7px 6px', borderLeft: S.bdL, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={e => e.stopPropagation()}>
           <div className="opacity-0 group-hover/trow:opacity-100 transition-all flex items-center gap-1.5">
             {editingTaskId !== task.id && (
-              <button onClick={() => { setEditingTaskId(task.id); setEditTTitle(task.title) }} className="text-[10px] text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)]">수정</button>
+              <button onClick={() => { setEditingTaskId(task.id); setEditTTitle(task.title) }} className="text-[10px] text-[rgba(var(--text-rgb),0.4)] hover:text-[rgba(var(--text-rgb),0.7)]">수정</button>
             )}
             {deletingTask === task.id ? (
               <>
                 <button onClick={() => deleteTask(task.id)} className="text-[10px] text-red-400 font-semibold">삭제</button>
-                <button onClick={() => setDeletingTask(null)} className="text-[10px] text-[rgba(226,232,240,0.4)]">취소</button>
+                <button onClick={() => setDeletingTask(null)} className="text-[10px] text-[rgba(var(--text-rgb),0.4)]">취소</button>
               </>
             ) : (
-              <button onClick={() => setDeletingTask(task.id)} className="text-[10px] text-[rgba(226,232,240,0.25)] hover:text-red-400">삭제</button>
+              <button onClick={() => setDeletingTask(task.id)} className="text-[10px] text-[rgba(var(--text-rgb),0.25)] hover:text-red-400">삭제</button>
             )}
           </div>
         </div>
@@ -746,7 +746,7 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
   function renderColumnHeader(showFunctionCol = true, showLinkCol = false, extraHeaderCols?: { key: string; label: string; width: number; sortDir?: 'asc' | 'desc' | null; onSortClick?: () => void }[]) {
     const hd: React.CSSProperties = { fontSize: 10, fontWeight: 700, color: S.t3, letterSpacing: '.05em', textTransform: 'uppercase', padding: '6px 8px', borderLeft: S.bdL }
     return (
-      <div className="flex" style={{ borderTop: '0.5px solid rgba(255,255,255,0.06)' }}>
+      <div className="flex" style={{ borderTop: '0.5px solid rgba(var(--ink-rgb),0.06)' }}>
         <div style={{ flex: 1, minWidth: 200, ...hd, borderLeft: 'none', paddingLeft: 20 }}>과제</div>
         {(extraHeaderCols ?? []).map(c => (
           <div key={c.key} style={{ width: c.width, ...hd }}>
@@ -778,18 +778,18 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
     const visibleTasks = showDoneItems.has(item.id) ? itemTasksAll : itemTasksAll.filter(t => t.status !== 'done')
     const orderedTasks = prioritySort ? [...visibleTasks].sort(priorityComparator) : visibleTasks
     const isOpen = openItems.has(item.id)
-    const itemBg = draggingItemId === item.id ? 'rgba(0,0,0,0.08)' : dragOverItemId === item.id ? 'rgba(255,255,255,0.07)' : 'transparent'
+    const itemBg = draggingItemId === item.id ? 'rgba(0,0,0,0.08)' : dragOverItemId === item.id ? 'rgba(var(--ink-rgb),0.07)' : 'transparent'
     const progress = taskProgress(itemTasksAll)
 
     return (
       <div key={item.id}
-        style={{ borderBottom: '0.5px solid rgba(255,255,255,0.06)', opacity: draggingItemId === item.id ? 0.4 : 1 }}
+        style={{ borderBottom: '0.5px solid rgba(var(--ink-rgb),0.06)', opacity: draggingItemId === item.id ? 0.4 : 1 }}
         onDragOver={e => { if (!_dragItemId) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverItemId(item.id) }}
         onDrop={e => { e.preventDefault(); const dragId = _dragItemId; _dragItemId = null; if (dragId && dragId !== item.id) reorderItem(dragId, item.id); setDraggingItemId(null); setDragOverItemId(null) }}
         onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverItemId(null) }}
       >
         {/* ── 목표 헤더: 얇은 한 줄 행, 지표는 오른쪽으로 정렬 ── */}
-        <div className="group/irow2 flex items-center gap-2 cursor-pointer hover:bg-[rgba(255,255,255,0.05)] transition-colors"
+        <div className="group/irow2 flex items-center gap-2 cursor-pointer hover:bg-[rgba(var(--ink-rgb),0.05)] transition-colors"
           style={{ padding: 16, background: itemBg, borderLeft: `3px solid ${dragOverItemId === item.id ? NEUTRAL_ACCENT : 'transparent'}` }}
           onClick={() => toggleItem(item.id)}>
           <span draggable
@@ -802,14 +802,14 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
             <div className="flex items-center gap-2 flex-wrap" onClick={e => e.stopPropagation()}>
               <input autoFocus value={editIName} onChange={e => setEditIName(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) updateItem(item.id); if (e.key === 'Escape') setEditingItemId(null) }}
-                className="border border-[rgba(255,255,255,0.15)] rounded-lg px-2.5 py-1 text-sm focus:outline-none focus:border-[rgba(255,255,255,0.3)] font-semibold w-40 bg-transparent"
+                className="border border-[rgba(var(--ink-rgb),0.15)] rounded-lg px-2.5 py-1 text-sm focus:outline-none focus:border-[rgba(var(--ink-rgb),0.3)] font-semibold w-40 bg-transparent"
                 style={{ color: S.t1 }} />
-              <button onClick={() => updateItem(item.id)} className="text-xs text-[#93C5FD]">저장</button>
+              <button onClick={() => updateItem(item.id)} className="text-xs text-[var(--accent-badge-text)]">저장</button>
             </div>
           ) : (
             <span style={{ fontSize: 13, fontWeight: 700, color: NEUTRAL_TEXT, whiteSpace: 'nowrap' }}>{item.title}</span>
           )}
-          <span style={{ fontSize: 10, color: S.t3, background: 'rgba(255,255,255,0.1)', padding: '1px 6px', borderRadius: 99, flexShrink: 0 }}>{visibleTasks.length}</span>
+          <span style={{ fontSize: 10, color: S.t3, background: 'rgba(var(--ink-rgb),0.1)', padding: '1px 6px', borderRadius: 99, flexShrink: 0 }}>{visibleTasks.length}</span>
 
           <div className="ml-auto flex items-center gap-3 flex-shrink-0">
             {/* 분류 컬럼 — 라벨 서브행의 '분류'와 폭(ITEM_ROW_COLS.category) 공유 */}
@@ -843,16 +843,16 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
             {/* 수정/삭제 액션 — 라벨 없는 hover 전용 버튼. 컬럼 정렬에 영향 없도록 맨 뒤로 배치 */}
             <div className="flex items-center gap-1.5 opacity-0 group-hover/irow2:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
               {editingItemId !== item.id && (
-                <button onClick={() => { setEditingItemId(item.id); setEditIName(item.title) }} className="text-[10px] text-[rgba(226,232,240,0.4)] hover:text-[rgba(226,232,240,0.7)] px-1">수정</button>
+                <button onClick={() => { setEditingItemId(item.id); setEditIName(item.title) }} className="text-[10px] text-[rgba(var(--text-rgb),0.4)] hover:text-[rgba(var(--text-rgb),0.7)] px-1">수정</button>
               )}
               {deletingItem === item.id ? (
                 <>
-                  <span className="text-[10px] text-[rgba(226,232,240,0.5)]">삭제?</span>
+                  <span className="text-[10px] text-[rgba(var(--text-rgb),0.5)]">삭제?</span>
                   <button onClick={() => deleteItem(item.id)} className="text-[10px] text-red-400 font-semibold px-1.5 py-0.5 rounded">삭제</button>
-                  <button onClick={() => setDeletingItem(null)} className="text-[10px] text-[rgba(226,232,240,0.4)] px-1.5 py-0.5 rounded">취소</button>
+                  <button onClick={() => setDeletingItem(null)} className="text-[10px] text-[rgba(var(--text-rgb),0.4)] px-1.5 py-0.5 rounded">취소</button>
                 </>
               ) : (
-                <button onClick={() => setDeletingItem(item.id)} className="text-[10px] text-[rgba(226,232,240,0.3)] hover:text-red-400 px-1">삭제</button>
+                <button onClick={() => setDeletingItem(item.id)} className="text-[10px] text-[rgba(var(--text-rgb),0.3)] hover:text-red-400 px-1">삭제</button>
               )}
             </div>
           </div>
@@ -870,7 +870,7 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
 
             {doneItemTasks.length > 0 && (
               <button onClick={() => toggleShowDone(item.id)}
-                className="w-full flex items-center gap-1.5 px-5 py-2 text-xs text-[rgba(226,232,240,0.35)] hover:text-[rgba(226,232,240,0.55)] hover:bg-[rgba(255,255,255,0.04)] transition-colors">
+                className="w-full flex items-center gap-1.5 px-5 py-2 text-xs text-[rgba(var(--text-rgb),0.35)] hover:text-[rgba(var(--text-rgb),0.55)] hover:bg-[rgba(var(--ink-rgb),0.04)] transition-colors">
                 <span style={{ fontSize: 8, transform: showDoneItems.has(item.id) ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block', transition: 'transform .15s' }}>▶</span>
                 완료 {doneItemTasks.length}건
               </button>
@@ -881,13 +881,13 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
                 <input autoFocus value={newTTitle} onChange={e => setNewTTitle(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) addTask(item.id); if (e.key === 'Escape') { setAddingTask(null); setNewTTitle('') } }}
                   placeholder="과제 입력 후 Enter"
-                  className="flex-1 border border-[rgba(255,255,255,0.15)] rounded-lg px-3 py-1.5 text-sm focus:outline-none bg-transparent text-[#E2E8F0]" />
-                <button onClick={() => addTask(item.id)} className="text-xs bg-[rgba(27,58,107,0.3)] text-[#93C5FD] border border-[rgba(27,58,107,0.5)] px-3 py-1.5 rounded-lg">추가</button>
-                <button onClick={() => { setAddingTask(null); setNewTTitle('') }} className="text-xs text-[rgba(226,232,240,0.4)] px-2 py-1">취소</button>
+                  className="flex-1 border border-[rgba(var(--ink-rgb),0.15)] rounded-lg px-3 py-1.5 text-sm focus:outline-none bg-transparent text-[rgba(var(--text-rgb),1)]" />
+                <button onClick={() => addTask(item.id)} className="text-xs bg-[rgba(27,58,107,0.3)] text-[var(--accent-badge-text)] border border-[rgba(27,58,107,0.5)] px-3 py-1.5 rounded-lg">추가</button>
+                <button onClick={() => { setAddingTask(null); setNewTTitle('') }} className="text-xs text-[rgba(var(--text-rgb),0.4)] px-2 py-1">취소</button>
               </div>
             ) : (
               <div onClick={() => toggleExpandTaskAdd(item.id)}
-                className="flex items-center gap-1 px-5 py-3 text-xs text-[rgba(226,232,240,0.35)] hover:text-[rgba(226,232,240,0.6)] hover:bg-[rgba(255,255,255,0.04)] cursor-pointer transition-colors">
+                className="flex items-center gap-1 px-5 py-3 text-xs text-[rgba(var(--text-rgb),0.35)] hover:text-[rgba(var(--text-rgb),0.6)] hover:bg-[rgba(var(--ink-rgb),0.04)] cursor-pointer transition-colors">
                 ＋ 과제 추가
               </div>
             )}
@@ -910,7 +910,7 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
                 if (catItems.length === 0) return null
                 const sectionColor = categorySectionColor(cat)
                 return (
-                  <div key={cat} style={{ marginTop: ci === 0 ? 0 : 14, background: 'rgba(255,255,255,0.06)', border: '0.5px solid rgba(255,255,255,0.09)', borderRadius: 20, padding: '14px 24px', overflow: 'hidden' }}>
+                  <div key={cat} style={{ marginTop: ci === 0 ? 0 : 14, background: 'rgba(var(--ink-rgb),0.06)', border: '0.5px solid rgba(var(--ink-rgb),0.09)', borderRadius: 20, padding: '14px 24px', overflow: 'hidden' }}>
                     {/* ── 영역(대분류) 헤더 — 카드 좌우 끝까지 꽉 채운 파스텔 배너, 상단 모서리만 카드 radius(20px)에 맞춤. padding 19px 균일(/project 실측 기준, 약 62px) ── */}
                     <div className="flex items-center" style={{
                       margin: '-14px -24px 0 -24px',
@@ -938,12 +938,12 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
                     </div>
 
                     {/* ── 컬럼 라벨 서브행 — 목표 행과 동일한 컬럼 폭(ITEM_ROW_COLS)을 공유해 좌/우 정렬선이 항상 일치. 좌우 패딩도 본문 행(16px)과 동일하게 맞춰 rem 스케일링에 따른 오차를 없앰 ── */}
-                    <div className="flex items-center" style={{ padding: '8px 16px', borderBottom: '0.5px solid rgba(255,255,255,0.06)' }}>
-                      <span style={{ flex: 1, marginLeft: 39, fontSize: 11, color: '#7d838d', fontWeight: 600 }}>목표</span>
+                    <div className="flex items-center" style={{ padding: '8px 16px', borderBottom: '0.5px solid rgba(var(--ink-rgb),0.06)' }}>
+                      <span style={{ flex: 1, marginLeft: 39, fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>목표</span>
                       <div className="flex items-center gap-3 flex-shrink-0">
-                        <span style={{ width: ITEM_ROW_COLS.category, flexShrink: 0, fontSize: 11, color: '#7d838d', fontWeight: 600 }}>분류</span>
-                        <span style={{ width: ITEM_ROW_COLS.deadline, flexShrink: 0, fontSize: 11, color: '#7d838d', fontWeight: 600 }}>기한</span>
-                        <span style={{ width: ITEM_ROW_COLS.progress, flexShrink: 0, fontSize: 11, color: '#7d838d', fontWeight: 600 }}>진행률</span>
+                        <span style={{ width: ITEM_ROW_COLS.category, flexShrink: 0, fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>분류</span>
+                        <span style={{ width: ITEM_ROW_COLS.deadline, flexShrink: 0, fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>기한</span>
+                        <span style={{ width: ITEM_ROW_COLS.progress, flexShrink: 0, fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>진행률</span>
                       </div>
                     </div>
 
@@ -955,28 +955,28 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
               <div>{[...items].sort((a, b) => a.sort_order - b.sort_order).map(item => renderItemCard(item))}</div>
             )}
 
-            <div className="mt-4 rounded-xl border border-dashed border-[rgba(255,255,255,0.1)] overflow-hidden">
+            <div className="mt-4 rounded-xl border border-dashed border-[rgba(var(--ink-rgb),0.1)] overflow-hidden">
               {addingItem ? (
                 <div className="flex items-center gap-2 px-5 py-3 flex-wrap">
                   <input autoFocus value={newIName} onChange={e => setNewIName(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) addItem(); if (e.key === 'Escape') { setAddingItem(false); setNewIName('') } }}
                     placeholder="목표명 입력 후 Enter"
-                    className="border border-[rgba(255,255,255,0.15)] rounded-lg px-3 py-1.5 text-sm focus:outline-none w-48 bg-transparent text-[#E2E8F0]" />
+                    className="border border-[rgba(var(--ink-rgb),0.15)] rounded-lg px-3 py-1.5 text-sm focus:outline-none w-48 bg-transparent text-[rgba(var(--text-rgb),1)]" />
                   {isAll && (
                     <div className="flex gap-1 flex-wrap">
                       {allCats.map(c => (
                         <button key={c} type="button" onClick={() => setNewICat(c)}
                           className="text-xs px-2.5 py-1 rounded-full border font-semibold transition-all"
-                          style={newICat === c ? { background: 'rgba(76,127,224,0.18)', borderColor: '#4C7FE0', color: '#E2E8F0' } : { background: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.08)', color: 'rgba(226,232,240,0.4)' }}>{c}</button>
+                          style={newICat === c ? { background: 'rgba(76,127,224,0.18)', borderColor: 'var(--accent-primary)', color: 'rgba(var(--text-rgb),1)' } : { background: 'rgba(var(--ink-rgb),0.04)', borderColor: 'rgba(var(--ink-rgb),0.08)', color: 'rgba(var(--text-rgb),0.4)' }}>{c}</button>
                       ))}
                     </div>
                   )}
-                  <button onClick={addItem} className="text-xs bg-[rgba(27,58,107,0.3)] text-[#93C5FD] border border-[rgba(27,58,107,0.5)] px-3 py-1.5 rounded-lg">추가</button>
-                  <button onClick={() => { setAddingItem(false); setNewIName('') }} className="text-xs text-[rgba(226,232,240,0.4)] px-2 py-1">취소</button>
+                  <button onClick={addItem} className="text-xs bg-[rgba(27,58,107,0.3)] text-[var(--accent-badge-text)] border border-[rgba(27,58,107,0.5)] px-3 py-1.5 rounded-lg">추가</button>
+                  <button onClick={() => { setAddingItem(false); setNewIName('') }} className="text-xs text-[rgba(var(--text-rgb),0.4)] px-2 py-1">취소</button>
                 </div>
               ) : (
                 <div onClick={openAddItem}
-                  className="flex items-center gap-1 px-5 py-3 text-xs text-[rgba(226,232,240,0.3)] hover:text-[rgba(226,232,240,0.6)] hover:bg-[rgba(255,255,255,0.04)] cursor-pointer transition-colors">
+                  className="flex items-center gap-1 px-5 py-3 text-xs text-[rgba(var(--text-rgb),0.3)] hover:text-[rgba(var(--text-rgb),0.6)] hover:bg-[rgba(var(--ink-rgb),0.04)] cursor-pointer transition-colors">
                   ＋ 목표 추가
                 </div>
               )}
@@ -1005,21 +1005,21 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
               const orderedFnTasks = prioritySort ? [...visibleFnTasks].sort(priorityComparator) : visibleFnTasks
               const progress = taskProgress(fnTasksAll)
               return (
-                <div key={fn} style={{ marginTop: fi === 0 ? 0 : 14, background: 'rgba(255,255,255,0.06)', border: '0.5px solid rgba(255,255,255,0.09)', borderRadius: 20, padding: isOpen ? '14px 24px' : 0, overflow: 'hidden' }}>
+                <div key={fn} style={{ marginTop: fi === 0 ? 0 : 14, background: 'rgba(var(--ink-rgb),0.06)', border: '0.5px solid rgba(var(--ink-rgb),0.09)', borderRadius: 20, padding: isOpen ? '14px 24px' : 0, overflow: 'hidden' }}>
                   {/* ── 헤더 배너 — 카테고리색 없이 중립 배경, 기존 아이콘+텍스트+카운트+진행률 유지. 접혀있을 땐 카드 padding을 0으로 줄이고 배너 하단도 둥글게 처리해 카드 하단에 빈 음영이 남지 않도록 함 ── */}
                   <div className="flex items-center gap-2.5 cursor-pointer" style={{
                     margin: isOpen ? '-14px -24px 0 -24px' : 0,
                     padding: '19px',
-                    background: 'rgba(255,255,255,0.03)',
+                    background: 'rgba(var(--ink-rgb),0.03)',
                     borderTopLeftRadius: 20,
                     borderTopRightRadius: 20,
                     borderBottomLeftRadius: isOpen ? 0 : 20,
                     borderBottomRightRadius: isOpen ? 0 : 20,
                   }} onClick={() => toggleOpenKey(fn, false)}>
-                    <span style={{ fontSize: 8, transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform .15s', color: '#7d838d', flexShrink: 0 }}>▶</span>
-                    <Icon size={16} color="#9aa1ab" strokeWidth={1.75} style={{ flexShrink: 0 }} />
-                    <span style={{ fontSize: 13, fontWeight: 700, color: '#e5e7eb' }}>{hrmFunctionLabel(fn)}</span>
-                    <span style={{ fontSize: 10, color: '#7d838d', background: 'rgba(255,255,255,0.06)', padding: '1px 6px', borderRadius: 99 }}>{visibleFnTasks.length}</span>
+                    <span style={{ fontSize: 8, transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform .15s', color: 'var(--text-muted)', flexShrink: 0 }}>▶</span>
+                    <Icon size={16} color="var(--text-secondary)" strokeWidth={1.75} style={{ flexShrink: 0 }} />
+                    <span style={{ fontSize: 13, fontWeight: 700, color: 'rgba(var(--text-rgb),1)' }}>{hrmFunctionLabel(fn)}</span>
+                    <span style={{ fontSize: 10, color: 'var(--text-muted)', background: 'rgba(var(--ink-rgb),0.06)', padding: '1px 6px', borderRadius: 99 }}>{visibleFnTasks.length}</span>
                     {progress.total > 0 && (
                       <div className="ml-auto flex items-center gap-1.5 flex-shrink-0">
                         <ProgressRing pct={progress.pct} color={NEUTRAL_ACCENT} />
@@ -1029,9 +1029,9 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
                   {isOpen && (
                     <>
                       {/* ── 서브라벨행 ── */}
-                      <div className="flex items-center" style={{ margin: '0 -24px', padding: '8px 24px', borderBottom: '0.5px solid rgba(255,255,255,0.08)' }}>
-                        <span style={{ flex: 1, fontSize: 11, color: '#7d838d', fontWeight: 600 }}>과제</span>
-                        <span style={{ fontSize: 11, color: '#7d838d', fontWeight: 600 }}>진행률</span>
+                      <div className="flex items-center" style={{ margin: '0 -24px', padding: '8px 24px', borderBottom: '0.5px solid rgba(var(--ink-rgb),0.08)' }}>
+                        <span style={{ flex: 1, fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>과제</span>
+                        <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>진행률</span>
                       </div>
 
                       <div style={{ overflowX: 'auto', margin: '0 -24px' }}>
@@ -1045,7 +1045,7 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
                       </div>
                       {doneFnTasks.length > 0 && (
                         <button onClick={() => toggleShowDone(fn)}
-                          className="w-full flex items-center gap-1.5 px-5 py-2 text-xs text-[rgba(226,232,240,0.35)] hover:text-[rgba(226,232,240,0.55)] hover:bg-[rgba(255,255,255,0.04)] transition-colors">
+                          className="w-full flex items-center gap-1.5 px-5 py-2 text-xs text-[rgba(var(--text-rgb),0.35)] hover:text-[rgba(var(--text-rgb),0.55)] hover:bg-[rgba(var(--ink-rgb),0.04)] transition-colors">
                           <span style={{ fontSize: 8, transform: showDoneItems.has(fn) ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block', transition: 'transform .15s' }}>▶</span>
                           완료 {doneFnTasks.length}건
                         </button>
@@ -1088,7 +1088,7 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
             {orderedTasks.length === 0 ? (
               <div className="text-center py-10 text-xs" style={{ color: S.t3 }}>합의우선순위가 1순위·2순위로 지정된 과제가 없습니다.</div>
             ) : (
-              <div style={{ background: 'rgba(255,255,255,0.06)', border: '0.5px solid rgba(255,255,255,0.09)', borderRadius: 20, overflow: 'hidden' }}>
+              <div style={{ background: 'rgba(var(--ink-rgb),0.06)', border: '0.5px solid rgba(var(--ink-rgb),0.09)', borderRadius: 20, overflow: 'hidden' }}>
                 <div style={{ overflowX: 'auto' }}>
                   <div style={{ minWidth: 1160 }}>
                     {renderColumnHeader(false, true, [
@@ -1105,15 +1105,15 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
                             onClick={() => router.push(`/project/items/${linkedSubTask.agenda_item_id}?focus=${linkedSubTask.id}`)}
                             title={`프로젝트: ${linkedItem?.title ?? ''} · ${linkedSubTask.title} (클릭하여 이동)`}
                             className="flex-1 min-w-0 text-left text-[11px] font-medium truncate px-2 py-1 rounded-md"
-                            style={{ background: 'rgba(76,127,224,0.14)', color: '#93C5FD' }}>
+                            style={{ background: 'rgba(76,127,224,0.14)', color: 'var(--accent-badge-text)' }}>
                             🔗 {linkedItem?.title ?? '프로젝트'}
                           </button>
-                          <button onClick={() => unlinkTask(task.id)} title="연동 해제" className="text-[10px] text-[rgba(226,232,240,0.25)] hover:text-red-400 flex-shrink-0">×</button>
+                          <button onClick={() => unlinkTask(task.id)} title="연동 해제" className="text-[10px] text-[rgba(var(--text-rgb),0.25)] hover:text-red-400 flex-shrink-0">×</button>
                         </div>
                       ) : (
                         <button onClick={e => openLinkPicker(e, task.id)}
                           className="text-[11px] px-2.5 py-1 rounded-md font-medium transition-all"
-                          style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(226,232,240,0.5)', border: '1px dashed rgba(255,255,255,0.15)' }}>
+                          style={{ background: 'rgba(var(--ink-rgb),0.06)', color: 'rgba(var(--text-rgb),0.5)', border: '1px dashed rgba(var(--ink-rgb),0.15)' }}>
                           + 연동
                         </button>
                       )
@@ -1134,7 +1134,7 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
             )}
             {doneTasks.length > 0 && (
               <button onClick={() => toggleShowDone('__priority__')}
-                className="w-full flex items-center gap-1.5 px-5 py-2 mt-2 text-xs text-[rgba(226,232,240,0.35)] hover:text-[rgba(226,232,240,0.55)] hover:bg-[rgba(255,255,255,0.04)] transition-colors">
+                className="w-full flex items-center gap-1.5 px-5 py-2 mt-2 text-xs text-[rgba(var(--text-rgb),0.35)] hover:text-[rgba(var(--text-rgb),0.55)] hover:bg-[rgba(var(--ink-rgb),0.04)] transition-colors">
                 <span style={{ fontSize: 8, transform: showDoneItems.has('__priority__') ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block', transition: 'transform .15s' }}>▶</span>
                 완료 {doneTasks.length}건
               </button>
@@ -1241,7 +1241,7 @@ function AnnualRoadmapView({
   function renderCategoryCard(cat: string, catItems: AnnualGoalItem[], ci: number) {
     const sc = categorySectionColor(cat)
     return (
-      <div key={cat} style={{ marginTop: ci === 0 ? 0 : 14, background: 'rgba(255,255,255,0.06)', border: '0.5px solid rgba(255,255,255,0.09)', borderRadius: 20, padding: '14px 24px', overflow: 'hidden' }}>
+      <div key={cat} style={{ marginTop: ci === 0 ? 0 : 14, background: 'rgba(var(--ink-rgb),0.06)', border: '0.5px solid rgba(var(--ink-rgb),0.09)', borderRadius: 20, padding: '14px 24px', overflow: 'hidden' }}>
         {/* 헤더 배너 */}
         <div className="flex items-center gap-2.5" style={{
           margin: '-14px -24px 0 -24px',
@@ -1265,15 +1265,15 @@ function AnnualRoadmapView({
             </colgroup>
             <thead>
               <tr>
-                <th colSpan={2} style={{ textAlign: 'left', padding: '8px 24px', fontSize: 11, color: '#7d838d', fontWeight: 600, borderBottom: '0.5px solid rgba(255,255,255,0.08)' }}>목표</th>
+                <th colSpan={2} style={{ textAlign: 'left', padding: '8px 24px', fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, borderBottom: '0.5px solid rgba(var(--ink-rgb),0.08)' }}>목표</th>
                 {cols.map((col, ci2) => {
                   const isCur = col.start <= todayStr && todayStr <= col.end
                   return (
                     <th key={col.start}
                       onClick={zoom.level === 'year' && col.month != null ? () => openMonth(col.month! + 1) : undefined}
-                      className={zoom.level === 'year' ? 'hover:bg-[rgba(255,255,255,0.06)] transition-all' : undefined}
+                      className={zoom.level === 'year' ? 'hover:bg-[rgba(var(--ink-rgb),0.06)] transition-all' : undefined}
                       title={zoom.level === 'year' ? '클릭하여 주 단위로 보기' : undefined}
-                      style={{ cursor: zoom.level === 'year' ? 'pointer' : 'default', textAlign: 'center', padding: '8px 2px', fontSize: 11, color: '#7d838d', fontWeight: 600, borderBottom: '0.5px solid rgba(255,255,255,0.08)', borderLeft: zoom.level === 'year' ? (ci2 % 3 === 0 ? S.bdL : S.bd) : S.bd, background: isCur ? 'rgba(255,255,255,0.05)' : undefined }}>
+                      style={{ cursor: zoom.level === 'year' ? 'pointer' : 'default', textAlign: 'center', padding: '8px 2px', fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, borderBottom: '0.5px solid rgba(var(--ink-rgb),0.08)', borderLeft: zoom.level === 'year' ? (ci2 % 3 === 0 ? S.bdL : S.bd) : S.bd, background: isCur ? 'rgba(var(--ink-rgb),0.05)' : undefined }}>
                       {col.label}
                     </th>
                   )
@@ -1312,12 +1312,12 @@ function AnnualRoadmapView({
 
     return (
       <Fragment key={item.id}>
-        <tr style={{ background: 'rgba(255,255,255,0.025)', cursor: 'pointer' }} onClick={() => toggleItem(item.id)}>
-          <td colSpan={2} style={{ position: 'sticky', left: 0, zIndex: 2, background: '#171A21', borderBottom: S.bd, borderRight: S.bdL, padding: '9px 10px 9px 20px' }}>
+        <tr style={{ background: 'rgba(var(--ink-rgb),0.025)', cursor: 'pointer' }} onClick={() => toggleItem(item.id)}>
+          <td colSpan={2} style={{ position: 'sticky', left: 0, zIndex: 2, background: 'var(--surface-secondary)', borderBottom: S.bd, borderRight: S.bdL, padding: '9px 10px 9px 20px' }}>
             <div className="flex items-center gap-2">
               <span style={{ fontSize: 8, transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform .15s', color: S.t3, flexShrink: 0 }}>▶</span>
               <span style={{ fontSize: 12, fontWeight: 700, color: NEUTRAL_TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item.title}>{item.title}</span>
-              <span style={{ fontSize: 10, color: S.t3, background: 'rgba(255,255,255,0.1)', padding: '1px 6px', borderRadius: 99, flexShrink: 0 }}>{visibleTasks.length}</span>
+              <span style={{ fontSize: 10, color: S.t3, background: 'rgba(var(--ink-rgb),0.1)', padding: '1px 6px', borderRadius: 99, flexShrink: 0 }}>{visibleTasks.length}</span>
               {item.target_deadline && (
                 <span style={{ fontSize: 9, fontWeight: 700, color: daysUntil(item.target_deadline) < 0 ? '#EF4444' : daysUntil(item.target_deadline) <= 7 ? '#F59E0B' : S.t3, flexShrink: 0 }}>
                   {ddayLabel(item.target_deadline)}
@@ -1340,13 +1340,13 @@ function AnnualRoadmapView({
               // 트랙(밝은 배경) 위는 어두운 반투명선, 채움(진한 배경) 위는 밝은 반투명선 — 어느 색 위에서도 보이게
               const showMonthDivider = inRange && ci > firstIdx
               return (
-                <td key={col.start} style={{ borderLeft: S.bd, borderBottom: S.bd, padding: '0 1px', background: isCur ? 'rgba(255,255,255,0.05)' : undefined }}>
+                <td key={col.start} style={{ borderLeft: S.bd, borderBottom: S.bd, padding: '0 1px', background: isCur ? 'rgba(var(--ink-rgb),0.05)' : undefined }}>
                   {inRange && (
                     <div style={{
                       height: 12,
                       background: isFilled ? barFill : barTrackUpper,
                       borderRadius: isFirst && isLast ? 4 : isFirst ? '4px 0 0 4px' : isLast ? '0 4px 4px 0' : 0,
-                      borderLeft: showMonthDivider ? `1px solid ${isFilled ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.18)'}` : undefined,
+                      borderLeft: showMonthDivider ? `1px solid ${isFilled ? 'rgba(var(--ink-rgb),0.18)' : 'rgba(0,0,0,0.18)'}` : undefined,
                     }} />
                   )}
                 </td>
@@ -1369,7 +1369,7 @@ function AnnualRoadmapView({
               onDrop={e => { e.preventDefault(); e.stopPropagation(); if (_dragTaskId && _dragTaskId !== task.id) reorderTask(_dragTaskId, task.id); _dragTaskId = null; setRdDraggingId(null); setRdDragOverId(null) }}
               onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setRdDragOverId(null) }}
               style={{ borderBottom: isRdOver ? `2px solid ${NEUTRAL_ACCENT}` : S.bd, opacity: task.status === 'done' ? 0.4 : isRdDragging ? 0.5 : 1 }}
-              className="group/rdtask hover:bg-[rgba(255,255,255,0.04)]"
+              className="group/rdtask hover:bg-[rgba(var(--ink-rgb),0.04)]"
             >
               <td style={{ position: 'sticky', left: 0, zIndex: 1, background: S.bg, borderRight: S.bd }} />
               <td style={{ position: 'sticky', left: W_ITEM, zIndex: 1, background: S.bg, borderRight: S.bdL, padding: '7px 10px 7px 26px' }}>
@@ -1377,9 +1377,9 @@ function AnnualRoadmapView({
                   {!prioritySort && <span className="opacity-0 group-hover/rdtask:opacity-100 cursor-grab text-gray-300 text-xs select-none" style={{ fontSize: 12 }}>⠿</span>}
                   <button onClick={e => openPicker(e, task.id)}
                     style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 999, cursor: 'pointer', minWidth: 20, textAlign: 'center', flexShrink: 0,
-                      color: task.roadmap_start_date ? S.t2 : '#9CA3AF',
-                      background: task.roadmap_start_date ? 'rgba(255,255,255,0.08)' : 'transparent',
-                      border: task.roadmap_start_date ? '1px solid rgba(255,255,255,0.16)' : '1px dashed rgba(255,255,255,0.2)' }}>
+                      color: task.roadmap_start_date ? S.t2 : 'var(--text-muted)',
+                      background: task.roadmap_start_date ? 'rgba(var(--ink-rgb),0.08)' : 'transparent',
+                      border: task.roadmap_start_date ? '1px solid rgba(var(--ink-rgb),0.16)' : '1px dashed rgba(var(--ink-rgb),0.2)' }}>
                     {task.roadmap_start_date ? '기간' : (task.suggested_period || '+')}
                   </button>
                   <span onClick={() => router.push(`/annual-goals/tasks/${task.id}`)} style={{ fontSize: 12, fontWeight: 500, color: task.status === 'done' ? S.t3 : S.t1, textDecoration: task.status === 'done' ? 'line-through' : 'none', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>{task.title}</span>
@@ -1390,7 +1390,7 @@ function AnnualRoadmapView({
                 const isCur = col.start <= todayStr && todayStr <= col.end
                 const isFirst = ci === firstIdx, isLast = ci === lastIdx
                 return (
-                  <td key={col.start} style={{ borderLeft: S.bd, padding: '8px 1px', verticalAlign: 'middle', background: isCur ? 'rgba(255,255,255,0.05)' : undefined }}>
+                  <td key={col.start} style={{ borderLeft: S.bd, padding: '8px 1px', verticalAlign: 'middle', background: isCur ? 'rgba(var(--ink-rgb),0.05)' : undefined }}>
                     {inRange && (
                       <div style={{
                         // 과제(하위) 바 — 목표 바(barTrackUpper, 12px)보다 얇고(8px) 옅은 solid 톤(barTrack/barFillSub)을 써서, 두께+색 둘 다로 상/하위가 구분됨
@@ -1406,7 +1406,7 @@ function AnnualRoadmapView({
         })}
         {isOpen && doneTasks.length > 0 && (
           <tr><td colSpan={cols.length + 2} style={{ padding: 0 }}>
-            <button onClick={() => toggleShowDone(item.id)} className="w-full flex items-center gap-1.5 px-4 py-1.5 text-xs text-[rgba(226,232,240,0.35)] hover:text-[rgba(226,232,240,0.55)]">
+            <button onClick={() => toggleShowDone(item.id)} className="w-full flex items-center gap-1.5 px-4 py-1.5 text-xs text-[rgba(var(--text-rgb),0.35)] hover:text-[rgba(var(--text-rgb),0.55)]">
               <span style={{ fontSize: 8, transform: showDoneItems.has(item.id) ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block' }}>▶</span>
               완료 {doneTasks.length}건
             </button>

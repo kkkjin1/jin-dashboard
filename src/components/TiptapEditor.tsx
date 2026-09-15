@@ -721,15 +721,15 @@ export default function TiptapEditor({
   const d = dark
   const btnCls = (active: boolean, extra = '') =>
     `text-xs px-2 py-1 rounded min-w-[26px] ${extra} ${active
-      ? (d ? 'bg-[rgba(255,255,255,0.12)] text-[#E2E8F0]' : 'bg-gray-200 text-gray-900')
-      : (d ? 'hover:bg-[rgba(255,255,255,0.08)] text-[rgba(226,232,240,0.5)]' : 'hover:bg-gray-100 text-gray-600')}`
-  const divCls = d ? 'w-px h-4 bg-[rgba(255,255,255,0.15)] mx-0.5' : 'w-px h-4 bg-gray-200 mx-0.5'
-  const resetCls = d ? 'text-[10px] text-[rgba(226,232,240,0.3)] hover:text-[rgba(226,232,240,0.6)] px-0.5' : 'text-[10px] text-gray-400 hover:text-gray-700 px-0.5'
+      ? (d ? 'bg-[rgba(var(--ink-rgb),0.12)] text-[rgba(var(--text-rgb),1)]' : 'bg-gray-200 text-gray-900')
+      : (d ? 'hover:bg-[rgba(var(--ink-rgb),0.08)] text-[rgba(var(--text-rgb),0.5)]' : 'hover:bg-gray-100 text-gray-600')}`
+  const divCls = d ? 'w-px h-4 bg-[rgba(var(--ink-rgb),0.15)] mx-0.5' : 'w-px h-4 bg-gray-200 mx-0.5'
+  const resetCls = d ? 'text-[10px] text-[rgba(var(--text-rgb),0.3)] hover:text-[rgba(var(--text-rgb),0.6)] px-0.5' : 'text-[10px] text-gray-400 hover:text-gray-700 px-0.5'
 
   return (
     <div className={className}>
       {/* Toolbar */}
-      {!hideToolbar && <div className={`flex items-center gap-0.5 border-b pb-2 mb-2 flex-wrap ${d ? 'border-[rgba(255,255,255,0.09)]' : 'border-gray-100'}`}>
+      {!hideToolbar && <div className={`flex items-center gap-0.5 border-b pb-2 mb-2 flex-wrap ${d ? 'border-[rgba(var(--ink-rgb),0.09)]' : 'border-gray-100'}`}>
         <button type="button"
           onMouseDown={e => { e.preventDefault(); editor.chain().focus().toggleBold().run() }}
           className={btnCls(editor.isActive('bold'), 'font-bold')}>B</button>
@@ -761,7 +761,7 @@ export default function TiptapEditor({
         {HIGHLIGHTS.map(({ hex, label }) => (
           <button key={label} type="button"
             onMouseDown={e => { e.preventDefault(); editor.chain().focus().toggleHighlight({ color: hex }).run() }}
-            className={`w-[14px] h-[14px] rounded hover:scale-125 flex-shrink-0 transition-transform border ${d ? 'border-[rgba(255,255,255,0.2)]' : 'border-gray-200'}`}
+            className={`w-[14px] h-[14px] rounded hover:scale-125 flex-shrink-0 transition-transform border ${d ? 'border-[rgba(var(--ink-rgb),0.2)]' : 'border-gray-200'}`}
             style={{ backgroundColor: hex }} title={`형광 ${label}${hex === '#FEF08A' ? ' (Alt+2)' : ''}`} />
         ))}
         <button type="button"
@@ -773,7 +773,7 @@ export default function TiptapEditor({
             <div className={divCls} />
             <button type="button"
               onMouseDown={e => { e.preventDefault(); onExpand() }}
-              className={`ml-auto text-xs px-1.5 py-1 rounded ${d ? 'hover:bg-[rgba(255,255,255,0.08)] text-[rgba(226,232,240,0.3)]' : 'hover:bg-gray-100 text-gray-400'}`} title="크게 쓰기">⛶</button>
+              className={`ml-auto text-xs px-1.5 py-1 rounded ${d ? 'hover:bg-[rgba(var(--ink-rgb),0.08)] text-[rgba(var(--text-rgb),0.3)]' : 'hover:bg-gray-100 text-gray-400'}`} title="크게 쓰기">⛶</button>
           </>
         )}
       </div>}
