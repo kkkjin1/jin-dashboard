@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { CalendarDays, Mail } from 'lucide-react'
 
-const TEXT2 = '#98A1B2'
+const TEXT2 = 'var(--text-secondary)'
 
 type TooltipSide = 'top' | 'bottom' | 'right'
 
@@ -29,8 +29,8 @@ function ShortcutButton({ href, label, color, tint, size = 30, tooltipSide = 'bo
         width: size, height: size, borderRadius: size >= 30 ? 9 : 8,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         color,
-        background: tint ? (h ? 'rgba(91,126,196,0.18)' : 'rgba(91,126,196,0.10)') : (h ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.04)'),
-        border: `1px solid ${tint ? (h ? 'rgba(91,126,196,0.5)' : 'rgba(91,126,196,0.35)') : (h ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.08)')}`,
+        background: tint ? (h ? 'rgba(91,126,196,0.18)' : 'rgba(91,126,196,0.10)') : (h ? 'rgba(var(--ink-rgb),0.07)' : 'rgba(var(--ink-rgb),0.04)'),
+        border: `1px solid ${tint ? (h ? 'rgba(91,126,196,0.5)' : 'rgba(91,126,196,0.35)') : (h ? 'rgba(var(--ink-rgb),0.14)' : 'rgba(var(--ink-rgb),0.08)')}`,
         transform: h ? 'translateY(-1px)' : 'none',
         transition: 'all 150ms ease',
         textDecoration: 'none',
@@ -43,8 +43,8 @@ function ShortcutButton({ href, label, color, tint, size = 30, tooltipSide = 'bo
         <span style={{
           position: 'absolute',
           ...tooltipPosStyle(tooltipSide),
-          fontSize: 10.5, fontWeight: 500, color: TEXT2, background: '#1C2129',
-          border: '1px solid rgba(255,255,255,0.08)', padding: '3px 8px', borderRadius: 6,
+          fontSize: 10.5, fontWeight: 500, color: TEXT2, background: 'var(--surface-tooltip)',
+          border: '1px solid rgba(var(--ink-rgb),0.08)', padding: '3px 8px', borderRadius: 6,
           whiteSpace: 'nowrap', zIndex: 30, pointerEvents: 'none',
         }}>
           {label}
@@ -77,7 +77,7 @@ export default function ShortcutIcons({ size = 30, tooltipSide = 'bottom' }: { s
       <ShortcutButton href="https://calendar.google.com/calendar/u/0/r" label="구글 캘린더" color="#4C8DF0" size={size} tooltipSide={tooltipSide}>
         <CalendarDays size={iconSize} strokeWidth={1.8} />
       </ShortcutButton>
-      <ShortcutButton href="https://app.notion.com/p/egnis/1de08b93608a80d897c8fb9c68e94828" label="Notion" color="#ECECEA" size={size} tooltipSide={tooltipSide}>
+      <ShortcutButton href="https://app.notion.com/p/egnis/1de08b93608a80d897c8fb9c68e94828" label="Notion" color="var(--text-primary)" size={size} tooltipSide={tooltipSide}>
         <ShortcutGlyph letter="N" size={iconSize} />
       </ShortcutButton>
       <ShortcutButton href="https://erp.egnis.kr" label="ERP10" color="#D9A054" size={size} tooltipSide={tooltipSide}>

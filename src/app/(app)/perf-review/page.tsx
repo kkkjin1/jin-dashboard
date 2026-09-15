@@ -576,13 +576,13 @@ export default function CompletedTestPage() {
                 allCompleted.length === 0 ? <EmptyRow text="해당 기간 완료 항목 없음" /> :
                 <>
                   {completedAgenda.map(a => (
-                    <CompletedItemRow key={`a_${a.id}`} typeLabel="안건" title={a.title ?? ''} tag="완료" tagBg="rgba(186,222,200,0.25)" tagColor="#7DC4A0" />
+                    <CompletedItemRow key={`a_${a.id}`} typeLabel="안건" title={a.title ?? ''} tag="완료" tagBg="rgba(186,222,200,0.25)" tagColor="rgba(var(--text-rgb),0.9)" />
                   ))}
                   {completedSubTasks.map(st => (
-                    <CompletedItemRow key={`st_${st.id}`} typeLabel="상세" title={st.title ?? ''} tag={st.group_name || '상세task'} tagBg="rgba(91,143,191,0.18)" tagColor="#5E8FBF" />
+                    <CompletedItemRow key={`st_${st.id}`} typeLabel="상세" title={st.title ?? ''} tag={st.group_name || '상세task'} tagBg="rgba(91,143,191,0.18)" tagColor="rgba(var(--text-rgb),0.9)" />
                   ))}
                   {completedTasks.map(t => (
-                    <CompletedItemRow key={`t_${t.id}`} typeLabel="업무" title={t.title ?? ''} tag={t.part ?? '업무'} tagBg="rgba(144,167,216,0.22)" tagColor="#90A7D8" />
+                    <CompletedItemRow key={`t_${t.id}`} typeLabel="업무" title={t.title ?? ''} tag={t.part ?? '업무'} tagBg="rgba(144,167,216,0.22)" tagColor="rgba(var(--text-rgb),0.9)" />
                   ))}
                   {completedExecTasks.map(e => (
                     <CompletedItemRow key={`e_${e.id}`} typeLabel="실행TASK" title={e.title ?? ''} tag={e.agenda_title || '실행TASK'} tagBg="rgba(76,127,224,0.18)" tagColor="var(--accent-tint-text)" />

@@ -977,7 +977,7 @@ export default function SchedulePage() {
                         const sel = meetForm.category === cat
                         return (
                           <button key={cat} type="button" onClick={() => setMeetForm(prev => ({ ...prev, category: sel ? '' : cat }))}
-                            style={{ background: sel ? p.bg : 'rgba(var(--ink-rgb),0.04)', border: `1px solid ${sel ? p.border : 'rgba(var(--ink-rgb),0.07)'}`, color: sel ? p.text : 'rgba(var(--text-rgb),0.4)' }}
+                            style={{ background: sel ? p.bg : 'rgba(var(--ink-rgb),0.04)', border: `1px solid ${sel ? p.border : 'rgba(var(--ink-rgb),0.07)'}`, color: sel ? 'rgba(var(--text-rgb),0.9)' : 'rgba(var(--text-rgb),0.4)' }}
                             className="text-[9px] px-2 py-0.5 rounded-full transition-all">
                             {cat}
                           </button>
@@ -1038,7 +1038,7 @@ export default function SchedulePage() {
                                 const sel = editForm.category === cat
                                 return (
                                   <button key={cat} type="button" onClick={() => setEditForm(p => ({ ...p, category: sel ? '' : cat }))}
-                                    style={{ background: sel ? p2.bg : 'rgba(var(--ink-rgb),0.04)', border: `1px solid ${sel ? p2.border : 'rgba(var(--ink-rgb),0.07)'}`, color: sel ? p2.text : 'rgba(var(--text-rgb),0.4)' }}
+                                    style={{ background: sel ? p2.bg : 'rgba(var(--ink-rgb),0.04)', border: `1px solid ${sel ? p2.border : 'rgba(var(--ink-rgb),0.07)'}`, color: sel ? 'rgba(var(--text-rgb),0.9)' : 'rgba(var(--text-rgb),0.4)' }}
                                     className="text-[9px] px-2 py-0.5 rounded-full transition-all">
                                     {cat}
                                   </button>
@@ -1064,7 +1064,7 @@ export default function SchedulePage() {
                         {s.category && (() => {
                           const ck = MEETING_CATEGORY[s.category] ?? colorKeyFromName(s.category)
                           const cp = CATEGORY_PALETTE[ck]
-                          return <span className="text-[8px] px-1.5 py-0.5 rounded-full flex-shrink-0" style={{ background: cp.bg, color: cp.text, border: `1px solid ${cp.border}` }}>{s.category}</span>
+                          return <span className="text-[8px] px-1.5 py-0.5 rounded-full flex-shrink-0" style={{ background: cp.bg, color: 'rgba(var(--text-rgb),0.9)', border: `1px solid ${cp.border}` }}>{s.category}</span>
                         })()}
                         <span className="text-[8px] text-[rgba(var(--text-rgb),0.3)] flex-shrink-0">
                           {!s.is_recurring
