@@ -335,6 +335,12 @@ function OverlayFrame({
     const startX = e.clientX, startY = e.clientY
     draggingRef.current = false
     function onMove(ev: PointerEvent) {
+      // Table처럼 pointerdown 시작점이 텍스트 위(예: 아직 포커스 안 된 셀)일 수
+      // 있는 카드는, 실제로 드래그가 시작되는 순간 브라우저 기본 텍스트 선택이
+      // 함께 진행돼 다른 카드의 글자까지 하이라이트되는 것처럼 보일 수 있다 —
+      // 드래그가 실제로 확정된 시점(첫 pointermove)에만 한 번 정리한다. 클릭만
+      // 하고 끝나는 경우(진짜 텍스트 선택/셀 포커스 의도)는 절대 건드리지 않는다.
+      if (!draggingRef.current) window.getSelection()?.removeAllRanges()
       draggingRef.current = true
       setLive({ ...startBox, x: startBox.x + (ev.clientX - startX), y: startBox.y + (ev.clientY - startY) })
     }
@@ -568,6 +574,11 @@ export function TableOverlay({
   // 이 컴포넌트가 마운트됨)이라 seed하는 초기값 자체가 정확한 기준값 — BoxOverlay와
   // 동일한 이유로 false recovery 방지를 위한 별도 처리가 필요 없다.
   const [tableData, setTableData] = useState<SketchTableData>(data)
+  // startColResize의 pointerup 핸들러(컴포넌트 마운트 중 한 번만 만들어지는 클로저)가
+  // 항상 최신 tableData를 읽을 수 있도록 미러링 — 렌더 중이 아닌 이벤트 콜백에서만
+  // 읽으므로 ref 접근 자체는 안전하다.
+  const tableDataRef = useRef(tableData)
+  useEffect(() => { tableDataRef.current = tableData }, [tableData])
   // 현재 포커스된 셀 — 행/열 추가·삭제가 "이 셀 기준"으로 동작하게 한다. 저장되는
   // SketchTableData 자체에는 안 넣는다(구조 데이터가 아니라 일시적 UI 상태).
   const [activeCell, setActiveCell] = useState<{ r: number; c: number } | null>(null)
@@ -594,8 +605,13 @@ export function TableOverlay({
     void autosave.flush()
   }
 
-  function persist(next: SketchTableData, immediate: boolean) {
-    if (immediate) { onDataChange(next); return }
+  // 즉시 반영(행/열 추가삭제 등 구조 변경)과 디바운스 반영(타이핑)을 별도 함수로
+  // 나눈다 — persistImmediate는 ref를 전혀 건드리지 않아, addRow 등 구조 변경
+  // 함수들을 렌더 중(JSX에서 참조되는 시점) ref 접근과 무관하게 유지할 수 있다.
+  function persistImmediate(next: SketchTableData) {
+    onDataChange(next)
+  }
+  function persistDebounced(next: SketchTableData) {
     clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(() => onDataChange(next), 500)
   }
@@ -624,57 +640,56 @@ export function TableOverlay({
     setTableData(prev => {
       const rows = prev.rows.map((row, ri) => (ri === r ? row.map((cell, ci) => (ci === c ? text : cell)) : row))
       const next = { ...prev, rows }
-      persist(next, false)
+      persistDebounced(next)
       return next
     })
   }
+  // persistImmediate는 onDataChange를 즉시 호출해 부모(FreeNoteCanvas)의 state를
+  // 바꾸는데, setTableData 업데이터 함수 "안에서" 이걸 하면 렌더링 중에 다른
+  // 컴포넌트의 setState를 호출하는 셈이라 React가 경고한다("Cannot update a
+  // component while rendering a different component") — 그래서 아래 6개 함수는
+  // next를 먼저 계산해 setTableData(next)와 persistImmediate(next)를 렌더 바깥의
+  // 별도 문장으로 순차 호출한다. updateCellText만은 persistDebounced로 그냥
+  // 타이머를 예약할 뿐 onDataChange를 동기 호출하지 않아 안전하므로 그대로 둔다.
   function addRow() {
-    setTableData(prev => {
-      const count = prev.rows[0]?.length ?? prev.colWidths.length
-      const insertAt = activeCell ? activeCell.r + 1 : prev.rows.length
-      const next = { ...prev, rows: [...prev.rows.slice(0, insertAt), new Array(count).fill(''), ...prev.rows.slice(insertAt)] }
-      persist(next, true)
-      return next
-    })
+    const count = tableData.rows[0]?.length ?? tableData.colWidths.length
+    const insertAt = activeCell ? activeCell.r + 1 : tableData.rows.length
+    const next = { ...tableData, rows: [...tableData.rows.slice(0, insertAt), new Array(count).fill(''), ...tableData.rows.slice(insertAt)] }
+    setTableData(next)
+    persistImmediate(next)
   }
   function removeRow() {
-    setTableData(prev => {
-      if (prev.rows.length <= 1) return prev
-      const idx = Math.min(activeCell?.r ?? prev.rows.length - 1, prev.rows.length - 1)
-      const next = { ...prev, rows: prev.rows.filter((_, i) => i !== idx) }
-      setActiveCell(a => (a ? { r: Math.max(0, idx - 1), c: a.c } : a))
-      persist(next, true)
-      return next
-    })
+    if (tableData.rows.length <= 1) return
+    const idx = Math.min(activeCell?.r ?? tableData.rows.length - 1, tableData.rows.length - 1)
+    const next = { ...tableData, rows: tableData.rows.filter((_, i) => i !== idx) }
+    setActiveCell(a => (a ? { r: Math.max(0, idx - 1), c: a.c } : a))
+    setTableData(next)
+    persistImmediate(next)
   }
   function addCol() {
-    setTableData(prev => {
-      const insertAt = activeCell ? activeCell.c + 1 : prev.colWidths.length
-      const next = {
-        ...prev,
-        rows: prev.rows.map(row => [...row.slice(0, insertAt), '', ...row.slice(insertAt)]),
-        colWidths: [...prev.colWidths.slice(0, insertAt), 100, ...prev.colWidths.slice(insertAt)],
-      }
-      persist(next, true)
-      return next
-    })
+    const insertAt = activeCell ? activeCell.c + 1 : tableData.colWidths.length
+    const next = {
+      ...tableData,
+      rows: tableData.rows.map(row => [...row.slice(0, insertAt), '', ...row.slice(insertAt)]),
+      colWidths: [...tableData.colWidths.slice(0, insertAt), 100, ...tableData.colWidths.slice(insertAt)],
+    }
+    setTableData(next)
+    persistImmediate(next)
   }
   function removeCol() {
-    setTableData(prev => {
-      if (prev.colWidths.length <= 1) return prev
-      const idx = Math.min(activeCell?.c ?? prev.colWidths.length - 1, prev.colWidths.length - 1)
-      const next = {
-        ...prev,
-        rows: prev.rows.map(row => row.filter((_, i) => i !== idx)),
-        colWidths: prev.colWidths.filter((_, i) => i !== idx),
-      }
-      setActiveCell(a => (a ? { r: a.r, c: Math.max(0, idx - 1) } : a))
-      persist(next, true)
-      return next
-    })
+    if (tableData.colWidths.length <= 1) return
+    const idx = Math.min(activeCell?.c ?? tableData.colWidths.length - 1, tableData.colWidths.length - 1)
+    const next = {
+      ...tableData,
+      rows: tableData.rows.map(row => row.filter((_, i) => i !== idx)),
+      colWidths: tableData.colWidths.filter((_, i) => i !== idx),
+    }
+    setActiveCell(a => (a ? { r: a.r, c: Math.max(0, idx - 1) } : a))
+    setTableData(next)
+    persistImmediate(next)
   }
-  function toggleHeader() { setTableData(prev => { const next = { ...prev, headerRow: !prev.headerRow }; persist(next, true); return next }) }
-  function toggleBg() { setTableData(prev => { const next = { ...prev, transparentBg: !prev.transparentBg }; persist(next, true); return next }) }
+  function toggleHeader() { const next = { ...tableData, headerRow: !tableData.headerRow }; setTableData(next); persistImmediate(next) }
+  function toggleBg() { const next = { ...tableData, transparentBg: !tableData.transparentBg }; setTableData(next); persistImmediate(next) }
 
   function handleCellKeyDown(e: React.KeyboardEvent<HTMLTableCellElement>, r: number, c: number) {
     const rows = tableData.rows
@@ -710,7 +725,7 @@ export function TableOverlay({
     function onUp() {
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp)
-      setTableData(prev => { persist(prev, true); return prev })
+      persistImmediate(tableDataRef.current)
     }
     window.addEventListener('pointermove', onMove)
     window.addEventListener('pointerup', onUp)
@@ -752,7 +767,11 @@ export function TableOverlay({
             {mkBtn('배경', '카드 배경색 지우기/복원', toggleBg)}
           </div>
         )}
-        <div className="flex-1 min-h-0 overflow-auto rounded" onPointerDown={e => e.stopPropagation()}>
+        {/* isEditing으로 게이팅: 표가 편집 중이 아닐 때는 pointerdown을 그대로
+            OverlayFrame까지 올려보내 카드 전체를 드래그할 수 있게 하고, 셀 포커스가
+            들어와 편집 중일 때만 stopPropagation으로 텍스트 선택 드래그와 카드 이동을
+            분리한다(요청사항: "표 몸통 드래그 vs 셀 편집" 상태 구분). */}
+        <div className="flex-1 min-h-0 overflow-auto rounded" onPointerDown={e => { if (isEditing) e.stopPropagation() }}>
           <div className="relative inline-block">
             <table style={{ borderCollapse: 'collapse', tableLayout: 'fixed' }}>
               <colgroup>
@@ -776,7 +795,7 @@ export function TableOverlay({
                         onFocus={() => setActiveCell({ r: ri, c: ci })}
                         onInput={e => updateCellText(ri, ci, e.currentTarget.textContent ?? '')}
                         onKeyDown={e => handleCellKeyDown(e, ri, ci)}
-                        onPointerDown={e => e.stopPropagation()}
+                        onPointerDown={e => { if (isEditing) e.stopPropagation() }}
                         className="outline-none"
                         style={{
                           border: '1px solid rgba(var(--ink-rgb),0.16)', padding: '5px 8px', fontSize: 12, color: BASE_TEXT,
