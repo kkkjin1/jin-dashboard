@@ -6,6 +6,7 @@ import { getDevPilotClient } from '@/lib/supabase/devPilotClient'
 import { useAutosave, clearAutosaveBuffer } from '@/hooks/useAutosave'
 import TiptapEditor from '@/components/TiptapEditor'
 import { openQuickMemo, registerQuickMemoHeartbeat } from '@/lib/quickMemo'
+import { useTheme } from '@/lib/theme'
 import type { MemoTag } from '@/types'
 
 const TAGS: MemoTag[] = ['업무관련', '회의관련', '아이디어', '공지']
@@ -102,6 +103,7 @@ export default function QuickMemoPage() {
   const isHolder  = useRef(false)  // 슬롯 소유 여부 (saveDraft 등에서 사용)
   const qidRef    = useRef('')     // 이 창이 쓰는 draft 슬롯 id — orphan 선택 대기 중엔 빈 문자열
   const supabase  = createClient()
+  const [theme]   = useTheme()
 
   // devPilotClient.ts의 설계 계약상 dev-pilot은 autosave_drafts/content_versions만
   // 격리하기 위한 것 — agenda_groups/agenda_items/agenda_sub_tasks/meetings/
@@ -461,69 +463,69 @@ export default function QuickMemoPage() {
 
   // 정리 안 된 draft가 2개 이상 남아있으면 — 어느 걸 이 창에서 이어쓸지 먼저 고르게 함
   return orphans.length > 0 ? (
-    <div className="h-screen flex flex-col p-5" style={{ background: '#161B24', colorScheme: 'dark', boxSizing: 'border-box' }}>
+    <div className="h-screen flex flex-col p-5" style={{ background: 'var(--surface-primary)', colorScheme: theme, boxSizing: 'border-box' }}>
       <div className="flex items-center justify-between mb-3">
-        <h3 className="font-semibold text-[#E5E7EB] text-sm tracking-wide">복구 가능한 메모 {orphans.length}개</h3>
+        <h3 className="font-semibold text-[var(--text-primary)] text-sm tracking-wide">복구 가능한 메모 {orphans.length}개</h3>
         <button onClick={() => window.close()}
-          className="text-[#5B6270] hover:text-[#E5E7EB] text-lg leading-none transition-colors w-6 h-6 flex items-center justify-center rounded hover:bg-[rgba(255,255,255,0.08)]">
+          className="text-[var(--text-muted)] hover:text-[var(--text-primary)] text-lg leading-none transition-colors w-6 h-6 flex items-center justify-center rounded hover:bg-[rgba(var(--ink-rgb),0.08)]">
           ×
         </button>
       </div>
-      <p className="text-xs mb-3" style={{ color: '#5B6270' }}>
+      <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
         정상적으로 닫히지 않은 창이 여러 개 있어요. 이 창에서 이어서 작성할 메모를 골라주세요.
       </p>
       <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide flex flex-col gap-2">
         {orphans.map(o => (
           <button key={o.id} onClick={() => pickOrphan(o)}
             className="text-left rounded-lg px-3 py-2.5 transition-colors"
-            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
-            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.08)')}
-            onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
+            style={{ background: 'rgba(var(--ink-rgb),0.04)', border: '1px solid rgba(var(--ink-rgb),0.08)' }}
+            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(var(--ink-rgb),0.08)')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'rgba(var(--ink-rgb),0.04)')}
           >
             <div className="flex items-center justify-between gap-2 mb-1">
-              <span className="text-sm font-medium truncate" style={{ color: '#E5E7EB' }}>{o.title || '(제목 없음)'}</span>
-              <span className="text-[10px] flex-shrink-0" style={{ color: '#5B6270' }}>{timeAgo(o.updatedAt)}</span>
+              <span className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>{o.title || '(제목 없음)'}</span>
+              <span className="text-[10px] flex-shrink-0" style={{ color: 'var(--text-muted)' }}>{timeAgo(o.updatedAt)}</span>
             </div>
-            <p className="text-xs truncate" style={{ color: '#9CA3AF' }}>{stripHtml(o.content) || '(내용 없음)'}</p>
+            <p className="text-xs truncate" style={{ color: 'var(--text-secondary)' }}>{stripHtml(o.content) || '(내용 없음)'}</p>
           </button>
         ))}
       </div>
       <button onClick={startFreshIgnoringOrphans}
         className="mt-3 text-xs py-2 rounded-lg transition-colors text-center"
-        style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: '#9CA3AF' }}>
+        style={{ background: 'rgba(var(--ink-rgb),0.05)', border: '1px solid rgba(var(--ink-rgb),0.08)', color: 'var(--text-secondary)' }}>
         새 메모로 시작 (나머지는 남겨둠)
       </button>
     </div>
   ) : (
-    <div className="h-screen flex flex-col p-5 relative" style={{ background: '#161B24', colorScheme: 'dark', boxSizing: 'border-box' }}>
+    <div className="h-screen flex flex-col p-5 relative" style={{ background: 'var(--surface-primary)', colorScheme: theme, boxSizing: 'border-box' }}>
       {/* 최근 저장 기록 — 성공 저장 후에도 3일간 남아있는 보관함. "저장됐다는데 안 보인다" 복구용 */}
       {showArchive && (
-        <div className="absolute inset-0 z-20 flex flex-col p-5" style={{ background: '#161B24' }}>
+        <div className="absolute inset-0 z-20 flex flex-col p-5" style={{ background: 'var(--surface-primary)' }}>
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold text-[#E5E7EB] text-sm tracking-wide">최근 저장 기록</h3>
+            <h3 className="font-semibold text-[var(--text-primary)] text-sm tracking-wide">최근 저장 기록</h3>
             <button onClick={() => setShowArchive(false)}
-              className="text-[#5B6270] hover:text-[#E5E7EB] text-lg leading-none transition-colors w-6 h-6 flex items-center justify-center rounded hover:bg-[rgba(255,255,255,0.08)]">
+              className="text-[var(--text-muted)] hover:text-[var(--text-primary)] text-lg leading-none transition-colors w-6 h-6 flex items-center justify-center rounded hover:bg-[rgba(var(--ink-rgb),0.08)]">
               ×
             </button>
           </div>
-          <p className="text-xs mb-3" style={{ color: '#5B6270' }}>
+          <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
             저장 성공 후에도 3일간 남아있는 기록이에요. 목록에 안 보이는 메모가 있으면 여기서 복원해서 다시 저장해 주세요.
           </p>
           <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide flex flex-col gap-2">
             {archiveEntries.length === 0 ? (
-              <p className="text-xs text-center py-6" style={{ color: '#5B6270' }}>최근 저장 기록이 없어요</p>
+              <p className="text-xs text-center py-6" style={{ color: 'var(--text-muted)' }}>최근 저장 기록이 없어요</p>
             ) : archiveEntries.map((e, i) => (
               <button key={i} onClick={() => restoreFromArchive(e)}
                 className="text-left rounded-lg px-3 py-2.5 transition-colors"
-                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
-                onMouseEnter={ev => (ev.currentTarget.style.background = 'rgba(255,255,255,0.08)')}
-                onMouseLeave={ev => (ev.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
+                style={{ background: 'rgba(var(--ink-rgb),0.04)', border: '1px solid rgba(var(--ink-rgb),0.08)' }}
+                onMouseEnter={ev => (ev.currentTarget.style.background = 'rgba(var(--ink-rgb),0.08)')}
+                onMouseLeave={ev => (ev.currentTarget.style.background = 'rgba(var(--ink-rgb),0.04)')}
               >
                 <div className="flex items-center justify-between gap-2 mb-1">
-                  <span className="text-sm font-medium truncate" style={{ color: '#E5E7EB' }}>{e.title || '(제목 없음)'}</span>
-                  <span className="text-[10px] flex-shrink-0" style={{ color: '#5B6270' }}>{timeAgo(e.savedAt)}</span>
+                  <span className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>{e.title || '(제목 없음)'}</span>
+                  <span className="text-[10px] flex-shrink-0" style={{ color: 'var(--text-muted)' }}>{timeAgo(e.savedAt)}</span>
                 </div>
-                <p className="text-xs truncate" style={{ color: '#9CA3AF' }}>{stripHtml(e.content) || '(내용 없음)'}</p>
+                <p className="text-xs truncate" style={{ color: 'var(--text-secondary)' }}>{stripHtml(e.content) || '(내용 없음)'}</p>
               </button>
             ))}
           </div>
@@ -533,10 +535,10 @@ export default function QuickMemoPage() {
       {/* 헤더 */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <h3 className="font-semibold text-[#E5E7EB] text-sm tracking-wide">빠른 메모</h3>
+          <h3 className="font-semibold text-[var(--text-primary)] text-sm tracking-wide">빠른 메모</h3>
           {!isHolderState && (
             <span className="text-[10px] px-2 py-0.5 rounded-full"
-              style={{ background: 'rgba(255,255,255,0.06)', color: '#5B6270', border: '1px solid rgba(255,255,255,0.08)' }}>
+              style={{ background: 'rgba(var(--ink-rgb),0.06)', color: 'var(--text-muted)', border: '1px solid rgba(var(--ink-rgb),0.08)' }}>
               새 메모
             </span>
           )}
@@ -550,15 +552,15 @@ export default function QuickMemoPage() {
         </div>
         <div className="flex items-center gap-2">
           <AutosaveStatusBadge autosave={autosave} />
-          {autoSaved && <span className="text-[10px] text-[#5B6270]">임시저장됨</span>}
+          {autoSaved && <span className="text-[10px] text-[var(--text-muted)]">임시저장됨</span>}
           <button onClick={openArchive}
             className="text-[10px] px-2 py-1 rounded-lg transition-colors"
-            style={{ color: '#5B6270', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+            style={{ color: 'var(--text-muted)', background: 'rgba(var(--ink-rgb),0.04)', border: '1px solid rgba(var(--ink-rgb),0.08)' }}
             title="저장 성공 후에도 3일간 남아있는 최근 저장 기록">
             최근 저장 기록
           </button>
           <button onClick={() => window.close()}
-            className="text-[#5B6270] hover:text-[#E5E7EB] text-lg leading-none transition-colors w-6 h-6 flex items-center justify-center rounded hover:bg-[rgba(255,255,255,0.08)]">
+            className="text-[var(--text-muted)] hover:text-[var(--text-primary)] text-lg leading-none transition-colors w-6 h-6 flex items-center justify-center rounded hover:bg-[rgba(var(--ink-rgb),0.08)]">
             ×
           </button>
         </div>
@@ -604,7 +606,7 @@ export default function QuickMemoPage() {
             onClick={() => { setTag(t); saveDraft(title, content, t) }}
             className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${tag === t
               ? TAG_COLORS[t]
-              : 'bg-[rgba(255,255,255,0.05)] text-[#5B6270] border-[rgba(255,255,255,0.08)] hover:bg-[rgba(255,255,255,0.08)] hover:text-[#A1A7B3]'}`}>
+              : 'bg-[rgba(var(--ink-rgb),0.05)] text-[var(--text-muted)] border-[rgba(var(--ink-rgb),0.08)] hover:bg-[rgba(var(--ink-rgb),0.08)] hover:text-[var(--text-hover-muted)]'}`}>
             {t}
           </button>
         ))}
@@ -620,8 +622,8 @@ export default function QuickMemoPage() {
           if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); handleSave() }
         }}
         placeholder={tag === '회의관련' ? '호균님 미팅' : '제목 (Ctrl+Enter 저장)'}
-        className="w-full text-sm placeholder:text-[#5B6270] border border-[rgba(255,255,255,0.08)] rounded-lg px-3 py-2 focus:outline-none focus:border-[rgba(255,255,255,0.2)] mb-1.5"
-        style={{ background: '#1A1C1F', color: '#E5E7EB' }}
+        className="w-full text-sm placeholder:text-[var(--text-muted)] border border-[rgba(var(--ink-rgb),0.08)] rounded-lg px-3 py-2 focus:outline-none focus:border-[rgba(var(--ink-rgb),0.2)] mb-1.5"
+        style={{ background: 'rgba(var(--ink-rgb),0.06)', color: 'var(--text-primary)' }}
       />
 
       {tag === '회의관련' && (
@@ -631,8 +633,8 @@ export default function QuickMemoPage() {
       )}
 
       {/* 본문 */}
-      <div className="flex-1 min-h-0 mb-2 overflow-y-auto scrollbar-hide border border-[rgba(255,255,255,0.08)] rounded-lg px-3 py-2"
-        style={{ background: '#1A1C1F' }}>
+      <div className="flex-1 min-h-0 mb-2 overflow-y-auto scrollbar-hide border border-[rgba(var(--ink-rgb),0.08)] rounded-lg px-3 py-2"
+        style={{ background: 'rgba(var(--ink-rgb),0.06)' }}>
         <TiptapEditor
           key={editorKey}
           value={content}
@@ -654,7 +656,7 @@ export default function QuickMemoPage() {
       ) : selText && !showPicker ? (
         <div className="mb-2 flex items-center gap-2">
           <div className="flex-1 min-w-0 text-xs px-2.5 py-1.5 rounded-lg truncate"
-            style={{ background: 'rgba(255,255,255,0.04)', color: '#9CA3AF', border: '1px solid rgba(255,255,255,0.07)' }}>
+            style={{ background: 'rgba(var(--ink-rgb),0.04)', color: 'var(--text-secondary)', border: '1px solid rgba(var(--ink-rgb),0.07)' }}>
             &ldquo;{selText}&rdquo;
           </div>
           <button type="button"
@@ -669,39 +671,39 @@ export default function QuickMemoPage() {
       {/* 안건 Picker */}
       {showPicker && (
         <div className="mb-2 rounded-lg overflow-hidden"
-          style={{ background: '#1A2030', border: '1px solid rgba(255,255,255,0.09)' }}>
-          <div className="flex items-center justify-between px-3 py-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+          style={{ background: 'var(--surface-elevated)', border: '1px solid rgba(var(--ink-rgb),0.09)' }}>
+          <div className="flex items-center justify-between px-3 py-2" style={{ borderBottom: '1px solid rgba(var(--ink-rgb),0.06)' }}>
             {pickerStep === 'item' ? (
               <button type="button" onClick={() => setPickerStep('group')}
-                className="text-[11px] flex items-center gap-1" style={{ color: '#7B8397' }}>← 뒤로</button>
+                className="text-[11px] flex items-center gap-1" style={{ color: 'var(--text-muted)' }}>← 뒤로</button>
             ) : (
-              <span className="text-[11px]" style={{ color: '#7B8397' }}>프로젝트 선택</span>
+              <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>프로젝트 선택</span>
             )}
-            <span className="text-[10px] truncate max-w-[160px] px-2" style={{ color: '#5B6270' }}>&ldquo;{selText}&rdquo;</span>
+            <span className="text-[10px] truncate max-w-[160px] px-2" style={{ color: 'var(--text-muted)' }}>&ldquo;{selText}&rdquo;</span>
             <button type="button" onClick={() => setShowPicker(false)}
-              className="text-[13px] leading-none" style={{ color: '#5B6270' }}>×</button>
+              className="text-[13px] leading-none" style={{ color: 'var(--text-muted)' }}>×</button>
           </div>
           <div className="max-h-[140px] overflow-y-auto scrollbar-hide py-1">
             {pickerLoading ? (
-              <div className="text-[11px] px-3 py-3 text-center" style={{ color: '#5B6270' }}>로딩 중...</div>
+              <div className="text-[11px] px-3 py-3 text-center" style={{ color: 'var(--text-muted)' }}>로딩 중...</div>
             ) : pickerStep === 'group' ? (
               groups.length === 0
-                ? <div className="text-[11px] px-3 py-3 text-center" style={{ color: '#5B6270' }}>프로젝트가 없습니다</div>
+                ? <div className="text-[11px] px-3 py-3 text-center" style={{ color: 'var(--text-muted)' }}>프로젝트가 없습니다</div>
                 : groups.map(g => (
                     <button key={g.id} type="button" onClick={() => onGroupSelect(g.id)}
-                      className="w-full text-left flex items-center gap-2.5 px-3 py-2 text-xs transition-colors hover:bg-[rgba(255,255,255,0.05)]"
-                      style={{ color: '#C9D2E0' }}>
+                      className="w-full text-left flex items-center gap-2.5 px-3 py-2 text-xs transition-colors hover:bg-[rgba(var(--ink-rgb),0.05)]"
+                      style={{ color: 'rgba(var(--text-rgb),0.85)' }}>
                       <span style={{ width: 8, height: 8, borderRadius: 2, background: g.color, flexShrink: 0, display: 'inline-block' }} />
                       {g.name}
                     </button>
                   ))
             ) : (
               pickerItems.length === 0
-                ? <div className="text-[11px] px-3 py-3 text-center" style={{ color: '#5B6270' }}>안건이 없습니다</div>
+                ? <div className="text-[11px] px-3 py-3 text-center" style={{ color: 'var(--text-muted)' }}>안건이 없습니다</div>
                 : pickerItems.map(item => (
                     <button key={item.id} type="button" onClick={() => onItemSelect(item.id)} disabled={pickerLoading}
-                      className="w-full text-left px-3 py-2 text-xs transition-colors hover:bg-[rgba(255,255,255,0.05)] disabled:opacity-40"
-                      style={{ color: '#C9D2E0' }}>
+                      className="w-full text-left px-3 py-2 text-xs transition-colors hover:bg-[rgba(var(--ink-rgb),0.05)] disabled:opacity-40"
+                      style={{ color: 'rgba(var(--text-rgb),0.85)' }}>
                       {item.title}
                     </button>
                   ))
@@ -722,7 +724,7 @@ export default function QuickMemoPage() {
       {/* 푸터 */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="text-[10px] text-[#3B404D] whitespace-nowrap">ESC · Ctrl+Enter</span>
+          <span className="text-[10px] text-[rgba(var(--text-rgb),0.35)] whitespace-nowrap">ESC · Ctrl+Enter</span>
         </div>
         <div className="flex items-center gap-2">
           {/* 슬랙 복사 */}
@@ -765,8 +767,8 @@ export default function QuickMemoPage() {
           <button
             onClick={handleSave}
             disabled={!title.trim() || saving}
-            className="text-xs bg-[rgba(76,127,224,0.1)] text-[rgba(230,231,234,0.85)] border border-[rgba(255,255,255,0.08)] px-4 py-2 rounded-lg hover:bg-[rgba(76,127,224,0.18)] disabled:opacity-30 transition-colors flex-shrink-0"
-            style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.07)' }}>
+            className="text-xs bg-[rgba(76,127,224,0.1)] text-[rgba(var(--text-rgb),0.85)] border border-[rgba(var(--ink-rgb),0.08)] px-4 py-2 rounded-lg hover:bg-[rgba(76,127,224,0.18)] disabled:opacity-30 transition-colors flex-shrink-0"
+            style={{ boxShadow: 'inset 0 1px 0 rgba(var(--ink-rgb),0.07)' }}>
             {savedMsg || (saving ? '저장 중...' : '저장')}
           </button>
         </div>
@@ -780,9 +782,9 @@ export default function QuickMemoPage() {
 function AutosaveStatusBadge({ autosave }: { autosave: ReturnType<typeof useAutosave<{ title: string; content: string; tag: MemoTag }>> }) {
   const { status, failureReason } = autosave
   const map: Record<string, { text: string; color: string }> = {
-    'idle':          { text: '', color: '#5B6270' },
-    'local-saving':  { text: '로컬 저장 중…', color: '#5B6270' },
-    'pending-sync':  { text: '동기화 대기…', color: '#5B6270' },
+    'idle':          { text: '', color: 'var(--text-muted)' },
+    'local-saving':  { text: '로컬 저장 중…', color: 'var(--text-muted)' },
+    'pending-sync':  { text: '동기화 대기…', color: 'var(--text-muted)' },
     'syncing':       { text: '서버 저장 중…', color: '#8DAEE6' },
     'saved':         { text: '자동저장됨(서버)', color: '#66CC99' },
     'retrying':      { text: failureReason === 'network' ? '오프라인 — 재연결 시 자동 저장' : '저장 실패 · 재시도 중', color: '#F99E0B' },

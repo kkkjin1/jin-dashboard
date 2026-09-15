@@ -66,24 +66,25 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#F4F7F5]">
-      <div className="bg-white rounded-2xl shadow-sm border border-stone-100 p-8 w-full max-w-sm">
+    <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg-page)' }}>
+      <div className="rounded-2xl p-8 w-full max-w-sm"
+        style={{ background: 'var(--surface-elevated)', border: '1px solid var(--border-default)', boxShadow: 'var(--shadow-card)' }}>
 
         <div className="flex items-center gap-3 mb-8">
           <div className="w-9 h-9 bg-[#4C7FE0] rounded-lg flex items-center justify-center">
             <span className="text-white font-bold text-sm">인</span>
           </div>
           <div>
-            <p className="font-semibold text-gray-900 text-sm">비밀번호 재설정</p>
-            <p className="text-xs text-gray-400">인사기획팀 · 업무 보드</p>
+            <p className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>비밀번호 재설정</p>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>인사기획팀 · 업무 보드</p>
           </div>
         </div>
 
         {checking ? (
-          <p className="text-sm text-gray-400 text-center py-6">확인 중…</p>
+          <p className="text-sm text-center py-6" style={{ color: 'var(--text-muted)' }}>확인 중…</p>
         ) : !hasSession ? (
           <div className="space-y-4">
-            <p className="text-sm text-gray-500">
+            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
               링크가 유효하지 않거나 만료됐습니다. 로그인 화면에서 재설정 메일을 다시 요청해주세요.
             </p>
             <button
@@ -97,31 +98,34 @@ export default function ResetPasswordPage() {
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1.5">새 비밀번호</label>
+              <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>새 비밀번호</label>
               <input
                 type="password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#4C7FE0]/30 focus:border-[#4C7FE0] bg-white placeholder-gray-300 transition-colors"
+                className="w-full rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#4C7FE0]/30 focus:border-[#4C7FE0] transition-colors placeholder:text-[rgba(var(--text-rgb),0.3)]"
+                style={{ background: 'rgba(var(--ink-rgb),0.06)', border: '1px solid rgba(var(--ink-rgb),0.09)', color: 'rgba(var(--text-rgb),1)' }}
                 placeholder="6자 이상"
                 autoFocus
                 required
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1.5">새 비밀번호 확인</label>
+              <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>새 비밀번호 확인</label>
               <input
                 type="password"
                 value={confirm}
                 onChange={e => setConfirm(e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#4C7FE0]/30 focus:border-[#4C7FE0] bg-white placeholder-gray-300 transition-colors"
+                className="w-full rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#4C7FE0]/30 focus:border-[#4C7FE0] transition-colors placeholder:text-[rgba(var(--text-rgb),0.3)]"
+                style={{ background: 'rgba(var(--ink-rgb),0.06)', border: '1px solid rgba(var(--ink-rgb),0.09)', color: 'rgba(var(--text-rgb),1)' }}
                 placeholder="다시 입력"
                 required
               />
             </div>
 
             {error && (
-              <p className="text-xs text-red-500 bg-red-50 rounded-lg px-3 py-2">{error}</p>
+              <p className="text-xs rounded-lg px-3 py-2"
+                style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: 'var(--error-badge-text)' }}>{error}</p>
             )}
 
             <button
