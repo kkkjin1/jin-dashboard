@@ -42,8 +42,9 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#F4F7F5]">
-      <div className="bg-white rounded-2xl shadow-sm border border-stone-100 p-8 w-full max-w-sm">
+    <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg-page)' }}>
+      <div className="rounded-2xl p-8 w-full max-w-sm"
+        style={{ background: 'var(--surface-elevated)', border: '1px solid var(--border-default)', boxShadow: 'var(--shadow-card)' }}>
 
         {/* 브랜드 헤더 */}
         <div className="flex items-center gap-3 mb-8">
@@ -51,20 +52,21 @@ export default function LoginPage() {
             <span className="text-white font-bold text-sm">인</span>
           </div>
           <div>
-            <p className="font-semibold text-gray-900 text-sm">인사기획 워크</p>
-            <p className="text-xs text-gray-400">인사기획팀 · 업무 보드</p>
+            <p className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>인사기획 워크</p>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>인사기획팀 · 업무 보드</p>
           </div>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-4">
           {/* 이메일 */}
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1.5">이메일</label>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>이메일</label>
             <input
               type="email"
               value={email}
               onChange={e => setEmail(e.target.value)}
-              className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#4C7FE0]/30 focus:border-[#4C7FE0] bg-white placeholder-gray-300 transition-colors"
+              className="w-full rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#4C7FE0]/30 focus:border-[#4C7FE0] transition-colors placeholder:text-[rgba(var(--text-rgb),0.3)]"
+              style={{ background: 'rgba(var(--ink-rgb),0.06)', border: '1px solid rgba(var(--ink-rgb),0.09)', color: 'rgba(var(--text-rgb),1)' }}
               placeholder="name@company.com"
               required
             />
@@ -73,9 +75,9 @@ export default function LoginPage() {
           {/* 비밀번호 */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-xs font-medium text-gray-500">비밀번호</label>
+              <label className="block text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>비밀번호</label>
               <button type="button" onClick={handleForgotPassword} disabled={resetLoading}
-                className="text-[11px] text-gray-400 hover:text-[#4C7FE0] transition-colors disabled:opacity-50">
+                className="text-[11px] hover:text-[#4C7FE0] transition-colors disabled:opacity-50" style={{ color: 'var(--text-muted)' }}>
                 {resetLoading ? '전송 중...' : '비밀번호를 잊으셨나요?'}
               </button>
             </div>
@@ -83,16 +85,19 @@ export default function LoginPage() {
               type="password"
               value={password}
               onChange={e => setPassword(e.target.value)}
-              className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#4C7FE0]/30 focus:border-[#4C7FE0] bg-white placeholder-gray-300 transition-colors"
+              className="w-full rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#4C7FE0]/30 focus:border-[#4C7FE0] transition-colors placeholder:text-[rgba(var(--text-rgb),0.3)]"
+              style={{ background: 'rgba(var(--ink-rgb),0.06)', border: '1px solid rgba(var(--ink-rgb),0.09)', color: 'rgba(var(--text-rgb),1)' }}
               placeholder="••••••••"
             />
           </div>
 
           {resetSent && (
-            <p className="text-xs text-blue-600 bg-blue-50 rounded-lg px-3 py-2">재설정 메일을 보냈습니다. 받은편지함을 확인해주세요.</p>
+            <p className="text-xs rounded-lg px-3 py-2"
+              style={{ background: 'rgba(76,127,224,0.12)', border: '1px solid rgba(76,127,224,0.3)', color: 'var(--accent-badge-text)' }}>재설정 메일을 보냈습니다. 받은편지함을 확인해주세요.</p>
           )}
           {error && (
-            <p className="text-xs text-red-500 bg-red-50 rounded-lg px-3 py-2">{error}</p>
+            <p className="text-xs rounded-lg px-3 py-2"
+              style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: 'var(--error-badge-text)' }}>{error}</p>
           )}
 
           {/* 로그인 버튼 */}
