@@ -13,6 +13,7 @@ import '@xyflow/react/dist/style.css'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
 import { useAutosave } from '@/hooks/useAutosave'
+import { useTheme } from '@/lib/theme'
 import { CATEGORY_PALETTE, type CategoryColorKey } from '@/lib/categoryColors'
 import { ArrowLeft, Plus, Trash2, GripVertical, Frame } from 'lucide-react'
 import type { SketchBoard, SketchCard, SketchEdge, SketchFrame } from '@/types'
@@ -204,7 +205,7 @@ function getBlockFontSize(block: HTMLElement): number {
 }
 
 const RED = '#EF4444'
-const BASE_TEXT = '#E2E8F0'
+const BASE_TEXT = 'var(--text-primary)' // 구조색 — 카드 셸 자체는 중립색(고정), 텍스트만 테마에 맞춰 반전
 
 function StickyCardNode({ id, data, selected }: NodeProps<CardNode>) {
   const editorRef = useRef<HTMLDivElement>(null)
@@ -364,19 +365,19 @@ function StickyCardNode({ id, data, selected }: NodeProps<CardNode>) {
         minWidth={160}
         minHeight={100}
         lineStyle={{ borderColor: 'transparent' }}
-        handleStyle={{ width: 9, height: 9, borderRadius: 2, background: palette.solid, border: '1.5px solid rgba(255,255,255,0.85)' }}
+        handleStyle={{ width: 9, height: 9, borderRadius: 2, background: palette.solid, border: '1.5px solid rgba(var(--ink-rgb),0.85)' }}
         onResizeEnd={(_event, params) => data.onResize(id, params)}
       />
       <div
         className="group relative h-full w-full flex flex-col rounded-xl overflow-hidden shadow-lg"
-        style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)' }}
+        style={{ background: 'rgba(var(--ink-rgb),0.05)', border: '1px solid rgba(var(--ink-rgb),0.09)' }}
       >
       <Handle type="target" position={Position.Left}
         className="opacity-0 group-hover:opacity-100 transition-opacity"
-        style={{ width: 10, height: 10, background: palette.solid, border: '2px solid rgba(255,255,255,0.7)' }} />
+        style={{ width: 10, height: 10, background: palette.solid, border: '2px solid rgba(var(--ink-rgb),0.7)' }} />
       <Handle type="source" position={Position.Right}
         className="opacity-0 group-hover:opacity-100 transition-opacity"
-        style={{ width: 10, height: 10, background: palette.solid, border: '2px solid rgba(255,255,255,0.7)' }} />
+        style={{ width: 10, height: 10, background: palette.solid, border: '2px solid rgba(var(--ink-rgb),0.7)' }} />
 
       <div className={`flex flex-col gap-1 px-2 pt-1.5 pb-1 flex-shrink-0 transition-opacity ${selected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
         <div className="flex items-center gap-1">
@@ -561,6 +562,7 @@ function frameToNode(frame: SketchFrame, handlers: Omit<FrameData, 'title' | 'co
 // ── 메인 컴포넌트 ──────────────────────────────────────────────────────────────
 function SketchCanvasInner({ boardId, onBack }: { boardId: string; onBack?: () => void }) {
   const supabase = createClient()
+  const [theme] = useTheme()
   const { screenToFlowPosition } = useReactFlow()
   const wrapperRef = useRef<HTMLDivElement>(null)
 
@@ -1376,19 +1378,19 @@ function SketchCanvasInner({ boardId, onBack }: { boardId: string; onBack?: () =
     setBoard(prev => prev ? { ...prev, name } : prev)
   }
 
-  if (loading) return <div className="h-full flex items-center justify-center text-[13px]" style={{ color: 'rgba(226,232,240,0.35)' }}>불러오는 중…</div>
+  if (loading) return <div className="h-full flex items-center justify-center text-[13px]" style={{ color: 'var(--text-muted)' }}>불러오는 중…</div>
 
   if (!board) return (
     <div className="h-full flex flex-col items-center justify-center gap-3">
-      <p className="text-[13px]" style={{ color: 'rgba(226,232,240,0.35)' }}>보드를 찾을 수 없습니다</p>
+      <p className="text-[13px]" style={{ color: 'var(--text-muted)' }}>보드를 찾을 수 없습니다</p>
       {onBack ? (
         <button onClick={onBack} className="text-[12px] px-4 py-1.5 rounded-full transition-colors"
-          style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(226,232,240,0.5)' }}>
+          style={{ background: 'rgba(var(--ink-rgb),0.06)', border: '1px solid rgba(var(--ink-rgb),0.1)', color: 'rgba(var(--text-rgb),0.5)' }}>
           닫기
         </button>
       ) : (
         <Link href="/sketch" className="text-[12px] px-4 py-1.5 rounded-full transition-colors"
-          style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(226,232,240,0.5)' }}>
+          style={{ background: 'rgba(var(--ink-rgb),0.06)', border: '1px solid rgba(var(--ink-rgb),0.1)', color: 'rgba(var(--text-rgb),0.5)' }}>
           목록으로
         </Link>
       )}
@@ -1404,15 +1406,15 @@ function SketchCanvasInner({ boardId, onBack }: { boardId: string; onBack?: () =
         {onBack ? (
           // 자유노트의 마인드맵 카드에서 확장했을 때 — 페이지 이동 대신 모달을 닫는다.
           <button onClick={onBack} title="닫기" className="p-1.5 rounded-lg transition-colors flex-shrink-0"
-            style={{ color: 'rgba(226,232,240,0.5)' }}
-            onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)')}
+            style={{ color: 'var(--text-muted)' }}
+            onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(var(--ink-rgb),0.06)')}
             onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'transparent')}>
             <ArrowLeft size={16} />
           </button>
         ) : (
           <Link href="/sketch" className="p-1.5 rounded-lg transition-colors flex-shrink-0"
-            style={{ color: 'rgba(226,232,240,0.5)' }}
-            onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)')}
+            style={{ color: 'var(--text-muted)' }}
+            onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(var(--ink-rgb),0.06)')}
             onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'transparent')}>
             <ArrowLeft size={16} />
           </Link>
@@ -1423,18 +1425,18 @@ function SketchCanvasInner({ boardId, onBack }: { boardId: string; onBack?: () =
           onBlur={saveBoardName}
           onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
           className="text-[18px] font-bold bg-transparent focus:outline-none min-w-0"
-          style={{ color: '#E2E8F0' }}
+          style={{ color: 'var(--text-primary)' }}
         />
-        <span className="text-[11px] flex-shrink-0" style={{ color: 'rgba(226,232,240,0.3)' }}>카드 {cardCount}개</span>
+        <span className="text-[11px] flex-shrink-0" style={{ color: 'rgba(var(--text-rgb),0.3)' }}>카드 {cardCount}개</span>
 
         {/* 프레임 생성 버튼 */}
         <button
           onClick={() => setIsCreatingFrame(v => !v)}
           className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-[12.5px] font-medium transition-colors flex-shrink-0"
           style={{
-            background: isCreatingFrame ? 'rgba(76,127,224,0.35)' : 'rgba(255,255,255,0.05)',
-            border: `1px solid ${isCreatingFrame ? 'rgba(76,127,224,0.6)' : 'rgba(255,255,255,0.1)'}`,
-            color: isCreatingFrame ? '#9DBEF5' : 'rgba(226,232,240,0.5)',
+            background: isCreatingFrame ? 'rgba(76,127,224,0.35)' : 'rgba(var(--ink-rgb),0.05)',
+            border: `1px solid ${isCreatingFrame ? 'rgba(76,127,224,0.6)' : 'rgba(var(--ink-rgb),0.1)'}`,
+            color: isCreatingFrame ? 'var(--accent-soft)' : 'rgba(var(--text-rgb),0.5)',
           }}
           title="프레임 생성 모드 (F)"
         >
@@ -1445,7 +1447,7 @@ function SketchCanvasInner({ boardId, onBack }: { boardId: string; onBack?: () =
         <button
           onClick={handleAddButtonClick}
           className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-[12.5px] font-medium transition-colors flex-shrink-0"
-          style={{ background: 'rgba(76,127,224,0.18)', border: '1px solid rgba(76,127,224,0.35)', color: '#9DBEF5' }}
+          style={{ background: 'rgba(76,127,224,0.18)', border: '1px solid rgba(76,127,224,0.35)', color: 'var(--accent-soft)' }}
         >
           <Plus size={13} /> 새 카드
           <span className="text-[10px] font-mono opacity-50">N</span>
@@ -1455,7 +1457,7 @@ function SketchCanvasInner({ boardId, onBack }: { boardId: string; onBack?: () =
       {/* 저장 실패 안내 — 위치/크기/색상/연결선 canonical write 실패 시 표시 */}
       {saveError && (
         <div className="flex-shrink-0 mb-2 px-4 py-2.5 rounded-xl text-[12px] flex items-center gap-2"
-          style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#FC8181' }}>
+          style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: 'var(--error-badge-text)' }}>
           <span>⚠</span>
           <span className="flex-1">{saveError}</span>
           <button onClick={() => setSaveError('')} className="text-[10px] opacity-70 hover:opacity-100 flex-shrink-0">닫기</button>
@@ -1466,7 +1468,7 @@ function SketchCanvasInner({ boardId, onBack }: { boardId: string; onBack?: () =
       <div
         ref={wrapperRef}
         className="flex-1 min-h-0 rounded-2xl overflow-hidden relative"
-        style={{ border: '1px solid rgba(255,255,255,0.08)' }}
+        style={{ border: '1px solid rgba(var(--ink-rgb),0.08)' }}
         onDoubleClick={!isCreatingFrame ? handlePaneDoubleClick : undefined}
       >
         {hoverTargetId && (() => {
@@ -1493,18 +1495,18 @@ function SketchCanvasInner({ boardId, onBack }: { boardId: string; onBack?: () =
             onNodeDragStop={handleNodeDragStop}
             onMoveEnd={handleMoveEnd}
             panOnDrag={!isCreatingFrame}
-            colorMode="dark"
+            colorMode={theme}
             {...(initialViewport ? { defaultViewport: initialViewport } : { fitView: true })}
             minZoom={0.2}
             maxZoom={2}
             proOptions={{ hideAttribution: true }}
           >
-            <Background variant={BackgroundVariant.Dots} gap={22} size={1.4} color="rgba(255,255,255,0.14)" style={{ background: '#0F1319' }} />
+            <Background variant={BackgroundVariant.Dots} gap={22} size={1.4} color="rgba(var(--ink-rgb),0.14)" style={{ background: 'var(--bg-page)' }} />
             <Controls showInteractive={false} />
             <MiniMap
               pannable zoomable
-              maskColor="rgba(15,19,25,0.6)"
-              style={{ background: '#161B24', border: '1px solid rgba(255,255,255,0.09)' }}
+              maskColor={theme === 'dark' ? 'rgba(15,19,25,0.6)' : 'rgba(246,247,249,0.6)'}
+              style={{ background: 'var(--surface-primary)', border: '1px solid rgba(var(--ink-rgb),0.09)' }}
               nodeColor={n => CATEGORY_PALETTE[(n.data as CardData)?.color]?.solid ?? '#6B9BE0'}
             />
           </ReactFlow>
@@ -1539,16 +1541,16 @@ function SketchCanvasInner({ boardId, onBack }: { boardId: string; onBack?: () =
             className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center justify-center rounded-full transition-all"
             style={{
               width: hoveringTrash ? 56 : 46, height: hoveringTrash ? 56 : 46,
-              background: hoveringTrash ? 'rgba(248,113,113,0.9)' : 'rgba(22,27,36,0.9)',
-              border: `1px solid ${hoveringTrash ? 'rgba(248,113,113,1)' : 'rgba(255,255,255,0.15)'}`,
+              background: hoveringTrash ? 'rgba(248,113,113,0.9)' : theme === 'dark' ? 'rgba(22,27,36,0.9)' : 'rgba(255,255,255,0.9)',
+              border: `1px solid ${hoveringTrash ? 'rgba(248,113,113,1)' : 'rgba(var(--ink-rgb),0.15)'}`,
               boxShadow: hoveringTrash ? '0 0 24px rgba(248,113,113,0.5)' : '0 4px 12px rgba(0,0,0,0.3)',
             }}>
-            <Trash2 size={hoveringTrash ? 22 : 18} color={hoveringTrash ? '#fff' : 'rgba(226,232,240,0.6)'} />
+            <Trash2 size={hoveringTrash ? 22 : 18} color={hoveringTrash ? '#fff' : 'rgba(var(--text-rgb),0.6)'} />
           </div>
         )}
       </div>
 
-      <p className="text-center text-[11px] pt-2 flex-shrink-0" style={{ color: 'rgba(226,232,240,0.28)' }}>
+      <p className="text-center text-[11px] pt-2 flex-shrink-0" style={{ color: 'rgba(var(--text-rgb),0.28)' }}>
         {isCreatingFrame
           ? <>드래그해서 프레임 영역을 그리세요 · <span className="font-mono">Esc</span>로 취소</>
           : cardCount === 0

@@ -17,7 +17,7 @@ import {
 // 같이 불러오지 않도록 지연 로딩한다.
 const SketchCanvas = dynamic(() => import('./SketchCanvas'), {
   ssr: false,
-  loading: () => <div className="h-full flex items-center justify-center text-[13px]" style={{ color: 'rgba(226,232,240,0.35)' }}>불러오는 중…</div>,
+  loading: () => <div className="h-full flex items-center justify-center text-[13px]" style={{ color: 'var(--text-muted)' }}>불러오는 중…</div>,
 })
 
 const DEFAULT_TABLE_DATA: SketchTableData = {
@@ -446,13 +446,13 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
     setBoard(prev => prev ? { ...prev, name } : prev)
   }
 
-  if (loading) return <div className="h-full flex items-center justify-center text-[13px]" style={{ color: 'rgba(226,232,240,0.35)' }}>불러오는 중…</div>
+  if (loading) return <div className="h-full flex items-center justify-center text-[13px]" style={{ color: 'var(--text-muted)' }}>불러오는 중…</div>
 
   if (!board) return (
     <div className="h-full flex flex-col items-center justify-center gap-3">
-      <p className="text-[13px]" style={{ color: 'rgba(226,232,240,0.35)' }}>보드를 찾을 수 없습니다</p>
+      <p className="text-[13px]" style={{ color: 'var(--text-muted)' }}>보드를 찾을 수 없습니다</p>
       <Link href="/sketch" className="text-[12px] px-4 py-1.5 rounded-full transition-colors"
-        style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(226,232,240,0.5)' }}>
+        style={{ background: 'rgba(var(--ink-rgb),0.06)', border: '1px solid rgba(var(--ink-rgb),0.1)', color: 'rgba(var(--text-rgb),0.5)' }}>
         목록으로
       </Link>
     </div>
@@ -463,8 +463,8 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
       {/* 툴바 */}
       <div className="flex-shrink-0 flex items-center gap-3 pt-6 pb-3">
         <Link href="/sketch" className="p-1.5 rounded-lg transition-colors flex-shrink-0"
-          style={{ color: 'rgba(226,232,240,0.5)' }}
-          onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)')}
+          style={{ color: 'var(--text-muted)' }}
+          onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(var(--ink-rgb),0.06)')}
           onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'transparent')}>
           <ArrowLeft size={16} />
         </Link>
@@ -474,20 +474,20 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
           onBlur={saveBoardName}
           onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
           className="text-[18px] font-bold bg-transparent focus:outline-none min-w-0"
-          style={{ color: '#E2E8F0' }}
+          style={{ color: 'var(--text-primary)' }}
         />
 
         <button
           onClick={() => void createMindmap()}
           className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-[12.5px] font-medium transition-colors flex-shrink-0 ml-auto"
-          style={{ background: 'rgba(76,127,224,0.18)', border: '1px solid rgba(76,127,224,0.38)', color: '#9DBEF5' }}
+          style={{ background: 'rgba(76,127,224,0.18)', border: '1px solid rgba(76,127,224,0.38)', color: 'var(--accent-soft)' }}
         >
           <Network size={13} /> 마인드맵 카드
         </button>
         <button
           onClick={() => void createBox()}
           className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-[12.5px] font-medium transition-colors flex-shrink-0"
-          style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(226,232,240,0.5)' }}
+          style={{ background: 'rgba(var(--ink-rgb),0.05)', border: '1px solid rgba(var(--ink-rgb),0.1)', color: 'rgba(var(--text-rgb),0.5)' }}
         >
           <Square size={13} /> 포스트잇
         </button>
@@ -498,14 +498,14 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
         >
           <Table2 size={13} /> 표
         </button>
-        {uploading && <span className="text-[11px] flex-shrink-0" style={{ color: 'rgba(226,232,240,0.4)' }}>이미지 업로드 중…</span>}
+        {uploading && <span className="text-[11px] flex-shrink-0" style={{ color: 'rgba(var(--text-rgb),0.4)' }}>이미지 업로드 중…</span>}
         <AutosaveStatusHint status={bodyAutosave.status} failureReason={bodyAutosave.failureReason} />
       </div>
 
       {/* Autosave: 본문 복구 배너 — 자동 적용하지 않고 사용자가 선택 */}
       {bodyAutosave.recovered && (
         <div className="flex-shrink-0 mb-2 px-4 py-2.5 rounded-xl text-[12px] flex items-center gap-2"
-          style={{ background: 'rgba(76,127,224,0.1)', border: '1px solid rgba(76,127,224,0.3)', color: '#9DBEF5' }}>
+          style={{ background: 'rgba(76,127,224,0.1)', border: '1px solid rgba(76,127,224,0.3)', color: 'var(--accent-badge-text)' }}>
           <span className="flex-1">복구 가능한 자동저장 내용이 있습니다</span>
           <button onClick={applyRecoveredBody} className="underline underline-offset-2">적용</button>
           <button onClick={() => bodyAutosave.discardRecovered()} className="underline underline-offset-2">무시</button>
@@ -514,7 +514,7 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
 
       {saveError && (
         <div className="flex-shrink-0 mb-2 px-4 py-2.5 rounded-xl text-[12px] flex items-center gap-2"
-          style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#FC8181' }}>
+          style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: 'var(--error-badge-text)' }}>
           <span>⚠</span>
           <span className="flex-1">{saveError}</span>
           <button onClick={() => setSaveError('')} className="text-[10px] opacity-70 hover:opacity-100 flex-shrink-0">닫기</button>
@@ -522,7 +522,7 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
       )}
 
       {/* 문서 */}
-      <div ref={scrollRef} className="flex-1 min-h-0 rounded-2xl overflow-auto relative" style={{ border: '1px solid rgba(255,255,255,0.08)', background: '#0F1319' }} onMouseDown={handleCanvasMouseDown}>
+      <div ref={scrollRef} className="flex-1 min-h-0 rounded-2xl overflow-auto relative" style={{ border: '1px solid rgba(var(--ink-rgb),0.08)', background: 'var(--bg-page)' }} onMouseDown={handleCanvasMouseDown}>
         <div ref={innerRef} className="relative" style={{ minHeight, padding: '32px 40px' }}>
           <div className="mb-3.5">
             <BlockFormatBar editorRef={bodyRef} fallbackSize={15} />
@@ -539,7 +539,7 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
             // maxWidth: 760 고정값이었을 때는 창을 넓게 켜도 본문이 그 폭에서 멈춰 줄바꿈되고
             // 오른쪽에 여백만 남는 문제가 있었다 — 좁은 화면(또는 좁은 창)에선 꽉 채우고,
             // 아주 넓은 화면에서만 가독성을 위해 줄 길이 상한이 걸리도록 가변폭으로 변경.
-            style={{ color: '#E2E8F0', fontSize: 15, maxWidth: 'min(100%, 1100px)', whiteSpace: 'pre-wrap', overflowWrap: 'break-word', minHeight: 200 }}
+            style={{ color: 'var(--text-primary)', fontSize: 15, maxWidth: 'min(100%, 1100px)', whiteSpace: 'pre-wrap', overflowWrap: 'break-word', minHeight: 200 }}
           />
           {elements.map(el => {
             const box = { x: el.position_x, y: el.position_y, width: el.width, height: el.height, rotation: el.rotation }
@@ -608,14 +608,14 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
         </div>
       </div>
 
-      <p className="text-center text-[11px] pt-2 flex-shrink-0" style={{ color: 'rgba(226,232,240,0.28)' }}>
+      <p className="text-center text-[11px] pt-2 flex-shrink-0" style={{ color: 'rgba(var(--text-rgb),0.28)' }}>
         바로 타이핑하세요 · <span className="font-mono">Ctrl+V</span>로 이미지 붙여넣기(크기·회전 조절 가능) ·
         <span className="font-mono">Alt+1</span> 빨간펜 · <span className="font-mono">Alt+2</span> 형광펜 ·
         마인드맵 카드는 더블클릭(또는 확장 아이콘)으로 편집 · 표는 셀을 엑셀처럼 편집 · 선택 후 <span className="font-mono">Delete</span>로 삭제
       </p>
 
       {expandedMindmap && (
-        <div className="fixed inset-0 z-50" style={{ background: '#0B0E13' }}>
+        <div className="fixed inset-0 z-50" style={{ background: 'var(--bg-page)' }}>
           <SketchCanvas boardId={expandedMindmap.boardId} onBack={closeMindmapModal} />
         </div>
       )}

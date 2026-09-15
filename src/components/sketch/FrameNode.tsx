@@ -54,7 +54,7 @@ export function FrameNodeComponent({ id, data, selected }: NodeProps<FrameNodeTy
 
   const borderColor = selected
     ? 'rgba(76,127,224,0.75)'
-    : 'rgba(255,255,255,0.18)'
+    : 'rgba(var(--ink-rgb),0.18)'
 
   return (
     <div
@@ -62,7 +62,7 @@ export function FrameNodeComponent({ id, data, selected }: NodeProps<FrameNodeTy
       style={{
         border: `1.5px dashed ${borderColor}`,
         borderRadius: 12,
-        background: 'rgba(255,255,255,0.015)',
+        background: 'rgba(var(--ink-rgb),0.015)',
         boxSizing: 'border-box',
       }}
     >
@@ -74,7 +74,7 @@ export function FrameNodeComponent({ id, data, selected }: NodeProps<FrameNodeTy
         minWidth={240}
         minHeight={140}
         color="#4C7FE0"
-        handleStyle={{ width: 9, height: 9, borderRadius: 3, background: '#4C7FE0', border: '1.5px solid rgba(255,255,255,0.85)' }}
+        handleStyle={{ width: 9, height: 9, borderRadius: 3, background: '#4C7FE0', border: '1.5px solid rgba(var(--ink-rgb),0.85)' }}
         lineStyle={{ borderColor: 'rgba(76,127,224,0.55)' }}
         onResizeEnd={(_event, params) => data.onResize(id, params)}
       />
@@ -94,15 +94,15 @@ export function FrameNodeComponent({ id, data, selected }: NodeProps<FrameNodeTy
           title={data.collapsed ? '펼치기' : '접기'}
         >
           {data.collapsed
-            ? <ChevronRight size={22} style={{ color: '#9DBEF5' }} />
-            : <ChevronDown size={22} style={{ color: '#9DBEF5' }} />}
+            ? <ChevronRight size={22} style={{ color: 'var(--accent-soft)' }} />
+            : <ChevronDown size={22} style={{ color: 'var(--accent-soft)' }} />}
         </button>
 
         {editing ? (
           <input
             ref={inputRef}
             className="nodrag nopan bg-transparent focus:outline-none font-semibold"
-            style={{ color: '#E2E8F0', fontSize: 56, lineHeight: 1.1, width: `${Math.max(4, draft.length + 1)}ch` }}
+            style={{ color: 'var(--text-primary)', fontSize: 56, lineHeight: 1.1, width: `${Math.max(4, draft.length + 1)}ch` }}
             value={draft}
             onChange={e => setDraft(e.target.value)}
             onBlur={commit}
@@ -114,7 +114,7 @@ export function FrameNodeComponent({ id, data, selected }: NodeProps<FrameNodeTy
         ) : (
           <span
             className="nodrag nopan truncate cursor-text select-none font-semibold"
-            style={{ color: '#E2E8F0', fontSize: 56, lineHeight: 1.1 }}
+            style={{ color: 'var(--text-primary)', fontSize: 56, lineHeight: 1.1 }}
             onClick={startEdit}
             title="클릭해서 제목 수정"
           >
@@ -124,7 +124,7 @@ export function FrameNodeComponent({ id, data, selected }: NodeProps<FrameNodeTy
 
         <button
           className="nodrag nopan flex-shrink-0 transition-opacity hover:opacity-70 hover:text-red-400"
-          style={{ color: '#E2E8F0' }}
+          style={{ color: 'var(--text-primary)' }}
           onMouseDown={e => e.stopPropagation()}
           onClick={() => data.onDelete(id)}
           title="프레임 삭제"

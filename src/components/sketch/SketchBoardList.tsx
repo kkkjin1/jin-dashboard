@@ -67,11 +67,11 @@ export default function SketchBoardList() {
       {/* 헤더 */}
       <div className="flex-shrink-0 flex items-start pt-6 pb-3">
         <div>
-          <h1 className="text-[20px] font-bold flex items-center gap-2" style={{ color: '#E2E8F0' }}>
+          <h1 className="text-[20px] font-bold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
             <PenTool size={18} strokeWidth={1.75} />
             생각스케치
           </h1>
-          <p className="text-[12px] mt-0.5" style={{ color: 'rgba(226,232,240,0.35)' }}>
+          <p className="text-[12px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
             무한 캔버스에 생각을 자유롭게 흩어놓는 보드입니다.
           </p>
         </div>
@@ -79,7 +79,7 @@ export default function SketchBoardList() {
           <button
             onClick={() => (adding ? setAdding(false) : setAdding(true))}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-medium transition-colors"
-            style={{ background: 'rgba(76,127,224,0.18)', border: '1px solid rgba(76,127,224,0.35)', color: '#9DBEF5' }}
+            style={{ background: 'rgba(76,127,224,0.18)', border: '1px solid rgba(76,127,224,0.35)', color: 'var(--accent-soft)' }}
           >
             + 새 보드
           </button>
@@ -90,7 +90,7 @@ export default function SketchBoardList() {
       {adding && (
         <div
           className="flex-shrink-0 rounded-2xl px-5 py-4 mb-4 flex flex-col gap-3"
-          style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
+          style={{ background: 'rgba(var(--ink-rgb),0.06)', border: '1px solid rgba(var(--ink-rgb),0.1)' }}
         >
           <div className="flex items-center gap-2">
             <input
@@ -102,8 +102,8 @@ export default function SketchBoardList() {
                 if (e.key === 'Escape') { setAdding(false); setNewName('') }
               }}
               placeholder="보드 이름 입력 (예: 채용, 평가보상)"
-              className="flex-1 text-[13px] bg-transparent focus:outline-none placeholder:text-[rgba(226,232,240,0.3)]"
-              style={{ color: '#E2E8F0' }}
+              className="flex-1 text-[13px] bg-transparent focus:outline-none placeholder:text-[rgba(var(--text-rgb),0.3)]"
+              style={{ color: 'var(--text-primary)' }}
             />
             <button
               onClick={() => void handleAdd()}
@@ -116,12 +116,12 @@ export default function SketchBoardList() {
             <button
               onClick={() => { setAdding(false); setNewName('') }}
               className="text-[12px] px-3 py-1.5 rounded-lg transition-colors flex-shrink-0"
-              style={{ color: 'rgba(226,232,240,0.4)' }}
+              style={{ color: 'rgba(var(--text-rgb),0.4)' }}
             >
               취소
             </button>
           </div>
-          <p className="text-[11px] flex items-center gap-1.5" style={{ color: 'rgba(226,232,240,0.35)' }}>
+          <p className="text-[11px] flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
             <StickyNote size={12} /> 텍스트·이미지·포스트잇·마인드맵 카드·표를 자유롭게 배치하는 자유노트로 만들어집니다.
           </p>
         </div>
@@ -132,16 +132,16 @@ export default function SketchBoardList() {
         {loading ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 pb-6">
             {[1, 2, 3, 4].map(i => (
-              <div key={i} className="h-28 rounded-2xl animate-pulse" style={{ background: 'rgba(255,255,255,0.04)' }} />
+              <div key={i} className="h-28 rounded-2xl animate-pulse" style={{ background: 'rgba(var(--ink-rgb),0.04)' }} />
             ))}
           </div>
         ) : boards.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-48 gap-2">
-            <p className="text-[13px]" style={{ color: 'rgba(226,232,240,0.3)' }}>아직 보드가 없습니다</p>
+            <p className="text-[13px]" style={{ color: 'rgba(var(--text-rgb),0.3)' }}>아직 보드가 없습니다</p>
             <button
               onClick={() => setAdding(true)}
               className="text-[12px] px-4 py-1.5 rounded-full transition-colors"
-              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(226,232,240,0.5)' }}
+              style={{ background: 'rgba(var(--ink-rgb),0.06)', border: '1px solid rgba(var(--ink-rgb),0.1)', color: 'rgba(var(--text-rgb),0.5)' }}
             >
               첫 보드 만들기
             </button>
@@ -153,30 +153,30 @@ export default function SketchBoardList() {
                 key={board.id}
                 onClick={() => router.push(`/sketch/${board.id}`)}
                 className="group relative h-28 rounded-2xl p-4 flex flex-col justify-between cursor-pointer transition-all hover:-translate-y-0.5"
-                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
-                onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.08)')}
-                onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)')}
+                style={{ background: 'rgba(var(--ink-rgb),0.05)', border: '1px solid rgba(var(--ink-rgb),0.08)' }}
+                onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(var(--ink-rgb),0.08)')}
+                onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(var(--ink-rgb),0.05)')}
               >
-                <p className="flex items-center gap-1.5 text-[14px] font-semibold truncate pr-6" style={{ color: '#E2E8F0' }}>
+                <p className="flex items-center gap-1.5 text-[14px] font-semibold truncate pr-6" style={{ color: 'var(--text-primary)' }}>
                   {board.board_type === 'freenote'
                     ? <StickyNote size={12} className="flex-shrink-0" style={{ color: '#9BDCC7' }} />
                     : <LayoutGrid size={12} className="flex-shrink-0" style={{ color: '#9DBEF5' }} />}
                   {board.name}
                 </p>
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px]" style={{ color: 'rgba(226,232,240,0.35)' }}>
+                  <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
                     {board.board_type === 'freenote' ? '자유노트' : `카드 ${board.sketch_cards?.[0]?.count ?? 0}개`}
                   </span>
-                  <span className="text-[10px]" style={{ color: 'rgba(226,232,240,0.28)' }}>
+                  <span className="text-[10px]" style={{ color: 'rgba(var(--text-rgb),0.28)' }}>
                     {format(parseISO(board.updated_at), 'M/d', { locale: ko })}
                   </span>
                 </div>
                 <button
                   onClick={e => { e.stopPropagation(); deleteBoard(board.id, board.name) }}
                   className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity"
-                  style={{ color: 'rgba(226,232,240,0.28)' }}
+                  style={{ color: 'rgba(var(--text-rgb),0.28)' }}
                   onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = '#f87171')}
-                  onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = 'rgba(226,232,240,0.28)')}
+                  onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = 'rgba(var(--text-rgb),0.28)')}
                 >
                   <Trash2 size={13} />
                 </button>

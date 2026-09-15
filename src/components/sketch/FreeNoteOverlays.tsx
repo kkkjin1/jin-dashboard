@@ -9,7 +9,9 @@ import type { AutosaveFailureReason, AutosaveStatus } from '@/lib/autosave/types
 import type { SketchCard, SketchEdge, SketchFrame, SketchTableData } from '@/types'
 
 const COLOR_KEYS = Object.keys(CATEGORY_PALETTE) as CategoryColorKey[]
-const BASE_TEXT = '#E2E8F0'
+// 구조색(카드/셀 기본 텍스트) — CATEGORY_PALETTE(사용자 콘텐츠색)와 별개로, 카드 배경이
+// 테마에 따라 옅어지므로(저알파 tint가 페이지 배경과 블렌드) 텍스트도 함께 반전돼야 대비가 유지된다.
+const BASE_TEXT = 'var(--text-primary)'
 const TABLE_ACCENT = '#6BB6C7'
 const TABLE_ACCENT_BG = 'rgba(107,182,199,0.14)'
 const TABLE_ACCENT_BORDER = 'rgba(107,182,199,0.4)'
@@ -20,7 +22,7 @@ const TABLE_ACCENT_BORDER = 'rgba(107,182,199,0.4)'
 // 바뀌는 상태는 너무 잦아서 오히려 산만해지므로 표시하지 않는다.
 export function AutosaveStatusHint({ status, failureReason }: { status: AutosaveStatus; failureReason: AutosaveFailureReason | null }) {
   const map: Partial<Record<AutosaveStatus, { text: string; color: string }>> = {
-    syncing:  { text: '저장 중…', color: 'rgba(226,232,240,0.4)' },
+    syncing:  { text: '저장 중…', color: 'rgba(var(--text-rgb),0.4)' },
     saved:    { text: '저장됨', color: 'rgba(102,204,153,0.75)' },
     retrying: { text: failureReason === 'network' ? '오프라인 — 재연결 시 저장' : '저장 재시도 중', color: '#F99E0B' },
     error:    { text: '저장 실패(로컬 보관)', color: '#FC8181' },
@@ -37,7 +39,7 @@ export function AutosaveStatusHint({ status, failureReason }: { status: Autosave
 function CompactRecoveryBanner({ onApply, onDiscard }: { onApply: () => void; onDiscard: () => void }) {
   return (
     <div className="flex-shrink-0 flex items-center gap-1.5 px-1.5 py-1 rounded text-[10px]"
-      style={{ background: 'rgba(76,127,224,0.16)', border: '1px solid rgba(76,127,224,0.35)', color: '#9DBEF5' }}
+      style={{ background: 'rgba(76,127,224,0.16)', border: '1px solid rgba(76,127,224,0.35)', color: 'var(--accent-badge-text)' }}
       onPointerDown={e => e.stopPropagation()}>
       <span className="flex-1 truncate">복구 가능한 내용 있음</span>
       <button onClick={onApply} className="underline underline-offset-2 flex-shrink-0">적용</button>
@@ -205,11 +207,11 @@ export function BlockFormatBar({ editorRef, fallbackSize, className }: {
 
   return (
     <div className={`flex items-center gap-1 px-1.5 py-1 rounded-lg flex-shrink-0 nodrag ${className ?? ''}`}
-      style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', width: 'fit-content' }}
+      style={{ background: 'rgba(var(--ink-rgb),0.06)', border: '1px solid rgba(var(--ink-rgb),0.08)', width: 'fit-content' }}
       onPointerDown={e => e.stopPropagation()}
     >
       <button
-        className="w-5 h-5 flex items-center justify-center rounded text-[11px] font-bold opacity-60 hover:opacity-100 hover:bg-[rgba(255,255,255,0.08)] transition-opacity flex-shrink-0"
+        className="w-5 h-5 flex items-center justify-center rounded text-[11px] font-bold opacity-60 hover:opacity-100 hover:bg-[rgba(var(--ink-rgb),0.08)] transition-opacity flex-shrink-0"
         style={{ color: BASE_TEXT }}
         onMouseDown={e => e.preventDefault()}
         onClick={() => adjust(-FONT_SIZE_STEP)}
@@ -219,13 +221,13 @@ export function BlockFormatBar({ editorRef, fallbackSize, className }: {
         {Math.round(size)}px
       </span>
       <button
-        className="w-5 h-5 flex items-center justify-center rounded text-[11px] font-bold opacity-60 hover:opacity-100 hover:bg-[rgba(255,255,255,0.08)] transition-opacity flex-shrink-0"
+        className="w-5 h-5 flex items-center justify-center rounded text-[11px] font-bold opacity-60 hover:opacity-100 hover:bg-[rgba(var(--ink-rgb),0.08)] transition-opacity flex-shrink-0"
         style={{ color: BASE_TEXT }}
         onMouseDown={e => e.preventDefault()}
         onClick={() => adjust(FONT_SIZE_STEP)}
         title="현재 텍스트 블록 글씨 크게 (Ctrl/Cmd+Shift+.)"
       >A+</button>
-      <div className="w-px h-3.5 mx-0.5 flex-shrink-0" style={{ background: 'rgba(255,255,255,0.16)' }} />
+      <div className="w-px h-3.5 mx-0.5 flex-shrink-0" style={{ background: 'rgba(var(--ink-rgb),0.16)' }} />
       <button
         className="w-5 h-5 flex items-center justify-center rounded opacity-70 hover:opacity-100 hover:bg-[rgba(239,68,68,0.15)] transition-opacity flex-shrink-0"
         style={{ color: RED }}
@@ -402,7 +404,7 @@ function OverlayFrame({
         <>
           <div
             className="absolute left-1/2 flex items-center justify-center rounded-full nodrag"
-            style={{ top: -30, width: 20, height: 20, marginLeft: -10, background: 'rgba(15,19,25,0.85)', border: `1.5px solid ${accentColor}`, cursor: 'grab' }}
+            style={{ top: -30, width: 20, height: 20, marginLeft: -10, background: 'var(--surface-tooltip)', border: `1.5px solid ${accentColor}`, cursor: 'grab' }}
             onPointerDown={startRotate}
             title="드래그해서 회전"
           >
@@ -412,12 +414,12 @@ function OverlayFrame({
             <div
               key={c.key}
               className="absolute rounded-[2px]"
-              style={{ width: 10, height: 10, background: accentColor, border: '1.5px solid rgba(255,255,255,0.85)', ...c.style }}
+              style={{ width: 10, height: 10, background: accentColor, border: '1.5px solid rgba(var(--ink-rgb),0.85)', ...c.style }}
               onPointerDown={startResize(c.key)}
             />
           ))}
           {/* 회전 핸들(위쪽 중앙)과 겹치지 않도록 오른쪽 바깥에 세로로 배치 */}
-          <div className="absolute flex flex-col items-center gap-1 px-1 py-1 rounded-md nodrag" style={{ left: '100%', top: 0, marginLeft: 6, background: 'rgba(15,19,25,0.85)' }}>
+          <div className="absolute flex flex-col items-center gap-1 px-1 py-1 rounded-md nodrag" style={{ left: '100%', top: 0, marginLeft: 6, background: 'var(--surface-tooltip)' }}>
             {toolbar}
             <button className="opacity-70 hover:opacity-100 hover:text-red-400 flex-shrink-0" onPointerDown={e => e.stopPropagation()} onClick={onDelete}>
               <Trash2 size={11} />
@@ -442,9 +444,9 @@ export function ImageOverlay({
 }) {
   return (
     <OverlayFrame box={box} selected={selected} minWidth={40} minHeight={40} keepAspectRatio accentColor="#4C7FE0" onSelect={onSelect} onChange={onChange} onDelete={onDelete}>
-      <div className="relative w-full h-full rounded-lg overflow-hidden" style={{ border: selected ? '1.5px solid rgba(76,127,224,0.75)' : '1px solid rgba(255,255,255,0.08)' }}>
+      <div className="relative w-full h-full rounded-lg overflow-hidden" style={{ border: selected ? '1.5px solid rgba(76,127,224,0.75)' : '1px solid rgba(var(--ink-rgb),0.08)' }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={src} alt="" draggable={false} className="w-full h-full object-contain select-none" style={{ background: 'rgba(255,255,255,0.03)' }} />
+        <img src={src} alt="" draggable={false} className="w-full h-full object-contain select-none" style={{ background: 'rgba(var(--ink-rgb),0.03)' }} />
       </div>
     </OverlayFrame>
   )
@@ -725,7 +727,7 @@ export function TableOverlay({
       <button
         key={label}
         className="px-1.5 py-0.5 rounded text-[10.5px] flex-shrink-0"
-        style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(226,232,240,0.5)' }}
+        style={{ background: 'rgba(var(--ink-rgb),0.05)', border: '1px solid rgba(var(--ink-rgb),0.08)', color: 'rgba(var(--text-rgb),0.5)' }}
         onPointerDown={e => e.stopPropagation()}
         onClick={onClick}
         title={title}
@@ -734,7 +736,7 @@ export function TableOverlay({
   }
 
   const bg = tableData.transparentBg ? 'transparent' : TABLE_ACCENT_BG
-  const border = tableData.transparentBg ? 'rgba(255,255,255,0.16)' : TABLE_ACCENT_BORDER
+  const border = tableData.transparentBg ? 'rgba(var(--ink-rgb),0.16)' : TABLE_ACCENT_BORDER
   // 열 경계 리사이즈 핸들의 left 오프셋(누적 너비) — 렌더 중 변수 재대입 없이 미리 계산.
   const colLefts = tableData.colWidths.reduce<number[]>((acc, w, i) => { acc.push((acc[i - 1] ?? 0) + w); return acc }, [])
 
@@ -783,10 +785,10 @@ export function TableOverlay({
                         onPointerDown={e => e.stopPropagation()}
                         className="outline-none"
                         style={{
-                          border: '1px solid rgba(255,255,255,0.16)', padding: '5px 8px', fontSize: 12, color: BASE_TEXT,
+                          border: '1px solid rgba(var(--ink-rgb),0.16)', padding: '5px 8px', fontSize: 12, color: BASE_TEXT,
                           overflow: 'hidden', whiteSpace: 'pre-wrap', overflowWrap: 'break-word', verticalAlign: 'top',
                           fontWeight: tableData.headerRow && ri === 0 ? 600 : 400,
-                          background: tableData.headerRow && ri === 0 ? 'rgba(255,255,255,0.07)' : undefined,
+                          background: tableData.headerRow && ri === 0 ? 'rgba(var(--ink-rgb),0.07)' : undefined,
                         }}
                       />
                     ))}
@@ -802,7 +804,7 @@ export function TableOverlay({
             ))}
           </div>
         </div>
-        <div className="flex items-center gap-2 text-[10px] flex-shrink-0" style={{ color: 'rgba(226,232,240,0.35)' }}>
+        <div className="flex items-center gap-2 text-[10px] flex-shrink-0" style={{ color: 'var(--text-muted)' }}>
           <span>{tableData.rows.length}행 × {tableData.colWidths.length}열</span>
           {selected && <AutosaveStatusHint status={autosave.status} failureReason={autosave.failureReason} />}
         </div>
@@ -894,7 +896,7 @@ export function MindmapCardOverlay({
         style={{ background: 'rgba(76,127,224,0.14)', border: '1.5px solid rgba(76,127,224,0.38)' }}
         onDoubleClick={e => { e.stopPropagation(); onExpand() }}
       >
-        <div className="flex items-center gap-1.5 px-2.5 pt-2 pb-1 flex-shrink-0" style={{ color: '#9DBEF5' }}>
+        <div className="flex items-center gap-1.5 px-2.5 pt-2 pb-1 flex-shrink-0" style={{ color: 'var(--accent-soft)' }}>
           <span className="text-[12px] font-semibold truncate">{title}</span>
         </div>
         <div ref={previewWrapRef} className="flex-1 min-h-0 relative flex items-center justify-center overflow-hidden" style={{ pointerEvents: 'none' }}>
@@ -927,13 +929,13 @@ export function MindmapCardOverlay({
             })}
           </div>
         </div>
-        <div className="px-2.5 pb-1.5 pt-0.5 text-[10px] flex-shrink-0" style={{ color: 'rgba(226,232,240,0.35)' }}>
+        <div className="px-2.5 pb-1.5 pt-0.5 text-[10px] flex-shrink-0" style={{ color: 'var(--text-muted)' }}>
           카드 {cards.length}개
         </div>
         <button
           className="absolute top-1.5 right-1.5 w-[22px] h-[22px] rounded-md flex items-center justify-center transition-opacity"
           style={{
-            background: 'rgba(15,19,25,0.7)', border: '1px solid rgba(76,127,224,0.38)', color: '#9DBEF5',
+            background: 'var(--surface-tooltip)', border: '1px solid rgba(76,127,224,0.38)', color: 'var(--accent-soft)',
             opacity: selected ? 1 : 0,
           }}
           onPointerDown={e => e.stopPropagation()}
