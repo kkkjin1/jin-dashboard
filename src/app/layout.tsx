@@ -44,46 +44,6 @@ const THEME_BOOTSTRAP_SCRIPT = `
 })();
 `;
 
-// 임시 실기기 진단 오버레이 — ?debug=theme 일 때만 동작, 프레임워크(React) 상태와
-// 무관하게 바닐라 JS로 1초마다 실제 DOM/localStorage/computed style을 읽어 화면에
-// 그대로 찍는다. 원인 파악 후 제거할 것.
-const THEME_DEBUG_SCRIPT = `
-(function () {
-  try {
-    if (location.search.indexOf('debug=theme') === -1) return;
-    function render() {
-      var html = document.documentElement;
-      var body = document.body;
-      var box = document.getElementById('__theme_debug_box__');
-      if (!box) {
-        box = document.createElement('div');
-        box.id = '__theme_debug_box__';
-        box.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:999999;background:#000;color:#0f0;font:11px/1.5 monospace;padding:8px;white-space:pre-wrap;word-break:break-all;';
-        document.body.appendChild(box);
-      }
-      var cs = getComputedStyle(html);
-      var bodyCs = body ? getComputedStyle(body) : null;
-      var lines = [
-        'time: ' + new Date().toLocaleTimeString(),
-        'html[data-theme]: ' + html.getAttribute('data-theme'),
-        'html.style.colorScheme: ' + html.style.colorScheme,
-        'localStorage.dashboard_theme: ' + (function(){ try { return localStorage.getItem('dashboard_theme') } catch(e){ return 'ERR:'+e } })(),
-        '--bg-page (computed on html): ' + cs.getPropertyValue('--bg-page'),
-        '--surface-secondary (computed on html): ' + cs.getPropertyValue('--surface-secondary'),
-        'html computed background-color: ' + cs.backgroundColor,
-        'body computed background-color: ' + (bodyCs ? bodyCs.backgroundColor : 'n/a'),
-        'innerWidth: ' + window.innerWidth,
-        'matchMedia(max-width:767px): ' + window.matchMedia('(max-width:767px)').matches,
-        'matchMedia(prefers-color-scheme:dark): ' + window.matchMedia('(prefers-color-scheme:dark)').matches,
-      ];
-      box.textContent = lines.join('\\n');
-    }
-    render();
-    setInterval(render, 1000);
-  } catch (e) {}
-})();
-`;
-
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ko" data-theme="dark" style={{ colorScheme: 'dark' }} suppressHydrationWarning>
@@ -97,7 +57,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="bg-[#F1F5F9] text-gray-900 antialiased font-sans" suppressHydrationWarning>
         <ArrowShortcutsProvider />
         {children}
-        <script dangerouslySetInnerHTML={{ __html: THEME_DEBUG_SCRIPT }} />
       </body>
     </html>
   );
