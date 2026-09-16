@@ -44,7 +44,13 @@ export function useTheme(): [Theme, (theme: Theme) => void] {
   const [theme, setThemeState] = useState<Theme>('dark')
 
   useEffect(() => {
-    setThemeState(getStoredTheme())
+    const stored = getStoredTheme()
+    setThemeState(stored)
+    // 부트스트랩 스크립트가 <html data-theme>를 이미 반영했을 것이라 기대하지만,
+    // 실기기(모바일 브라우저의 inline script 실행 지연/스킵 등)에서 DOM 속성이
+    // localStorage 값과 어긋난 채로 남는 사례가 관측됨 — 마운트 시 한 번 더
+    // 강제로 재적용해 self-heal한다.
+    applyTheme(stored)
 
     function onThemeEvent(e: Event) {
       const detail = (e as CustomEvent<Theme>).detail

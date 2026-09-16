@@ -21,7 +21,10 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  colorScheme: "dark",
+  // 실제 활성 테마는 클라이언트에서 <html data-theme>/style.colorScheme로 동적 결정된다.
+  // 이 메타는 정적 SSR 값이라 "dark"로 고정하면 라이트 선택 시에도 브라우저에
+  // "이 페이지는 dark만 지원"이라고 잘못된 신호를 준다 — 둘 다 지원한다고 선언.
+  colorScheme: "light dark",
   themeColor: "#4C7FE0",
 };
 
