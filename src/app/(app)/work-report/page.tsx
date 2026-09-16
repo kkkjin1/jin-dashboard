@@ -5,15 +5,19 @@ export const dynamic = 'force-dynamic'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { WorkReport, WorkReportEntry, WorkReportTopic } from '@/types'
-import TopicOutline, { isFixedKey, type OutlineTopicRow } from '@/components/work-report/TopicOutline'
+import TopicOutline, { isFixedKey, type OutlineTopicRow, type FixedSectionKey } from '@/components/work-report/TopicOutline'
 import ReportEditorPanel, { type ReportEditorPanelHandle } from '@/components/work-report/ReportEditorPanel'
-import ContextPanel from '@/components/work-report/ContextPanel'
+import ContextPanel, { type HistoryItem } from '@/components/work-report/ContextPanel'
 import PeriodMatrixView from '@/components/work-report/PeriodMatrixView'
 import TopicHistoryView from '@/components/work-report/TopicHistoryView'
 import ReportFullViewModal from '@/components/work-report/ReportFullViewModal'
 import { S, selectClass, selectStyle, fmtPeriodLabel, addDaysToDateStr, todayStr, hasContent, isEntryWritten, type TopicChangeBadge } from '@/components/work-report/style'
 
 type Mode = 'write' | 'period' | 'topic-history'
+
+const FIXED_HISTORY_TITLE: Record<FixedSectionKey, string> = {
+  summary: '핵심 요약 히스토리', issues: '주요 이슈 히스토리', next_steps: '다음 단계 히스토리',
+}
 
 function computeBadge(entry: WorkReportEntry, prev: WorkReportEntry | undefined): TopicChangeBadge {
   if (!prev) return 'new'
@@ -42,7 +46,6 @@ export default function WorkReportPage() {
   const [currentReportId, setCurrentReportId] = useState<string | null>(null)
   const [selection, setSelection] = useState<string>('summary')
   const [mode, setMode] = useState<Mode>('write')
-  const [compareReportId, setCompareReportId] = useState<string>('')
   const [fullViewOpen, setFullViewOpen] = useState(false)
   const [contextDrawerOpen, setContextDrawerOpen] = useState(false)
   const [topicDrawerOpen, setTopicDrawerOpen] = useState(false)
@@ -94,24 +97,14 @@ export default function WorkReportPage() {
     const idx = reportsAsc.findIndex(r => r.id === currentReport.id)
     return idx > 0 ? reportsAsc[idx - 1] : null
   }, [reportsAsc, currentReport])
-  const pastReportsDesc = useMemo(() => {
-    if (!currentReport) return []
-    return reportsAsc.filter(r => r.period_start < currentReport.period_start).slice().reverse()
-  }, [reportsAsc, currentReport])
 
   const readOnly = currentReport?.status === 'final'
   const entries = useMemo(() => currentReportId ? (entriesByReport.get(currentReportId) ?? []) : [], [entriesByReport, currentReportId])
   const prevEntries = useMemo(() => prevReport ? (entriesByReport.get(prevReport.id) ?? []) : [], [entriesByReport, prevReport])
   const prevEntryByTopic = useMemo(() => new Map(prevEntries.map(e => [e.topic_id, e])), [prevEntries])
-  const compareEntries = useMemo(() => compareReportId ? (entriesByReport.get(compareReportId) ?? []) : [], [entriesByReport, compareReportId])
 
   useEffect(() => { if (currentReportId) void ensureEntries(currentReportId) }, [currentReportId, ensureEntries])
   useEffect(() => { if (prevReport) void ensureEntries(prevReport.id) }, [prevReport, ensureEntries])
-  useEffect(() => { if (compareReportId) void ensureEntries(compareReportId) }, [compareReportId, ensureEntries])
-
-  // selection/currentReportId가 바뀌면 비교 기준을 직전 report로 리셋 — 이후 사용자가
-  // ContextPanel 드롭다운에서 직접 다른 비교 대상으로 바꿀 수 있다.
-  useEffect(() => { setCompareReportId(prevReport?.id ?? '') }, [selection, currentReportId, prevReport])
 
   useEffect(() => {
     if (isFixedKey(selection)) return
@@ -150,9 +143,6 @@ export default function WorkReportPage() {
   const selectedTopic = !isFixedKey(selection) ? topicsById.get(selection) ?? null : null
   const selectedEntry = selectedTopic ? entries.find(e => e.topic_id === selectedTopic.id) ?? null : null
   const selectedPrevEntry = selectedTopic ? prevEntryByTopic.get(selectedTopic.id) ?? null : null
-  const selectedBadge = selectedEntry ? computeBadge(selectedEntry, selectedPrevEntry ?? undefined) : null
-  const compareEntry = selectedTopic ? compareEntries.find(e => e.topic_id === selectedTopic.id) ?? null : null
-  const compareReportObj = reports.find(r => r.id === compareReportId) ?? null
 
   // 순차 이동(이전/다음 주제) — outlineRows는 이미 sort_order로 정렬돼 있으므로 그 순서를 그대로 쓴다.
   const selectedTopicIndex = selectedTopic ? outlineRows.findIndex(r => r.topic.id === selectedTopic.id) : -1
@@ -161,12 +151,38 @@ export default function WorkReportPage() {
   function goPrevTopic() { if (selectedTopicIndex > 0) setSelection(outlineRows[selectedTopicIndex - 1].topic.id) }
   function goNextTopic() { if (selectedTopicIndex >= 0 && selectedTopicIndex < outlineRows.length - 1) setSelection(outlineRows[selectedTopicIndex + 1].topic.id) }
 
+  // RIGHT는 이제 "이 주제/섹션의 히스토리" 단일 역할이다 — topic이면 topic_id 기준 entry
+  // 이력, 고정 섹션이면 report 필드(요약/이슈/다음단계) 자체가 이미 모든 report에 실려
+  // 있으므로 별도 fetch 없이 reportsDesc에서 바로 뽑는다(새 데이터 모델 없음).
   const topicHistory = useMemo(() => {
     return topicHistoryEntries
       .map(e => ({ entry: e, report: reports.find(r => r.id === e.report_id) }))
       .filter((x): x is { entry: WorkReportEntry; report: WorkReport } => !!x.report)
       .sort((a, b) => b.report.period_start.localeCompare(a.report.period_start))
   }, [topicHistoryEntries, reports])
+
+  const historyItems: HistoryItem[] = useMemo(() => {
+    if (isFixedKey(selection)) {
+      const key = selection as FixedSectionKey
+      return reportsDesc.map(r => ({
+        id: r.id,
+        label: fmtPeriodLabel(r.period_start, r.period_end),
+        value: r[key],
+        isCurrent: r.id === currentReport?.id,
+      }))
+    }
+    return topicHistory.map(({ report: r, entry: e }) => ({
+      id: r.id,
+      label: fmtPeriodLabel(r.period_start, r.period_end),
+      value: e.report_text,
+      isCurrent: r.id === currentReport?.id,
+    }))
+  }, [selection, reportsDesc, topicHistory, currentReport])
+
+  const historyTitle = isFixedKey(selection) ? FIXED_HISTORY_TITLE[selection as FixedSectionKey] : '이 주제의 히스토리'
+  // "전체 히스토리 보기"(주제별 히스토리 화면)는 topic 선택 드롭다운만 있어 고정 섹션에는
+  // 대응되는 화면이 없다 — 없는 기능으로 연결하지 않는다.
+  const showFullHistoryLink = !isFixedKey(selection)
 
   // ── mutations ───────────────────────────────────────────────────────
   function patchEntry(reportId: string, updater: (list: WorkReportEntry[]) => WorkReportEntry[]) {
@@ -452,9 +468,12 @@ export default function WorkReportPage() {
                   펼침 기준)+본문 padding(48px)만으로 거의 다 소진되어 그 경계에서 Writing이
                   사실상 0에 가까워진다 — 그래서 AppShell과 다른 임의의 숫자를 새로 만드는 대신,
                   Tailwind가 이미 갖고 있는 다음 표준 단계를 쓴다. lg 이상에서는 Outline(190px)
-                  +Context(240px)를 빼도 Writing이 항상 실사용 가능한 폭을 갖는다.
-                  lg 미만(태블릿/모바일 포함)에서는 기존 "버튼 → 드로어" 패턴을 그대로 쓴다. */}
-              <div className="hidden lg:block h-full" style={{ borderRight: `1px solid ${S.border}` }}>
+                  +Context(230px)를 빼도 Writing이 항상 실사용 가능한 폭을 갖는다.
+                  lg 미만(태블릿/모바일 포함)에서는 기존 "버튼 → 드로어" 패턴을 그대로 쓴다.
+                  선을 긋는 border 대신 아주 옅은 배경 틴트로 구분해 3분할 grid처럼 보이는
+                  느낌을 완화한다 — CENTER는 톤 변화 없이 페이지 배경 그대로 두어 가장
+                  "밝고 넓은 캔버스"로 읽히게 한다. */}
+              <div className="hidden lg:block h-full" style={{ background: 'rgba(var(--ink-rgb),0.015)' }}>
                 <TopicOutline
                   rows={outlineRows}
                   allActiveTopics={allActiveTopics}
@@ -491,7 +510,6 @@ export default function WorkReportPage() {
                   entry={selectedEntry}
                   prevEntry={selectedPrevEntry}
                   prevReport={prevReport}
-                  badge={selectedBadge}
                   readOnly={readOnly}
                   onEntrySaved={handleEntrySaved}
                   onReportSaved={handleReportSaved}
@@ -511,18 +529,11 @@ export default function WorkReportPage() {
                 컨텍스트
               </button>
 
-              <div className="hidden lg:block h-full" style={{ borderLeft: `1px solid ${S.border}` }}>
+              <div className="hidden lg:block h-full" style={{ background: 'rgba(var(--ink-rgb),0.015)' }}>
                 <ContextPanel
-                  selection={selection}
-                  topic={selectedTopic}
-                  report={currentReport}
-                  pastReports={pastReportsDesc}
-                  compareReportId={compareReportId}
-                  onChangeCompareReportId={setCompareReportId}
-                  compareEntry={compareEntry}
-                  compareReportObj={compareReportObj}
-                  entry={selectedEntry}
-                  topicHistory={topicHistory}
+                  title={historyTitle}
+                  items={historyItems}
+                  showFullHistoryLink={showFullHistoryLink}
                   onOpenFullHistory={() => setMode('topic-history')}
                 />
               </div>
@@ -553,16 +564,9 @@ export default function WorkReportPage() {
                 <div className="fixed inset-0 z-40 lg:hidden" style={{ background: 'rgba(0,0,0,0.55)' }} onClick={() => setContextDrawerOpen(false)}>
                   <div className="absolute inset-y-0 right-0 h-full" style={{ background: S.panel }} onClick={e => e.stopPropagation()}>
                     <ContextPanel
-                      selection={selection}
-                      topic={selectedTopic}
-                      report={currentReport}
-                      pastReports={pastReportsDesc}
-                      compareReportId={compareReportId}
-                      onChangeCompareReportId={setCompareReportId}
-                      compareEntry={compareEntry}
-                      compareReportObj={compareReportObj}
-                      entry={selectedEntry}
-                      topicHistory={topicHistory}
+                      title={historyTitle}
+                      items={historyItems}
+                      showFullHistoryLink={showFullHistoryLink}
                       onOpenFullHistory={() => { setMode('topic-history'); setContextDrawerOpen(false) }}
                     />
                   </div>

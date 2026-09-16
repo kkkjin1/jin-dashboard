@@ -5,7 +5,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { ChevronDown, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import type { WorkReport, WorkReportEntry, WorkReportTopic } from '@/types'
 import { useAutosave } from '@/hooks/useAutosave'
-import { S, fmtDateFull, truncate, BADGE_LABEL, BADGE_COLOR, type TopicChangeBadge } from './style'
+import { S, fmtPeriodLabel } from './style'
 import { isFixedKey, type FixedSectionKey } from './TopicOutline'
 
 // ── canonical(work_reports/work_report_entries) 저장 신뢰성 ──────────────
@@ -155,7 +155,6 @@ interface Props {
   entry: WorkReportEntry | null
   prevEntry: WorkReportEntry | null
   prevReport: WorkReport | null
-  badge: TopicChangeBadge | null
   readOnly: boolean
   onEntrySaved: (entry: WorkReportEntry) => void
   onReportSaved: (report: WorkReport) => void
@@ -238,7 +237,7 @@ export type ReportEditorPanelHandle = {
 }
 
 const ReportEditorPanel = forwardRef<ReportEditorPanelHandle, Props>(function ReportEditorPanel({
-  supabase, selection, report, topic, entry, prevEntry, prevReport, badge, readOnly, onEntrySaved, onReportSaved,
+  supabase, selection, report, topic, entry, prevEntry, prevReport, readOnly, onEntrySaved, onReportSaved,
   hasPrevTopic, hasNextTopic, onPrevTopic, onNextTopic, onAddTopic,
 }, ref) {
   const isFixed = isFixedKey(selection)
@@ -430,17 +429,9 @@ const ReportEditorPanel = forwardRef<ReportEditorPanelHandle, Props>(function Re
   return (
     <div className="h-full overflow-y-auto px-6 py-5">
       <div className="flex items-center justify-between gap-2 mb-4">
-        <div className="flex items-center gap-2 min-w-0">
-          <p className="text-[15px] font-semibold truncate" style={{ color: S.t1 }}>{entry.topic_title_snapshot}</p>
-          {badge && badge !== 'unchanged' && (
-            <span
-              className="text-[9.5px] font-bold px-1.5 py-0.5 rounded flex-shrink-0"
-              style={{ color: badge === 'new' ? '#0F1319' : S.t1, background: BADGE_COLOR[badge] }}
-            >
-              {BADGE_LABEL[badge]}
-            </span>
-          )}
-        </div>
+        {/* NEW/업데이트됨 배지는 LEFT Outline에서만 보여준다 — 같은 정보를 여기서
+            다시 강조하지 않는다(중복 제거). */}
+        <p className="text-[15px] font-semibold truncate min-w-0" style={{ color: S.t1 }}>{entry.topic_title_snapshot}</p>
 
         {/* 순차 이동 — Outline을 열지 않고도 다음/이전 주제로 바로 넘어간다(기존 topic 순서 사용). */}
         <div className="flex items-center gap-1 flex-shrink-0">
@@ -465,33 +456,35 @@ const ReportEditorPanel = forwardRef<ReportEditorPanelHandle, Props>(function Re
 
       {recoveredBanner}
 
-      {/* 지난 보고 reference — ContextPanel "전후비교" 탭(임의 회차 선택 + 좌우 비교)과
-          역할이 다르다: 여기는 항상 "바로 직전 entry"만, 접힌 채로 미리보기까지 같이 보여주는
-          가벼운 기억 보조용이다. 클릭해도 report_text에는 어떤 값도 복사되지 않는다 — 순수 참고. */}
+      {/* 직전 보고 — 작성의 직접적인 context이므로 CENTER 최상단, 클릭 없이도 바로
+          몇 줄이 보이는 preview로 둔다("지난번 어디까지 썼는지"를 기억에 의존하지 않게).
+          RIGHT의 "이 주제의 히스토리"와 역할이 다르다: 여기는 항상 바로 직전 회차 하나,
+          RIGHT는 과거 전체 회차를 훑는 탐색용. 클릭해도 report_text에는 복사되지 않는다. */}
       {prevEntry && prevReport ? (
-        <div className="mb-5 rounded-lg overflow-hidden" style={{ border: `1px solid ${S.border}` }}>
-          <button
-            onClick={() => setPrevOpen(o => !o)}
-            className="w-full flex items-center gap-1.5 px-3.5 py-2.5 text-left min-w-0"
-            style={{ background: 'rgba(var(--ink-rgb),0.02)' }}
+        <div className="mb-5 rounded-lg px-3.5 py-3" style={{ background: 'rgba(var(--ink-rgb),0.025)', border: `1px solid ${S.border}` }}>
+          <p className="text-[11px] font-semibold mb-1.5" style={{ color: S.t3 }}>
+            직전 보고 · {fmtPeriodLabel(prevReport.period_start, prevReport.period_end)}
+          </p>
+          <p
+            className="text-[13px] leading-[1.65] whitespace-pre-wrap"
+            style={{
+              color: S.t2,
+              display: '-webkit-box',
+              WebkitBoxOrient: 'vertical',
+              WebkitLineClamp: prevOpen ? undefined : 3,
+              overflow: prevOpen ? 'visible' : 'hidden',
+            }}
           >
-            {prevOpen ? <ChevronDown size={12} style={{ flexShrink: 0, color: S.t3 }} /> : <ChevronRight size={12} style={{ flexShrink: 0, color: S.t3 }} />}
-            <span className="text-[11px] font-semibold flex-shrink-0" style={{ color: S.t3 }}>
-              지난 보고 · {fmtDateFull(prevReport.period_start)}
-            </span>
-            {!prevOpen && (
-              <span className="text-[12px] truncate" style={{ color: S.t4 }}>
-                {truncate(prevEntry.report_text, 56) || '(작성된 내용 없음)'}
-              </span>
-            )}
-          </button>
-          {prevOpen && (
-            <div
-              className="px-3.5 py-3 text-[13px] leading-[1.7] whitespace-pre-wrap"
-              style={{ borderTop: `1px solid ${S.border}`, color: S.t3 }}
+            {prevEntry.report_text || '(작성된 내용 없음)'}
+          </p>
+          {prevEntry.report_text && (
+            <button
+              onClick={() => setPrevOpen(o => !o)}
+              className="block ml-auto text-[11px] font-medium underline mt-1"
+              style={{ color: S.t3 }}
             >
-              {prevEntry.report_text || '(작성된 내용 없음)'}
-            </div>
+              {prevOpen ? '접기' : '펼쳐보기'}
+            </button>
           )}
         </div>
       ) : (
@@ -507,7 +500,7 @@ const ReportEditorPanel = forwardRef<ReportEditorPanelHandle, Props>(function Re
           helper="이번 기간에 새롭게 업데이트된 내용, 변화된 수치, 진행 상황을 작성합니다."
           value={reportText}
           onChange={setReportText}
-          minHeight={240}
+          minHeight={170}
           placeholder="자유롭게 줄글로 작성합니다."
           readOnly={readOnly}
           statusLabel={canonicalStatusText(activeCanonical.status)}
@@ -519,7 +512,7 @@ const ReportEditorPanel = forwardRef<ReportEditorPanelHandle, Props>(function Re
           helper="경영진에게 반드시 전달하거나 판단받아야 하는 내용을 작성합니다."
           value={execText}
           onChange={setExecText}
-          minHeight={90}
+          minHeight={110}
           readOnly={readOnly}
           variant="callout"
         />
