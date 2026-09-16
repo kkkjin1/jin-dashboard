@@ -30,7 +30,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <TopNav />
         </div>
 
-        <main className="flex-1 min-h-0 overflow-y-auto scrollbar-hide px-6 pt-5 pb-3">
+        {/* pb: 모바일은 fixed BottomNav(높이 + safe-area)에 콘텐츠가 가려지지 않도록 여유 확보,
+            데스크톱은 기존 pb-3 그대로 유지 */}
+        <main className="flex-1 min-h-0 overflow-y-auto scrollbar-hide px-6 pt-5 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-3">
           {children}
         </main>
       </div>

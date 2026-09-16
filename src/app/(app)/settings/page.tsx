@@ -5,28 +5,15 @@ import { createClient } from '@/lib/supabase/client'
 import type { Member } from '@/types'
 import { format, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
+import { NAV_ITEMS } from '@/lib/nav-config'
 
 // ── 조직 구조 타입 ────────────────────────────────────────────────
 interface OrgPart { id: string; name: string }
 interface OrgTeam { id: string; name: string; parts: OrgPart[] }
 
-// ── 메뉴 ──────────────────────────────────────────────────────────
-const ALL_NAV = [
-  { href: '/',                label: '홈' },
-  { href: '/project',         label: '프로젝트' },
-  { href: '/annual-goals',    label: '연간목표' },
-  { href: '/objective-review', label: '목표리뷰' },
-  { href: '/completed',       label: '완료 성과' },
-  { href: '/perf-review',     label: '성과회고' },
-  { href: '/meetings',        label: '회의록' },
-  { href: '/schedule',        label: '일정' },
-  { href: '/memos',           label: '메모' },
-  { href: '/one-on-one',      label: '1on1' },
-  { href: '/learning',        label: '학습자료' },
-  { href: '/decisions',       label: '의사결정' },
-  { href: '/journal',         label: '회고' },
-]
-const PINNED = ['/', '/settings']
+// ── 메뉴 (Desktop Sidebar/Mobile TopNav와 동일한 canonical 목록) ──────
+const ALL_NAV = NAV_ITEMS.map(i => ({ href: i.href, label: i.label }))
+const PINNED = NAV_ITEMS.filter(i => i.pinned).map(i => i.href)
 
 // ── 스타일 상수 ───────────────────────────────────────────────────
 const card: React.CSSProperties = {

@@ -7,48 +7,8 @@ import { createClient } from '@/lib/supabase/client'
 import { clearAllAutosaveBuffers } from '@/hooks/useAutosave'
 import ShortcutIcons from '@/components/ShortcutIcons'
 import ThemeToggle from '@/components/layout/ThemeToggle'
-import {
-  Home, Trophy, MessageSquare, CalendarDays,
-  StickyNote, Users, BookOpen, Settings, Brain, ChevronLeft, ChevronRight,
-  NotebookPen, LayoutGrid, Target, LogOut, Compass, PenTool, FlaskConical,
-  ClipboardList,
-} from 'lucide-react'
-
-// ─── 고정 섹션 그룹 ──────────────────────────────────────────────────────────
-const NAV_SECTIONS = [
-  {
-    label: '주요 업무',
-    items: [
-      { href: '/',           label: '홈',       key: '1', icon: Home },
-      { href: '/project',    label: '프로젝트',  key: '2', icon: LayoutGrid },
-      { href: '/annual-goals', label: '연간목표', key: '', icon: Compass },
-      { href: '/test-practice', label: '테스트실무', key: '', icon: FlaskConical },
-      { href: '/work-report', label: '업무보고', key: '', icon: ClipboardList },
-      { href: '/objective-review', label: '목표리뷰', key: '', icon: Target },
-      { href: '/completed',       label: '완료 성과',       key: '',  icon: Trophy },
-      { href: '/perf-review', label: '성과회고',   key: '',  icon: Trophy },
-    ],
-  },
-  {
-    label: '워크',
-    items: [
-      { href: '/meetings',   label: '회의록',   key: '4', icon: MessageSquare },
-      { href: '/schedule',   label: '일정',     key: '5', icon: CalendarDays },
-      { href: '/memos',      label: '메모',     key: '6', icon: StickyNote },
-      { href: '/one-on-one', label: '1on1',     key: '7', icon: Users },
-      { href: '/sketch',     label: '생각스케치', key: '',  icon: PenTool },
-    ],
-  },
-  {
-    label: '기타',
-    items: [
-      { href: '/learning',  label: '학습자료',  key: '8', icon: BookOpen },
-      { href: '/decisions', label: '의사결정',  key: '9', icon: Brain },
-      { href: '/journal',   label: '회고',      key: '',  icon: NotebookPen },
-      { href: '/settings',  label: '설정',      key: '',  icon: Settings },
-    ],
-  },
-]
+import { ChevronLeft, ChevronRight, LogOut } from 'lucide-react'
+import { NAV_SECTIONS, NAV_HREFS } from '@/lib/nav-config'
 
 interface SidebarProps {
   collapsed: boolean
@@ -70,7 +30,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const localOrderChangedRef = useRef(false)
 
   useEffect(() => {
-    const allHrefs = NAV_SECTIONS.flatMap(s => s.items.map(i => i.href))
+    const allHrefs = NAV_HREFS
 
     function loadFromLocal() {
       const hidden = localStorage.getItem('dashboard_hidden_menus')

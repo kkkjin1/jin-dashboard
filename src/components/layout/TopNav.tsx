@@ -6,30 +6,19 @@ import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { clearAllAutosaveBuffers } from '@/hooks/useAutosave'
 import {
-  Home, Trophy, MessageSquare, CalendarDays,
-  StickyNote, Users, BookOpen, Brain, NotebookPen, Settings,
-  ChevronDown, LogOut, MoreHorizontal, LayoutGrid,
-  GripVertical, Eye, EyeOff, X, Compass,
+  Settings,
+  ChevronDown, LogOut, MoreHorizontal,
+  GripVertical, Eye, EyeOff, X,
 } from 'lucide-react'
 import ThemeToggle from '@/components/layout/ThemeToggle'
+import { NAV_ITEMS } from '@/lib/nav-config'
 
-const ALL_NAV = [
-  { href: '/',            label: '홈',       key: '1', icon: Home },
-  { href: '/project',     label: '프로젝트',  key: '2', icon: LayoutGrid },
-  { href: '/annual-goals', label: '연간목표', key: '',  icon: Compass },
-  { href: '/completed',   label: '완료',     key: '',  icon: Trophy },
-  { href: '/meetings',    label: '회의록',   key: '4', icon: MessageSquare },
-  { href: '/schedule',    label: '일정',     key: '5', icon: CalendarDays },
-  { href: '/memos',       label: '메모',     key: '6', icon: StickyNote },
-  { href: '/one-on-one',  label: '1on1',     key: '7', icon: Users },
-  { href: '/learning',    label: '학습',     key: '8', icon: BookOpen },
-  { href: '/decisions',   label: '의사결정', key: '9', icon: Brain },
-  { href: '/journal',     label: '회고',     key: '',  icon: NotebookPen },
-  { href: '/settings',    label: '설정',     key: '',  icon: Settings },
-]
+// Desktop Sidebar와 동일한 canonical 메뉴 목록(@/lib/nav-config)을 사용한다.
+// 순서/숨김 편집은 이 화면 자체의 topnav_config_v1(로컬 커스터마이즈)이 계속 담당한다.
+const ALL_NAV = NAV_ITEMS
 
 const NAV_CONFIG_KEY = 'topnav_config_v1'
-const PRIMARY_COUNT = 6
+const PRIMARY_COUNT = 5
 
 interface NavConfig { order: string[]; hidden: string[] }
 
@@ -51,6 +40,7 @@ export default function TopNav() {
   const router = useRouter()
   const [moreOpen, setMoreOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
+  const [sheetOpen, setSheetOpen] = useState(false)
   const moreRef = useRef<HTMLDivElement>(null)
   const [navConfig, setNavConfig] = useState<NavConfig>({ order: ALL_NAV.map(i => i.href), hidden: [] })
   const [dragHref, setDragHref] = useState<string | null>(null)
@@ -99,6 +89,14 @@ export default function TopNav() {
     document.addEventListener('mousedown', onClickOutside)
     return () => document.removeEventListener('mousedown', onClickOutside)
   }, [])
+
+  // 더보기 시트 — ESC로 닫기
+  useEffect(() => {
+    if (!sheetOpen) return
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') setSheetOpen(false) }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [sheetOpen])
 
   async function handleLogout() {
     const supabase = createClient()
@@ -259,29 +257,73 @@ export default function TopNav() {
         <ThemeToggle size={28} iconSize={15} />
       </header>
 
-      {/* ── 모바일 하단 네비 ── */}
+      {/* ── 모바일 하단 네비: 핵심 메뉴 + 더보기 ── */}
       <nav className="theme-transition md:hidden fixed bottom-0 left-0 right-0 z-[60]"
         style={{ background: 'var(--bg-sidebar)', borderTop: '1px solid var(--border-strong)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
-        <div className="flex overflow-x-auto scrollbar-hide">
-          {visibleItems.slice(0, 9).map(item => {
+        <div className="flex">
+          {primaryNav.map(item => {
             const isActive = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)
             return (
               <Link key={item.href} href={item.href}
-                className="flex flex-col items-center gap-0.5 px-3 py-2.5 min-w-[3.5rem] flex-shrink-0 transition-colors"
+                className="flex-1 min-w-0 flex flex-col items-center gap-0.5 px-1 py-2.5 transition-colors"
                 style={{ color: isActive ? 'var(--accent-soft)' : 'var(--text-muted)' }}>
                 <item.icon size={18} strokeWidth={1.5} />
-                <span className="text-[9px] whitespace-nowrap">{item.label}</span>
+                <span className="text-[9px] whitespace-nowrap truncate max-w-full">{item.label}</span>
               </Link>
             )
           })}
-          <button onClick={handleLogout}
-            className="flex flex-col items-center gap-0.5 px-3 py-2.5 min-w-[3.5rem] flex-shrink-0 transition-colors"
-            style={{ color: 'var(--text-muted)' }}>
-            <LogOut size={18} strokeWidth={1.5} />
-            <span className="text-[9px] whitespace-nowrap">로그아웃</span>
+          <button onClick={() => setSheetOpen(true)}
+            className="flex-1 min-w-0 flex flex-col items-center gap-0.5 px-1 py-2.5 transition-colors"
+            style={{ color: isSecondaryActive ? 'var(--accent-soft)' : 'var(--text-muted)' }}>
+            <MoreHorizontal size={18} strokeWidth={1.5} />
+            <span className="text-[9px] whitespace-nowrap">더보기</span>
           </button>
         </div>
       </nav>
+
+      {/* ── 더보기 시트: 전체 메뉴 ── */}
+      {sheetOpen && (
+        <div className="md:hidden fixed inset-0 z-[70]" style={{ background: 'rgba(0,0,0,0.4)' }}
+          onClick={() => setSheetOpen(false)}>
+          <div role="dialog" aria-modal="true"
+            className="theme-transition absolute bottom-0 left-0 right-0 rounded-t-3xl flex flex-col"
+            style={{ background: 'var(--bg-sidebar)', borderTop: '1px solid var(--border-strong)', maxHeight: '80vh', paddingBottom: 'env(safe-area-inset-bottom)' }}
+            onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 pt-4 pb-2 flex-shrink-0">
+              <span className="text-sm font-semibold" style={{ color: 'rgba(var(--text-rgb),1)' }}>전체 메뉴</span>
+              <button onClick={() => setSheetOpen(false)}
+                className="p-1 rounded-md transition-colors" style={{ color: 'var(--text-muted)' }}>
+                <X size={16} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto scrollbar-hide px-2 pb-1 min-h-0">
+              {visibleItems.map(item => {
+                const isActive = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)
+                return (
+                  <Link key={item.href} href={item.href} onClick={() => setSheetOpen(false)}
+                    className="flex items-center gap-3 px-3 py-3 rounded-xl transition-colors"
+                    style={{ background: isActive ? 'var(--surface-selected)' : 'transparent', color: isActive ? 'var(--accent-soft)' : 'rgba(var(--text-rgb),0.8)' }}>
+                    <item.icon size={17} strokeWidth={isActive ? 2 : 1.5} className="flex-shrink-0" />
+                    <span className="text-[14px] font-medium">{item.label}</span>
+                  </Link>
+                )
+              })}
+            </div>
+            <div className="flex-shrink-0 border-t px-2 py-2" style={{ borderColor: 'var(--border-strong)' }}>
+              <button onClick={() => { setSheetOpen(false); setEditOpen(true) }}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors" style={{ color: 'var(--text-muted)' }}>
+                <Settings size={16} strokeWidth={1.5} />
+                <span className="text-[13px]">메뉴 편집</span>
+              </button>
+              <button onClick={() => { setSheetOpen(false); handleLogout() }}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors" style={{ color: 'var(--text-muted)' }}>
+                <LogOut size={16} strokeWidth={1.5} />
+                <span className="text-[13px]">로그아웃</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }

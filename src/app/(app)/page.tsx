@@ -1296,8 +1296,9 @@ export default function HomePage() {
   return (
     <div className="font-sans flex flex-col" style={{ height: '100%', background: BG }}>
 
-      {/* ── 모바일 (unchanged) ── */}
-      <div className="md:hidden flex-1 overflow-y-auto px-4 pt-5 pb-36 space-y-4">
+      {/* ── 모바일 ── */}
+      {/* BottomNav 겹침 보정은 AppShell의 main pb로 전역 처리됨 — 여기는 리스트 하단 여백만 */}
+      <div className="md:hidden flex-1 overflow-y-auto px-4 pt-5 pb-6 space-y-4">
 
         <div className="rounded-[20px] p-4" style={MCARD}>
           <div className="flex items-center justify-between mb-3">
