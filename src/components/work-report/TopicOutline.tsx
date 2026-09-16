@@ -118,7 +118,7 @@ export default function TopicOutline({
   }
 
   return (
-    <div className="h-full flex flex-col" style={{ width: 216, flexShrink: 0 }}>
+    <div className="h-full flex flex-col" style={{ width: 190, flexShrink: 0 }}>
       <div className="px-2.5 pt-3 pb-1.5 flex items-center justify-between gap-1.5">
         <p className="text-[10px] font-semibold uppercase truncate" style={{ color: S.t4 }}>
           이번 보고 목차

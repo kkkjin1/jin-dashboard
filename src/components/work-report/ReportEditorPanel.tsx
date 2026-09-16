@@ -360,14 +360,16 @@ const ReportEditorPanel = forwardRef<ReportEditorPanelHandle, Props>(function Re
     const setValue = selection === 'summary' ? setSummaryText : selection === 'issues' ? setIssuesText : setNextStepsText
     return (
       <div className="h-full overflow-y-auto px-6 py-5">
-        <p className="text-[15px] font-semibold mb-4" style={{ color: S.t1 }}>{meta.no}. {meta.title}</p>
+        {/* topic 4-field 구조를 억지로 적용하지 않되, "제목 → 설명 → 편집기"라는 동일한
+            Writing Workspace 골격은 topic 섹션과 맞춘다(4-field는 그대로 topic 전용). */}
+        <p className="text-[15px] font-semibold mb-1" style={{ color: S.t1 }}>{meta.no}. {meta.title}</p>
+        <p className="text-[12px] mb-4" style={{ color: S.t4 }}>{meta.placeholder}</p>
         {recoveredBanner}
         <TextBox
-          label="작성"
+          label=""
           value={value}
           onChange={setValue}
           minHeight={360}
-          placeholder={meta.placeholder}
           readOnly={readOnly}
           statusLabel={canonicalStatusText(activeCanonical.status)}
         />

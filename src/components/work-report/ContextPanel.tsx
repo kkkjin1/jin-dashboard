@@ -68,7 +68,7 @@ export default function ContextPanel({
     const fixedKey = selection as FixedSectionKey
     const compareText = compareReportObj ? (compareReportObj[fixedKey === 'next_steps' ? 'next_steps' : fixedKey] as string) : ''
     return (
-      <div className="h-full overflow-y-auto px-5 py-5" style={{ width: 288, flexShrink: 0 }}>
+      <div className="h-full overflow-y-auto px-5 py-5" style={{ width: 240, flexShrink: 0 }}>
         <p className="text-[13px] font-semibold mb-3" style={{ color: S.t1 }}>직전 보고 · {FIXED_LABEL[fixedKey]}</p>
         {compareSelect}
         <ReadonlyBlock text={compareText} />
@@ -76,10 +76,18 @@ export default function ContextPanel({
     )
   }
 
-  if (!topic) return <div style={{ width: 288, flexShrink: 0 }} />
+  // topic이 없어도(로드 경합, 방금 제외된 주제 등) pane 자체는 유지하고 안내만 보여준다 —
+  // 예전에는 빈 사각형만 남아 Context가 통째로 사라진 것처럼 보였다.
+  if (!topic) {
+    return (
+      <div className="h-full flex items-center justify-center px-4" style={{ width: 240, flexShrink: 0 }}>
+        <p className="text-[12px] text-center" style={{ color: S.t4 }}>선택된 주제가 없습니다.</p>
+      </div>
+    )
+  }
 
   return (
-    <div className="h-full flex flex-col" style={{ width: 288, flexShrink: 0 }}>
+    <div className="h-full flex flex-col" style={{ width: 240, flexShrink: 0 }}>
       <div className="flex items-center gap-1 px-3 pt-3 pb-2" style={{ borderBottom: `1px solid ${S.border}` }}>
         {([['compare', '전후 비교'], ['history', '관련 주제 히스토리']] as const).map(([k, label]) => (
           <button

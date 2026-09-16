@@ -446,10 +446,15 @@ export default function WorkReportPage() {
         {mode === 'write' && (
           currentReport ? (
             <>
-              {/* 1360px 미만: Outline(216px)+Context(288px) 고정폭을 다 확보하면 Writing
-                  Workspace(main surface)가 지나치게 좁아지는 지점 — 이 아래에서는 기존과
-                  동일하게 "버튼 → 드로어" 패턴으로 접는다(모바일 구조 그대로 재사용). */}
-              <div className="hidden min-[1360px]:block h-full" style={{ borderRight: `1px solid ${S.border}` }}>
+              {/* Desktop 3-pane breakpoint — AppShell 자체가 mobile/desktop을 나누는 지점(md,
+                  Sidebar 표시 여부)과 동일한 이분법을 따르되, 그보다 한 단계 위 표준 Tailwind
+                  breakpoint(lg=1024px)를 쓴다. md(768px)를 그대로 재사용하면 Sidebar(240px,
+                  펼침 기준)+본문 padding(48px)만으로 거의 다 소진되어 그 경계에서 Writing이
+                  사실상 0에 가까워진다 — 그래서 AppShell과 다른 임의의 숫자를 새로 만드는 대신,
+                  Tailwind가 이미 갖고 있는 다음 표준 단계를 쓴다. lg 이상에서는 Outline(190px)
+                  +Context(240px)를 빼도 Writing이 항상 실사용 가능한 폭을 갖는다.
+                  lg 미만(태블릿/모바일 포함)에서는 기존 "버튼 → 드로어" 패턴을 그대로 쓴다. */}
+              <div className="hidden lg:block h-full" style={{ borderRight: `1px solid ${S.border}` }}>
                 <TopicOutline
                   rows={outlineRows}
                   allActiveTopics={allActiveTopics}
@@ -469,7 +474,7 @@ export default function WorkReportPage() {
 
               <button
                 onClick={() => setTopicDrawerOpen(true)}
-                className="min-[1360px]:hidden flex-shrink-0 self-start mt-3 ml-2 px-2.5 py-1.5 rounded-lg text-[11px]"
+                className="lg:hidden flex-shrink-0 self-start mt-3 ml-2 px-2.5 py-1.5 rounded-lg text-[11px]"
                 style={{ color: S.t3, background: 'rgba(var(--ink-rgb),0.05)' }}
               >
                 목차
@@ -500,13 +505,13 @@ export default function WorkReportPage() {
 
               <button
                 onClick={() => setContextDrawerOpen(true)}
-                className="min-[1360px]:hidden flex-shrink-0 self-start mt-3 mr-2 px-2.5 py-1.5 rounded-lg text-[11px]"
+                className="lg:hidden flex-shrink-0 self-start mt-3 mr-2 px-2.5 py-1.5 rounded-lg text-[11px]"
                 style={{ color: S.t3, background: 'rgba(var(--ink-rgb),0.05)' }}
               >
                 컨텍스트
               </button>
 
-              <div className="hidden min-[1360px]:block h-full" style={{ borderLeft: `1px solid ${S.border}` }}>
+              <div className="hidden lg:block h-full" style={{ borderLeft: `1px solid ${S.border}` }}>
                 <ContextPanel
                   selection={selection}
                   topic={selectedTopic}
@@ -523,7 +528,7 @@ export default function WorkReportPage() {
               </div>
 
               {topicDrawerOpen && (
-                <div className="fixed inset-0 z-40 min-[1360px]:hidden" style={{ background: 'rgba(0,0,0,0.55)' }} onClick={() => setTopicDrawerOpen(false)}>
+                <div className="fixed inset-0 z-40 lg:hidden" style={{ background: 'rgba(0,0,0,0.55)' }} onClick={() => setTopicDrawerOpen(false)}>
                   <div className="absolute inset-y-0 left-0 h-full" style={{ background: S.panel }} onClick={e => e.stopPropagation()}>
                     <TopicOutline
                       rows={outlineRows}
@@ -545,7 +550,7 @@ export default function WorkReportPage() {
               )}
 
               {contextDrawerOpen && (
-                <div className="fixed inset-0 z-40 min-[1360px]:hidden" style={{ background: 'rgba(0,0,0,0.55)' }} onClick={() => setContextDrawerOpen(false)}>
+                <div className="fixed inset-0 z-40 lg:hidden" style={{ background: 'rgba(0,0,0,0.55)' }} onClick={() => setContextDrawerOpen(false)}>
                   <div className="absolute inset-y-0 right-0 h-full" style={{ background: S.panel }} onClick={e => e.stopPropagation()}>
                     <ContextPanel
                       selection={selection}
