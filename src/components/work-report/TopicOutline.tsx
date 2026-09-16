@@ -92,7 +92,7 @@ export default function TopicOutline({
   }
 
   return (
-    <div className="h-full flex flex-col" style={{ width: 248, flexShrink: 0 }}>
+    <div className="h-full flex flex-col" style={{ width: 216, flexShrink: 0 }}>
       <p className="px-2.5 pt-3 pb-1.5 text-[10px] font-semibold uppercase tracking-widest" style={{ color: S.t4 }}>
         이번 보고 목차
       </p>

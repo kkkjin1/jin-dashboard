@@ -5,7 +5,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import type { WorkReport, WorkReportEntry, WorkReportTopic } from '@/types'
 import { useAutosave } from '@/hooks/useAutosave'
-import { S, fmtDateFull, BADGE_LABEL, BADGE_COLOR, type TopicChangeBadge } from './style'
+import { S, fmtDateFull, truncate, BADGE_LABEL, BADGE_COLOR, type TopicChangeBadge } from './style'
 import { isFixedKey, type FixedSectionKey } from './TopicOutline'
 
 // ── canonical(work_reports/work_report_entries) 저장 신뢰성 ──────────────
@@ -161,8 +161,15 @@ interface Props {
   onReportSaved: (report: WorkReport) => void
 }
 
+// variant는 4개 필드를 "하나의 균일한 form"이 아니라 명확한 위계로 보이게 하기 위한
+// 최소한의 시각적 구분이다 — 새 카드 박스를 늘리는 대신 label 무게와 테두리 강조 정도만 바꾼다.
+//   primary : "이번 업데이트" — writing workspace의 main surface
+//   callout : "경영진 전달 포인트" — 그대로 보고에 옮겨지는 decision/request 문구라 좌측 accent bar로 구분
+//   default : 그 외(다음 액션, 내 작업 메모, 고정 섹션)
+type TextBoxVariant = 'primary' | 'callout' | 'default'
+
 function TextBox({
-  label, value, onChange, minHeight, placeholder, readOnly, statusLabel,
+  label, value, onChange, minHeight, placeholder, readOnly, statusLabel, variant = 'default',
 }: {
   label: string
   value: string
@@ -171,12 +178,18 @@ function TextBox({
   placeholder?: string
   readOnly: boolean
   statusLabel?: string
+  variant?: TextBoxVariant
 }) {
   return (
     <div>
       {(label || statusLabel) && (
         <div className="flex items-center justify-between mb-1.5">
-          <span className="text-[11px] font-semibold" style={{ color: S.t3 }}>{label}</span>
+          <span
+            className={variant === 'primary' ? 'text-[12px] font-bold' : 'text-[11px] font-semibold'}
+            style={{ color: variant === 'primary' ? S.t2 : S.t3 }}
+          >
+            {label}
+          </span>
           {statusLabel && <span className="text-[10px]" style={{ color: S.t4 }}>{statusLabel}</span>}
         </div>
       )}
@@ -189,10 +202,11 @@ function TextBox({
           width: '100%',
           minHeight,
           resize: 'vertical',
-          background: 'rgba(var(--ink-rgb),0.03)',
-          border: `1px solid ${S.border}`,
+          background: variant === 'callout' ? S.accentDim : 'rgba(var(--ink-rgb),0.03)',
+          border: variant === 'primary' ? `1px solid ${S.borderStrong}` : `1px solid ${S.border}`,
+          borderLeft: variant === 'callout' ? `3px solid ${S.accent}` : undefined,
           borderRadius: S.r,
-          padding: '12px 14px',
+          padding: variant === 'callout' ? '12px 14px 12px 12px' : '12px 14px',
           color: S.t1,
           fontSize: 13.5,
           lineHeight: 1.7,
@@ -252,6 +266,10 @@ const ReportEditorPanel = forwardRef<ReportEditorPanelHandle, Props>(function Re
   const [nextActionText, setNextActionText] = useState(entry?.next_action ?? '')
   const [memoText, setMemoText] = useState(entry?.working_memo ?? '')
   const [memoOpen, setMemoOpen] = useState(false)
+  // 지난 보고 reference — 기본은 접힌 상태로 두되, 헤더에 truncate된 미리보기를
+  // 같이 보여줘서 펼치지 않아도 "지난번에 뭘 썼는지"가 바로 보이게 한다(기억 의존 최소화).
+  // report/topic 전환은 이 컴포넌트가 key remount되므로 매번 접힌 기본값으로 리셋된다.
+  const [prevOpen, setPrevOpen] = useState(false)
 
   const entryDraft: EntryDraft | null = useMemo(() => entry ? {
     report_text: reportText, executive_point: execText, next_action: nextActionText, working_memo: memoText,
@@ -357,38 +375,60 @@ const ReportEditorPanel = forwardRef<ReportEditorPanelHandle, Props>(function Re
 
       {recoveredBanner}
 
+      {/* 지난 보고 reference — ContextPanel "전후비교" 탭(임의 회차 선택 + 좌우 비교)과
+          역할이 다르다: 여기는 항상 "바로 직전 entry"만, 접힌 채로 미리보기까지 같이 보여주는
+          가벼운 기억 보조용이다. 클릭해도 report_text에는 어떤 값도 복사되지 않는다 — 순수 참고. */}
       {prevEntry && prevReport ? (
-        <div className="mb-5">
-          <p className="text-[11px] font-semibold mb-1.5" style={{ color: S.t3 }}>
-            지난 보고 내용 · {fmtDateFull(prevReport.period_start)}
-          </p>
-          <div
-            className="px-3.5 py-3 rounded-lg text-[13px] leading-[1.7] whitespace-pre-wrap"
-            style={{ background: 'rgba(var(--ink-rgb),0.025)', border: `1px solid ${S.border}`, color: S.t3 }}
+        <div className="mb-5 rounded-lg overflow-hidden" style={{ border: `1px solid ${S.border}` }}>
+          <button
+            onClick={() => setPrevOpen(o => !o)}
+            className="w-full flex items-center gap-1.5 px-3.5 py-2.5 text-left min-w-0"
+            style={{ background: 'rgba(var(--ink-rgb),0.02)' }}
           >
-            {prevEntry.report_text || '(작성된 내용 없음)'}
-          </div>
+            {prevOpen ? <ChevronDown size={12} style={{ flexShrink: 0, color: S.t3 }} /> : <ChevronRight size={12} style={{ flexShrink: 0, color: S.t3 }} />}
+            <span className="text-[11px] font-semibold flex-shrink-0" style={{ color: S.t3 }}>
+              지난 보고 · {fmtDateFull(prevReport.period_start)}
+            </span>
+            {!prevOpen && (
+              <span className="text-[12px] truncate" style={{ color: S.t4 }}>
+                {truncate(prevEntry.report_text, 56) || '(작성된 내용 없음)'}
+              </span>
+            )}
+          </button>
+          {prevOpen && (
+            <div
+              className="px-3.5 py-3 text-[13px] leading-[1.7] whitespace-pre-wrap"
+              style={{ borderTop: `1px solid ${S.border}`, color: S.t3 }}
+            >
+              {prevEntry.report_text || '(작성된 내용 없음)'}
+            </div>
+          )}
         </div>
       ) : (
         <p className="text-[11.5px] mb-5" style={{ color: S.t4 }}>이번 보고에서 새로 추가된 주제입니다.</p>
       )}
 
-      <div className="space-y-4">
+      {/* main writing surface(이번 업데이트) → decision/request 콜아웃 → follow-up →
+          (구분선 아래) 개인 메모, 순서로 명확한 위계를 준다. 4개를 같은 무게의 textarea
+          더미로 늘어놓지 않는다. */}
+      <div className="space-y-5">
         <TextBox
           label="이번 업데이트"
           value={reportText}
           onChange={setReportText}
-          minHeight={220}
+          minHeight={240}
           placeholder="자유롭게 줄글로 작성합니다."
           readOnly={readOnly}
           statusLabel={canonicalStatusText(activeCanonical.status)}
+          variant="primary"
         />
         <TextBox
-          label="경영진에게 전달할 포인트 (의사결정 필요사항)"
+          label="경영진 전달 포인트 · 의사결정 요청"
           value={execText}
           onChange={setExecText}
           minHeight={90}
           readOnly={readOnly}
+          variant="callout"
         />
         <TextBox
           label="다음 액션"
@@ -398,11 +438,11 @@ const ReportEditorPanel = forwardRef<ReportEditorPanelHandle, Props>(function Re
           readOnly={readOnly}
         />
 
-        <div>
+        <div className="pt-4" style={{ borderTop: `1px solid ${S.border}` }}>
           <button
             onClick={() => setMemoOpen(o => !o)}
             className="flex items-center gap-1 text-[11px] font-semibold mb-1.5"
-            style={{ color: S.t3 }}
+            style={{ color: S.t4 }}
           >
             {memoOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
             내 작업 메모 (PT 문안에는 포함되지 않음)

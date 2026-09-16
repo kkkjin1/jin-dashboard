@@ -312,8 +312,12 @@ export default function WorkReportPage() {
 
   return (
     <div className="h-full flex flex-col" style={{ background: S.bg }}>
-      {/* ── 상단 바 ── */}
-      <div className="flex items-center justify-between gap-3 px-6 py-3 flex-shrink-0 flex-wrap" style={{ borderBottom: `1px solid ${S.border}` }}>
+      {/* ── 상단 바 ──
+          1행: 지금 어느 보고기간/상태인지(identity) — 항상 가장 눈에 먼저 들어와야 하는 정보.
+          2행: mode 전환(좌, primary navigation)과 secondary action(우)을 분리 —
+          이전에는 identity/mode/action 3그룹이 한 줄에서 flex-wrap으로 뒤섞여
+          좁은 폭에서 순서 없이 줄바꿈되던 것을, 의미 단위로 고정된 2행 구조로 바꾼다. */}
+      <div className="flex flex-col gap-2.5 px-6 py-3 flex-shrink-0" style={{ borderBottom: `1px solid ${S.border}` }}>
         <div className="flex items-center gap-3 flex-wrap">
           <p className="text-[15px] font-semibold" style={{ color: S.t1 }}>업무보고</p>
 
@@ -330,6 +334,17 @@ export default function WorkReportPage() {
                   className="text-[12px] px-2 py-1 rounded-lg disabled:opacity-50"
                   style={{ background: 'rgba(var(--ink-rgb),0.05)', border: `1px solid ${S.border}`, color: S.t2 }} />
               </div>
+
+              {/* draft/final 상태 — 기존에는 select option 텍스트/버튼 라벨에만 묻혀있던 것을
+                  identity 영역에 pill로 노출해 "지금 작성중인지 확정인지"를 즉시 알 수 있게 한다. */}
+              <span
+                className="text-[11px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0"
+                style={currentReport.status === 'final'
+                  ? { color: S.accentText, background: S.accentDim, border: `1px solid ${S.accentBorder}` }
+                  : { color: S.t3, background: 'rgba(var(--ink-rgb),0.05)', border: `1px solid ${S.border}` }}
+              >
+                {currentReport.status === 'final' ? '확정' : '작성중'}
+              </span>
 
               {reportsDesc.length > 1 && (
                 <select
@@ -349,44 +364,46 @@ export default function WorkReportPage() {
           )}
         </div>
 
-        <div className="flex items-center gap-1 rounded-xl p-1" style={{ background: 'rgba(var(--ink-rgb),0.04)' }}>
-          {([['write', '보고서 작성'], ['period', '기간별 전체 보기'], ['topic-history', '주제별 히스토리']] as const).map(([k, label]) => (
-            <button
-              key={k}
-              onClick={() => setMode(k)}
-              className="px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors"
-              style={{ color: mode === k ? S.t1 : S.t3, background: mode === k ? S.accentDim : 'transparent' }}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-1 rounded-xl p-1" style={{ background: 'rgba(var(--ink-rgb),0.04)' }}>
+            {([['write', '보고서 작성'], ['period', '기간별 전체 보기'], ['topic-history', '주제별 히스토리']] as const).map(([k, label]) => (
+              <button
+                key={k}
+                onClick={() => setMode(k)}
+                className="px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors"
+                style={{ color: mode === k ? S.t1 : S.t3, background: mode === k ? S.accentDim : 'transparent' }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
 
-        <div className="flex items-center gap-2">
-          {mode === 'write' && currentReport && (
-            <>
-              <button onClick={() => setFullViewOpen(true)}
-                className="px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors"
-                style={{ color: S.t3, background: 'rgba(var(--ink-rgb),0.04)' }}
-              >
-                문서로 보기
-              </button>
-              <button onClick={handleNewReport}
-                className="px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors"
-                style={{ color: S.t3, background: 'rgba(var(--ink-rgb),0.04)' }}
-              >
-                + 새 보고
-              </button>
-              <button onClick={handleToggleFinalize}
-                className="px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-colors"
-                style={currentReport.status === 'draft'
-                  ? { color: S.accentText, background: S.accentDim, border: `1px solid ${S.accentBorder}` }
-                  : { color: S.t3, background: 'rgba(var(--ink-rgb),0.04)' }}
-              >
-                {currentReport.status === 'draft' ? '보고 확정' : '편집 재개'}
-              </button>
-            </>
-          )}
+          <div className="flex items-center gap-2">
+            {mode === 'write' && currentReport && (
+              <>
+                <button onClick={() => setFullViewOpen(true)}
+                  className="px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors"
+                  style={{ color: S.t3, background: 'rgba(var(--ink-rgb),0.04)' }}
+                >
+                  문서로 보기
+                </button>
+                <button onClick={handleNewReport}
+                  className="px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors"
+                  style={{ color: S.t3, background: 'rgba(var(--ink-rgb),0.04)' }}
+                >
+                  + 새 보고
+                </button>
+                <button onClick={handleToggleFinalize}
+                  className="px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-colors"
+                  style={currentReport.status === 'draft'
+                    ? { color: S.accentText, background: S.accentDim, border: `1px solid ${S.accentBorder}` }
+                    : { color: S.t3, background: 'rgba(var(--ink-rgb),0.04)' }}
+                >
+                  {currentReport.status === 'draft' ? '보고 확정' : '편집 재개'}
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -395,10 +412,10 @@ export default function WorkReportPage() {
         {mode === 'write' && (
           currentReport ? (
             <>
-              {/* xl 미만: TopicOutline(고정 248px)이 반응형 처리가 전혀 없어 실기기에서
-                  본문을 극단적으로 압박하던 것이 root cause — ContextPanel과 동일한
-                  "버튼 → 좌측 드로어" 패턴으로 xl 미만에서는 숨기고 버튼으로 접근하게 한다. */}
-              <div className="hidden xl:block h-full" style={{ borderRight: `1px solid ${S.border}` }}>
+              {/* 1360px 미만: Outline(216px)+Context(288px) 고정폭을 다 확보하면 Writing
+                  Workspace(main surface)가 지나치게 좁아지는 지점 — 이 아래에서는 기존과
+                  동일하게 "버튼 → 드로어" 패턴으로 접는다(모바일 구조 그대로 재사용). */}
+              <div className="hidden min-[1360px]:block h-full" style={{ borderRight: `1px solid ${S.border}` }}>
                 <TopicOutline
                   rows={outlineRows}
                   allActiveTopics={allActiveTopics}
@@ -415,7 +432,7 @@ export default function WorkReportPage() {
 
               <button
                 onClick={() => setTopicDrawerOpen(true)}
-                className="xl:hidden flex-shrink-0 self-start mt-3 ml-2 px-2.5 py-1.5 rounded-lg text-[11px]"
+                className="min-[1360px]:hidden flex-shrink-0 self-start mt-3 ml-2 px-2.5 py-1.5 rounded-lg text-[11px]"
                 style={{ color: S.t3, background: 'rgba(var(--ink-rgb),0.05)' }}
               >
                 목차
@@ -441,13 +458,13 @@ export default function WorkReportPage() {
 
               <button
                 onClick={() => setContextDrawerOpen(true)}
-                className="xl:hidden flex-shrink-0 self-start mt-3 mr-2 px-2.5 py-1.5 rounded-lg text-[11px]"
+                className="min-[1360px]:hidden flex-shrink-0 self-start mt-3 mr-2 px-2.5 py-1.5 rounded-lg text-[11px]"
                 style={{ color: S.t3, background: 'rgba(var(--ink-rgb),0.05)' }}
               >
                 컨텍스트
               </button>
 
-              <div className="hidden xl:block h-full" style={{ borderLeft: `1px solid ${S.border}` }}>
+              <div className="hidden min-[1360px]:block h-full" style={{ borderLeft: `1px solid ${S.border}` }}>
                 <ContextPanel
                   selection={selection}
                   topic={selectedTopic}
@@ -463,7 +480,7 @@ export default function WorkReportPage() {
               </div>
 
               {topicDrawerOpen && (
-                <div className="fixed inset-0 z-40 xl:hidden" style={{ background: 'rgba(0,0,0,0.55)' }} onClick={() => setTopicDrawerOpen(false)}>
+                <div className="fixed inset-0 z-40 min-[1360px]:hidden" style={{ background: 'rgba(0,0,0,0.55)' }} onClick={() => setTopicDrawerOpen(false)}>
                   <div className="absolute inset-y-0 left-0 h-full" style={{ background: S.panel }} onClick={e => e.stopPropagation()}>
                     <TopicOutline
                       rows={outlineRows}
@@ -482,7 +499,7 @@ export default function WorkReportPage() {
               )}
 
               {contextDrawerOpen && (
-                <div className="fixed inset-0 z-40 xl:hidden" style={{ background: 'rgba(0,0,0,0.55)' }} onClick={() => setContextDrawerOpen(false)}>
+                <div className="fixed inset-0 z-40 min-[1360px]:hidden" style={{ background: 'rgba(0,0,0,0.55)' }} onClick={() => setContextDrawerOpen(false)}>
                   <div className="absolute inset-y-0 right-0 h-full" style={{ background: S.panel }} onClick={e => e.stopPropagation()}>
                     <ContextPanel
                       selection={selection}
