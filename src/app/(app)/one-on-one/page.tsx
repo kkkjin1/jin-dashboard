@@ -89,7 +89,7 @@ function MemberListHeader() {
   const col = 'text-[9px] font-semibold uppercase tracking-wide text-center'
   const colStyle = { color: 'rgba(var(--text-rgb),0.28)' }
   return (
-    <div className="flex items-center justify-between gap-4 px-5 pb-1.5">
+    <div className="hidden lg:flex items-center justify-between gap-4 px-5 pb-1.5">
       <div className="flex items-center gap-3 min-w-[150px] max-w-[480px]" style={{ flex: '1 1 260px' }}>
         <span className="w-[38px] h-[38px] flex-shrink-0" />
         <span className="text-[9px] font-semibold uppercase tracking-wide whitespace-nowrap" style={colStyle}>팀원</span>
@@ -123,84 +123,142 @@ function MemberRow({ member, sessions, role, teamLabel, onNewSession }: {
   const chipStyle: React.CSSProperties = { background: 'rgba(var(--ink-rgb),0.04)', border: '1px solid rgba(var(--ink-rgb),0.08)' }
 
   return (
-    <div className="flex items-center justify-between gap-4 px-5 py-3 hover:bg-[rgba(var(--ink-rgb),0.02)] transition-colors"
-      style={{ borderBottom: '1px solid rgba(var(--ink-rgb),0.045)' }}>
+    <>
+      {/* ── Desktop: 기존 6열 grid 그대로, lg 미만에서는 숨김(마크업/데이터 불변) ── */}
+      <div className="hidden lg:flex items-center justify-between gap-4 px-5 py-3 hover:bg-[rgba(var(--ink-rgb),0.02)] transition-colors"
+        style={{ borderBottom: '1px solid rgba(var(--ink-rgb),0.045)' }}>
 
-      {/* 정체성: 아바타 + 이름 + 직책 + "마지막 O/O · N회" 한 줄 요약 — 남는 폭을 흡수하되 480px 상한 */}
-      <div className="flex items-center gap-3 min-w-[150px] max-w-[480px]" style={{ flex: '1 1 260px' }}>
-        <div className="w-[38px] h-[38px] rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0"
-          style={{ background: 'rgba(var(--ink-rgb),0.07)', color: 'rgba(var(--text-rgb),0.6)', boxShadow: `0 0 0 2px ${daysRingColor(days)}` }}>
-          {member.name[0]}
-        </div>
-        <div className="min-w-0">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span className="text-sm font-semibold truncate" style={{ color: 'rgba(var(--text-rgb),1)' }}>{member.name}</span>
-            {roleStyle && <span className="text-[9px] px-1.5 py-0.5 rounded-full flex-shrink-0" style={roleStyle}>{role}</span>}
+        {/* 정체성: 아바타 + 이름 + 직책 + "마지막 O/O · N회" 한 줄 요약 — 남는 폭을 흡수하되 480px 상한 */}
+        <div className="flex items-center gap-3 min-w-[150px] max-w-[480px]" style={{ flex: '1 1 260px' }}>
+          <div className="w-[38px] h-[38px] rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0"
+            style={{ background: 'rgba(var(--ink-rgb),0.07)', color: 'rgba(var(--text-rgb),0.6)', boxShadow: `0 0 0 2px ${daysRingColor(days)}` }}>
+            {member.name[0]}
           </div>
-          <p className="text-[11px] truncate" style={{ color: 'rgba(var(--text-rgb),0.35)' }}>
-            {last?.session_date
-              ? <>마지막 {format(parseISO(last.session_date), 'M/d (E)', { locale: ko })}<span className="mx-1 opacity-50">·</span>{ms.length}회</>
-              : (ms.length > 0 ? `기록 ${ms.length}회 · 최근 날짜 없음` : '아직 진행한 1on1이 없음')}
-          </p>
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="text-sm font-semibold truncate" style={{ color: 'rgba(var(--text-rgb),1)' }}>{member.name}</span>
+              {roleStyle && <span className="text-[9px] px-1.5 py-0.5 rounded-full flex-shrink-0" style={roleStyle}>{role}</span>}
+            </div>
+            <p className="text-[11px] truncate" style={{ color: 'rgba(var(--text-rgb),0.35)' }}>
+              {last?.session_date
+                ? <>마지막 {format(parseISO(last.session_date), 'M/d (E)', { locale: ko })}<span className="mx-1 opacity-50">·</span>{ms.length}회</>
+                : (ms.length > 0 ? `기록 ${ms.length}회 · 최근 날짜 없음` : '아직 진행한 1on1이 없음')}
+            </p>
+          </div>
+        </div>
+
+        {/* 오른쪽 메타 클러스터: 팀 · 진행 상태 · 다음 일정 · 메모 · 액션 — Header와 동일한 grid */}
+        <div className="grid items-center gap-2.5 flex-shrink-0" style={{ gridTemplateColumns: MEMBER_META_COLS }}>
+          <div className="flex justify-center">
+            <span className="text-[10px] px-2.5 py-1 rounded-full truncate max-w-full" style={{ ...chipStyle, color: 'rgba(var(--text-rgb),0.45)' }}>
+              {teamLabel}
+            </span>
+          </div>
+
+          <div className="flex justify-center">
+            <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full border whitespace-nowrap ${daysBadgeClass(days)}`}>
+              {daysLabel(days)}
+            </span>
+          </div>
+
+          <div className="flex justify-center">
+            {last?.next_appointment_date ? (
+              <span className="text-[10px] px-2.5 py-1 rounded-full whitespace-nowrap" style={{ ...chipStyle, color: 'rgba(var(--text-rgb),0.55)' }}>
+                {format(parseISO(last.next_appointment_date), 'M/d (E)', { locale: ko })}
+              </span>
+            ) : (
+              <span className="text-[10px]" style={{ color: 'rgba(var(--text-rgb),0.2)' }}>—</span>
+            )}
+          </div>
+
+          <div className="flex justify-center">
+            {noteCount > 0 ? (
+              <span className="text-[10px] px-2.5 py-1 rounded-full whitespace-nowrap" style={{ ...chipStyle, color: 'rgba(var(--text-rgb),0.45)' }}>
+                {noteCount}건
+              </span>
+            ) : (
+              <span className="text-[10px]" style={{ color: 'rgba(var(--text-rgb),0.2)' }}>—</span>
+            )}
+          </div>
+
+          <div className="w-px h-5 justify-self-center" style={{ background: 'rgba(var(--ink-rgb),0.08)' }} />
+
+          {/* 액션 버튼 — 항상 노출(hover 조건 제거). "기록 보기"는 세션이 없으면 invisible로
+              자리만 유지 — 그래야 앞의 팀/진행상태/다음일정/메모 컬럼이 행마다 밀리지 않는다. */}
+          <div className="flex items-center justify-end gap-1.5">
+            {ms.length > 0 ? (
+              <Link href={`/one-on-one/${member.id}`}
+                className="text-[10px] px-2.5 py-1 rounded-lg transition-colors whitespace-nowrap"
+                style={{ border: '1px solid rgba(var(--ink-rgb),0.09)', color: 'rgba(var(--text-rgb),0.5)' }}>
+                기록 보기
+              </Link>
+            ) : (
+              <span className="text-[10px] px-2.5 py-1 whitespace-nowrap invisible">기록 보기</span>
+            )}
+            <button onClick={() => onNewSession(member.id)}
+              className="text-[10px] px-2.5 py-1 rounded-lg transition-colors whitespace-nowrap font-semibold"
+              style={{ background: 'rgba(76,127,224,0.15)', border: '1px solid rgba(76,127,224,0.3)', color: 'var(--accent-badge-text)' }}>
+              1on1 진행
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* 오른쪽 메타 클러스터: 팀 · 진행 상태 · 다음 일정 · 메모 · 액션 — Header와 동일한 grid */}
-      <div className="grid items-center gap-2.5 flex-shrink-0" style={{ gridTemplateColumns: MEMBER_META_COLS }}>
-        <div className="flex justify-center">
-          <span className="text-[10px] px-2.5 py-1 rounded-full truncate max-w-full" style={{ ...chipStyle, color: 'rgba(var(--text-rgb),0.45)' }}>
-            {teamLabel}
-          </span>
-        </div>
-
-        <div className="flex justify-center">
-          <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full border whitespace-nowrap ${daysBadgeClass(days)}`}>
+      {/* ── Mobile: 카드형 표현 — 동일 데이터/핸들러(ms/last/days/noteCount/roleStyle/chipStyle,
+          onNewSession)를 그대로 재사용하고 presentation만 세로 계층으로 재배치.
+          1) 프로필+이름+진행상태  2) 팀·최근/다음 일정·메모 칩  3) 액션 버튼 ── */}
+      <div className="lg:hidden px-4 py-3" style={{ borderBottom: '1px solid rgba(var(--ink-rgb),0.045)' }}>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0"
+            style={{ background: 'rgba(var(--ink-rgb),0.07)', color: 'rgba(var(--text-rgb),0.6)', boxShadow: `0 0 0 2px ${daysRingColor(days)}` }}>
+            {member.name[0]}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="text-sm font-semibold truncate" style={{ color: 'rgba(var(--text-rgb),1)' }}>{member.name}</span>
+              {roleStyle && <span className="text-[9px] px-1.5 py-0.5 rounded-full flex-shrink-0" style={roleStyle}>{role}</span>}
+            </div>
+            <p className="text-[11px] truncate" style={{ color: 'rgba(var(--text-rgb),0.35)' }}>{teamLabel}</p>
+          </div>
+          <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full border whitespace-nowrap flex-shrink-0 ${daysBadgeClass(days)}`}>
             {daysLabel(days)}
           </span>
         </div>
 
-        <div className="flex justify-center">
-          {last?.next_appointment_date ? (
+        <div className="flex items-center gap-1.5 flex-wrap mt-2.5">
+          <span className="text-[10px] px-2.5 py-1 rounded-full truncate max-w-full" style={{ ...chipStyle, color: 'rgba(var(--text-rgb),0.5)' }}>
+            {last?.session_date
+              ? <>최근 {format(parseISO(last.session_date), 'M/d (E)', { locale: ko })} · {ms.length}회</>
+              : (ms.length > 0 ? `기록 ${ms.length}회 · 최근 날짜 없음` : '아직 진행한 1on1이 없음')}
+          </span>
+          {last?.next_appointment_date && (
             <span className="text-[10px] px-2.5 py-1 rounded-full whitespace-nowrap" style={{ ...chipStyle, color: 'rgba(var(--text-rgb),0.55)' }}>
-              {format(parseISO(last.next_appointment_date), 'M/d (E)', { locale: ko })}
+              다음 {format(parseISO(last.next_appointment_date), 'M/d (E)', { locale: ko })}
             </span>
-          ) : (
-            <span className="text-[10px]" style={{ color: 'rgba(var(--text-rgb),0.2)' }}>—</span>
           )}
-        </div>
-
-        <div className="flex justify-center">
-          {noteCount > 0 ? (
+          {noteCount > 0 && (
             <span className="text-[10px] px-2.5 py-1 rounded-full whitespace-nowrap" style={{ ...chipStyle, color: 'rgba(var(--text-rgb),0.45)' }}>
-              {noteCount}건
+              메모 {noteCount}건
             </span>
-          ) : (
-            <span className="text-[10px]" style={{ color: 'rgba(var(--text-rgb),0.2)' }}>—</span>
           )}
         </div>
 
-        <div className="w-px h-5 justify-self-center" style={{ background: 'rgba(var(--ink-rgb),0.08)' }} />
-
-        {/* 액션 버튼 — 항상 노출(hover 조건 제거). "기록 보기"는 세션이 없으면 invisible로
-            자리만 유지 — 그래야 앞의 팀/진행상태/다음일정/메모 컬럼이 행마다 밀리지 않는다. */}
-        <div className="flex items-center justify-end gap-1.5">
-          {ms.length > 0 ? (
+        <div className="flex items-center gap-2 mt-2.5">
+          {ms.length > 0 && (
             <Link href={`/one-on-one/${member.id}`}
-              className="text-[10px] px-2.5 py-1 rounded-lg transition-colors whitespace-nowrap"
+              className="flex-1 text-center text-[11px] px-3 py-2 rounded-lg transition-colors"
               style={{ border: '1px solid rgba(var(--ink-rgb),0.09)', color: 'rgba(var(--text-rgb),0.5)' }}>
               기록 보기
             </Link>
-          ) : (
-            <span className="text-[10px] px-2.5 py-1 whitespace-nowrap invisible">기록 보기</span>
           )}
           <button onClick={() => onNewSession(member.id)}
-            className="text-[10px] px-2.5 py-1 rounded-lg transition-colors whitespace-nowrap font-semibold"
+            className="flex-1 text-center text-[11px] px-3 py-2 rounded-lg transition-colors font-semibold"
             style={{ background: 'rgba(76,127,224,0.15)', border: '1px solid rgba(76,127,224,0.3)', color: 'var(--accent-badge-text)' }}>
             1on1 진행
           </button>
         </div>
       </div>
-    </div>
+    </>
   )
 }
 
@@ -277,7 +335,7 @@ function PriorityPanel({ members, sessions }: { members: Member[]; sessions: One
   ]
 
   return (
-    <div className="flex-[1_1_0%] min-w-[280px] rounded-3xl p-[18px] flex flex-col"
+    <div className="w-full lg:flex-[1_1_0%] lg:min-w-[280px] rounded-3xl p-[18px] flex flex-col"
       style={{ background: 'rgba(var(--ink-rgb),0.06)', border: '1px solid rgba(var(--ink-rgb),0.09)' }}>
       <p className="text-[12.5px] font-bold mb-0.5" style={{ color: 'rgba(var(--text-rgb),1)' }}>우선순위</p>
       <p className="text-[10.5px] mb-3.5" style={{ color: 'rgba(var(--text-rgb),0.35)' }}>이번 주 챙길 팀원</p>
@@ -508,9 +566,9 @@ function MyFeedbackView() {
   if (loading) return <div className="p-8 text-sm text-[rgba(var(--text-rgb),0.4)]">불러오는 중...</div>
 
   return (
-    <div className="flex gap-6 w-full min-h-0">
-      <div className="flex-[65] min-w-0 flex flex-col gap-3">
-        <div className="flex items-center gap-1.5">
+    <div className="flex flex-col gap-5 lg:flex-row lg:gap-6 w-full min-h-0">
+      <div className="min-w-0 w-full lg:flex-[65] flex flex-col gap-3">
+        <div className="flex items-center gap-1.5 flex-wrap">
           {PERIODS.map(p => <button key={p} onClick={() => setPeriod(p)} className={`${pill} ${period === p ? pOn : pOff}`}>{p}</button>)}
           <span className="text-xs text-[rgba(var(--text-rgb),0.4)] ml-auto">{filteredFeedbacks.length}건</span>
         </div>
@@ -589,7 +647,7 @@ function MyFeedbackView() {
           })}
         </div>
       </div>
-      <div className="flex-[35] min-w-0 space-y-4">
+      <div className="min-w-0 w-full lg:flex-[35] space-y-4">
         <AnalysisPanel feedbacks={filteredFeedbacks} onAssignType={assignType} />
         <KeywordsPanel feedbacks={filteredFeedbacks} />
         <NextQuestionsPanel />
@@ -721,24 +779,25 @@ export default function OneOnOnePage() {
             {/* Summary / 필터 / 팀원 목록이 동일한 콘텐츠 폭 기준을 공유 (셋 다 이 안에서 정렬) */}
             <div className="w-full">
 
-            {/* 통계 카드 3종 */}
-            <div className="grid grid-cols-3 gap-3 mb-3">
+            {/* 통계 카드 3종 — 지표/데이터는 동일, lg 미만에서는 아이콘을 접고 compact 3열 유지
+                (라벨이 4~6자 내외로 짧아 세로 압축 없이도 3열 그대로 충분히 읽힘) */}
+            <div className="grid grid-cols-3 gap-2 lg:gap-3 mb-3">
               {[
                 { label: '전체 팀원', value: stats.total, unit: '명', accent: 'rgba(76,127,224,0.14)', border: 'rgba(76,127,224,0.22)', color: 'var(--accent-badge-text)', icon: Users },
                 { label: '이번달 완료', value: stats.doneThisMonth, unit: `/ ${stats.total}명`, accent: 'rgba(186,222,200,0.1)', border: 'rgba(186,222,200,0.22)', color: '#BADEC8', icon: CheckCircle2 },
                 { label: '면담 필요', value: stats.needsMeeting, unit: '명', accent: 'rgba(235,166,152,0.1)', border: 'rgba(235,166,152,0.22)', color: '#EBA698', icon: AlertCircle },
               ].map(c => (
-                <div key={c.label} className="rounded-2xl px-4 py-2.5 flex items-center gap-2.5"
+                <div key={c.label} className="rounded-2xl px-2.5 py-2 lg:px-4 lg:py-2.5 flex items-center gap-2 lg:gap-2.5 min-w-0"
                   style={{ background: c.accent, border: `1px solid ${c.border}` }}>
-                  <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
+                  <div className="hidden lg:flex w-8 h-8 rounded-xl items-center justify-center flex-shrink-0"
                     style={{ background: 'rgba(var(--ink-rgb),0.08)' }}>
                     <c.icon size={14} style={{ color: c.color }} />
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-[10px] mb-0.5 truncate" style={{ color: 'rgba(var(--text-rgb),0.45)' }}>{c.label}</p>
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-lg font-bold" style={{ color: c.color }}>{c.value}</span>
-                      <span className="text-[11px]" style={{ color: 'rgba(var(--text-rgb),0.35)' }}>{c.unit}</span>
+                  <div className="min-w-0 w-full">
+                    <p className="text-[9px] lg:text-[10px] mb-0.5 truncate" style={{ color: 'rgba(var(--text-rgb),0.45)' }}>{c.label}</p>
+                    <div className="flex items-baseline gap-1 min-w-0">
+                      <span className="text-base lg:text-lg font-bold flex-shrink-0" style={{ color: c.color }}>{c.value}</span>
+                      <span className="text-[10px] lg:text-[11px] truncate" style={{ color: 'rgba(var(--text-rgb),0.35)' }}>{c.unit}</span>
                     </div>
                   </div>
                 </div>
@@ -760,9 +819,9 @@ export default function OneOnOnePage() {
               </div>
             </div>
 
-            <div className="flex gap-6 items-stretch">
+            <div className="flex flex-col gap-5 lg:flex-row lg:gap-6 lg:items-stretch">
               {/* 메인: 팀원 목록 / 퇴사자 아카이브 */}
-              <div className={`min-w-0 ${selectedTeamId !== '__archived' ? 'flex-[3_1_0%]' : 'w-full'}`}>
+              <div className={`min-w-0 w-full ${selectedTeamId !== '__archived' ? 'lg:flex-[3_1_0%] lg:w-auto' : ''}`}>
 
                 {/* 퇴사자 선택 시 */}
                 {selectedTeamId === '__archived' && (
@@ -814,11 +873,11 @@ export default function OneOnOnePage() {
                         return (
                           <div key={teamId}>
                             {/* 섹션 타이틀 + 컬럼 헤더 + 팀원 행을 전부 같은 박스 안에 넣는다 — 타이틀이 박스 밖에
-                                있으면 그만큼 목록 카드가 옆 우선순위 패널보다 짧아 보였음. overflow-x-auto는 컨테이너가
-                                컬럼 최소폭보다 좁아지는 극단적인 경우에도 깨지지 않고 가로 스크롤로 대응하는
-                                안전장치(평소엔 트리거 안 됨). */}
-                            <div className="overflow-x-auto scrollbar-hide">
-                              <div style={{ width: 'max-content', minWidth: '100%' }}>
+                                있으면 그만큼 목록 카드가 옆 우선순위 패널보다 짧아 보였음. overflow-x-auto는 lg 이상
+                                (Desktop 6열 grid)에서만 컨테이너가 컬럼 최소폭보다 좁아지는 극단적인 경우의 안전장치.
+                                lg 미만은 MemberRow가 카드형으로 바뀌므로 가로 스크롤 자체가 필요 없다. */}
+                            <div className="overflow-visible lg:overflow-x-auto scrollbar-hide">
+                              <div className="w-full lg:w-max lg:min-w-full">
                                 <div className="rounded-2xl overflow-hidden"
                                   style={{ background: 'rgba(var(--ink-rgb),0.04)', border: '1px solid rgba(var(--ink-rgb),0.07)' }}>
                                   <div className="flex items-center gap-3 px-5 pt-4 pb-2">
