@@ -361,14 +361,16 @@ const ReportEditorPanel = forwardRef<ReportEditorPanelHandle, Props>(function Re
     const value = selection === 'summary' ? summaryText : selection === 'issues' ? issuesText : nextStepsText
     const setValue = selection === 'summary' ? setSummaryText : selection === 'issues' ? setIssuesText : setNextStepsText
     return (
-      <div className="h-full overflow-y-auto px-6 py-5">
+      <div className="h-full overflow-y-auto px-8 py-5">
         {/* topic 4-field 구조를 억지로 적용하지 않되, "제목 → 설명 → 편집기"라는 동일한
             Writing Workspace 골격은 topic 섹션과 맞춘다(4-field는 그대로 topic 전용).
             CENTER pane(flex-1) 자체는 넓게 두되, 실제 읽고 쓰는 content column은
-            WRITING_CONTENT_WIDTH에서 멈추고 margin-inline auto로 가운데 자리잡는다 —
-            pane ≠ textarea 폭(style.ts 주석 참고). 1366/1440처럼 pane 자체가 이 값보다
-            좁으면 그냥 꽉 채워지므로 no-op이다. */}
-        <div style={{ maxWidth: WRITING_CONTENT_WIDTH, marginInline: 'auto' }}>
+            WRITING_CONTENT_WIDTH에서 멈춘다 — pane ≠ textarea 폭(style.ts 주석 참고).
+            LEFT 바로 다음(이 컨테이너의 px-8=32px)에서 시작하는 좌측 정렬이다 — auto
+            margin으로 가운데 띄우지 않는다. 남는 가변폭은 content 오른쪽, RIGHT 이전의
+            여백으로만 쌓인다. 1366/1440처럼 pane 자체가 이 값보다 좁으면 그냥 꽉
+            채워지므로 no-op이다. */}
+        <div style={{ maxWidth: WRITING_CONTENT_WIDTH }}>
           <p className="text-[16px] font-semibold mb-1" style={{ color: S.t1 }}>{meta.no}. {meta.title}</p>
           <p className="text-[12px] mb-4" style={{ color: S.t4 }}>{meta.placeholder}</p>
           {recoveredBanner}
@@ -436,8 +438,8 @@ const ReportEditorPanel = forwardRef<ReportEditorPanelHandle, Props>(function Re
   }
 
   return (
-    <div className="h-full overflow-y-auto px-6 py-5">
-    <div style={{ maxWidth: WRITING_CONTENT_WIDTH, marginInline: 'auto' }}>
+    <div className="h-full overflow-y-auto px-8 py-5">
+    <div style={{ maxWidth: WRITING_CONTENT_WIDTH }}>
       <div className="flex items-center justify-between gap-2 mb-4">
         {/* NEW/업데이트됨 배지는 LEFT Outline에서만 보여준다 — 같은 정보를 여기서
             다시 강조하지 않는다(중복 제거). */}

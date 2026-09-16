@@ -28,10 +28,10 @@ export const CONTENT_MAX_WIDTH = 720
 
 // Writing Workspace(ReportEditorPanel) CENTER pane 안의 실제 "읽고 쓰는" content column
 // 폭. CENTER pane 자체(flex-1)와는 별개 개념이다 — pane은 LEFT/RIGHT 사이 가용폭을 그대로
-// 갖되, 그 안의 textarea/제목/직전 보고 블록은 이 폭에서 멈추고 나머지는 균등한 양옆
-// 여백(margin-inline auto)으로 남는다. 예전 720px cap처럼 왼쪽에 그대로 박아 오른쪽에만
-// 빈 column이 생기는 방식이 아니라, "다음 화면의 좁은 부록"이 아니라 pane 자체가 항상
-// 좁을 수 있는 1366~1440에서는 pane 폭이 이 값보다 작으므로 cap이 그냥 no-op이 된다.
+// 갖되, 그 안의 textarea/제목/직전 보고 블록은 이 폭에서 멈춘다. LEFT 바로 다음(컨테이너
+// px-8=32px)에서 좌측 정렬로 시작하고, auto margin으로 가운데에 띄우지 않는다 — 남는
+// 가변폭은 content 오른쪽, RIGHT 이전의 여백으로만 쌓인다. 1366~1440처럼 pane 폭이 이
+// 값보다 좁으면 cap이 그냥 no-op이 된다.
 export const WRITING_CONTENT_WIDTH = 880
 
 // Archive 비교 그리드(전체 비교/주제 히스토리 공용) 컬럼 폭 — report가 몇 개든 "화면을
