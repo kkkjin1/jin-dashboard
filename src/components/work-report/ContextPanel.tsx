@@ -20,9 +20,14 @@ interface Props {
   compareReportObj: WorkReport | null
   entry: WorkReportEntry | null
   topicHistory: { report: WorkReport; entry: WorkReportEntry }[]
+  // "주제별 히스토리" 전체 화면(TopicHistoryView)으로 점프 — 여기 목록은 compact 미리보기일 뿐,
+  // 그 화면을 대체하지 않는다.
+  onOpenFullHistory: () => void
 }
 
-type Tab = 'compare' | 'refs' | 'history'
+// "참고 자료"는 실제 연동이 없는 placeholder라 탭 목록에서 제거했다(기존 전후비교/히스토리
+// 기능에는 영향 없음) — 필요해지면 그때 실제 기능과 함께 다시 넣는다.
+type Tab = 'compare' | 'history'
 
 function ReadonlyBlock({ text }: { text: string }) {
   return (
@@ -37,7 +42,7 @@ function ReadonlyBlock({ text }: { text: string }) {
 
 export default function ContextPanel({
   selection, topic, report, pastReports, compareReportId, onChangeCompareReportId,
-  compareEntry, compareReportObj, entry, topicHistory,
+  compareEntry, compareReportObj, entry, topicHistory, onOpenFullHistory,
 }: Props) {
   const [tab, setTab] = useState<Tab>('compare')
   const isFixed = isFixedKey(selection)
@@ -76,7 +81,7 @@ export default function ContextPanel({
   return (
     <div className="h-full flex flex-col" style={{ width: 288, flexShrink: 0 }}>
       <div className="flex items-center gap-1 px-3 pt-3 pb-2" style={{ borderBottom: `1px solid ${S.border}` }}>
-        {([['compare', '전후 비교'], ['refs', '참고 자료'], ['history', '관련 주제 히스토리']] as const).map(([k, label]) => (
+        {([['compare', '전후 비교'], ['history', '관련 주제 히스토리']] as const).map(([k, label]) => (
           <button
             key={k}
             onClick={() => setTab(k)}
@@ -103,10 +108,6 @@ export default function ContextPanel({
           </>
         )}
 
-        {tab === 'refs' && (
-          <p className="text-[12px]" style={{ color: S.t4 }}>참고 자료 연동은 추후 지원 예정입니다.</p>
-        )}
-
         {tab === 'history' && (
           <div className="space-y-3">
             {topicHistory.length === 0 && (
@@ -129,6 +130,15 @@ export default function ContextPanel({
                 </div>
               </button>
             ))}
+
+            {/* 이 목록은 compact 미리보기 — 전체 화면(TopicHistoryView)을 대체하지 않고 연결만 한다. */}
+            <button
+              onClick={onOpenFullHistory}
+              className="text-[11px] font-medium underline underline-offset-2"
+              style={{ color: S.t3 }}
+            >
+              전체 주제별 히스토리 보기 →
+            </button>
           </div>
         )}
       </div>

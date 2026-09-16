@@ -2,7 +2,7 @@
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { ChevronDown, ChevronRight } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import type { WorkReport, WorkReportEntry, WorkReportTopic } from '@/types'
 import { useAutosave } from '@/hooks/useAutosave'
 import { S, fmtDateFull, truncate, BADGE_LABEL, BADGE_COLOR, type TopicChangeBadge } from './style'
@@ -159,6 +159,14 @@ interface Props {
   readOnly: boolean
   onEntrySaved: (entry: WorkReportEntry) => void
   onReportSaved: (report: WorkReport) => void
+  // 순차 작성 이동 — 목차와 별개로, 지금 보는 주제에서 바로 이전/다음 주제로 넘어가기 위한
+  // 것. 순서는 page.tsx가 outlineRows(sort_order 기준)로 이미 계산해 넘긴다.
+  hasPrevTopic: boolean
+  hasNextTopic: boolean
+  onPrevTopic: () => void
+  onNextTopic: () => void
+  // topic이 0개일 때 CENTER의 empty state에서 "+ 첫 주제 추가"가 재사용하는 기존 handler.
+  onAddTopic: (title: string) => void
 }
 
 // variant는 4개 필드를 "하나의 균일한 form"이 아니라 명확한 위계로 보이게 하기 위한
@@ -169,9 +177,11 @@ interface Props {
 type TextBoxVariant = 'primary' | 'callout' | 'default'
 
 function TextBox({
-  label, value, onChange, minHeight, placeholder, readOnly, statusLabel, variant = 'default',
+  label, secondaryLabel, helper, value, onChange, minHeight, placeholder, readOnly, statusLabel, variant = 'default',
 }: {
   label: string
+  secondaryLabel?: string
+  helper?: string
   value: string
   onChange: (v: string) => void
   minHeight: number
@@ -183,16 +193,20 @@ function TextBox({
   return (
     <div>
       {(label || statusLabel) && (
-        <div className="flex items-center justify-between mb-1.5">
-          <span
-            className={variant === 'primary' ? 'text-[12px] font-bold' : 'text-[11px] font-semibold'}
-            style={{ color: variant === 'primary' ? S.t2 : S.t3 }}
-          >
-            {label}
-          </span>
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-baseline gap-1.5">
+            <span
+              className={variant === 'primary' ? 'text-[12px] font-bold' : 'text-[11px] font-semibold'}
+              style={{ color: variant === 'primary' ? S.t2 : S.t3 }}
+            >
+              {label}
+            </span>
+            {secondaryLabel && <span className="text-[10.5px]" style={{ color: S.t4 }}>{secondaryLabel}</span>}
+          </div>
           {statusLabel && <span className="text-[10px]" style={{ color: S.t4 }}>{statusLabel}</span>}
         </div>
       )}
+      {helper && <p className="text-[11px] mb-1.5" style={{ color: S.t4 }}>{helper}</p>}
       <textarea
         value={value}
         onChange={e => onChange(e.target.value)}
@@ -225,6 +239,7 @@ export type ReportEditorPanelHandle = {
 
 const ReportEditorPanel = forwardRef<ReportEditorPanelHandle, Props>(function ReportEditorPanel({
   supabase, selection, report, topic, entry, prevEntry, prevReport, badge, readOnly, onEntrySaved, onReportSaved,
+  hasPrevTopic, hasNextTopic, onPrevTopic, onNextTopic, onAddTopic,
 }, ref) {
   const isFixed = isFixedKey(selection)
 
@@ -270,6 +285,10 @@ const ReportEditorPanel = forwardRef<ReportEditorPanelHandle, Props>(function Re
   // 같이 보여줘서 펼치지 않아도 "지난번에 뭘 썼는지"가 바로 보이게 한다(기억 의존 최소화).
   // report/topic 전환은 이 컴포넌트가 key remount되므로 매번 접힌 기본값으로 리셋된다.
   const [prevOpen, setPrevOpen] = useState(false)
+  // topic 0개 empty state의 "+ 첫 주제 추가" 인라인 입력 — TopicOutline의 add 흐름과
+  // 별개 로컬 상태지만 제출은 동일한 onAddTopic(page.tsx의 handleAddTopic)을 그대로 쓴다.
+  const [addingTopic, setAddingTopic] = useState(false)
+  const [newTopicTitle, setNewTopicTitle] = useState('')
 
   const entryDraft: EntryDraft | null = useMemo(() => entry ? {
     report_text: reportText, executive_point: execText, next_action: nextActionText, working_memo: memoText,
@@ -357,20 +376,89 @@ const ReportEditorPanel = forwardRef<ReportEditorPanelHandle, Props>(function Re
   }
 
   // ── 주제 렌더 ──────────────────────────────────────────────────────────
-  if (!topic || !entry) return null
+  // topic이 아직 없거나(보고에 주제 0개) selection이 가리키는 entry가 없는 경우
+  // (예: 로드 경합, 방금 제외된 주제) — 예전에는 이 자리에서 아무것도 렌더하지 않아
+  // 화면이 통째로 비어 보였다. 대신 다음 행동(주제 추가)을 안내한다.
+  if (!topic || !entry) {
+    if (readOnly) {
+      return (
+        <div className="h-full flex items-center justify-center px-6 py-5">
+          <div className="text-center max-w-xs">
+            <p className="text-[13px] font-medium mb-1.5" style={{ color: S.t2 }}>이 보고는 확정되었습니다.</p>
+            <p className="text-[12.5px]" style={{ color: S.t4 }}>등록된 보고 주제가 없습니다.</p>
+          </div>
+        </div>
+      )
+    }
+    return (
+      <div className="h-full flex items-center justify-center px-6 py-5">
+        <div className="text-center max-w-xs">
+          <p className="text-[13px] font-medium mb-1.5" style={{ color: S.t2 }}>이번 보고에 아직 주제가 없습니다.</p>
+          <p className="text-[12.5px] mb-4" style={{ color: S.t4 }}>
+            보고할 첫 주제를 추가하면 이전 보고와 연결하여 계속 관리할 수 있습니다.
+          </p>
+          {addingTopic ? (
+            <input
+              autoFocus
+              value={newTopicTitle}
+              onChange={e => setNewTopicTitle(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && newTopicTitle.trim()) { onAddTopic(newTopicTitle.trim()); setNewTopicTitle(''); setAddingTopic(false) }
+                if (e.key === 'Escape') { setAddingTopic(false); setNewTopicTitle('') }
+              }}
+              onBlur={() => { if (!newTopicTitle.trim()) setAddingTopic(false) }}
+              placeholder="주제 이름"
+              className="w-full text-[13px] px-3 py-2 rounded-lg outline-none text-center"
+              style={{ background: 'rgba(var(--ink-rgb),0.06)', color: S.t1, border: `1px solid ${S.accentBorder}` }}
+            />
+          ) : (
+            <button
+              onClick={() => setAddingTopic(true)}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-semibold"
+              style={{ color: S.accentText, background: S.accentDim, border: `1px solid ${S.accentBorder}` }}
+            >
+              <Plus size={14} /> 첫 주제 추가
+            </button>
+          )}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="h-full overflow-y-auto px-6 py-5">
-      <div className="flex items-center gap-2 mb-4">
-        <p className="text-[15px] font-semibold" style={{ color: S.t1 }}>{entry.topic_title_snapshot}</p>
-        {badge && badge !== 'unchanged' && (
-          <span
-            className="text-[9.5px] font-bold px-1.5 py-0.5 rounded"
-            style={{ color: badge === 'new' ? '#0F1319' : S.t1, background: BADGE_COLOR[badge] }}
+      <div className="flex items-center justify-between gap-2 mb-4">
+        <div className="flex items-center gap-2 min-w-0">
+          <p className="text-[15px] font-semibold truncate" style={{ color: S.t1 }}>{entry.topic_title_snapshot}</p>
+          {badge && badge !== 'unchanged' && (
+            <span
+              className="text-[9.5px] font-bold px-1.5 py-0.5 rounded flex-shrink-0"
+              style={{ color: badge === 'new' ? '#0F1319' : S.t1, background: BADGE_COLOR[badge] }}
+            >
+              {BADGE_LABEL[badge]}
+            </span>
+          )}
+        </div>
+
+        {/* 순차 이동 — Outline을 열지 않고도 다음/이전 주제로 바로 넘어간다(기존 topic 순서 사용). */}
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <button
+            onClick={onPrevTopic}
+            disabled={!hasPrevTopic}
+            className="flex items-center gap-0.5 px-2 py-1 rounded-lg text-[11px] font-medium disabled:opacity-30 transition-colors"
+            style={{ color: S.t3 }}
           >
-            {BADGE_LABEL[badge]}
-          </span>
-        )}
+            <ChevronLeft size={12} /> 이전 주제
+          </button>
+          <button
+            onClick={onNextTopic}
+            disabled={!hasNextTopic}
+            className="flex items-center gap-0.5 px-2 py-1 rounded-lg text-[11px] font-medium disabled:opacity-30 transition-colors"
+            style={{ color: S.t3 }}
+          >
+            다음 주제 <ChevronRight size={12} />
+          </button>
+        </div>
       </div>
 
       {recoveredBanner}
@@ -414,6 +502,7 @@ const ReportEditorPanel = forwardRef<ReportEditorPanelHandle, Props>(function Re
       <div className="space-y-5">
         <TextBox
           label="이번 업데이트"
+          helper="이번 기간에 새롭게 업데이트된 내용, 변화된 수치, 진행 상황을 작성합니다."
           value={reportText}
           onChange={setReportText}
           minHeight={240}
@@ -423,7 +512,9 @@ const ReportEditorPanel = forwardRef<ReportEditorPanelHandle, Props>(function Re
           variant="primary"
         />
         <TextBox
-          label="경영진 전달 포인트 · 의사결정 요청"
+          label="경영진 전달 포인트"
+          secondaryLabel="의사결정 필요사항"
+          helper="경영진에게 반드시 전달하거나 판단받아야 하는 내용을 작성합니다."
           value={execText}
           onChange={setExecText}
           minHeight={90}
@@ -432,6 +523,7 @@ const ReportEditorPanel = forwardRef<ReportEditorPanelHandle, Props>(function Re
         />
         <TextBox
           label="다음 액션"
+          helper="이번 보고 이후 진행할 후속 액션을 작성합니다."
           value={nextActionText}
           onChange={setNextActionText}
           minHeight={90}
@@ -450,6 +542,7 @@ const ReportEditorPanel = forwardRef<ReportEditorPanelHandle, Props>(function Re
           {memoOpen && (
             <TextBox
               label=""
+              helper="개인용 메모입니다. 보고서에는 포함되지 않습니다."
               value={memoText}
               onChange={setMemoText}
               minHeight={120}

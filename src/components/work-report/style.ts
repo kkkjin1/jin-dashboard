@@ -68,6 +68,17 @@ export function todayStr(): string {
   return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`
 }
 
+// "작성됨" 판정 — 헤더 진행률(6개 주제 · 4개 작성 · 2개 미작성)과 목차 dot(●/○/◉)이
+// 동일 기준을 공유해야 두 표시가 서로 모순되지 않는다. working_memo는 "내 메모"일 뿐
+// 보고 내용이 아니므로 의도적으로 기준에서 제외한다.
+export function hasContent(text: string | null | undefined): boolean {
+  return !!(text ?? '').trim()
+}
+
+export function isEntryWritten(entry: { report_text: string; executive_point: string; next_action: string }): boolean {
+  return hasContent(entry.report_text) || hasContent(entry.executive_point) || hasContent(entry.next_action)
+}
+
 export type TopicChangeBadge = 'new' | 'updated' | 'unchanged'
 
 export const BADGE_LABEL: Record<TopicChangeBadge, string> = {

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Plus, GripVertical, Pencil, X, Archive } from 'lucide-react'
 import type { WorkReportEntry, WorkReportTopic } from '@/types'
-import { S, BADGE_LABEL, BADGE_COLOR, type TopicChangeBadge } from './style'
+import { S, BADGE_LABEL, BADGE_COLOR, isEntryWritten, type TopicChangeBadge } from './style'
 
 export const FIXED_KEYS = ['summary', 'issues', 'next_steps'] as const
 export type FixedSectionKey = typeof FIXED_KEYS[number]
@@ -29,20 +29,40 @@ interface Props {
   onReorder: (orderedEntryIds: string[]) => void
   onRemoveFromReport: (topicId: string) => void
   onArchiveTopic: (topicId: string) => void
+  // 고정 섹션(요약/이슈/다음단계)은 report 필드에 내용이 있는지를 page.tsx가 계산해 넘긴다 —
+  // 이 컴포넌트는 entry 구조를 모르는 report 원문 필드까지 알 필요가 없다.
+  summaryWritten: boolean
+  issuesWritten: boolean
+  nextStepsWritten: boolean
 }
 
-function SectionLabel({ n, label, active, onClick }: { n: string; label: string; active: boolean; onClick: () => void }) {
+// 목차 dot(●/○/◉) — "작성됨/미작성/현재 선택" 3-state. 헤더 진행률과 같은
+// isEntryWritten 기준을 쓰되, 현재 선택된 행은 배경 강조와 별개로 dot도 ◉로 바뀐다.
+type DotState = 'selected' | 'written' | 'empty'
+
+function StatusDot({ state }: { state: DotState }) {
+  if (state === 'selected') {
+    return <span aria-hidden className="flex-shrink-0 rounded-full" style={{ width: 6, height: 6, background: S.accent, boxShadow: `0 0 0 2px ${S.accentDim}` }} />
+  }
+  if (state === 'written') {
+    return <span aria-hidden className="flex-shrink-0 rounded-full" style={{ width: 6, height: 6, background: S.t2 }} />
+  }
+  return <span aria-hidden className="flex-shrink-0 rounded-full" style={{ width: 6, height: 6, border: `1.5px solid ${S.t4}` }} />
+}
+
+function SectionLabel({ n, label, active, dot, onClick }: { n: string; label: string; active: boolean; dot: DotState; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      className="w-full text-left px-2.5 py-1.5 rounded-lg text-[12.5px] transition-colors"
+      className="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg text-[12.5px] transition-colors"
       style={{
         color: active ? S.accentText : S.t2,
         background: active ? S.accentDim : 'transparent',
         fontWeight: active ? 600 : 500,
       }}
     >
-      {n}. {label}
+      <span className="truncate">{n}. {label}</span>
+      <StatusDot state={dot} />
     </button>
   )
 }
@@ -50,6 +70,7 @@ function SectionLabel({ n, label, active, onClick }: { n: string; label: string;
 export default function TopicOutline({
   rows, allActiveTopics, selection, onSelect, readOnly,
   onAddTopic, onRenameTopic, onReorder, onRemoveFromReport, onArchiveTopic,
+  summaryWritten, issuesWritten, nextStepsWritten,
 }: Props) {
   const [adding, setAdding] = useState(false)
   const [newTitle, setNewTitle] = useState('')
@@ -91,16 +112,55 @@ export default function TopicOutline({
     setDragOverId(null)
   }
 
+  function dotFor(key: string, written: boolean): DotState {
+    if (selection === key) return 'selected'
+    return written ? 'written' : 'empty'
+  }
+
   return (
     <div className="h-full flex flex-col" style={{ width: 216, flexShrink: 0 }}>
-      <p className="px-2.5 pt-3 pb-1.5 text-[10px] font-semibold uppercase tracking-widest" style={{ color: S.t4 }}>
-        이번 보고 목차
-      </p>
+      <div className="px-2.5 pt-3 pb-1.5 flex items-center justify-between gap-1.5">
+        <p className="text-[10px] font-semibold uppercase truncate" style={{ color: S.t4 }}>
+          이번 보고 목차
+        </p>
+        {!readOnly && !adding && (
+          <button
+            onClick={() => setAdding(true)}
+            className="flex-shrink-0 flex items-center gap-0.5 text-[10.5px] font-medium transition-colors hover:opacity-80"
+            style={{ color: S.t3 }}
+          >
+            <Plus size={10} /> 주제 추가
+          </button>
+        )}
+      </div>
+
+      {!readOnly && adding && (
+        <div className="px-2.5 pb-1.5">
+          <input
+            autoFocus
+            list="work-report-topic-suggestions"
+            value={newTitle}
+            onChange={e => setNewTitle(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') commitAdd(); if (e.key === 'Escape') { setAdding(false); setNewTitle('') } }}
+            onBlur={commitAdd}
+            placeholder="주제 이름"
+            className="w-full text-[12.5px] px-2 py-1.5 rounded-lg outline-none"
+            style={{ background: 'rgba(var(--ink-rgb),0.06)', color: S.t1, border: `1px solid ${S.accentBorder}` }}
+          />
+          <datalist id="work-report-topic-suggestions">
+            {allActiveTopics.map(t => <option key={t.id} value={t.title} />)}
+          </datalist>
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto overflow-x-hidden px-1 pb-3" style={{ scrollbarWidth: 'thin' }}>
-        <SectionLabel n="1" label="핵심 요약" active={selection === 'summary'} onClick={() => onSelect('summary')} />
+        <SectionLabel n="1" label="핵심 요약" active={selection === 'summary'} dot={dotFor('summary', summaryWritten)} onClick={() => onSelect('summary')} />
 
         <p className="px-2.5 mt-2 mb-1 text-[11.5px] font-semibold" style={{ color: S.t3 }}>2. 주요 내용</p>
+
+        {rows.length === 0 && (
+          <p className="px-2.5 pb-1.5 text-[11.5px]" style={{ color: S.t4 }}>등록된 주제가 없습니다.</p>
+        )}
 
         <div className="space-y-0.5">
           {rows.map((row, i) => {
@@ -145,6 +205,7 @@ export default function TopicOutline({
                     <span className="text-[12.5px] truncate flex-1" style={{ color: active ? S.accentText : S.t2, fontWeight: active ? 600 : 400 }}>
                       2.{i + 1} {row.entry.topic_title_snapshot}
                     </span>
+                    <StatusDot state={active ? 'selected' : isEntryWritten(row.entry) ? 'written' : 'empty'} />
                   </button>
                 )}
 
@@ -194,38 +255,9 @@ export default function TopicOutline({
           })}
         </div>
 
-        {!readOnly && (
-          adding ? (
-            <div className="px-1 mt-1">
-              <input
-                autoFocus
-                list="work-report-topic-suggestions"
-                value={newTitle}
-                onChange={e => setNewTitle(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') commitAdd(); if (e.key === 'Escape') { setAdding(false); setNewTitle('') } }}
-                onBlur={commitAdd}
-                placeholder="주제 이름"
-                className="w-full text-[12.5px] px-2 py-1.5 rounded-lg outline-none"
-                style={{ background: 'rgba(var(--ink-rgb),0.06)', color: S.t1, border: `1px solid ${S.accentBorder}` }}
-              />
-              <datalist id="work-report-topic-suggestions">
-                {allActiveTopics.map(t => <option key={t.id} value={t.title} />)}
-              </datalist>
-            </div>
-          ) : (
-            <button
-              onClick={() => setAdding(true)}
-              className="w-full mt-1 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] transition-colors hover:bg-[rgba(var(--ink-rgb),0.04)]"
-              style={{ color: S.t3 }}
-            >
-              <Plus size={12} /> 하위 주제 추가
-            </button>
-          )
-        )}
-
         <div className="mt-3 pt-2" style={{ borderTop: `1px solid ${S.border}` }}>
-          <SectionLabel n="3" label="주요 이슈 / 의사결정" active={selection === 'issues'} onClick={() => onSelect('issues')} />
-          <SectionLabel n="4" label="다음 단계" active={selection === 'next_steps'} onClick={() => onSelect('next_steps')} />
+          <SectionLabel n="3" label="주요 이슈 / 의사결정" active={selection === 'issues'} dot={dotFor('issues', issuesWritten)} onClick={() => onSelect('issues')} />
+          <SectionLabel n="4" label="다음 단계" active={selection === 'next_steps'} dot={dotFor('next_steps', nextStepsWritten)} onClick={() => onSelect('next_steps')} />
         </div>
       </div>
     </div>

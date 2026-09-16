@@ -11,7 +11,7 @@ import ContextPanel from '@/components/work-report/ContextPanel'
 import PeriodMatrixView from '@/components/work-report/PeriodMatrixView'
 import TopicHistoryView from '@/components/work-report/TopicHistoryView'
 import ReportFullViewModal from '@/components/work-report/ReportFullViewModal'
-import { S, selectClass, selectStyle, fmtPeriodLabel, addDaysToDateStr, todayStr, type TopicChangeBadge } from '@/components/work-report/style'
+import { S, selectClass, selectStyle, fmtPeriodLabel, addDaysToDateStr, todayStr, hasContent, isEntryWritten, type TopicChangeBadge } from '@/components/work-report/style'
 
 type Mode = 'write' | 'period' | 'topic-history'
 
@@ -136,12 +136,30 @@ export default function WorkReportPage() {
 
   const allActiveTopics = useMemo(() => topics.filter(t => t.status === 'active'), [topics])
 
+  // 헤더 진행률 — "작성됨" 기준은 ReportEditorPanel의 진행 상태 표시(canonicalStatus)와
+  // 무관하게, isEntryWritten(제목 필드가 아니라 실제 보고 내용) 하나로 outline dot과
+  // 동시에 공유한다. 주제가 0개면 진행률 자체를 숨긴다(0/0 = NaN% 방지).
+  const writtenCount = useMemo(() => outlineRows.filter(r => isEntryWritten(r.entry)).length, [outlineRows])
+  const totalTopicCount = outlineRows.length
+  const progressPct = totalTopicCount > 0 ? Math.round((writtenCount / totalTopicCount) * 100) : 0
+
+  const summaryWritten = hasContent(currentReport?.summary)
+  const issuesWritten = hasContent(currentReport?.issues)
+  const nextStepsWritten = hasContent(currentReport?.next_steps)
+
   const selectedTopic = !isFixedKey(selection) ? topicsById.get(selection) ?? null : null
   const selectedEntry = selectedTopic ? entries.find(e => e.topic_id === selectedTopic.id) ?? null : null
   const selectedPrevEntry = selectedTopic ? prevEntryByTopic.get(selectedTopic.id) ?? null : null
   const selectedBadge = selectedEntry ? computeBadge(selectedEntry, selectedPrevEntry ?? undefined) : null
   const compareEntry = selectedTopic ? compareEntries.find(e => e.topic_id === selectedTopic.id) ?? null : null
   const compareReportObj = reports.find(r => r.id === compareReportId) ?? null
+
+  // 순차 이동(이전/다음 주제) — outlineRows는 이미 sort_order로 정렬돼 있으므로 그 순서를 그대로 쓴다.
+  const selectedTopicIndex = selectedTopic ? outlineRows.findIndex(r => r.topic.id === selectedTopic.id) : -1
+  const hasPrevTopic = selectedTopicIndex > 0
+  const hasNextTopic = selectedTopicIndex >= 0 && selectedTopicIndex < outlineRows.length - 1
+  function goPrevTopic() { if (selectedTopicIndex > 0) setSelection(outlineRows[selectedTopicIndex - 1].topic.id) }
+  function goNextTopic() { if (selectedTopicIndex >= 0 && selectedTopicIndex < outlineRows.length - 1) setSelection(outlineRows[selectedTopicIndex + 1].topic.id) }
 
   const topicHistory = useMemo(() => {
     return topicHistoryEntries
@@ -364,6 +382,22 @@ export default function WorkReportPage() {
           )}
         </div>
 
+        {/* 작성 진행률 — DB 컬럼 없이 outlineRows(현재 report의 entry)만으로 매 렌더 계산한다.
+            주제가 0개면 0/0을 보여주는 대신 행 자체를 숨긴다. */}
+        {mode === 'write' && currentReport && totalTopicCount > 0 && (
+          <div className="flex items-center gap-3">
+            <p className="text-[11.5px]" style={{ color: S.t3 }}>
+              {totalTopicCount}개 주제 · {writtenCount}개 작성 · {totalTopicCount - writtenCount}개 미작성
+            </p>
+            <div className="flex items-center gap-2" style={{ maxWidth: 220, flex: 1 }}>
+              <div className="flex-1 rounded-full overflow-hidden" style={{ height: 4, background: 'rgba(var(--ink-rgb),0.08)' }}>
+                <div className="h-full rounded-full" style={{ width: `${progressPct}%`, background: S.accent }} />
+              </div>
+              <span className="text-[10.5px] flex-shrink-0" style={{ color: S.t4 }}>{progressPct}%</span>
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-1 rounded-xl p-1" style={{ background: 'rgba(var(--ink-rgb),0.04)' }}>
             {([['write', '보고서 작성'], ['period', '기간별 전체 보기'], ['topic-history', '주제별 히스토리']] as const).map(([k, label]) => (
@@ -427,6 +461,9 @@ export default function WorkReportPage() {
                   onReorder={handleReorder}
                   onRemoveFromReport={handleRemoveFromReport}
                   onArchiveTopic={handleArchiveTopic}
+                  summaryWritten={summaryWritten}
+                  issuesWritten={issuesWritten}
+                  nextStepsWritten={nextStepsWritten}
                 />
               </div>
 
@@ -453,6 +490,11 @@ export default function WorkReportPage() {
                   readOnly={readOnly}
                   onEntrySaved={handleEntrySaved}
                   onReportSaved={handleReportSaved}
+                  hasPrevTopic={hasPrevTopic}
+                  hasNextTopic={hasNextTopic}
+                  onPrevTopic={goPrevTopic}
+                  onNextTopic={goNextTopic}
+                  onAddTopic={handleAddTopic}
                 />
               </div>
 
@@ -476,6 +518,7 @@ export default function WorkReportPage() {
                   compareReportObj={compareReportObj}
                   entry={selectedEntry}
                   topicHistory={topicHistory}
+                  onOpenFullHistory={() => setMode('topic-history')}
                 />
               </div>
 
@@ -493,6 +536,9 @@ export default function WorkReportPage() {
                       onReorder={handleReorder}
                       onRemoveFromReport={handleRemoveFromReport}
                       onArchiveTopic={handleArchiveTopic}
+                      summaryWritten={summaryWritten}
+                      issuesWritten={issuesWritten}
+                      nextStepsWritten={nextStepsWritten}
                     />
                   </div>
                 </div>
@@ -512,6 +558,7 @@ export default function WorkReportPage() {
                       compareReportObj={compareReportObj}
                       entry={selectedEntry}
                       topicHistory={topicHistory}
+                      onOpenFullHistory={() => { setMode('topic-history'); setContextDrawerOpen(false) }}
                     />
                   </div>
                 </div>
