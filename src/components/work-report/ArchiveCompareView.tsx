@@ -3,17 +3,20 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { WorkReport, WorkReportEntry, WorkReportTopic } from '@/types'
-import { S, fmtPeriodLabel, ARCHIVE_LABEL_COL_WIDTH, ARCHIVE_REPORT_COL_MIN_WIDTH } from './style'
+import { S, fmtPeriodLabel, ARCHIVE_LABEL_COL_WIDTH, ARCHIVE_REPORT_COL_WIDTH } from './style'
 import ArchiveCell from './ArchiveCell'
 import EntryDetailModal from './EntryDetailModal'
 
-// "전체 비교" — Archive의 기본 화면. 예전 ReportsFeed(회차별 vertical accordion, 한 번에
-// 한 회차만 "읽는" 문서 형태)와 예전 PeriodMatrixView(존재 유무만 훑는 얕은 matrix)를
-// 하나로 합친다: ROW=동일 section/topic, COLUMN=동일 report 회차라는 PeriodMatrixView의
-// 골격은 그대로 재사용하고(topic_id continuity 기준 정렬 로직 포함), 각 cell에는
-// truncate 한 줄이 아니라 "이번 업데이트/경영진 전달 포인트/다음 액션" 구조를 compact하게
-// 담는다(ArchiveCell). 개별 회차를 "읽고 싶을 때"는 그 회차를 열어(onOpenReport)
-// 작성 화면의 "문서로 보기"를 그대로 쓴다 — 여기서 전체 문서를 다시 렌더링하지 않는다.
+// "전체 비교" — Archive의 기본 화면. ROW=동일 section/topic, COLUMN=동일 report 회차.
+//
+// width 전략: report가 몇 개든 "viewport를 채우는 폭"이 아니라 "한 회차를 읽기 좋은 고정
+// 폭"을 기준으로 삼는다 — grid-template-columns가 고정 px(LABEL + N×REPORT)이고 grid
+// 컨테이너 자체도 width:fit-content라, report가 2개뿐이면 오른쪽이 비어 있어도 되고(의도된
+// 여백이지 버그가 아님), report가 많아지면 바깥 wrapper가 가로 스크롤된다. border도 grid에만
+// 둬서 실제 테이블 폭에 딱 맞게 그려지고, 빈 여백까지 박스로 감싸지 않는다.
+//
+// 개별 회차를 "읽고 싶을 때"는 그 회차를 열어(onOpenReport) 작성 화면의 "문서로 보기"를
+// 그대로 쓴다 — 여기서 전체 문서를 다시 렌더링하지 않는다.
 interface Props {
   supabase: SupabaseClient
   topics: WorkReportTopic[]        // all topics (active + archived) — 과거 이력 유지
@@ -75,26 +78,37 @@ export default function ArchiveCompareView({ supabase, topics, reports, onOpenRe
     return <div className="p-8 text-center text-[12.5px]" style={{ color: S.t4 }}>선택한 기간에 보고서가 없습니다.</div>
   }
 
-  const gridTemplateColumns = `${ARCHIVE_LABEL_COL_WIDTH}px repeat(${cols.length}, minmax(${ARCHIVE_REPORT_COL_MIN_WIDTH}px, 1fr))`
-  const labelCellStyle: React.CSSProperties = {
+  const gridTemplateColumns = `${ARCHIVE_LABEL_COL_WIDTH}px repeat(${cols.length}, ${ARCHIVE_REPORT_COL_WIDTH}px)`
+
+  // section row(1/3/4, 그리고 topic 그룹 헤더 "2. 주요 내용")는 진하고 굵게, topic sub-row
+  // (2.x)는 들여쓰기 + 옅은 색으로 부모/자식 위계를 만든다 — Excel 격자 대신 가로 divider
+  // 위주(세로선은 label 열 오른쪽 하나만)로 가볍게 유지한다(Linear/Attio 톤).
+  const sectionLabelStyle: React.CSSProperties = {
     position: 'sticky', left: 0, zIndex: 2, background: S.panel, color: S.t1,
-    borderBottom: `1px solid ${S.border}`, borderRight: `1px solid ${S.border}`,
+    borderBottom: `1px solid ${S.border}`, borderRight: `1px solid ${S.borderStrong}`,
+  }
+  const topicLabelStyle: React.CSSProperties = {
+    position: 'sticky', left: 0, zIndex: 2, background: S.panel, color: S.t2,
+    borderBottom: `1px solid ${S.border}`, borderRight: `1px solid ${S.borderStrong}`,
   }
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
       {loading && <p className="text-[11px] mb-2 flex-shrink-0" style={{ color: S.t4 }}>불러오는 중…</p>}
-      <div className="flex-1 overflow-auto rounded-lg" style={{ border: `1px solid ${S.border}`, minWidth: 0 }}>
-        <div style={{ display: 'grid', gridTemplateColumns }}>
+      {/* 바깥은 스크롤만 담당하고 테두리를 두지 않는다 — border는 안쪽 grid(fit-content)에만
+          그려서, report가 적어 grid가 컨테이너보다 좁을 때 빈 오른쪽 공간까지 박스로
+          감싸지 않는다(의도된 여백이 "덜 채워진 박스"처럼 보이지 않게). */}
+      <div className="flex-1 overflow-auto" style={{ minWidth: 0 }}>
+        <div style={{ display: 'grid', gridTemplateColumns, width: 'fit-content', border: `1px solid ${S.border}`, borderRadius: S.r, overflow: 'hidden' }}>
           {/* 헤더 행 — 회차 라벨 + 상태 + "열기"(작성 화면에서 그대로 이어보기) */}
-          <div className="px-3 py-2.5 text-[11px] font-semibold" style={{ ...labelCellStyle, top: 0, zIndex: 3 }}>
+          <div className="px-3 py-2.5 text-[11px] font-semibold" style={{ ...sectionLabelStyle, top: 0, zIndex: 3, borderBottom: `1px solid ${S.borderStrong}` }}>
             섹션 / 주제
           </div>
           {cols.map(col => (
             <div
               key={col.id}
               className="px-3 py-2.5"
-              style={{ position: 'sticky', top: 0, zIndex: 1, background: S.panel, borderBottom: `1px solid ${S.border}`, borderLeft: `1px solid ${S.border}` }}
+              style={{ position: 'sticky', top: 0, zIndex: 1, background: S.panel, borderBottom: `1px solid ${S.borderStrong}` }}
             >
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="text-[12px] font-semibold whitespace-nowrap" style={{ color: S.t1 }}>{fmtPeriodLabel(col.period_start, col.period_end)}</span>
@@ -116,9 +130,9 @@ export default function ArchiveCompareView({ supabase, topics, reports, onOpenRe
           ))}
 
           {/* 1. 핵심 요약 */}
-          <div className="px-3 py-2.5 text-[12px] font-semibold" style={labelCellStyle}>1. 핵심 요약</div>
+          <div className="px-3 py-2.5 text-[12.5px] font-semibold" style={sectionLabelStyle}>1. 핵심 요약</div>
           {cols.map(col => (
-            <div key={col.id} style={{ borderBottom: `1px solid ${S.border}`, borderLeft: `1px solid ${S.border}` }}>
+            <div key={col.id} style={{ borderBottom: `1px solid ${S.border}` }}>
               <ArchiveCell
                 dense
                 fields={[{ value: col.summary }]}
@@ -130,7 +144,7 @@ export default function ArchiveCompareView({ supabase, topics, reports, onOpenRe
           {/* 2. 주요 내용 — 섹션 구분 행(데이터 없음, 라벨만) */}
           <div
             className="px-3 py-1.5 text-[11px] font-semibold"
-            style={{ gridColumn: `1 / -1`, background: 'rgba(var(--ink-rgb),0.03)', color: S.t3, borderBottom: `1px solid ${S.border}` }}
+            style={{ gridColumn: `1 / -1`, background: 'rgba(var(--ink-rgb),0.035)', color: S.t3, borderBottom: `1px solid ${S.border}` }}
           >
             2. 주요 내용
           </div>
@@ -143,20 +157,22 @@ export default function ArchiveCompareView({ supabase, topics, reports, onOpenRe
             const topic = topicById.get(topicId)
             return (
               <div key={topicId} style={{ display: 'contents' }}>
-                <div className="px-3 py-2.5 text-[12px] font-medium truncate" style={labelCellStyle}>
+                <div className="pl-6 pr-3 py-2.5 text-[12px] font-medium truncate" style={topicLabelStyle}>
                   2.{i + 1} {topic?.title ?? '(삭제된 주제)'}
                 </div>
                 {cols.map(col => {
                   const entry = cellMap.get(`${topicId}:${col.id}`)
                   return (
-                    <div key={col.id} style={{ borderBottom: `1px solid ${S.border}`, borderLeft: `1px solid ${S.border}` }}>
+                    <div key={col.id} style={{ borderBottom: `1px solid ${S.border}` }}>
                       <ArchiveCell
                         dense
+                        // entry가 아예 없으면(그 회차엔 이 topic이 없었음) null → "—".
+                        // entry는 있는데 3필드가 다 비어 있으면 빈 배열 → "내용 없음".
                         fields={entry ? [
                           { label: '업데이트', value: entry.report_text },
                           { label: '경영진 전달', value: entry.executive_point },
                           { label: '다음 액션', value: entry.next_action },
-                        ] : []}
+                        ] : null}
                         onClick={entry ? () => setDetail({
                           title: entry.topic_title_snapshot,
                           reportLabel: fmtPeriodLabel(col.period_start, col.period_end),
@@ -175,9 +191,9 @@ export default function ArchiveCompareView({ supabase, topics, reports, onOpenRe
           })}
 
           {/* 3. 주요 이슈 / 의사결정 */}
-          <div className="px-3 py-2.5 text-[12px] font-semibold" style={labelCellStyle}>3. 주요 이슈 / 의사결정</div>
+          <div className="px-3 py-2.5 text-[12.5px] font-semibold" style={sectionLabelStyle}>3. 주요 이슈 / 의사결정</div>
           {cols.map(col => (
-            <div key={col.id} style={{ borderBottom: `1px solid ${S.border}`, borderLeft: `1px solid ${S.border}` }}>
+            <div key={col.id} style={{ borderBottom: `1px solid ${S.border}` }}>
               <ArchiveCell
                 dense
                 fields={[{ value: col.issues }]}
@@ -187,9 +203,9 @@ export default function ArchiveCompareView({ supabase, topics, reports, onOpenRe
           ))}
 
           {/* 4. 다음 단계 */}
-          <div className="px-3 py-2.5 text-[12px] font-semibold" style={{ ...labelCellStyle, borderBottom: 'none' }}>4. 다음 단계</div>
+          <div className="px-3 py-2.5 text-[12.5px] font-semibold" style={{ ...sectionLabelStyle, borderBottom: 'none' }}>4. 다음 단계</div>
           {cols.map(col => (
-            <div key={col.id} style={{ borderLeft: `1px solid ${S.border}` }}>
+            <div key={col.id}>
               <ArchiveCell
                 dense
                 fields={[{ value: col.next_steps }]}

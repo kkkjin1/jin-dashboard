@@ -24,17 +24,23 @@ export const S = {
 } as const
 
 // "문서로 읽는" 화면(ReportDocument — 문서보기 모달/PT 문안 프리뷰) 전용 최대 폭이다.
-// Writing Workspace(ReportEditorPanel)에는 더 이상 적용하지 않는다 — CENTER pane은
-// LEFT/RIGHT 사이 가용 폭을 그대로 채워야 하고(Desktop IA), 이 상수를 그 영역에 쓰면
-// ultra-wide에서 CENTER 오른쪽에 의미 없는 blank column이 생긴다.
 export const CONTENT_MAX_WIDTH = 720
 
-// Archive 비교 그리드(전체 비교/주제 히스토리 공용) — 첫 열(주제/섹션 라벨)은 sticky로
-// 고정 폭, report 열은 이 최소 폭을 바닥으로 두고 남는 가로 공간을 나눠 채운다
-// (grid-template-columns의 `repeat(N, minmax(REPORT, 1fr))`로 구현 — 열이 적으면 늘어나
-// main 가용폭을 다 쓰고, 열이 많아지면 min-width에서 멈추고 wrapper가 가로 스크롤된다).
-export const ARCHIVE_LABEL_COL_WIDTH = 200
-export const ARCHIVE_REPORT_COL_MIN_WIDTH = 300
+// Writing Workspace(ReportEditorPanel) CENTER pane 안의 실제 "읽고 쓰는" content column
+// 폭. CENTER pane 자체(flex-1)와는 별개 개념이다 — pane은 LEFT/RIGHT 사이 가용폭을 그대로
+// 갖되, 그 안의 textarea/제목/직전 보고 블록은 이 폭에서 멈추고 나머지는 균등한 양옆
+// 여백(margin-inline auto)으로 남는다. 예전 720px cap처럼 왼쪽에 그대로 박아 오른쪽에만
+// 빈 column이 생기는 방식이 아니라, "다음 화면의 좁은 부록"이 아니라 pane 자체가 항상
+// 좁을 수 있는 1366~1440에서는 pane 폭이 이 값보다 작으므로 cap이 그냥 no-op이 된다.
+export const WRITING_CONTENT_WIDTH = 880
+
+// Archive 비교 그리드(전체 비교/주제 히스토리 공용) 컬럼 폭 — report가 몇 개든 "화면을
+// 채우는 폭"이 아니라 "한 회차를 읽기 좋은 고정 폭"으로 설계한다. label 열은 sticky로
+// 고정, report 열도 고정폭 × N개를 그대로 나열한다(grid-template-columns:
+// `${LABEL}px repeat(N, ${REPORT}px)`, 그리드 자체를 width:fit-content로 둬서 stretch하지
+// 않음) — report가 적으면 오른쪽이 비어도 되고, 많아지면 wrapper가 가로 스크롤된다.
+export const ARCHIVE_LABEL_COL_WIDTH = 220
+export const ARCHIVE_REPORT_COL_WIDTH = 380
 
 export const selectClass =
   'text-[12px] px-2.5 py-1.5 rounded-lg focus:outline-none [&>option]:bg-[var(--surface-elevated)]'

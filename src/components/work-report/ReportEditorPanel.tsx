@@ -5,7 +5,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { ChevronDown, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import type { WorkReport, WorkReportEntry, WorkReportTopic } from '@/types'
 import { useAutosave } from '@/hooks/useAutosave'
-import { S, fmtPeriodLabel } from './style'
+import { S, fmtPeriodLabel, WRITING_CONTENT_WIDTH } from './style'
 import { isFixedKey, type FixedSectionKey } from './TopicOutline'
 
 // ── canonical(work_reports/work_report_entries) 저장 신뢰성 ──────────────
@@ -195,8 +195,8 @@ function TextBox({
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-baseline gap-1.5">
             <span
-              className={variant === 'primary' ? 'text-[12px] font-bold' : 'text-[11px] font-semibold'}
-              style={{ color: variant === 'primary' ? S.t2 : S.t3 }}
+              className={variant === 'primary' ? 'text-[12.5px] font-bold' : 'text-[11px] font-semibold'}
+              style={{ color: variant === 'primary' ? S.t1 : S.t3 }}
             >
               {label}
             </span>
@@ -215,7 +215,10 @@ function TextBox({
           width: '100%',
           minHeight,
           resize: 'vertical',
-          background: variant === 'callout' ? S.accentDim : 'rgba(var(--ink-rgb),0.03)',
+          // callout은 예전에 accentDim(0.15) 배경 전체를 채워 "파란 박스"처럼 튀었다 —
+          // 왼쪽 accent bar 하나로도 이번 업데이트/다음 액션과는 다른 성격(결정/요청)임이
+          // 충분히 구분되므로 배경은 아주 옅은 tint로만 남긴다.
+          background: variant === 'callout' ? 'rgba(76,127,224,0.05)' : 'rgba(var(--ink-rgb),0.03)',
           border: variant === 'primary' ? `1px solid ${S.borderStrong}` : `1px solid ${S.border}`,
           borderLeft: variant === 'callout' ? `3px solid ${S.accent}` : undefined,
           borderRadius: S.r,
@@ -361,19 +364,23 @@ const ReportEditorPanel = forwardRef<ReportEditorPanelHandle, Props>(function Re
       <div className="h-full overflow-y-auto px-6 py-5">
         {/* topic 4-field 구조를 억지로 적용하지 않되, "제목 → 설명 → 편집기"라는 동일한
             Writing Workspace 골격은 topic 섹션과 맞춘다(4-field는 그대로 topic 전용).
-            CENTER pane 자체 폭을 그대로 쓴다 — max-width cap 없음(Desktop IA, style.ts
-            CONTENT_MAX_WIDTH 주석 참고). */}
-        <p className="text-[15px] font-semibold mb-1" style={{ color: S.t1 }}>{meta.no}. {meta.title}</p>
-        <p className="text-[12px] mb-4" style={{ color: S.t4 }}>{meta.placeholder}</p>
-        {recoveredBanner}
-        <TextBox
-          label=""
-          value={value}
-          onChange={setValue}
-          minHeight={360}
-          readOnly={readOnly}
-          statusLabel={canonicalStatusText(activeCanonical.status)}
-        />
+            CENTER pane(flex-1) 자체는 넓게 두되, 실제 읽고 쓰는 content column은
+            WRITING_CONTENT_WIDTH에서 멈추고 margin-inline auto로 가운데 자리잡는다 —
+            pane ≠ textarea 폭(style.ts 주석 참고). 1366/1440처럼 pane 자체가 이 값보다
+            좁으면 그냥 꽉 채워지므로 no-op이다. */}
+        <div style={{ maxWidth: WRITING_CONTENT_WIDTH, marginInline: 'auto' }}>
+          <p className="text-[16px] font-semibold mb-1" style={{ color: S.t1 }}>{meta.no}. {meta.title}</p>
+          <p className="text-[12px] mb-4" style={{ color: S.t4 }}>{meta.placeholder}</p>
+          {recoveredBanner}
+          <TextBox
+            label=""
+            value={value}
+            onChange={setValue}
+            minHeight={360}
+            readOnly={readOnly}
+            statusLabel={canonicalStatusText(activeCanonical.status)}
+          />
+        </div>
       </div>
     )
   }
@@ -430,10 +437,11 @@ const ReportEditorPanel = forwardRef<ReportEditorPanelHandle, Props>(function Re
 
   return (
     <div className="h-full overflow-y-auto px-6 py-5">
+    <div style={{ maxWidth: WRITING_CONTENT_WIDTH, marginInline: 'auto' }}>
       <div className="flex items-center justify-between gap-2 mb-4">
         {/* NEW/업데이트됨 배지는 LEFT Outline에서만 보여준다 — 같은 정보를 여기서
             다시 강조하지 않는다(중복 제거). */}
-        <p className="text-[15px] font-semibold truncate min-w-0" style={{ color: S.t1 }}>{entry.topic_title_snapshot}</p>
+        <p className="text-[16px] font-semibold truncate min-w-0" style={{ color: S.t1 }}>{entry.topic_title_snapshot}</p>
 
         {/* 순차 이동 — Outline을 열지 않고도 다음/이전 주제로 바로 넘어간다(기존 topic 순서 사용). */}
         <div className="flex items-center gap-1 flex-shrink-0">
@@ -552,6 +560,7 @@ const ReportEditorPanel = forwardRef<ReportEditorPanelHandle, Props>(function Re
           )}
         </div>
       </div>
+    </div>
     </div>
   )
 })

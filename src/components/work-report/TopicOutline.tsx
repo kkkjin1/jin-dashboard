@@ -118,7 +118,10 @@ export default function TopicOutline({
   }
 
   return (
-    <div className="h-full flex flex-col" style={{ width: 190, flexShrink: 0 }}>
+    // 1366/1440(xl 미만~xl)에서는 목차가 scan 전용이라 좁게, 1920+(2xl)에서는 RIGHT와
+    // 함께 조금 더 넓혀 LEFT/CENTER/RIGHT 사이 비중이 자연스럽도록 한다(Desktop 폭별
+    // responsive rule — style.ts 상단 CENTER content width 주석과 같은 맥락).
+    <div className="h-full flex flex-col w-[190px] xl:w-[210px] 2xl:w-[230px]" style={{ flexShrink: 0 }}>
       <div className="px-2.5 pt-3 pb-1.5 flex items-center justify-between gap-1.5">
         <p className="text-[10px] font-semibold uppercase truncate" style={{ color: S.t4 }}>
           이번 보고 목차
