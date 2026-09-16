@@ -613,10 +613,8 @@ export default function WorkReportPage() {
             supabase={supabase}
             topics={topics}
             reports={reportsAsc}
-            entriesByReport={entriesByReport}
-            ensureEntries={ensureEntries}
             onOpenReport={handleOpenReport}
-            initialTab={archiveJumpTopicId ? 'topics' : undefined}
+            initialTab={archiveJumpTopicId ? 'topic' : undefined}
             initialTopicId={archiveJumpTopicId ?? undefined}
           />
         )}

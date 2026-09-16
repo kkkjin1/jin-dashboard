@@ -23,11 +23,18 @@ export const S = {
   r: '12px',
 } as const
 
-// Writing/reading 영역(에디터, 문서 리더)의 공통 최대 폭 — ultra-wide 모니터에서 CENTER가
-// flex-1로 끝없이 넓어져도 한 줄 길이가 무한정 늘어나 가독성이 깨지지 않게 막는 상한선.
-// 1366/1440에서는 pane 자체 폭이 이보다 좁아 사실상 no-op이고, 1920+/ultra-wide에서만
-// 실제로 이 값에서 멈춘다.
+// "문서로 읽는" 화면(ReportDocument — 문서보기 모달/PT 문안 프리뷰) 전용 최대 폭이다.
+// Writing Workspace(ReportEditorPanel)에는 더 이상 적용하지 않는다 — CENTER pane은
+// LEFT/RIGHT 사이 가용 폭을 그대로 채워야 하고(Desktop IA), 이 상수를 그 영역에 쓰면
+// ultra-wide에서 CENTER 오른쪽에 의미 없는 blank column이 생긴다.
 export const CONTENT_MAX_WIDTH = 720
+
+// Archive 비교 그리드(전체 비교/주제 히스토리 공용) — 첫 열(주제/섹션 라벨)은 sticky로
+// 고정 폭, report 열은 이 최소 폭을 바닥으로 두고 남는 가로 공간을 나눠 채운다
+// (grid-template-columns의 `repeat(N, minmax(REPORT, 1fr))`로 구현 — 열이 적으면 늘어나
+// main 가용폭을 다 쓰고, 열이 많아지면 min-width에서 멈추고 wrapper가 가로 스크롤된다).
+export const ARCHIVE_LABEL_COL_WIDTH = 200
+export const ARCHIVE_REPORT_COL_MIN_WIDTH = 300
 
 export const selectClass =
   'text-[12px] px-2.5 py-1.5 rounded-lg focus:outline-none [&>option]:bg-[var(--surface-elevated)]'

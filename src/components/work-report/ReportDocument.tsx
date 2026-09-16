@@ -3,8 +3,9 @@
 import type { WorkReport, WorkReportEntry, WorkReportTopic } from '@/types'
 import { S, CONTENT_MAX_WIDTH } from './style'
 
-// 보고 1건을 "읽는" 문서 형태로 렌더링하는 순수 컨텐츠 — 모달 chrome(ReportFullViewModal)과
-// Archive의 전체 보고 feed(ReportsFeed, 카드 펼침) 둘 다 이 컴포넌트를 그대로 재사용한다.
+// 보고 1건을 "읽는" 문서 형태로 렌더링하는 순수 컨텐츠 — 작성 화면의 "문서로 보기"
+// (ReportFullViewModal)가 이 컴포넌트를 그대로 쓴다. Archive에서 개별 회차를 읽고 싶을 때도
+// 그 회차를 열어(onOpenReport) 이 모달을 재사용한다 — Archive 안에 별도 문서 뷰를 두지 않는다.
 // 데이터 구조·필드는 하나도 새로 만들지 않는다: work_reports의 summary/issues/next_steps +
 // work_report_entries의 report_text/executive_point/next_action 그대로.
 

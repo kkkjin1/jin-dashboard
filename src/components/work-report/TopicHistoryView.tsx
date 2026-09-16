@@ -3,71 +3,58 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { WorkReport, WorkReportEntry, WorkReportTopic } from '@/types'
-import { S, selectClass, selectStyle, fmtDateFull, CONTENT_MAX_WIDTH } from './style'
+import { S, selectClass, selectStyle, fmtPeriodLabel, ARCHIVE_LABEL_COL_WIDTH, ARCHIVE_REPORT_COL_MIN_WIDTH } from './style'
+import ArchiveCell from './ArchiveCell'
+import EntryDetailModal from './EntryDetailModal'
 
-// "주제별 보기" — 특정 주제 하나가 여러 회차를 거치며 어떻게 바뀌었는지 "깊게" 훑는 화면.
-// 작성 화면 RIGHT(ContextPanel)의 히스토리와 역할이 다르다: RIGHT는 report_text만 truncate
-// 미리보기로 보여주는 "작성 중 빠른 참고"이고, 여기는 report_text/경영진 전달 포인트/다음
-// 액션 3개 필드를 전문 그대로 보여주는 "과거 전체를 읽는" 화면이라 모달 클릭 없이 인라인
-// 전체 노출로 정보량과 interaction depth를 구분한다.
+// "주제 히스토리" — 예전에 별도 top-level 화면이던 TopicHistoryView(주제 하나를 깊게 읽는
+// vertical timeline)와 PeriodMatrixView(row×column 그리드로 훑는 것)를 하나로 합친 결과다.
+// 남기는 축은 PeriodMatrixView 쪽의 "row=주제, column=회차" 그리드 — ArchiveCompareView와
+// 같은 grid 골격(ArchiveCell)을 그대로 재사용하되, row가 선택한 topic 하나뿐이라 dense=false로
+// 필드를 더 길게 보여준다("하나의 topic × 여러 report 상세"). topic 선택 UI는 기존 그대로.
 interface Props {
   supabase: SupabaseClient
   topics: WorkReportTopic[]   // all topics (active + archived)
-  reports: WorkReport[]       // all reports (Archive 상단 기간 필터로 이미 걸러진 상태로 전달됨)
-  // 작성 화면 RIGHT의 "전체 히스토리 보기 →"에서 넘어올 때, 방금 보던 주제를 그대로
-  // 선택해 보여주기 위한 초기값(uncontrolled — mount 시 1회만 적용).
+  reports: WorkReport[]       // Archive 상단 기간 필터가 적용된 report 목록, asc by period_start
   initialTopicId?: string
-}
-
-function Field({ label, value }: { label: string; value: string }) {
-  if (!value) return null
-  return (
-    <div className="mb-2.5">
-      <p className="text-[10.5px] font-semibold mb-0.5" style={{ color: S.t4 }}>{label}</p>
-      <p className="text-[13px] leading-[1.65] whitespace-pre-wrap" style={{ color: S.t2 }}>{value}</p>
-    </div>
-  )
 }
 
 export default function TopicHistoryView({ supabase, topics, reports, initialTopicId }: Props) {
   const [topicId, setTopicId] = useState(initialTopicId || topics[0]?.id || '')
   const [entries, setEntries] = useState<WorkReportEntry[]>([])
   const [loading, setLoading] = useState(false)
+  const [detail, setDetail] = useState<{ reportLabel: string; fields: { label: string; value: string }[] } | null>(null)
 
-  const reportIds = useMemo(() => new Set(reports.map(r => r.id)), [reports])
-  const reportById = useMemo(() => new Map(reports.map(r => [r.id, r])), [reports])
   const topic = topics.find(t => t.id === topicId) ?? null
+  const activeTopics = topics.filter(t => t.status === 'active')
+  const archivedTopics = topics.filter(t => t.status === 'archived')
 
   useEffect(() => {
     if (!topicId) return
     let cancelled = false
-    setLoading(true)
-    supabase
-      .from('work_report_entries')
-      .select('*')
-      .eq('topic_id', topicId)
-      .then(({ data }) => {
-        if (!cancelled) { setEntries((data as WorkReportEntry[]) ?? []); setLoading(false) }
-      })
+    async function run() {
+      setLoading(true)
+      const { data } = await supabase
+        .from('work_report_entries')
+        .select('*')
+        .eq('topic_id', topicId)
+      if (!cancelled) { setEntries((data as WorkReportEntry[]) ?? []); setLoading(false) }
+    }
+    void run()
     return () => { cancelled = true }
   }, [supabase, topicId])
 
-  // Archive 상단 공용 기간 필터가 걸려 있으면(reports가 그 범위로 이미 좁혀져 있으므로)
-  // 그 범위 밖 회차의 entry는 timeline에서도 제외한다 — 전체 보고/기간 매트릭스와 같은 기준.
-  const timeline = useMemo(() => {
-    return entries
-      .filter(e => reportIds.has(e.report_id))
-      .map(e => ({ entry: e, report: reportById.get(e.report_id) }))
-      .filter((x): x is { entry: WorkReportEntry; report: WorkReport } => !!x.report)
-      .sort((a, b) => b.report.period_start.localeCompare(a.report.period_start))
-  }, [entries, reportById, reportIds])
+  const entryByReportId = useMemo(() => new Map(entries.map(e => [e.report_id, e])), [entries])
 
-  const activeTopics = topics.filter(t => t.status === 'active')
-  const archivedTopics = topics.filter(t => t.status === 'archived')
+  const gridTemplateColumns = `${ARCHIVE_LABEL_COL_WIDTH}px repeat(${reports.length}, minmax(${ARCHIVE_REPORT_COL_MIN_WIDTH}px, 1fr))`
+  const labelCellStyle: React.CSSProperties = {
+    position: 'sticky', left: 0, zIndex: 2, background: S.panel, color: S.t1,
+    borderBottom: `1px solid ${S.border}`, borderRight: `1px solid ${S.border}`,
+  }
 
   return (
-    <div>
-      <div className="flex items-center gap-2 mb-5">
+    <div className="h-full flex flex-col overflow-hidden">
+      <div className="flex items-center gap-2 mb-4 flex-shrink-0">
         <span className="text-[11px] font-semibold flex-shrink-0" style={{ color: S.t3 }}>주제</span>
         <select value={topicId} onChange={e => setTopicId(e.target.value)} className={selectClass} style={selectStyle}>
           <optgroup label="진행중">
@@ -84,36 +71,56 @@ export default function TopicHistoryView({ supabase, topics, reports, initialTop
 
       {!topic ? (
         <p className="text-[12.5px]" style={{ color: S.t4 }}>주제가 없습니다. 먼저 보고서 작성 화면에서 주제를 추가하세요.</p>
-      ) : timeline.length === 0 ? (
-        <p className="text-[12.5px]" style={{ color: S.t4 }}>이 주제로 보고된 이력이 없습니다.</p>
+      ) : reports.length === 0 ? (
+        <p className="text-[12.5px]" style={{ color: S.t4 }}>선택한 기간에 보고서가 없습니다.</p>
       ) : (
-        <div style={{ maxWidth: CONTENT_MAX_WIDTH }}>
-          {timeline.map(({ entry, report }, i) => (
-            <div key={entry.id} className="relative pl-6 pb-6" style={{ borderLeft: i < timeline.length - 1 ? `1.5px solid ${S.border}` : 'none' }}>
-              <span
-                className="absolute -left-[5px] top-0.5 w-2.5 h-2.5 rounded-full"
-                style={{ background: S.accent, boxShadow: `0 0 0 3px ${S.bg}` }}
-              />
-              <div className="flex items-center gap-2 mb-2">
-                <p className="text-[12.5px] font-semibold" style={{ color: S.t1 }}>{fmtDateFull(report.period_start)} ~ {fmtDateFull(report.period_end)}</p>
-                <span
-                  className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
-                  style={report.status === 'final' ? { color: S.accentText, background: S.accentDim } : { color: S.t3, background: 'rgba(var(--ink-rgb),0.06)' }}
-                >
-                  {report.status === 'final' ? '확정' : '작성중'}
-                </span>
+        <div className="flex-1 overflow-auto rounded-lg" style={{ border: `1px solid ${S.border}`, minWidth: 0 }}>
+          <div style={{ display: 'grid', gridTemplateColumns }}>
+            <div className="px-3 py-2.5 text-[11px] font-semibold" style={{ ...labelCellStyle, top: 0, zIndex: 3 }}>회차</div>
+            {reports.map(r => (
+              <div
+                key={r.id}
+                className="px-3 py-2.5"
+                style={{ position: 'sticky', top: 0, zIndex: 1, background: S.panel, borderBottom: `1px solid ${S.border}`, borderLeft: `1px solid ${S.border}` }}
+              >
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[12px] font-semibold whitespace-nowrap" style={{ color: S.t1 }}>{fmtPeriodLabel(r.period_start, r.period_end)}</span>
+                  <span
+                    className="text-[9.5px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0"
+                    style={r.status === 'final' ? { color: S.accentText, background: S.accentDim } : { color: S.t3, background: 'rgba(var(--ink-rgb),0.06)' }}
+                  >
+                    {r.status === 'final' ? '확정' : '작성중'}
+                  </span>
+                </div>
               </div>
-              <Field label="이번 업데이트" value={entry.report_text} />
-              <Field label="경영진 전달 포인트" value={entry.executive_point} />
-              {/* 향후 Feedback Loop 자리 — 회차별 timeline이라 "이 시점에 경영진이 뭐라고
-                  했는지"를 붙이기 가장 자연스러운 곳. 지금은 표시하지 않는다. */}
-              <Field label="다음 액션" value={entry.next_action} />
-              {!entry.report_text && !entry.executive_point && !entry.next_action && (
-                <p className="text-[12.5px]" style={{ color: S.t4 }}>작성된 내용이 없습니다.</p>
-              )}
+            ))}
+
+            <div className="px-3 py-2.5 text-[12px] font-medium truncate" style={{ ...labelCellStyle, borderBottom: 'none' }}>
+              {topic.title}
             </div>
-          ))}
+            {reports.map(r => {
+              const entry = entryByReportId.get(r.id)
+              const fields = entry ? [
+                { label: '이번 업데이트', value: entry.report_text },
+                { label: '경영진 전달 포인트', value: entry.executive_point },
+                { label: '다음 액션', value: entry.next_action },
+              ] : []
+              return (
+                <div key={r.id} style={{ borderLeft: `1px solid ${S.border}` }}>
+                  <ArchiveCell
+                    dense={false}
+                    fields={fields}
+                    onClick={entry ? () => setDetail({ reportLabel: fmtPeriodLabel(r.period_start, r.period_end), fields }) : undefined}
+                  />
+                </div>
+              )
+            })}
+          </div>
         </div>
+      )}
+
+      {detail && (
+        <EntryDetailModal title={topic?.title ?? ''} reportLabel={detail.reportLabel} fields={detail.fields} onClose={() => setDetail(null)} />
       )}
     </div>
   )

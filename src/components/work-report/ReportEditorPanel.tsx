@@ -5,7 +5,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { ChevronDown, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import type { WorkReport, WorkReportEntry, WorkReportTopic } from '@/types'
 import { useAutosave } from '@/hooks/useAutosave'
-import { S, fmtPeriodLabel, CONTENT_MAX_WIDTH } from './style'
+import { S, fmtPeriodLabel } from './style'
 import { isFixedKey, type FixedSectionKey } from './TopicOutline'
 
 // ── canonical(work_reports/work_report_entries) 저장 신뢰성 ──────────────
@@ -361,21 +361,19 @@ const ReportEditorPanel = forwardRef<ReportEditorPanelHandle, Props>(function Re
       <div className="h-full overflow-y-auto px-6 py-5">
         {/* topic 4-field 구조를 억지로 적용하지 않되, "제목 → 설명 → 편집기"라는 동일한
             Writing Workspace 골격은 topic 섹션과 맞춘다(4-field는 그대로 topic 전용).
-            max-width는 topic 섹션과 동일하게 ultra-wide에서 한 줄이 무한정 늘어나는 것만
-            막는다 — 1366/1440에서는 pane 자체 폭이 더 좁아 사실상 영향 없음. */}
-        <div style={{ maxWidth: CONTENT_MAX_WIDTH }}>
-          <p className="text-[15px] font-semibold mb-1" style={{ color: S.t1 }}>{meta.no}. {meta.title}</p>
-          <p className="text-[12px] mb-4" style={{ color: S.t4 }}>{meta.placeholder}</p>
-          {recoveredBanner}
-          <TextBox
-            label=""
-            value={value}
-            onChange={setValue}
-            minHeight={360}
-            readOnly={readOnly}
-            statusLabel={canonicalStatusText(activeCanonical.status)}
-          />
-        </div>
+            CENTER pane 자체 폭을 그대로 쓴다 — max-width cap 없음(Desktop IA, style.ts
+            CONTENT_MAX_WIDTH 주석 참고). */}
+        <p className="text-[15px] font-semibold mb-1" style={{ color: S.t1 }}>{meta.no}. {meta.title}</p>
+        <p className="text-[12px] mb-4" style={{ color: S.t4 }}>{meta.placeholder}</p>
+        {recoveredBanner}
+        <TextBox
+          label=""
+          value={value}
+          onChange={setValue}
+          minHeight={360}
+          readOnly={readOnly}
+          statusLabel={canonicalStatusText(activeCanonical.status)}
+        />
       </div>
     )
   }
@@ -432,7 +430,6 @@ const ReportEditorPanel = forwardRef<ReportEditorPanelHandle, Props>(function Re
 
   return (
     <div className="h-full overflow-y-auto px-6 py-5">
-    <div style={{ maxWidth: CONTENT_MAX_WIDTH }}>
       <div className="flex items-center justify-between gap-2 mb-4">
         {/* NEW/업데이트됨 배지는 LEFT Outline에서만 보여준다 — 같은 정보를 여기서
             다시 강조하지 않는다(중복 제거). */}
@@ -555,7 +552,6 @@ const ReportEditorPanel = forwardRef<ReportEditorPanelHandle, Props>(function Re
           )}
         </div>
       </div>
-    </div>
     </div>
   )
 })
