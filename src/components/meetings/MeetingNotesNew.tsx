@@ -61,6 +61,9 @@ export default function MeetingNotesNew() {
   const [noteCounts, setNoteCounts] = useState<Record<string, number>>({})
   const [loading,   setLoading]   = useState(true)
   const [catOrder,  setCatOrder]  = useState<string[]>([...DEFAULT_CATS])
+  // 초기 로드가 끝나기 전 catOrder(DEFAULT_CATS 초기값)가 아래 write-back effect를 태워
+  // Supabase의 실제 canonical 값을 덮어쓰는 레이스를 막기 위한 가드
+  const catOrderLoadedRef = useRef(false)
 
   // 필터 상태
   const [search,         setSearch]         = useState('')
@@ -123,42 +126,64 @@ export default function MeetingNotesNew() {
 
   useEffect(() => {
     let savedOrder = [...DEFAULT_CATS]
+    let localOnly = false // Supabase에 아직 값이 없어 localStorage 값을 canonical로 승격해야 하는지
     try {
       const saved = localStorage.getItem('meetings_cat_order')
       if (saved) {
         const parsed = JSON.parse(saved) as string[]
-        if (parsed.length > 0) savedOrder = parsed
+        if (parsed.length > 0) { savedOrder = parsed; localOnly = true }
       }
     } catch {}
 
-    supabase
-      .from('meetings')
-      // 목록/검색/필터/정렬에 실제로 쓰이는 열만 select — 레거시 notes(jsonb) 등은 제외.
-      .select('id, title, meeting_date, category')
-      .order('meeting_date', { ascending: false, nullsFirst: false })
-      .then(async ({ data: m }) => {
-        const loaded = (m ?? []) as Meeting[]
-        setMeetings(loaded)
-        setNoteCounts(await fetchMeetingNoteCounts(supabase, loaded.map(mt => mt.id)))
+    Promise.all([
+      supabase
+        .from('meetings')
+        // 목록/검색/필터/정렬에 실제로 쓰이는 열만 select — 레거시 notes(jsonb) 등은 제외.
+        .select('id, title, meeting_date, category')
+        .order('meeting_date', { ascending: false, nullsFirst: false }),
+      // 범주 순서/커스텀 범주는 기존에 localStorage(meetings_cat_order)에만 저장되어
+      // 기기/브라우저마다 값이 달랐던 것이 root cause(PC/Mobile 비동기화) — dashboard_menu_order와
+      // 동일하게 Supabase user_preferences를 canonical source로 승격한다.
+      supabase.from('user_preferences').select('value').eq('key', 'meetings_cat_order').maybeSingle(),
+    ]).then(async ([{ data: m }, { data: pref }]) => {
+      const loaded = (m ?? []) as Meeting[]
+      setMeetings(loaded)
+      setNoteCounts(await fetchMeetingNoteCounts(supabase, loaded.map(mt => mt.id)))
 
-        // DB에 있는 신규 범주 자동 추가
-        const dbCats = [...new Set(loaded.map(mt => mt.category).filter((c): c is string => !!c && c !== '기타'))]
-        const missing = dbCats.filter(c => !savedOrder.includes(c))
-        if (missing.length > 0) {
-          const withoutEtc = savedOrder.filter(c => c !== '기타')
-          const next = [...withoutEtc, ...missing, ...(savedOrder.includes('기타') ? ['기타'] : [])]
-          savedOrder = next
-          localStorage.setItem('meetings_cat_order', JSON.stringify(next))
-        }
-        setCatOrder(savedOrder)
-        setLoading(false)
-      })
+      if (Array.isArray(pref?.value) && (pref.value as string[]).length > 0) {
+        // DB(canonical)에 이미 값이 있으면 그것을 사용 — 기기 간 항상 동일한 값을 봄
+        savedOrder = pref.value as string[]
+        localOnly = false
+      } else if (localOnly) {
+        // DB엔 아직 없고 이 기기의 localStorage에만 값이 있던 경우 — 초기화하지 않고
+        // 그대로 canonical로 승격(마이그레이션)해 다른 기기에서도 보이게 만든다.
+        await supabase.from('user_preferences').upsert({ key: 'meetings_cat_order', value: savedOrder })
+      }
+
+      // DB에 있는 신규 범주 자동 추가
+      const dbCats = [...new Set(loaded.map(mt => mt.category).filter((c): c is string => !!c && c !== '기타'))]
+      const missing = dbCats.filter(c => !savedOrder.includes(c))
+      if (missing.length > 0) {
+        const withoutEtc = savedOrder.filter(c => c !== '기타')
+        const next = [...withoutEtc, ...missing, ...(savedOrder.includes('기타') ? ['기타'] : [])]
+        savedOrder = next
+        localStorage.setItem('meetings_cat_order', JSON.stringify(next))
+        await supabase.from('user_preferences').upsert({ key: 'meetings_cat_order', value: next })
+      }
+      setCatOrder(savedOrder)
+      catOrderLoadedRef.current = true
+      setLoading(false)
+    })
   }, [])
 
-  // catOrder 변경 시 localStorage에 저장
+  // catOrder 변경 시 localStorage + Supabase(canonical) 양쪽에 저장 —
+  // 로컬은 같은 기기 내 다음 로드를 빠르게, Supabase는 다른 기기와의 동기화를 담당한다.
+  // 초기 로드 완료 전(catOrderLoadedRef=false) 값은 아직 DEFAULT_CATS일 수 있어 기록하지 않는다.
   useEffect(() => {
+    if (!catOrderLoadedRef.current) return
     if (catOrder.length > 0) {
       localStorage.setItem('meetings_cat_order', JSON.stringify(catOrder))
+      supabase.from('user_preferences').upsert({ key: 'meetings_cat_order', value: catOrder })
     }
   }, [catOrder])
 

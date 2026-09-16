@@ -788,8 +788,10 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
         onDrop={e => { e.preventDefault(); const dragId = _dragItemId; _dragItemId = null; if (dragId && dragId !== item.id) reorderItem(dragId, item.id); setDraggingItemId(null); setDragOverItemId(null) }}
         onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverItemId(null) }}
       >
-        {/* ── 목표 헤더: 얇은 한 줄 행, 지표는 오른쪽으로 정렬 ── */}
-        <div className="group/irow2 flex items-center gap-2 cursor-pointer hover:bg-[rgba(var(--ink-rgb),0.05)] transition-colors"
+        {/* ── 목표 헤더 (Desktop): 얇은 한 줄 행, 지표는 오른쪽으로 정렬 — md 미만에서는 숨김.
+            title가 whiteSpace:nowrap+고정폭 3열(206px)이라 md 미만에서 실기기 page-level
+            overflow(우측 진행률 등이 viewport 밖으로 밀림)의 root cause였음. ── */}
+        <div className="group/irow2 hidden md:flex items-center gap-2 cursor-pointer hover:bg-[rgba(var(--ink-rgb),0.05)] transition-colors"
           style={{ padding: 16, background: itemBg, borderLeft: `3px solid ${dragOverItemId === item.id ? NEUTRAL_ACCENT : 'transparent'}` }}
           onClick={() => toggleItem(item.id)}>
           <span draggable
@@ -853,6 +855,72 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
                 </>
               ) : (
                 <button onClick={() => setDeletingItem(item.id)} className="text-[10px] text-[rgba(var(--text-rgb),0.3)] hover:text-red-400 px-1">삭제</button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* ── 목표 카드 (Mobile): 동일 데이터/핸들러(item/progress/visibleTasks/editingItemId/
+            deletingItem/toggleItem/updateItem/updateItemDeadline/deleteItem 등)를 재사용하고
+            presentation만 세로 계층으로 재배치. 1) 제목+건수  2) 분류·기한·진행률·액션 ── */}
+        <div className="md:hidden cursor-pointer hover:bg-[rgba(var(--ink-rgb),0.05)] transition-colors"
+          style={{ padding: 14, background: itemBg, borderLeft: `3px solid ${dragOverItemId === item.id ? NEUTRAL_ACCENT : 'transparent'}` }}
+          onClick={() => toggleItem(item.id)}>
+          <div className="flex items-center gap-2">
+            <span style={{ fontSize: 8, transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform .15s', color: S.t3, flexShrink: 0 }}>▶</span>
+            {editingItemId === item.id ? (
+              <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0" onClick={e => e.stopPropagation()}>
+                <input autoFocus value={editIName} onChange={e => setEditIName(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) updateItem(item.id); if (e.key === 'Escape') setEditingItemId(null) }}
+                  className="border border-[rgba(var(--ink-rgb),0.15)] rounded-lg px-2.5 py-1 text-sm focus:outline-none focus:border-[rgba(var(--ink-rgb),0.3)] font-semibold flex-1 min-w-0 bg-transparent"
+                  style={{ color: S.t1 }} />
+                <button onClick={() => updateItem(item.id)} className="text-xs text-[var(--accent-badge-text)] flex-shrink-0">저장</button>
+              </div>
+            ) : (
+              <span className="flex-1 min-w-0 truncate" style={{ fontSize: 13, fontWeight: 700, color: NEUTRAL_TEXT }}>{item.title}</span>
+            )}
+            <span style={{ fontSize: 10, color: S.t3, background: 'rgba(var(--ink-rgb),0.1)', padding: '1px 6px', borderRadius: 99, flexShrink: 0 }}>{visibleTasks.length}</span>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap mt-2">
+            {isAll && (() => {
+              const b = categoryBadge(item.category)
+              return <span style={{ fontSize: 9, fontWeight: 600, color: b.text, background: b.bg, padding: '2px 8px', borderRadius: 999, flexShrink: 0 }}>{displayCat(item.category)}</span>
+            })()}
+
+            <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
+              {item.target_deadline && (
+                <span style={{ fontSize: 10, fontWeight: 700, color: daysUntil(item.target_deadline) < 0 ? '#EF4444' : daysUntil(item.target_deadline) <= 7 ? '#F59E0B' : S.t2 }}>
+                  {ddayLabel(item.target_deadline)}
+                </span>
+              )}
+              <DateCellPicker
+                label="기한"
+                value={item.target_deadline ?? null}
+                color={item.target_deadline && daysUntil(item.target_deadline) < 0 ? '#EF4444' : NEUTRAL_ACCENT}
+                onChange={v => updateItemDeadline(item.id, v)}
+              />
+            </div>
+
+            {progress.total > 0 && (
+              <div className="flex-shrink-0">
+                <ProgressRing pct={progress.pct} color={NEUTRAL_ACCENT} />
+              </div>
+            )}
+
+            {/* 수정/삭제 액션 — 터치 환경엔 hover가 없어 항상 노출 */}
+            <div className="flex items-center gap-1.5 ml-auto flex-shrink-0" onClick={e => e.stopPropagation()}>
+              {editingItemId !== item.id && (
+                <button onClick={() => { setEditingItemId(item.id); setEditIName(item.title) }} className="text-[10px] text-[rgba(var(--text-rgb),0.4)] px-1">수정</button>
+              )}
+              {deletingItem === item.id ? (
+                <>
+                  <span className="text-[10px] text-[rgba(var(--text-rgb),0.5)]">삭제?</span>
+                  <button onClick={() => deleteItem(item.id)} className="text-[10px] text-red-400 font-semibold px-1.5 py-0.5 rounded">삭제</button>
+                  <button onClick={() => setDeletingItem(null)} className="text-[10px] text-[rgba(var(--text-rgb),0.4)] px-1.5 py-0.5 rounded">취소</button>
+                </>
+              ) : (
+                <button onClick={() => setDeletingItem(item.id)} className="text-[10px] text-[rgba(var(--text-rgb),0.3)] px-1">삭제</button>
               )}
             </div>
           </div>
@@ -937,8 +1005,8 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
                       </div>
                     </div>
 
-                    {/* ── 컬럼 라벨 서브행 — 목표 행과 동일한 컬럼 폭(ITEM_ROW_COLS)을 공유해 좌/우 정렬선이 항상 일치. 좌우 패딩도 본문 행(16px)과 동일하게 맞춰 rem 스케일링에 따른 오차를 없앰 ── */}
-                    <div className="flex items-center" style={{ padding: '8px 16px', borderBottom: '0.5px solid rgba(var(--ink-rgb),0.06)' }}>
+                    {/* ── 컬럼 라벨 서브행 — 목표 행과 동일한 컬럼 폭(ITEM_ROW_COLS)을 공유해 좌/우 정렬선이 항상 일치. 좌우 패딩도 본문 행(16px)과 동일하게 맞춰 rem 스케일링에 따른 오차를 없앰. md 미만은 목표 행이 카드형이라 컬럼 라벨 자체가 불필요 ── */}
+                    <div className="hidden md:flex items-center" style={{ padding: '8px 16px', borderBottom: '0.5px solid rgba(var(--ink-rgb),0.06)' }}>
                       <span style={{ flex: 1, marginLeft: 39, fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>목표</span>
                       <div className="flex items-center gap-3 flex-shrink-0">
                         <span style={{ width: ITEM_ROW_COLS.category, flexShrink: 0, fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>분류</span>

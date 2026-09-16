@@ -45,6 +45,7 @@ export default function WorkReportPage() {
   const [compareReportId, setCompareReportId] = useState<string>('')
   const [fullViewOpen, setFullViewOpen] = useState(false)
   const [contextDrawerOpen, setContextDrawerOpen] = useState(false)
+  const [topicDrawerOpen, setTopicDrawerOpen] = useState(false)
   const [topicHistoryEntries, setTopicHistoryEntries] = useState<WorkReportEntry[]>([])
 
   const ensureEntries = useCallback(async (reportId: string): Promise<WorkReportEntry[]> => {
@@ -394,7 +395,10 @@ export default function WorkReportPage() {
         {mode === 'write' && (
           currentReport ? (
             <>
-              <div className="h-full overflow-hidden" style={{ borderRight: `1px solid ${S.border}` }}>
+              {/* xl 미만: TopicOutline(고정 248px)이 반응형 처리가 전혀 없어 실기기에서
+                  본문을 극단적으로 압박하던 것이 root cause — ContextPanel과 동일한
+                  "버튼 → 좌측 드로어" 패턴으로 xl 미만에서는 숨기고 버튼으로 접근하게 한다. */}
+              <div className="hidden xl:block h-full" style={{ borderRight: `1px solid ${S.border}` }}>
                 <TopicOutline
                   rows={outlineRows}
                   allActiveTopics={allActiveTopics}
@@ -408,6 +412,14 @@ export default function WorkReportPage() {
                   onArchiveTopic={handleArchiveTopic}
                 />
               </div>
+
+              <button
+                onClick={() => setTopicDrawerOpen(true)}
+                className="xl:hidden flex-shrink-0 self-start mt-3 ml-2 px-2.5 py-1.5 rounded-lg text-[11px]"
+                style={{ color: S.t3, background: 'rgba(var(--ink-rgb),0.05)' }}
+              >
+                목차
+              </button>
 
               <div className="flex-1 min-w-0 h-full overflow-hidden">
                 <ReportEditorPanel
@@ -449,6 +461,25 @@ export default function WorkReportPage() {
                   topicHistory={topicHistory}
                 />
               </div>
+
+              {topicDrawerOpen && (
+                <div className="fixed inset-0 z-40 xl:hidden" style={{ background: 'rgba(0,0,0,0.55)' }} onClick={() => setTopicDrawerOpen(false)}>
+                  <div className="absolute inset-y-0 left-0 h-full" style={{ background: S.panel }} onClick={e => e.stopPropagation()}>
+                    <TopicOutline
+                      rows={outlineRows}
+                      allActiveTopics={allActiveTopics}
+                      selection={selection}
+                      onSelect={id => { setSelection(id); setTopicDrawerOpen(false) }}
+                      readOnly={readOnly}
+                      onAddTopic={handleAddTopic}
+                      onRenameTopic={handleRenameTopic}
+                      onReorder={handleReorder}
+                      onRemoveFromReport={handleRemoveFromReport}
+                      onArchiveTopic={handleArchiveTopic}
+                    />
+                  </div>
+                </div>
+              )}
 
               {contextDrawerOpen && (
                 <div className="fixed inset-0 z-40 xl:hidden" style={{ background: 'rgba(0,0,0,0.55)' }} onClick={() => setContextDrawerOpen(false)}>

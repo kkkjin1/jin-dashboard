@@ -312,14 +312,24 @@ export default function MeetingDetailPage() {
   const router = useRouter()
   const supabase = createClient()
   const { org } = useOrgData()
-  // 회의록 탭 목록 필터에서 사용자가 직접 만든 범주(localStorage, meetings_cat_order)도
-  // '구분' 선택지에 포함 — 안 그러면 필터엔 있는데 여기선 고를 수 없는 값이 생긴다.
+  // 회의록 탭 목록(SearchToolbar)에서 사용자가 직접 만든 범주도 '구분' 선택지에 포함 —
+  // 안 그러면 필터엔 있는데 여기선 고를 수 없는 값이 생긴다. canonical source는
+  // Supabase user_preferences(meetings_cat_order) — 기존엔 localStorage만 읽어
+  // 기기/브라우저마다 다른 값을 보던 것이 PC/Mobile 범주 비동기화의 원인이었다.
+  // localStorage는 Supabase 응답 전 표시할 값이 없을 때의 폴백으로만 사용.
   const [localCatOrder, setLocalCatOrder] = useState<string[]>([])
   useEffect(() => {
     try {
       const saved = localStorage.getItem('meetings_cat_order')
       if (saved) setLocalCatOrder(JSON.parse(saved) as string[])
     } catch {}
+    supabase.from('user_preferences').select('value').eq('key', 'meetings_cat_order').maybeSingle()
+      .then(({ data }) => {
+        if (Array.isArray(data?.value) && (data.value as string[]).length > 0) {
+          setLocalCatOrder(data.value as string[])
+        }
+      })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   const categories = useMemo(
     () => [...new Set([...org.map(t => t.name), ...FIXED_MEETING_TAGS, ...localCatOrder])],

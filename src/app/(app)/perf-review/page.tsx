@@ -188,7 +188,7 @@ interface CardProps {
 }
 function SummaryCard({ icon, iconBg, label, count, countUnit, loading, open, onToggle, children }: CardProps) {
   return (
-    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: S.card, borderRadius: S.r, overflow: 'hidden' }}>
+    <div className="flex flex-col lg:flex-1 lg:min-h-0" style={{ background: S.card, borderRadius: S.r, overflow: 'hidden' }}>
       <div onClick={onToggle} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', cursor: 'pointer', userSelect: 'none', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
           <div style={{ width: 28, height: 28, borderRadius: 8, background: iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>{icon}</div>
@@ -295,7 +295,7 @@ function RetroField({ label, dotColor, headerBg, placeholder, editorKey, value, 
     }
   }
   return (
-    <div onClick={handleClick} style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: S.cardRetro, borderRadius: S.r, overflow: 'hidden', cursor: 'text' }}>
+    <div onClick={handleClick} className="flex flex-col lg:flex-1 lg:min-h-0" style={{ background: S.cardRetro, borderRadius: S.r, overflow: 'hidden', cursor: 'text' }}>
       <div style={{ background: headerBg, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '15px 16px 14px', borderBottom: `1px solid rgba(var(--ink-rgb),0.06)`, flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ width: 8, height: 8, borderRadius: '50%', background: dotColor, display: 'inline-block', flexShrink: 0 }} />
@@ -496,8 +496,9 @@ export default function CompletedTestPage() {
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <div style={{ flexShrink: 0, background: S.headerGrad, borderBottom: `1px solid rgba(var(--ink-rgb),0.07)`, padding: '16px 24px 0' }}>
 
-        {/* 상단 2-column: 좌(타이틀+기간네비) / 우(탭만) */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, marginBottom: 16 }}>
+        {/* 상단 2-column: 좌(타이틀+기간네비) / 우(탭만) — 고정폭 두 클러스터를 nowrap으로
+            나란히 두던 것이 실기기 좁은 폭에서 잘림/overflow의 원인이라 flexWrap 추가 */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, rowGap: 12, marginBottom: 16 }}>
 
           {/* 좌: 타이틀 + 기간 네비 */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -532,9 +533,10 @@ export default function CompletedTestPage() {
           </div>
         </div>
 
-        {/* Stat chips + Pills (같은 줄, pills는 우측) */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+        {/* Stat chips + Pills (같은 줄, pills는 우측) — chip 6개 + WeekPills 7일이 nowrap이라
+            좁은 화면에서 잘리던 것을 flexWrap으로 방지 */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', rowGap: 10, paddingBottom: 16 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 7, rowGap: 8 }}>
             <StatChip icon="📋" label="회의" count={loading ? '–' : meetings.length} unit="" bg="rgba(144,167,216,0.18)" />
             <StatChip icon="✅" label="완료" count={loading ? '–' : allCompleted.length} unit="" bg="rgba(186,222,200,0.18)" />
             <StatChip icon="☑️" label="할일" count={loading ? '–' : periodTodos.length} unit="" bg="rgba(232,150,100,0.16)" />
@@ -555,12 +557,16 @@ export default function CompletedTestPage() {
       </div>
 
       {/* ── Body ────────────────────────────────────────────────────────── */}
-      <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: '5fr 6fr', gap: 16, padding: '14px 24px 16px', overflow: 'hidden' }}>
+      {/* Desktop(lg~)은 기존 5fr/6fr 그리드 + 내부 섹션별 자체 스크롤 그대로.
+          lg 미만은 요약/회고를 세로로 쌓고 페이지 자체가 스크롤되도록 전환 —
+          하위 SummaryCard/RetroField의 flex:1 높이 강제도 함께 풀어준다(아래 참조). */}
+      <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[5fr_6fr] gap-4 lg:gap-4 overflow-y-auto lg:overflow-hidden"
+        style={{ padding: '14px 24px 16px' }}>
 
         {/* Left: 4분할 (순서: 회의 → 완료 → 퀵메모 → 일일회고) */}
-        <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div className="flex flex-col lg:overflow-hidden">
           <span style={{ fontSize: 11, fontWeight: 600, color: S.t4, letterSpacing: '0.04em', marginBottom: 10, flexShrink: 0 }}>이번 기간 요약</span>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, overflow: 'hidden' }}>
+          <div className="flex flex-col gap-2 lg:flex-1 lg:overflow-hidden">
 
             {/* 회의 */}
             <SummaryCard icon="📋" iconBg="rgba(144,167,216,0.22)" label="회의" count={meetings.length} countUnit="건" loading={loading} open={open.meetings} onToggle={() => toggleSection('meetings')}>
@@ -630,9 +636,9 @@ export default function CompletedTestPage() {
         </div>
 
         {/* Right: Retro */}
-        <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', height: '100%' }}>
+        <div className="flex flex-col lg:overflow-hidden lg:h-full">
           <span style={{ fontSize: 11, fontWeight: 600, color: S.t4, letterSpacing: '0.04em', marginBottom: 10, flexShrink: 0 }}>{retroLabel}</span>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, flex: 1, overflow: 'hidden' }}>
+          <div className="flex flex-col gap-2.5 lg:flex-1 lg:overflow-hidden">
             <RetroField label="잘한 것 · 성과" dotColor="#7DC4A0" headerBg="rgba(125,196,160,0.1)" placeholder="이번 주 잘 해낸 일은?" editorKey={`${periodKey}_good`} value={good} onChange={handleGoodChange} saved={goodSaved} />
             <RetroField label="아쉬웠던 것" dotColor="#E8C547" headerBg="rgba(232,197,71,0.09)" placeholder="더 잘할 수 있었던 부분은?" editorKey={`${periodKey}_bad`} value={bad} onChange={handleBadChange} saved={badSaved} />
             <RetroField label={mode === 'weekly' ? '다음 주 이어갈 것' : '다음 달 이어갈 것'} dotColor="#6B9FD4" headerBg="rgba(107,159,212,0.1)" placeholder="다음 기간에 집중할 것은?" editorKey={`${periodKey}_next`} value={nextFocus} onChange={handleNextChange} saved={nextSaved} />
