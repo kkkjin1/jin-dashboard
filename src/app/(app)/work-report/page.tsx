@@ -8,15 +8,17 @@ import type { WorkReport, WorkReportEntry, WorkReportTopic } from '@/types'
 import TopicOutline, { isFixedKey, type OutlineTopicRow, type FixedSectionKey } from '@/components/work-report/TopicOutline'
 import ReportEditorPanel, { type ReportEditorPanelHandle } from '@/components/work-report/ReportEditorPanel'
 import ContextPanel, { type HistoryItem } from '@/components/work-report/ContextPanel'
+import TopicTableView from '@/components/work-report/TopicTableView'
 import ArchiveView from '@/components/work-report/ArchiveView'
 import ReportFullViewModal from '@/components/work-report/ReportFullViewModal'
 import { S, selectClass, selectStyle, fmtPeriodLabel, addDaysToDateStr, todayStr, hasContent, isEntryWritten, type TopicChangeBadge } from '@/components/work-report/style'
 
-// TOP LEVEL은 "작성"과 "과거 참고" 두 역할로 단순화한다 — 예전의 [보고서 작성]
-// [기간별 전체 보기][주제별 히스토리] 3-way는 뒤 둘이 실질적으로 같은 역할("과거 참고")을
-// 하면서도 각자 독립된 top-level 화면이라 정보 밀도가 낮고 서로 겹쳤다. 자세한 판단
-// 근거는 ArchiveView.tsx 상단 주석 참고.
-type Mode = 'write' | 'archive'
+// TOP LEVEL — "보고서 작성"(한 주제에 집중해서 깊게 작성) / "테이블 작성"(이번 회차 전체
+// topic을 한 화면에서 빠르게 작성·검토) / "보고 아카이브"(과거 참고) 3-way. 앞 둘은 서로
+// 다른 데이터가 아니라 같은 work_report_entries를 보는 다른 editing lens다 — 한쪽에서
+// 저장한 값이 다른 쪽에도 그대로 보여야 하므로 자세한 판단 근거는 TopicTableView.tsx와
+// ArchiveView.tsx 상단 주석 참고.
+type Mode = 'write' | 'table' | 'archive'
 
 const FIXED_HISTORY_TITLE: Record<FixedSectionKey, string> = {
   summary: '핵심 요약 히스토리', issues: '주요 이슈 히스토리', next_steps: '다음 단계 히스토리',
@@ -249,21 +251,53 @@ export default function WorkReportPage() {
     await Promise.all(orderedEntryIds.map((id, i) => supabase.from('work_report_entries').update({ sort_order: i }).eq('id', id)))
   }
 
+  // "이번 보고에서 제외" — 현재 draft report의 membership(entry)만 지운다. topic master,
+  // 과거 entries, topic history는 손대지 않는다(스펙 §5). TopicOutline의 X 버튼과 테이블
+  // 작성의 "···" 메뉴가 이 하나의 handler를 공유하므로, 확인 문구도 두 화면에서 항상 동일하다.
   async function handleRemoveFromReport(topicId: string) {
     if (!currentReport || readOnly) return
     const entry = entries.find(e => e.topic_id === topicId)
     if (!entry) return
+    const message = isEntryWritten(entry)
+      ? '이 주제에는 작성된 내용이 있습니다.\n이번 보고에서 제외하면 현재 회차에 작성한 내용이 제거됩니다.\n과거 보고 이력과 주제 자체는 유지됩니다.'
+      : '이 주제를 이번 보고에서 제외할까요?\n과거 보고 이력과 주제 자체는 유지됩니다.'
+    if (!confirm(message)) return
     await supabase.from('work_report_entries').delete().eq('id', entry.id)
     patchEntry(currentReport.id, list => list.filter(e => e.id !== entry.id))
     if (selection === topicId) setSelection('summary')
   }
 
+  // "주제 종료" — topic lifecycle 자체를 끝낸다("이번 보고에서 제외"와 다른 기능, 스펙 §8).
+  // 과거 report/history는 그대로 유지되고, 새 report carry-forward 및 "기존 주제 불러오기"
+  // 후보에서만 제외된다. 이 화면에는 되돌리는 UI가 없으므로(마스터 상태 전환) 확인을 거친다.
   async function handleArchiveTopic(topicId: string) {
+    const topic = topicsById.get(topicId)
+    if (!confirm(`'${topic?.title ?? '이 주제'}'를 종료할까요?\n과거 보고 이력은 유지되며, 새 보고에는 더 이상 자동으로 포함되지 않습니다.`)) return
     const { data } = await supabase
       .from('work_report_topics')
       .update({ status: 'archived', archived_at: new Date().toISOString() })
       .eq('id', topicId).select().single()
     if (data) setTopics(prev => prev.map(t => t.id === topicId ? data as WorkReportTopic : t))
+  }
+
+  // "기존 주제 불러오기" — topic master에는 있지만 이번 report에는 entry가 없는 active
+  // topic을 골라, 기존 topic_id 그대로 새 work_report_entry만 만든다(스펙 §6). handleAddTopic과
+  // 달리 topic을 새로 만들지 않는다 — 이미 확정된 topicId들이 입력으로 들어오기 때문.
+  async function handleAddExistingTopics(topicIds: string[]) {
+    if (!currentReport || readOnly || topicIds.length === 0) return
+    const already = new Set(entries.map(e => e.topic_id))
+    const targets = topicIds.filter(id => !already.has(id))
+    if (targets.length === 0) return
+    let nextSortOrder = entries.length ? Math.max(...entries.map(e => e.sort_order)) + 1 : 0
+    const inserts = targets.map(topicId => ({
+      report_id: currentReport.id,
+      topic_id: topicId,
+      sort_order: nextSortOrder++,
+      topic_title_snapshot: topicsById.get(topicId)?.title ?? '',
+    }))
+    const { data: insertedEntries, error } = await supabase.from('work_report_entries').insert(inserts).select()
+    if (error || !insertedEntries) return
+    patchEntry(currentReport.id, list => [...list, ...(insertedEntries as WorkReportEntry[])])
   }
 
   function handleEntrySaved(entry: WorkReportEntry) {
@@ -371,7 +405,7 @@ export default function WorkReportPage() {
         <div className="flex items-center gap-3 flex-wrap">
           <p className="text-[15px] font-semibold" style={{ color: S.t1 }}>업무보고</p>
 
-          {mode === 'write' && currentReport && (
+          {(mode === 'write' || mode === 'table') && currentReport && (
             <>
               <div className="flex items-center gap-1.5">
                 <input type="date" value={currentReport.period_start} disabled={readOnly}
@@ -416,7 +450,7 @@ export default function WorkReportPage() {
 
         {/* 작성 진행률 — DB 컬럼 없이 outlineRows(현재 report의 entry)만으로 매 렌더 계산한다.
             주제가 0개면 0/0을 보여주는 대신 행 자체를 숨긴다. */}
-        {mode === 'write' && currentReport && totalTopicCount > 0 && (
+        {(mode === 'write' || mode === 'table') && currentReport && totalTopicCount > 0 && (
           <div className="flex items-center gap-3">
             <p className="text-[11.5px]" style={{ color: S.t3 }}>
               {totalTopicCount}개 주제 · {writtenCount}개 작성 · {totalTopicCount - writtenCount}개 미작성
@@ -432,7 +466,7 @@ export default function WorkReportPage() {
 
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-1 rounded-xl p-1" style={{ background: 'rgba(var(--ink-rgb),0.04)' }}>
-            {([['write', '보고서 작성'], ['archive', '보고 아카이브']] as const).map(([k, label]) => (
+            {([['write', '보고서 작성'], ['table', '테이블 작성'], ['archive', '보고 아카이브']] as const).map(([k, label]) => (
               <button
                 key={k}
                 onClick={() => {
@@ -451,7 +485,7 @@ export default function WorkReportPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            {mode === 'write' && currentReport && (
+            {(mode === 'write' || mode === 'table') && currentReport && (
               <>
                 <button onClick={() => setFullViewOpen(true)}
                   className="px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors"
@@ -595,6 +629,34 @@ export default function WorkReportPage() {
                 </div>
               )}
             </>
+          ) : (
+            <div className="flex-1 flex items-center justify-center flex-col gap-3">
+              <p className="text-[13px]" style={{ color: S.t4 }}>아직 작성된 업무보고가 없습니다.</p>
+              <button onClick={handleNewReport}
+                className="px-4 py-2 rounded-lg text-[13px] font-semibold"
+                style={{ color: S.accentText, background: S.accentDim, border: `1px solid ${S.accentBorder}` }}
+              >
+                + 첫 보고 시작하기
+              </button>
+            </div>
+          )
+        )}
+
+        {mode === 'table' && (
+          currentReport ? (
+            <TopicTableView
+              supabase={supabase}
+              entries={entries}
+              topics={topics}
+              reports={reportsAsc}
+              readOnly={readOnly}
+              onEntrySaved={handleEntrySaved}
+              onAddTopic={handleAddTopic}
+              onAddExistingTopics={handleAddExistingTopics}
+              onRemoveFromReport={handleRemoveFromReport}
+              onRenameTopic={handleRenameTopic}
+              onArchiveTopic={handleArchiveTopic}
+            />
           ) : (
             <div className="flex-1 flex items-center justify-center flex-col gap-3">
               <p className="text-[13px]" style={{ color: S.t4 }}>아직 작성된 업무보고가 없습니다.</p>
