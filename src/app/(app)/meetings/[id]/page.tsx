@@ -805,10 +805,12 @@ export default function MeetingDetailPage() {
           className="text-2xl font-bold text-[rgba(var(--text-rgb),1)] w-full focus:outline-none border-b-2 border-transparent focus:border-red-300 pb-1 transition-colors bg-transparent" />
       </div>
 
-      <div className="flex gap-6">
+      {/* 고정 min-width가 없는 자유 흐름 콘텐츠라 md 미만에서 세로 스택,
+          md부터 기존 flex-[55]/[45] 좌우 복원 */}
+      <div className="flex flex-col gap-6 md:flex-row">
         {/* 왼쪽: 회의 내용 */}
-        <div className="flex-[55]">
-          <div className="flex gap-4 items-end mb-6">
+        <div className="w-full min-w-0 md:flex-[55]">
+          <div className="flex gap-4 items-end mb-6 flex-wrap">
             <div>
               <label className="text-xs text-[var(--text-muted)] block mb-1">회의 날짜</label>
               <input type="date" value={meeting.meeting_date ?? ''}
@@ -954,7 +956,7 @@ export default function MeetingDetailPage() {
         </div>
 
         {/* 오른쪽: 연관 프로젝트 업무 */}
-        <div className="flex-[45]">
+        <div className="w-full min-w-0 md:flex-[45]">
           <div className="bg-[var(--surface-panel)] rounded-lg border border-[var(--border-default)] p-5 sticky top-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xs font-semibold text-[rgba(var(--text-rgb),0.4)] uppercase tracking-wide">연관 업무</h3>

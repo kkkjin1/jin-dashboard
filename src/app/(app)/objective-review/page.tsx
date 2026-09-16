@@ -887,8 +887,11 @@ function FeedPanel({
 
   return (
     <>
+      {/* xl 미만에서는 숨김 — matrix(주당 220~400px 고정폭 컬럼) 뷰포트를 압박하지 않도록.
+          work-report의 ContextPanel(320px)/test-practice의 AgendaWorkspace(484px)와 동일하게
+          xl 기준으로 보조 패널을 hide하는 기존 패턴을 그대로 재사용. */}
       <div
-        className="flex-shrink-0 flex flex-col"
+        className="hidden xl:flex flex-shrink-0 flex-col"
         style={{ width: 272, margin: '0 8px 0 8px', borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(var(--ink-rgb),0.09)', background: 'var(--surface-primary)' }}
       >
         {/* 헤더 */}
@@ -1208,7 +1211,7 @@ export default function ObjectivesTestPage() {
 
       {/* ── PageHeader ────────────────────────────────────── */}
       <div className="flex-shrink-0 px-6 py-3.5" style={{ borderBottom: '1px solid rgba(var(--ink-rgb),0.08)' }}>
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2.5">
             <h1 className="text-[26px] font-bold text-[rgba(var(--text-rgb),1)] leading-none">목표 리뷰</h1>
             <Info size={13} className="text-[rgba(var(--text-rgb),0.28)] flex-shrink-0" />
@@ -1216,7 +1219,7 @@ export default function ObjectivesTestPage() {
               주간 목표 진행상황을 리뷰합니다.
             </span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             {/* + 팀 추가 */}
             <button
               onClick={() => setAddingGroup(true)}
@@ -1264,7 +1267,7 @@ export default function ObjectivesTestPage() {
 
       {/* ── QuarterNav ────────────────────────────────────── */}
       <div className="flex-shrink-0 px-6 py-2" style={{ borderBottom: '1px solid rgba(var(--ink-rgb),0.08)' }}>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 flex-wrap">
           {/* Year navigation */}
           <div className="flex items-center gap-1">
             <button
@@ -1305,7 +1308,7 @@ export default function ObjectivesTestPage() {
 
       {/* ── StatsRow ──────────────────────────────────────── */}
       <div className="flex-shrink-0 px-6 py-3" style={{ borderBottom: '1px solid rgba(var(--ink-rgb),0.08)' }}>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {/* Card 1: 현재 분기 */}
           <div
             className="flex flex-col justify-center px-4 rounded-[12px] border cursor-default hover:bg-[rgba(var(--ink-rgb),0.05)] transition-colors"

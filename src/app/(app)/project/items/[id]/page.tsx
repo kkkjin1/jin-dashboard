@@ -1175,15 +1175,19 @@ export default function AgendaItemDetailPage() {
                 <button onClick={() => setSaveError('')} className="text-[10px] opacity-70 hover:opacity-100 flex-shrink-0">닫기</button>
               </div>
             )}
-            <div className="flex-1 min-h-0 flex">
+            {/* rail(날짜 목록)은 단순 metadata 성격 — sm 미만은 본문 위 가로 스크롤 스트립,
+                sm부터 기존 좌측 100px 세로 rail 복원 */}
+            <div className="flex-1 min-h-0 flex flex-col sm:flex-row">
               {/* 왼쪽: 날짜 목록 */}
-              <div style={{ width: 100, borderRight: '1px solid rgba(var(--ink-rgb),0.07)', flexShrink: 0, background: 'rgba(var(--ink-rgb),0.03)', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+              <div className="flex flex-row sm:flex-col overflow-x-auto sm:overflow-x-visible sm:overflow-y-auto w-full sm:w-[100px] flex-shrink-0 border-b sm:border-b-0 sm:border-r border-[rgba(var(--ink-rgb),0.07)]"
+                style={{ background: 'rgba(var(--ink-rgb),0.03)' }}>
                 {allNotes.map(note => {
                   const isSelected = note.id === selId
                   return (
                     <button key={note.id}
                       onClick={() => setSelectedNoteIds(p => ({ ...p, [expandST.id]: note.id }))}
-                      style={{ padding: '10px 12px', fontSize: 12, textAlign: 'center', background: isSelected ? `${expandStColor}22` : 'transparent', color: isSelected ? expandStColor : 'rgba(var(--text-rgb),0.4)', fontWeight: isSelected ? 700 : 400, cursor: 'pointer', border: 'none', borderBottom: '1px solid rgba(var(--ink-rgb),0.05)', display: 'block', width: '100%', lineHeight: 1.3 }}>
+                      className="flex-shrink-0 sm:flex-shrink sm:w-full border-r sm:border-r-0 sm:border-b border-[rgba(var(--ink-rgb),0.05)]"
+                      style={{ padding: '10px 12px', fontSize: 12, textAlign: 'center', whiteSpace: 'nowrap', background: isSelected ? `${expandStColor}22` : 'transparent', color: isSelected ? expandStColor : 'rgba(var(--text-rgb),0.4)', fontWeight: isSelected ? 700 : 400, cursor: 'pointer', lineHeight: 1.3 }}>
                       {formatNoteDate(note.created_at)}
                     </button>
                   )
@@ -1224,11 +1228,10 @@ export default function AgendaItemDetailPage() {
         onClick={() => setPanelResource(null)}
       />
     )}
-    {/* 패널 본체 */}
+    {/* 패널 본체 — 모바일에서 400px 고정폭이 viewport보다 넓어 좌측이 잘리는 문제 방지 */}
     <div
-      className="fixed top-0 right-0 h-full z-50 flex flex-col overflow-hidden"
+      className="fixed top-0 right-0 h-full z-50 flex flex-col overflow-hidden w-full max-w-[400px]"
       style={{
-        width: 400,
         background: 'var(--surface-primary)',
         borderLeft: '1px solid rgba(var(--ink-rgb),0.08)',
         transform: panelResource ? 'translateX(0)' : 'translateX(100%)',

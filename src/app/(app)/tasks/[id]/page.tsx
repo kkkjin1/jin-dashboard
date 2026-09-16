@@ -703,9 +703,9 @@ export default function TaskDetailPage() {
       )}
 
       {/* 뒤로가기 + 너비조절 + MD 다운로드 */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-8 flex-wrap gap-2">
         <Link href="/" className="text-sm text-[rgba(var(--text-rgb),0.4)] hover:text-[rgba(var(--text-rgb),0.7)] inline-flex items-center gap-1">← 홈</Link>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => setContentWidth(prev => prev ? null : 720)}
             className={`text-xs border rounded-md px-3 py-1.5 transition-colors ${contentWidth ? 'border-blue-200 text-blue-500 bg-blue-50 hover:bg-blue-100' : 'border-[rgba(var(--ink-rgb),0.09)] text-[rgba(var(--text-rgb),0.4)] hover:bg-[rgba(var(--ink-rgb),0.06)]'}`}
@@ -821,10 +821,11 @@ export default function TaskDetailPage() {
         )}
       </div>
 
-      {/* 2분할: 왼쪽=노트목록+첨부+회고+삭제, 오른쪽=할일+회의록 */}
-      <div className="flex gap-6">
+      {/* 2분할: 왼쪽=노트목록+첨부+회고+삭제, 오른쪽=할일+회의록 — 고정 min-width가 없는
+          자유 흐름 콘텐츠라 md 미만에서 세로 스택, md부터 기존 flex-[50]/[50] 좌우 복원 */}
+      <div className="flex flex-col gap-6 md:flex-row">
         {/* 왼쪽 50% */}
-        <div className="flex-[50]">
+        <div className="w-full min-w-0 md:flex-[50]">
           {/* 저장된 노트 아코디언 리스트 */}
           <div className="space-y-2 mb-6">
             {notes.length === 0 ? (
@@ -946,7 +947,7 @@ export default function TaskDetailPage() {
         </div>
 
         {/* 오른쪽 50%: 할일 목록 + 연관 회의록 */}
-        <div className="flex-[50]">
+        <div className="w-full min-w-0 md:flex-[50]">
 
           {/* 할일 목록 */}
           <div className="mb-6">

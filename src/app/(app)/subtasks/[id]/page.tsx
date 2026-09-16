@@ -529,14 +529,18 @@ export default function SubTaskDetailPage() {
               </button>
             </div>
           </div>
-          <div className="flex-1 min-h-0 flex">
+          {/* rail(날짜 목록)은 단순 metadata 성격 — sm 미만은 본문 위 가로 스크롤 스트립,
+              sm부터 기존 좌측 100px 세로 rail 복원 */}
+          <div className="flex-1 min-h-0 flex flex-col sm:flex-row">
             {/* 날짜 목록 */}
-            <div style={{ width: 100, borderRight: '1px solid rgba(var(--ink-rgb),0.07)', flexShrink: 0, background: 'rgba(var(--ink-rgb),0.03)', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+            <div className="flex flex-row sm:flex-col overflow-x-auto sm:overflow-x-visible sm:overflow-y-auto w-full sm:w-[100px] flex-shrink-0 border-b sm:border-b-0 sm:border-r border-[rgba(var(--ink-rgb),0.07)]"
+              style={{ background: 'rgba(var(--ink-rgb),0.03)' }}>
               {notes.map(note => {
                 const isSel = note.id === selectedNoteId
                 return (
                   <button key={note.id} onClick={() => setSelectedNoteId(note.id)}
-                    style={{ padding: '10px 12px', fontSize: 12, textAlign: 'center', background: isSel ? `${groupColor}22` : 'transparent', color: isSel ? groupColor : 'rgba(var(--text-rgb),0.4)', fontWeight: isSel ? 700 : 400, cursor: 'pointer', border: 'none', borderBottom: '1px solid rgba(var(--ink-rgb),0.05)', display: 'block', width: '100%', lineHeight: 1.3 }}>
+                    className="flex-shrink-0 sm:flex-shrink sm:w-full border-r sm:border-r-0 sm:border-b border-[rgba(var(--ink-rgb),0.05)]"
+                    style={{ padding: '10px 12px', fontSize: 12, textAlign: 'center', whiteSpace: 'nowrap', background: isSel ? `${groupColor}22` : 'transparent', color: isSel ? groupColor : 'rgba(var(--text-rgb),0.4)', fontWeight: isSel ? 700 : 400, cursor: 'pointer', lineHeight: 1.3 }}>
                     {formatNoteDate(note.created_at)}
                   </button>
                 )
