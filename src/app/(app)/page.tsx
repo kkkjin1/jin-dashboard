@@ -65,8 +65,11 @@ const cardBase = (accent = false): React.CSSProperties => ({
 })
 // hover is handled by CSS .dash-card:hover in globals.css (avoids stuck onMouseLeave)
 
-// Mobile keeps previous visual
-const SURFACE  = 'var(--surface-secondary)'
+// Mobile card surface. Light: page(#F6F7F9)/card 2단 계층이 실제로 보이려면 카드가
+// surface-secondary(#F3F4F6, page와 거의 구분 안 됨)가 아니라 surface-primary(#FFFFFF)여야
+// 함 — Dark는 surface-primary(#161B24)가 기존 surface-secondary(#171B22)와 거의 동일해
+// 시각적으로 그대로 유지됨.
+const SURFACE  = 'var(--surface-primary)'
 const MSHADOW  =
   'inset 0 1px 0 rgba(var(--ink-rgb),0.06), ' +
   '0 0 0 1px rgba(var(--ink-rgb),0.06), ' +
