@@ -146,7 +146,7 @@ function NoteAccordion({ note, isOpen, onToggle, onDelete, onEdit, onFullscreen,
   }
 
   return (
-    <div className="bg-[rgba(var(--ink-rgb),0.06)] rounded-lg border border-[rgba(var(--ink-rgb),0.06)] overflow-hidden group">
+    <div className="bg-[var(--surface-secondary)] rounded-lg border border-[var(--border-default)] overflow-hidden group">
       <div
         onClick={() => { if (!editingTitle) onToggle() }}
         className="w-full flex items-center justify-between px-4 py-3 hover:bg-[rgba(var(--ink-rgb),0.03)] transition-colors cursor-pointer">
@@ -810,13 +810,13 @@ export default function MeetingDetailPage() {
         <div className="flex-[55]">
           <div className="flex gap-4 items-end mb-6">
             <div>
-              <label className="text-xs text-[rgba(var(--text-rgb),0.4)] block mb-1">회의 날짜</label>
+              <label className="text-xs text-[var(--text-muted)] block mb-1">회의 날짜</label>
               <input type="date" value={meeting.meeting_date ?? ''}
                 onChange={e => updateMeeting({ meeting_date: e.target.value || null })}
-                className="text-sm border border-[rgba(var(--ink-rgb),0.09)] rounded-lg px-3 py-1.5 focus:outline-none bg-[rgba(var(--ink-rgb),0.06)] text-[rgba(var(--text-rgb),0.7)]" />
+                className="text-sm border border-[var(--border-default)] rounded-lg px-3 py-1.5 focus:outline-none bg-[var(--surface-secondary)] text-[rgba(var(--text-rgb),0.7)]" />
             </div>
             <div>
-              <label className="text-xs text-[rgba(var(--text-rgb),0.4)] block mb-1">구분</label>
+              <label className="text-xs text-[var(--text-muted)] block mb-1">구분</label>
               <div className="flex gap-1.5 items-center">
                 {meeting.category && (
                   <span className="text-xs px-2.5 py-1 rounded border" style={categoryStyle(meeting.category)}>
@@ -825,7 +825,7 @@ export default function MeetingDetailPage() {
                 )}
                 <select value={meeting.category ?? ''}
                   onChange={e => updateMeeting({ category: e.target.value || null })}
-                  className="text-sm border border-[rgba(var(--ink-rgb),0.09)] rounded-lg px-3 py-1.5 focus:outline-none bg-[rgba(var(--ink-rgb),0.06)] text-[rgba(var(--text-rgb),0.7)] [&>option]:bg-[var(--select-option-bg)] [&>option]:text-[rgba(var(--text-rgb),0.8)]">
+                  className="text-sm border border-[var(--border-default)] rounded-lg px-3 py-1.5 focus:outline-none bg-[var(--surface-secondary)] text-[rgba(var(--text-rgb),0.7)] [&>option]:bg-[var(--select-option-bg)] [&>option]:text-[rgba(var(--text-rgb),0.8)]">
                   <option value="">구분 없음</option>
                   {categories.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
@@ -852,7 +852,7 @@ export default function MeetingDetailPage() {
 
           <div className="mb-6">
             <h2 className="text-sm font-semibold text-[rgba(var(--text-rgb),0.8)] mb-3">회의 내용</h2>
-            <div className="bg-[rgba(var(--ink-rgb),0.06)] rounded-lg border border-[rgba(var(--ink-rgb),0.06)] p-4 mb-3">
+            <div className="bg-[var(--surface-primary)] rounded-lg border border-[var(--border-default)] p-4 mb-3">
               {newNoteAutosave.recovered && (
                 <div className="mb-2 px-3 py-2 rounded-lg text-[12px] flex items-center gap-2"
                   style={{ background: 'rgba(76,127,224,0.12)', border: '1px solid rgba(76,127,224,0.25)', color: 'var(--accent-soft)' }}>
@@ -955,7 +955,7 @@ export default function MeetingDetailPage() {
 
         {/* 오른쪽: 연관 프로젝트 업무 */}
         <div className="flex-[45]">
-          <div className="bg-[rgba(var(--ink-rgb),0.06)] rounded-lg border border-[rgba(var(--ink-rgb),0.06)] p-5 sticky top-6">
+          <div className="bg-[var(--surface-panel)] rounded-lg border border-[var(--border-default)] p-5 sticky top-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xs font-semibold text-[rgba(var(--text-rgb),0.4)] uppercase tracking-wide">연관 업무</h3>
               <button
