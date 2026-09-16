@@ -23,6 +23,12 @@ export const S = {
   r: '12px',
 } as const
 
+// Writing/reading 영역(에디터, 문서 리더)의 공통 최대 폭 — ultra-wide 모니터에서 CENTER가
+// flex-1로 끝없이 넓어져도 한 줄 길이가 무한정 늘어나 가독성이 깨지지 않게 막는 상한선.
+// 1366/1440에서는 pane 자체 폭이 이보다 좁아 사실상 no-op이고, 1920+/ultra-wide에서만
+// 실제로 이 값에서 멈춘다.
+export const CONTENT_MAX_WIDTH = 720
+
 export const selectClass =
   'text-[12px] px-2.5 py-1.5 rounded-lg focus:outline-none [&>option]:bg-[var(--surface-elevated)]'
 

@@ -8,12 +8,15 @@ import type { WorkReport, WorkReportEntry, WorkReportTopic } from '@/types'
 import TopicOutline, { isFixedKey, type OutlineTopicRow, type FixedSectionKey } from '@/components/work-report/TopicOutline'
 import ReportEditorPanel, { type ReportEditorPanelHandle } from '@/components/work-report/ReportEditorPanel'
 import ContextPanel, { type HistoryItem } from '@/components/work-report/ContextPanel'
-import PeriodMatrixView from '@/components/work-report/PeriodMatrixView'
-import TopicHistoryView from '@/components/work-report/TopicHistoryView'
+import ArchiveView from '@/components/work-report/ArchiveView'
 import ReportFullViewModal from '@/components/work-report/ReportFullViewModal'
 import { S, selectClass, selectStyle, fmtPeriodLabel, addDaysToDateStr, todayStr, hasContent, isEntryWritten, type TopicChangeBadge } from '@/components/work-report/style'
 
-type Mode = 'write' | 'period' | 'topic-history'
+// TOP LEVEL은 "작성"과 "과거 참고" 두 역할로 단순화한다 — 예전의 [보고서 작성]
+// [기간별 전체 보기][주제별 히스토리] 3-way는 뒤 둘이 실질적으로 같은 역할("과거 참고")을
+// 하면서도 각자 독립된 top-level 화면이라 정보 밀도가 낮고 서로 겹쳤다. 자세한 판단
+// 근거는 ArchiveView.tsx 상단 주석 참고.
+type Mode = 'write' | 'archive'
 
 const FIXED_HISTORY_TITLE: Record<FixedSectionKey, string> = {
   summary: '핵심 요약 히스토리', issues: '주요 이슈 히스토리', next_steps: '다음 단계 히스토리',
@@ -50,6 +53,10 @@ export default function WorkReportPage() {
   const [contextDrawerOpen, setContextDrawerOpen] = useState(false)
   const [topicDrawerOpen, setTopicDrawerOpen] = useState(false)
   const [topicHistoryEntries, setTopicHistoryEntries] = useState<WorkReportEntry[]>([])
+  // RIGHT의 "전체 히스토리 보기 →"로 Archive에 넘어갈 때만 채워지는 1회성 진입점 — Archive는
+  // write↔archive 전환마다 항상 새로 mount되므로(조건부 렌더) ArchiveView의 initialTab/
+  // initialTopicId로만 쓰이고, 그 이후 Archive 내부 tab/주제 전환과는 무관하다.
+  const [archiveJumpTopicId, setArchiveJumpTopicId] = useState<string | null>(null)
 
   const ensureEntries = useCallback(async (reportId: string): Promise<WorkReportEntry[]> => {
     if (!reportId) return []
@@ -331,6 +338,15 @@ export default function WorkReportPage() {
     }
   }
 
+  // Archive의 "전체 보고" 카드에서 "이 보고 열기 →"를 누르면 그 회차를 작성 화면에서
+  // 그대로 이어서 본다(draft면 편집 가능, final이면 기존과 동일하게 read-only) — 새로운
+  // "열람 전용" 모드를 따로 만들지 않는다.
+  function handleOpenReport(reportId: string) {
+    setCurrentReportId(reportId)
+    setSelection('summary')
+    setMode('write')
+  }
+
   const fullViewRows = useMemo(() => {
     if (!currentReport) return []
     const list = entriesByReport.get(currentReport.id) ?? []
@@ -416,10 +432,16 @@ export default function WorkReportPage() {
 
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-1 rounded-xl p-1" style={{ background: 'rgba(var(--ink-rgb),0.04)' }}>
-            {([['write', '보고서 작성'], ['period', '기간별 전체 보기'], ['topic-history', '주제별 히스토리']] as const).map(([k, label]) => (
+            {([['write', '보고서 작성'], ['archive', '보고 아카이브']] as const).map(([k, label]) => (
               <button
                 key={k}
-                onClick={() => setMode(k)}
+                onClick={() => {
+                  // 헤더 pill을 직접 눌러 들어갈 때는 항상 Archive 기본값(전체 보고)에서
+                  // 시작한다 — RIGHT의 "전체 히스토리 보기"를 통한 진입(주제별 보기로 점프)과
+                  // 구분한다.
+                  if (k === 'archive') setArchiveJumpTopicId(null)
+                  setMode(k)
+                }}
                 className="px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors"
                 style={{ color: mode === k ? S.t1 : S.t3, background: mode === k ? S.accentDim : 'transparent' }}
               >
@@ -534,7 +556,7 @@ export default function WorkReportPage() {
                   title={historyTitle}
                   items={historyItems}
                   showFullHistoryLink={showFullHistoryLink}
-                  onOpenFullHistory={() => setMode('topic-history')}
+                  onOpenFullHistory={() => { setArchiveJumpTopicId(selectedTopic?.id ?? null); setMode('archive') }}
                 />
               </div>
 
@@ -567,7 +589,7 @@ export default function WorkReportPage() {
                       title={historyTitle}
                       items={historyItems}
                       showFullHistoryLink={showFullHistoryLink}
-                      onOpenFullHistory={() => { setMode('topic-history'); setContextDrawerOpen(false) }}
+                      onOpenFullHistory={() => { setArchiveJumpTopicId(selectedTopic?.id ?? null); setMode('archive'); setContextDrawerOpen(false) }}
                     />
                   </div>
                 </div>
@@ -586,8 +608,18 @@ export default function WorkReportPage() {
           )
         )}
 
-        {mode === 'period' && <PeriodMatrixView supabase={supabase} topics={topics} reports={reportsAsc} />}
-        {mode === 'topic-history' && <TopicHistoryView supabase={supabase} topics={topics} reports={reportsAsc} />}
+        {mode === 'archive' && (
+          <ArchiveView
+            supabase={supabase}
+            topics={topics}
+            reports={reportsAsc}
+            entriesByReport={entriesByReport}
+            ensureEntries={ensureEntries}
+            onOpenReport={handleOpenReport}
+            initialTab={archiveJumpTopicId ? 'topics' : undefined}
+            initialTopicId={archiveJumpTopicId ?? undefined}
+          />
+        )}
       </div>
 
       {fullViewOpen && currentReport && (

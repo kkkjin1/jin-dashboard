@@ -6,29 +6,26 @@ import type { WorkReport, WorkReportEntry, WorkReportTopic } from '@/types'
 import { S, fmtDateShort, truncate } from './style'
 import EntryDetailModal from './EntryDetailModal'
 
+// "기간 매트릭스" — Archive의 secondary/보조 뷰. 회차 하나를 읽거나(전체 보고) 주제 하나를
+// 깊게 훑는(주제별 보기) 것과 달리, 이 표는 "어느 회차에 어떤 주제가 있었는지"를 한눈에
+// scanning하기 위한 것 — 텍스트를 읽는 용도가 아니라 존재 유무/공백을 훑는 용도라 primary
+// 탭과 동일한 비중을 주지 않는다. 기간 필터는 Archive 상단의 공용 필터를 그대로 받는다
+// (이 컴포넌트가 자체 날짜 상태를 갖지 않음 — 전체 보고/주제별 보기와 같은 기준을 공유).
 interface Props {
   supabase: SupabaseClient
   topics: WorkReportTopic[]
-  reports: WorkReport[]   // 전체 report, asc by period_start
+  reports: WorkReport[]         // 이미 기간 필터가 적용된 전체 report 목록, asc by period_start
 }
 
 export default function PeriodMatrixView({ supabase, topics, reports }: Props) {
-  const minStart = reports[0]?.period_start ?? ''
-  const maxEnd = reports[reports.length - 1]?.period_end ?? ''
-  const [periodStart, setPeriodStart] = useState(minStart)
-  const [periodEnd, setPeriodEnd] = useState(maxEnd)
+  const cols = reports
   const [entries, setEntries] = useState<WorkReportEntry[]>([])
   const [loading, setLoading] = useState(false)
   const [detail, setDetail] = useState<{ report: WorkReport; entry: WorkReportEntry; topicTitle: string } | null>(null)
 
-  const cols = useMemo(
-    () => reports.filter(r => r.period_start <= periodEnd && r.period_end >= periodStart),
-    [reports, periodStart, periodEnd],
-  )
-
   useEffect(() => {
     // cols가 비면 fetch를 건너뛴다 — entries가 이전 값을 들고 있어도 아래 rowTopicIds/
-    // cellMap이 현재 cols 기준으로만 조회하므로 화면에는 영향이 없다.
+    // cellMap이 현재 cols 기준으로만 조회하므로 화면에는 영향이 없다(기존 동작 그대로).
     if (cols.length === 0) return
     let cancelled = false
     setLoading(true)
@@ -64,28 +61,8 @@ export default function PeriodMatrixView({ supabase, topics, reports }: Props) {
   }, [entries])
 
   return (
-    <div className="h-full flex flex-col px-6 py-5 overflow-hidden">
-      <div className="flex items-center gap-3 mb-4 flex-shrink-0">
-        <p className="text-[14px] font-semibold" style={{ color: S.t1 }}>전체 주제 히스토리</p>
-        <span className="text-[11px]" style={{ color: S.t4 }}>기간</span>
-        <input
-          type="date"
-          value={periodStart}
-          onChange={e => setPeriodStart(e.target.value)}
-          className="text-[12px] px-2 py-1 rounded-lg"
-          style={{ background: 'rgba(var(--ink-rgb),0.05)', border: `1px solid ${S.border}`, color: S.t2 }}
-        />
-        <span style={{ color: S.t4 }}>~</span>
-        <input
-          type="date"
-          value={periodEnd}
-          onChange={e => setPeriodEnd(e.target.value)}
-          className="text-[12px] px-2 py-1 rounded-lg"
-          style={{ background: 'rgba(var(--ink-rgb),0.05)', border: `1px solid ${S.border}`, color: S.t2 }}
-        />
-        {loading && <span className="text-[11px]" style={{ color: S.t4 }}>불러오는 중…</span>}
-      </div>
-
+    <div className="h-full flex flex-col overflow-hidden">
+      {loading && <p className="text-[11px] mb-2" style={{ color: S.t4 }}>불러오는 중…</p>}
       <div className="flex-1 overflow-auto" style={{ border: `1px solid ${S.border}`, borderRadius: S.r }}>
         {cols.length === 0 ? (
           <div className="p-8 text-center text-[12.5px]" style={{ color: S.t4 }}>선택한 기간에 보고서가 없습니다.</div>
