@@ -333,8 +333,18 @@ export default function MeetingNotesNew() {
   // 구 `selected.notes.find(n => !n.is_prep)`(원본 배열에서 첫 non-prep, 항상
   // prepend되어 왔으므로 결과적으로 최신 노트였음)와 동일한 결과.
   const latestNote = selectedNotes?.regular[0]
-  // 같은 안건(=같은 meeting_id)의 다른 날짜 세션 — 최신 노트를 제외한 나머지
+  // 같은 안건(=같은 meeting_id)의 다른 세션 — 최신 노트를 제외한 나머지
   const threadNotes = selectedNotes?.regular.slice(1) ?? []
+  // SAME THREAD 보강: 실사용 데이터 확인 결과 반복 회의는 대부분 "+ 새 회의록"으로 매번 새
+  // meetings row를 만들고 제목만 그대로 재사용하는 패턴(예: "아람님_데일리"가 여러 날짜에
+  // 별도 row로 존재) — meeting_notes 누적이 아니라서 threadNotes만으로는 안 잡힌다. explicit
+  // FK가 없으므로 유일하게 신뢰 가능한 신호인 "제목 완전 일치"(trim만, 유사도 추론 없음)로
+  // 같은 목록(meetings state, 이미 로드됨)에서 다른 row를 찾는다 — 추가 쿼리 불필요.
+  const siblingMeetings = (() => {
+    const title = selected?.title?.trim()
+    if (!selected || !title) return []
+    return meetings.filter(m => m.id !== selected.id && m.title.trim() === title)
+  })()
   const selectedDateLabel = selected?.meeting_date
     ? (() => { try { return format(parseISO(selected.meeting_date as string), 'yyyy.MM.dd (eee)', { locale: ko }) } catch { return '' } })()
     : ''
@@ -508,13 +518,26 @@ export default function MeetingNotesNew() {
             )}
           </div>
 
-          {/* 같은 안건의 다른 날짜 회의(같은 meeting 안의 다른 노트) — 있을 때만 표시, 빈 공간을 예약하지 않음 */}
-          {threadNotes.length > 0 && (
+          {/* 같은 안건의 다른 날짜 회의 — (a) 같은 meeting_id의 다른 노트 + (b) 제목이 완전히 같은
+              다른 meetings row(반복 회의를 매번 새 row로 만드는 실사용 패턴). 있을 때만 표시. */}
+          {(threadNotes.length > 0 || siblingMeetings.length > 0) && (
             <>
               <div className="h-px my-4 flex-shrink-0" style={{ background: 'rgba(var(--ink-rgb),0.08)' }} />
               <div className="flex-shrink-0">
                 <p className="text-[11px] font-semibold uppercase tracking-wide mb-2" style={{ color: 'rgba(var(--text-rgb),0.4)' }}>같은 안건의 다른 날짜 회의</p>
-                <div className="space-y-1 max-h-32 overflow-y-auto scrollbar-hide">
+                <div className="space-y-1 max-h-40 overflow-y-auto scrollbar-hide">
+                  {siblingMeetings.map(m => (
+                    <button key={m.id} onClick={() => setSelected(m)}
+                      className="w-full flex items-start gap-2 py-1 text-left hover:opacity-80 transition-opacity">
+                      <span className="text-[10px] flex-shrink-0 w-16 pt-0.5" style={{ color: 'rgba(var(--text-rgb),0.35)' }}>
+                        {m.meeting_date ? (() => { try { return format(parseISO(m.meeting_date as string), 'MM.dd') } catch { return '' } })() : '—'}
+                      </span>
+                      <span className="text-[12px] truncate flex-1" style={{ color: 'rgba(var(--text-rgb),0.6)' }}>
+                        {m.title || '제목 없음'}
+                      </span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded-full flex-shrink-0" style={{ background: 'rgba(76,127,224,0.12)', color: 'var(--accent-soft)' }}>다른 회의</span>
+                    </button>
+                  ))}
                   {threadNotes.map(n => (
                     <div key={n.id} className="flex items-start gap-2 py-1">
                       <span className="text-[10px] flex-shrink-0 w-16 pt-0.5" style={{ color: 'rgba(var(--text-rgb),0.35)' }}>
