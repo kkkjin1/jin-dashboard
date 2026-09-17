@@ -409,13 +409,11 @@ export function pullAncestorSiblingOnDelete(editor: Editor): boolean {
   }
   // Nothing follows anywhere up the list-nesting chain — whatever comes next
   // in the document (if anything) lives outside every enclosing list entirely
-  // (e.g. a plain paragraph right after the whole list), so there's no list
-  // depth boundary left to cross. That's exactly the case Tiptap's default
-  // forward-join already handles correctly — only the list-to-list crossing
-  // above needed this custom transaction. Falling through to default here
-  // (instead of swallowing the key) is what makes Delete at the end of a
-  // last leaf item merge the next paragraph up, matching Backspace from the
-  // other direction.
+  // (e.g. a plain paragraph right after the whole list). That boundary turned
+  // out to have the exact same default-behavior bug as the list-to-list
+  // crossing above (see mergeNextParagraphOnDelete below, which handles it) —
+  // falling through here just hands off to that other function instead of
+  // Tiptap's default.
   if (targetIndex === -1) return false
 
   const targetParentList = $from.node(targetParentListDepth)
@@ -442,7 +440,78 @@ export function pullAncestorSiblingOnDelete(editor: Editor): boolean {
   }).run()
 }
 
-/** Backspace/Delete 키다운에서 위 세 보정을 순서대로 시도 — 처리했으면 true. */
+// Delete (forward) at the very end of a list's last leaf item, when that item
+// is the last child at EVERY enclosing nesting level (so
+// pullAncestorSiblingOnDelete above finds no ancestor-list sibling to pull
+// down) and the node immediately following the outermost list — a plain
+// paragraph living directly under the document, outside any list — is what
+// document order says comes next.
+//
+// This is actually the single most common repro of the whole file: type a few
+// plain lines, then turn only the first one into "1. " — the rest stay as
+// ordinary top-level paragraphs below the new single-item list. Verified via
+// before/after document JSON that the default Delete here has the same
+// failure mode as every other case above (crossing a list depth boundary):
+// pressing Delete at the end of "line1" doesn't merge "line2"'s text in, it
+// relocates the whole "line2" paragraph INTO the list as a new second item
+// ("2. line2"), leaving "line1" untouched. The two-level depth gap (leaf
+// paragraph inside listItem inside list vs. the next paragraph sitting
+// directly under the document) was the exact case pullAncestorSiblingOnDelete's
+// old comment assumed the default already handled correctly — it doesn't, so
+// this needs the same kind of direct transaction: delete the next paragraph
+// node and splice its inline content onto the end of the current one, instead
+// of routing through any lift/join command.
+export function mergeNextParagraphOnDelete(editor: Editor): boolean {
+  const { state } = editor
+  const { selection } = state
+  if (!selection.empty) return false
+  const { $from } = selection
+  if ($from.parent.type.name !== 'paragraph' || $from.parentOffset !== $from.parent.content.size) return false
+  if ($from.depth < 3) return false
+
+  const liDepth = $from.depth - 1
+  const li = $from.node(liDepth)
+  if (li.type.name !== 'listItem' || li.childCount !== 1) return false
+  const list = $from.node(liDepth - 1)
+  if (!list || (list.type.name !== 'orderedList' && list.type.name !== 'bulletList')) return false
+  if ($from.index(liDepth - 1) !== list.childCount - 1) return false // not last item in its immediate list
+
+  // Must also be the last item at every enclosing list level above this one —
+  // if some ancestor list has a following sibling item, that's
+  // pullAncestorSiblingOnDelete's case, not this one.
+  let depth = liDepth - 2
+  while (depth >= 1) {
+    const ownerLi = $from.node(depth)
+    const ownerList = $from.node(depth - 1)
+    if (!ownerLi || ownerLi.type.name !== 'listItem') return false
+    if (!ownerList || (ownerList.type.name !== 'orderedList' && ownerList.type.name !== 'bulletList')) return false
+    if ($from.index(depth - 1) !== ownerList.childCount - 1) return false
+    depth -= 2
+  }
+
+  // depth 1 is always the outermost enclosing list (the document's direct
+  // child) once we're nested at least 3 deep — whatever follows it belongs to
+  // the document itself, not to any list.
+  const docIndex = $from.index(0)
+  if (docIndex + 1 >= state.doc.childCount) return false
+  const nextNode = state.doc.child(docIndex + 1)
+  if (nextNode.type.name !== 'paragraph') return false
+
+  const insertPos = $from.pos
+  const nextFrom = $from.after(1)
+  const nextTo = nextFrom + nextNode.nodeSize
+
+  return editor.chain().focus().command(({ tr, dispatch }) => {
+    if (!dispatch) return true
+    tr.delete(nextFrom, nextTo)
+    tr.insert(insertPos, nextNode.content)
+    tr.setSelection(TextSelection.near(tr.doc.resolve(insertPos)))
+    dispatch(tr)
+    return true
+  }).run()
+}
+
+/** Backspace/Delete 키다운에서 위 네 보정을 순서대로 시도 — 처리했으면 true. */
 export function handleListKeymapWorkaround(editor: Editor, e: KeyboardEvent): boolean {
   if (e.key === 'Backspace' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
     if (removeEmptyListItemOnBackspace(editor)) return true
@@ -450,6 +519,7 @@ export function handleListKeymapWorkaround(editor: Editor, e: KeyboardEvent): bo
   }
   if (e.key === 'Delete' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
     if (pullAncestorSiblingOnDelete(editor)) return true
+    if (mergeNextParagraphOnDelete(editor)) return true
   }
   return false
 }

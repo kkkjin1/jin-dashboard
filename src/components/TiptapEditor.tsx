@@ -5,8 +5,7 @@ import { useEditor, EditorContent } from '@tiptap/react'
 import Image from '@tiptap/extension-image'
 import { collapseEmptyParagraphs } from '@/lib/htmlCleanup'
 import {
-  BASE_TIPTAP_EXTENSIONS, legacyToHtml,
-  removeEmptyListItemOnBackspace, spliceNestedListOnBackspace, pullAncestorSiblingOnDelete,
+  BASE_TIPTAP_EXTENSIONS, legacyToHtml, handleListKeymapWorkaround,
 } from '@/lib/tiptapExtensions'
 
 // ── Clipboard: ProseMirror document → Markdown (GFM) ─────────────────────────
@@ -156,13 +155,11 @@ export default function TiptapEditor({
         : ed.chain().focus().sinkListItem('listItem').run()
       return true
     }
-    if (e.key === 'Backspace' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
-      if (removeEmptyListItemOnBackspace(ed)) return true
-      if (spliceNestedListOnBackspace(ed)) return true
-    }
-    if (e.key === 'Delete' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
-      if (pullAncestorSiblingOnDelete(ed)) return true
-    }
+    // 생각스케치(SketchTextEditor.tsx)와 동일한 공용 함수를 그대로 호출 — 예전에는 이 핸들러가
+    // Backspace/Delete 케이스를 직접 나열해 두 파일이 따로 관리되다 보니, tiptapExtensions.ts에서
+    // 새 케이스(예: mergeNextParagraphOnDelete)를 추가해도 여기 반영이 누락되는 일이 있었다
+    // (Quick Memo에서 고친 버그가 나중에 똑같이 재발한 원인). 공용 함수 하나만 호출하면 그럴 일이 없다.
+    if (handleListKeymapWorkaround(ed, e)) return true
     return false
   }, [])
 
