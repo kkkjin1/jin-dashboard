@@ -35,10 +35,6 @@ function catStyle(cat: string): { background: string; color: string; borderColor
   return { background: p.bg, color: p.text, borderColor: p.border }
 }
 
-function stripHtml(html: string): string {
-  return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
-}
-
 function filterByDate(meetings: Meeting[], sel: DateSelection): Meeting[] {
   if (!sel) return meetings
   return meetings.filter(m => m.meeting_date && m.meeting_date >= sel.from && m.meeting_date <= sel.to)
@@ -329,12 +325,11 @@ export default function MeetingNotesNew() {
     return result
   }, [filtered, catOrder, teamFilter, search, dateSelection])
 
-  // regular는 created_at DESC로 이미 정렬되어 있어 [0]이 곧 최신 일반 노트 —
-  // 구 `selected.notes.find(n => !n.is_prep)`(원본 배열에서 첫 non-prep, 항상
-  // prepend되어 왔으므로 결과적으로 최신 노트였음)와 동일한 결과.
-  const latestNote = selectedNotes?.regular[0]
-  // 같은 안건(=같은 meeting_id)의 다른 세션 — 최신 노트를 제외한 나머지
-  const threadNotes = selectedNotes?.regular.slice(1) ?? []
+  // regular는 created_at DESC로 이미 정렬되어 있음(최신 우선). 예전엔 [0](최신)만
+  // 미리보기에 보여주고 나머지는 "같은 안건의 다른 날짜 회의"에 30자 잘린 한 줄로만
+  // 노출해 노트 수 배지가 2건/3건이어도 실제 내용을 다 볼 수 없었다 — 이제 회의 내용
+  // 블록에서 전체 세션 노트를 순서대로 다 렌더링한다(2026-09-17).
+  const allNotes = selectedNotes?.regular ?? []
   // SAME THREAD 보강: 실사용 데이터 확인 결과 반복 회의는 대부분 "+ 새 회의록"으로 매번 새
   // meetings row를 만들고 제목만 그대로 재사용하는 패턴(예: "아람님_데일리"가 여러 날짜에
   // 별도 row로 존재) — meeting_notes 누적이 아니라서 threadNotes만으로는 안 잡힌다. explicit
@@ -512,23 +507,60 @@ export default function MeetingNotesNew() {
 
           <div className="h-px my-4 flex-shrink-0" style={{ background: 'rgba(var(--ink-rgb),0.08)' }} />
 
-          {/* 회의 내용 — 이 블록만 자체 scroll */}
-          <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
-            <p className="text-[11px] font-semibold uppercase tracking-wide mb-2" style={{ color: 'rgba(var(--text-rgb),0.4)' }}>회의 내용</p>
-            {latestNote ? (
-              <MarkdownContent content={latestNote.content} dark className="text-[13px] leading-relaxed" />
+          {/* 회의 내용 — 이 블록만 자체 scroll. 노트가 여러 건(토글식 세션 추가)이면
+              최신 것만 보여주지 않고 전부 순서대로 렌더링 — 목록의 "N개" 배지가
+              가리키는 내용을 미리보기에서 다 볼 수 있어야 한다. 하단 pb-4는 마지막
+              줄이 스크롤 끝에서 잘려 보이던 문제(둥근 모서리 컨테이너 하단에 여백이
+              없어 마지막 내용이 딱 붙어 보이던 것) 보완용. */}
+          <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide pb-4">
+            <p className="text-[11px] font-semibold uppercase tracking-wide mb-2" style={{ color: 'rgba(var(--text-rgb),0.4)' }}>
+              회의 내용{allNotes.length > 1 ? ` (${allNotes.length}건)` : ''}
+            </p>
+            {allNotes.length > 0 ? (
+              <div className="space-y-4">
+                {allNotes.map((n, i) => (
+                  <div key={n.id}>
+                    {allNotes.length > 1 && (
+                      <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+                        <span
+                          className="text-[11px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0"
+                          style={
+                            i === 0
+                              ? { background: 'rgba(76,127,224,0.16)', color: 'var(--accent-soft)' }
+                              : { background: 'rgba(var(--ink-rgb),0.07)', color: 'rgba(var(--text-rgb),0.5)' }
+                          }
+                        >
+                          {(() => { try { return format(parseISO(n.created_at), 'MM.dd (eee) HH:mm', { locale: ko }) } catch { return '' } })()}
+                        </span>
+                        {i === 0 && (
+                          <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0" style={{ background: 'rgba(76,127,224,0.12)', color: 'var(--accent-soft)' }}>
+                            최신
+                          </span>
+                        )}
+                        {n.title && (
+                          <span className="text-[12px] font-medium truncate" style={{ color: 'rgba(var(--text-rgb),0.6)' }}>{n.title}</span>
+                        )}
+                      </div>
+                    )}
+                    <MarkdownContent content={n.content} dark className="text-[13px] leading-relaxed" />
+                    {i < allNotes.length - 1 && (
+                      <div className="h-px mt-4" style={{ background: 'rgba(var(--ink-rgb),0.1)' }} />
+                    )}
+                  </div>
+                ))}
+              </div>
             ) : (
               <p className="text-[13px]" style={{ color: 'rgba(var(--text-rgb),0.25)' }}>기록된 노트가 없습니다</p>
             )}
           </div>
 
-          {/* 같은 안건의 다른 날짜 회의 — (a) 같은 meeting_id의 다른 노트 + (b) 제목이 완전히 같은
-              다른 meetings row(반복 회의를 매번 새 row로 만드는 실사용 패턴). 있을 때만 표시. */}
-          {(threadNotes.length > 0 || siblingMeetings.length > 0) && (
+          {/* 같은 제목의 다른 회의 — "+ 새 회의록"으로 매번 새 row를 만드는 반복 회의 패턴
+              대응(제목 완전 일치, 같은 meeting_id의 세션 노트는 위 회의 내용에서 이미 전부 보임) */}
+          {siblingMeetings.length > 0 && (
             <>
               <div className="h-px my-4 flex-shrink-0" style={{ background: 'rgba(var(--ink-rgb),0.08)' }} />
               <div className="flex-shrink-0">
-                <p className="text-[11px] font-semibold uppercase tracking-wide mb-2" style={{ color: 'rgba(var(--text-rgb),0.4)' }}>같은 안건의 다른 날짜 회의</p>
+                <p className="text-[11px] font-semibold uppercase tracking-wide mb-2" style={{ color: 'rgba(var(--text-rgb),0.4)' }}>같은 제목의 다른 회의</p>
                 <div className="space-y-1 max-h-40 overflow-y-auto scrollbar-hide">
                   {siblingMeetings.map(m => (
                     <button key={m.id} onClick={() => setSelected(m)}
@@ -540,19 +572,6 @@ export default function MeetingNotesNew() {
                         {m.title || '제목 없음'}
                       </span>
                       <span className="text-[9px] px-1.5 py-0.5 rounded-full flex-shrink-0" style={{ background: 'rgba(76,127,224,0.12)', color: 'var(--accent-soft)' }}>다른 회의</span>
-                    </button>
-                  ))}
-                  {threadNotes.map(n => (
-                    // 같은 meeting의 다른 세션 노트 — 클릭하면 상세 페이지로 이동(그 노트를 펼쳐볼 수 있고
-                    // 추가 입력도 상세에서만 가능하므로, 미리보기에서 눌러도 반응이 있어야 한다)
-                    <button key={n.id} onClick={() => router.push(`/meetings/${selected.id}`)}
-                      className="w-full flex items-start gap-2 py-1 text-left hover:opacity-80 transition-opacity">
-                      <span className="text-[10px] flex-shrink-0 w-16 pt-0.5" style={{ color: 'rgba(var(--text-rgb),0.35)' }}>
-                        {(() => { try { return format(parseISO(n.created_at), 'MM.dd') } catch { return '' } })()}
-                      </span>
-                      <span className="text-[12px] truncate flex-1" style={{ color: 'rgba(var(--text-rgb),0.6)' }}>
-                        {n.title} — {stripHtml(n.content).slice(0, 30)}
-                      </span>
                     </button>
                   ))}
                 </div>
