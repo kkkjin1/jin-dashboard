@@ -539,14 +539,17 @@ export default function MeetingNotesNew() {
                     </button>
                   ))}
                   {threadNotes.map(n => (
-                    <div key={n.id} className="flex items-start gap-2 py-1">
+                    // 같은 meeting의 다른 세션 노트 — 클릭하면 상세 페이지로 이동(그 노트를 펼쳐볼 수 있고
+                    // 추가 입력도 상세에서만 가능하므로, 미리보기에서 눌러도 반응이 있어야 한다)
+                    <button key={n.id} onClick={() => router.push(`/meetings/${selected.id}`)}
+                      className="w-full flex items-start gap-2 py-1 text-left hover:opacity-80 transition-opacity">
                       <span className="text-[10px] flex-shrink-0 w-16 pt-0.5" style={{ color: 'rgba(var(--text-rgb),0.35)' }}>
                         {(() => { try { return format(parseISO(n.created_at), 'MM.dd') } catch { return '' } })()}
                       </span>
                       <span className="text-[12px] truncate flex-1" style={{ color: 'rgba(var(--text-rgb),0.6)' }}>
                         {n.title} — {stripHtml(n.content).slice(0, 30)}
                       </span>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>
