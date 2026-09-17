@@ -485,7 +485,10 @@ export default function MeetingNotesNew() {
               <button onClick={() => setSelected(null)} className="text-lg leading-none transition-colors" style={{ color: 'rgba(var(--text-rgb),0.28)' }}>×</button>
             </div>
 
-            <h2 className="text-base font-semibold mb-2" style={{ color: 'rgba(var(--text-rgb),1)' }}>{selected.title || '제목 없음'}</h2>
+            <h2 className="text-base font-semibold mb-2 cursor-pointer hover:underline"
+              style={{ color: 'rgba(var(--text-rgb),1)' }}
+              onClick={() => router.push(`/meetings/${selected.id}`)}
+            >{selected.title || '제목 없음'}</h2>
 
             <div className="flex items-center gap-2 flex-wrap">
               {selectedDateLabel && (
