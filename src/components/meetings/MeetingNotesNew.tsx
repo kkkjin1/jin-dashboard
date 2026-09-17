@@ -462,6 +462,7 @@ export default function MeetingNotesNew() {
                 meetings={items}
                 dotColor={catDot(cat)}
                 onSelect={id => setSelected(meetings.find(m => m.id === id) ?? null)}
+                onOpenDetail={id => router.push(`/meetings/${id}`)}
                 noteCounts={noteCounts}
               />
             ))}

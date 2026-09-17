@@ -9,10 +9,11 @@ interface Props {
   meeting: Meeting
   catAccent: string
   onClick: () => void
+  onOpenDetail: () => void
   noteCount: number
 }
 
-export default function MeetingRow({ meeting, catAccent, onClick, noteCount }: Props) {
+export default function MeetingRow({ meeting, catAccent, onClick, onOpenDetail, noteCount }: Props) {
   const date = meeting.meeting_date
     ? format(parseISO(meeting.meeting_date), 'MM.dd (eee)', { locale: ko })
     : '미지정'
@@ -30,10 +31,14 @@ export default function MeetingRow({ meeting, catAccent, onClick, noteCount }: P
         {date}
       </span>
 
-      {/* 아이콘 + 제목 */}
+      {/* 아이콘 + 제목 — 제목 클릭은 미리보기를 거치지 않고 바로 상세 페이지로 이동 */}
       <div className="flex items-center gap-2 flex-1 min-w-0">
         <FileText size={13} className="flex-shrink-0" style={{ color: catAccent, opacity: 0.7 }} />
-        <span className="text-[13px] font-medium truncate" style={{ color: 'rgba(var(--text-rgb),1)' }}>
+        <span
+          onClick={e => { e.stopPropagation(); onOpenDetail() }}
+          className="text-[13px] font-medium truncate hover:underline"
+          style={{ color: 'rgba(var(--text-rgb),1)' }}
+        >
           {meeting.title || '제목 없음'}
         </span>
       </div>
@@ -60,10 +65,14 @@ export default function MeetingRow({ meeting, catAccent, onClick, noteCount }: P
         )}
       </div>
 
-      {/* 화살표 */}
-      <div className="w-6 flex justify-end flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+      {/* 화살표 — 클릭 시 미리보기 없이 바로 상세 페이지로 이동 */}
+      <button
+        onClick={e => { e.stopPropagation(); onOpenDetail() }}
+        className="w-6 flex justify-end flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+        title="상세 페이지 열기"
+      >
         <ChevronRight size={13} style={{ color: 'rgba(var(--text-rgb),0.3)' }} />
-      </div>
+      </button>
     </div>
   )
 }

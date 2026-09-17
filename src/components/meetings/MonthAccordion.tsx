@@ -10,6 +10,7 @@ interface Props {
   months: MonthGroup[]
   catAccent: string
   onNavigate: (id: string) => void
+  onOpenDetail: (id: string) => void
   noteCounts: Record<string, number>
 }
 
@@ -19,7 +20,7 @@ function fmtYM(ym: string): string {
   return `${parseInt(m)}월`
 }
 
-export default function MonthAccordion({ months, catAccent, onNavigate, noteCounts }: Props) {
+export default function MonthAccordion({ months, catAccent, onNavigate, onOpenDetail, noteCounts }: Props) {
   const [activeKey, setActiveKey] = useState<string | 'all'>('all')
 
   if (months.length === 0) return null
@@ -92,6 +93,7 @@ export default function MonthAccordion({ months, catAccent, onNavigate, noteCoun
             meeting={m}
             catAccent={catAccent}
             onClick={() => onNavigate(m.id)}
+            onOpenDetail={() => onOpenDetail(m.id)}
             noteCount={noteCounts[m.id] ?? 0}
           />
         ))}
