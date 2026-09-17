@@ -359,6 +359,11 @@ export default function MeetingDetailPage() {
   const [relatedJournals, setRelatedJournals] = useState<{ id: string; date: string; content: string; tags: string[]; linked: boolean }[]>([])
   const [sameCatMeetings, setSameCatMeetings] = useState<Pick<Meeting, 'id' | 'title' | 'meeting_date'>[]>([])
   const [agendaItems, setAgendaItems] = useState<AgendaItemOption[]>([])
+  // SAME CATEGORY(다른 안건) 클릭 시 lightweight preview — 현재 작성 중인 LEFT context를 잃지 않기 위해
+  // 바로 navigate하지 않고 modal로 미리 보여준 뒤 "이 회의 열기"에서만 실제 이동한다.
+  const [catPreview, setCatPreview] = useState<Pick<Meeting, 'id' | 'title' | 'meeting_date'> | null>(null)
+  const [catPreviewContent, setCatPreviewContent] = useState('')
+  const [catPreviewLoading, setCatPreviewLoading] = useState(false)
 
   const [newNoteKey, setNewNoteKey] = useState(0)
   const titleRef = useRef<HTMLInputElement>(null)
@@ -601,6 +606,19 @@ export default function MeetingDetailPage() {
       .then(({ data }) => setSameCatMeetings((data ?? []) as Pick<Meeting, 'id' | 'title' | 'meeting_date'>[]))
   }, [meeting?.category, id])
 
+  async function openCatPreview(m: Pick<Meeting, 'id' | 'title' | 'meeting_date'>) {
+    setCatPreview(m)
+    setCatPreviewContent('')
+    setCatPreviewLoading(true)
+    const grouped = await fetchMeetingNotes(supabase, m.id)
+    setCatPreviewContent(grouped.regular[0]?.content ?? '')
+    setCatPreviewLoading(false)
+  }
+  function closeCatPreview() {
+    setCatPreview(null)
+    setCatPreviewContent('')
+  }
+
   useEffect(() => {
     function onEsc(e: KeyboardEvent) {
       if (e.key === 'Escape') setShowFullscreen(false)
@@ -610,6 +628,16 @@ export default function MeetingDetailPage() {
       return () => window.removeEventListener('keydown', onEsc)
     }
   }, [showFullscreen])
+
+  useEffect(() => {
+    function onEsc(e: KeyboardEvent) {
+      if (e.key === 'Escape') closeCatPreview()
+    }
+    if (catPreview) {
+      window.addEventListener('keydown', onEsc)
+      return () => window.removeEventListener('keydown', onEsc)
+    }
+  }, [catPreview])
 
   function toggleNote(index: number) {
     setOpenIndexes(prev => {
@@ -816,10 +844,10 @@ export default function MeetingDetailPage() {
       </div>
 
       {/* 고정 min-width가 없는 자유 흐름 콘텐츠라 md 미만에서 세로 스택,
-          md부터 기존 flex-[55]/[45] 좌우 복원 */}
+          md부터 좌 50 : 우 50(우측은 다시 상/하 50:50 — 같은 안건 히스토리 / 같은 범주 다른 회의) */}
       <div className="flex flex-col gap-6 md:flex-row">
-        {/* 왼쪽: 회의 내용 */}
-        <div className="w-full min-w-0 md:flex-[55]">
+        {/* 왼쪽 50%: 현재 회의 작성 — title/date/category/editor/related task/attachments */}
+        <div className="w-full min-w-0 md:flex-[50]">
           <div className="flex gap-4 items-end mb-6 flex-wrap">
             <div>
               <label className="text-xs text-[var(--text-muted)] block mb-1">회의 날짜</label>
@@ -902,19 +930,8 @@ export default function MeetingDetailPage() {
                 dark
               />
             )}
-
-            <div className="space-y-2">
-              {regularNotes.length === 0 ? (
-                <p className="text-sm text-[rgba(var(--text-rgb),0.3)] text-center py-4">아직 기록된 내용이 없습니다</p>
-              ) : (
-                regularNotes.map((note, idx) => (
-                  <NoteAccordion key={note.id} note={note}
-                    isOpen={openIndexes.has(idx)} onToggle={() => toggleNote(idx)} onDelete={deleteNote}
-                    onEdit={editNote} onFullscreen={(content) => { setFullscreenContent(content); setShowFullscreen(true) }}
-                    agendaItems={agendaItems} onAddToItem={addNoteToItem} />
-                ))
-              )}
-            </div>
+            {/* 이전 회의(같은 안건의 다른 날짜) 목록은 RIGHT TOP("같은 안건의 다른 날짜 회의")으로 이동 —
+                LEFT는 "지금 회의를 작성한다"에만 집중, 같은 정보를 중복 노출하지 않는다. */}
           </div>
 
           <div className="mb-6">
@@ -957,17 +974,8 @@ export default function MeetingDetailPage() {
             </div>
           </div>
 
-          <div className="border-t border-[rgba(var(--ink-rgb),0.06)] pt-6">
-            <button onClick={deleteMeeting} disabled={deleting}
-              className="text-sm text-red-400 hover:text-red-600 transition-colors">
-              이 회의록 삭제
-            </button>
-          </div>
-        </div>
-
-        {/* 오른쪽: 연관 프로젝트 업무 */}
-        <div className="w-full min-w-0 md:flex-[45]">
-          <div className="bg-[var(--surface-panel)] rounded-lg border border-[var(--border-default)] p-5 sticky top-6">
+          {/* 연관 업무 — "related task/project" 기능 보존을 위해 LEFT에 유지(RIGHT는 same-thread/same-category 전용) */}
+          <div className="mb-6 bg-[var(--surface-panel)] rounded-lg border border-[var(--border-default)] p-5">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xs font-semibold text-[rgba(var(--text-rgb),0.4)] uppercase tracking-wide">연관 업무</h3>
               <button
@@ -1040,66 +1048,156 @@ export default function MeetingDetailPage() {
                 ))}
               </div>
             )}
+          </div>
 
-            {sameCatMeetings.length > 0 && (
-              <div className="mt-6 pt-5 border-t border-[rgba(var(--ink-rgb),0.06)]">
-                <h3 className="text-xs font-semibold text-[rgba(var(--text-rgb),0.4)] uppercase tracking-wide mb-3">
-                  {meeting?.category} 이전 회의
-                </h3>
-                <div className="space-y-1">
-                  {sameCatMeetings.map(m => (
-                    <Link key={m.id} href={`/meetings/${m.id}`}
-                      className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-[rgba(var(--ink-rgb),0.03)] transition-colors group">
-                      <span className="text-[10px] text-[rgba(var(--text-rgb),0.4)] flex-shrink-0 w-12">
-                        {m.meeting_date ? format(parseISO(m.meeting_date), 'M.d') : '—'}
-                      </span>
-                      <span className="text-xs text-[rgba(var(--text-rgb),0.7)] group-hover:text-[rgba(var(--text-rgb),1)] truncate flex-1 transition-colors">
-                        {m.title || '제목 없음'}
-                      </span>
-                      <span className="text-[10px] text-[rgba(var(--text-rgb),0.3)] group-hover:text-[rgba(var(--text-rgb),0.5)] flex-shrink-0">↗</span>
-                    </Link>
-                  ))}
-                </div>
+          {/* 관련 회고 — 기존 기능 보존, RIGHT는 same-thread/same-category 전용이라 LEFT에 유지 */}
+          <div className="mb-6 bg-[var(--surface-panel)] rounded-lg border border-[var(--border-default)] p-5">
+            <h3 className="text-xs font-semibold text-[rgba(var(--text-rgb),0.4)] uppercase tracking-wide mb-3">관련 회고</h3>
+            {!meeting?.meeting_date ? (
+              <p className="text-xs text-[rgba(var(--text-rgb),0.3)] text-center py-4">회의 날짜를 설정하면<br/>전후 회고가 자동으로 연결돼요</p>
+            ) : relatedJournals.length === 0 ? (
+              <p className="text-xs text-[rgba(var(--text-rgb),0.3)] text-center py-4">이 회의 전후 작성된<br/>회고가 없어요</p>
+            ) : (
+              <div className="space-y-2">
+                {relatedJournals.map(j => {
+                  const d = new Date(j.date + 'T00:00:00')
+                  const label = `${d.getMonth()+1}/${d.getDate()}`
+                  return (
+                    <div key={j.id} className="bg-[rgba(var(--ink-rgb),0.03)] rounded-lg p-3">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <p className="text-[10px] font-medium text-[rgba(var(--text-rgb),0.4)]">{label}</p>
+                        {j.linked
+                          ? <span className="text-[9px] bg-blue-50 text-blue-500 border border-blue-200 px-1 rounded">@ 직접연결</span>
+                          : <span className="text-[9px] text-[rgba(var(--text-rgb),0.3)]">±2일</span>
+                        }
+                      </div>
+                      <p className="text-xs text-[rgba(var(--text-rgb),0.7)] leading-relaxed line-clamp-3">{j.content}</p>
+                      {j.tags?.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1.5">
+                          {j.tags.map(t => <span key={t} className="text-[9px] text-[rgba(var(--text-rgb),0.4)]">#{t}</span>)}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             )}
+          </div>
 
-            <div className="mt-6 pt-5 border-t border-[rgba(var(--ink-rgb),0.06)]">
-              <h3 className="text-xs font-semibold text-[rgba(var(--text-rgb),0.4)] uppercase tracking-wide mb-3">관련 회고</h3>
-              {!meeting?.meeting_date ? (
-                <p className="text-xs text-[rgba(var(--text-rgb),0.3)] text-center py-4">회의 날짜를 설정하면<br/>전후 회고가 자동으로 연결돼요</p>
-              ) : relatedJournals.length === 0 ? (
-                <p className="text-xs text-[rgba(var(--text-rgb),0.3)] text-center py-4">이 회의 전후 작성된<br/>회고가 없어요</p>
-              ) : (
-                <>
-                  <div className="space-y-2">
-                    {relatedJournals.map(j => {
-                      const d = new Date(j.date + 'T00:00:00')
-                      const label = `${d.getMonth()+1}/${d.getDate()}`
-                      return (
-                        <div key={j.id} className="bg-[rgba(var(--ink-rgb),0.03)] rounded-lg p-3">
-                          <div className="flex items-center gap-1.5 mb-1">
-                            <p className="text-[10px] font-medium text-[rgba(var(--text-rgb),0.4)]">{label}</p>
-                            {j.linked
-                              ? <span className="text-[9px] bg-blue-50 text-blue-500 border border-blue-200 px-1 rounded">@ 직접연결</span>
-                              : <span className="text-[9px] text-[rgba(var(--text-rgb),0.3)]">±2일</span>
-                            }
-                          </div>
-                          <p className="text-xs text-[rgba(var(--text-rgb),0.7)] leading-relaxed line-clamp-3">{j.content}</p>
-                          {j.tags?.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-1.5">
-                              {j.tags.map(t => <span key={t} className="text-[9px] text-[rgba(var(--text-rgb),0.4)]">#{t}</span>)}
-                            </div>
-                          )}
-                        </div>
-                      )
-                    })}
+          <div className="border-t border-[rgba(var(--ink-rgb),0.06)] pt-6">
+            <button onClick={deleteMeeting} disabled={deleting}
+              className="text-sm text-red-400 hover:text-red-600 transition-colors">
+              이 회의록 삭제
+            </button>
+          </div>
+        </div>
+
+        {/* 오른쪽 50%: Context — TOP(같은 안건의 다른 날짜 회의=SAME THREAD) / BOTTOM(같은 범주의 다른 회의=SAME CATEGORY),
+            각각 독립 scroll. sticky로 LEFT가 길어져도 뷰포트에 두 context가 동시에 보이게 한다. */}
+        <div className="w-full min-w-0 md:flex-[50]">
+          <div className="flex flex-col gap-4 md:sticky md:top-6 md:max-h-[calc(100vh-3rem)]">
+            {/* RIGHT TOP: SAME THREAD — 기존 editor 하단의 "이전 회의" toggle/archive를 그대로 재사용해 위치만 이동 */}
+            <div className="flex-1 min-h-0 flex flex-col bg-[var(--surface-panel)] rounded-lg border border-[var(--border-default)] p-5">
+              <h3 className="text-xs font-semibold text-[rgba(var(--text-rgb),0.4)] uppercase tracking-wide mb-3 flex-shrink-0">
+                같은 안건의 다른 날짜 회의{meeting?.title ? ` · ${meeting.title}` : ''}
+              </h3>
+              <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
+                {noteInput.replace(/<[^>]*>/g, '').trim() && (
+                  <div className="flex gap-3 pb-3">
+                    <div className="flex flex-col items-center flex-shrink-0 pt-1">
+                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: 'var(--accent-primary)' }} />
+                      {regularNotes.length > 0 && <span className="w-px flex-1 mt-1" style={{ background: 'rgba(var(--ink-rgb),0.1)' }} />}
+                    </div>
+                    <div className="min-w-0 flex-1 pb-1">
+                      <p className="text-xs font-medium" style={{ color: 'var(--accent-primary)' }}>{noteTitle || defaultNoteTitle()}</p>
+                      <p className="text-[11px] text-[rgba(var(--text-rgb),0.35)]">현재 작성 중</p>
+                    </div>
                   </div>
-                </>
-              )}
+                )}
+                {regularNotes.length === 0 ? (
+                  !noteInput.replace(/<[^>]*>/g, '').trim() && (
+                    <p className="text-sm text-[rgba(var(--text-rgb),0.3)] text-center py-6">같은 안건의 이전 회의가 없습니다</p>
+                  )
+                ) : (
+                  regularNotes.map((note, idx) => (
+                    <div key={note.id} className="flex gap-3">
+                      <div className="flex flex-col items-center flex-shrink-0 pt-1">
+                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: 'rgba(var(--ink-rgb),0.25)' }} />
+                        {idx < regularNotes.length - 1 && <span className="w-px flex-1 mt-1" style={{ background: 'rgba(var(--ink-rgb),0.1)' }} />}
+                      </div>
+                      <div className="min-w-0 flex-1 pb-3">
+                        <NoteAccordion note={note}
+                          isOpen={openIndexes.has(idx)} onToggle={() => toggleNote(idx)} onDelete={deleteNote}
+                          onEdit={editNote} onFullscreen={(content) => { setFullscreenContent(content); setShowFullscreen(true) }}
+                          agendaItems={agendaItems} onAddToItem={addNoteToItem} />
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* RIGHT BOTTOM: SAME CATEGORY — 같은 category지만 다른 안건. SAME THREAD와 다른 개념이라 명확히 구분해 표시 */}
+            <div className="flex-1 min-h-0 flex flex-col bg-[var(--surface-panel)] rounded-lg border border-[var(--border-default)] p-5">
+              <h3 className="text-xs font-semibold text-[rgba(var(--text-rgb),0.4)] uppercase tracking-wide mb-3 flex-shrink-0">
+                같은 범주의 다른 회의{meeting?.category ? ` · ${meeting.category}` : ''}
+              </h3>
+              <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
+                {sameCatMeetings.length === 0 ? (
+                  <p className="text-sm text-[rgba(var(--text-rgb),0.3)] text-center py-6">같은 범주의 다른 회의가 없습니다</p>
+                ) : (
+                  <div className="space-y-1">
+                    {sameCatMeetings.map(m => (
+                      <button key={m.id} onClick={() => openCatPreview(m)}
+                        className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-[rgba(var(--ink-rgb),0.03)] transition-colors group text-left">
+                        <span className="text-[10px] text-[rgba(var(--text-rgb),0.4)] flex-shrink-0 w-12">
+                          {m.meeting_date ? format(parseISO(m.meeting_date), 'M.d') : '—'}
+                        </span>
+                        <span className="text-xs text-[rgba(var(--text-rgb),0.7)] group-hover:text-[rgba(var(--text-rgb),1)] truncate flex-1 transition-colors">
+                          {m.title || '제목 없음'}
+                        </span>
+                        <span className="text-[10px] text-[rgba(var(--text-rgb),0.3)] group-hover:text-[rgba(var(--text-rgb),0.5)] flex-shrink-0">›</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
       </div>
+
+      {/* SAME CATEGORY 클릭 preview modal — 클릭해도 현재 작성 중인 LEFT context를 잃지 않도록
+          바로 navigate하지 않고 여기서 먼저 보여준 뒤 "이 회의 열기"에서만 실제 이동한다. */}
+      {catPreview && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={closeCatPreview}>
+          <div className="bg-[var(--surface-primary)] rounded-2xl border border-[var(--border-default)] p-6 max-w-lg w-full max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex items-start justify-between mb-1 flex-shrink-0">
+              <h3 className="text-base font-semibold" style={{ color: 'rgba(var(--text-rgb),1)' }}>{catPreview.title || '제목 없음'}</h3>
+              <button onClick={closeCatPreview} className="text-lg leading-none text-[rgba(var(--text-rgb),0.4)] hover:text-[rgba(var(--text-rgb),0.7)]">×</button>
+            </div>
+            <p className="text-xs text-[rgba(var(--text-rgb),0.4)] mb-4 flex-shrink-0">
+              {catPreview.meeting_date ? format(parseISO(catPreview.meeting_date), 'yyyy.MM.dd') : '날짜 없음'}
+              {meeting?.category ? ` · ${meeting.category}` : ''}
+            </p>
+            <div className="flex-1 min-h-0 overflow-y-auto mb-4">
+              <p className="text-[11px] font-semibold uppercase tracking-wide mb-2 text-[rgba(var(--text-rgb),0.4)]">회의 내용</p>
+              {catPreviewLoading ? (
+                <p className="text-sm text-[rgba(var(--text-rgb),0.3)]">불러오는 중...</p>
+              ) : catPreviewContent ? (
+                <MarkdownContent content={catPreviewContent} dark className="text-[13px] leading-relaxed" />
+              ) : (
+                <p className="text-sm text-[rgba(var(--text-rgb),0.3)]">기록된 노트가 없습니다</p>
+              )}
+            </div>
+            <button onClick={() => router.push(`/meetings/${catPreview.id}`)}
+              className="w-full flex-shrink-0 flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-medium transition-colors"
+              style={{ background: 'rgba(76,127,224,0.18)', border: '1px solid rgba(76,127,224,0.35)', color: 'var(--accent-soft)' }}>
+              이 회의 열기 →
+            </button>
+          </div>
+        </div>
+      )}
 
       {showFullscreen && (
         <div className="fixed inset-0 z-50 bg-black/90 flex items-start justify-center p-8 overflow-auto"

@@ -9,6 +9,7 @@ import { useAutosave, clearAutosaveBuffer } from '@/hooks/useAutosave'
 import { format, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import type { Meeting } from '@/types'
+import MarkdownContent from '@/components/MarkdownContent'
 import { CATEGORY_PALETTE, MEETING_CATEGORY, colorKeyFromName } from '@/lib/categoryColors'
 import { fetchMeetingNotes, fetchMeetingNoteCounts, type MeetingNotesGrouped } from '@/lib/meetingNotes'
 import SearchToolbar, { type SortOrder, type DateSelection } from './SearchToolbar'
@@ -332,6 +333,8 @@ export default function MeetingNotesNew() {
   // 구 `selected.notes.find(n => !n.is_prep)`(원본 배열에서 첫 non-prep, 항상
   // prepend되어 왔으므로 결과적으로 최신 노트였음)와 동일한 결과.
   const latestNote = selectedNotes?.regular[0]
+  // 같은 안건(=같은 meeting_id)의 다른 날짜 세션 — 최신 노트를 제외한 나머지
+  const threadNotes = selectedNotes?.regular.slice(1) ?? []
   const selectedDateLabel = selected?.meeting_date
     ? (() => { try { return format(parseISO(selected.meeting_date as string), 'yyyy.MM.dd (eee)', { locale: ko }) } catch { return '' } })()
     : ''
@@ -457,60 +460,83 @@ export default function MeetingNotesNew() {
       </div>
     </div>
 
-    {/* 우측 미리보기 패널 — 회의를 선택했을 때만 등장. 편집은 여기서 하지 않고 상세 페이지로 유도.
+    {/* 우측 Context Preview — 회의를 선택했을 때만 등장. 편집은 여기서 하지 않고 상세 페이지로 유도.
         marginTop을 좌측 헤더 wrapper의 실측 높이(headerHeight)로 맞춰서, 경영진 그룹 박스
-        상단과 미리보기 패널 상단이 항상 같은 y좌표에서 시작하도록 함 */}
-    <div className="flex-1 min-w-0 h-full overflow-y-auto scrollbar-hide" style={{ marginTop: headerHeight }}>
+        상단과 미리보기 패널 상단이 항상 같은 y좌표에서 시작하도록 함. 패널 자체는 남은 세로 공간을
+        전부 차지하고(overflow-hidden), 내부의 "회의 내용" 블록만 자체 scroll — 헤더/후속 목록/버튼은
+        content 길이와 무관하게 항상 보이게 한다. */}
+    <div className="flex-1 min-w-0 h-full flex flex-col overflow-hidden" style={{ marginTop: headerHeight }}>
       {selected ? (
-        <div className="pr-1 pb-6">
-          <div className="rounded-2xl p-5" style={{ background: 'rgba(var(--ink-rgb),0.06)', border: '1px solid rgba(var(--ink-rgb),0.09)' }}>
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'rgba(var(--text-rgb),0.4)' }}>회의 미리보기</span>
+        <div className="flex-1 min-h-0 flex flex-col rounded-2xl p-5 pb-4 mr-1 mb-6" style={{ background: 'rgba(var(--ink-rgb),0.06)', border: '1px solid rgba(var(--ink-rgb),0.09)' }}>
+          {/* 헤더: title + metadata — 고정 */}
+          <div className="flex-shrink-0">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'rgba(var(--text-rgb),0.4)' }}>선택한 회의</span>
               <button onClick={() => setSelected(null)} className="text-lg leading-none transition-colors" style={{ color: 'rgba(var(--text-rgb),0.28)' }}>×</button>
             </div>
 
-            <h2 className="text-base font-semibold mb-2.5" style={{ color: 'rgba(var(--text-rgb),1)' }}>{selected.title || '제목 없음'}</h2>
+            <h2 className="text-base font-semibold mb-2" style={{ color: 'rgba(var(--text-rgb),1)' }}>{selected.title || '제목 없음'}</h2>
 
-            <div className="flex items-center gap-2 mb-4">
-              {selected.category && (
-                <span className="text-[10px] px-2.5 py-1 rounded-full border font-medium" style={catStyle(selected.category)}>
-                  {selected.category}
-                </span>
-              )}
+            <div className="flex items-center gap-2 flex-wrap">
               {selectedDateLabel && (
-                <span className="text-[11px]" style={{ color: 'rgba(var(--text-rgb),0.35)' }}>{selectedDateLabel}</span>
+                <span className="text-[12px]" style={{ color: 'rgba(var(--text-rgb),0.45)' }}>{selectedDateLabel}</span>
               )}
-            </div>
-
-            <div className="mb-4">
-              <p className="text-[11px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: 'rgba(var(--text-rgb),0.4)' }}>최근 노트</p>
-              {latestNote ? (
-                <p
-                  className="text-[13px] leading-relaxed"
-                  style={{ color: 'rgba(var(--text-rgb),0.7)', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
-                >
-                  {stripHtml(latestNote.content)}
-                </p>
-              ) : (
-                <p className="text-[13px]" style={{ color: 'rgba(var(--text-rgb),0.25)' }}>기록된 노트가 없습니다</p>
+              {selected.category && (
+                <>
+                  <span style={{ color: 'rgba(var(--text-rgb),0.2)' }}>·</span>
+                  <span className="text-[10px] px-2.5 py-1 rounded-full border font-medium" style={catStyle(selected.category)}>
+                    {selected.category}
+                  </span>
+                </>
               )}
-            </div>
-
-            <div className="flex items-center gap-4 mb-5">
-              <span className="text-[11px]" style={{ color: 'rgba(var(--text-rgb),0.4)' }}>
-                첨부 {previewCounts ? previewCounts.attachments : '…'}
-              </span>
-              <span className="text-[11px]" style={{ color: 'rgba(var(--text-rgb),0.4)' }}>
-                연관업무 {previewCounts ? previewCounts.links : '…'}
+              <span style={{ color: 'rgba(var(--text-rgb),0.15)' }}>·</span>
+              <span className="text-[11px]" style={{ color: 'rgba(var(--text-rgb),0.35)' }}>
+                첨부 {previewCounts ? previewCounts.attachments : '…'} · 연관업무 {previewCounts ? previewCounts.links : '…'}
               </span>
             </div>
+          </div>
 
+          <div className="h-px my-4 flex-shrink-0" style={{ background: 'rgba(var(--ink-rgb),0.08)' }} />
+
+          {/* 회의 내용 — 이 블록만 자체 scroll */}
+          <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
+            <p className="text-[11px] font-semibold uppercase tracking-wide mb-2" style={{ color: 'rgba(var(--text-rgb),0.4)' }}>회의 내용</p>
+            {latestNote ? (
+              <MarkdownContent content={latestNote.content} dark className="text-[13px] leading-relaxed" />
+            ) : (
+              <p className="text-[13px]" style={{ color: 'rgba(var(--text-rgb),0.25)' }}>기록된 노트가 없습니다</p>
+            )}
+          </div>
+
+          {/* 같은 안건의 다른 날짜 회의(같은 meeting 안의 다른 노트) — 있을 때만 표시, 빈 공간을 예약하지 않음 */}
+          {threadNotes.length > 0 && (
+            <>
+              <div className="h-px my-4 flex-shrink-0" style={{ background: 'rgba(var(--ink-rgb),0.08)' }} />
+              <div className="flex-shrink-0">
+                <p className="text-[11px] font-semibold uppercase tracking-wide mb-2" style={{ color: 'rgba(var(--text-rgb),0.4)' }}>같은 안건의 다른 날짜 회의</p>
+                <div className="space-y-1 max-h-32 overflow-y-auto scrollbar-hide">
+                  {threadNotes.map(n => (
+                    <div key={n.id} className="flex items-start gap-2 py-1">
+                      <span className="text-[10px] flex-shrink-0 w-16 pt-0.5" style={{ color: 'rgba(var(--text-rgb),0.35)' }}>
+                        {(() => { try { return format(parseISO(n.created_at), 'MM.dd') } catch { return '' } })()}
+                      </span>
+                      <span className="text-[12px] truncate flex-1" style={{ color: 'rgba(var(--text-rgb),0.6)' }}>
+                        {n.title} — {stripHtml(n.content).slice(0, 30)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+
+          <div className="pt-4 flex-shrink-0">
             <button
               onClick={() => router.push(`/meetings/${selected.id}`)}
               className="w-full flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-medium transition-colors"
               style={{ background: 'rgba(76,127,224,0.18)', border: '1px solid rgba(76,127,224,0.35)', color: 'var(--accent-soft)' }}
             >
-              자세히 보기 →
+              상세 보기 →
             </button>
           </div>
         </div>
