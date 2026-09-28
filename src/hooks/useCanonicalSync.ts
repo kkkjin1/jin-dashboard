@@ -83,6 +83,22 @@ export function useCanonicalSync<T>({
     }
   }, [supabase, table, onSaved])
 
+  // unmount flush (best-effort) — useAutosave.ts:483-490과 동일한 패턴.
+  // 반드시 아래 debounce effect보다 "먼저" 선언해야 한다: React는 unmount 시 effect
+  // cleanup을 선언 순서대로 실행하는데, debounce effect의 cleanup이 먼저 돌면
+  // timerRef를 비워버려 여기서 pending 저장을 감지하지 못한다(입력 직후 1.2s 안에
+  // 섹션/주제/회차를 전환하면 마지막 입력 유실 — 2026-09-28 STEP 4 검증에서 확인).
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current)
+        timerRef.current = null
+        void attemptSave()
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // 입력 변화에 따른 debounce 저장
   useEffect(() => {
     if (readOnly || id == null || draft == null) return
@@ -103,18 +119,6 @@ export function useCanonicalSync<T>({
 
   useEffect(() => {
     return () => { if (retryTimerRef.current) clearTimeout(retryTimerRef.current) }
-  }, [])
-
-  // unmount flush (best-effort) — useAutosave.ts:483-490과 동일한 패턴.
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current)
-        timerRef.current = null
-        void attemptSave()
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const flush = useCallback(async () => {
