@@ -4,21 +4,21 @@ export const dynamic = 'force-dynamic'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import type { WorkReport, WorkReportEntry, WorkReportTopic } from '@/types'
+import type { WorkReport, WorkReportEntry, WorkReportItem, WorkReportItemSection, WorkReportTopic } from '@/types'
 import TopicOutline, { isFixedKey, type OutlineTopicRow, type FixedSectionKey } from '@/components/work-report/TopicOutline'
 import ReportEditorPanel, { type ReportEditorPanelHandle } from '@/components/work-report/ReportEditorPanel'
 import ContextPanel, { type HistoryItem } from '@/components/work-report/ContextPanel'
-import TopicTableView from '@/components/work-report/TopicTableView'
+import RestoreTopicModal from '@/components/work-report/RestoreTopicModal'
 import ArchiveView from '@/components/work-report/ArchiveView'
 import ReportFullViewModal from '@/components/work-report/ReportFullViewModal'
-import { S, selectClass, selectStyle, fmtPeriodLabel, addDaysToDateStr, todayStr, hasContent, isEntryWritten, type TopicChangeBadge } from '@/components/work-report/style'
+import ItemSectionPanel, { type ItemSectionPanelHandle } from '@/components/work-report/ItemSectionPanel'
+import { ITEM_SECTIONS, ITEM_SECTION_META, parseItemSelection, sortItems, isItemWritten, itemsToText } from '@/components/work-report/items'
+import { S, fmtPeriodLabel, fmtDateFull, addDaysToDateStr, todayStr, hasContent, isEntryWritten, type TopicChangeBadge } from '@/components/work-report/style'
 
-// TOP LEVEL — "보고서 작성"(한 주제에 집중해서 깊게 작성) / "테이블 작성"(이번 회차 전체
-// topic을 한 화면에서 빠르게 작성·검토) / "보고 아카이브"(과거 참고) 3-way. 앞 둘은 서로
-// 다른 데이터가 아니라 같은 work_report_entries를 보는 다른 editing lens다 — 한쪽에서
-// 저장한 값이 다른 쪽에도 그대로 보여야 하므로 자세한 판단 근거는 TopicTableView.tsx와
-// ArchiveView.tsx 상단 주석 참고.
-type Mode = 'write' | 'table' | 'archive'
+// TOP LEVEL — "보고서 작성"(한 주제에 집중해서 깊게 작성) / "보고 아카이브"(과거 참고) 2-way.
+// 예전의 "테이블 작성"(이번 회차 전체 topic을 표로 편집)은 아카이브 "전체 비교"와 역할이
+// 겹쳐 제거했다(2026-09-28). 그 화면에만 있던 "기존 주제 불러오기"는 LEFT 목차로 옮겼다.
+type Mode = 'write' | 'archive'
 
 const FIXED_HISTORY_TITLE: Record<FixedSectionKey, string> = {
   summary: '핵심 요약 히스토리', issues: '주요 이슈 히스토리', next_steps: '다음 단계 히스토리',
@@ -30,11 +30,46 @@ function computeBadge(entry: WorkReportEntry, prev: WorkReportEntry | undefined)
   return 'unchanged'
 }
 
+// 날짜 입력(보고일/기간) — 키 입력마다 저장하면 저장 응답 전 re-render가 브라우저 date 세그먼트
+// 입력("2","9" → 29)을 끊어 09로 저장되는 문제가 있어(2026-09-28 검증에서 확인), 입력
+// 중에는 로컬 값만 바꾸고 멈춘 뒤(800ms) 또는 blur 시 한 번만 커밋한다. 회차 전환 시
+// 초기값 리셋은 key={report.id} remount로 처리한다.
+function DateField({ value, disabled, onCommit, emphasis = false }: { value: string; disabled: boolean; onCommit: (v: string) => void; emphasis?: boolean }) {
+  const [local, setLocal] = useState(value)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const committedRef = useRef(value)
+
+  function commit(v: string) {
+    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null }
+    if (!v || v === committedRef.current) return
+    committedRef.current = v
+    onCommit(v)
+  }
+
+  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current) }, [])
+
+  return (
+    <input type="date" value={local} disabled={disabled}
+      onChange={e => {
+        const v = e.target.value
+        setLocal(v)
+        if (timerRef.current) clearTimeout(timerRef.current)
+        timerRef.current = setTimeout(() => commit(v), 800)
+      }}
+      onBlur={() => commit(local)}
+      className="text-[12px] px-2 py-1 rounded-lg disabled:opacity-50"
+      style={{ background: 'rgba(var(--ink-rgb),0.05)', border: `1px solid ${emphasis ? S.accentBorder : S.border}`, color: emphasis ? S.t1 : S.t2 }} />
+  )
+}
+
 export default function WorkReportPage() {
   const supabase = useMemo(() => createClient(), [])
 
   const [loading, setLoading] = useState(true)
   const [topics, setTopics] = useState<WorkReportTopic[]>([])
+  // 3-1/3-2/3-3 항목 — 전 회차분을 한 번에 들고 있는다(회차당 수십 행 규모). 히스토리·
+  // 직전 비교·이월·아카이브가 모두 같은 목록에서 계산되므로 회차별 lazy load를 두지 않는다.
+  const [allItems, setAllItems] = useState<WorkReportItem[]>([])
   const [reports, setReports] = useState<WorkReport[]>([])
   const [entriesByReport, setEntriesByReport] = useState<Map<string, WorkReportEntry[]>>(new Map())
   // entriesByReport(state)의 동기 미러 — await 뒤에서 setState 반영을 기다리지 않고도
@@ -47,6 +82,7 @@ export default function WorkReportPage() {
   // 때 자체 unmount flush로 커버되지만, 확정은 remount 없이 같은 인스턴스에서
   // readOnly만 바뀌므로 명시적으로 호출해야 한다(ReportEditorPanelHandle 참고).
   const editorRef = useRef<ReportEditorPanelHandle>(null)
+  const itemPanelRef = useRef<ItemSectionPanelHandle>(null)
 
   const [currentReportId, setCurrentReportId] = useState<string | null>(null)
   const [selection, setSelection] = useState<string>('summary')
@@ -54,6 +90,7 @@ export default function WorkReportPage() {
   const [fullViewOpen, setFullViewOpen] = useState(false)
   const [contextDrawerOpen, setContextDrawerOpen] = useState(false)
   const [topicDrawerOpen, setTopicDrawerOpen] = useState(false)
+  const [restoreOpen, setRestoreOpen] = useState(false)
   const [topicHistoryEntries, setTopicHistoryEntries] = useState<WorkReportEntry[]>([])
   // RIGHT의 "전체 히스토리 보기 →"로 Archive에 넘어갈 때만 채워지는 1회성 진입점 — Archive는
   // write↔archive 전환마다 항상 새로 mount되므로(조건부 렌더) ArchiveView의 initialTab/
@@ -74,10 +111,12 @@ export default function WorkReportPage() {
   // ── 초기 로드 ────────────────────────────────────────────────────────
   useEffect(() => {
     (async () => {
-      const [topicsRes, reportsRes] = await Promise.all([
+      const [topicsRes, reportsRes, itemsRes] = await Promise.all([
         supabase.from('work_report_topics').select('*').order('created_at'),
         supabase.from('work_reports').select('*').order('period_start'),
+        supabase.from('work_report_items').select('*').order('sort_order'),
       ])
+      setAllItems((itemsRes.data as WorkReportItem[]) ?? [])
       const topicsList = (topicsRes.data as WorkReportTopic[]) ?? []
       const reportsList = (reportsRes.data as WorkReport[]) ?? []
       setTopics(topicsList)
@@ -100,6 +139,18 @@ export default function WorkReportPage() {
   const topicsById = useMemo(() => new Map(topics.map(t => [t.id, t])), [topics])
   const reportsAsc = useMemo(() => [...reports].sort((a, b) => a.period_start.localeCompare(b.period_start)), [reports])
   const reportsDesc = useMemo(() => [...reportsAsc].reverse(), [reportsAsc])
+  // 상단 보고일 타임라인 — 보고일 순(좌→우 과거→최근). prevReport 등 회차 순서 로직은
+  // 기존대로 period_start 기준 reportsAsc를 그대로 쓴다(여기는 표시 전용).
+  const reportsByDate = useMemo(
+    () => [...reports].sort((a, b) => (a.report_date ?? a.period_end).localeCompare(b.report_date ?? b.period_end)),
+    [reports],
+  )
+  const timelineRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    // 최신 보고일이 항상 보이도록 처음 한 번 오른쪽 끝으로 스크롤한다.
+    const el = timelineRef.current
+    if (el) el.scrollLeft = el.scrollWidth
+  }, [reportsByDate.length, mode])
   const currentReport = useMemo(() => reports.find(r => r.id === currentReportId) ?? null, [reports, currentReportId])
   const prevReport = useMemo(() => {
     if (!currentReport) return null
@@ -115,8 +166,10 @@ export default function WorkReportPage() {
   useEffect(() => { if (currentReportId) void ensureEntries(currentReportId) }, [currentReportId, ensureEntries])
   useEffect(() => { if (prevReport) void ensureEntries(prevReport.id) }, [prevReport, ensureEntries])
 
+  const itemSection = parseItemSelection(selection)
+
   useEffect(() => {
-    if (isFixedKey(selection)) return
+    if (isFixedKey(selection) || parseItemSelection(selection)) return
     let cancelled = false
     supabase.from('work_report_entries').select('*').eq('topic_id', selection).then(({ data }) => {
       if (!cancelled) setTopicHistoryEntries((data as WorkReportEntry[]) ?? [])
@@ -137,6 +190,11 @@ export default function WorkReportPage() {
   }, [entries, topicsById, prevEntryByTopic])
 
   const allActiveTopics = useMemo(() => topics.filter(t => t.status === 'active'), [topics])
+  // "기존 주제 불러오기" 후보 — active이면서 이번 report에 아직 entry가 없는 topic.
+  const restoreCandidates = useMemo(() => {
+    const inReport = new Set(entries.map(e => e.topic_id))
+    return allActiveTopics.filter(t => !inReport.has(t.id))
+  }, [entries, allActiveTopics])
 
   // 헤더 진행률 — "작성됨" 기준은 ReportEditorPanel의 진행 상태 표시(canonicalStatus)와
   // 무관하게, isEntryWritten(제목 필드가 아니라 실제 보고 내용) 하나로 outline dot과
@@ -146,10 +204,16 @@ export default function WorkReportPage() {
   const progressPct = totalTopicCount > 0 ? Math.round((writtenCount / totalTopicCount) * 100) : 0
 
   const summaryWritten = hasContent(currentReport?.summary)
-  const issuesWritten = hasContent(currentReport?.issues)
+  const itemsOf = useCallback((reportId: string | undefined, section: WorkReportItemSection) =>
+    sortItems(allItems.filter(i => i.report_id === reportId && i.section === section)), [allItems])
+  const itemWritten = useMemo(() => {
+    const m = {} as Record<WorkReportItemSection, boolean>
+    for (const sec of ITEM_SECTIONS) m[sec] = allItems.some(i => i.report_id === currentReport?.id && i.section === sec && isItemWritten(i))
+    return m
+  }, [allItems, currentReport])
   const nextStepsWritten = hasContent(currentReport?.next_steps)
 
-  const selectedTopic = !isFixedKey(selection) ? topicsById.get(selection) ?? null : null
+  const selectedTopic = !isFixedKey(selection) && !itemSection ? topicsById.get(selection) ?? null : null
   const selectedEntry = selectedTopic ? entries.find(e => e.topic_id === selectedTopic.id) ?? null : null
   const selectedPrevEntry = selectedTopic ? prevEntryByTopic.get(selectedTopic.id) ?? null : null
 
@@ -167,15 +231,26 @@ export default function WorkReportPage() {
     return topicHistoryEntries
       .map(e => ({ entry: e, report: reports.find(r => r.id === e.report_id) }))
       .filter((x): x is { entry: WorkReportEntry; report: WorkReport } => !!x.report)
-      .sort((a, b) => b.report.period_start.localeCompare(a.report.period_start))
+      .sort((a, b) => (b.report.report_date ?? b.report.period_end).localeCompare(a.report.report_date ?? a.report.period_end))
   }, [topicHistoryEntries, reports])
 
   const historyItems: HistoryItem[] = useMemo(() => {
-    if (isFixedKey(selection)) {
-      const key = selection as FixedSectionKey
-      return reportsDesc.map(r => ({
+    if (itemSection) {
+      return [...reportsByDate].reverse().map(r => ({
         id: r.id,
         label: fmtPeriodLabel(r.period_start, r.period_end),
+        dateLabel: fmtDateFull(r.report_date ?? r.period_end),
+        value: itemsToText(itemsOf(r.id, itemSection), itemSection, itemSection === 'issue' ? r.issues : undefined),
+        isCurrent: r.id === currentReport?.id,
+      }))
+    }
+    if (isFixedKey(selection)) {
+      const key = selection as FixedSectionKey
+      // 상단 보고 이력 타임라인과 같은 보고일 순서를 쓴다(RIGHT 네비게이션 방향 일치).
+      return [...reportsByDate].reverse().map(r => ({
+        id: r.id,
+        label: fmtPeriodLabel(r.period_start, r.period_end),
+      dateLabel: fmtDateFull(r.report_date ?? r.period_end),
         value: r[key],
         isCurrent: r.id === currentReport?.id,
       }))
@@ -183,15 +258,18 @@ export default function WorkReportPage() {
     return topicHistory.map(({ report: r, entry: e }) => ({
       id: r.id,
       label: fmtPeriodLabel(r.period_start, r.period_end),
+      dateLabel: fmtDateFull(r.report_date ?? r.period_end),
       value: e.report_text,
       isCurrent: r.id === currentReport?.id,
     }))
-  }, [selection, reportsDesc, topicHistory, currentReport])
+  }, [selection, itemSection, itemsOf, reportsByDate, topicHistory, currentReport])
 
-  const historyTitle = isFixedKey(selection) ? FIXED_HISTORY_TITLE[selection as FixedSectionKey] : '이 주제의 히스토리'
+  const historyTitle = itemSection
+    ? `${ITEM_SECTION_META[itemSection].no} ${ITEM_SECTION_META[itemSection].title} 히스토리`
+    : isFixedKey(selection) ? FIXED_HISTORY_TITLE[selection as FixedSectionKey] : '이 주제의 히스토리'
   // "전체 히스토리 보기"(주제별 히스토리 화면)는 topic 선택 드롭다운만 있어 고정 섹션에는
   // 대응되는 화면이 없다 — 없는 기능으로 연결하지 않는다.
-  const showFullHistoryLink = !isFixedKey(selection)
+  const showFullHistoryLink = !isFixedKey(selection) && !itemSection
 
   // ── mutations ───────────────────────────────────────────────────────
   function patchEntry(reportId: string, updater: (list: WorkReportEntry[]) => WorkReportEntry[]) {
@@ -308,17 +386,64 @@ export default function WorkReportPage() {
     setReports(prev => prev.map(r => r.id === updated.id ? updated : r))
   }
 
-  async function handlePeriodChange(field: 'period_start' | 'period_end', value: string) {
+  async function handlePeriodChange(field: 'period_start' | 'period_end' | 'report_date', value: string) {
     if (!currentReport || !value || readOnly) return
     const { data } = await supabase.from('work_reports').update({ [field]: value }).eq('id', currentReport.id).select().single()
     if (data) handleReportSaved(data as WorkReport)
+  }
+
+  // ── 3-1/3-2/3-3 항목 ────────────────────────────────────────────────
+  // final 회차는 DB 트리거(schema_v58)가 INSERT/UPDATE/DELETE를 막지만, 다른 mutation과
+  // 동일하게 클라이언트에서도 readOnly를 한 번 더 확인한다.
+  function nextItemSortOrder(section: WorkReportItemSection) {
+    const list = itemsOf(currentReport?.id, section)
+    return list.length ? Math.max(...list.map(i => i.sort_order)) + 1 : 0
+  }
+
+  async function handleAddItem(section: WorkReportItemSection) {
+    if (!currentReport || readOnly) return
+    const { data, error } = await supabase.from('work_report_items')
+      .insert({ report_id: currentReport.id, section, sort_order: nextItemSortOrder(section) })
+      .select().single()
+    if (error || !data) return
+    setAllItems(prev => [...prev, data as WorkReportItem])
+  }
+
+  // "직전 항목 불러오기" — 직전 회차에서 이번 회차로 이월되지 않았거나 삭제한 항목을 같은
+  // lineage_id로 다시 가져온다(내용은 직전 회차 값 그대로 복사).
+  async function handleRestoreItem(prevItem: WorkReportItem) {
+    if (!currentReport || readOnly) return
+    const { data, error } = await supabase.from('work_report_items').insert({
+      report_id: currentReport.id, section: prevItem.section, lineage_id: prevItem.lineage_id,
+      title: prevItem.title, status: prevItem.status, owner: prevItem.owner,
+      summary: prevItem.summary, detail: prevItem.detail, sort_order: nextItemSortOrder(prevItem.section),
+    }).select().single()
+    if (error || !data) return
+    setAllItems(prev => [...prev, data as WorkReportItem])
+  }
+
+  async function handleDeleteItem(item: WorkReportItem) {
+    if (!currentReport || readOnly) return
+    const message = isItemWritten(item)
+      ? `'${item.title || '제목 없음'}' 항목을 이번 보고에서 삭제할까요?\n과거 보고의 같은 항목은 유지됩니다.`
+      : '이 항목을 삭제할까요?'
+    if (!confirm(message)) return
+    const { error } = await supabase.from('work_report_items').delete().eq('id', item.id)
+    if (error) return
+    setAllItems(prev => prev.filter(i => i.id !== item.id))
+  }
+
+  function handleItemSaved(item: WorkReportItem) {
+    setAllItems(prev => prev.map(i => i.id === item.id ? item : i))
   }
 
   async function handleNewReport() {
     const latest = reportsDesc[0] ?? null
     const periodStart = latest ? addDaysToDateStr(latest.period_end, 1) : todayStr()
     const periodEnd = addDaysToDateStr(periodStart, 13)
-    const { data: reportData, error } = await supabase.from('work_reports').insert({ period_start: periodStart, period_end: periodEnd }).select().single()
+    // 보고일 기본값 — 직전 보고일 + 14일(격주). 직전 보고일이 없으면 이번 기간 종료일.
+    const reportDate = latest?.report_date ? addDaysToDateStr(latest.report_date, 14) : periodEnd
+    const { data: reportData, error } = await supabase.from('work_reports').insert({ period_start: periodStart, period_end: periodEnd, report_date: reportDate }).select().single()
     if (error || !reportData) return
     const newReport = reportData as WorkReport
 
@@ -342,6 +467,24 @@ export default function WorkReportPage() {
       }
     }
 
+    // 3-1/3-2/3-3 자동 이월 — 직전 회차 항목을 같은 lineage_id로 전부 복사한다. 필요 없는
+    // 항목은 새 회차에서 삭제한다(주제 carry-forward와 같은 방향, STEP 4 결정).
+    let carriedItems: WorkReportItem[] = []
+    if (latest) {
+      const latestItems = allItems.filter(i => i.report_id === latest.id)
+      if (latestItems.length > 0) {
+        const { data: insertedItems } = await supabase.from('work_report_items').insert(
+          latestItems.map(i => ({
+            report_id: newReport.id, section: i.section, lineage_id: i.lineage_id,
+            title: i.title, status: i.status, owner: i.owner, summary: i.summary, detail: i.detail,
+            sort_order: i.sort_order,
+          })),
+        ).select()
+        carriedItems = (insertedItems as WorkReportItem[]) ?? []
+      }
+    }
+    if (carriedItems.length) setAllItems(prev => [...prev, ...carriedItems])
+
     setReports(prev => [...prev, newReport])
     loadedReportIds.current.add(newReport.id)
     entriesCacheRef.current.set(newReport.id, carried)
@@ -359,6 +502,7 @@ export default function WorkReportPage() {
       // 커밋한다 — 안 그러면 "입력 직후 즉시 확정" 시 마지막 입력이 final
       // 스냅샷에서 빠질 수 있다(2026-09-14 재검증에서 확인된 결함 수정).
       await editorRef.current?.flushPending()
+      await itemPanelRef.current?.flushPending()
       const { data } = await supabase
         .from('work_reports').update({ status: 'final', finalized_at: new Date().toISOString() })
         .eq('id', currentReport.id).select().single()
@@ -405,18 +549,34 @@ export default function WorkReportPage() {
         <div className="flex items-center gap-3 flex-wrap">
           <p className="text-[15px] font-semibold" style={{ color: S.t1 }}>업무보고</p>
 
-          {(mode === 'write' || mode === 'table') && currentReport && (
+          {mode === 'write' && currentReport && (
             <>
               <div className="flex items-center gap-1.5">
-                <input type="date" value={currentReport.period_start} disabled={readOnly}
-                  onChange={e => handlePeriodChange('period_start', e.target.value)}
-                  className="text-[12px] px-2 py-1 rounded-lg disabled:opacity-50"
-                  style={{ background: 'rgba(var(--ink-rgb),0.05)', border: `1px solid ${S.border}`, color: S.t2 }} />
+                <span className="text-[11px] font-semibold" style={{ color: S.t3 }}>보고일</span>
+                <DateField
+                  key={`${currentReport.id}:report_date`}
+                  value={currentReport.report_date ?? ''}
+                  disabled={readOnly}
+                  emphasis
+                  onCommit={v => handlePeriodChange('report_date', v)}
+                />
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px]" style={{ color: S.t4 }}>기간</span>
+                <DateField
+                  key={`${currentReport.id}:period_start`}
+                  value={currentReport.period_start}
+                  disabled={readOnly}
+                  onCommit={v => handlePeriodChange('period_start', v)}
+                />
                 <span style={{ color: S.t4 }}>~</span>
-                <input type="date" value={currentReport.period_end} disabled={readOnly}
-                  onChange={e => handlePeriodChange('period_end', e.target.value)}
-                  className="text-[12px] px-2 py-1 rounded-lg disabled:opacity-50"
-                  style={{ background: 'rgba(var(--ink-rgb),0.05)', border: `1px solid ${S.border}`, color: S.t2 }} />
+                <DateField
+                  key={`${currentReport.id}:period_end`}
+                  value={currentReport.period_end}
+                  disabled={readOnly}
+                  onCommit={v => handlePeriodChange('period_end', v)}
+                />
               </div>
 
               {/* draft/final 상태 — 기존에는 select option 텍스트/버튼 라벨에만 묻혀있던 것을
@@ -430,27 +590,46 @@ export default function WorkReportPage() {
                 {currentReport.status === 'final' ? '확정' : '작성중'}
               </span>
 
-              {reportsDesc.length > 1 && (
-                <select
-                  value={currentReportId ?? ''}
-                  onChange={e => { setCurrentReportId(e.target.value); setSelection('summary') }}
-                  className={selectClass}
-                  style={selectStyle}
-                >
-                  {reportsDesc.map(r => (
-                    <option key={r.id} value={r.id}>
-                      {fmtPeriodLabel(r.period_start, r.period_end)} · {r.status === 'final' ? '확정' : '작성중'}
-                    </option>
-                  ))}
-                </select>
-              )}
             </>
           )}
         </div>
 
+        {/* 보고일 타임라인 — 예전 회차 select 드롭다운을 대체한다. 직전 보고일들을 한 줄로
+            죽 보여주고, 누르면 그 회차로 이동한다(확정 회차는 기존대로 read-only). */}
+        {mode === 'write' && currentReport && reportsByDate.length > 0 && (
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-[10.5px] font-semibold flex-shrink-0" style={{ color: S.t4 }}>보고 이력</span>
+            <div ref={timelineRef} className="flex items-center gap-1 overflow-x-auto min-w-0" style={{ scrollbarWidth: 'thin' }}>
+              {reportsByDate.map((r, i) => {
+                const active = r.id === currentReportId
+                const isFinal = r.status === 'final'
+                return (
+                  <div key={r.id} className="flex items-center gap-1 flex-shrink-0">
+                    {i > 0 && <span aria-hidden style={{ width: 10, height: 1, background: S.border }} />}
+                    <button
+                      onClick={() => { setCurrentReportId(r.id); setSelection('summary') }}
+                      title={`${fmtPeriodLabel(r.period_start, r.period_end)} · ${isFinal ? '확정' : '작성중'}`}
+                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11.5px] transition-colors"
+                      style={active
+                        ? { color: S.accentText, background: S.accentDim, border: `1px solid ${S.accentBorder}`, fontWeight: 600 }
+                        : { color: S.t2, background: 'rgba(var(--ink-rgb),0.04)', border: `1px solid ${S.border}` }}
+                    >
+                      <span aria-hidden className="rounded-full" style={isFinal
+                        ? { width: 6, height: 6, background: S.t2 }
+                        : { width: 6, height: 6, border: `1.5px solid ${S.t4}` }} />
+                      {fmtDateFull(r.report_date ?? r.period_end)}
+                      {!isFinal && <span className="text-[10px]" style={{ color: S.t4 }}>작성중</span>}
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
         {/* 작성 진행률 — DB 컬럼 없이 outlineRows(현재 report의 entry)만으로 매 렌더 계산한다.
             주제가 0개면 0/0을 보여주는 대신 행 자체를 숨긴다. */}
-        {(mode === 'write' || mode === 'table') && currentReport && totalTopicCount > 0 && (
+        {mode === 'write' && currentReport && totalTopicCount > 0 && (
           <div className="flex items-center gap-3">
             <p className="text-[11.5px]" style={{ color: S.t3 }}>
               {totalTopicCount}개 주제 · {writtenCount}개 작성 · {totalTopicCount - writtenCount}개 미작성
@@ -466,7 +645,7 @@ export default function WorkReportPage() {
 
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-1 rounded-xl p-1" style={{ background: 'rgba(var(--ink-rgb),0.04)' }}>
-            {([['write', '보고서 작성'], ['table', '테이블 작성'], ['archive', '보고 아카이브']] as const).map(([k, label]) => (
+            {([['write', '보고서 작성'], ['archive', '보고 아카이브']] as const).map(([k, label]) => (
               <button
                 key={k}
                 onClick={() => {
@@ -485,7 +664,7 @@ export default function WorkReportPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            {(mode === 'write' || mode === 'table') && currentReport && (
+            {mode === 'write' && currentReport && (
               <>
                 <button onClick={() => setFullViewOpen(true)}
                   className="px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors"
@@ -541,8 +720,9 @@ export default function WorkReportPage() {
                   onReorder={handleReorder}
                   onRemoveFromReport={handleRemoveFromReport}
                   onArchiveTopic={handleArchiveTopic}
+                  onOpenRestore={() => setRestoreOpen(true)}
                   summaryWritten={summaryWritten}
-                  issuesWritten={issuesWritten}
+                  itemWritten={itemWritten}
                   nextStepsWritten={nextStepsWritten}
                 />
               </div>
@@ -556,25 +736,43 @@ export default function WorkReportPage() {
               </button>
 
               <div className="flex-1 min-w-0 h-full overflow-hidden">
-                <ReportEditorPanel
-                  key={`${currentReport.id}:${selection}`}
-                  ref={editorRef}
-                  supabase={supabase}
-                  selection={selection}
-                  report={currentReport}
-                  topic={selectedTopic}
-                  entry={selectedEntry}
-                  prevEntry={selectedPrevEntry}
-                  prevReport={prevReport}
-                  readOnly={readOnly}
-                  onEntrySaved={handleEntrySaved}
-                  onReportSaved={handleReportSaved}
-                  hasPrevTopic={hasPrevTopic}
-                  hasNextTopic={hasNextTopic}
-                  onPrevTopic={goPrevTopic}
-                  onNextTopic={goNextTopic}
-                  onAddTopic={handleAddTopic}
-                />
+                {itemSection ? (
+                  <ItemSectionPanel
+                    key={`${currentReport.id}:${selection}`}
+                    ref={itemPanelRef}
+                    supabase={supabase}
+                    section={itemSection}
+                    prevReport={prevReport}
+                    items={itemsOf(currentReport.id, itemSection)}
+                    prevItems={itemsOf(prevReport?.id, itemSection)}
+                    readOnly={readOnly}
+                    legacyText={itemSection === 'issue' ? currentReport.issues : undefined}
+                    onItemSaved={handleItemSaved}
+                    onAdd={() => handleAddItem(itemSection)}
+                    onDelete={handleDeleteItem}
+                    onRestore={handleRestoreItem}
+                  />
+                ) : (
+                  <ReportEditorPanel
+                    key={`${currentReport.id}:${selection}`}
+                    ref={editorRef}
+                    supabase={supabase}
+                    selection={selection}
+                    report={currentReport}
+                    topic={selectedTopic}
+                    entry={selectedEntry}
+                    prevEntry={selectedPrevEntry}
+                    prevReport={prevReport}
+                    readOnly={readOnly}
+                    onEntrySaved={handleEntrySaved}
+                    onReportSaved={handleReportSaved}
+                    hasPrevTopic={hasPrevTopic}
+                    hasNextTopic={hasNextTopic}
+                    onPrevTopic={goPrevTopic}
+                    onNextTopic={goNextTopic}
+                    onAddTopic={handleAddTopic}
+                  />
+                )}
               </div>
 
               <button
@@ -587,6 +785,7 @@ export default function WorkReportPage() {
 
               <div className="hidden lg:block h-full" style={{ background: 'rgba(var(--ink-rgb),0.015)' }}>
                 <ContextPanel
+                  key={`${currentReport.id}:${selection}`}
                   title={historyTitle}
                   items={historyItems}
                   showFullHistoryLink={showFullHistoryLink}
@@ -608,8 +807,9 @@ export default function WorkReportPage() {
                       onReorder={handleReorder}
                       onRemoveFromReport={handleRemoveFromReport}
                       onArchiveTopic={handleArchiveTopic}
+                      onOpenRestore={() => { setRestoreOpen(true); setTopicDrawerOpen(false) }}
                       summaryWritten={summaryWritten}
-                      issuesWritten={issuesWritten}
+                      itemWritten={itemWritten}
                       nextStepsWritten={nextStepsWritten}
                     />
                   </div>
@@ -620,6 +820,7 @@ export default function WorkReportPage() {
                 <div className="fixed inset-0 z-40 lg:hidden" style={{ background: 'rgba(0,0,0,0.55)' }} onClick={() => setContextDrawerOpen(false)}>
                   <div className="absolute inset-y-0 right-0 h-full" style={{ background: S.panel }} onClick={e => e.stopPropagation()}>
                     <ContextPanel
+                      key={`${currentReport.id}:${selection}`}
                       title={historyTitle}
                       items={historyItems}
                       showFullHistoryLink={showFullHistoryLink}
@@ -642,37 +843,10 @@ export default function WorkReportPage() {
           )
         )}
 
-        {mode === 'table' && (
-          currentReport ? (
-            <TopicTableView
-              supabase={supabase}
-              entries={entries}
-              topics={topics}
-              reports={reportsAsc}
-              readOnly={readOnly}
-              onEntrySaved={handleEntrySaved}
-              onAddTopic={handleAddTopic}
-              onAddExistingTopics={handleAddExistingTopics}
-              onRemoveFromReport={handleRemoveFromReport}
-              onRenameTopic={handleRenameTopic}
-              onArchiveTopic={handleArchiveTopic}
-            />
-          ) : (
-            <div className="flex-1 flex items-center justify-center flex-col gap-3">
-              <p className="text-[13px]" style={{ color: S.t4 }}>아직 작성된 업무보고가 없습니다.</p>
-              <button onClick={handleNewReport}
-                className="px-4 py-2 rounded-lg text-[13px] font-semibold"
-                style={{ color: S.accentText, background: S.accentDim, border: `1px solid ${S.accentBorder}` }}
-              >
-                + 첫 보고 시작하기
-              </button>
-            </div>
-          )
-        )}
-
         {mode === 'archive' && (
           <ArchiveView
             supabase={supabase}
+            items={allItems}
             topics={topics}
             reports={reportsAsc}
             onOpenReport={handleOpenReport}
@@ -682,8 +856,18 @@ export default function WorkReportPage() {
         )}
       </div>
 
+      {restoreOpen && currentReport && !readOnly && (
+        <RestoreTopicModal
+          supabase={supabase}
+          candidateTopics={restoreCandidates}
+          reports={reportsAsc}
+          onClose={() => setRestoreOpen(false)}
+          onRestore={topicIds => { void handleAddExistingTopics(topicIds); setRestoreOpen(false) }}
+        />
+      )}
+
       {fullViewOpen && currentReport && (
-        <ReportFullViewModal report={currentReport} rows={fullViewRows} onClose={() => setFullViewOpen(false)} />
+        <ReportFullViewModal report={currentReport} rows={fullViewRows} items={allItems.filter(i => i.report_id === currentReport.id)} onClose={() => setFullViewOpen(false)} />
       )}
     </div>
   )

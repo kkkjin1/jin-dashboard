@@ -1,7 +1,8 @@
 'use client'
 
-import type { WorkReport, WorkReportEntry, WorkReportTopic } from '@/types'
-import { S, CONTENT_MAX_WIDTH } from './style'
+import type { WorkReport, WorkReportEntry, WorkReportItem, WorkReportTopic } from '@/types'
+import { S, CONTENT_MAX_WIDTH, hasContent } from './style'
+import { ITEM_SECTIONS, ITEM_SECTION_META, itemStatusLabel, sortItems } from './items'
 
 // 보고 1건을 "읽는" 문서 형태로 렌더링하는 순수 컨텐츠 — 작성 화면의 "문서로 보기"
 // (ReportFullViewModal)가 이 컴포넌트를 그대로 쓴다. Archive에서 개별 회차를 읽고 싶을 때도
@@ -12,6 +13,7 @@ import { S, CONTENT_MAX_WIDTH } from './style'
 interface Props {
   report: WorkReport
   rows: { entry: WorkReportEntry; topic: WorkReportTopic }[]
+  items: WorkReportItem[]   // 이 회차의 3-1/3-2/3-3 항목 전체
 }
 
 function Block({ label, value }: { label: string; value: string }) {
@@ -25,7 +27,7 @@ function Block({ label, value }: { label: string; value: string }) {
   )
 }
 
-export default function ReportDocument({ report, rows }: Props) {
+export default function ReportDocument({ report, rows, items }: Props) {
   return (
     <div style={{ maxWidth: CONTENT_MAX_WIDTH }}>
       <p className="text-[14px] font-bold mb-2" style={{ color: S.t1 }}>1. 핵심 요약</p>
@@ -47,10 +49,48 @@ export default function ReportDocument({ report, rows }: Props) {
         </div>
       ))}
 
-      <p className="text-[14px] font-bold mt-6 mb-2" style={{ color: S.t1 }}>3. 주요 이슈 / 의사결정</p>
-      <p className="text-[13.5px] leading-[1.8] whitespace-pre-wrap mb-6" style={{ color: S.t1 }}>
-        {report.issues || <span style={{ color: S.t4 }}>(작성된 내용 없음)</span>}
-      </p>
+      <p className="text-[14px] font-bold mt-6 mb-3" style={{ color: S.t1 }}>3. 운영 · 이슈 · 의사결정</p>
+      {ITEM_SECTIONS.map(sec => {
+        const list = sortItems(items.filter(i => i.section === sec))
+        const meta = ITEM_SECTION_META[sec]
+        return (
+          <div key={sec} className="mb-5 pl-1">
+            <p className="text-[13.5px] font-semibold mb-2" style={{ color: S.t1 }}>{meta.no}. {meta.title}</p>
+            {list.length === 0 ? (
+              <p className="text-[12.5px]" style={{ color: S.t4 }}>(등록된 항목 없음)</p>
+            ) : (
+              <table className="w-full text-[12.5px] mb-2" style={{ borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ color: S.t3, borderBottom: `1px solid ${S.borderStrong}` }}>
+                    <th className="text-left font-semibold py-1.5 pr-2">항목</th>
+                    <th className="text-left font-semibold py-1.5 pr-2 whitespace-nowrap">상태</th>
+                    <th className="text-left font-semibold py-1.5 pr-2 whitespace-nowrap">담당</th>
+                    <th className="text-left font-semibold py-1.5">요약</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {list.map(it => (
+                    <tr key={it.id} style={{ borderBottom: `1px solid ${S.border}`, color: S.t1, verticalAlign: 'top' }}>
+                      <td className="py-1.5 pr-2 font-medium">{it.title || '(제목 없음)'}</td>
+                      <td className="py-1.5 pr-2 whitespace-nowrap">{itemStatusLabel(sec, it.status) || '—'}</td>
+                      <td className="py-1.5 pr-2 whitespace-nowrap">{it.owner || '—'}</td>
+                      <td className="py-1.5">{it.summary || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            {list.filter(it => hasContent(it.detail)).map(it => (
+              <Block key={it.id} label={`세부 · ${it.title || '(제목 없음)'}`} value={it.detail} />
+            ))}
+          </div>
+        )
+      })}
+      {hasContent(report.issues) && (
+        <div className="mb-6 pl-1">
+          <Block label="(이전 형식) 주요 이슈 / 의사결정" value={report.issues} />
+        </div>
+      )}
 
       <p className="text-[14px] font-bold mb-2" style={{ color: S.t1 }}>4. 다음 단계</p>
       <p className="text-[13.5px] leading-[1.8] whitespace-pre-wrap" style={{ color: S.t1 }}>

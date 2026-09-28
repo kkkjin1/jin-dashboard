@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { WorkReport, WorkReportTopic } from '@/types'
+import type { WorkReport, WorkReportItem, WorkReportTopic } from '@/types'
 import { S } from './style'
 import ArchiveCompareView from './ArchiveCompareView'
 import TopicHistoryView from './TopicHistoryView'
@@ -23,6 +23,7 @@ interface Props {
   supabase: SupabaseClient
   topics: WorkReportTopic[]
   reports: WorkReport[]                               // asc by period_start, 전체
+  items: WorkReportItem[]                             // 3-1/3-2/3-3 전 회차 항목 (page.tsx가 소유)
   onOpenReport: (reportId: string) => void
   // 작성 화면 RIGHT "전체 히스토리 보기 →"에서 넘어올 때만 넘어온다 — Archive는 write
   // 모드에서 전환될 때 항상 새로 mount되므로(조건부 렌더) 이 값은 매번 그 시점의
@@ -37,7 +38,7 @@ const TABS: { key: ArchiveTab; label: string }[] = [
 ]
 
 export default function ArchiveView({
-  supabase, topics, reports, onOpenReport, initialTab, initialTopicId,
+  supabase, topics, reports, items, onOpenReport, initialTab, initialTopicId,
 }: Props) {
   const [tab, setTab] = useState<ArchiveTab>(initialTab ?? 'compare')
   const minStart = reports[0]?.period_start ?? ''
@@ -105,6 +106,7 @@ export default function ArchiveView({
             supabase={supabase}
             topics={topics}
             reports={filteredReportsAsc}
+            items={items}
             onOpenReport={onOpenReport}
           />
         )}

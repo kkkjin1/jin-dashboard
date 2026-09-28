@@ -2,8 +2,9 @@
 
 import { useState } from 'react'
 import { Plus, GripVertical, Pencil, X, Archive } from 'lucide-react'
-import type { WorkReportEntry, WorkReportTopic } from '@/types'
+import type { WorkReportEntry, WorkReportItemSection, WorkReportTopic } from '@/types'
 import { S, BADGE_LABEL, BADGE_COLOR, isEntryWritten, type TopicChangeBadge } from './style'
+import { ITEM_SECTIONS, ITEM_SECTION_META, itemSelectionKey } from './items'
 
 export const FIXED_KEYS = ['summary', 'issues', 'next_steps'] as const
 export type FixedSectionKey = typeof FIXED_KEYS[number]
@@ -29,10 +30,14 @@ interface Props {
   onReorder: (orderedEntryIds: string[]) => void
   onRemoveFromReport: (topicId: string) => void
   onArchiveTopic: (topicId: string) => void
+  // "기존 주제 불러오기" 모달 열기 — 모달 자체와 후보 계산은 page.tsx가 소유한다.
+  onOpenRestore: () => void
   // 고정 섹션(요약/이슈/다음단계)은 report 필드에 내용이 있는지를 page.tsx가 계산해 넘긴다 —
   // 이 컴포넌트는 entry 구조를 모르는 report 원문 필드까지 알 필요가 없다.
   summaryWritten: boolean
-  issuesWritten: boolean
+  // 3-1/3-2/3-3 — 섹션별로 이번 회차에 작성된 항목이 하나라도 있는지. (예전 'issues'
+  // 텍스트 섹션은 목차에서 빠졌다 — 내용은 3-2 화면 하단에 읽기 전용으로 남는다.)
+  itemWritten: Record<WorkReportItemSection, boolean>
   nextStepsWritten: boolean
 }
 
@@ -69,8 +74,8 @@ function SectionLabel({ n, label, active, dot, onClick }: { n: string; label: st
 
 export default function TopicOutline({
   rows, allActiveTopics, selection, onSelect, readOnly,
-  onAddTopic, onRenameTopic, onReorder, onRemoveFromReport, onArchiveTopic,
-  summaryWritten, issuesWritten, nextStepsWritten,
+  onAddTopic, onRenameTopic, onReorder, onRemoveFromReport, onArchiveTopic, onOpenRestore,
+  summaryWritten, itemWritten, nextStepsWritten,
 }: Props) {
   const [adding, setAdding] = useState(false)
   const [newTitle, setNewTitle] = useState('')
@@ -127,13 +132,23 @@ export default function TopicOutline({
           이번 보고 목차
         </p>
         {!readOnly && !adding && (
-          <button
-            onClick={() => setAdding(true)}
-            className="flex-shrink-0 flex items-center gap-0.5 text-[10.5px] font-medium transition-colors hover:opacity-80"
-            style={{ color: S.t3 }}
-          >
-            <Plus size={10} /> 주제 추가
-          </button>
+          <div className="flex-shrink-0 flex items-center gap-2">
+            <button
+              onClick={onOpenRestore}
+              className="flex items-center text-[10.5px] font-medium transition-colors hover:opacity-80"
+              style={{ color: S.t3 }}
+              title="기존 주제 불러오기"
+            >
+              불러오기
+            </button>
+            <button
+              onClick={() => setAdding(true)}
+              className="flex items-center gap-0.5 text-[10.5px] font-medium transition-colors hover:opacity-80"
+              style={{ color: S.t3 }}
+            >
+              <Plus size={10} /> 주제 추가
+            </button>
+          </div>
         )}
       </div>
 
@@ -259,7 +274,14 @@ export default function TopicOutline({
         </div>
 
         <div className="mt-3 pt-2" style={{ borderTop: `1px solid ${S.border}` }}>
-          <SectionLabel n="3" label="주요 이슈 / 의사결정" active={selection === 'issues'} dot={dotFor('issues', issuesWritten)} onClick={() => onSelect('issues')} />
+          <p className="px-2.5 mb-1 text-[11.5px] font-semibold" style={{ color: S.t3 }}>3. 운영 · 이슈 · 의사결정</p>
+          {ITEM_SECTIONS.map(sec => {
+            const key = itemSelectionKey(sec)
+            return (
+              <SectionLabel key={sec} n={ITEM_SECTION_META[sec].no} label={ITEM_SECTION_META[sec].title}
+                active={selection === key} dot={dotFor(key, itemWritten[sec])} onClick={() => onSelect(key)} />
+            )
+          })}
           <SectionLabel n="4" label="다음 단계" active={selection === 'next_steps'} dot={dotFor('next_steps', nextStepsWritten)} onClick={() => onSelect('next_steps')} />
         </div>
       </div>

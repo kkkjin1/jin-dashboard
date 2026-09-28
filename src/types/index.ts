@@ -458,6 +458,8 @@ export interface WorkReport {
   id: string
   period_start: string
   period_end: string
+  /** 실제 보고일(v57). 기존 회차는 period_end로 backfill됨 — null은 v57 이전 캐시 대비용. */
+  report_date: string | null
   status: WorkReportStatus
   summary: string
   issues: string
@@ -465,6 +467,27 @@ export interface WorkReport {
   created_at: string
   updated_at: string
   finalized_at: string | null
+}
+
+/** 3-1 운영사항 / 3-2 이슈사항 / 3-3 의사결정사항 (schema_v58) */
+export type WorkReportItemSection = 'operation' | 'issue' | 'decision'
+
+export interface WorkReportItem {
+  id: string
+  report_id: string
+  section: WorkReportItemSection
+  /** 회차를 넘어 "같은 항목"을 잇는 id — 새 보고로 이월될 때 그대로 복사된다. */
+  lineage_id: string
+  title: string
+  /** section별 코드값(operation: normal/caution, issue: open/resolved/on_hold,
+   *  decision: requested/approved/rejected/on_hold), ''는 미지정. DB CHECK와 동일. */
+  status: string
+  owner: string
+  summary: string
+  detail: string
+  sort_order: number
+  created_at: string
+  updated_at: string
 }
 
 export interface WorkReportEntry {

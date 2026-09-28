@@ -1,17 +1,18 @@
 'use client'
 
 import { X } from 'lucide-react'
-import type { WorkReport, WorkReportEntry, WorkReportTopic } from '@/types'
+import type { WorkReport, WorkReportEntry, WorkReportItem, WorkReportTopic } from '@/types'
 import { S, fmtPeriodLabel } from './style'
 import ReportDocument from './ReportDocument'
 
 interface Props {
   report: WorkReport
   rows: { entry: WorkReportEntry; topic: WorkReportTopic }[]
+  items: WorkReportItem[]
   onClose: () => void
 }
 
-export default function ReportFullViewModal({ report, rows, onClose }: Props) {
+export default function ReportFullViewModal({ report, rows, items, onClose }: Props) {
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-6" style={{ background: 'rgba(0,0,0,0.65)' }}>
       <div className="absolute inset-0" onClick={onClose} />
@@ -30,7 +31,7 @@ export default function ReportFullViewModal({ report, rows, onClose }: Props) {
         </div>
 
         <div className="flex-1 min-h-0 overflow-auto px-7 py-6 select-text">
-          <ReportDocument report={report} rows={rows} />
+          <ReportDocument report={report} rows={rows} items={items} />
         </div>
       </div>
     </div>

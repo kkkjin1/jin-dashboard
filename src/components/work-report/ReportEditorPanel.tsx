@@ -10,7 +10,7 @@ import { S, fmtPeriodLabel, WRITING_CONTENT_WIDTH } from './style'
 import { isFixedKey, type FixedSectionKey } from './TopicOutline'
 
 // canonical(work_reports/work_report_entries) 저장은 useCanonicalSync(src/hooks/
-// useCanonicalSync.ts)로 뺐다 — Topic Table View(테이블 작성)도 동일한 entry를 편집하므로
+// useCanonicalSync.ts)로 뺐다 — (구) Topic Table View(테이블 작성, 2026-09-28 제거)도 동일한 entry를 편집했으므로
 // 같은 debounce/dirty-check/재시도 semantics를 두 화면이 공유해야 "한쪽에서 저장한 값이
 // 다른 쪽에 즉시 동일하게 보이는" 요구가 깨지지 않는다. flush()를 ref로 외부에 노출해
 // page.tsx가 "보고 확정" 직전에 명시적으로 호출하는 구조(useImperativeHandle, 아래)는

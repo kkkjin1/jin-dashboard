@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { WorkReport, WorkReportEntry, WorkReportTopic } from '@/types'
+import type { WorkReport, WorkReportEntry, WorkReportItem, WorkReportTopic } from '@/types'
 import { S, fmtPeriodLabel, ARCHIVE_LABEL_COL_WIDTH, ARCHIVE_REPORT_COL_WIDTH } from './style'
 import ArchiveCell from './ArchiveCell'
 import EntryDetailModal from './EntryDetailModal'
+import { ITEM_SECTIONS, ITEM_SECTION_META, itemsToText } from './items'
 
 // "전체 비교" — Archive의 기본 화면. ROW=동일 section/topic, COLUMN=동일 report 회차.
 //
@@ -21,6 +22,7 @@ interface Props {
   supabase: SupabaseClient
   topics: WorkReportTopic[]        // all topics (active + archived) — 과거 이력 유지
   reports: WorkReport[]            // Archive 상단 기간 필터가 이미 적용된 전체 report, asc by period_start
+  items: WorkReportItem[]          // 3-1/3-2/3-3 전 회차 항목
   onOpenReport: (reportId: string) => void
 }
 
@@ -30,7 +32,7 @@ interface DetailState {
   fields: { label: string; value: string }[]
 }
 
-export default function ArchiveCompareView({ supabase, topics, reports, onOpenReport }: Props) {
+export default function ArchiveCompareView({ supabase, topics, reports, items, onOpenReport }: Props) {
   const cols = reports
   const [entries, setEntries] = useState<WorkReportEntry[]>([])
   const [loading, setLoading] = useState(false)
@@ -190,17 +192,42 @@ export default function ArchiveCompareView({ supabase, topics, reports, onOpenRe
             )
           })}
 
-          {/* 3. 주요 이슈 / 의사결정 */}
-          <div className="px-3 py-2.5 text-[12.5px] font-semibold" style={sectionLabelStyle}>3. 주요 이슈 / 의사결정</div>
-          {cols.map(col => (
-            <div key={col.id} style={{ borderBottom: `1px solid ${S.border}` }}>
-              <ArchiveCell
-                dense
-                fields={[{ value: col.issues }]}
-                onClick={() => setDetail({ title: '주요 이슈 / 의사결정', reportLabel: fmtPeriodLabel(col.period_start, col.period_end), fields: [{ label: '주요 이슈 / 의사결정', value: col.issues }] })}
-              />
-            </div>
-          ))}
+          {/* 3. 운영 · 이슈 · 의사결정 — 섹션 구분 행 + 3-1/3-2/3-3 sub-row. 예전 issues
+              텍스트가 있는 회차는 3-2 셀에 "(이전 형식)"으로 함께 보인다. */}
+          <div
+            className="px-3 py-1.5 text-[11px] font-semibold"
+            style={{ gridColumn: `1 / -1`, background: 'rgba(var(--ink-rgb),0.035)', color: S.t3, borderBottom: `1px solid ${S.border}` }}
+          >
+            3. 운영 · 이슈 · 의사결정
+          </div>
+          {ITEM_SECTIONS.map(sec => {
+            const meta = ITEM_SECTION_META[sec]
+            return (
+              <div key={sec} style={{ display: 'contents' }}>
+                <div className="pl-6 pr-3 py-2.5 text-[12px] font-medium truncate" style={topicLabelStyle}>{meta.no} {meta.title}</div>
+                {cols.map(col => {
+                  const text = itemsToText(items.filter(i => i.report_id === col.id && i.section === sec), sec, sec === 'issue' ? col.issues : undefined)
+                  const full = [
+                    ...items.filter(i => i.report_id === col.id && i.section === sec && i.detail.trim())
+                      .map(i => ({ label: `세부 · ${i.title || '(제목 없음)'}`, value: i.detail })),
+                  ]
+                  return (
+                    <div key={col.id} style={{ borderBottom: `1px solid ${S.border}` }}>
+                      <ArchiveCell
+                        dense
+                        fields={[{ value: text }]}
+                        onClick={() => setDetail({
+                          title: `${meta.no} ${meta.title}`,
+                          reportLabel: fmtPeriodLabel(col.period_start, col.period_end),
+                          fields: [{ label: '항목', value: text }, ...full],
+                        })}
+                      />
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })}
 
           {/* 4. 다음 단계 */}
           <div className="px-3 py-2.5 text-[12.5px] font-semibold" style={{ ...sectionLabelStyle, borderBottom: 'none' }}>4. 다음 단계</div>
