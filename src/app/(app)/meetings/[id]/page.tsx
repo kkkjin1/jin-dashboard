@@ -353,10 +353,6 @@ export default function MeetingDetailPage() {
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState('')
   const [linkedAgendaItems, setLinkedAgendaItems] = useState<LinkedAgendaItem[]>([])
-  const [sidebarSearch, setSidebarSearch] = useState('')
-  const [showSidebarSearch, setShowSidebarSearch] = useState(false)
-  const [linkingItemId, setLinkingItemId] = useState<string | null>(null)
-  const [relatedJournals, setRelatedJournals] = useState<{ id: string; date: string; content: string; tags: string[]; linked: boolean }[]>([])
   const [sameCatMeetings, setSameCatMeetings] = useState<Pick<Meeting, 'id' | 'title' | 'meeting_date'>[]>([])
   // SAME THREAD(같은 안건) — 실사용 데이터 확인 결과 "같은 안건의 다른 날짜 회의"는 대부분
   // meeting_notes(같은 meeting_id) 누적이 아니라 "+ 새 회의록"으로 매번 새 meetings row를
@@ -561,55 +557,13 @@ export default function MeetingDetailPage() {
   }
 
   useEffect(() => {
-    async function loadJournals() {
-      const seen = new Set<string>()
-      const result: { id: string; date: string; content: string; tags: string[]; linked: boolean }[] = []
-
-      // @ 직접 연결된 회고 (날짜 무관)
-      const { data: linked } = await supabase
-        .from('daily_journals')
-        .select('id, date, content, tags')
-        .contains('linked_meeting_ids', [id])
-      ;(linked ?? []).forEach(j => {
-        if (seen.has(j.id)) return
-        seen.add(j.id)
-        result.push({ ...j, tags: j.tags ?? [], linked: true })
-      })
-
-      // 날짜 ±2일 자동 연결
-      if (meeting?.meeting_date) {
-        const base = new Date(meeting.meeting_date + 'T00:00:00')
-        const dates: string[] = []
-        for (let i = -2; i <= 2; i++) {
-          const d = new Date(base)
-          d.setDate(d.getDate() + i)
-          dates.push([d.getFullYear(), String(d.getMonth()+1).padStart(2,'0'), String(d.getDate()).padStart(2,'0')].join('-'))
-        }
-        const { data: byDate } = await supabase
-          .from('daily_journals')
-          .select('id, date, content, tags')
-          .in('date', dates)
-        ;(byDate ?? []).forEach(j => {
-          if (seen.has(j.id)) return
-          seen.add(j.id)
-          result.push({ ...j, tags: j.tags ?? [], linked: false })
-        })
-      }
-
-      result.sort((a, b) => b.date.localeCompare(a.date))
-      setRelatedJournals(result)
-    }
-    loadJournals()
-  }, [meeting?.meeting_date, id])
-
-  useEffect(() => {
     if (!meeting?.category) return
     supabase.from('meetings')
       .select('id, title, meeting_date')
       .eq('category', meeting.category)
       .neq('id', id)
       .order('meeting_date', { ascending: false, nullsFirst: false })
-      .limit(15)
+      .limit(50)
       .then(({ data }) => setSameCatMeetings((data ?? []) as Pick<Meeting, 'id' | 'title' | 'meeting_date'>[]))
   }, [meeting?.category, id])
 
@@ -782,30 +736,6 @@ export default function MeetingDetailPage() {
     router.push('/meetings')
   }
 
-  async function linkAgendaItem(item: AgendaItemOption) {
-    if (linkedAgendaItems.some(l => l.id === item.id)) return
-    setLinkingItemId(item.id)
-    const { data } = await supabase.from('meeting_agenda_links').insert({ meeting_id: id, agenda_item_id: item.id }).select('id').single()
-    if (data) {
-      setLinkedAgendaItems(prev => [...prev, {
-        linkId: (data as { id: string }).id,
-        id: item.id,
-        title: item.title,
-        status: '',
-        groupName: item.groupName,
-        category: item.category,
-      }])
-    }
-    setLinkingItemId(null)
-    setShowSidebarSearch(false)
-    setSidebarSearch('')
-  }
-
-  async function unlinkAgendaItem(linkId: string) {
-    await supabase.from('meeting_agenda_links').delete().eq('id', linkId)
-    setLinkedAgendaItems(prev => prev.filter(l => l.linkId !== linkId))
-  }
-
   async function addLink() {
     if (!linkUrl.trim()) return
     const name = linkName.trim() || linkUrl
@@ -856,17 +786,26 @@ export default function MeetingDetailPage() {
   if (!meeting) return <div className="p-8 text-[rgba(var(--text-rgb),0.4)] text-sm animate-pulse">불러오는 중...</div>
 
   return (
-    <div className="h-full overflow-y-auto p-4 md:p-5 pretendard-page">
+    // md 이상: 페이지 전체 스크롤 없이 뷰포트 높이에 맞춘다(2026-09-28, 하단 연관 업무/관련 회고
+    // 제거 후). LEFT는 내용이 길어지면 LEFT 안에서만, RIGHT는 TOP/BOTTOM 각자 스크롤한다.
+    // md 미만은 좌우가 세로로 쌓이므로 기존처럼 페이지 스크롤을 유지한다.
+    <div className="h-full flex flex-col overflow-y-auto scrollbar-hide md:overflow-hidden p-4 md:p-5 pretendard-page">
       <TextSelectionCapture sourceName={meeting.title} sourceType="회의" />
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-4 flex-shrink-0">
         <Link href="/meetings" className="text-sm text-[rgba(var(--text-rgb),0.4)] hover:text-[rgba(var(--text-rgb),0.7)] inline-flex items-center gap-1">← 회의록 목록</Link>
-        <button onClick={handleDownloadMd}
-          className="text-xs text-[rgba(var(--text-rgb),0.4)] hover:text-[rgba(var(--text-rgb),0.7)] border border-[rgba(var(--ink-rgb),0.09)] rounded-md px-3 py-1.5 hover:bg-[rgba(var(--ink-rgb),0.06)] transition-colors">
-          MD 다운로드
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={handleDownloadMd}
+            className="text-xs text-[rgba(var(--text-rgb),0.4)] hover:text-[rgba(var(--text-rgb),0.7)] border border-[rgba(var(--ink-rgb),0.09)] rounded-md px-3 py-1.5 hover:bg-[rgba(var(--ink-rgb),0.06)] transition-colors">
+            MD 다운로드
+          </button>
+          <button onClick={deleteMeeting} disabled={deleting}
+            className="text-xs text-red-400 hover:text-red-500 border border-[rgba(239,68,68,0.25)] rounded-md px-3 py-1.5 hover:bg-[rgba(239,68,68,0.08)] transition-colors disabled:opacity-50">
+            이 회의록 삭제
+          </button>
+        </div>
       </div>
 
-      <div className="mb-4 mt-1">
+      <div className="mb-4 mt-1 flex-shrink-0">
         <input ref={titleRef} value={titleInput} onChange={e => setTitleInput(e.target.value)}
           onKeyDown={e => {
             if (e.key === 'Enter') { updateMeeting({ title: titleInput }) }
@@ -879,9 +818,9 @@ export default function MeetingDetailPage() {
 
       {/* 고정 min-width가 없는 자유 흐름 콘텐츠라 md 미만에서 세로 스택,
           md부터 좌 50 : 우 50(우측은 다시 상/하 50:50 — 같은 안건 히스토리 / 같은 범주 다른 회의) */}
-      <div className="flex flex-col gap-6 md:flex-row">
-        {/* 왼쪽 50%: 현재 회의 작성 — title/date/category/editor/related task/attachments */}
-        <div className="w-full min-w-0 md:flex-[50]">
+      <div className="flex flex-col gap-6 md:flex-row md:flex-1 md:min-h-0">
+        {/* 왼쪽 50%: 현재 회의 작성 — date/category/editor/attachments */}
+        <div className="w-full min-w-0 md:flex-[50] md:h-full md:overflow-y-auto scrollbar-hide">
           <div className="flex gap-4 items-end mb-6 flex-wrap">
             <div>
               <label className="text-xs text-[var(--text-muted)] block mb-1">회의 날짜</label>
@@ -1008,130 +947,18 @@ export default function MeetingDetailPage() {
             </div>
           </div>
 
-          {/* 연관 업무 — "related task/project" 기능 보존을 위해 LEFT에 유지(RIGHT는 same-thread/same-category 전용) */}
-          <div className="mb-6 bg-[var(--surface-panel)] rounded-lg border border-[var(--border-default)] p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xs font-semibold text-[rgba(var(--text-rgb),0.4)] uppercase tracking-wide">연관 업무</h3>
-              <button
-                onClick={() => { setShowSidebarSearch(p => !p); setSidebarSearch('') }}
-                className="text-xs text-[#5DBD97] hover:text-[#4aab84] transition-colors">
-                {showSidebarSearch ? '닫기' : '+ 업무 연결'}
-              </button>
-            </div>
-
-            {showSidebarSearch && (
-              <div className="mb-4">
-                <input
-                  autoFocus
-                  value={sidebarSearch}
-                  onChange={e => setSidebarSearch(e.target.value)}
-                  placeholder="업무명 또는 범주 검색..."
-                  className="w-full text-xs border border-[rgba(var(--ink-rgb),0.09)] rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-[#5DBD97] mb-2"
-                />
-                <div className="max-h-48 overflow-y-auto space-y-1">
-                  {agendaItems
-                    .filter(i =>
-                      !linkedAgendaItems.some(l => l.id === i.id) &&
-                      (!sidebarSearch.trim() || i.title.includes(sidebarSearch) || i.groupName.includes(sidebarSearch))
-                    )
-                    .map(item => (
-                      <button
-                        key={item.id}
-                        onClick={() => linkAgendaItem(item)}
-                        disabled={linkingItemId === item.id}
-                        className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-[rgba(var(--ink-rgb),0.03)] transition-colors group flex items-center gap-2 disabled:opacity-50">
-                        <span className="text-[10px] text-[rgba(var(--text-rgb),0.4)] flex-shrink-0 truncate max-w-[70px]">{item.groupName}</span>
-                        <span className="text-xs text-[rgba(var(--text-rgb),0.8)] truncate flex-1">{item.title}</span>
-                        <span className="text-[10px] text-[#5DBD97] opacity-0 group-hover:opacity-100 flex-shrink-0">연결</span>
-                      </button>
-                    ))}
-                  {agendaItems.filter(i =>
-                    !linkedAgendaItems.some(l => l.id === i.id) &&
-                    (!sidebarSearch.trim() || i.title.includes(sidebarSearch) || i.groupName.includes(sidebarSearch))
-                  ).length === 0 && (
-                    <p className="text-xs text-[rgba(var(--text-rgb),0.3)] text-center py-3">검색 결과 없음</p>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {linkedAgendaItems.length === 0 ? (
-              <p className="text-xs text-[rgba(var(--text-rgb),0.3)] text-center py-6">
-                연결된 프로젝트 업무가 없습니다<br/>
-                <span className="text-[10px]">노트의 &apos;업무에 추가&apos; 또는 &apos;업무 연결&apos;로 연동하세요</span>
-              </p>
-            ) : (
-              <div className="space-y-1.5">
-                {linkedAgendaItems.map(item => (
-                  <div key={item.linkId} className="border border-[rgba(var(--ink-rgb),0.06)] rounded-lg px-3 py-2.5 flex items-center gap-2 group hover:border-[rgba(var(--ink-rgb),0.09)] transition-colors">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[10px] text-[rgba(var(--text-rgb),0.4)] truncate">{item.groupName}</p>
-                      <p className="text-xs text-[rgba(var(--text-rgb),0.8)] truncate font-medium">{item.title}</p>
-                    </div>
-                    <div className="flex items-center gap-1.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Link href={`/project/items/${item.id}`}
-                        className="text-[10px] text-[rgba(var(--text-rgb),0.4)] hover:text-blue-500 transition-colors">
-                        열기
-                      </Link>
-                      <button onClick={() => unlinkAgendaItem(item.linkId)}
-                        className="text-[10px] text-[rgba(var(--text-rgb),0.3)] hover:text-red-400 transition-colors">
-                        해제
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* 관련 회고 — 기존 기능 보존, RIGHT는 same-thread/same-category 전용이라 LEFT에 유지 */}
-          <div className="mb-6 bg-[var(--surface-panel)] rounded-lg border border-[var(--border-default)] p-5">
-            <h3 className="text-xs font-semibold text-[rgba(var(--text-rgb),0.4)] uppercase tracking-wide mb-3">관련 회고</h3>
-            {!meeting?.meeting_date ? (
-              <p className="text-xs text-[rgba(var(--text-rgb),0.3)] text-center py-4">회의 날짜를 설정하면<br/>전후 회고가 자동으로 연결돼요</p>
-            ) : relatedJournals.length === 0 ? (
-              <p className="text-xs text-[rgba(var(--text-rgb),0.3)] text-center py-4">이 회의 전후 작성된<br/>회고가 없어요</p>
-            ) : (
-              <div className="space-y-2">
-                {relatedJournals.map(j => {
-                  const d = new Date(j.date + 'T00:00:00')
-                  const label = `${d.getMonth()+1}/${d.getDate()}`
-                  return (
-                    <div key={j.id} className="bg-[rgba(var(--ink-rgb),0.03)] rounded-lg p-3">
-                      <div className="flex items-center gap-1.5 mb-1">
-                        <p className="text-[10px] font-medium text-[rgba(var(--text-rgb),0.4)]">{label}</p>
-                        {j.linked
-                          ? <span className="text-[9px] bg-blue-50 text-blue-500 border border-blue-200 px-1 rounded">@ 직접연결</span>
-                          : <span className="text-[9px] text-[rgba(var(--text-rgb),0.3)]">±2일</span>
-                        }
-                      </div>
-                      <p className="text-xs text-[rgba(var(--text-rgb),0.7)] leading-relaxed line-clamp-3">{j.content}</p>
-                      {j.tags?.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-1.5">
-                          {j.tags.map(t => <span key={t} className="text-[9px] text-[rgba(var(--text-rgb),0.4)]">#{t}</span>)}
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-
-          <div className="border-t border-[rgba(var(--ink-rgb),0.06)] pt-6">
-            <button onClick={deleteMeeting} disabled={deleting}
-              className="text-sm text-red-400 hover:text-red-600 transition-colors">
-              이 회의록 삭제
-            </button>
-          </div>
         </div>
 
         {/* 오른쪽 50%: Context — TOP(같은 안건의 다른 날짜 회의=SAME THREAD) / BOTTOM(같은 범주의 다른 회의=SAME CATEGORY),
-            각각 독립 scroll. sticky로 LEFT가 길어져도 뷰포트에 두 context가 동시에 보이게 한다. */}
-        <div className="w-full min-w-0 md:flex-[50]">
-          <div className="flex flex-col gap-4 md:sticky md:top-6 md:max-h-[calc(100vh-3rem)]">
+            각각 독립 scroll. sticky로 LEFT가 길어져도 뷰포트에 두 context가 동시에 보이게 한다.
+            높이 비율 TOP 30 : BOTTOM 70(2026-09-28). BOTTOM은 다시 좌 2(목록) : 우 8(선택한 회의 내용)
+            으로 나눈다 — 예전의 전체화면 modal은 backdrop이 LEFT 입력창을 가렸고, 여기서는 목록을
+            훑으면서 내용을 바로 읽고 LEFT에서 계속 입력할 수 있다. TOP의 "다른 회의" 클릭도 같은
+            BOTTOM 우측 내용 영역에 표시한다. */}
+        <div className="w-full min-w-0 md:flex-[50] md:h-full">
+          <div className="flex flex-col gap-4 md:h-full">
             {/* RIGHT TOP: SAME THREAD — 기존 editor 하단의 "이전 회의" toggle/archive를 그대로 재사용해 위치만 이동 */}
-            <div className="flex-1 min-h-0 flex flex-col bg-[var(--surface-panel)] rounded-lg border border-[var(--border-default)] p-5">
+            <div className="md:flex-[30] min-h-0 max-h-[40vh] md:max-h-none flex flex-col bg-[var(--surface-panel)] rounded-lg border border-[var(--border-default)] p-5">
               <h3 className="text-xs font-semibold text-[rgba(var(--text-rgb),0.4)] uppercase tracking-wide mb-3 flex-shrink-0">
                 같은 안건의 다른 날짜 회의{meeting?.title ? ` · ${meeting.title}` : ''}
               </h3>
@@ -1186,67 +1013,84 @@ export default function MeetingDetailPage() {
               </div>
             </div>
 
-            {/* RIGHT BOTTOM: SAME CATEGORY — 같은 category지만 다른 안건. SAME THREAD와 다른 개념이라 명확히 구분해 표시 */}
-            <div className="flex-1 min-h-0 flex flex-col bg-[var(--surface-panel)] rounded-lg border border-[var(--border-default)] p-5">
+            {/* RIGHT BOTTOM: SAME CATEGORY — 같은 category지만 다른 안건. 좌 2 목록 / 우 8 선택 회의 내용 */}
+            <div className="md:flex-[70] min-h-[320px] md:min-h-0 flex flex-col bg-[var(--surface-panel)] rounded-lg border border-[var(--border-default)] p-5">
               <h3 className="text-xs font-semibold text-[rgba(var(--text-rgb),0.4)] uppercase tracking-wide mb-3 flex-shrink-0">
                 같은 범주의 다른 회의{meeting?.category ? ` · ${meeting.category}` : ''}
               </h3>
-              <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
-                {sameCatMeetingsDeduped.length === 0 ? (
-                  <p className="text-sm text-[rgba(var(--text-rgb),0.3)] text-center py-6">같은 범주의 다른 회의가 없습니다</p>
-                ) : (
-                  <div className="space-y-1">
-                    {sameCatMeetingsDeduped.map(m => (
-                      <button key={m.id} onClick={() => openMeetingPreview(m, meeting?.category ? `같은 범주 · ${meeting.category}` : '같은 범주')}
-                        className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-[rgba(var(--ink-rgb),0.03)] transition-colors group text-left">
-                        <span className="text-[10px] text-[rgba(var(--text-rgb),0.4)] flex-shrink-0 w-12">
-                          {m.meeting_date ? format(parseISO(m.meeting_date), 'M.d') : '—'}
-                        </span>
-                        <span className="text-xs text-[rgba(var(--text-rgb),0.7)] group-hover:text-[rgba(var(--text-rgb),1)] truncate flex-1 transition-colors">
-                          {m.title || '제목 없음'}
-                        </span>
-                        <span className="text-[10px] text-[rgba(var(--text-rgb),0.3)] group-hover:text-[rgba(var(--text-rgb),0.5)] flex-shrink-0">›</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
+              <div className="flex-1 min-h-0 flex gap-3">
+                {/* 좌 2: 목록 — 폭이 좁아 날짜/제목을 두 줄로 쌓는다 */}
+                <div className="w-1/5 min-w-[88px] flex-shrink-0 overflow-y-auto scrollbar-hide pr-1" style={{ borderRight: '1px solid rgba(var(--ink-rgb),0.08)' }}>
+                  {sameCatMeetingsDeduped.length === 0 ? (
+                    <p className="text-[11px] text-[rgba(var(--text-rgb),0.3)] py-4">같은 범주의 다른 회의가 없습니다</p>
+                  ) : (
+                    <div className="space-y-0.5">
+                      {sameCatMeetingsDeduped.map(m => {
+                        const active = meetingPreview?.id === m.id
+                        return (
+                          <button key={m.id} onClick={() => openMeetingPreview(m, meeting?.category ? `같은 범주 · ${meeting.category}` : '같은 범주')}
+                            title={m.title || '제목 없음'}
+                            className="w-full text-left px-2 py-1.5 rounded-md transition-colors"
+                            style={active
+                              ? { background: 'rgba(76,127,224,0.15)' }
+                              : undefined}>
+                            <span className="block text-[10px]" style={{ color: active ? 'var(--accent-soft)' : 'rgba(var(--text-rgb),0.4)' }}>
+                              {m.meeting_date ? format(parseISO(m.meeting_date), 'M.d') : '—'}
+                            </span>
+                            <span className="block text-[11.5px] leading-snug line-clamp-2"
+                              style={{ color: active ? 'rgba(var(--text-rgb),1)' : 'rgba(var(--text-rgb),0.7)' }}>
+                              {m.title || '제목 없음'}
+                            </span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* 우 8: 선택한 회의 내용 */}
+                <div className="flex-1 min-w-0 flex flex-col">
+                  {meetingPreview ? (
+                    <>
+                      <div className="flex items-start justify-between gap-2 mb-2 flex-shrink-0">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold truncate" style={{ color: 'rgba(var(--text-rgb),1)' }}>{meetingPreview.title || '제목 없음'}</p>
+                          <p className="text-[11px] text-[rgba(var(--text-rgb),0.4)]">
+                            {meetingPreview.meeting_date ? format(parseISO(meetingPreview.meeting_date), 'yyyy.MM.dd') : '날짜 없음'}
+                            {meetingPreviewLabel ? ` · ${meetingPreviewLabel}` : ''}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          <button onClick={() => router.push(`/meetings/${meetingPreview.id}`)}
+                            className="px-2.5 py-1 rounded-lg text-[11.5px] font-medium transition-colors"
+                            style={{ background: 'rgba(76,127,224,0.18)', border: '1px solid rgba(76,127,224,0.35)', color: 'var(--accent-soft)' }}>
+                            이 회의 열기 →
+                          </button>
+                          <button onClick={closeMeetingPreview} title="닫기"
+                            className="text-base leading-none px-1 text-[rgba(var(--text-rgb),0.4)] hover:text-[rgba(var(--text-rgb),0.7)]">×</button>
+                        </div>
+                      </div>
+                      <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide pr-1">
+                        {meetingPreviewLoading ? (
+                          <p className="text-sm text-[rgba(var(--text-rgb),0.3)]">불러오는 중...</p>
+                        ) : meetingPreviewContent ? (
+                          <MarkdownContent content={meetingPreviewContent} dark className="text-[13px] leading-relaxed" />
+                        ) : (
+                          <p className="text-sm text-[rgba(var(--text-rgb),0.3)]">기록된 노트가 없습니다</p>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex-1 flex items-center justify-center">
+                      <p className="text-[12px] text-[rgba(var(--text-rgb),0.3)] text-center">왼쪽 목록이나 위의 다른 회의를 선택하면<br/>여기에 내용이 표시됩니다</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-
-      {/* SAME THREAD/SAME CATEGORY 클릭 preview modal — 클릭해도 현재 작성 중인 LEFT context를 잃지
-          않도록 바로 navigate하지 않고 여기서 먼저 보여준 뒤 "이 회의 열기"에서만 실제 이동한다. */}
-      {meetingPreview && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={closeMeetingPreview}>
-          <div className="bg-[var(--surface-primary)] rounded-2xl border border-[var(--border-default)] p-6 max-w-lg w-full max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
-            <div className="flex items-start justify-between mb-1 flex-shrink-0">
-              <h3 className="text-base font-semibold" style={{ color: 'rgba(var(--text-rgb),1)' }}>{meetingPreview.title || '제목 없음'}</h3>
-              <button onClick={closeMeetingPreview} className="text-lg leading-none text-[rgba(var(--text-rgb),0.4)] hover:text-[rgba(var(--text-rgb),0.7)]">×</button>
-            </div>
-            <p className="text-xs text-[rgba(var(--text-rgb),0.4)] mb-4 flex-shrink-0">
-              {meetingPreview.meeting_date ? format(parseISO(meetingPreview.meeting_date), 'yyyy.MM.dd') : '날짜 없음'}
-              {meetingPreviewLabel ? ` · ${meetingPreviewLabel}` : ''}
-            </p>
-            <div className="flex-1 min-h-0 overflow-y-auto mb-4">
-              <p className="text-[11px] font-semibold uppercase tracking-wide mb-2 text-[rgba(var(--text-rgb),0.4)]">회의 내용</p>
-              {meetingPreviewLoading ? (
-                <p className="text-sm text-[rgba(var(--text-rgb),0.3)]">불러오는 중...</p>
-              ) : meetingPreviewContent ? (
-                <MarkdownContent content={meetingPreviewContent} dark className="text-[13px] leading-relaxed" />
-              ) : (
-                <p className="text-sm text-[rgba(var(--text-rgb),0.3)]">기록된 노트가 없습니다</p>
-              )}
-            </div>
-            <button onClick={() => router.push(`/meetings/${meetingPreview.id}`)}
-              className="w-full flex-shrink-0 flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-medium transition-colors"
-              style={{ background: 'rgba(76,127,224,0.18)', border: '1px solid rgba(76,127,224,0.35)', color: 'var(--accent-soft)' }}>
-              이 회의 열기 →
-            </button>
-          </div>
-        </div>
-      )}
 
       {showFullscreen && (
         <div className="fixed inset-0 z-50 bg-black/90 flex items-start justify-center p-8 overflow-auto"
