@@ -516,6 +516,29 @@ export default function WorkReportPage() {
     }
   }
 
+  // 회차 삭제 — work_report_entries/work_report_items는 FK ON DELETE CASCADE로 함께 지워지고,
+  // 주제(work_report_topics)와 다른 회차는 그대로 둔다. 삭제 후에는 남은 최신 회차로 이동한다.
+  async function handleDeleteReport() {
+    if (!currentReport) return
+    const label = fmtDateFull(currentReport.report_date ?? currentReport.period_end)
+    if (!confirm(`${label} 보고를 삭제할까요?\n이 회차의 주제별 내용과 3-1/3-2/3-3 항목이 모두 삭제되며 되돌릴 수 없습니다.`)) return
+    // 삭제 직전 pending debounce를 먼저 커밋해 두어, 이후 unmount flush가 이미 지워진
+    // 회차에 저장을 시도하지 않게 한다.
+    await editorRef.current?.flushPending()
+    await itemPanelRef.current?.flushPending()
+    const deletedId = currentReport.id
+    const { error } = await supabase.from('work_reports').delete().eq('id', deletedId)
+    if (error) { alert(`보고 삭제에 실패했습니다: ${error.message}`); return }
+    const remaining = reportsAsc.filter(r => r.id !== deletedId)
+    setReports(prev => prev.filter(r => r.id !== deletedId))
+    setAllItems(prev => prev.filter(i => i.report_id !== deletedId))
+    entriesCacheRef.current.delete(deletedId)
+    loadedReportIds.current.delete(deletedId)
+    setEntriesByReport(prev => { const next = new Map(prev); next.delete(deletedId); return next })
+    setCurrentReportId(remaining.length > 0 ? remaining[remaining.length - 1].id : null)
+    setSelection('summary')
+  }
+
   // Archive의 "전체 보고" 카드에서 "이 보고 열기 →"를 누르면 그 회차를 작성 화면에서
   // 그대로 이어서 본다(draft면 편집 가능, final이면 기존과 동일하게 read-only) — 새로운
   // "열람 전용" 모드를 따로 만들지 않는다.
@@ -685,6 +708,12 @@ export default function WorkReportPage() {
                     : { color: S.t3, background: 'rgba(var(--ink-rgb),0.04)' }}
                 >
                   {currentReport.status === 'draft' ? '보고 확정' : '편집 재개'}
+                </button>
+                <button onClick={handleDeleteReport}
+                  className="px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors"
+                  style={{ color: '#F87171', background: 'rgba(239,68,68,0.08)' }}
+                >
+                  삭제
                 </button>
               </>
             )}
