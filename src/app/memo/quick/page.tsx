@@ -635,7 +635,7 @@ export default function QuickMemoPage() {
       {/* 본문 */}
       <div className="flex-1 min-h-0 mb-2 overflow-y-auto scrollbar-hide border border-[rgba(var(--ink-rgb),0.08)] rounded-lg px-3 py-2"
         style={{ background: 'rgba(var(--ink-rgb),0.06)' }}>
-        <TiptapEditor
+        <TiptapEditor enableToggle
           key={editorKey}
           value={content}
           onChange={v => { setContent(v); saveDraft(title, v, tag) }}

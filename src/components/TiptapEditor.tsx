@@ -5,7 +5,7 @@ import { useEditor, EditorContent } from '@tiptap/react'
 import Image from '@tiptap/extension-image'
 import { collapseEmptyParagraphs } from '@/lib/htmlCleanup'
 import {
-  BASE_TIPTAP_EXTENSIONS, legacyToHtml, handleListKeymapWorkaround,
+  BASE_TIPTAP_EXTENSIONS, ToggleInputRules, legacyToHtml, handleListKeymapWorkaround, toggleDetailsAtSelection,
 } from '@/lib/tiptapExtensions'
 
 // ── Clipboard: ProseMirror document → Markdown (GFM) ─────────────────────────
@@ -68,6 +68,18 @@ function collectMarkdown(node: any, lines: string[], depth: number): void {
     const inner: string[] = []
     node.forEach((child: any) => collectMarkdown(child, inner, 0))
     inner.forEach(l => lines.push(`> ${l}`))
+  } else if (t === 'details') {
+    // 토글 → 제목은 "- 제목", 내용은 한 단계 들여쓴 하위 항목으로
+    node.forEach((child: any) => {
+      if (child.type.name === 'detailsSummary') {
+        lines.push('   '.repeat(depth) + '- ' + inlineToMd(child))
+      } else {
+        child.forEach((c: any) => {
+          if (c.type.name === 'paragraph') lines.push('   '.repeat(depth + 1) + inlineToMd(c))
+          else collectMarkdown(c, lines, depth + 1)
+        })
+      }
+    })
   } else if (t === 'codeBlock') {
     const lang: string = (node.attrs.language as string) ?? ''
     lines.push('```' + lang)
@@ -100,6 +112,8 @@ const HIGHLIGHTS = [
 
 // 모듈 레벨 상수 — 렌더마다 새 참조 생성 방지 (Tiptap v3에서 extensions 참조 변경 시 refreshEditorInstance 호출됨)
 const EXTENSIONS = [...BASE_TIPTAP_EXTENSIONS, Image.configure({ allowBase64: true })]
+// enableToggle: "> " 토글 / '" ' 인용구 입력 규칙 (Quick Memo·회의록·프로젝트 화면에서만)
+const EXTENSIONS_WITH_TOGGLE = [...EXTENSIONS, ToggleInputRules]
 
 interface Props {
   value: string
@@ -113,10 +127,11 @@ interface Props {
   className?: string
   dark?: boolean
   hideToolbar?: boolean
+  enableToggle?: boolean
 }
 
 export default function TiptapEditor({
-  value, onChange, onSubmit, onEscape, onExpand, onSelectionChange, autoFocus, minHeight = 160, className, dark, hideToolbar,
+  value, onChange, onSubmit, onEscape, onExpand, onSelectionChange, autoFocus, minHeight = 160, className, dark, hideToolbar, enableToggle,
 }: Props) {
   // Refs로 콜백 최신값 유지 — useCallback deps를 [] 로 고정해 Tiptap이 매 렌더마다 options 변경을 감지하지 않도록 함
   const onChangeRef          = useRef(onChange)
@@ -132,7 +147,11 @@ export default function TiptapEditor({
   })
 
   const stableKeyDown = useCallback((_view: unknown, e: KeyboardEvent) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { onSubmitRef.current?.(); return true }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      // 커서가 토글 안이면 저장 대신 토글 열기/닫기
+      if (editorRef.current && toggleDetailsAtSelection(editorRef.current)) return true
+      onSubmitRef.current?.(); return true
+    }
     if (e.key === 'Escape') { onEscapeRef.current?.(); return true }
     const ed = editorRef.current
     if (!ed) return false
@@ -201,7 +220,7 @@ export default function TiptapEditor({
   }, [])
 
   const editor = useEditor({
-    extensions: EXTENSIONS,
+    extensions: enableToggle ? EXTENSIONS_WITH_TOGGLE : EXTENSIONS,
     content: legacyToHtml(value),
     editorProps: {
       attributes: { class: `${dark ? 'tiptap-input-dark' : 'tiptap-input'} outline-none`, style: `min-height:${minHeight}px; padding:8px 0;` },

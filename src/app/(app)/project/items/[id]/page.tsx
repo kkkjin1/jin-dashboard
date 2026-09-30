@@ -367,7 +367,7 @@ function SubTaskAccordion({
                         크게 편집
                       </button>
                     </div>
-                    <TiptapEditor
+                    <TiptapEditor enableToggle
                       dark
                       key={selectedNote.id}
                       value={selectedNote.content}
@@ -996,7 +996,7 @@ export default function AgendaItemDetailPage() {
               크게 편집
             </button>
           </div>
-          <TiptapEditor
+          <TiptapEditor enableToggle
             dark
             value={description}
             onChange={handleDescription}
@@ -1138,7 +1138,7 @@ export default function AgendaItemDetailPage() {
                 </div>
               )}
               <div className="flex-1 min-h-0 overflow-auto">
-                <TiptapEditor dark value={description} onChange={handleDescription} autoFocus minHeight={300} className="px-8 py-4" />
+                <TiptapEditor enableToggle dark value={description} onChange={handleDescription} autoFocus minHeight={300} className="px-8 py-4" />
               </div>
             </div>
           )
@@ -1200,7 +1200,7 @@ export default function AgendaItemDetailPage() {
                     <div className="px-8 pt-4 pb-0 flex items-center gap-2">
                       <NoteTitleInput note={selectedNote} placeholder={`${formatNoteDate(selectedNote.created_at)} 기록`} onSave={title => updateNoteTitle(selectedNote.id, expandST.id, title)} onValueChange={setOverlayNoteTitleVal} />
                     </div>
-                    <TiptapEditor
+                    <TiptapEditor enableToggle
                       dark
                       key={selectedNote.id}
                       value={selectedNote.content}

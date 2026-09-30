@@ -249,7 +249,7 @@ function NoteAccordion({ note, isOpen, onToggle, onDelete, onEdit, onFullscreen,
         </div>
       </div>
       {fullscreen && (
-        <FullscreenNoteEditor
+        <FullscreenNoteEditor enableToggle
           value={editContent}
           onChange={handleChange}
           onSave={() => { onEdit(note.id, editContent); setEditing(false) }}
@@ -270,7 +270,7 @@ function NoteAccordion({ note, isOpen, onToggle, onDelete, onEdit, onFullscreen,
                   <button onClick={() => contentAutosave.discardRecovered()} className="underline underline-offset-2">무시</button>
                 </div>
               )}
-              <TiptapEditor
+              <TiptapEditor enableToggle
                 dark
                 key={tiptapKey}
                 value={editContent}
@@ -877,7 +877,7 @@ export default function MeetingDetailPage() {
               <input value={noteTitle} onChange={e => handleNoteTitleChange(e.target.value)}
                 className="w-full text-xs font-medium text-[rgba(var(--text-rgb),0.5)] focus:outline-none mb-2 border-b border-[rgba(var(--ink-rgb),0.06)] pb-1 bg-transparent"
                 placeholder="노트 제목" />
-              <TiptapEditor
+              <TiptapEditor enableToggle
                 dark
                 key={newNoteKey}
                 value={noteInput}
@@ -894,7 +894,7 @@ export default function MeetingDetailPage() {
               </div>
             </div>
             {showFullscreenNew && (
-              <FullscreenNoteEditor
+              <FullscreenNoteEditor enableToggle
                 value={noteInput}
                 onChange={handleNoteInputChange}
                 onSave={() => { saveNote(); setShowFullscreenNew(false) }}

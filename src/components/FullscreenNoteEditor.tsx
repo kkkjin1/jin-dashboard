@@ -10,9 +10,10 @@ interface Props {
   onClose: () => void
   title?: string
   dark?: boolean
+  enableToggle?: boolean
 }
 
-export default function FullscreenNoteEditor({ value, onChange, onSave, onClose, title, dark }: Props) {
+export default function FullscreenNoteEditor({ value, onChange, onSave, onClose, title, dark, enableToggle }: Props) {
   // Escape/배경클릭으로 닫을 때도 저장 후 닫기 — 저장 없이 닫으면 입력 내용이 유실됨
   function closeWithSave() {
     onSave?.()
@@ -57,6 +58,7 @@ export default function FullscreenNoteEditor({ value, onChange, onSave, onClose,
             autoFocus
             minHeight={400}
             dark={dark}
+            enableToggle={enableToggle}
           />
         </div>
       </div>

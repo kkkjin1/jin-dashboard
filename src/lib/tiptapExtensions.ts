@@ -1,13 +1,15 @@
 // Quick Memo(TiptapEditor.tsx)와 생각스케치(SketchTextEditor.tsx)가 공유하는 Tiptap
 // 편집기 코어 — extension 구성 + 레거시 콘텐츠 로딩 + 중첩 리스트 backspace/delete
 // 보정. 두 에디터가 동일한 문서 스키마/Markdown input rule을 쓰도록 이 모듈만 참조한다.
-import { mergeAttributes } from '@tiptap/core'
+import { Extension, InputRule, mergeAttributes, wrappingInputRule } from '@tiptap/core'
 import type { Editor } from '@tiptap/react'
-import { TextSelection } from '@tiptap/pm/state'
+import { Selection, TextSelection } from '@tiptap/pm/state'
+import type { Node as PMNode } from '@tiptap/pm/model'
 import StarterKit from '@tiptap/starter-kit'
 import OrderedList from '@tiptap/extension-ordered-list'
 import { Color, TextStyle } from '@tiptap/extension-text-style'
 import Highlight from '@tiptap/extension-highlight'
+import { Details, DetailsContent, DetailsSummary } from '@tiptap/extension-details'
 import { ArrowShortcuts } from '@/lib/arrowShortcuts'
 import { collapseEmptyParagraphs } from '@/lib/htmlCleanup'
 
@@ -201,6 +203,30 @@ export const CustomOrderedList = OrderedList.extend({
   },
 })
 
+// Details nodeView는 open=true로 생성될 때 setTimeout으로 열림 class를 "토글"하는데, 그 전에
+// update()가 먼저 와서(setToValue:true) 이미 열어두면 timeout이 도로 닫아버려 open=true인데
+// 내용이 숨겨진 상태가 된다("> 제목" 입력 직후 Enter가 토글 밖으로 빠지는 증상). 라이브러리
+// timeout 뒤에 한 번 더 update(현재 노드)를 호출해 문서의 open 값으로 재동기화한다(멱등).
+const SyncedDetails = Details.extend({
+  addNodeView() {
+    const factory = this.parent?.()
+    if (!factory) return null
+    return props => {
+      const view = factory(props)
+      const origUpdate = view.update?.bind(view)
+      if (!origUpdate) return view
+      let current = props.node
+      view.update = (node, ...rest) => {
+        const ok = origUpdate(node, ...rest)
+        if (ok) current = node
+        return ok
+      }
+      setTimeout(() => origUpdate(current, [], props.innerDecorations))
+      return view
+    }
+  },
+})
+
 // 모듈 레벨 상수 — 렌더마다 새 참조 생성 방지 (Tiptap v3에서 extensions 참조 변경 시 refreshEditorInstance 호출됨)
 // Quick Memo/생각스케치가 공유하는 최소 코어. Quick Memo 전용 기능(Image 붙여넣기 등)은
 // 각 에디터가 이 배열 위에 자신만 추가한다.
@@ -211,7 +237,98 @@ export const BASE_TIPTAP_EXTENSIONS = [
   Color,
   Highlight.configure({ multicolor: true }),
   ArrowShortcuts,
+  // 토글 스키마는 모든 에디터에 등록한다 — 토글 입력을 켠 화면(ToggleInputRules)에서 만든
+  // <details>를 다른 화면의 에디터가 열어도 스키마에 없어서 벗겨진 채 autosave되지 않도록.
+  // persist: 열림/닫힘 상태를 문서에 저장(노션처럼 다시 열어도 유지, 읽기 화면은 <details open>)
+  SyncedDetails.configure({ persist: true, HTMLAttributes: { class: 'details' } }),
+  DetailsSummary,
+  DetailsContent,
 ]
+
+// ── Ctrl+Enter 토글 열기/닫기 ─────────────────────────────────────────────────
+// 커서가 토글 제목/내용 안에 있으면(가장 가까운 토글 기준) 열림 상태를 뒤집는다.
+// 닫으면 토글 바로 아래 줄 맨 앞으로(아래가 문단이 아니면 빈 문단을 만들어서), 열면 토글 내용의
+// 마지막 줄 끝으로 커서를 옮긴다. 토글 밖이면 false — 호출부가 원래 Ctrl+Enter(저장 등)를 수행.
+export function toggleDetailsAtSelection(editor: Editor): boolean {
+  const { state } = editor
+  const { schema } = state
+  const detailsType = schema.nodes.details
+  if (!detailsType) return false
+  const { $from } = state.selection
+  let depth = $from.depth
+  while (depth > 0 && $from.node(depth).type !== detailsType) depth--
+  if (depth === 0) return false
+
+  const details = $from.node(depth)
+  const pos = $from.before(depth)
+  const open = !details.attrs.open
+  const tr = state.tr.setNodeMarkup(pos, undefined, { ...details.attrs, open })
+
+  if (open) {
+    // Details의 detailsSelection 플러그인이 "DOM상 숨겨진 내용 안의 커서"를 밖으로 밀어내므로
+    // 같은 트랜잭션에서 커서를 넣으면 튕긴다 — 먼저 열어서 nodeView가 내용을 보이게 한 뒤
+    // (dispatch는 DOM 갱신까지 동기) 두 번째 트랜잭션으로 커서를 옮긴다.
+    editor.view.dispatch(tr)
+    // details = summary + detailsContent → detailsContent 끝(닫는 태그 직전)에서 뒤로 가장 가까운 커서 위치
+    const contentEnd = pos + details.nodeSize - 2
+    const sel = Selection.findFrom(editor.state.doc.resolve(contentEnd), -1, true)
+    if (sel) editor.view.dispatch(editor.state.tr.setSelection(sel).scrollIntoView())
+    return true
+  } else {
+    const after = pos + details.nodeSize
+    const next = tr.doc.resolve(after).nodeAfter
+    if (!next || next.type !== schema.nodes.paragraph) {
+      tr.insert(after, schema.nodes.paragraph.create())
+    }
+    tr.setSelection(TextSelection.create(tr.doc, after + 1))
+  }
+  editor.view.dispatch(tr.scrollIntoView())
+  return true
+}
+
+// ── 노션식 토글 입력 규칙 (Quick Memo/생각스케치/회의록/프로젝트에만 추가) ─────────
+// "> " → 토글(현재 줄이 토글 제목), '" ' → 인용구. StarterKit Blockquote의 "> " 규칙보다
+// 먼저 매칭되도록 priority를 올린다(input rule은 priority 높은 확장부터 첫 매칭만 적용).
+export const ToggleInputRules = Extension.create({
+  name: 'toggleInputRules',
+  priority: 1000,
+  // TiptapEditor는 editorProps.handleKeyDown에서 먼저 처리하지만(저장 단축키보다 우선), 생각스케치처럼
+  // 자체 Ctrl+Enter 처리가 없는 에디터용으로 여기서도 잡는다(기본값은 HardBreak 삽입).
+  addKeyboardShortcuts() {
+    return { 'Mod-Enter': () => toggleDetailsAtSelection(this.editor) }
+  },
+  addInputRules() {
+    const { schema } = this.editor
+    return [
+      new InputRule({
+        find: /^>\s$/,
+        handler: ({ state, range }) => {
+          const { tr } = state
+          const $from = tr.doc.resolve(range.from)
+          if ($from.parent.type !== schema.nodes.paragraph) return null
+          const container = $from.node(-1)
+          const index = $from.index(-1)
+          if (!container.canReplaceWith(index, index + 1, schema.nodes.details)) return null
+
+          tr.delete(range.from, range.to)
+          const start = $from.before()
+          const para = tr.doc.nodeAt(start)
+          if (!para) return null
+          // summary는 text*만 허용 — 줄의 기존 텍스트(마크 포함)만 제목으로 옮긴다
+          const texts: PMNode[] = []
+          para.forEach(child => { if (child.isText) texts.push(child) })
+          const details = schema.nodes.details.create({ open: true }, [
+            schema.nodes.detailsSummary.create(null, texts),
+            schema.nodes.detailsContent.create(null, schema.nodes.paragraph.create()),
+          ])
+          tr.replaceWith(start, start + para.nodeSize, details)
+          tr.setSelection(TextSelection.create(tr.doc, start + 2))
+        },
+      }),
+      wrappingInputRule({ find: /^\s*"\s$/, type: schema.nodes.blockquote }),
+    ]
+  },
+})
 
 // ── 중첩 리스트 backspace/delete 보정 (Quick Memo/생각스케치 공용) ─────────────
 

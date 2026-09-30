@@ -571,6 +571,39 @@ html, body {
 .tiptap-input li > p, .tiptap-input-dark li > p { margin: 0; min-height: auto; }
 .tiptap-input img, .tiptap-input-dark img { max-width: 100%; border-radius: 6px; display: block; margin: 4px 0; }
 
+/* ── 노션식 토글(details) ──
+   에디터: Tiptap Details nodeView = div[data-type=details] > button + div > (summary, div[data-type=detailsContent])
+   읽기모드: 저장된 HTML 그대로 = <details class="details" [open]> > summary + div[data-type=detailsContent]
+   에디터/스케치/읽기 화면마다 루트 클래스가 달라서 루트 클래스 대신 data-type/class로 잡는다. */
+.ProseMirror div[data-type="details"] { display: flex; align-items: flex-start; gap: 2px; margin: 1px 0; }
+.ProseMirror div[data-type="details"] > button,
+details.details > summary::before {
+  flex-shrink: 0; width: 1.3em; height: 1.7em; display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 4px; color: inherit; opacity: 0.55;
+}
+.ProseMirror div[data-type="details"] > button { background: transparent; border: 0; padding: 0; cursor: pointer; }
+.ProseMirror div[data-type="details"] > button:hover { background: rgba(var(--ink-rgb),0.08); opacity: 1; }
+.ProseMirror div[data-type="details"] > button::before { content: "▶"; font-size: 0.6em; transition: transform 0.15s; }
+.ProseMirror div[data-type="details"].is-open > button::before { transform: rotate(90deg); }
+.ProseMirror div[data-type="details"] > div { flex: 1; min-width: 0; }
+.ProseMirror div[data-type="details"] summary { display: block; list-style: none; min-height: 1.5em; }
+.ProseMirror div[data-type="details"] summary:has(> .ProseMirror-trailingBreak:only-child)::before {
+  content: "토글 제목"; float: left; height: 0; opacity: 0.35; pointer-events: none;
+}
+.ProseMirror [data-type="detailsContent"][hidden] { display: none; }
+details.details { margin: 1px 0; }
+details.details > summary { display: flex; align-items: flex-start; list-style: none; cursor: pointer; min-height: 1.5em; }
+details.details > summary::-webkit-details-marker { display: none; }
+details.details > summary::before { content: "▶"; font-size: 0.6em; height: calc(1.7em / 0.6); width: calc(1.3em / 0.6); transition: transform 0.15s; }
+details.details[open] > summary::before { transform: rotate(90deg); }
+details.details > [data-type="detailsContent"] { padding-left: 1.3em; }
+/* 토글 안의 리스트는 에디터 루트 직계가 아니라 1단계 넘버링/불릿 규칙(> ol, > ul)이 안 먹는다 — 동일하게 적용 */
+[data-type="detailsContent"] > ol { padding-left: 1.4rem; counter-reset: notecnt var(--ol-start, 0); }
+[data-type="detailsContent"] > ol > li { counter-increment: notecnt; }
+[data-type="detailsContent"] > ol > li::before { content: counter(notecnt) "."; position: absolute; left: -1.4rem; width: 1.2rem; text-align: right; white-space: nowrap; }
+[data-type="detailsContent"] > ul { padding-left: 1.2rem; }
+[data-type="detailsContent"] > ul > li::before { content: "•"; position: absolute; left: -1.2rem; width: 1rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
+
 /* ── HTML 읽기모드 전용 (MarkdownContent, 에디터와 다른 부분 — 병합하지 않음) ──
    li > p의 min-height: 에디터에서는 빈 <p></p>를 브라우저가 자동으로 <br>을 넣어 채워주지만,
    저장된 HTML을 그대로 읽기모드로 렌더링할 땐 그 <br>이 없어 높이가 0으로 붕괴되고 절대위치

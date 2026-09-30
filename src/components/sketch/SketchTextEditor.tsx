@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useEditor, EditorContent, type Editor } from '@tiptap/react'
 import { Pen, Highlighter } from 'lucide-react'
-import { BASE_TIPTAP_EXTENSIONS, legacyToHtml, handleListKeymapWorkaround } from '@/lib/tiptapExtensions'
+import { BASE_TIPTAP_EXTENSIONS, ToggleInputRules, legacyToHtml, handleListKeymapWorkaround } from '@/lib/tiptapExtensions'
 import { FontSize, getCurrentBlockFontSize } from '@/lib/tiptapFontSize'
 
 const RED = '#EF4444'
@@ -19,7 +19,7 @@ const MAX_FONT_SIZE = 48
 const FONT_SIZE_STEP = 1.5
 
 // 모듈 레벨 상수 — TiptapEditor.tsx와 동일한 이유(참조 안정성)로 컴포넌트 바깥에 둔다.
-const SKETCH_EXTENSIONS = [...BASE_TIPTAP_EXTENSIONS, FontSize]
+const SKETCH_EXTENSIONS = [...BASE_TIPTAP_EXTENSIONS, FontSize, ToggleInputRules]
 
 interface CaretPos { x: number; y: number }
 
