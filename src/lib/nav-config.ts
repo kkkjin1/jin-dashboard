@@ -7,7 +7,7 @@
 import {
   Home, Trophy, MessageSquare, CalendarDays,
   StickyNote, Users, BookOpen, Settings, Brain, NotebookPen,
-  LayoutGrid, Target, Compass, PenTool, FlaskConical, ClipboardList,
+  LayoutGrid, Target, Compass, PenTool, ClipboardList,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -34,7 +34,6 @@ export const NAV_ITEMS: NavItem[] = [
   { href: '/',                 label: '홈',        key: '1', icon: Home,           section: 'main', pinned: true },
   { href: '/project',          label: '프로젝트',    key: '2', icon: LayoutGrid,     section: 'main' },
   { href: '/annual-goals',     label: '연간목표',    key: '',  icon: Compass,        section: 'main' },
-  { href: '/test-practice',    label: '테스트실무',   key: '',  icon: FlaskConical,   section: 'main' },
   { href: '/work-report',      label: '업무보고',    key: '',  icon: ClipboardList,  section: 'main' },
   { href: '/objective-review', label: '목표리뷰',    key: '',  icon: Target,         section: 'main' },
   { href: '/completed',        label: '완료 성과',   key: '',  icon: Trophy,         section: 'main' },

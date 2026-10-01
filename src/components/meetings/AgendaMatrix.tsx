@@ -3,11 +3,12 @@
 import { useEffect, useState, useRef, useMemo, Fragment } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import type { AgendaGroup, AgendaItem, AgendaSubTask, Attachment, Member } from '@/types'
+import type { AgendaGroup, AgendaItem, AgendaSubTask, Attachment, Member, YearPlanPriority } from '@/types'
 import TiptapEditor from '@/components/TiptapEditor'
 import { GlassSelect } from '@/components/ui/GlassSelect'
 import { DateCellPicker } from '@/components/ui/MiniDatePicker'
 import { CATEGORY_PALETTE, colorKeyFromName } from '@/lib/categoryColors'
+import { yearPlanSourceLabel } from '@/lib/yearPlan'
 
 // ── 상수 ────────────────────────────────────────────────────────────
 const STATUS_COLOR: Record<string, string> = { active: '#3B82F6', hold: '#6366F1', done: '#10B981' }
@@ -44,6 +45,12 @@ let _dragSTId: string | null = null
 let _dragGroupId: string | null = null
 let _rdDragItemId: string | null = null
 
+// 프로젝트 출처(v59) — 목표 연계 실무(annual_goal_year_plan_id 있음) / 일반 실무(없음)
+type SourceFilter = 'all' | 'goal' | 'general'
+const SOURCE_FILTER_KEY = 'project-source-filter'
+const SOURCE_FILTER_LABEL: Record<SourceFilter, string> = { all: '전체', goal: '목표 연계 실무', general: '일반 실무' }
+type YearPlanRef = { year: number; priority: YearPlanPriority; item: { category: string; title: string } | null }
+
 // ── 메인 컴포넌트 ────────────────────────────────────────────────────
 export default function AgendaMatrix({ category, allCats }: { category: string; allCats: string[] }) {
   const supabase = createClient()
@@ -52,6 +59,25 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
   const [groups,  setGroups]  = useState<AgendaGroup[]>([])
   const [items,   setItems]   = useState<AgendaItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>(() => {
+    try { const v = sessionStorage.getItem(SOURCE_FILTER_KEY); if (v === 'goal' || v === 'general') return v } catch {}
+    return 'all'
+  })
+  const [planRefs, setPlanRefs] = useState<Map<string, YearPlanRef>>(new Map())
+  const [goalCatLabels, setGoalCatLabels] = useState<Record<string, string>>({})
+  function selectSourceFilter(f: SourceFilter) {
+    setSourceFilter(f)
+    try { sessionStorage.setItem(SOURCE_FILTER_KEY, f) } catch {}
+  }
+  function matchesSource(i: AgendaItem) {
+    if (sourceFilter === 'goal') return !!i.annual_goal_year_plan_id
+    if (sourceFilter === 'general') return !i.annual_goal_year_plan_id
+    return true
+  }
+  function sourceLabel(i: AgendaItem): string | null {
+    const ref = i.annual_goal_year_plan_id ? planRefs.get(i.annual_goal_year_plan_id) : undefined
+    return ref ? yearPlanSourceLabel(ref, ref.item, goalCatLabels) : null
+  }
 
   const [openGroups,    setOpenGroups]    = useState<Set<string>>(new Set())
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set())
@@ -139,6 +165,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
       const { data: iData } = await supabase.from('agenda_items').select('*').in('group_id', fetchedGroups.map(g => g.id)).order('sort_order')
       const fetchedItems = (iData ?? []) as AgendaItem[]
       setItems(fetchedItems)
+      void loadPlanRefs(fetchedItems)
       if (fetchedItems.length > 0) {
         const { data: stData } = await supabase.from('agenda_sub_tasks').select('*').in('agenda_item_id', fetchedItems.map(i => i.id)).order('sort_order')
         setSubTasks((stData ?? []) as AgendaSubTask[])
@@ -149,6 +176,24 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
     setMembers((memberListData ?? []) as Member[])
 
     setLoading(false)
+  }
+
+  // 목표 연계 프로젝트의 출처(연도 · 영역 > 목표 · 우선순위) — 표시 전용
+  async function loadPlanRefs(list: AgendaItem[]) {
+    const ids = [...new Set(list.map(i => i.annual_goal_year_plan_id).filter((v): v is string => !!v))]
+    if (ids.length === 0) { setPlanRefs(new Map()); return }
+    const [{ data: pData }, { data: lData }] = await Promise.all([
+      supabase.from('annual_goal_year_plans').select('id, year, priority, annual_goal_items(category, title)').in('id', ids),
+      supabase.from('annual_goal_category_labels').select('category_key, name'),
+    ])
+    const m = new Map<string, YearPlanRef>()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(pData ?? []).forEach((r: any) => {
+      const it = Array.isArray(r.annual_goal_items) ? r.annual_goal_items[0] : r.annual_goal_items
+      m.set(r.id, { year: r.year, priority: r.priority, item: it ?? null })
+    })
+    setPlanRefs(m)
+    setGoalCatLabels(Object.fromEntries((lData ?? []).map((r: { category_key: string; name: string }) => [r.category_key, r.name])))
   }
 
   // ── 그룹 토글 ────────────────────────────────────────────────────
@@ -359,6 +404,12 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
         <button onClick={() => setViewMode('roadmap')}
           className={`text-xs px-3 py-1 rounded-md transition-all font-medium ${viewMode === 'roadmap' ? 'bg-[rgba(var(--ink-rgb),0.12)] text-[rgba(var(--text-rgb),1)] shadow-sm' : 'text-[rgba(var(--text-rgb),0.4)] hover:text-[rgba(var(--text-rgb),0.7)]'}`}>로드맵</button>
       </div>
+      <div className="flex items-center gap-0.5 bg-[rgba(var(--ink-rgb),0.08)] rounded-lg p-0.5">
+        {(['all', 'goal', 'general'] as SourceFilter[]).map(f => (
+          <button key={f} onClick={() => selectSourceFilter(f)}
+            className={`text-xs px-3 py-1 rounded-md transition-all font-medium ${sourceFilter === f ? 'bg-[rgba(var(--ink-rgb),0.12)] text-[rgba(var(--text-rgb),1)] shadow-sm' : 'text-[rgba(var(--text-rgb),0.4)] hover:text-[rgba(var(--text-rgb),0.7)]'}`}>{SOURCE_FILTER_LABEL[f]}</button>
+        ))}
+      </div>
       {viewMode === 'roadmap' && (
         <div className="flex items-center gap-1.5">
           <button onClick={() => setYearNav(p => p - 1)} className="text-[rgba(var(--text-rgb),0.4)] hover:text-[rgba(var(--text-rgb),1)] text-base px-1 leading-none">‹</button>
@@ -378,7 +429,9 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
           <div className="space-y-3 pb-4" style={{ minWidth: 520 }}>
 
             {[...groups].sort((a, b) => a.sort_order - b.sort_order).map(group => {
-              const groupItems = items.filter(i => i.group_id === group.id).sort((a, b) => a.sort_order - b.sort_order)
+              const groupItems = items.filter(i => i.group_id === group.id && matchesSource(i)).sort((a, b) => a.sort_order - b.sort_order)
+              // 출처 필터 중에는 해당 출처 프로젝트가 없는 범주를 숨긴다(전체 보기에서는 기존대로 모두 표시)
+              if (sourceFilter !== 'all' && groupItems.length === 0) return null
               const doneGroupItems = groupItems.filter(i => i.status === 'done')
               const visibleGroupItems = showDoneGroups.has(group.id) ? groupItems : groupItems.filter(i => i.status !== 'done')
               const isOpen = openGroups.has(group.id)
@@ -542,7 +595,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                                   style={{ color: S.t1 }} />
                               ) : (
                                 <span className="hover:text-blue-400 transition-colors cursor-pointer"
-                                  style={{ fontSize: 14, fontWeight: 500, color: item.status === 'done' ? S.t3 : S.t1, textDecoration: item.status === 'done' ? 'line-through' : 'none', lineHeight: 1.35 }}
+                                  style={{ fontSize: 14, fontWeight: 500, color: item.status === 'done' ? S.t3 : S.t1, textDecoration: item.status === 'done' ? 'line-through' : 'none', lineHeight: 1.35, flexShrink: sourceLabel(item) ? 0 : undefined, maxWidth: sourceLabel(item) ? '65%' : undefined }}
                                   onClick={e => { e.stopPropagation(); router.push(`/project/items/${item.id}`) }}>
                                   {item.title}
                                 </span>
@@ -550,6 +603,11 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                               {itemSubTasks.length > 0 && (
                                 <span style={{ fontSize: 10, color: S.t3, background: 'rgba(var(--ink-rgb),0.1)', padding: '1px 6px', borderRadius: 99, flexShrink: 0 }}>
                                   {itemSubTasks.filter(st => st.status !== 'done').length}/{itemSubTasks.length}
+                                </span>
+                              )}
+                              {sourceLabel(item) && (
+                                <span className="truncate min-w-0 flex-1" title={sourceLabel(item) ?? ''} style={{ fontSize: 10.5, color: S.t3 }}>
+                                  {sourceLabel(item)}
                                 </span>
                               )}
                             </div>
@@ -1069,7 +1127,8 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
               {rdHeader}
               <tbody>
                 {[...groups].sort((a,b) => a.sort_order - b.sort_order).map(group => {
-                  const groupItems = items.filter(i => i.group_id === group.id).sort((a,b) => a.sort_order - b.sort_order)
+                  const groupItems = items.filter(i => i.group_id === group.id && matchesSource(i)).sort((a,b) => a.sort_order - b.sort_order)
+                  if (sourceFilter !== 'all' && groupItems.length === 0) return null
                   const doneGroupItems = groupItems.filter(i => i.status === 'done')
                   const visibleItems = showDoneGroups.has(group.id) ? groupItems : groupItems.filter(i => i.status !== 'done')
                   const isGOpen = openGroups.has(group.id)
@@ -1244,7 +1303,8 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
             {rdHeader}
             <tbody>
               {[...groups].sort((a,b) => a.sort_order-b.sort_order).map(group => {
-                const groupItems = items.filter(i => i.group_id === group.id).sort((a,b) => a.sort_order-b.sort_order)
+                const groupItems = items.filter(i => i.group_id === group.id && matchesSource(i)).sort((a,b) => a.sort_order-b.sort_order)
+                if (sourceFilter !== 'all' && groupItems.length === 0) return null
                 const doneGroupItems = groupItems.filter(i => i.status === 'done')
                 const visibleItems = showDoneGroups.has(group.id) ? groupItems : groupItems.filter(i => i.status !== 'done')
                 const isOpen = openGroups.has(group.id)

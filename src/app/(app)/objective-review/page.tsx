@@ -888,7 +888,7 @@ function FeedPanel({
   return (
     <>
       {/* xl 미만에서는 숨김 — matrix(주당 220~400px 고정폭 컬럼) 뷰포트를 압박하지 않도록.
-          work-report의 ContextPanel(320px)/test-practice의 AgendaWorkspace(484px)와 동일하게
+          work-report의 ContextPanel(320px)과 동일하게
           xl 기준으로 보조 패널을 hide하는 기존 패턴을 그대로 재사용. */}
       <div
         className="hidden xl:flex flex-shrink-0 flex-col"

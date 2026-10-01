@@ -182,6 +182,8 @@ export interface AgendaItem {
   agenda_groups?: AgendaGroup
   roadmap_period?: string | null
   roadmap_rank?: number | null
+  /** v59 — 파생된 연도 계획(annual_goal_year_plans). 값 있음 = 목표 연계 실무, null = 일반 실무 */
+  annual_goal_year_plan_id?: string | null
 }
 
 export interface AgendaUpdate {
@@ -244,6 +246,19 @@ export interface AnnualGoalItem {
   updated_at: string
 }
 
+// v59 — YEAR x GOAL 계획. 목표(annual_goal_items)는 장기 Master, 우선순위는 연도별로 분리한다.
+export type YearPlanPriority = 'excluded' | 'normal' | 'important' | 'critical'
+
+export interface AnnualGoalYearPlan {
+  id: string
+  year: number
+  annual_goal_item_id: string
+  priority: YearPlanPriority
+  created_at: string
+  updated_at: string
+}
+
+/** @deprecated v59 — 연간목표 primary workflow에서는 annual_goal_year_plans를 쓴다. 데이터 보존용 legacy. */
 export interface AnnualGoalTask {
   id: string
   item_id: string
@@ -290,34 +305,8 @@ export interface AnnualGoalCategoryLabel {
   updated_at: string
 }
 
-// ── 테스트실무 (PoC: 연간목표 3단계 -> 4단계 실행 TASK) ─────────────
-// annual_goal_items/annual_goal_tasks는 그대로 참조만 하고 복제하지 않는다.
-
-export interface TestPracticeTask {
-  id: string
-  annual_goal_task_id: string
-  title: string
-  status: AnnualGoalStatus
-  assignee_id?: string | null
-  start_date?: string | null
-  due_date?: string | null
-  description?: string | null
-  completed_at?: string | null
-  sort_order: number
-  created_at: string
-  updated_at: string
-}
-
-// 테스트실무 화면 전용 우선순위 — annual_goal_tasks.agreed_priority와 완전히 분리된 값.
-// annual_goal_tasks(연간목표 TASK)를 이 화면에서는 "과제 카드"로 취급하고, 그 카드에만 붙는다.
-export type AgendaPriority = 'P1' | 'P2' | 'P3'
-
-export interface TestPracticeAgendaPriority {
-  annual_goal_task_id: string
-  priority: AgendaPriority
-  created_at: string
-  updated_at: string
-}
+// 테스트실무(test_practice_tasks / test_practice_agenda_priority)는 v59 재설계에서 앱 코드가 제거됐다.
+// DB 테이블은 unused legacy로 남아 있다(DROP은 별도 cleanup phase).
 
 // ── 생각스케치 ────────────────────────────────────────────────────
 

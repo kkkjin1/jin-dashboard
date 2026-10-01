@@ -7,6 +7,7 @@ import { useAutosave } from '@/hooks/useAutosave'
 import { useUserSetting } from '@/hooks/useUserSetting'
 import type { AgendaItem, AgendaSubTask, Attachment, Member, LearningResource } from '@/types'
 import TiptapEditor from '@/components/TiptapEditor'
+import ProjectSourceSelect from '@/components/project/ProjectSourceSelect'
 
 const STATUS_CYCLE = ['active', 'hold', 'done'] as const
 type Status = typeof STATUS_CYCLE[number]
@@ -983,6 +984,15 @@ export default function AgendaItemDetailPage() {
                   하위태스크 {doneCount}/{subTasks.length}
                 </span>
               )}
+            </div>
+            {/* 출처 — 목표 연계 실무(연도계획) / 일반 실무. 제목보다 약하게 한 줄로만 */}
+            <div className="mt-2">
+              <ProjectSourceSelect
+                projectId={item.id}
+                yearPlanId={item.annual_goal_year_plan_id ?? null}
+                onChanged={v => setItem(p => p ? { ...p, annual_goal_year_plan_id: v } : p)}
+                onError={setSaveError}
+              />
             </div>
           </div>
         </div>

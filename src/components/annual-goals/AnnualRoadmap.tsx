@@ -3,11 +3,11 @@
 import { useEffect, useState, useMemo, Fragment } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import type { AnnualGoalItem, AnnualGoalTask, Member, AgreedPriority, AgendaItem, AgendaGroup, AgendaSubTask } from '@/types'
+import type { AnnualGoalItem, AnnualGoalTask, Member, AgreedPriority } from '@/types'
 import { GlassSelect } from '@/components/ui/GlassSelect'
 import { DateCellPicker } from '@/components/ui/MiniDatePicker'
 import { MONTH_KO, periodToDateRange, monthToDateRange, getWeekColumnsBetween, overlapsRange, type PeriodKey } from '@/lib/dateGrid'
-import { Compass, UserPlus, Users, ClipboardCheck, Coins, GraduationCap, Network, Scale, MessageCircle, Server, ArrowUpDown, ChevronsUpDown, type LucideIcon } from 'lucide-react'
+import { ArrowUpDown, ChevronsUpDown } from 'lucide-react'
 
 // ── 상수 ────────────────────────────────────────────────────────────
 const STATUS_LABEL: Record<string, string> = { active: '진행필요', hold: '진행중', done: '진행완료' }
@@ -50,32 +50,12 @@ const STATUS_BADGE: Record<string, { bg: string; text: string }> = {
 }
 
 // HRM 기능 관점 (엑셀 1B.기능뷰 시트 기준 F1~F10) — 과제의 hrm_function 값 그대로 사용
-const HRM_FUNCTIONS = [
-  'F1. 인사기획·HR전략', 'F2. 채용·확보', 'F3. 인력운영·유지', 'F4. 평가·성과관리', 'F5. 보상',
-  'F6. 교육·육성', 'F7. 조직·직무설계', 'F8. 노무·ER', 'F9. 조직문화·커뮤니케이션', 'F10. HR운영·시스템',
-]
 const HRM_FUNCTION_SHORT: Record<string, string> = {
   'F1. 인사기획·HR전략': '인사기획', 'F2. 채용·확보': '채용', 'F3. 인력운영·유지': '인력운영', 'F4. 평가·성과관리': '평가',
   'F5. 보상': '보상', 'F6. 교육·육성': '교육', 'F7. 조직·직무설계': '조직설계', 'F8. 노무·ER': '노무',
   'F9. 조직문화·커뮤니케이션': '조직문화', 'F10. HR운영·시스템': '시스템',
 }
 function hrmFunctionShort(fn: string): string { return HRM_FUNCTION_SHORT[fn] ?? fn }
-function hrmFunctionLabel(fn: string): string { return fn.replace(/^F\d+\.\s*/, '') }
-// 기능뷰: 색 대신 성격을 나타내는 아이콘으로 구분 (Tabler outline 대체 — lucide-react 기존 의존성 재사용)
-const HRM_FUNCTION_ICON: Record<string, LucideIcon> = {
-  'F1. 인사기획·HR전략': Compass,
-  'F2. 채용·확보': UserPlus,
-  'F3. 인력운영·유지': Users,
-  'F4. 평가·성과관리': ClipboardCheck,
-  'F5. 보상': Coins,
-  'F6. 교육·육성': GraduationCap,
-  'F7. 조직·직무설계': Network,
-  'F8. 노무·ER': Scale,
-  'F9. 조직문화·커뮤니케이션': MessageCircle,
-  'F10. HR운영·시스템': Server,
-}
-function hrmFunctionIcon(fn: string): LucideIcon { return HRM_FUNCTION_ICON[fn] ?? Server }
-
 function taskProgress(itemTasks: AnnualGoalTask[]): { done: number; total: number; pct: number } {
   const total = itemTasks.length
   const done = itemTasks.filter(t => t.status === 'done').length
@@ -234,7 +214,7 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
   const [dragOverTaskId, setDragOverTaskId] = useState<string | null>(null)
   const [dndErr, setDndErr] = useState('')
 
-  const [viewMode, setViewMode] = useState<'list' | 'roadmap' | 'function' | 'priority'>('list')
+  const [viewMode, setViewMode] = useState<'list' | 'roadmap'>('list')
   const [yearNav, setYearNav] = useState(() => new Date().getFullYear())
   const [zoom, setZoom] = useState<ZoomState>({ level: 'year' })
   const [prioritySort, setPrioritySort] = useState(false)
@@ -242,19 +222,6 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
   const [pickerTaskId, setPickerTaskId] = useState<string | null>(null)
   const [pickerPos, setPickerPos] = useState<{ x: number; y: number } | null>(null)
 
-  // ── 우선순위 뷰 — 프로젝트(안건 매트릭스) 연동 ────────────────────
-  const [agendaItems, setAgendaItems] = useState<(AgendaItem & { agenda_groups?: Pick<AgendaGroup, 'id' | 'name' | 'category'> })[]>([])
-  const [agendaSubTasksAll, setAgendaSubTasksAll] = useState<AgendaSubTask[]>([])
-  const [agendaLoaded, setAgendaLoaded] = useState(false)
-  const [linkTaskId, setLinkTaskId] = useState<string | null>(null)
-  const [linkPickerPos, setLinkPickerPos] = useState<{ x: number; y: number } | null>(null)
-  const [linkAgendaItemId, setLinkAgendaItemId] = useState<string | null>(null)
-  const [linkSearch, setLinkSearch] = useState('')
-  const [newLinkSubTaskTitle, setNewLinkSubTaskTitle] = useState('')
-  const [prioritySortCol, setPrioritySortCol] = useState<{ col: '영역' | '목표'; dir: 'asc' | 'desc' } | null>(null)
-  function togglePrioritySortCol(col: '영역' | '목표') {
-    setPrioritySortCol(prev => prev?.col === col ? { col, dir: prev.dir === 'asc' ? 'desc' : 'asc' } : { col, dir: 'asc' })
-  }
 
   const isAll = category === '전체'
 
@@ -265,23 +232,6 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
   // ── 데이터 로드 ──────────────────────────────────────────────────
   useEffect(() => { load() }, [category])
 
-  // 우선순위 뷰를 처음 열 때만 프로젝트(안건 매트릭스) 데이터를 지연 로드 — 다른 뷰에서는 불필요
-  useEffect(() => {
-    if (viewMode !== 'priority' || agendaLoaded) return
-    Promise.all([
-      supabase.from('agenda_items').select('id, title, group_id, status, agenda_groups(id, name, category)').order('sort_order'),
-      supabase.from('agenda_sub_tasks').select('id, agenda_item_id, title, status').order('sort_order'),
-    ]).then(([{ data: aiData }, { data: stData }]) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const mappedItems = (aiData ?? []).map((r: any) => ({
-        id: r.id, title: r.title, group_id: r.group_id, status: r.status,
-        agenda_groups: Array.isArray(r.agenda_groups) ? r.agenda_groups[0] : r.agenda_groups,
-      }))
-      setAgendaItems(mappedItems as (AgendaItem & { agenda_groups?: Pick<AgendaGroup, 'id' | 'name' | 'category'> })[])
-      setAgendaSubTasksAll((stData ?? []) as AgendaSubTask[])
-      setAgendaLoaded(true)
-    })
-  }, [viewMode, agendaLoaded])
 
   async function load() {
     setLoading(true)
@@ -367,37 +317,6 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
     await supabase.from('annual_goal_tasks').update({ roadmap_start_date: start, roadmap_end_date: end }).eq('id', taskId)
     setTasks(p => p.map(t => t.id === taskId ? { ...t, roadmap_start_date: start, roadmap_end_date: end } : t))
   }
-  // ── 우선순위 뷰 — 프로젝트(안건 매트릭스) 연동 ────────────────────
-  function closeLinkPicker() {
-    setLinkTaskId(null); setLinkPickerPos(null); setLinkAgendaItemId(null); setLinkSearch(''); setNewLinkSubTaskTitle('')
-  }
-  function openLinkPicker(e: React.MouseEvent, taskId: string) {
-    e.stopPropagation()
-    const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
-    setLinkPickerPos({ x: r.left, y: r.bottom + 4 })
-    setLinkTaskId(taskId)
-    setLinkAgendaItemId(null)
-    setLinkSearch('')
-    setNewLinkSubTaskTitle('')
-  }
-  async function linkTaskToSubTask(taskId: string, subTaskId: string) {
-    await supabase.from('annual_goal_tasks').update({ linked_agenda_sub_task_id: subTaskId }).eq('id', taskId)
-    setTasks(p => p.map(t => t.id === taskId ? { ...t, linked_agenda_sub_task_id: subTaskId } : t))
-    closeLinkPicker()
-  }
-  async function unlinkTask(taskId: string) {
-    await supabase.from('annual_goal_tasks').update({ linked_agenda_sub_task_id: null }).eq('id', taskId)
-    setTasks(p => p.map(t => t.id === taskId ? { ...t, linked_agenda_sub_task_id: null } : t))
-  }
-  async function createAndLinkSubTask(taskId: string, agendaItemId: string, title: string) {
-    const trimmed = title.trim(); if (!trimmed) return
-    const { data, error } = await supabase.from('agenda_sub_tasks')
-      .insert({ agenda_item_id: agendaItemId, title: trimmed, status: 'active', sort_order: agendaSubTasksAll.filter(st => st.agenda_item_id === agendaItemId).length })
-      .select('id, agenda_item_id, title, status').single()
-    if (error || !data) return
-    setAgendaSubTasksAll(p => [...p, data as AgendaSubTask])
-    await linkTaskToSubTask(taskId, (data as AgendaSubTask).id)
-  }
   // ── 드래그 재정렬 ────────────────────────────────────────────────
   async function reorderItem(dragId: string, targetId: string) {
     const draggedItem = items.find(i => i.id === dragId)
@@ -475,8 +394,6 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
         {segmentTrack(<>
           {segmentBtn(viewMode === 'list', () => setViewMode('list'), '목록')}
           {segmentBtn(viewMode === 'roadmap', () => { setViewMode('roadmap'); setZoom({ level: 'year' }) }, '로드맵')}
-          {segmentBtn(viewMode === 'function', () => setViewMode('function'), '기능')}
-          {segmentBtn(viewMode === 'priority', () => setViewMode('priority'), '우선순위')}
         </>)}
         {viewMode === 'roadmap' && zoom.level === 'year' && (
           <div className="flex items-center gap-1.5">
@@ -503,7 +420,7 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
 
       {/* 오른쪽: 정렬 + 보기단위 + 펼치기 */}
       <div className="flex items-center gap-2 flex-wrap">
-        {viewMode !== 'priority' && (
+        {(
           <button onClick={() => setPrioritySort(p => !p)}
             className={`flex items-center gap-1 text-xs px-3 py-1.5 rounded-full font-medium transition-all ${prioritySort ? 'text-[rgba(var(--text-rgb),1)]' : 'text-[rgba(var(--text-rgb),0.5)] hover:text-[rgba(var(--text-rgb),0.8)]'}`}
             style={{ background: prioritySort ? 'rgba(var(--ink-rgb),0.1)' : 'rgba(var(--ink-rgb),0.04)' }}>
@@ -511,7 +428,7 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
             우선순위순 정렬
           </button>
         )}
-        {(viewMode === 'list' || viewMode === 'function' || viewMode === 'priority') && segmentTrack(<>
+        {viewMode === 'list' && segmentTrack(<>
           {segmentBtn(scheduleUnit === 'month', () => setScheduleUnit('month'), '월')}
           {segmentBtn(scheduleUnit === 'week', () => setScheduleUnit('week'), '주')}
         </>)}
@@ -519,10 +436,8 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
           {segmentBtn(zoom.level === 'year', () => setZoom({ level: 'year' }), '월')}
           {segmentBtn(zoom.level === 'week', zoomToThisMonth, '주')}
         </>)}
-        {viewMode !== 'priority' && (() => {
-          const sectionKeys = viewMode === 'function'
-            ? HRM_FUNCTIONS.filter(fn => tasks.some(t => t.hrm_function === fn))
-            : items.map(i => i.id)
+        {(() => {
+          const sectionKeys = items.map(i => i.id)
           if (sectionKeys.length === 0) return null
           const allOpen = sectionKeys.every(k => openItems.has(k))
           return (
@@ -536,9 +451,7 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
         })()}
       </div>
 
-      {viewMode === 'priority' ? (
-        <span className="w-full" style={{ fontSize: 10, color: S.t3 }}>합의우선순위 1순위·2순위 과제만 표시 · 정렬 기준: 합의우선순위 → 경영진중요도 → 트랙 → HR중요도 → HR시급도</span>
-      ) : prioritySort && (
+      {prioritySort && (
         <span className="w-full" style={{ fontSize: 10, color: S.t3 }}>정렬 기준: 합의우선순위 → 경영진중요도 → 트랙 → HR중요도 → HR시급도</span>
       )}
       {dndErr && <span className="w-full" style={{ fontSize: 11, color: 'var(--error-badge-text)' }}>{dndErr}</span>}
@@ -570,67 +483,6 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
       </div>
       <button onClick={() => { updateTaskRoadmapRange(schedulePickerTask.id, null, null); setPickerTaskId(null) }}
         style={{ width: '100%', fontSize: 10, color: '#9CA3AF', background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 5, padding: '3px 0', cursor: 'pointer', marginTop: 6 }}>없음</button>
-    </div>
-  ) : null
-
-  // ── 우선순위 뷰 전용 — 프로젝트(안건 매트릭스) 과제 연동 팝오버 ──
-  const linkPickerTask = tasks.find(t => t.id === linkTaskId)
-  const linkPicker = linkPickerTask && linkPickerPos ? (
-    <div onClick={e => e.stopPropagation()}
-      style={{ position: 'fixed', top: linkPickerPos.y, left: linkPickerPos.x, zIndex: 9999, background: 'white', border: '1px solid #E2E8F0', borderRadius: 10, padding: 10, boxShadow: '0 8px 28px rgba(0,0,0,0.15)', width: 260, maxHeight: 340, display: 'flex', flexDirection: 'column' }}>
-      {!agendaLoaded ? (
-        <div style={{ fontSize: 11, color: '#9CA3AF', padding: '8px 4px' }}>불러오는 중...</div>
-      ) : !linkAgendaItemId ? (
-        <>
-          <div style={{ fontSize: 10, fontWeight: 700, color: '#9CA3AF', marginBottom: 6 }}>프로젝트 안건 선택</div>
-          <input autoFocus value={linkSearch} onChange={e => setLinkSearch(e.target.value)} placeholder="안건 검색..."
-            style={{ fontSize: 11, border: '1px solid #E2E8F0', borderRadius: 6, padding: '4px 8px', marginBottom: 6, outline: 'none' }} />
-          <div style={{ overflowY: 'auto', flex: 1 }}>
-            {agendaItems
-              .filter(ai => {
-                const q = linkSearch.trim().toLowerCase()
-                if (!q) return true
-                return ai.title.toLowerCase().includes(q) || (ai.agenda_groups?.name ?? '').toLowerCase().includes(q)
-              })
-              .map(ai => (
-                <button key={ai.id} onClick={() => setLinkAgendaItemId(ai.id)}
-                  style={{ display: 'block', width: '100%', textAlign: 'left', fontSize: 11, padding: '5px 6px', borderRadius: 6, color: '#374151', background: 'transparent' }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#F3F4F6' }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent' }}>
-                  <span style={{ color: '#9CA3AF', marginRight: 4 }}>{ai.agenda_groups?.name ?? ''}</span>{ai.title}
-                </button>
-              ))}
-            {agendaItems.length === 0 && <div style={{ fontSize: 11, color: '#9CA3AF', padding: '6px 4px' }}>프로젝트에 등록된 안건이 없습니다</div>}
-          </div>
-        </>
-      ) : (
-        <>
-          <button onClick={() => setLinkAgendaItemId(null)} style={{ fontSize: 10, color: '#4C7FE0', marginBottom: 6, textAlign: 'left', background: 'transparent', alignSelf: 'flex-start' }}>◀ 안건 다시 선택</button>
-          <div style={{ fontSize: 10, fontWeight: 700, color: '#9CA3AF', marginBottom: 6 }}>
-            {agendaItems.find(ai => ai.id === linkAgendaItemId)?.title} · 세부task 선택
-          </div>
-          <div style={{ overflowY: 'auto', flex: 1, marginBottom: 6 }}>
-            {agendaSubTasksAll.filter(st => st.agenda_item_id === linkAgendaItemId).map(st => (
-              <button key={st.id} onClick={() => linkTaskToSubTask(linkPickerTask.id, st.id)}
-                style={{ display: 'block', width: '100%', textAlign: 'left', fontSize: 11, padding: '5px 6px', borderRadius: 6, color: '#374151', background: 'transparent' }}
-                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#F3F4F6' }}
-                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent' }}>
-                {st.title}
-              </button>
-            ))}
-            {agendaSubTasksAll.filter(st => st.agenda_item_id === linkAgendaItemId).length === 0 && (
-              <div style={{ fontSize: 11, color: '#9CA3AF', padding: '6px 4px' }}>이 안건에 세부task가 아직 없습니다</div>
-            )}
-          </div>
-          <div style={{ borderTop: '1px solid #F1F5F9', paddingTop: 6, display: 'flex', gap: 4 }}>
-            <input value={newLinkSubTaskTitle} onChange={e => setNewLinkSubTaskTitle(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) createAndLinkSubTask(linkPickerTask.id, linkAgendaItemId, newLinkSubTaskTitle) }}
-              placeholder="새 세부task 이름" style={{ fontSize: 11, border: '1px solid #E2E8F0', borderRadius: 6, padding: '4px 8px', flex: 1, outline: 'none' }} />
-            <button onClick={() => createAndLinkSubTask(linkPickerTask.id, linkAgendaItemId, newLinkSubTaskTitle)} disabled={!newLinkSubTaskTitle.trim()}
-              style={{ fontSize: 10, fontWeight: 700, padding: '4px 8px', borderRadius: 6, color: '#4C7FE0', background: 'rgba(76,127,224,0.08)', border: '1px solid rgba(76,127,224,0.3)' }}>추가</button>
-          </div>
-        </>
-      )}
     </div>
   ) : null
 
@@ -1052,165 +904,6 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
           </div>
         </div>
         {schedulePicker}
-      </>
-    )
-  }
-
-  // ── 기능 모드 (엑셀 1B.기능뷰 관점 — HRM 기능 F1~F10 기준 재정렬) ──
-  if (viewMode === 'function') {
-    const itemsById = Object.fromEntries(items.map(i => [i.id, i]))
-    return (
-      <>
-        {viewToggle}
-        <div className="flex-1 min-h-0 overflow-auto px-4 md:px-6" onClick={() => setPickerTaskId(null)}>
-          <div className="pb-4" style={{ width: '100%' }}>
-            {HRM_FUNCTIONS.filter(fn => tasks.some(t => t.hrm_function === fn)).map((fn, fi) => {
-              const fnTasksAll = tasks.filter(t => t.hrm_function === fn).sort((a, b) => a.sort_order - b.sort_order)
-              const Icon = hrmFunctionIcon(fn)
-              const isOpen = openItems.has(fn)
-              const doneFnTasks = fnTasksAll.filter(t => t.status === 'done')
-              const visibleFnTasks = showDoneItems.has(fn) ? fnTasksAll : fnTasksAll.filter(t => t.status !== 'done')
-              const orderedFnTasks = prioritySort ? [...visibleFnTasks].sort(priorityComparator) : visibleFnTasks
-              const progress = taskProgress(fnTasksAll)
-              return (
-                <div key={fn} style={{ marginTop: fi === 0 ? 0 : 14, background: 'rgba(var(--ink-rgb),0.06)', border: '0.5px solid rgba(var(--ink-rgb),0.09)', borderRadius: 20, padding: isOpen ? '14px 24px' : 0, overflow: 'hidden' }}>
-                  {/* ── 헤더 배너 — 카테고리색 없이 중립 배경, 기존 아이콘+텍스트+카운트+진행률 유지. 접혀있을 땐 카드 padding을 0으로 줄이고 배너 하단도 둥글게 처리해 카드 하단에 빈 음영이 남지 않도록 함 ── */}
-                  <div className="flex items-center gap-2.5 cursor-pointer" style={{
-                    margin: isOpen ? '-14px -24px 0 -24px' : 0,
-                    padding: '19px',
-                    background: 'rgba(var(--ink-rgb),0.03)',
-                    borderTopLeftRadius: 20,
-                    borderTopRightRadius: 20,
-                    borderBottomLeftRadius: isOpen ? 0 : 20,
-                    borderBottomRightRadius: isOpen ? 0 : 20,
-                  }} onClick={() => toggleOpenKey(fn, false)}>
-                    <span style={{ fontSize: 8, transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform .15s', color: 'var(--text-muted)', flexShrink: 0 }}>▶</span>
-                    <Icon size={16} color="var(--text-secondary)" strokeWidth={1.75} style={{ flexShrink: 0 }} />
-                    <span style={{ fontSize: 13, fontWeight: 700, color: 'rgba(var(--text-rgb),1)' }}>{hrmFunctionLabel(fn)}</span>
-                    <span style={{ fontSize: 10, color: 'var(--text-muted)', background: 'rgba(var(--ink-rgb),0.06)', padding: '1px 6px', borderRadius: 99 }}>{visibleFnTasks.length}</span>
-                    {progress.total > 0 && (
-                      <div className="ml-auto flex items-center gap-1.5 flex-shrink-0">
-                        <ProgressRing pct={progress.pct} color={NEUTRAL_ACCENT} />
-                      </div>
-                    )}
-                  </div>
-                  {isOpen && (
-                    <>
-                      {/* ── 서브라벨행 ── */}
-                      <div className="flex items-center" style={{ margin: '0 -24px', padding: '8px 24px', borderBottom: '0.5px solid rgba(var(--ink-rgb),0.08)' }}>
-                        <span style={{ flex: 1, fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>과제</span>
-                        <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>진행률</span>
-                      </div>
-
-                      <div style={{ overflowX: 'auto', margin: '0 -24px' }}>
-                        <div style={{ minWidth: 760, padding: '0 24px' }}>
-                          {renderColumnHeader(false)}
-                          {orderedFnTasks.map(task => {
-                            const parentItem = itemsById[task.item_id]
-                            return renderTaskRow(task, NEUTRAL_ACCENT, parentItem ? `${displayCat(parentItem.category)} · ${parentItem.title}` : undefined, false)
-                          })}
-                        </div>
-                      </div>
-                      {doneFnTasks.length > 0 && (
-                        <button onClick={() => toggleShowDone(fn)}
-                          className="w-full flex items-center gap-1.5 px-5 py-2 text-xs text-[rgba(var(--text-rgb),0.35)] hover:text-[rgba(var(--text-rgb),0.55)] hover:bg-[rgba(var(--ink-rgb),0.04)] transition-colors">
-                          <span style={{ fontSize: 8, transform: showDoneItems.has(fn) ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block', transition: 'transform .15s' }}>▶</span>
-                          완료 {doneFnTasks.length}건
-                        </button>
-                      )}
-                    </>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        </div>
-        {schedulePicker}
-      </>
-    )
-  }
-
-  // ── 우선순위 뷰 (합의우선순위 1순위·2순위 과제만 영역/목표 태그와 함께 평탄한 목록으로, 프로젝트 연동) ──
-  if (viewMode === 'priority') {
-    const itemsById = Object.fromEntries(items.map(i => [i.id, i]))
-    const agendaItemsById = Object.fromEntries(agendaItems.map(ai => [ai.id, ai]))
-    const agendaSubTasksById = Object.fromEntries(agendaSubTasksAll.map(st => [st.id, st]))
-    const priorityTasksAll = tasks.filter(t => t.agreed_priority === '1순위' || t.agreed_priority === '2순위')
-    const doneTasks = priorityTasksAll.filter(t => t.status === 'done')
-    const visibleTasks = showDoneItems.has('__priority__') ? priorityTasksAll : priorityTasksAll.filter(t => t.status !== 'done')
-    const orderedTasks = [...visibleTasks].sort((a, b) => {
-      if (prioritySortCol) {
-        const ai = itemsById[a.item_id], bi = itemsById[b.item_id]
-        const av = prioritySortCol.col === '영역' ? (ai ? displayCat(ai.category) : '') : (ai?.title ?? '')
-        const bv = prioritySortCol.col === '영역' ? (bi ? displayCat(bi.category) : '') : (bi?.title ?? '')
-        const cmp = av.localeCompare(bv, 'ko')
-        if (cmp !== 0) return prioritySortCol.dir === 'asc' ? cmp : -cmp
-      }
-      return priorityComparator(a, b)
-    })
-    return (
-      <>
-        {viewToggle}
-        <div className="flex-1 min-h-0 overflow-auto px-4 md:px-6" onClick={() => { setPickerTaskId(null); closeLinkPicker() }}>
-          <div className="pb-4" style={{ width: '100%' }}>
-            {orderedTasks.length === 0 ? (
-              <div className="text-center py-10 text-xs" style={{ color: S.t3 }}>합의우선순위가 1순위·2순위로 지정된 과제가 없습니다.</div>
-            ) : (
-              <div style={{ background: 'rgba(var(--ink-rgb),0.06)', border: '0.5px solid rgba(var(--ink-rgb),0.09)', borderRadius: 20, overflow: 'hidden' }}>
-                <div style={{ overflowX: 'auto' }}>
-                  <div style={{ minWidth: 1160 }}>
-                    {renderColumnHeader(false, true, [
-                      { key: 'category', label: '영역', width: 110, sortDir: prioritySortCol?.col === '영역' ? prioritySortCol.dir : null, onSortClick: () => togglePrioritySortCol('영역') },
-                      { key: 'item', label: '목표', width: 150, sortDir: prioritySortCol?.col === '목표' ? prioritySortCol.dir : null, onSortClick: () => togglePrioritySortCol('목표') },
-                    ])}
-                    {orderedTasks.map(task => {
-                      const parentItem = itemsById[task.item_id]
-                      const linkedSubTask = task.linked_agenda_sub_task_id ? agendaSubTasksById[task.linked_agenda_sub_task_id] : undefined
-                      const linkedItem = linkedSubTask ? agendaItemsById[linkedSubTask.agenda_item_id] : undefined
-                      const extraCol = linkedSubTask ? (
-                        <div className="flex items-center gap-1.5 min-w-0 w-full">
-                          <button
-                            onClick={() => router.push(`/project/items/${linkedSubTask.agenda_item_id}?focus=${linkedSubTask.id}`)}
-                            title={`프로젝트: ${linkedItem?.title ?? ''} · ${linkedSubTask.title} (클릭하여 이동)`}
-                            className="flex-1 min-w-0 text-left text-[11px] font-medium truncate px-2 py-1 rounded-md"
-                            style={{ background: 'rgba(76,127,224,0.14)', color: 'var(--accent-badge-text)' }}>
-                            🔗 {linkedItem?.title ?? '프로젝트'}
-                          </button>
-                          <button onClick={() => unlinkTask(task.id)} title="연동 해제" className="text-[10px] text-[rgba(var(--text-rgb),0.25)] hover:text-red-400 flex-shrink-0">×</button>
-                        </div>
-                      ) : (
-                        <button onClick={e => openLinkPicker(e, task.id)}
-                          className="text-[11px] px-2.5 py-1 rounded-md font-medium transition-all"
-                          style={{ background: 'rgba(var(--ink-rgb),0.06)', color: 'rgba(var(--text-rgb),0.5)', border: '1px dashed rgba(var(--ink-rgb),0.15)' }}>
-                          + 연동
-                        </button>
-                      )
-                      const extraCells = [
-                        { key: 'category', width: 110, content: parentItem ? (() => {
-                            const b = categoryBadge(parentItem.category)
-                            return <span style={{ fontSize: 10, fontWeight: 600, color: b.text, background: b.bg, padding: '1px 7px', borderRadius: 999, whiteSpace: 'nowrap' as const, overflow: 'hidden', textOverflow: 'ellipsis' as const, maxWidth: '100%' }}>{displayCat(parentItem.category)}</span>
-                          })() : null },
-                        { key: 'item', width: 150, content: parentItem ? (
-                            <span style={{ fontSize: 11, color: S.t2, whiteSpace: 'nowrap' as const, overflow: 'hidden', textOverflow: 'ellipsis' as const }} title={parentItem.title}>{parentItem.title}</span>
-                          ) : null },
-                      ]
-                      return renderTaskRow(task, NEUTRAL_ACCENT, undefined, false, extraCol, extraCells)
-                    })}
-                  </div>
-                </div>
-              </div>
-            )}
-            {doneTasks.length > 0 && (
-              <button onClick={() => toggleShowDone('__priority__')}
-                className="w-full flex items-center gap-1.5 px-5 py-2 mt-2 text-xs text-[rgba(var(--text-rgb),0.35)] hover:text-[rgba(var(--text-rgb),0.55)] hover:bg-[rgba(var(--ink-rgb),0.04)] transition-colors">
-                <span style={{ fontSize: 8, transform: showDoneItems.has('__priority__') ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block', transition: 'transform .15s' }}>▶</span>
-                완료 {doneTasks.length}건
-              </button>
-            )}
-          </div>
-        </div>
-        {schedulePicker}
-        {linkPicker}
       </>
     )
   }
