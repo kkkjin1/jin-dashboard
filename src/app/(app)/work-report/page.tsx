@@ -431,6 +431,41 @@ export default function WorkReportPage() {
     setAllItems(prev => [...prev, data as WorkReportItem])
   }
 
+  // 엑셀 범위 붙여넣기가 기존 행 수를 넘칠 때 — 넘친 행들을 내용째 한 번에 insert한다.
+  async function handleAddItemsWithValues(
+    section: WorkReportItemSection, rows: Pick<WorkReportItem, 'title' | 'detail' | 'summary'>[],
+  ): Promise<WorkReportItem[]> {
+    if (!currentReport || readOnly || rows.length === 0) return []
+    const base = nextItemSortOrder(section)
+    const { data, error } = await supabase.from('work_report_items')
+      .insert(rows.map((r, i) => ({ report_id: currentReport.id, section, sort_order: base + i, ...r })))
+      .select()
+    if (error || !data) return []
+    const created = sortItems(data as WorkReportItem[])
+    setAllItems(prev => [...prev, ...created])
+    return created
+  }
+
+  // 행 머리(⋮⋮)로 여러 행을 선택한 뒤 Delete — 확인은 한 번만 받는다.
+  async function handleDeleteItems(targets: WorkReportItem[]): Promise<boolean> {
+    if (!currentReport || readOnly || targets.length === 0) return false
+    const written = targets.filter(isItemWritten).length
+    if (written > 0 && !confirm(`${targets.length}개 행을 이번 보고에서 삭제할까요?\n과거 보고의 같은 항목은 유지됩니다.`)) return false
+    const ids = targets.map(t => t.id)
+    const { error } = await supabase.from('work_report_items').delete().in('id', ids)
+    if (error) { alert(`행 삭제에 실패했습니다: ${error.message}`); return false }
+    setAllItems(prev => prev.filter(i => !ids.includes(i.id)))
+    return true
+  }
+
+  // 행 드래그 정렬 — 화면 순서를 먼저 반영하고 sort_order를 0..n-1로 다시 매긴다.
+  async function handleReorderItems(orderedIds: string[]) {
+    if (!currentReport || readOnly) return
+    const order = new Map(orderedIds.map((id, i) => [id, i]))
+    setAllItems(prev => prev.map(i => order.has(i.id) ? { ...i, sort_order: order.get(i.id)! } : i))
+    await Promise.all(orderedIds.map((id, i) => supabase.from('work_report_items').update({ sort_order: i }).eq('id', id)))
+  }
+
   // skipConfirm — 3-x 그리드에서 빈 행을 Backspace로 지울 때는 확인 없이 바로 지운다.
   async function handleDeleteItem(item: WorkReportItem, opts?: { skipConfirm?: boolean }): Promise<boolean> {
     if (!currentReport || readOnly) return false
@@ -447,7 +482,9 @@ export default function WorkReportPage() {
   }
 
   function handleItemSaved(item: WorkReportItem) {
-    setAllItems(prev => prev.map(i => i.id === item.id ? item : i))
+    // sort_order는 드래그 정렬이 로컬에서 먼저 바꾸므로, 그보다 먼저 출발한 행 저장 응답이
+    // 옛 순서로 되돌리지 않게 로컬 값을 유지한다.
+    setAllItems(prev => prev.map(i => i.id === item.id ? { ...item, sort_order: i.sort_order } : i))
   }
 
   async function handleNewReport() {
@@ -895,7 +932,10 @@ export default function WorkReportPage() {
                     legacyText={itemSection === 'issue' ? currentReport.issues : undefined}
                     onItemSaved={handleItemSaved}
                     onAdd={() => handleAddItem(itemSection)}
+                    onAddWithValues={rows => handleAddItemsWithValues(itemSection, rows)}
                     onDelete={handleDeleteItem}
+                    onDeleteMany={handleDeleteItems}
+                    onReorder={handleReorderItems}
                     onRestore={handleRestoreItem}
                   />
                 ) : (
