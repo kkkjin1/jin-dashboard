@@ -367,6 +367,9 @@ export default function MeetingDetailPage() {
   const [meetingPreviewLabel, setMeetingPreviewLabel] = useState('')
   const [meetingPreviewContent, setMeetingPreviewContent] = useState('')
   const [meetingPreviewLoading, setMeetingPreviewLoading] = useState(false)
+  // RIGHT 범주 트리의 펼침 상태 — 이 안건 그룹은 기본 펼침, 다른 안건 그룹은 기본 접힘.
+  const [threadGroupOpen, setThreadGroupOpen] = useState(true)
+  const [openCatGroups, setOpenCatGroups] = useState<Set<string>>(new Set())
 
   const [newNoteKey, setNewNoteKey] = useState(0)
   const titleRef = useRef<HTMLInputElement>(null)
@@ -596,16 +599,23 @@ export default function MeetingDetailPage() {
     setMeetingPreviewContent('')
   }
 
-  // RIGHT TOP 타임라인 — 같은 meeting_id의 세션 노트(note)와 제목이 완전히 같은 다른 meetings
-  // row(sibling)를 날짜 기준으로 합쳐서 하나의 "같은 안건" 흐름으로 보여준다. note는 원래
-  // regularNotes 배열 index(idx)를 그대로 들고 있어야 openIndexes/toggleNote가 깨지지 않는다.
-  type ThreadEntry =
-    | { kind: 'note'; key: string; date: string; note: MeetingNoteRow; idx: number }
-    | { kind: 'sibling'; key: string; date: string; meeting: Pick<Meeting, 'id' | 'title' | 'meeting_date'> }
-  const threadEntries: ThreadEntry[] = [
-    ...regularNotes.map((note, idx): ThreadEntry => ({ kind: 'note', key: `note-${note.id}`, date: note.created_at, note, idx })),
-    ...sameTitleMeetings.map((m): ThreadEntry => ({ kind: 'sibling', key: `sib-${m.id}`, date: m.meeting_date ? `${m.meeting_date}T00:00:00` : '1970-01-01T00:00:00', meeting: m })),
-  ].sort((a, b) => b.date.localeCompare(a.date))
+  // RIGHT 목록 — 범주 > 안건(제목) > 날짜 트리(2026-10-02 개편). 예전의 RIGHT TOP "같은 안건의
+  // 다른 날짜 회의" 상자를 없애고, 이 안건(제목 완전 일치 = sameTitleMeetings) 그룹을 목록 맨 위에
+  // 펼친 채 고정한다. 나머지 같은 범주 회의는 제목(trim)으로 묶어 최신 날짜순으로 두고, 날짜가
+  // 여러 개인 안건만 접힌 그룹(개수 표시)으로 보여준다. 이 회의의 저장된 노트는 LEFT 작성창 아래로 옮겼다.
+  type MeetingLite = Pick<Meeting, 'id' | 'title' | 'meeting_date'>
+  const categoryGroups: { title: string; list: MeetingLite[] }[] = []
+  for (const m of sameCatMeetingsDeduped) {
+    const title = (m.title ?? '').trim() || '제목 없음'
+    const g = categoryGroups.find(x => x.title === title)
+    if (g) g.list.push(m)
+    else categoryGroups.push({ title, list: [m] })
+  }
+  // sameCatMeetings가 이미 날짜 내림차순이라, 그룹 순서(첫 등장 순)도 곧 최신 날짜순이다.
+  const threadList: (MeetingLite & { current?: boolean })[] = meeting?.title?.trim()
+    ? [{ id, title: meeting.title, meeting_date: meeting.meeting_date, current: true }, ...sameTitleMeetings]
+        .sort((x, y) => (y.meeting_date ?? '').localeCompare(x.meeting_date ?? ''))
+    : []
 
   useEffect(() => {
     function onEsc(e: KeyboardEvent) {
@@ -903,8 +913,21 @@ export default function MeetingDetailPage() {
                 dark
               />
             )}
-            {/* 이전 회의(같은 안건의 다른 날짜) 목록은 RIGHT TOP("같은 안건의 다른 날짜 회의")으로 이동 —
-                LEFT는 "지금 회의를 작성한다"에만 집중, 같은 정보를 중복 노출하지 않는다. */}
+            {/* 이 회의의 저장된 노트 — 예전 RIGHT TOP 타임라인에서 옮겨왔다(2026-10-02). 같은 안건의 다른
+                날짜 회의는 RIGHT 범주 트리의 맨 위 그룹으로 합쳤다. */}
+            {regularNotes.length > 0 && (
+              <div className="mt-4">
+                <h3 className="text-xs font-semibold text-[rgba(var(--text-rgb),0.4)] mb-2">저장된 노트 ({regularNotes.length})</h3>
+                <div className="space-y-2">
+                  {regularNotes.map((note, idx) => (
+                    <NoteAccordion key={note.id} note={note}
+                      isOpen={openIndexes.has(idx)} onToggle={() => toggleNote(idx)} onDelete={deleteNote}
+                      onEdit={editNote} onFullscreen={(content) => { setFullscreenContent(content); setShowFullscreen(true) }}
+                      agendaItems={agendaItems} onAddToItem={addNoteToItem} />
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="mb-6">
@@ -949,105 +972,103 @@ export default function MeetingDetailPage() {
 
         </div>
 
-        {/* 오른쪽 50%: Context — TOP(같은 안건의 다른 날짜 회의=SAME THREAD) / BOTTOM(같은 범주의 다른 회의=SAME CATEGORY),
-            각각 독립 scroll. sticky로 LEFT가 길어져도 뷰포트에 두 context가 동시에 보이게 한다.
-            높이 비율 TOP 30 : BOTTOM 70(2026-09-28). BOTTOM은 다시 좌 2(목록) : 우 8(선택한 회의 내용)
-            으로 나눈다 — 예전의 전체화면 modal은 backdrop이 LEFT 입력창을 가렸고, 여기서는 목록을
-            훑으면서 내용을 바로 읽고 LEFT에서 계속 입력할 수 있다. TOP의 "다른 회의" 클릭도 같은
-            BOTTOM 우측 내용 영역에 표시한다. */}
+        {/* 오른쪽 50%: Context — 같은 범주의 회의 하나의 상자(2026-10-02). 좌 3 목록(범주 > 안건 > 날짜
+            트리) / 우 7 선택한 회의 내용. sticky로 LEFT가 길어져도 뷰포트에 보이게 한다 — 목록을
+            훑으면서 내용을 바로 읽고 LEFT에서 계속 입력할 수 있다. */}
         <div className="w-full min-w-0 md:flex-[50] md:h-full">
           <div className="flex flex-col gap-4 md:h-full">
-            {/* RIGHT TOP: SAME THREAD — 기존 editor 하단의 "이전 회의" toggle/archive를 그대로 재사용해 위치만 이동 */}
-            <div className="md:flex-[30] min-h-0 max-h-[40vh] md:max-h-none flex flex-col bg-[var(--surface-panel)] rounded-lg border border-[var(--border-default)] p-5">
+            <div className="md:flex-1 min-h-[360px] md:min-h-0 flex flex-col bg-[var(--surface-panel)] rounded-lg border border-[var(--border-default)] p-5">
               <h3 className="text-xs font-semibold text-[rgba(var(--text-rgb),0.4)] uppercase tracking-wide mb-3 flex-shrink-0">
-                같은 안건의 다른 날짜 회의{meeting?.title ? ` · ${meeting.title}` : ''}
-              </h3>
-              <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
-                {noteInput.replace(/<[^>]*>/g, '').trim() && (
-                  <div className="flex gap-3 pb-3">
-                    <div className="flex flex-col items-center flex-shrink-0 pt-1">
-                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: 'var(--accent-primary)' }} />
-                      {threadEntries.length > 0 && <span className="w-px flex-1 mt-1" style={{ background: 'rgba(var(--ink-rgb),0.1)' }} />}
-                    </div>
-                    <div className="min-w-0 flex-1 pb-1">
-                      <p className="text-xs font-medium" style={{ color: 'var(--accent-primary)' }}>{noteTitle || defaultNoteTitle()}</p>
-                      <p className="text-[11px] text-[rgba(var(--text-rgb),0.35)]">현재 작성 중</p>
-                    </div>
-                  </div>
-                )}
-                {threadEntries.length === 0 ? (
-                  !noteInput.replace(/<[^>]*>/g, '').trim() && (
-                    <p className="text-sm text-[rgba(var(--text-rgb),0.3)] text-center py-6">같은 안건의 이전 회의가 없습니다</p>
-                  )
-                ) : (
-                  threadEntries.map((entry, i) => (
-                    <div key={entry.key} className="flex gap-3">
-                      <div className="flex flex-col items-center flex-shrink-0 pt-1">
-                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: 'rgba(var(--ink-rgb),0.25)' }} />
-                        {i < threadEntries.length - 1 && <span className="w-px flex-1 mt-1" style={{ background: 'rgba(var(--ink-rgb),0.1)' }} />}
-                      </div>
-                      <div className="min-w-0 flex-1 pb-3">
-                        {entry.kind === 'note' ? (
-                          <NoteAccordion note={entry.note}
-                            isOpen={openIndexes.has(entry.idx)} onToggle={() => toggleNote(entry.idx)} onDelete={deleteNote}
-                            onEdit={editNote} onFullscreen={(content) => { setFullscreenContent(content); setShowFullscreen(true) }}
-                            agendaItems={agendaItems} onAddToItem={addNoteToItem} />
-                        ) : (
-                          <button onClick={() => openMeetingPreview(entry.meeting, '같은 안건')}
-                            className="w-full text-left bg-[var(--surface-secondary)] rounded-lg border border-[var(--border-default)] px-3 py-2.5 hover:border-[rgba(var(--ink-rgb),0.2)] transition-colors group">
-                            <div className="flex items-center gap-2">
-                              <span className="text-[10px] text-[rgba(var(--text-rgb),0.4)] flex-shrink-0">
-                                {entry.meeting.meeting_date ? format(parseISO(entry.meeting.meeting_date), 'yyyy.MM.dd') : '날짜 없음'}
-                              </span>
-                              <span className="text-[9px] px-1.5 py-0.5 rounded-full flex-shrink-0" style={{ background: 'rgba(76,127,224,0.12)', color: 'var(--accent-soft)' }}>다른 회의</span>
-                            </div>
-                            <p className="text-xs mt-0.5 truncate group-hover:text-[rgba(var(--text-rgb),1)]" style={{ color: 'rgba(var(--text-rgb),0.7)' }}>
-                              {entry.meeting.title || '제목 없음'}
-                            </p>
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-
-            {/* RIGHT BOTTOM: SAME CATEGORY — 같은 category지만 다른 안건. 좌 2 목록 / 우 8 선택 회의 내용 */}
-            <div className="md:flex-[70] min-h-[320px] md:min-h-0 flex flex-col bg-[var(--surface-panel)] rounded-lg border border-[var(--border-default)] p-5">
-              <h3 className="text-xs font-semibold text-[rgba(var(--text-rgb),0.4)] uppercase tracking-wide mb-3 flex-shrink-0">
-                같은 범주의 다른 회의{meeting?.category ? ` · ${meeting.category}` : ''}
+                같은 범주의 회의{meeting?.category ? ` · ${meeting.category}` : ''}
               </h3>
               <div className="flex-1 min-h-0 flex gap-3">
-                {/* 좌 2: 목록 — 폭이 좁아 날짜/제목을 두 줄로 쌓는다 */}
-                <div className="w-1/5 min-w-[88px] flex-shrink-0 overflow-y-auto scrollbar-hide pr-1" style={{ borderRight: '1px solid rgba(var(--ink-rgb),0.08)' }}>
-                  {sameCatMeetingsDeduped.length === 0 ? (
+                {/* 좌: 범주 > 안건 > 날짜 트리 */}
+                <div className="w-[30%] min-w-[130px] flex-shrink-0 overflow-y-auto scrollbar-hide pr-1" style={{ borderRight: '1px solid rgba(var(--ink-rgb),0.08)' }}>
+                  {threadList.length === 0 && categoryGroups.length === 0 ? (
                     <p className="text-[11px] text-[rgba(var(--text-rgb),0.3)] py-4">같은 범주의 다른 회의가 없습니다</p>
                   ) : (
                     <div className="space-y-0.5">
-                      {sameCatMeetingsDeduped.map(m => {
-                        const active = meetingPreview?.id === m.id
-                        return (
-                          <button key={m.id} onClick={() => openMeetingPreview(m, meeting?.category ? `같은 범주 · ${meeting.category}` : '같은 범주')}
-                            title={m.title || '제목 없음'}
-                            className="w-full text-left px-2 py-1.5 rounded-md transition-colors"
-                            style={active
-                              ? { background: 'rgba(76,127,224,0.15)' }
-                              : undefined}>
-                            <span className="block text-[10px]" style={{ color: active ? 'var(--accent-soft)' : 'rgba(var(--text-rgb),0.4)' }}>
-                              {m.meeting_date ? format(parseISO(m.meeting_date), 'M.d') : '—'}
-                            </span>
-                            <span className="block text-[11.5px] leading-snug line-clamp-2"
-                              style={{ color: active ? 'rgba(var(--text-rgb),1)' : 'rgba(var(--text-rgb),0.7)' }}>
-                              {m.title || '제목 없음'}
+                      {threadList.length > 0 && (
+                        <div className="pb-1.5 mb-1.5" style={{ borderBottom: '1px solid rgba(var(--ink-rgb),0.06)' }}>
+                          <button onClick={() => setThreadGroupOpen(o => !o)}
+                            className="w-full text-left flex items-start gap-1 px-1.5 py-1.5 rounded-md hover:bg-[rgba(var(--ink-rgb),0.04)]">
+                            <span className="text-[9px] mt-[3px] flex-shrink-0" style={{ color: 'rgba(var(--text-rgb),0.4)' }}>{threadGroupOpen ? '▾' : '▸'}</span>
+                            <span className="min-w-0">
+                              <span className="block text-[11.5px] font-semibold leading-snug line-clamp-2" style={{ color: 'rgba(var(--text-rgb),0.85)' }}>{meeting?.title}</span>
+                              <span className="block text-[9.5px]" style={{ color: 'var(--accent-soft)' }}>이 안건 · {threadList.length}회</span>
                             </span>
                           </button>
+                          {threadGroupOpen && threadList.map(m => {
+                            const active = meetingPreview?.id === m.id
+                            const dateLabel = m.meeting_date ? format(parseISO(m.meeting_date), 'yyyy.M.d') : '날짜 없음'
+                            return m.current ? (
+                              <div key={m.id} className="flex items-center gap-1.5 pl-5 pr-1.5 py-1 text-[11px]" style={{ color: 'var(--accent-primary)' }}>
+                                <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: 'var(--accent-primary)' }} />
+                                {dateLabel} <span className="text-[9.5px] opacity-80">현재</span>
+                              </div>
+                            ) : (
+                              <button key={m.id} onClick={() => openMeetingPreview(m, '같은 안건')}
+                                className="w-full text-left flex items-center gap-1.5 pl-5 pr-1.5 py-1 rounded-md text-[11px] transition-colors hover:bg-[rgba(var(--ink-rgb),0.04)]"
+                                style={active ? { background: 'rgba(76,127,224,0.15)', color: 'var(--accent-soft)' } : { color: 'rgba(var(--text-rgb),0.6)' }}>
+                                <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: 'rgba(var(--ink-rgb),0.25)' }} />
+                                {dateLabel}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )}
+                      {categoryGroups.map(g => {
+                        const label = meeting?.category ? `같은 범주 · ${meeting.category}` : '같은 범주'
+                        if (g.list.length === 1) {
+                          const m = g.list[0]
+                          const active = meetingPreview?.id === m.id
+                          return (
+                            <button key={m.id} onClick={() => openMeetingPreview(m, label)}
+                              title={m.title || '제목 없음'}
+                              className="w-full text-left px-2 py-1.5 rounded-md transition-colors hover:bg-[rgba(var(--ink-rgb),0.04)]"
+                              style={active ? { background: 'rgba(76,127,224,0.15)' } : undefined}>
+                              <span className="block text-[10px]" style={{ color: active ? 'var(--accent-soft)' : 'rgba(var(--text-rgb),0.4)' }}>
+                                {m.meeting_date ? format(parseISO(m.meeting_date), 'M.d') : '—'}
+                              </span>
+                              <span className="block text-[11.5px] leading-snug line-clamp-2"
+                                style={{ color: active ? 'rgba(var(--text-rgb),1)' : 'rgba(var(--text-rgb),0.7)' }}>
+                                {g.title}
+                              </span>
+                            </button>
+                          )
+                        }
+                        const open = openCatGroups.has(g.title)
+                        return (
+                          <div key={`g:${g.title}`}>
+                            <button
+                              onClick={() => setOpenCatGroups(prev => { const n = new Set(prev); if (n.has(g.title)) n.delete(g.title); else n.add(g.title); return n })}
+                              title={g.title}
+                              className="w-full text-left flex items-start gap-1 px-1.5 py-1.5 rounded-md hover:bg-[rgba(var(--ink-rgb),0.04)]">
+                              <span className="text-[9px] mt-[3px] flex-shrink-0" style={{ color: 'rgba(var(--text-rgb),0.4)' }}>{open ? '▾' : '▸'}</span>
+                              <span className="min-w-0">
+                                <span className="block text-[10px]" style={{ color: 'rgba(var(--text-rgb),0.4)' }}>
+                                  {g.list[0].meeting_date ? format(parseISO(g.list[0].meeting_date), 'M.d') : '—'} · {g.list.length}회
+                                </span>
+                                <span className="block text-[11.5px] leading-snug line-clamp-2" style={{ color: 'rgba(var(--text-rgb),0.7)' }}>{g.title}</span>
+                              </span>
+                            </button>
+                            {open && g.list.map(m => {
+                              const active = meetingPreview?.id === m.id
+                              return (
+                                <button key={m.id} onClick={() => openMeetingPreview(m, label)}
+                                  className="w-full text-left flex items-center gap-1.5 pl-5 pr-1.5 py-1 rounded-md text-[11px] transition-colors hover:bg-[rgba(var(--ink-rgb),0.04)]"
+                                  style={active ? { background: 'rgba(76,127,224,0.15)', color: 'var(--accent-soft)' } : { color: 'rgba(var(--text-rgb),0.6)' }}>
+                                  <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: 'rgba(var(--ink-rgb),0.25)' }} />
+                                  {m.meeting_date ? format(parseISO(m.meeting_date), 'yyyy.M.d') : '날짜 없음'}
+                                </button>
+                              )
+                            })}
+                          </div>
                         )
                       })}
                     </div>
                   )}
                 </div>
-
                 {/* 우 8: 선택한 회의 내용 */}
                 <div className="flex-1 min-w-0 flex flex-col">
                   {meetingPreview ? (
@@ -1082,7 +1103,7 @@ export default function MeetingDetailPage() {
                     </>
                   ) : (
                     <div className="flex-1 flex items-center justify-center">
-                      <p className="text-[12px] text-[rgba(var(--text-rgb),0.3)] text-center">왼쪽 목록이나 위의 다른 회의를 선택하면<br/>여기에 내용이 표시됩니다</p>
+                      <p className="text-[12px] text-[rgba(var(--text-rgb),0.3)] text-center">왼쪽 목록에서 회의를 선택하면<br/>여기에 내용이 표시됩니다</p>
                     </div>
                   )}
                 </div>
