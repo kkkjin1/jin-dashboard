@@ -59,14 +59,15 @@ export function isItemWritten(item: WorkReportItem): boolean {
   return hasContent(item.title) || hasContent(item.summary) || hasContent(item.detail)
 }
 
-// 히스토리/아카이브/문서용 한 덩어리 텍스트 — "• 항목 [상태] (담당) — 요약" 한 줄씩.
-export function itemsToText(items: WorkReportItem[], section: WorkReportItemSection, legacy?: string): string {
-  const lines = sortItems(items).map(it => {
-    const status = itemStatusLabel(section, it.status)
-    let line = `• ${it.title || '(제목 없음)'}`
-    if (status) line += ` [${status}]`
-    if (it.owner.trim()) line += ` (${it.owner.trim()})`
-    if (it.summary.trim()) line += ` — ${it.summary.trim()}`
+// 히스토리/아카이브용 한 덩어리 텍스트 — "• 타이틀 — 세부내용 (비고)". 2026-10-02 3열 그리드
+// 개편 이후 화면 필드는 title=타이틀, detail=세부내용, summary=비고다(status/owner는 표시 안 함).
+// 세부내용이 여러 줄이면 이어지는 줄을 들여쓴다.
+export function itemsToText(items: WorkReportItem[], _section: WorkReportItemSection, legacy?: string): string {
+  const lines = sortItems(items).filter(isItemWritten).map(it => {
+    let line = `• ${it.title.trim() || '(제목 없음)'}`
+    const detail = it.detail.trim()
+    if (detail) line += ` — ${detail.replace(/\n/g, '\n   ')}`
+    if (it.summary.trim()) line += ` (${it.summary.trim()})`
     return line
   })
   if (legacy && hasContent(legacy)) {

@@ -207,10 +207,6 @@ export default function ArchiveCompareView({ supabase, topics, reports, items, o
                 <div className="pl-6 pr-3 py-2.5 text-[12px] font-medium truncate" style={topicLabelStyle}>{meta.no} {meta.title}</div>
                 {cols.map(col => {
                   const text = itemsToText(items.filter(i => i.report_id === col.id && i.section === sec), sec, sec === 'issue' ? col.issues : undefined)
-                  const full = [
-                    ...items.filter(i => i.report_id === col.id && i.section === sec && i.detail.trim())
-                      .map(i => ({ label: `세부 · ${i.title || '(제목 없음)'}`, value: i.detail })),
-                  ]
                   return (
                     <div key={col.id} style={{ borderBottom: `1px solid ${S.border}` }}>
                       <ArchiveCell
@@ -219,7 +215,7 @@ export default function ArchiveCompareView({ supabase, topics, reports, items, o
                         onClick={() => setDetail({
                           title: `${meta.no} ${meta.title}`,
                           reportLabel: fmtPeriodLabel(col.period_start, col.period_end),
-                          fields: [{ label: '항목', value: text }, ...full],
+                          fields: [{ label: '항목', value: text }],
                         })}
                       />
                     </div>

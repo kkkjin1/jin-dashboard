@@ -2,7 +2,7 @@
 
 import type { WorkReport, WorkReportEntry, WorkReportItem, WorkReportTopic } from '@/types'
 import { S, CONTENT_MAX_WIDTH, hasContent } from './style'
-import { ITEM_SECTIONS, ITEM_SECTION_META, itemStatusLabel, sortItems } from './items'
+import { ITEM_SECTIONS, ITEM_SECTION_META, isItemWritten, sortItems } from './items'
 
 // 보고 1건을 "읽는" 문서 형태로 렌더링하는 순수 컨텐츠 — 작성 화면의 "문서로 보기"
 // (ReportFullViewModal)가 이 컴포넌트를 그대로 쓴다. Archive에서 개별 회차를 읽고 싶을 때도
@@ -51,7 +51,7 @@ export default function ReportDocument({ report, rows, items }: Props) {
 
       <p className="text-[14px] font-bold mt-6 mb-3" style={{ color: S.t1 }}>3. 운영 · 이슈 · 의사결정</p>
       {ITEM_SECTIONS.map(sec => {
-        const list = sortItems(items.filter(i => i.section === sec))
+        const list = sortItems(items.filter(i => i.section === sec && isItemWritten(i)))
         const meta = ITEM_SECTION_META[sec]
         return (
           <div key={sec} className="mb-5 pl-1">
@@ -62,27 +62,22 @@ export default function ReportDocument({ report, rows, items }: Props) {
               <table className="w-full text-[12.5px] mb-2" style={{ borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ color: S.t3, borderBottom: `1px solid ${S.borderStrong}` }}>
-                    <th className="text-left font-semibold py-1.5 pr-2">항목</th>
-                    <th className="text-left font-semibold py-1.5 pr-2 whitespace-nowrap">상태</th>
-                    <th className="text-left font-semibold py-1.5 pr-2 whitespace-nowrap">담당</th>
-                    <th className="text-left font-semibold py-1.5">요약</th>
+                    <th className="text-left font-semibold py-1.5 pr-3" style={{ width: '28%' }}>타이틀</th>
+                    <th className="text-left font-semibold py-1.5 pr-3">세부내용</th>
+                    <th className="text-left font-semibold py-1.5" style={{ width: '22%' }}>비고</th>
                   </tr>
                 </thead>
                 <tbody>
                   {list.map(it => (
                     <tr key={it.id} style={{ borderBottom: `1px solid ${S.border}`, color: S.t1, verticalAlign: 'top' }}>
-                      <td className="py-1.5 pr-2 font-medium">{it.title || '(제목 없음)'}</td>
-                      <td className="py-1.5 pr-2 whitespace-nowrap">{itemStatusLabel(sec, it.status) || '—'}</td>
-                      <td className="py-1.5 pr-2 whitespace-nowrap">{it.owner || '—'}</td>
-                      <td className="py-1.5">{it.summary || '—'}</td>
+                      <td className="py-1.5 pr-3 font-medium whitespace-pre-wrap">{it.title || '(제목 없음)'}</td>
+                      <td className="py-1.5 pr-3 whitespace-pre-wrap" style={{ color: S.t2 }}>{it.detail || '—'}</td>
+                      <td className="py-1.5 whitespace-pre-wrap" style={{ color: S.t2 }}>{it.summary || '—'}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             )}
-            {list.filter(it => hasContent(it.detail)).map(it => (
-              <Block key={it.id} label={`세부 · ${it.title || '(제목 없음)'}`} value={it.detail} />
-            ))}
           </div>
         )
       })}

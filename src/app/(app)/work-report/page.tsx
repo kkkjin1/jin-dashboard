@@ -145,12 +145,20 @@ export default function WorkReportPage() {
     () => [...reports].sort((a, b) => (a.report_date ?? a.period_end).localeCompare(b.report_date ?? b.period_end)),
     [reports],
   )
-  const timelineRef = useRef<HTMLDivElement>(null)
+  // 상단 바(B안): 회차 선택 드롭다운 / ⋯ 메뉴 / 기간 편집 토글. 바깥 클릭 시 드롭다운·메뉴를 닫는다.
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [moreOpen, setMoreOpen] = useState(false)
+  const [editingDates, setEditingDates] = useState(false)
+  const pickerRef = useRef<HTMLDivElement>(null)
+  const moreRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    // 최신 보고일이 항상 보이도록 처음 한 번 오른쪽 끝으로 스크롤한다.
-    const el = timelineRef.current
-    if (el) el.scrollLeft = el.scrollWidth
-  }, [reportsByDate.length, mode])
+    function onDown(e: MouseEvent) {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) setPickerOpen(false)
+      if (moreRef.current && !moreRef.current.contains(e.target as Node)) setMoreOpen(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [])
   const currentReport = useMemo(() => reports.find(r => r.id === currentReportId) ?? null, [reports, currentReportId])
   const prevReport = useMemo(() => {
     if (!currentReport) return null
@@ -400,13 +408,14 @@ export default function WorkReportPage() {
     return list.length ? Math.max(...list.map(i => i.sort_order)) + 1 : 0
   }
 
-  async function handleAddItem(section: WorkReportItemSection) {
-    if (!currentReport || readOnly) return
+  async function handleAddItem(section: WorkReportItemSection): Promise<WorkReportItem | null> {
+    if (!currentReport || readOnly) return null
     const { data, error } = await supabase.from('work_report_items')
       .insert({ report_id: currentReport.id, section, sort_order: nextItemSortOrder(section) })
       .select().single()
-    if (error || !data) return
+    if (error || !data) return null
     setAllItems(prev => [...prev, data as WorkReportItem])
+    return data as WorkReportItem
   }
 
   // "직전 항목 불러오기" — 직전 회차에서 이번 회차로 이월되지 않았거나 삭제한 항목을 같은
@@ -422,15 +431,19 @@ export default function WorkReportPage() {
     setAllItems(prev => [...prev, data as WorkReportItem])
   }
 
-  async function handleDeleteItem(item: WorkReportItem) {
-    if (!currentReport || readOnly) return
-    const message = isItemWritten(item)
-      ? `'${item.title || '제목 없음'}' 항목을 이번 보고에서 삭제할까요?\n과거 보고의 같은 항목은 유지됩니다.`
-      : '이 항목을 삭제할까요?'
-    if (!confirm(message)) return
+  // skipConfirm — 3-x 그리드에서 빈 행을 Backspace로 지울 때는 확인 없이 바로 지운다.
+  async function handleDeleteItem(item: WorkReportItem, opts?: { skipConfirm?: boolean }): Promise<boolean> {
+    if (!currentReport || readOnly) return false
+    if (!opts?.skipConfirm) {
+      const message = isItemWritten(item)
+        ? `'${item.title || '제목 없음'}' 항목을 이번 보고에서 삭제할까요?\n과거 보고의 같은 항목은 유지됩니다.`
+        : '이 항목을 삭제할까요?'
+      if (!confirm(message)) return false
+    }
     const { error } = await supabase.from('work_report_items').delete().eq('id', item.id)
-    if (error) return
+    if (error) return false
     setAllItems(prev => prev.filter(i => i.id !== item.id))
+    return true
   }
 
   function handleItemSaved(item: WorkReportItem) {
@@ -517,26 +530,57 @@ export default function WorkReportPage() {
   }
 
   // 회차 삭제 — work_report_entries/work_report_items는 FK ON DELETE CASCADE로 함께 지워지고,
-  // 주제(work_report_topics)와 다른 회차는 그대로 둔다. 삭제 후에는 남은 최신 회차로 이동한다.
-  async function handleDeleteReport() {
-    if (!currentReport) return
-    const label = fmtDateFull(currentReport.report_date ?? currentReport.period_end)
-    if (!confirm(`${label} 보고를 삭제할까요?\n이 회차의 주제별 내용과 3-1/3-2/3-3 항목이 모두 삭제되며 되돌릴 수 없습니다.`)) return
-    // 삭제 직전 pending debounce를 먼저 커밋해 두어, 이후 unmount flush가 이미 지워진
-    // 회차에 저장을 시도하지 않게 한다.
-    await editorRef.current?.flushPending()
-    await itemPanelRef.current?.flushPending()
-    const deletedId = currentReport.id
+  // 주제(work_report_topics)와 다른 회차는 그대로 둔다. 회차 선택 드롭다운에서 아무 회차나
+  // 지울 수 있다 — 지금 보고 있는 회차를 지웠을 때만 남은 최신 회차로 이동한다.
+  async function handleDeleteReport(target: WorkReport) {
+    const isCurrent = target.id === currentReportId
+    const label = fmtDateFull(target.report_date ?? target.period_end)
+    const wasFinal = target.status === 'final'
+    const finalNote = wasFinal ? '\n(확정된 보고입니다 — 확정을 해제한 뒤 삭제합니다.)' : ''
+    if (!confirm(`${label} 보고를 삭제할까요?\n이 회차의 주제별 내용과 3-1/3-2/3-3 항목이 모두 삭제되며 되돌릴 수 없습니다.${finalNote}`)) return
+    // 지금 열려 있는 회차를 지울 때는 pending debounce를 먼저 커밋해 두어, 이후 unmount
+    // flush가 이미 지워진 회차에 저장을 시도하지 않게 한다.
+    if (isCurrent) {
+      await editorRef.current?.flushPending()
+      await itemPanelRef.current?.flushPending()
+    }
+    const deletedId = target.id
+    // final 회차는 DB 트리거(protect_final_work_report, v56/v57)가 DELETE를 막고, 자식
+    // entries/items의 CASCADE 삭제도 부모가 final이면 막힌다. 트리거가 유일하게 허용하는
+    // "편집 재개"(final→draft, 다른 필드 불변) 전환을 먼저 한 뒤 삭제한다 — 트리거의
+    // "확정 내용은 수정 불가" 보호는 그대로 두고, 의도적인 삭제만 2단계로 통과시킨다.
+    if (wasFinal) {
+      const { error: unfinalizeError } = await supabase
+        .from('work_reports').update({ status: 'draft', finalized_at: null }).eq('id', deletedId)
+      if (unfinalizeError) { alert(`보고 삭제에 실패했습니다(확정 해제 단계): ${unfinalizeError.message}`); return }
+    }
     const { error } = await supabase.from('work_reports').delete().eq('id', deletedId)
-    if (error) { alert(`보고 삭제에 실패했습니다: ${error.message}`); return }
+    if (error) {
+      // 삭제가 실패하면 확정 상태를 원래대로 되돌린다(draft→final은 트리거 제약 없음).
+      if (wasFinal) {
+        await supabase.from('work_reports')
+          .update({ status: 'final', finalized_at: target.finalized_at ?? new Date().toISOString() })
+          .eq('id', deletedId)
+      }
+      alert(`보고 삭제에 실패했습니다: ${error.message}`)
+      return
+    }
     const remaining = reportsAsc.filter(r => r.id !== deletedId)
     setReports(prev => prev.filter(r => r.id !== deletedId))
     setAllItems(prev => prev.filter(i => i.report_id !== deletedId))
     entriesCacheRef.current.delete(deletedId)
     loadedReportIds.current.delete(deletedId)
     setEntriesByReport(prev => { const next = new Map(prev); next.delete(deletedId); return next })
-    setCurrentReportId(remaining.length > 0 ? remaining[remaining.length - 1].id : null)
+    if (isCurrent) {
+      setCurrentReportId(remaining.length > 0 ? remaining[remaining.length - 1].id : null)
+      setSelection('summary')
+    }
+  }
+
+  function goToReport(reportId: string) {
+    setCurrentReportId(reportId)
     setSelection('summary')
+    setPickerOpen(false)
   }
 
   // Archive의 "전체 보고" 카드에서 "이 보고 열기 →"를 누르면 그 회차를 작성 화면에서
@@ -563,163 +607,236 @@ export default function WorkReportPage() {
 
   return (
     <div className="h-full flex flex-col" style={{ background: S.bg }}>
-      {/* ── 상단 바 ──
-          1행: 지금 어느 보고기간/상태인지(identity) — 항상 가장 눈에 먼저 들어와야 하는 정보.
-          2행: mode 전환(좌, primary navigation)과 secondary action(우)을 분리 —
-          이전에는 identity/mode/action 3그룹이 한 줄에서 flex-wrap으로 뒤섞여
-          좁은 폭에서 순서 없이 줄바꿈되던 것을, 의미 단위로 고정된 2행 구조로 바꾼다. */}
-      <div className="flex flex-col gap-2.5 px-6 py-3 flex-shrink-0" style={{ borderBottom: `1px solid ${S.border}` }}>
-        <div className="flex items-center gap-3 flex-wrap">
-          <p className="text-[15px] font-semibold" style={{ color: S.t1 }}>업무보고</p>
-
-          {mode === 'write' && currentReport && (
-            <>
-              <div className="flex items-center gap-1.5">
-                <span className="text-[11px] font-semibold" style={{ color: S.t3 }}>보고일</span>
-                <DateField
-                  key={`${currentReport.id}:report_date`}
-                  value={currentReport.report_date ?? ''}
-                  disabled={readOnly}
-                  emphasis
-                  onCommit={v => handlePeriodChange('report_date', v)}
-                />
+      {/* ── 상단 바 (B안, 2026-10-02) ──
+          예전 3행(보고일/기간 입력 · 보고 이력 칩 · 진행률+탭+버튼)을 한 줄로 합쳤다.
+          좌: 제목 + mode 탭 / 중: ◀ 회차 선택 ▶ + 기간(✎로 편집) + 진행률 / 우: 새 보고·확정 + ⋯.
+          과거 회차 목록·삭제는 회차 선택 드롭다운에, 덜 쓰는 "문서로 보기"·"삭제"는 ⋯ 메뉴에 둔다. */}
+      {(() => {
+        const idx = currentReport ? reportsByDate.findIndex(r => r.id === currentReport.id) : -1
+        const olderReport = idx > 0 ? reportsByDate[idx - 1] : null
+        const newerReport = idx >= 0 && idx < reportsByDate.length - 1 ? reportsByDate[idx + 1] : null
+        const navBtn = (target: WorkReport | null, label: string, title: string) => (
+          <button
+            onClick={() => { if (target) { setEditingDates(false); goToReport(target.id) } }}
+            disabled={!target}
+            title={title}
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-[12px] transition-colors disabled:opacity-30"
+            style={{ color: S.t3, background: 'rgba(var(--ink-rgb),0.04)' }}
+          >
+            {label}
+          </button>
+        )
+        const statusPill = (r: WorkReport) => (
+          <span
+            className="text-[10.5px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0"
+            style={r.status === 'final'
+              ? { color: S.accentText, background: S.accentDim, border: `1px solid ${S.accentBorder}` }
+              : { color: S.t3, background: 'rgba(var(--ink-rgb),0.05)', border: `1px solid ${S.border}` }}
+          >
+            {r.status === 'final' ? '확정' : '작성중'}
+          </span>
+        )
+        return (
+          <div className="flex items-center gap-x-4 gap-y-2 px-6 py-3 flex-shrink-0 flex-wrap" style={{ borderBottom: `1px solid ${S.border}` }}>
+            <div className="flex items-center gap-3">
+              <p className="text-[15px] font-semibold" style={{ color: S.t1 }}>업무보고</p>
+              <div className="flex items-center gap-1 rounded-xl p-1" style={{ background: 'rgba(var(--ink-rgb),0.04)' }}>
+                {([['write', '작성'], ['archive', '아카이브']] as const).map(([k, label]) => (
+                  <button
+                    key={k}
+                    onClick={() => {
+                      // 헤더 pill을 직접 눌러 들어갈 때는 항상 Archive 기본값(전체 보고)에서
+                      // 시작한다 — RIGHT의 "전체 히스토리 보기"를 통한 진입(주제별 보기로 점프)과
+                      // 구분한다.
+                      if (k === 'archive') setArchiveJumpTopicId(null)
+                      setMode(k)
+                    }}
+                    className="px-3 py-1 rounded-lg text-[12px] font-medium transition-colors"
+                    style={{ color: mode === k ? S.t1 : S.t3, background: mode === k ? S.accentDim : 'transparent' }}
+                  >
+                    {label}
+                  </button>
+                ))}
               </div>
+            </div>
 
-              <div className="flex items-center gap-1.5">
-                <span className="text-[11px]" style={{ color: S.t4 }}>기간</span>
-                <DateField
-                  key={`${currentReport.id}:period_start`}
-                  value={currentReport.period_start}
-                  disabled={readOnly}
-                  onCommit={v => handlePeriodChange('period_start', v)}
-                />
-                <span style={{ color: S.t4 }}>~</span>
-                <DateField
-                  key={`${currentReport.id}:period_end`}
-                  value={currentReport.period_end}
-                  disabled={readOnly}
-                  onCommit={v => handlePeriodChange('period_end', v)}
-                />
-              </div>
-
-              {/* draft/final 상태 — 기존에는 select option 텍스트/버튼 라벨에만 묻혀있던 것을
-                  identity 영역에 pill로 노출해 "지금 작성중인지 확정인지"를 즉시 알 수 있게 한다. */}
-              <span
-                className="text-[11px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0"
-                style={currentReport.status === 'final'
-                  ? { color: S.accentText, background: S.accentDim, border: `1px solid ${S.accentBorder}` }
-                  : { color: S.t3, background: 'rgba(var(--ink-rgb),0.05)', border: `1px solid ${S.border}` }}
-              >
-                {currentReport.status === 'final' ? '확정' : '작성중'}
-              </span>
-
-            </>
-          )}
-        </div>
-
-        {/* 보고일 타임라인 — 예전 회차 select 드롭다운을 대체한다. 직전 보고일들을 한 줄로
-            죽 보여주고, 누르면 그 회차로 이동한다(확정 회차는 기존대로 read-only). */}
-        {mode === 'write' && currentReport && reportsByDate.length > 0 && (
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="text-[10.5px] font-semibold flex-shrink-0" style={{ color: S.t4 }}>보고 이력</span>
-            <div ref={timelineRef} className="flex items-center gap-1 overflow-x-auto min-w-0" style={{ scrollbarWidth: 'thin' }}>
-              {reportsByDate.map((r, i) => {
-                const active = r.id === currentReportId
-                const isFinal = r.status === 'final'
-                return (
-                  <div key={r.id} className="flex items-center gap-1 flex-shrink-0">
-                    {i > 0 && <span aria-hidden style={{ width: 10, height: 1, background: S.border }} />}
+            {mode === 'write' && currentReport && (
+              <div className="flex items-center gap-3 flex-wrap min-w-0">
+                {/* 회차 선택: ◀ 이전 회차 · [보고일 · 상태 ▾] · 다음 회차 ▶ */}
+                <div className="flex items-center gap-1">
+                  {navBtn(olderReport, '◀', '이전 보고')}
+                  <div ref={pickerRef} className="relative">
                     <button
-                      onClick={() => { setCurrentReportId(r.id); setSelection('summary') }}
-                      title={`${fmtPeriodLabel(r.period_start, r.period_end)} · ${isFinal ? '확정' : '작성중'}`}
-                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11.5px] transition-colors"
-                      style={active
-                        ? { color: S.accentText, background: S.accentDim, border: `1px solid ${S.accentBorder}`, fontWeight: 600 }
-                        : { color: S.t2, background: 'rgba(var(--ink-rgb),0.04)', border: `1px solid ${S.border}` }}
+                      onClick={() => setPickerOpen(o => !o)}
+                      className="flex items-center gap-2 px-3 py-1 rounded-lg text-[13px] font-semibold transition-colors"
+                      style={{ color: S.t1, background: 'rgba(var(--ink-rgb),0.05)', border: `1px solid ${pickerOpen ? S.accentBorder : S.border}` }}
                     >
-                      <span aria-hidden className="rounded-full" style={isFinal
-                        ? { width: 6, height: 6, background: S.t2 }
-                        : { width: 6, height: 6, border: `1.5px solid ${S.t4}` }} />
-                      {fmtDateFull(r.report_date ?? r.period_end)}
-                      {!isFinal && <span className="text-[10px]" style={{ color: S.t4 }}>작성중</span>}
+                      {fmtDateFull(currentReport.report_date ?? currentReport.period_end)} 보고
+                      {statusPill(currentReport)}
+                      <span className="text-[10px]" style={{ color: S.t4 }}>▾</span>
+                    </button>
+                    {pickerOpen && (
+                      <div
+                        className="absolute left-0 top-full mt-1 z-50 rounded-xl py-1 overflow-y-auto"
+                        style={{ width: 340, maxHeight: 420, background: 'var(--surface-elevated)', border: `1px solid ${S.borderStrong}`, boxShadow: '0 12px 32px rgba(0,0,0,0.25)' }}
+                      >
+                        <p className="px-3 pt-1.5 pb-1 text-[10.5px] font-semibold" style={{ color: S.t4 }}>보고 목록 · {reportsByDate.length}건</p>
+                        {[...reportsByDate].reverse().map(r => {
+                          const active = r.id === currentReportId
+                          return (
+                            <div
+                              key={r.id}
+                              className="group flex items-center gap-2 px-2 mx-1 rounded-lg"
+                              style={{ background: active ? S.accentDim : 'transparent' }}
+                            >
+                              <button
+                                onClick={() => { setEditingDates(false); goToReport(r.id) }}
+                                className="flex-1 min-w-0 flex items-center gap-2 py-1.5 text-left"
+                              >
+                                <span className="text-[12.5px] font-medium flex-shrink-0" style={{ color: active ? S.accentText : S.t1 }}>
+                                  {fmtDateFull(r.report_date ?? r.period_end)}
+                                </span>
+                                <span className="text-[11px] truncate" style={{ color: S.t4 }}>
+                                  {fmtPeriodLabel(r.period_start, r.period_end)}
+                                </span>
+                                <span className="ml-auto">{statusPill(r)}</span>
+                              </button>
+                              <button
+                                onClick={() => { setPickerOpen(false); void handleDeleteReport(r) }}
+                                title="이 보고 삭제"
+                                className="opacity-0 group-hover:opacity-100 focus:opacity-100 px-1.5 py-1 rounded text-[11px] transition-opacity"
+                                style={{ color: '#F87171' }}
+                              >
+                                삭제
+                              </button>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                  {navBtn(newerReport, '▶', '다음 보고')}
+                </div>
+
+                {/* 보고일/기간 — 평소에는 텍스트, ✎을 누르면 그 자리에서 날짜 입력으로 바뀐다(확정 회차는 편집 불가). */}
+                {editingDates && !readOnly ? (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[11px] font-semibold" style={{ color: S.t3 }}>보고일</span>
+                    <DateField
+                      key={`${currentReport.id}:report_date`}
+                      value={currentReport.report_date ?? ''}
+                      disabled={readOnly}
+                      emphasis
+                      onCommit={v => handlePeriodChange('report_date', v)}
+                    />
+                    <span className="text-[11px]" style={{ color: S.t4 }}>기간</span>
+                    <DateField
+                      key={`${currentReport.id}:period_start`}
+                      value={currentReport.period_start}
+                      disabled={readOnly}
+                      onCommit={v => handlePeriodChange('period_start', v)}
+                    />
+                    <span style={{ color: S.t4 }}>~</span>
+                    <DateField
+                      key={`${currentReport.id}:period_end`}
+                      value={currentReport.period_end}
+                      disabled={readOnly}
+                      onCommit={v => handlePeriodChange('period_end', v)}
+                    />
+                    <button
+                      onClick={() => setEditingDates(false)}
+                      className="px-2.5 py-1 rounded-lg text-[11.5px] font-medium"
+                      style={{ color: S.accentText, background: S.accentDim, border: `1px solid ${S.accentBorder}` }}
+                    >
+                      완료
                     </button>
                   </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
+                ) : (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px]" style={{ color: S.t4 }}>기간</span>
+                    <span className="text-[12px]" style={{ color: S.t2 }}>{fmtPeriodLabel(currentReport.period_start, currentReport.period_end)}</span>
+                    {!readOnly && (
+                      <button
+                        onClick={() => setEditingDates(true)}
+                        title="보고일·기간 수정"
+                        className="px-1.5 py-0.5 rounded text-[11px] transition-colors"
+                        style={{ color: S.t3, background: 'rgba(var(--ink-rgb),0.04)' }}
+                      >
+                        ✎
+                      </button>
+                    )}
+                  </div>
+                )}
 
-        {/* 작성 진행률 — DB 컬럼 없이 outlineRows(현재 report의 entry)만으로 매 렌더 계산한다.
-            주제가 0개면 0/0을 보여주는 대신 행 자체를 숨긴다. */}
-        {mode === 'write' && currentReport && totalTopicCount > 0 && (
-          <div className="flex items-center gap-3">
-            <p className="text-[11.5px]" style={{ color: S.t3 }}>
-              {totalTopicCount}개 주제 · {writtenCount}개 작성 · {totalTopicCount - writtenCount}개 미작성
-            </p>
-            <div className="flex items-center gap-2" style={{ maxWidth: 220, flex: 1 }}>
-              <div className="flex-1 rounded-full overflow-hidden" style={{ height: 4, background: 'rgba(var(--ink-rgb),0.08)' }}>
-                <div className="h-full rounded-full" style={{ width: `${progressPct}%`, background: S.accent }} />
+                {/* 작성 진행률 — 주제가 0개면 숨긴다. 상세 문구는 hover title로. */}
+                {totalTopicCount > 0 && (
+                  <div
+                    className="flex items-center gap-1.5"
+                    title={`${totalTopicCount}개 주제 · ${writtenCount}개 작성 · ${totalTopicCount - writtenCount}개 미작성`}
+                  >
+                    <span className="text-[11.5px]" style={{ color: S.t3 }}>{writtenCount}/{totalTopicCount}</span>
+                    <div className="rounded-full overflow-hidden" style={{ width: 64, height: 4, background: 'rgba(var(--ink-rgb),0.08)' }}>
+                      <div className="h-full rounded-full" style={{ width: `${progressPct}%`, background: S.accent }} />
+                    </div>
+                  </div>
+                )}
               </div>
-              <span className="text-[10.5px] flex-shrink-0" style={{ color: S.t4 }}>{progressPct}%</span>
+            )}
+
+            <div className="flex items-center gap-2 ml-auto">
+              {mode === 'write' && currentReport && (
+                <>
+                  <button onClick={handleNewReport}
+                    className="px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors"
+                    style={{ color: S.t3, background: 'rgba(var(--ink-rgb),0.04)' }}
+                  >
+                    + 새 보고
+                  </button>
+                  <button onClick={handleToggleFinalize}
+                    className="px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-colors"
+                    style={currentReport.status === 'draft'
+                      ? { color: S.accentText, background: S.accentDim, border: `1px solid ${S.accentBorder}` }
+                      : { color: S.t3, background: 'rgba(var(--ink-rgb),0.04)' }}
+                  >
+                    {currentReport.status === 'draft' ? '보고 확정' : '편집 재개'}
+                  </button>
+                  <div ref={moreRef} className="relative">
+                    <button
+                      onClick={() => setMoreOpen(o => !o)}
+                      title="더보기"
+                      className="w-8 h-8 flex items-center justify-center rounded-lg text-[14px] transition-colors"
+                      style={{ color: S.t3, background: moreOpen ? S.accentDim : 'rgba(var(--ink-rgb),0.04)' }}
+                    >
+                      ⋯
+                    </button>
+                    {moreOpen && (
+                      <div
+                        className="absolute right-0 top-full mt-1 z-50 rounded-xl py-1"
+                        style={{ width: 160, background: 'var(--surface-elevated)', border: `1px solid ${S.borderStrong}`, boxShadow: '0 12px 32px rgba(0,0,0,0.25)' }}
+                      >
+                        <button
+                          onClick={() => { setMoreOpen(false); setFullViewOpen(true) }}
+                          className="w-full text-left px-3 py-2 text-[12.5px] transition-colors hover:bg-[rgba(var(--ink-rgb),0.06)]"
+                          style={{ color: S.t1 }}
+                        >
+                          문서로 보기
+                        </button>
+                        <button
+                          onClick={() => { setMoreOpen(false); void handleDeleteReport(currentReport) }}
+                          className="w-full text-left px-3 py-2 text-[12.5px] transition-colors hover:bg-[rgba(var(--ink-rgb),0.06)]"
+                          style={{ color: '#F87171' }}
+                        >
+                          이 보고 삭제
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           </div>
-        )}
-
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-1 rounded-xl p-1" style={{ background: 'rgba(var(--ink-rgb),0.04)' }}>
-            {([['write', '보고서 작성'], ['archive', '보고 아카이브']] as const).map(([k, label]) => (
-              <button
-                key={k}
-                onClick={() => {
-                  // 헤더 pill을 직접 눌러 들어갈 때는 항상 Archive 기본값(전체 보고)에서
-                  // 시작한다 — RIGHT의 "전체 히스토리 보기"를 통한 진입(주제별 보기로 점프)과
-                  // 구분한다.
-                  if (k === 'archive') setArchiveJumpTopicId(null)
-                  setMode(k)
-                }}
-                className="px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors"
-                style={{ color: mode === k ? S.t1 : S.t3, background: mode === k ? S.accentDim : 'transparent' }}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex items-center gap-2">
-            {mode === 'write' && currentReport && (
-              <>
-                <button onClick={() => setFullViewOpen(true)}
-                  className="px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors"
-                  style={{ color: S.t3, background: 'rgba(var(--ink-rgb),0.04)' }}
-                >
-                  문서로 보기
-                </button>
-                <button onClick={handleNewReport}
-                  className="px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors"
-                  style={{ color: S.t3, background: 'rgba(var(--ink-rgb),0.04)' }}
-                >
-                  + 새 보고
-                </button>
-                <button onClick={handleToggleFinalize}
-                  className="px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-colors"
-                  style={currentReport.status === 'draft'
-                    ? { color: S.accentText, background: S.accentDim, border: `1px solid ${S.accentBorder}` }
-                    : { color: S.t3, background: 'rgba(var(--ink-rgb),0.04)' }}
-                >
-                  {currentReport.status === 'draft' ? '보고 확정' : '편집 재개'}
-                </button>
-                <button onClick={handleDeleteReport}
-                  className="px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors"
-                  style={{ color: '#F87171', background: 'rgba(239,68,68,0.08)' }}
-                >
-                  삭제
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
+        )
+      })()}
 
       {/* ── 본문 ── */}
       <div className="flex-1 min-h-0 flex overflow-hidden">
