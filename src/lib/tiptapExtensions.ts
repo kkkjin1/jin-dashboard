@@ -392,6 +392,15 @@ export function removeEmptyListItemOnBackspace(editor: Editor): boolean {
         tr.replaceWith(listStart, listEnd, state.schema.nodes.paragraph.create())
         tr.setSelection(TextSelection.near(tr.doc.resolve(listStart + 1)))
       }
+    } else if ($from.index(liDepth - 1) === 0 && $from.node(liDepth - 2)?.type.name !== 'listItem') {
+      // 최상위 리스트의 "첫 번째" 빈 항목 — 지우기만 하면 앞에 갈 곳이 없어 커서가 다음
+      // 항목(원래 1번 텍스트)에 붙어, 사용자 눈에는 "텍스트가 다시 1번으로 올라오고 번호도
+      // 유지"되는 것처럼 보였다(2026-10-02 회의록 상세 제보: 1번 위에 빈 줄을 못 만듦).
+      // 노션처럼 이 항목을 리스트 바로 위의 빈 문단으로 바꿔, 리스트 위에 공백행을 만들 수 있게 한다.
+      const listStart = $from.before(liDepth - 1)
+      tr.delete(liStart, liEnd)
+      tr.insert(listStart, state.schema.nodes.paragraph.create())
+      tr.setSelection(TextSelection.create(tr.doc, listStart + 1))
     } else {
       tr.delete(liStart, liEnd)
       tr.setSelection(TextSelection.near(tr.doc.resolve(liStart), -1))
