@@ -342,7 +342,8 @@ export default function MeetingDetailPage() {
   const [titleInput, setTitleInput] = useState('')
   const [noteInput, setNoteInput] = useState('')
   const [noteTitle, setNoteTitle] = useState(defaultNoteTitle())
-  const [openIndexes, setOpenIndexes] = useState<Set<number>>(new Set([0]))
+  // RIGHT 미리보기 영역에 띄운 "이 회의의 저장된 노트" — 다른 회의 미리보기(meetingPreview)와 배타적.
+  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [showFullscreen, setShowFullscreen] = useState(false)
   const [fullscreenContent, setFullscreenContent] = useState('')
@@ -586,6 +587,7 @@ export default function MeetingDetailPage() {
   const sameCatMeetingsDeduped = sameCatMeetings.filter(m => !sameTitleMeetings.some(t => t.id === m.id))
 
   async function openMeetingPreview(m: Pick<Meeting, 'id' | 'title' | 'meeting_date'>, label: string) {
+    setSelectedNoteId(null)
     setMeetingPreview(m)
     setMeetingPreviewLabel(label)
     setMeetingPreviewContent('')
@@ -616,6 +618,7 @@ export default function MeetingDetailPage() {
     ? [{ id, title: meeting.title, meeting_date: meeting.meeting_date, current: true }, ...sameTitleMeetings]
         .sort((x, y) => (y.meeting_date ?? '').localeCompare(x.meeting_date ?? ''))
     : []
+  const selectedNote = selectedNoteId ? regularNotes.find(n => n.id === selectedNoteId) ?? null : null
 
   useEffect(() => {
     function onEsc(e: KeyboardEvent) {
@@ -636,14 +639,6 @@ export default function MeetingDetailPage() {
       return () => window.removeEventListener('keydown', onEsc)
     }
   }, [meetingPreview])
-
-  function toggleNote(index: number) {
-    setOpenIndexes(prev => {
-      const next = new Set(prev)
-      if (next.has(index)) next.delete(index); else next.add(index)
-      return next
-    })
-  }
 
   async function updateMeeting(updates: Partial<Meeting>) {
     await supabase.from('meetings').update(updates).eq('id', id)
@@ -667,7 +662,9 @@ export default function MeetingDetailPage() {
     }).select('*').single()
     if (data) {
       setRegularNotes(prev => [data as MeetingNoteRow, ...prev])
-      setOpenIndexes(new Set([0]))
+      // 저장한 노트는 RIGHT 트리의 "현재" 날짜 아래에 쌓이고, 미리보기에 바로 띄운다.
+      setMeetingPreview(null)
+      setSelectedNoteId((data as MeetingNoteRow).id)
     }
 
     // Track B-5: canonical INSERT가 실제로 성공한 뒤에만 'draft'(임시 qid)를
@@ -723,7 +720,7 @@ export default function MeetingDetailPage() {
     clearAutosaveBuffer('meeting_note', noteId, 'title')
     clearAutosaveBuffer('meeting_note', noteId, 'content')
     setRegularNotes(prev => prev.filter(n => n.id !== noteId))
-    setOpenIndexes(new Set([0]))
+    setSelectedNoteId(prev => (prev === noteId ? null : prev))
   }
 
   // Track B-4: id(PK) 기준 단일 row UPDATE. updated_at만 갱신하고
@@ -913,21 +910,7 @@ export default function MeetingDetailPage() {
                 dark
               />
             )}
-            {/* 이 회의의 저장된 노트 — 예전 RIGHT TOP 타임라인에서 옮겨왔다(2026-10-02). 같은 안건의 다른
-                날짜 회의는 RIGHT 범주 트리의 맨 위 그룹으로 합쳤다. */}
-            {regularNotes.length > 0 && (
-              <div className="mt-4">
-                <h3 className="text-xs font-semibold text-[rgba(var(--text-rgb),0.4)] mb-2">저장된 노트 ({regularNotes.length})</h3>
-                <div className="space-y-2">
-                  {regularNotes.map((note, idx) => (
-                    <NoteAccordion key={note.id} note={note}
-                      isOpen={openIndexes.has(idx)} onToggle={() => toggleNote(idx)} onDelete={deleteNote}
-                      onEdit={editNote} onFullscreen={(content) => { setFullscreenContent(content); setShowFullscreen(true) }}
-                      agendaItems={agendaItems} onAddToItem={addNoteToItem} />
-                  ))}
-                </div>
-              </div>
-            )}
+            {/* 저장한 노트는 RIGHT "같은 범주의 회의" 트리의 이 안건 › 현재 날짜 아래에 쌓인다(2026-10-02). */}
           </div>
 
           <div className="mb-6">
@@ -1002,9 +985,30 @@ export default function MeetingDetailPage() {
                             const active = meetingPreview?.id === m.id
                             const dateLabel = m.meeting_date ? format(parseISO(m.meeting_date), 'yyyy.M.d') : '날짜 없음'
                             return m.current ? (
-                              <div key={m.id} className="flex items-center gap-1.5 pl-5 pr-1.5 py-1 text-[11px]" style={{ color: 'var(--accent-primary)' }}>
-                                <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: 'var(--accent-primary)' }} />
-                                {dateLabel} <span className="text-[9.5px] opacity-80">현재</span>
+                              <div key={m.id}>
+                                <div className="flex items-center gap-1.5 pl-5 pr-1.5 py-1 text-[11px]" style={{ color: 'var(--accent-primary)' }}>
+                                  <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: 'var(--accent-primary)' }} />
+                                  {dateLabel} <span className="text-[9.5px] opacity-80">현재</span>
+                                </div>
+                                {/* 이 회의에서 저장한 노트 — 저장할 때마다 여기 쌓이고, 누르면 오른쪽에서 읽기·수정·삭제 */}
+                                {regularNotes.length === 0 ? (
+                                  <p className="pl-8 pr-1.5 py-0.5 text-[10px]" style={{ color: 'rgba(var(--text-rgb),0.3)' }}>저장된 노트 없음</p>
+                                ) : regularNotes.map(note => {
+                                  const sel = selectedNoteId === note.id
+                                  return (
+                                    <button key={note.id}
+                                      onClick={() => { closeMeetingPreview(); setSelectedNoteId(note.id) }}
+                                      title={note.title}
+                                      className="w-full text-left flex items-start gap-1.5 pl-8 pr-1.5 py-1 rounded-md text-[11px] transition-colors hover:bg-[rgba(var(--ink-rgb),0.04)]"
+                                      style={sel ? { background: 'rgba(76,127,224,0.15)', color: 'var(--accent-soft)' } : { color: 'rgba(var(--text-rgb),0.7)' }}>
+                                      <span className="flex-shrink-0 opacity-50">└</span>
+                                      <span className="min-w-0 flex-1">
+                                        <span className="block truncate">{note.title || '제목 없음'}</span>
+                                        <span className="block text-[9.5px]" style={{ color: 'rgba(var(--text-rgb),0.35)' }}>{format(parseISO(note.created_at), 'HH:mm')} 저장</span>
+                                      </span>
+                                    </button>
+                                  )
+                                })}
                               </div>
                             ) : (
                               <button key={m.id} onClick={() => openMeetingPreview(m, '같은 안건')}
@@ -1071,7 +1075,17 @@ export default function MeetingDetailPage() {
                 </div>
                 {/* 우 8: 선택한 회의 내용 */}
                 <div className="flex-1 min-w-0 flex flex-col">
-                  {meetingPreview ? (
+                  {selectedNote ? (
+                    <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide pr-1">
+                      <p className="text-[11px] text-[rgba(var(--text-rgb),0.4)] mb-2">
+                        이 회의에서 저장한 노트 · {format(parseISO(selectedNote.created_at), 'yyyy.MM.dd HH:mm')}
+                      </p>
+                      <NoteAccordion key={selectedNote.id} note={selectedNote}
+                        isOpen onToggle={() => setSelectedNoteId(null)} onDelete={deleteNote}
+                        onEdit={editNote} onFullscreen={(content) => { setFullscreenContent(content); setShowFullscreen(true) }}
+                        agendaItems={agendaItems} onAddToItem={addNoteToItem} />
+                    </div>
+                  ) : meetingPreview ? (
                     <>
                       <div className="flex items-start justify-between gap-2 mb-2 flex-shrink-0">
                         <div className="min-w-0">
