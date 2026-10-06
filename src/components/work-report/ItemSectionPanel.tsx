@@ -2,11 +2,11 @@
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { Plus, RotateCcw, X } from 'lucide-react'
+import { Plus, X } from 'lucide-react'
 import type { WorkReport, WorkReportItem, WorkReportItemSection } from '@/types'
 import { useCanonicalSync } from '@/hooks/useCanonicalSync'
 import { parseSpreadsheetClipboard } from '@/lib/spreadsheetClipboard'
-import { S, fmtPeriodLabel, hasContent, WRITING_CONTENT_WIDTH } from './style'
+import { S, fmtPeriodLabel, hasContent } from './style'
 import { ITEM_SECTION_META, type ItemDraft } from './items'
 
 // 3-1/3-2/3-3 한 섹션의 CENTER 편집 화면 — 엑셀식 3열 그리드(타이틀 · 세부내용 · 비고).
@@ -28,6 +28,14 @@ import { ITEM_SECTION_META, type ItemDraft } from './items'
 // 같은 debounce/재시도 semantics). 여러 행을 한 번에 바꾸는 범위 조작은 행마다 등록한
 // set/get(rowApis)으로 각 행의 로컬 state를 바꿔, 저장도 각 행의 debounce를 그대로 탄다.
 // "보고 확정" 직전 pending debounce flush는 ReportEditorPanel과 같은 handle 모양(flushPending).
+//
+// 직전 보고 열(2026-10-05): 우측 히스토리 패널 대신 표 첫 열에 직전 회차의 같은 항목(같은
+// lineage_id)을 읽기 전용으로 보여준다. 새 보고는 3-x를 더 이상 자동 이월하지 않고, 직전 회차
+// 항목 중 이번 회차에 lineage가 없는 것을 표 아래 "후보" 행으로 보여준다 —
+// - 이어가기: 직전 값을 같은 lineage_id로 복사해 이번 회차 행을 만든다(onRestore, 과거 행 불변).
+//   UNIQUE(report_id, lineage_id)라 같은 항목을 두 번 이어갈 수 없다.
+// - 제외: 이번 화면에서만 후보를 흐리게 내려두는 UI 상태(DB·localStorage 저장 없음, 재진입 시 초기화).
+// 확정 회차에서는 후보 행 자체를 보여주지 않는다(이어가지 않은 항목 = 그 회차에서 제외된 것).
 
 export type ItemSectionPanelHandle = { flushPending: () => Promise<void> }
 
@@ -48,22 +56,30 @@ interface Props {
   onDelete: (item: WorkReportItem, opts?: { skipConfirm?: boolean }) => Promise<boolean>
   onDeleteMany: (items: WorkReportItem[]) => Promise<boolean>
   onReorder: (orderedIds: string[]) => void
-  onRestore: (prev: WorkReportItem) => void
+  // 이어가기 — 직전 항목을 같은 lineage_id로 이번 회차에 복사한다. 만든 행(실패 시 null)을 돌려준다.
+  onRestore: (prev: WorkReportItem) => Promise<WorkReportItem | null>
+  onOpenHistory: () => void
 }
 
 const COLS = ['title', 'detail', 'summary'] as const
 type Col = typeof COLS[number]
 const COL_LABEL: Record<Col, string> = { title: '타이틀', detail: '세부내용', summary: '비고' }
 
-// 데이터 열 3개의 너비(px) — 머리글 경계를 드래그해 바꾸고, 이 브라우저에만 기억한다(뷰어별 편의 설정).
-const DEFAULT_COL_WIDTHS = [190, 420, 210]
+// 표 영역 최대 폭 — 우측 패널이 빠진 만큼 문서형 화면(WRITING_CONTENT_WIDTH)보다 넓게 쓴다.
+const GRID_MAX_WIDTH = 1200
+
+// 열 너비(px) [직전 보고, 타이틀, 세부내용, 비고] — 머리글 경계를 드래그해 바꾸고, 이 브라우저에만
+// 기억한다(뷰어별 편의 설정). 세부내용은 이 값을 최소로 남는 폭을 채운다(가로 스크롤 방지).
+// 직전 보고 열이 생기며 키를 바꿨다(예전 3칸 값은 쓰지 않는다).
+const DEFAULT_COL_WIDTHS = [170, 160, 210, 150]
 const MIN_COL_WIDTH = 70
-const COL_WIDTH_KEY = 'work-report-item-col-widths'
+const COL_WIDTH_KEY = 'work-report-item-col-widths-v2'
+const PREV_BG = 'rgba(var(--ink-rgb),0.035)'
 function loadColWidths(): number[] {
   try {
     const raw = typeof window !== 'undefined' ? window.localStorage.getItem(COL_WIDTH_KEY) : null
     const arr = raw ? JSON.parse(raw) : null
-    if (Array.isArray(arr) && arr.length === 3 && arr.every(n => typeof n === 'number' && n >= MIN_COL_WIDTH)) return arr
+    if (Array.isArray(arr) && arr.length === 4 && arr.every(n => typeof n === 'number' && n >= MIN_COL_WIDTH)) return arr
   } catch { /* 저장소 접근 불가 — 기본값 */ }
   return DEFAULT_COL_WIDTHS
 }
@@ -146,9 +162,69 @@ function Cell({ value, onChange, col, readOnly, onKeyDown, onPaste, onFocus, cel
   )
 }
 
+// 직전 보고 칸 — 읽기 전용 참고값. 타이틀·세부내용만 3줄까지 보이고, 비고 포함 전체는 title 툴팁.
+function prevTooltip(p: WorkReportItem) {
+  return [p.title.trim() || '(제목 없음)', p.detail.trim(), p.summary.trim() && `비고: ${p.summary.trim()}`]
+    .filter(Boolean).join('\n')
+}
+
+function PrevCell({ prev, style, ...rest }: { prev: WorkReportItem | null | undefined; style?: React.CSSProperties } & React.HTMLAttributes<HTMLDivElement>) {
+  const detail = prev?.detail.trim() ?? ''
+  return (
+    <div
+      {...rest}
+      title={prev ? prevTooltip(prev) : undefined}
+      className="select-none"
+      style={{ borderLeft: `1px solid ${S.border}`, background: PREV_BG, padding: '7px 10px', minWidth: 0, ...style }}
+    >
+      {prev && (
+        <p className="line-clamp-3 break-words" style={{ fontSize: 12, lineHeight: 1.55, color: S.t3 }}>
+          <span style={{ fontWeight: 600 }}>{prev.title.trim() || '(제목 없음)'}</span>
+          {detail && <span> · {detail}</span>}
+        </p>
+      )}
+    </div>
+  )
+}
+
+// 이번 회차에 아직 없는 직전 항목 — hover하면 이어가기/제외(제외된 후보는 흐리게, 되돌리기).
+function CandidateRow({ prev, excluded, busy, onCarry, onToggleExclude }: {
+  prev: WorkReportItem
+  excluded: boolean
+  busy: boolean
+  onCarry: () => void
+  onToggleExclude: () => void
+}) {
+  const base: React.CSSProperties = { borderTop: `1px solid ${S.border}`, opacity: excluded ? 0.45 : 1 }
+  const btn = 'px-2 py-0.5 rounded-md text-[11px] font-medium transition-colors'
+  return (
+    <div className="group" style={{ display: 'contents' }}>
+      <div className="flex items-start justify-center pt-2 text-[10.5px] select-none" style={{ ...base, color: S.t4, background: S.panel }}>·</div>
+      <PrevCell prev={prev} style={base} />
+      <div className="flex items-start gap-1.5 px-2.5 py-1.5" style={{ ...base, gridColumn: 'span 4', borderLeft: `1px solid ${S.border}` }}>
+        {excluded && <span className="text-[11px] pt-0.5 group-hover:hidden" style={{ color: S.t4 }}>이번 보고 제외</span>}
+        <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+          {!excluded && (
+            <button onClick={onCarry} disabled={busy} className={`${btn} disabled:opacity-50`}
+              style={{ color: S.accentText, background: S.accentDim, border: `1px solid ${S.accentBorder}` }}
+              title="타이틀·세부내용·비고를 이번 보고 행으로 가져옵니다(이후 따로 편집)">
+              이어가기
+            </button>
+          )}
+          <button onClick={onToggleExclude} disabled={busy} className={`${btn} hover:bg-[rgba(var(--ink-rgb),0.08)]`}
+            style={{ color: S.t3, background: 'rgba(var(--ink-rgb),0.04)' }}
+            title={excluded ? '다시 후보로 되돌립니다' : '이번 보고로 이어가지 않습니다(직전 보고 기록은 그대로)'}>
+            {excluded ? '되돌리기' : '제외'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function ItemRow({
   supabase, item, index, readOnly, onSaved, onDelete, registerFlush, registerRow, nav,
-  selectedCols, rowSelected, dropEdge, dragging,
+  selectedCols, rowSelected, dropEdge, dragging, showPrev, prevItem,
 }: {
   supabase: SupabaseClient
   item: WorkReportItem
@@ -163,12 +239,16 @@ function ItemRow({
   rowSelected: boolean
   dropEdge: 'top' | 'bottom' | null
   dragging: boolean
+  showPrev: boolean
+  prevItem: WorkReportItem | undefined
 }) {
   const [values, setValues] = useState<CellValues>({ title: item.title, detail: item.detail, summary: item.summary })
   const valuesRef = useRef(values)
   useEffect(() => { valuesRef.current = values }, [values])
 
-  useEffect(() => {
+  // layout effect — 부모의 행 추가 대기 행 전환(settleGhost, layout effect)보다 먼저 등록돼야
+  // 대기 행과 새 행이 한 프레임이라도 겹쳐 보이지 않는다(자식 layout effect가 부모보다 먼저 실행).
+  useLayoutEffect(() => {
     registerRow(item.id, {
       get: () => valuesRef.current,
       set: patch => setValues(v => ({ ...v, ...patch })),
@@ -248,6 +328,7 @@ function ItemRow({
       >
         {index + 1}
       </div>
+      {showPrev && <PrevCell prev={prevItem} {...dragProps} style={{ borderTop: cellBase.borderTop, boxShadow: edgeShadow, opacity: cellBase.opacity }} />}
       {COLS.map((col, ci) => (
         <div
           key={col}
@@ -285,16 +366,25 @@ function ItemRow({
 
 const ItemSectionPanel = forwardRef<ItemSectionPanelHandle, Props>(function ItemSectionPanel({
   supabase, section, prevReport, items, prevItems, readOnly, legacyText,
-  onItemSaved, onAdd, onAddWithValues, onDelete, onDeleteMany, onReorder, onRestore,
+  onItemSaved, onAdd, onAddWithValues, onDelete, onDeleteMany, onReorder, onRestore, onOpenHistory,
 }, ref) {
   const meta = ITEM_SECTION_META[section]
   const flushers = useRef<Map<string, () => Promise<void>>>(new Map())
   const rowApis = useRef<Map<string, RowApi>>(new Map())
   const cells = useRef<Map<string, HTMLTextAreaElement>>(new Map())
-  const pendingFocus = useRef<{ id: string; col: Col; atEnd?: boolean } | null>(null)
+  const pendingFocus = useRef<{ id: string; col: Col; atEnd?: boolean; soft?: boolean } | null>(null)
   const adding = useRef(false)
+  // 행 추가 대기 행 — INSERT 응답(수백 ms) 전에 바로 그려서 포커스를 받아, 그사이 입력이 이전
+  // 셀로 새지 않게 한다(2026-10-06). DB와 무관한 화면 전용 행이고, 응답이 오면 입력한 타이틀을
+  // 실제 행으로 옮긴 뒤 사라진다. 실패하면 그냥 사라지고 아래에 안내만 남긴다.
+  const [ghost, setGhost] = useState(false)
+  const ghostEl = useRef<HTMLTextAreaElement | null>(null)
+  const pendingAddId = useRef<string | null>(null)
+  const [addError, setAddError] = useState<string | null>(null)
   const gridRef = useRef<HTMLDivElement>(null)
-  const [restoreOpen, setRestoreOpen] = useState(false)
+  // 직전 보고 후보 — 제외는 이 화면에서만 유지하는 UI 상태(저장 안 함), carrying은 연타 방지.
+  const [excludedIds, setExcludedIds] = useState<Set<string>>(() => new Set())
+  const [carrying, setCarrying] = useState<string | null>(null)
   const [colWidths, setColWidths] = useState<number[]>(loadColWidths)
   const colWidthsRef = useRef(colWidths)
   useEffect(() => { colWidthsRef.current = colWidths }, [colWidths])
@@ -339,10 +429,17 @@ const ItemSectionPanel = forwardRef<ItemSectionPanelHandle, Props>(function Item
     flushPending: async () => { await Promise.all([...flushers.current.values()].map(f => f())) },
   }), [])
 
-  const focusCell = useCallback((id: string, col: Col, atEnd = false) => {
+  // soft — 이어가기로 생긴 행처럼 화면 안에서 위치만 바뀐 경우, 브라우저 기본 포커스 스크롤 대신
+  // 보이지 않을 때만 최소한으로 스크롤한다(시선이 튀지 않게).
+  const focusCell = useCallback((id: string, col: Col, atEnd = false, soft = false) => {
     const el = cells.current.get(`${id}:${col}`)
     if (!el) return false
-    el.focus()
+    if (soft) {
+      el.focus({ preventScroll: true })
+      el.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+    } else {
+      el.focus()
+    }
     const pos = atEnd ? el.value.length : 0
     el.setSelectionRange(pos, pos)
     return true
@@ -351,7 +448,7 @@ const ItemSectionPanel = forwardRef<ItemSectionPanelHandle, Props>(function Item
   // 새 행은 부모 state 반영 후 렌더되므로, 렌더가 끝난 뒤 예약된 포커스를 건다.
   useEffect(() => {
     const p = pendingFocus.current
-    if (p && focusCell(p.id, p.col, p.atEnd)) pendingFocus.current = null
+    if (p && focusCell(p.id, p.col, p.atEnd, p.soft)) pendingFocus.current = null
   }, [items, focusCell])
 
   // 드래그 범위 선택은 표 밖에서 마우스를 놓아도 끝나야 하고, 표 밖을 누르면 선택을 푼다.
@@ -365,16 +462,48 @@ const ItemSectionPanel = forwardRef<ItemSectionPanelHandle, Props>(function Item
     return () => { window.removeEventListener('mouseup', onUp); document.removeEventListener('mousedown', onDown) }
   }, [])
 
+  // 대기 행 → 실제 행 전환. 새 행의 셀/행 API가 등록된 뒤(자식 effect 이후)에만 진행한다.
+  // 대기 행에 포커스가 남아 있을 때만 새 행으로 포커스를 옮긴다(그사이 다른 셀을 눌렀으면 그대로).
+  const settleGhost = useCallback(() => {
+    const id = pendingAddId.current
+    if (!id) return
+    const api = rowApis.current.get(id)
+    if (!api || !cells.current.get(`${id}:title`)) return
+    pendingAddId.current = null
+    const g = ghostEl.current
+    const hadFocus = !!g && document.activeElement === g
+    g?.blur() // 한글 조합 중인 글자를 확정시킨 뒤 값을 읽는다
+    const text = g?.value ?? ''
+    if (text) api.set({ title: text })
+    setGhost(false)
+    // 바로 포커스한다 — 이어지는 입력이 새 행으로 가야 하고, 값이 반영되면 커서는 끝으로 간다.
+    if (hadFocus) focusCell(id, 'title', true)
+  }, [focusCell])
+
+  useLayoutEffect(() => { settleGhost() }, [items, settleGhost])
+  useLayoutEffect(() => { if (ghost) ghostEl.current?.focus() }, [ghost])
+
   const addRow = useCallback(async () => {
-    if (readOnly || adding.current) return
+    if (readOnly) return
+    // 이미 추가 중이면 새로 만들지 않고 대기 행으로 포커스만 돌린다(연타 시 중복 행 방지).
+    if (adding.current) { ghostEl.current?.focus(); return }
     adding.current = true
+    setAddError(null)
+    setGhost(true)
     try {
       const created = await onAdd()
-      if (created) pendingFocus.current = { id: created.id, col: 'title' }
+      if (created) {
+        pendingAddId.current = created.id
+        settleGhost()
+      } else {
+        const typed = ghostEl.current?.value.trim() ?? ''
+        setGhost(false)
+        setAddError(typed ? `행 추가에 실패했습니다. 입력한 내용: "${typed}"` : '행 추가에 실패했습니다. 다시 시도해 주세요.')
+      }
     } finally {
       adding.current = false
     }
-  }, [readOnly, onAdd])
+  }, [readOnly, onAdd, settleGhost])
 
   // (r0, c0)부터 matrix를 채운다 — 열은 3칸을 넘으면 버리고, 행이 모자라면 새로 만든다.
   const pasteMatrix = useCallback(async (r0: number, c0: number, matrix: string[][]) => {
@@ -553,21 +682,76 @@ const ItemSectionPanel = forwardRef<ItemSectionPanelHandle, Props>(function Item
     onDragEnd: () => { setDragRows(null); setDrop(null) },
   }), [items, focusCell, addRow, onDelete, readOnly, pasteMatrix, sel, dragRows, drop, onReorder])
 
-  // "직전 항목 불러오기" 후보 — 직전 회차에는 있었는데 이번 회차에서 삭제된(또는 이월 안 된) 항목.
-  const restorable = useMemo(() => {
+  // 직전 보고 열 — 이번 회차 행과 같은 lineage_id의 직전 항목. 이번 회차에 lineage가 없는 직전
+  // 항목은 후보(이어가기/제외)로 표 아래에 보인다(확정 회차는 후보 없음).
+  const showPrev = !!prevReport
+  const prevByLineage = useMemo(() => new Map(prevItems.map(p => [p.lineage_id, p])), [prevItems])
+  const { candidates, excludedCandidates } = useMemo(() => {
+    if (readOnly) return { candidates: [], excludedCandidates: [] }
     const present = new Set(items.map(i => i.lineage_id))
-    return prevItems.filter(p => !present.has(p.lineage_id))
-  }, [items, prevItems])
+    const notCarried = prevItems.filter(p => !present.has(p.lineage_id))
+    return {
+      candidates: notCarried.filter(p => !excludedIds.has(p.id)),
+      excludedCandidates: notCarried.filter(p => excludedIds.has(p.id)),
+    }
+  }, [readOnly, items, prevItems, excludedIds])
+
+  const carry = useCallback(async (prev: WorkReportItem) => {
+    if (readOnly || carrying) return
+    setCarrying(prev.id)
+    try {
+      const created = await onRestore(prev)
+      if (created) pendingFocus.current = { id: created.id, col: 'title', atEnd: true, soft: true }
+    } finally {
+      setCarrying(null)
+    }
+  }, [readOnly, carrying, onRestore])
+
+  function toggleExclude(prevId: string) {
+    setExcludedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(prevId)) next.delete(prevId)
+      else next.add(prevId)
+      return next
+    })
+  }
+
+  // 그리드 열: 행번호 · [직전 보고] · 타이틀 · 세부내용(남는 폭) · 비고 · 삭제
+  const [wPrev, wTitle, wDetail, wSummary] = colWidths
+  const gridTemplateColumns = [
+    '30px', showPrev ? `${wPrev}px` : null, `${wTitle}px`, `minmax(${wDetail}px, 1fr)`, `${wSummary}px`, '30px',
+  ].filter(Boolean).join(' ')
+  const gridMinWidth = 60 + (showPrev ? wPrev : 0) + wTitle + wDetail + wSummary
+  const headers: { label: string; widthIndex: number | null }[] = [
+    { label: '', widthIndex: null },
+    ...(showPrev ? [{ label: '직전 보고', widthIndex: 0 }] : []),
+    ...COLS.map((c, ci) => ({ label: COL_LABEL[c], widthIndex: ci + 1 })),
+    { label: '', widthIndex: null },
+  ]
 
   const rect = sel ? selRect(sel) : null
+  const resetColWidth = (k: number) => {
+    setColWidths(prev => {
+      const next = prev.map((w, i) => (i === k ? DEFAULT_COL_WIDTHS[i] : w))
+      try { window.localStorage.setItem(COL_WIDTH_KEY, JSON.stringify(next)) } catch { /* 무시 */ }
+      return next
+    })
+  }
 
   return (
     <div className="h-full overflow-y-auto px-8 py-5">
-      <div style={{ maxWidth: WRITING_CONTENT_WIDTH }}>
-        <p className="text-[16px] font-semibold mb-1" style={{ color: S.t1 }}>{meta.no}. {meta.title}</p>
+      <div style={{ maxWidth: GRID_MAX_WIDTH }}>
+        <div className="flex items-baseline gap-3 mb-1">
+          <p className="text-[16px] font-semibold" style={{ color: S.t1 }}>{meta.no}. {meta.title}</p>
+          {/* 2주 이상 지난 회차는 기존 아카이브 → 전체 비교에서 본다(직전 보고는 표 안 첫 열). */}
+          <button onClick={onOpenHistory} className="ml-auto text-[11px] font-medium underline underline-offset-2 hover:opacity-80"
+            style={{ color: S.t3 }}>
+            과거 보고 보기 →
+          </button>
+        </div>
         <p className="text-[12px] mb-4" style={{ color: S.t4 }}>
           {meta.helper}{' '}
-          {prevReport ? '직전 보고 항목이 자동으로 이어지며, 필요 없는 항목은 삭제합니다.' : ''}
+          {prevReport && !readOnly ? '직전 보고 항목 중 이어갈 것만 "이어가기"로 가져옵니다.' : ''}
         </p>
 
         <div className="rounded-xl overflow-x-auto" style={{ border: `1px solid ${S.border}` }}>
@@ -575,23 +759,28 @@ const ItemSectionPanel = forwardRef<ItemSectionPanelHandle, Props>(function Item
             ref={gridRef}
             tabIndex={-1}
             onKeyDown={handleGridKeyDown}
+            // 행 추가 대기 중에는 대기 행이 끼어들며 아래 행들이 한 줄 밀려, 연타한 두 번째 클릭이 입력칸이
+            // 아닌 곳(행 번호·직전 보고 칸)에 떨어지면 포커스가 그리드로 빠져 그사이 입력이 사라진다.
+            // 입력칸·버튼이 아닌 곳을 누른 경우만 포커스를 그대로 둔다(다른 셀을 누르면 정상 이동).
+            onMouseDownCapture={e => {
+              if (ghost && !(e.target as HTMLElement).closest('textarea, button')) e.preventDefault()
+            }}
             className={`outline-none ${sel && sel.a.r !== sel.b.r ? 'select-none' : ''}`}
-            style={{ display: 'grid', gridTemplateColumns: `30px ${colWidths.map(w => `${w}px`).join(' ')} 30px`, width: 'max-content', minWidth: '100%' }}
+            style={{ display: 'grid', gridTemplateColumns, width: '100%', minWidth: gridMinWidth }}
           >
-            {['', ...COLS.map(c => COL_LABEL[c]), ''].map((h, i) => (
+            {headers.map((h, i) => (
               <div key={i} className="relative px-2.5 py-2 text-[11px] font-semibold select-none"
-                style={{ color: S.t3, background: S.panel, borderLeft: i > 0 && i <= COLS.length ? `1px solid ${S.border}` : undefined }}>
-                {h}
-                {i >= 1 && i <= COLS.length && (
+                title={h.widthIndex === 0 && prevReport ? `${fmtPeriodLabel(prevReport.period_start, prevReport.period_end)} 보고` : undefined}
+                style={{
+                  color: h.widthIndex === 0 ? S.t4 : S.t3,
+                  background: h.widthIndex === 0 ? PREV_BG : S.panel,
+                  borderLeft: h.widthIndex !== null ? `1px solid ${S.border}` : undefined,
+                }}>
+                {h.label}
+                {h.widthIndex !== null && (
                   <div
-                    onPointerDown={e => startColResize(e, i - 1)}
-                    onDoubleClick={() => {
-                      setColWidths(prev => {
-                        const next = prev.map((w, k) => (k === i - 1 ? DEFAULT_COL_WIDTHS[k] : w))
-                        try { window.localStorage.setItem(COL_WIDTH_KEY, JSON.stringify(next)) } catch { /* 무시 */ }
-                        return next
-                      })
-                    }}
+                    onPointerDown={e => startColResize(e, h.widthIndex!)}
+                    onDoubleClick={() => resetColWidth(h.widthIndex!)}
                     title="드래그: 열 너비 조절 · 더블클릭: 기본 너비"
                     className="absolute top-0 bottom-0 hover:bg-[rgba(76,127,224,0.45)]"
                     style={{ right: -3, width: 6, cursor: 'col-resize', zIndex: 2 }}
@@ -617,16 +806,56 @@ const ItemSectionPanel = forwardRef<ItemSectionPanelHandle, Props>(function Item
                   rowSelected={inRows && !!sel?.rows}
                   dropEdge={drop?.r === r ? drop.edge : null}
                   dragging={!!dragRows && r >= dragRows.r0 && r <= dragRows.r1}
+                  showPrev={showPrev}
+                  prevItem={prevByLineage.get(item.lineage_id)}
                 />
               )
             })}
+            {ghost && (
+              <div style={{ display: 'contents' }}>
+                <div className="flex items-start justify-center pt-2 text-[10.5px] select-none"
+                  style={{ borderTop: `1px solid ${S.border}`, color: S.t4, background: S.panel }}>
+                  {items.length + 1}
+                </div>
+                {showPrev && <PrevCell prev={null} style={{ borderTop: `1px solid ${S.border}` }} />}
+                <div style={{ borderTop: `1px solid ${S.border}`, borderLeft: `1px solid ${S.border}` }}>
+                  <textarea
+                    ref={ghostEl}
+                    rows={1}
+                    placeholder={COL_LABEL.title}
+                    onKeyDown={e => {
+                      // 행이 만들어지기 전에는 Enter로 또 행을 만들지 않는다(줄바꿈 단축키는 그대로).
+                      if (e.key === 'Enter' && !e.shiftKey && !e.altKey && !e.nativeEvent.isComposing) e.preventDefault()
+                    }}
+                    className="focus:bg-[rgba(76,127,224,0.08)] focus:shadow-[inset_0_0_0_1px_rgba(76,127,224,0.45)]"
+                    style={{
+                      display: 'block', width: '100%', resize: 'none', overflow: 'hidden', background: 'transparent',
+                      color: S.t1, fontSize: 12.5, lineHeight: 1.55, padding: '7px 10px', outline: 'none', border: 'none', fontWeight: 600,
+                    }}
+                  />
+                </div>
+                <div style={{ gridColumn: 'span 3', borderTop: `1px solid ${S.border}`, borderLeft: `1px solid ${S.border}` }} />
+              </div>
+            )}
             {items.length === 0 && readOnly && (
               <div className="px-4 py-4 text-[12.5px]" style={{ gridColumn: '1 / -1', color: S.t4, borderTop: `1px solid ${S.border}` }}>
                 등록된 항목이 없습니다.
               </div>
             )}
+            {showPrev && [...candidates, ...excludedCandidates].map(p => (
+              <CandidateRow
+                key={p.id}
+                prev={p}
+                excluded={excludedIds.has(p.id)}
+                busy={carrying !== null}
+                onCarry={() => void carry(p)}
+                onToggleExclude={() => toggleExclude(p.id)}
+              />
+            ))}
             {!readOnly && (
               <button
+                // 버튼이 포커스를 가져가지 않게 한다 — 연타 시 대기 행의 포커스(그사이 입력)를 뺏지 않도록.
+                onMouseDown={e => e.preventDefault()}
                 onClick={() => void addRow()}
                 className="flex items-center gap-1.5 px-2.5 py-2 text-[12px] text-left transition-colors hover:bg-[rgba(var(--ink-rgb),0.04)]"
                 style={{ gridColumn: '1 / -1', color: S.t4, borderTop: `1px solid ${S.border}` }}
@@ -637,36 +866,15 @@ const ItemSectionPanel = forwardRef<ItemSectionPanelHandle, Props>(function Item
           </div>
         </div>
 
-        {!readOnly && (
-          <div className="flex items-start gap-3 mt-2.5 flex-wrap">
-            <p className="text-[11px] leading-[1.6]" style={{ color: S.t4 }}>
-              Enter 아래 행·새 행 · Shift+Enter 줄바꿈 · ↑↓ 행 이동 · 빈 행에서 Backspace 삭제<br />
-              셀 드래그/Shift+클릭 범위 선택 → Delete 지우기 · Ctrl+C/X/V · 행 번호 클릭 → Delete 행 삭제 · 행 번호 드래그로 순서 이동 · 머리글 경계 드래그로 열 너비
-            </p>
-            {restorable.length > 0 && (
-              <button onClick={() => setRestoreOpen(o => !o)}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11.5px] font-medium ml-auto"
-                style={{ color: S.t3, background: 'rgba(var(--ink-rgb),0.05)' }}>
-                <RotateCcw size={11} /> 직전 항목 불러오기 ({restorable.length})
-              </button>
-            )}
-          </div>
+        {addError && (
+          <p className="text-[11.5px] mt-2" style={{ color: '#F87171' }}>{addError}</p>
         )}
-
-        {!readOnly && restoreOpen && restorable.length > 0 && prevReport && (
-          <div className="mt-2 rounded-lg py-1" style={{ border: `1px solid ${S.border}` }}>
-            <p className="px-3 py-1 text-[10.5px]" style={{ color: S.t4 }}>
-              직전 보고({fmtPeriodLabel(prevReport.period_start, prevReport.period_end)})에 있었던 항목
-            </p>
-            {restorable.map(p => (
-              <button key={p.id} onClick={() => onRestore(p)}
-                className="w-full text-left px-3 py-1.5 text-[12px] hover:bg-[rgba(var(--ink-rgb),0.05)]"
-                style={{ color: S.t2 }}>
-                + {p.title || '(제목 없음)'}
-                {p.detail.trim() && <span style={{ color: S.t4 }}> — {p.detail.trim().split('\n')[0]}</span>}
-              </button>
-            ))}
-          </div>
+        {!readOnly && (
+          <p className="text-[11px] leading-[1.6] mt-2.5" style={{ color: S.t4 }}>
+            Enter 아래 행·새 행 · Shift+Enter 줄바꿈 · ↑↓ 행 이동 · 빈 행에서 Backspace 삭제<br />
+            셀 드래그/Shift+클릭 범위 선택 → Delete 지우기 · Ctrl+C/X/V · 행 번호 클릭 → Delete 행 삭제 · 행 번호 드래그로 순서 이동 · 머리글 경계 드래그로 열 너비
+            {showPrev && <><br />직전 보고 항목에 마우스를 올리면 이어가기 · 제외(제외는 이 화면에서만 유지)</>}
+          </p>
         )}
 
         {legacyText && hasContent(legacyText) && (

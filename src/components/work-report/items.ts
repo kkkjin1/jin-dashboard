@@ -3,9 +3,10 @@ import { hasContent } from './style'
 
 // 3. 주요 이슈 / 의사결정 → 3-1 운영사항 / 3-2 이슈사항 / 3-3 의사결정사항 (2026-09-28).
 // 예전에는 work_reports.issues 텍스트 한 칸이었는데, 회차마다 같은 운영·이슈·결정 항목을
-// 다시 쓰게 되어 "표(항목 행) + 행별 세부내용"으로 나누고, 새 보고 생성 시 직전 항목을
-// 자동 이월(같은 lineage_id)한 뒤 필요 없는 것만 삭제하는 방식으로 바꿨다. 기존 issues
-// 텍스트는 지우지 않고 "(이전 형식)"으로 읽기 전용 표시만 한다.
+// 다시 쓰게 되어 "표(항목 행) + 행별 세부내용"으로 나눴다. 기존 issues 텍스트는 지우지 않고
+// "(이전 형식)"으로 읽기 전용 표시만 한다. 회차 간 같은 항목은 lineage_id로 잇는다 — 처음에는
+// 새 보고 생성 시 전부 자동 이월했지만(2026-09-28), 2026-10-05부터는 표의 "직전 보고" 열에서
+// "이어가기"한 항목만 같은 lineage_id로 복사한다(ItemSectionPanel).
 
 export const ITEM_SECTIONS: readonly WorkReportItemSection[] = ['operation', 'issue', 'decision']
 

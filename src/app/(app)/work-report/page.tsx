@@ -418,17 +418,19 @@ export default function WorkReportPage() {
     return data as WorkReportItem
   }
 
-  // "직전 항목 불러오기" — 직전 회차에서 이번 회차로 이월되지 않았거나 삭제한 항목을 같은
-  // lineage_id로 다시 가져온다(내용은 직전 회차 값 그대로 복사).
-  async function handleRestoreItem(prevItem: WorkReportItem) {
-    if (!currentReport || readOnly) return
+  // "이어가기" — 직전 회차 항목을 같은 lineage_id로 이번 회차에 복사한다(직전 값 그대로, 과거 행은
+  // 건드리지 않음). 이미 같은 lineage가 이번 회차에 있으면 만들지 않는다(DB UNIQUE도 같은 보장).
+  async function handleRestoreItem(prevItem: WorkReportItem): Promise<WorkReportItem | null> {
+    if (!currentReport || readOnly) return null
+    if (allItems.some(i => i.report_id === currentReport.id && i.lineage_id === prevItem.lineage_id)) return null
     const { data, error } = await supabase.from('work_report_items').insert({
       report_id: currentReport.id, section: prevItem.section, lineage_id: prevItem.lineage_id,
       title: prevItem.title, status: prevItem.status, owner: prevItem.owner,
       summary: prevItem.summary, detail: prevItem.detail, sort_order: nextItemSortOrder(prevItem.section),
     }).select().single()
-    if (error || !data) return
+    if (error || !data) return null
     setAllItems(prev => [...prev, data as WorkReportItem])
+    return data as WorkReportItem
   }
 
   // 엑셀 범위 붙여넣기가 기존 행 수를 넘칠 때 — 넘친 행들을 내용째 한 번에 insert한다.
@@ -517,23 +519,9 @@ export default function WorkReportPage() {
       }
     }
 
-    // 3-1/3-2/3-3 자동 이월 — 직전 회차 항목을 같은 lineage_id로 전부 복사한다. 필요 없는
-    // 항목은 새 회차에서 삭제한다(주제 carry-forward와 같은 방향, STEP 4 결정).
-    let carriedItems: WorkReportItem[] = []
-    if (latest) {
-      const latestItems = allItems.filter(i => i.report_id === latest.id)
-      if (latestItems.length > 0) {
-        const { data: insertedItems } = await supabase.from('work_report_items').insert(
-          latestItems.map(i => ({
-            report_id: newReport.id, section: i.section, lineage_id: i.lineage_id,
-            title: i.title, status: i.status, owner: i.owner, summary: i.summary, detail: i.detail,
-            sort_order: i.sort_order,
-          })),
-        ).select()
-        carriedItems = (insertedItems as WorkReportItem[]) ?? []
-      }
-    }
-    if (carriedItems.length) setAllItems(prev => [...prev, ...carriedItems])
+    // 3-1/3-2/3-3은 자동 이월하지 않는다(2026-10-05) — 새 회차는 빈 표로 시작하고, 표의 "직전
+    // 보고" 열 후보에서 사용자가 "이어가기"한 항목만 같은 lineage_id로 복사된다(ItemSectionPanel).
+    // 예전에 자동 이월로 만들어진 회차의 행은 lineage_id가 그대로라 직전 보고 열에 정상 연결된다.
 
     setReports(prev => [...prev, newReport])
     loadedReportIds.current.add(newReport.id)
@@ -937,6 +925,7 @@ export default function WorkReportPage() {
                     onDeleteMany={handleDeleteItems}
                     onReorder={handleReorderItems}
                     onRestore={handleRestoreItem}
+                    onOpenHistory={() => { setArchiveJumpTopicId(null); setMode('archive') }}
                   />
                 ) : (
                   <ReportEditorPanel
@@ -961,15 +950,17 @@ export default function WorkReportPage() {
                 )}
               </div>
 
-              <button
+              {/* 3-x 서브 안건은 직전 보고를 표 첫 열로 보여주므로 RIGHT 히스토리를 띄우지 않는다
+                  (장기 히스토리는 표 상단 "과거 보고 보기" → 아카이브 전체 비교). */}
+              {!itemSection && <button
                 onClick={() => setContextDrawerOpen(true)}
                 className="lg:hidden flex-shrink-0 self-start mt-3 mr-2 px-2.5 py-1.5 rounded-lg text-[11px]"
                 style={{ color: S.t3, background: 'rgba(var(--ink-rgb),0.05)' }}
               >
                 컨텍스트
-              </button>
+              </button>}
 
-              <div className="hidden lg:block h-full" style={{ background: 'rgba(var(--ink-rgb),0.015)' }}>
+              {!itemSection && <div className="hidden lg:block h-full" style={{ background: 'rgba(var(--ink-rgb),0.015)' }}>
                 <ContextPanel
                   key={`${currentReport.id}:${selection}`}
                   title={historyTitle}
@@ -977,7 +968,7 @@ export default function WorkReportPage() {
                   showFullHistoryLink={showFullHistoryLink}
                   onOpenFullHistory={() => { setArchiveJumpTopicId(selectedTopic?.id ?? null); setMode('archive') }}
                 />
-              </div>
+              </div>}
 
               {topicDrawerOpen && (
                 <div className="fixed inset-0 z-40 lg:hidden" style={{ background: 'rgba(0,0,0,0.55)' }} onClick={() => setTopicDrawerOpen(false)}>
@@ -1002,7 +993,7 @@ export default function WorkReportPage() {
                 </div>
               )}
 
-              {contextDrawerOpen && (
+              {contextDrawerOpen && !itemSection && (
                 <div className="fixed inset-0 z-40 lg:hidden" style={{ background: 'rgba(0,0,0,0.55)' }} onClick={() => setContextDrawerOpen(false)}>
                   <div className="absolute inset-y-0 right-0 h-full" style={{ background: S.panel }} onClick={e => e.stopPropagation()}>
                     <ContextPanel
