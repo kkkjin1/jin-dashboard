@@ -494,6 +494,15 @@ export default function AgendaItemDetailPage() {
   const [newSTTitle,    setNewSTTitle]    = useState('')
   const [deletingST,    setDeletingST]    = useState<string | null>(null)
   const [expandFor,     setExpandFor]     = useState<string | null>(null)
+  // 좌우 분할 보기(lg 이상에서만 적용) — 안건 본문과 하위태스크를 각각 독립 스크롤. 기기별 선호는 localStorage
+  const [splitView,     setSplitView]     = useState(true)
+  useEffect(() => {
+    try { if (localStorage.getItem('itemDetail.splitView') === '0') setSplitView(false) } catch {}
+  }, [])
+  const toggleSplitView = () => setSplitView(v => {
+    try { localStorage.setItem('itemDetail.splitView', v ? '0' : '1') } catch {}
+    return !v
+  })
 
   // 날짜 패널 — 선택된 노트 id (stId → noteId). STEP B-3의 "크게 편집" note
   // autosave가 early return 이전에 이 값을 참조해야 해서 선언을 앞으로 옮김
@@ -927,8 +936,8 @@ export default function AgendaItemDetailPage() {
 
   return (
     <>
-    <div className="h-full overflow-y-auto">
-      <div className="max-w-3xl w-full mx-auto px-4 md:px-6 py-6 pb-16 flex flex-col gap-6">
+    <div className={`h-full overflow-y-auto ${splitView ? 'lg:overflow-hidden' : ''}`}>
+      <div className={`w-full mx-auto px-4 md:px-6 py-6 pb-16 flex flex-col gap-6 ${splitView ? 'max-w-3xl lg:max-w-[1600px] lg:h-full lg:pb-0' : 'max-w-3xl'}`}>
 
         {/* ── 브레드크럼 ── */}
         <div className="flex items-center gap-1.5 text-xs text-gray-400">
@@ -943,6 +952,11 @@ export default function AgendaItemDetailPage() {
           )}
           <span>·</span>
           <span className="text-gray-500 truncate max-w-[200px]">{item.title}</span>
+          <button onClick={toggleSplitView}
+            title={splitView ? '위아래로 보기' : '좌우로 나눠 보기'}
+            className="hidden lg:flex ml-auto items-center gap-1 text-[11px] px-2.5 py-1 rounded-lg border border-[rgba(var(--ink-rgb),0.08)] text-[rgba(var(--text-rgb),0.45)] hover:text-[rgba(var(--text-rgb),0.8)] hover:bg-[rgba(var(--ink-rgb),0.05)] transition-colors">
+            {splitView ? '☰ 위아래 보기' : '◫ 좌우 분할 보기'}
+          </button>
         </div>
 
         {/* 저장 실패 안내 — canonical write 실패 시 공통 표시(STEP D Group 2) */}
@@ -954,6 +968,11 @@ export default function AgendaItemDetailPage() {
             <button onClick={() => setSaveError('')} className="text-[10px] opacity-70 hover:opacity-100 flex-shrink-0">닫기</button>
           </div>
         )}
+
+        {/* ── 본문 / 하위태스크 — splitView면 lg 이상에서 좌우 2열·각자 스크롤.
+            자식 카드가 overflow-hidden이라 flex-shrink 되면 내용이 잘리고 열 스크롤이 안 생김 → [&>*]:flex-shrink-0 ── */}
+        <div className={`flex flex-col gap-6 ${splitView ? 'lg:flex-row lg:flex-1 lg:min-h-0' : ''}`}>
+        <div className={`flex flex-col gap-6 ${splitView ? 'lg:w-[46%] lg:flex-shrink-0 lg:overflow-y-auto lg:[&>*]:flex-shrink-0 lg:pr-3 lg:pb-16' : ''}`}>
 
         {/* ── 제목 + 상태 ── */}
         <div className="flex items-start gap-3">
@@ -1042,8 +1061,10 @@ export default function AgendaItemDetailPage() {
           </div>
         </div>
 
+        </div>
+
         {/* ── 하위태스크 아코디언 ── */}
-        <div className="flex flex-col gap-2">
+        <div className={`flex flex-col gap-2 ${splitView ? 'lg:flex-1 lg:min-w-0 lg:overflow-y-auto lg:[&>*]:flex-shrink-0 lg:pr-1 lg:pb-16' : ''}`}>
           <div className="flex items-center justify-between mb-1">
             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">하위 태스크 · 아카이빙</span>
             <span className="text-[10px] text-gray-400">토글 이름 = 프로젝트탭 하위태스크와 연동</span>
@@ -1120,6 +1141,7 @@ export default function AgendaItemDetailPage() {
               하위 태스크를 추가하면 프로젝트 목록에서도 동일하게 표시됩니다.
             </p>
           )}
+        </div>
         </div>
       </div>
 
