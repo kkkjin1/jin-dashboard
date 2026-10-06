@@ -972,7 +972,7 @@ export default function AgendaItemDetailPage() {
         {/* ── 본문 / 하위태스크 — splitView면 lg 이상에서 좌우 2열·각자 스크롤.
             자식 카드가 overflow-hidden이라 flex-shrink 되면 내용이 잘리고 열 스크롤이 안 생김 → [&>*]:flex-shrink-0 ── */}
         <div className={`flex flex-col gap-6 ${splitView ? 'lg:flex-row lg:flex-1 lg:min-h-0' : ''}`}>
-        <div className={`flex flex-col gap-6 ${splitView ? 'lg:w-[46%] lg:flex-shrink-0 lg:overflow-y-auto lg:[&>*]:flex-shrink-0 lg:pr-3 lg:pb-16' : ''}`}>
+        <div className={`flex flex-col gap-6 ${splitView ? 'lg:w-[46%] lg:flex-shrink-0 lg:overflow-y-auto scrollbar-hide lg:[&>*]:flex-shrink-0 lg:pr-3 lg:pb-16' : ''}`}>
 
         {/* ── 제목 + 상태 ── */}
         <div className="flex items-start gap-3">
@@ -1064,7 +1064,7 @@ export default function AgendaItemDetailPage() {
         </div>
 
         {/* ── 하위태스크 아코디언 ── */}
-        <div className={`flex flex-col gap-2 ${splitView ? 'lg:flex-1 lg:min-w-0 lg:overflow-y-auto lg:[&>*]:flex-shrink-0 lg:pr-1 lg:pb-16' : ''}`}>
+        <div className={`flex flex-col gap-2 ${splitView ? 'lg:flex-1 lg:min-w-0 lg:overflow-y-auto scrollbar-hide lg:[&>*]:flex-shrink-0 lg:pr-1 lg:pb-16' : ''}`}>
           <div className="flex items-center justify-between mb-1">
             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">하위 태스크 · 아카이빙</span>
             <span className="text-[10px] text-gray-400">토글 이름 = 프로젝트탭 하위태스크와 연동</span>
