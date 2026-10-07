@@ -210,7 +210,7 @@ const BOX_TITLE_H = 36   // 박스 제목 행 높이 (제목 위아래 여백 �
 const H_START = 9, H_END = 21
 const TL_CARD_G    = 10
 const TL_TIME_H    = 16
-const TL_LANE_H    = 34
+const TL_LANE_H    = 37
 const TL_LANE_GAP  = 4
 const TL_LANE1_TOP = 20                                      // 구글캘린더 lane top
 const TL_LANE2_TOP = TL_LANE1_TOP + TL_LANE_H + TL_LANE_GAP  // 일정(회의)+업무추가 lane top
