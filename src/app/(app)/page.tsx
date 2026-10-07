@@ -12,7 +12,7 @@ import ShortcutIcons from '@/components/ShortcutIcons'
 import type { TaskTodo, Meeting, QuickMemo, AgendaSubTask, ScheduleItem, QuickTodo } from '@/types'
 import { fetchMeetingNotesByMeetingIds, type MeetingNotesGrouped, type MeetingNoteRow } from '@/lib/meetingNotes'
 import type { GoogleCalendarEvent } from '@/app/api/calendar/today/route'
-import { JournalFullscreenEditor, type DailyJournal, parseSections, serializeSections, SECTION_META, type SectionKey } from '@/components/home/DailyJournalWidget'
+import { JournalFullscreenEditor, type DailyJournal, parseSections, serializeSections, SECTION_KEYS, SECTION_META, type SectionKey } from '@/components/home/DailyJournalWidget'
 import { useUserSetting } from '@/hooks/useUserSetting'
 import { openQuickMemo } from '@/lib/quickMemo'
 import { format, parseISO } from 'date-fns'
@@ -196,7 +196,6 @@ function CardSection({
 const BOTTOM_TASK_COLS = '76px minmax(0, 1fr) 60px 44px'
 // 하단 박스 안쪽 여백 (오늘의 타임라인 카드와 같은 cardBase 박스)
 const BOX_PAD_X = 22, BOX_PAD_Y = 18
-const JOURNAL_INLINE_KEYS = ['done', 'insight', 'challenge', 'tomorrow', 'good'] as const  // 홈 회고 열 5행
 const BOX_TITLE_H = 46   // 박스 제목 행 높이 (제목 위아래 여백 포함)
 
 // ── Timeline constants ─────────────────────────────────────────────────────
@@ -1883,8 +1882,6 @@ export default function HomePage() {
               const st = bottomTasks[i]
               const cellBase: React.CSSProperties = { position: 'relative', gridRow: 3 + i, height: 36, borderBottom: `1px solid ${DIVIDER}` }
               const emptyCell: React.CSSProperties = { gridRow: 3 + i, height: 36 }
-              const jKey = JOURNAL_INLINE_KEYS[i]
-              const jVal = jEdits?.[jKey] ?? parseSections(todayJournal?.content ?? '')[jKey]
               const memoTag = memo ? (memo.tag[0] ?? '기타') : ''
               const overdue = !!st && !!(st.target_date ?? st.due_date) && (st.target_date ?? st.due_date)! < today
               return (
@@ -1915,18 +1912,28 @@ export default function HomePage() {
                         </ListRow>
                       </Link>
                     ) : <div style={{ ...emptyCell, gridColumn: 2 }} />}
-                  <label style={{ ...cellBase, gridColumn: 3, display: 'flex', alignItems: 'center', gap: 12, padding: '0 6px', cursor: 'text' }}>
-                    <span style={{ fontSize: 11.5, color: TEXT3, width: 64, flexShrink: 0, whiteSpace: 'nowrap' }}>{SECTION_META[jKey].label}</span>
-                    <textarea value={jVal} rows={1} disabled={loading}
-                      onChange={e => setJEdits(p => ({ ...(p ?? {}), [jKey]: e.target.value }))}
-                      onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); saveInlineJournal() } }}
-                      placeholder={SECTION_META[jKey].ph || SECTION_META[jKey].label}
-                      className="scrollbar-hide"
-                      style={{ flex: 1, minWidth: 0, height: 20, lineHeight: '20px', fontSize: 13, color: TEXT1, background: 'transparent', border: 'none', outline: 'none', resize: 'none', padding: 0, fontFamily: 'inherit', overflowY: 'auto' }} />
-                  </label>
                 </Fragment>
               )
             })}
+
+            {/* 회고 — 전체 섹션(식사·감사·일반 포함)을 36px 행으로, 5행 높이 안에서 스크롤 */}
+            <div className="scrollbar-hide" data-bottom="journal-sections"
+              style={{ position: 'relative', gridColumn: 3, gridRow: `3 / ${3 + BOTTOM_ROWS}`, minHeight: 0, overflowY: 'auto', overscrollBehavior: 'contain' }}>
+              {(() => {
+                const parsed = parseSections(todayJournal?.content ?? '')
+                return SECTION_KEYS.map(k => (
+                  <label key={k} style={{ height: 36, borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 12, padding: '0 6px', cursor: 'text' }}>
+                    <span style={{ fontSize: 11.5, color: TEXT3, width: 64, flexShrink: 0, whiteSpace: 'nowrap' }}>{SECTION_META[k].label}</span>
+                    <textarea value={jEdits?.[k] ?? parsed[k]} rows={1} disabled={loading}
+                      onChange={e => setJEdits(p => ({ ...(p ?? {}), [k]: e.target.value }))}
+                      onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); saveInlineJournal() } }}
+                      placeholder={k === 'meal' ? '점심: … (줄바꿈 후 저녁: …)' : SECTION_META[k].ph || SECTION_META[k].label}
+                      className="scrollbar-hide"
+                      style={{ flex: 1, minWidth: 0, height: 20, lineHeight: '20px', fontSize: 13, color: TEXT1, background: 'transparent', border: 'none', outline: 'none', resize: 'none', padding: 0, fontFamily: 'inherit', overflowY: 'auto' }} />
+                  </label>
+                ))
+              })()}
+            </div>
 
             {/* last row: 전체 보기 */}
             <Link href="/memos" style={{ position: 'relative', gridRow: 3 + BOTTOM_ROWS, gridColumn: 1, fontSize: 12, color: TEXT3, textDecoration: 'none', paddingTop: 10, justifySelf: 'start' }}>
