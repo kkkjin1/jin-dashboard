@@ -853,6 +853,89 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
   )
 }
 
+// ── WeekPicker — 금주 업무 주 이동 달력 (월요일 시작, 주 단위 행 선택) ──────────
+function WeekPicker({ weekMonday, today, onPick, onClose }: {
+  weekMonday: string
+  today: string
+  onPick: (dateStr: string) => void
+  onClose: () => void
+}) {
+  const [view, setView] = useState(() => ({ y: +weekMonday.slice(0, 4), m: +weekMonday.slice(5, 7) - 1 }))
+  const [hoverRow, setHoverRow] = useState<number | null>(null)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function onDown(e: MouseEvent) { if (!ref.current?.contains(e.target as Node)) onClose() }
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey) }
+  }, [onClose])
+
+  // 해당 월을 덮는 주(월요일 시작)들 — 최대 6행
+  const first = localDateStr(new Date(view.y, view.m, 1))
+  const gridStart = shiftDateStr(first, -((dowOfDateStr(first) + 6) % 7))
+  const rows: string[][] = []
+  for (let r = 0; r < 6; r++) {
+    const row = Array.from({ length: 7 }, (_, i) => shiftDateStr(gridStart, r * 7 + i))
+    if (r > 0 && +row[0].slice(5, 7) - 1 !== view.m) break
+    rows.push(row)
+  }
+  const shiftMonth = (d: number) => setView(v => { const t = new Date(v.y, v.m + d, 1); return { y: t.getFullYear(), m: t.getMonth() } })
+  const navBtn: React.CSSProperties = { width: 24, height: 24, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', color: TEXT2, cursor: 'pointer', fontSize: 14 }
+  const hoverOn = (e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarget.style.background = 'rgba(var(--ink-rgb),0.06)' }
+  const hoverOff = (e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarget.style.background = 'none' }
+
+  return (
+    <div ref={ref} onClick={e => e.stopPropagation()}
+      style={{ position: 'absolute', top: 'calc(100% + 8px)', left: 0, zIndex: 60, width: 268, padding: 12, borderRadius: 14, background: 'var(--dropdown-panel-bg)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid rgba(var(--ink-rgb),0.10)', boxShadow: '0 18px 48px rgba(0,0,0,0.18), 0 2px 6px rgba(0,0,0,0.06)', userSelect: 'none' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+        <button type="button" onClick={() => shiftMonth(-1)} style={navBtn} aria-label="이전 달" onMouseEnter={hoverOn} onMouseLeave={hoverOff}>‹</button>
+        <span style={{ fontSize: 13, fontWeight: 600, color: TEXT1, letterSpacing: '-0.01em' }}>{view.y}년 {view.m + 1}월</span>
+        <button type="button" onClick={() => shiftMonth(1)} style={navBtn} aria-label="다음 달" onMouseEnter={hoverOn} onMouseLeave={hoverOff}>›</button>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginBottom: 2 }}>
+        {['월', '화', '수', '목', '금', '토', '일'].map((d, i) => (
+          <span key={d} style={{ textAlign: 'center', fontSize: 10.5, fontWeight: 500, padding: '4px 0', color: i >= 5 ? TEXT3 : TEXT2, opacity: i >= 5 ? 0.7 : 1 }}>{d}</span>
+        ))}
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        {rows.map((row, ri) => {
+          const isSel = row[0] === weekMonday
+          const isHover = hoverRow === ri && !isSel
+          return (
+            <button key={row[0]} type="button" onClick={() => onPick(row[0])}
+              onMouseEnter={() => setHoverRow(ri)} onMouseLeave={() => setHoverRow(null)}
+              style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', height: 30, borderRadius: 8, border: 'none', padding: 0, cursor: 'pointer',
+                background: isSel ? 'rgba(var(--accent-tint-rgb),0.14)' : isHover ? 'rgba(var(--ink-rgb),0.05)' : 'transparent', transition: 'background 120ms ease' }}>
+              {row.map((d, i) => {
+                const inMonth = +d.slice(5, 7) - 1 === view.m
+                const isToday = d === today
+                return (
+                  <span key={d} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <span style={{ width: 24, height: 24, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontVariantNumeric: 'tabular-nums',
+                      fontWeight: isToday ? 600 : isSel ? 500 : 400,
+                      background: isToday ? ACCENT : 'transparent',
+                      color: isToday ? '#fff' : isSel ? 'var(--accent-tint-text)' : (!inMonth || i >= 5) ? TEXT3 : TEXT1,
+                      opacity: !inMonth && !isToday ? 0.45 : 1 }}>
+                      {+d.slice(8)}
+                    </span>
+                  </span>
+                )
+              })}
+            </button>
+          )
+        })}
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, paddingTop: 8, borderTop: `1px solid ${DIVIDER}` }}>
+        <span style={{ fontSize: 11, color: TEXT3 }}>주를 선택하세요</span>
+        <button type="button" onClick={() => onPick(today)}
+          style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--accent-tint-text)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px' }}>이번 주</button>
+      </div>
+    </div>
+  )
+}
+
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function HomePage() {
   const router = useRouter()
@@ -869,7 +952,7 @@ export default function HomePage() {
   const [fMemoSaved,    setFMemoSaved]    = useState<Record<string, boolean>>({})
   const [memoViewId,    setMemoViewId]    = useState<string | null>(null)
   const [weekOffset,    setWeekOffset]    = useState(0)   // 금주 업무 주 이동 (0 = 이번 주)
-  const weekDateInputRef = useRef<HTMLInputElement>(null)
+  const [weekPickerOpen, setWeekPickerOpen] = useState(false)
   const [hoveredStId,   setHoveredStId]   = useState<string | null>(null)
   const [datePickerStId,setDatePickerStId] = useState<string | null>(null)
   // 초기값을 epoch(고정값)로 둬서 SSR과 클라이언트 첫 렌더가 항상 일치하게 함 —
@@ -1247,6 +1330,7 @@ export default function HomePage() {
   // 다음주 = 다음 주 월~일 날짜가 잡힌 항목(별도 '연기' 상태 필드는 없음).
   const weekMonday  = shiftDateStr(today, 7 * weekOffset - ((dowOfDateStr(today) + 6) % 7))
   const prevMonday  = shiftDateStr(weekMonday, -7)
+  const closeWeekPicker = () => setWeekPickerOpen(false)
   // 달력에서 고른 날짜가 속한 주 → 이번 주 기준 offset
   function weekOffsetOf(dateStr: string): number {
     const mondayOf = (s: string) => shiftDateStr(s, -((dowOfDateStr(s) + 6) % 7))
@@ -1647,18 +1731,21 @@ export default function HomePage() {
                 </h2>
                 <span style={{ fontSize: 12, color: TEXT3, fontVariantNumeric: 'tabular-nums' }}>{weekDays[0].replace(/-/g, '.')} – {shortDate(weekDays[4])}</span>
                 {/* 주 이동 — 오늘의 타임라인 날짜 네비와 같은 스타일 */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 2, padding: '3px 6px', borderRadius: 6, background: 'rgba(var(--accent-tint-rgb),0.12)', border: '1px solid rgba(var(--accent-tint-rgb),0.26)' }}>
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 2, padding: '3px 6px', borderRadius: 6, background: 'rgba(var(--accent-tint-rgb),0.12)', border: '1px solid rgba(var(--accent-tint-rgb),0.26)' }}>
                   <button type="button" onClick={() => setWeekOffset(w => w - 1)} aria-label="이전 주"
                     style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent-tint-text)', fontSize: 11, padding: '0 3px', lineHeight: 1 }}>‹</button>
-                  <span onClick={() => { try { weekDateInputRef.current?.showPicker?.() } catch {} }} title="날짜로 이동"
+                  <span onMouseDown={e => e.stopPropagation()} onClick={() => setWeekPickerOpen(v => !v)} title="날짜로 이동"
                     style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '0 3px', cursor: 'pointer' }}>
                     <CalendarDays size={10} strokeWidth={2} style={{ color: 'var(--accent-tint-text)' }} />
                     <span style={{ fontSize: 11, color: 'var(--accent-tint-text)', fontWeight: 600, letterSpacing: '-0.01em', whiteSpace: 'nowrap' }}>
                       {weekOffset === 0 ? '이번 주' : weekOffset === -1 ? '지난주' : weekOffset === 1 ? '다음 주' : `${weekOffset > 0 ? '+' : ''}${weekOffset}주`}
                     </span>
                   </span>
-                  <input ref={weekDateInputRef} type="date" value={weekDays[0]} className="sr-only" tabIndex={-1}
-                    onChange={e => { if (e.target.value) setWeekOffset(weekOffsetOf(e.target.value)) }} />
+                  {weekPickerOpen && (
+                    <WeekPicker weekMonday={weekMonday} today={today}
+                      onPick={d => { setWeekOffset(weekOffsetOf(d)); setWeekPickerOpen(false) }}
+                      onClose={closeWeekPicker} />
+                  )}
                   <button type="button" onClick={() => setWeekOffset(w => w + 1)} aria-label="다음 주"
                     style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent-tint-text)', fontSize: 11, padding: '0 3px', lineHeight: 1 }}>›</button>
                 </div>
