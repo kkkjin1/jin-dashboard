@@ -994,13 +994,13 @@ export default function HomePage() {
   const [jSaving,       setJSaving]       = useState(false)
   const [jMsg,          setJMsg]          = useState('')
   const [loading,       setLoading]       = useState(true)
-  // 열 본문 실제 높이로 노출 개수 결정 — 항목 1개 ≈ 48px(1줄 44 기준, 2줄 항목이 많으면 열 안에서 스크롤), '+N건 더' 줄 20px 확보
+  // 열 본문 실제 높이로 노출 개수 결정 — 항목 1개 ≈ 46px(1줄 42 기준, 2줄 항목이 많으면 열 안에서 스크롤), '+N건 더' 줄 20px 확보
   useEffect(() => {
     const el = weekScrollRef.current
     if (!el) return
     const update = () => {
       const bodyH = el.clientHeight - 30 - 8   // 요일 헤더 행 + 본문 상하 여백
-      setWeekCap(Math.min(8, Math.max(2, Math.floor((bodyH - 20) / 48))))
+      setWeekCap(Math.min(8, Math.max(2, Math.floor((bodyH - 20) / 46))))
     }
     update()
     const ro = new ResizeObserver(update)
@@ -1465,10 +1465,10 @@ export default function HomePage() {
     const body = (title: string, done: boolean, metaText: string, extra?: React.ReactNode) => (
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
-          <p title={title} style={{ fontSize: 13, fontWeight: 400, lineHeight: '18px', color: done ? TEXT3 : titleColor, textDecoration: done ? 'line-through' : 'none', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', wordBreak: 'keep-all', overflowWrap: 'anywhere', flex: 1, minWidth: 0, letterSpacing: '-0.01em' }}>{title}</p>
+          <p title={title} style={{ fontSize: 12, fontWeight: 400, lineHeight: '17px', color: done ? TEXT3 : titleColor, textDecoration: done ? 'line-through' : 'none', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', wordBreak: 'keep-all', overflowWrap: 'anywhere', flex: 1, minWidth: 0, letterSpacing: '-0.01em' }}>{title}</p>
           {extra}
         </div>
-        {metaText && <p style={{ fontSize: 11.5, lineHeight: '16px', color: TEXT3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{metaText}</p>}
+        {metaText && <p style={{ fontSize: 10.5, lineHeight: '15px', color: TEXT3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{metaText}</p>}
       </div>
     )
     const rowStyle: React.CSSProperties = { marginLeft: -6, marginRight: -6, paddingLeft: 6, paddingRight: 6, borderRadius: 6 }
@@ -1872,10 +1872,10 @@ export default function HomePage() {
                         : (weekExpanded[ci] ? items : items.slice(0, weekCap)).map(item => renderWeekItem(item, secondary))}
                     {/* 초과분 '+N건 더' — 직전주 열은 '이전 미완료 N건'도 같은 줄에 (세로 공간 절약) */}
                     {!loading && (items.length > weekCap || (ci === 0 && olderOpenCount > 0)) && (
-                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, padding: '3px 0 2px 22px', fontSize: 11.5, color: TEXT3, whiteSpace: 'nowrap' }}>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, padding: '3px 0 2px 22px', fontSize: 10.5, color: TEXT3, whiteSpace: 'nowrap' }}>
                         {items.length > weekCap && (
                           <button type="button" onClick={() => setWeekExpanded(p => ({ ...p, [ci]: !p[ci] }))}
-                            style={{ fontSize: 11.5, color: TEXT3, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                            style={{ fontSize: 10.5, color: TEXT3, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
                             {weekExpanded[ci] ? '접기' : `+ ${items.length - weekCap}건 더`}
                           </button>
                         )}
@@ -1940,8 +1940,8 @@ export default function HomePage() {
                           onDragStart={e => { e.dataTransfer.setData('tl-extra', JSON.stringify({ id: `memo_${memo.id}`, title: memo.title, subtitle: memoTag })); e.dataTransfer.effectAllowed = 'copy' }}
                           style={{ height: BOTTOM_ROW_H, borderBottom: `1px solid ${DIVIDER}`, marginLeft: 0, marginRight: 0, paddingLeft: 6, paddingRight: 6, borderRadius: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
                           <div style={{ width: 5, height: 5, borderRadius: '50%', background: CATEGORY_PALETTE[MEMO_TAG[memoTag] ?? colorKeyFromName(memoTag)].solid, flexShrink: 0, opacity: 0.85 }} />
-                          <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 400, color: TEXT1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{memo.title || '(제목 없음)'}</span>
-                          <span style={{ fontSize: 11.5, color: TEXT3, flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{fmtDate(memo.created_at)}</span>
+                          <span style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 400, color: TEXT1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{memo.title || '(제목 없음)'}</span>
+                          <span style={{ fontSize: 10.5, color: TEXT3, flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{fmtDate(memo.created_at)}</span>
                         </ListRow>
                       )
                     })
@@ -1952,13 +1952,13 @@ export default function HomePage() {
                           draggable
                           onDragStart={e => { e.dataTransfer.setData('tl-extra', JSON.stringify({ id: `st_${st.id}`, title: st.title, subtitle: st.agenda_items?.title ?? '' })); e.dataTransfer.effectAllowed = 'copy' }}>
                           <ListRow style={{ height: '100%', marginLeft: 0, marginRight: 0, paddingLeft: 6, paddingRight: 6, borderRadius: 0, display: 'grid', gridTemplateColumns: BOTTOM_TASK_COLS, alignItems: 'center', columnGap: 10 }}>
-                            <span style={{ fontSize: 11.5, color: TEXT3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{st.agenda_items?.agenda_groups?.category ?? '—'}</span>
+                            <span style={{ fontSize: 10.5, color: TEXT3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{st.agenda_items?.agenda_groups?.category ?? '—'}</span>
                             <span style={{ display: 'flex', alignItems: 'baseline', gap: 8, minWidth: 0 }}>
-                              <span style={{ fontSize: 13, fontWeight: 400, color: TEXT1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 0, maxWidth: '100%' }}>{st.title}</span>
-                              {st.agenda_items && <span style={{ fontSize: 11.5, color: TEXT3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 1, minWidth: 0 }}>{st.agenda_items.title}</span>}
+                              <span style={{ fontSize: 12, fontWeight: 400, color: TEXT1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 0, maxWidth: '100%' }}>{st.title}</span>
+                              {st.agenda_items && <span style={{ fontSize: 10.5, color: TEXT3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 1, minWidth: 0 }}>{st.agenda_items.title}</span>}
                             </span>
-                            <span style={{ fontSize: 11.5, color: overdue ? '#C86868' : TEXT3, whiteSpace: 'nowrap' }}>{overdue ? '기한 경과' : '진행중'}</span>
-                            <span style={{ fontSize: 11.5, color: TEXT3, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{(st.target_date ?? st.due_date) ? shortDate((st.target_date ?? st.due_date)!) : '—'}</span>
+                            <span style={{ fontSize: 10.5, color: overdue ? '#C86868' : TEXT3, whiteSpace: 'nowrap' }}>{overdue ? '기한 경과' : '진행중'}</span>
+                            <span style={{ fontSize: 10.5, color: TEXT3, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{(st.target_date ?? st.due_date) ? shortDate((st.target_date ?? st.due_date)!) : '—'}</span>
                           </ListRow>
                         </Link>
                       )
@@ -1973,13 +1973,13 @@ export default function HomePage() {
                 const parsed = parseSections(todayJournal?.content ?? '')
                 return SECTION_KEYS.map(k => (
                   <label key={k} style={{ height: BOTTOM_ROW_H, borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 12, padding: '0 6px', cursor: 'text' }}>
-                    <span style={{ fontSize: 11.5, color: TEXT3, width: 64, flexShrink: 0, whiteSpace: 'nowrap' }}>{SECTION_META[k].label}</span>
+                    <span style={{ fontSize: 10.5, color: TEXT3, width: 60, flexShrink: 0, whiteSpace: 'nowrap' }}>{SECTION_META[k].label}</span>
                     <textarea value={jEdits?.[k] ?? parsed[k]} rows={1} disabled={loading}
                       onChange={e => setJEdits(p => ({ ...(p ?? {}), [k]: e.target.value }))}
                       onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); saveInlineJournal() } }}
                       placeholder={k === 'meal' ? '점심: … (줄바꿈 후 저녁: …)' : SECTION_META[k].ph || SECTION_META[k].label}
                       className="scrollbar-hide"
-                      style={{ flex: 1, minWidth: 0, height: 20, lineHeight: '20px', fontSize: 13, color: TEXT1, background: 'transparent', border: 'none', outline: 'none', resize: 'none', padding: 0, fontFamily: 'inherit', overflowY: 'auto' }} />
+                      style={{ flex: 1, minWidth: 0, height: 20, lineHeight: '20px', fontSize: 12, color: TEXT1, background: 'transparent', border: 'none', outline: 'none', resize: 'none', padding: 0, fontFamily: 'inherit', overflowY: 'auto' }} />
                   </label>
                 ))
               })()}
