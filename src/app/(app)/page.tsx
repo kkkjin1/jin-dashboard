@@ -12,7 +12,7 @@ import ShortcutIcons from '@/components/ShortcutIcons'
 import type { TaskTodo, Meeting, QuickMemo, AgendaSubTask, ScheduleItem, QuickTodo } from '@/types'
 import { fetchMeetingNotesByMeetingIds, type MeetingNotesGrouped, type MeetingNoteRow } from '@/lib/meetingNotes'
 import type { GoogleCalendarEvent } from '@/app/api/calendar/today/route'
-import { JournalFullscreenEditor, type DailyJournal } from '@/components/home/DailyJournalWidget'
+import { JournalFullscreenEditor, type DailyJournal, parseSections, serializeSections, SECTION_META, type SectionKey } from '@/components/home/DailyJournalWidget'
 import { useUserSetting } from '@/hooks/useUserSetting'
 import { openQuickMemo } from '@/lib/quickMemo'
 import { format, parseISO } from 'date-fns'
@@ -196,6 +196,7 @@ function CardSection({
 const BOTTOM_TASK_COLS = '76px minmax(0, 1fr) 60px 44px'
 // 하단 박스 안쪽 여백 (오늘의 타임라인 카드와 같은 cardBase 박스)
 const BOX_PAD_X = 22, BOX_PAD_Y = 18
+const JOURNAL_INLINE_KEYS = ['done', 'insight', 'challenge', 'tomorrow', 'good'] as const  // 홈 회고 열 5행
 const BOX_TITLE_H = 46   // 박스 제목 행 높이 (제목 위아래 여백 포함)
 
 // ── Timeline constants ─────────────────────────────────────────────────────
@@ -976,7 +977,10 @@ export default function HomePage() {
   const [scheduleItems, setScheduleItems] = useState<ScheduleItem[]>([])
   const [todayJournal,  setTodayJournal]  = useState<DailyJournal | null>(null)
   const [yesterJournal, setYesterJournal] = useState<DailyJournal | null>(null)
-  const [recentJournals, setRecentJournals] = useState<Pick<DailyJournal, 'id' | 'date' | 'content'>[]>([])
+  // 홈 하단 회고 열 — 오늘자 섹션 인라인 편집 (null = 변경 없음)
+  const [jEdits,        setJEdits]        = useState<Partial<Record<SectionKey, string>> | null>(null)
+  const [jSaving,       setJSaving]       = useState(false)
+  const [jMsg,          setJMsg]          = useState('')
   const [loading,       setLoading]       = useState(true)
   const [gcalPicker,    setGcalPicker]    = useState<GoogleCalendarEvent | null>(null)
   const sb = useRef(createClient())
@@ -1003,7 +1007,7 @@ export default function HomePage() {
       const [
         { data: stData }, { data: taskTodoData },
         { data: mData },  { data: mmData }, { data: jData },
-        { data: qtData }, { data: rjData },
+        { data: qtData },
       ] = await Promise.all([
         sb.current.from('agenda_sub_tasks').select('*, agenda_items(id, title, agenda_groups(name, color, category)), sub_task_notes(created_at, edited_at, content)').eq('status', 'active').order('sort_order').limit(100),
         // schedule_tag는 배정 시점의 스냅샷이라 자정이 지나도 갱신되지 않음 — target_date를 기준으로 오늘/금주 분류
@@ -1013,8 +1017,6 @@ export default function HomePage() {
         sb.current.from('daily_journals').select('id, date, content, linked_task_ids, linked_meeting_ids, tags').in('date', [today, yesterday]),
         // 프로젝트/안건에 속하지 않는 즉석 추가 할일 — quick_todos 전용 테이블 (schedule 탭과 공유)
         sb.current.from('quick_todos').select('*').eq('target_date', today).eq('done', false).order('sort_order'),
-        // 홈 하단 회고 열 — 최근 회고 5건 (읽기 전용)
-        sb.current.from('daily_journals').select('id, date, content').order('date', { ascending: false }).limit(5),
       ])
 
       setSubTasks((stData ?? []) as SubTaskWithContext[])
@@ -1024,7 +1026,6 @@ export default function HomePage() {
       setNotesByMeeting(await fetchMeetingNotesByMeetingIds(sb.current, loadedMeetings.map(m => m.id)))
       setMemos((mmData ?? []) as QuickMemo[])
       setQuickTodos((qtData ?? []) as QuickTodo[])
-      setRecentJournals((rjData ?? []) as Pick<DailyJournal, 'id' | 'date' | 'content'>[])
       const jList = (jData ?? []) as DailyJournal[]
       setTodayJournal(jList.find(j => j.date === today) ?? null)
       setYesterJournal(jList.find(j => j.date === yesterday) ?? null)
@@ -1269,6 +1270,31 @@ export default function HomePage() {
       .select('*').single()
     if (error) { console.error('일정 추가 실패:', error.message); return }
     if (data) setScheduleItems(p => [...p, data as ScheduleItem])
+  }
+
+  // 홈 회고 인라인 저장 — 전체화면 에디터(doSave)와 같은 daily_journals update/insert.
+  // 홈에 없는 섹션(감사·식사·일반 등)은 기존 content에서 그대로 보존한다.
+  async function saveInlineJournal() {
+    if (!jEdits || jSaving) return
+    const content = serializeSections({ ...parseSections(todayJournal?.content ?? ''), ...jEdits })
+    if (!content.trim()) return
+    setJSaving(true); setJMsg('')
+    const payload = {
+      content,
+      linked_task_ids: todayJournal?.linked_task_ids ?? [],
+      linked_meeting_ids: todayJournal?.linked_meeting_ids ?? [],
+      tags: todayJournal?.tags ?? [],
+      updated_at: new Date().toISOString(),
+    }
+    const { data, error } = todayJournal
+      ? await sb.current.from('daily_journals').update(payload).eq('id', todayJournal.id).select('*').single()
+      : await sb.current.from('daily_journals').insert({ date: todayStr(), ...payload }).select('*').single()
+    setJSaving(false)
+    if (error || !data) { setJMsg(`저장 실패: ${error?.message ?? ''}`); return }
+    setTodayJournal(data as DailyJournal)
+    setJEdits(null)
+    setJMsg('저장됨 ✓')
+    setTimeout(() => setJMsg(''), 2000)
   }
 
   function handleRemoveScheduleItem(id: string) {
@@ -1836,13 +1862,12 @@ export default function HomePage() {
               <span style={{ flex: 1, fontSize: 13, color: TEXT3 }}>메모를 빠르게 남겨보세요</span>
               <kbd style={{ fontSize: 10.5, color: TEXT3, opacity: 0.8, fontFamily: 'inherit' }}>Ctrl+3</kbd>
             </button>
-            <button type="button" data-bottom="journal-input" onClick={() => setShowJournal(true)}
-              style={{ position: 'relative', gridRow: 2, gridColumn: 3, height: 40, display: 'flex', alignItems: 'center', gap: 8, padding: '0 12px', borderRadius: 8, border: '1px solid rgba(var(--ink-rgb),0.10)', background: 'rgba(var(--ink-rgb),0.025)', cursor: 'text', textAlign: 'left', transition: 'border-color 150ms ease' }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(var(--ink-rgb),0.18)' }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(var(--ink-rgb),0.10)' }}>
-              <span style={{ flex: 1, fontSize: 13, color: TEXT3 }}>{todayJournal ? '오늘 회고 이어 쓰기' : '오늘 하루를 돌아보세요'}</span>
-              <span style={{ fontSize: 10.5, color: todayJournal ? '#38BE98' : TEXT3, opacity: 0.9 }}>{todayJournal ? '작성 완료' : '미작성'}</span>
-            </button>
+            <div data-bottom="journal-header" style={{ position: 'relative', gridRow: 2, gridColumn: 3, height: 40, display: 'flex', alignItems: 'center', gap: 10, padding: '0 6px', borderBottom: `1px solid ${DIVIDER}` }}>
+              <span style={{ fontSize: 12, fontWeight: 500, color: TEXT2, fontVariantNumeric: 'tabular-nums' }}>{fmtDate(today)}</span>
+              <span style={{ fontSize: 11.5, color: todayJournal ? '#38BE98' : TEXT3 }}>{todayJournal ? '작성됨' : '미작성'}</span>
+              <button type="button" onClick={async () => { if (jEdits) await saveInlineJournal(); setShowJournal(true) }}
+                style={{ marginLeft: 'auto', fontSize: 12, color: TEXT3, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>전체 편집 ↗</button>
+            </div>
             <div data-bottom="task-header" style={{ position: 'relative', gridRow: 2, gridColumn: 2, height: 40, display: 'grid', gridTemplateColumns: BOTTOM_TASK_COLS, alignItems: 'center', columnGap: 12, padding: '0 6px', borderBottom: `1px solid ${DIVIDER}` }}>
               {([['범주', '범주'], ['프로젝트 / 과업', '상세TASK'], ['상태', null], ['마감', '마감']] as const).map(([label, sortKey]) => (
                 <button key={label} type="button" disabled={!sortKey} onClick={() => sortKey && toggleSort(sortKey)}
@@ -1858,7 +1883,8 @@ export default function HomePage() {
               const st = bottomTasks[i]
               const cellBase: React.CSSProperties = { position: 'relative', gridRow: 3 + i, height: 36, borderBottom: `1px solid ${DIVIDER}` }
               const emptyCell: React.CSSProperties = { gridRow: 3 + i, height: 36 }
-              const jr = recentJournals[i]
+              const jKey = JOURNAL_INLINE_KEYS[i]
+              const jVal = jEdits?.[jKey] ?? parseSections(todayJournal?.content ?? '')[jKey]
               const memoTag = memo ? (memo.tag[0] ?? '기타') : ''
               const overdue = !!st && !!(st.target_date ?? st.due_date) && (st.target_date ?? st.due_date)! < today
               return (
@@ -1889,16 +1915,15 @@ export default function HomePage() {
                         </ListRow>
                       </Link>
                     ) : <div style={{ ...emptyCell, gridColumn: 2 }} />}
-                  {loading ? <div style={{ ...emptyCell, gridColumn: 3, paddingTop: 4 }}>{skel(1)}</div>
-                    : jr ? (
-                      <ListRow onClick={() => { if (jr.date === today) setShowJournal(true); else router.push('/journal') }}
-                        style={{ ...cellBase, gridColumn: 3, marginLeft: 0, marginRight: 0, paddingLeft: 6, paddingRight: 6, borderRadius: 0, display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <span style={{ fontSize: 11.5, color: jr.date === today ? 'var(--accent-tint-text)' : TEXT3, flexShrink: 0, width: 58, fontVariantNumeric: 'tabular-nums' }}>{fmtDate(jr.date)}</span>
-                        <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 400, color: TEXT1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {(jr.content ?? '').replace(/<[^>]*>/g, ' ').replace(/&[^;]+;/g, ' ').replace(/(^|\s)(#{1,6}|[-*>]|\d+\.)\s+/g, '$1').replace(/\s+/g, ' ').trim() || '(내용 없음)'}
-                        </span>
-                      </ListRow>
-                    ) : <div style={{ ...emptyCell, gridColumn: 3 }} />}
+                  <label style={{ ...cellBase, gridColumn: 3, display: 'flex', alignItems: 'center', gap: 12, padding: '0 6px', cursor: 'text' }}>
+                    <span style={{ fontSize: 11.5, color: TEXT3, width: 64, flexShrink: 0, whiteSpace: 'nowrap' }}>{SECTION_META[jKey].label}</span>
+                    <textarea value={jVal} rows={1} disabled={loading}
+                      onChange={e => setJEdits(p => ({ ...(p ?? {}), [jKey]: e.target.value }))}
+                      onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); saveInlineJournal() } }}
+                      placeholder={SECTION_META[jKey].ph || SECTION_META[jKey].label}
+                      className="scrollbar-hide"
+                      style={{ flex: 1, minWidth: 0, height: 20, lineHeight: '20px', fontSize: 13, color: TEXT1, background: 'transparent', border: 'none', outline: 'none', resize: 'none', padding: 0, fontFamily: 'inherit', overflowY: 'auto' }} />
+                  </label>
                 </Fragment>
               )
             })}
@@ -1910,9 +1935,15 @@ export default function HomePage() {
             <Link href="/project" style={{ position: 'relative', gridRow: 3 + BOTTOM_ROWS, gridColumn: 2, fontSize: 12, color: TEXT3, textDecoration: 'none', paddingTop: 10, justifySelf: 'start' }}>
               전체 보기 →{subTasks.length > BOTTOM_ROWS ? <span style={{ marginLeft: 6, opacity: 0.7 }}>{subTasks.length}건</span> : null}
             </Link>
-            <Link href="/journal" style={{ position: 'relative', gridRow: 3 + BOTTOM_ROWS, gridColumn: 3, fontSize: 12, color: TEXT3, textDecoration: 'none', paddingTop: 10, justifySelf: 'start' }}>
-              전체 보기 →
-            </Link>
+            <div style={{ position: 'relative', gridRow: 3 + BOTTOM_ROWS, gridColumn: 3, display: 'flex', alignItems: 'center', gap: 10, paddingTop: 10 }}>
+              <span style={{ fontSize: 12, color: jMsg.startsWith('저장 실패') ? '#C86868' : jMsg ? '#38BE98' : TEXT3, flex: 1 }}>
+                {jMsg || (jEdits ? '수정됨 · Ctrl+Enter 저장' : 'Ctrl+Enter 저장')}
+              </span>
+              <button type="button" onClick={saveInlineJournal} disabled={!jEdits || jSaving}
+                style={{ fontSize: 12, fontWeight: 500, padding: '2px 10px', borderRadius: 6, border: `1px solid ${jEdits ? 'rgba(var(--accent-tint-rgb),0.35)' : 'rgba(var(--ink-rgb),0.10)'}`, background: jEdits ? 'rgba(var(--accent-tint-rgb),0.12)' : 'transparent', color: jEdits ? 'var(--accent-tint-text)' : TEXT3, cursor: jEdits ? 'pointer' : 'default' }}>
+                {jSaving ? '저장 중…' : '저장'}
+              </button>
+            </div>
           </section>
 
           {/* 최근 회의록 — 목업 평가 동안 홈 primary layout에서 제외 (컴포넌트/데이터 로직 유지) */}
@@ -2029,10 +2060,7 @@ export default function HomePage() {
           yesterday={yesterJournal}
           meetings={meetingsForJournal}
           supabaseClient={sb.current}
-          onSaved={(j) => {
-            setTodayJournal(j); setShowJournal(false)
-            setRecentJournals(p => [{ id: j.id, date: j.date, content: j.content }, ...p.filter(x => x.date !== j.date)].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5))
-          }}
+          onSaved={(j) => { setTodayJournal(j); setShowJournal(false); setJEdits(null) }}
           onClose={() => setShowJournal(false)}
         />,
         document.body

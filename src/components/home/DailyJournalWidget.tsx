@@ -215,9 +215,9 @@ function hourToStr(h: number) {
 const TASK_STATUS_LABEL: Record<string, string> = { active: '진행중', hold: '보류', done: '완료' }
 
 // ── 회고 섹션 ────────────────────────────────────────────────────────
-const SECTION_KEYS = ['done','insight','challenge','tomorrow','good','grateful','meal','general'] as const
-type SectionKey = typeof SECTION_KEYS[number]
-const SECTION_META: Record<SectionKey, { emoji: string; label: string; ph: string; rows: number }> = {
+export const SECTION_KEYS = ['done','insight','challenge','tomorrow','good','grateful','meal','general'] as const
+export type SectionKey = typeof SECTION_KEYS[number]
+export const SECTION_META: Record<SectionKey, { emoji: string; label: string; ph: string; rows: number }> = {
   done:      { emoji: '✅', label: '완료한 것',  ph: '오늘 완료한 업무…',       rows: 3 },
   insight:   { emoji: '💡', label: '인사이트',   ph: '배운 것, 발견한 것…',      rows: 3 },
   challenge: { emoji: '🔥', label: '힘들었던 것', ph: '막힌 것, 어려웠던 점…',   rows: 3 },
@@ -227,7 +227,7 @@ const SECTION_META: Record<SectionKey, { emoji: string; label: string; ph: strin
   meal:      { emoji: '🍽️', label: '식사',       ph: '',                        rows: 1 },
   general:   { emoji: '📝', label: '일반',       ph: '기타 메모…',               rows: 3 },
 }
-function parseSections(content: string): Record<SectionKey, string> {
+export function parseSections(content: string): Record<SectionKey, string> {
   const empty = Object.fromEntries(SECTION_KEYS.map(k => [k, ''])) as Record<SectionKey, string>
   if (!content) return empty
   if (!content.includes('## ')) { return { ...empty, general: content } }
@@ -245,7 +245,7 @@ function parseSections(content: string): Record<SectionKey, string> {
   }
   return empty
 }
-function serializeSections(s: Record<SectionKey, string>): string {
+export function serializeSections(s: Record<SectionKey, string>): string {
   return (SECTION_KEYS as readonly SectionKey[])
     .filter(k => s[k].trim())
     .map(k => `## ${SECTION_META[k].label}\n${s[k].trim()}`)
