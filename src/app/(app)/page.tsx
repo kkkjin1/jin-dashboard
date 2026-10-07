@@ -197,6 +197,9 @@ function CardSection({
 const WEEK_COL_MIN = 150
 const WEEK_GRID_COLS = `minmax(${WEEK_COL_MIN}px, 0.9fr) repeat(5, minmax(${WEEK_COL_MIN}px, 1fr)) minmax(${WEEK_COL_MIN}px, 0.9fr)`
 const WEEK_GRID_MIN_W = WEEK_COL_MIN * 7
+// 금주 업무 섹션 높이 — 노트북(≈768)에서는 남는 높이를 채우고(≈228), 화면이 커져도 340px에서 멈춤
+const WEEK_MIN_H = 200
+const WEEK_MAX_H = 340
 
 // 홈 하단 진행중 과업 컬럼: 범주 | 프로젝트/과업 | 상태 | 마감 (노트북 폭에서 과업명 칸 확보를 위해 고정 칸 최소화)
 const BOTTOM_TASK_COLS = '56px minmax(0, 1fr) 50px 36px'
@@ -1769,7 +1772,8 @@ export default function HomePage() {
           />
 
           {/* ── 금주 업무 — 하나의 주간 작업면을 7열로 나눈 primary 영역 ── */}
-          <section data-home="week" style={{ flex: 1, minHeight: 200, display: 'flex', flexDirection: 'column', marginTop: 12 }}>
+          {/* 남는 세로 공간을 채우되 WEEK_MIN_H~WEEK_MAX_H 사이에서만 — 큰 모니터에서는 cap 후 남는 공간이 하단 박스 아래 여백이 됨 */}
+          <section data-home="week" style={{ flex: '1 1 0', minHeight: WEEK_MIN_H, maxHeight: WEEK_MAX_H, display: 'flex', flexDirection: 'column', marginTop: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6, padding: '0 12px', flexShrink: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <h2 style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 15, fontWeight: 600, color: TEXT1, letterSpacing: '-0.02em' }}>
