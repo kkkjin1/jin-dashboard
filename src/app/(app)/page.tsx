@@ -199,7 +199,18 @@ const WEEK_GRID_COLS = `minmax(${WEEK_COL_MIN}px, 0.9fr) repeat(5, minmax(${WEEK
 const WEEK_GRID_MIN_W = WEEK_COL_MIN * 7
 // 금주 업무 섹션 높이 — 내용 높이 기준, 공간 부족 시 최소 200까지 축소, 업무가 많아도 340에서 멈춤(열 안 스크롤)
 const WEEK_MIN_H = 200
-const WEEK_MAX_H = 340
+// 높이 density tier — 홈 스크롤 영역 높이(= viewport 높이 − main 상하 padding 38px) 기준.
+// viewport 900 / 1050 / 1250 경계. 화면이 높을수록 박스가 커지는 게 아니라 '보이는 정보 수'가 늘어난다.
+type DensityTier = 'compact' | 'standard' | 'large' | 'xl'
+function densityTierOf(homeH: number): DensityTier {
+  return homeH >= 1212 ? 'xl' : homeH >= 1012 ? 'large' : homeH >= 862 ? 'standard' : 'compact'
+}
+// 하단 3박스 노출 행 수 (회고 8섹션이 정보 상한이라 최대 8)
+const TIER_BOTTOM_ROWS: Record<DensityTier, number> = { compact: 3, standard: 5, large: 7, xl: 8 }
+// 직전주 열에 실제 항목으로 추가 노출할 '지난주 이전 미완료' 수 (나머지는 개수만)
+const TIER_OLDER_EXTRA: Record<DensityTier, number> = { compact: 0, standard: 0, large: 3, xl: 5 }
+// 금주 업무 높이 상한 — 추가 노출 항목만큼만 완화 (빈 열을 늘리려는 값이 아님)
+const TIER_WEEK_MAX_H: Record<DensityTier, number> = { compact: 340, standard: 340, large: 400, xl: 480 }
 // 금주 업무 ↔ 하단 3박스 간격 = 하단 marginTop 12 + 이 값 (총 48px). 노트북에서는 이 값부터 접힌다
 const SECTION_GAP_EXTRA = 36
 
@@ -978,6 +989,8 @@ export default function HomePage() {
   const [stSort,        setStSort]        = useState<{ col: string; dir: 'asc' | 'desc' } | null>({ col: '업데이트', dir: 'desc' })
   const [stRowH,        setStRowH]        = useState(40)
   const [isCompact,     setIsCompact]     = useState(false)
+  const [homeH,         setHomeH]         = useState(0)   // 홈 스크롤 영역 높이 → density tier
+  const homeScrollRef = useRef<HTMLDivElement>(null)
   const stScrollRef = useRef<HTMLDivElement>(null)
   const stColsRef = useRef(stCols)
   stColsRef.current = stCols   // always fresh — reads latest value at drag start
@@ -1008,9 +1021,12 @@ export default function HomePage() {
 
   useEffect(() => {
     const check = () => setIsCompact(window.innerWidth < 1600)
+    const homeEl = homeScrollRef.current
+    const ro = homeEl ? new ResizeObserver(() => setHomeH(homeEl.clientHeight)) : null
+    if (homeEl && ro) { setHomeH(homeEl.clientHeight); ro.observe(homeEl) }
     check()
     window.addEventListener('resize', check)
-    return () => window.removeEventListener('resize', check)
+    return () => { window.removeEventListener('resize', check); ro?.disconnect() }
   }, [])
 
   useEffect(() => {
@@ -1372,7 +1388,7 @@ export default function HomePage() {
 
   // ── 금주 업무 7열 (홈 개편 목업) ─────────────────────────────────────────
   // 새 조회/상태 없음 — 이미 로드한 task_todos / agenda_sub_tasks / quick_todos / 고정회의를
-  // 날짜(target_date)로만 재분류한다. 직전주 미완료 = 지난주 월~일 날짜의 미완료(그 이전은 건수만),
+  // 날짜(target_date)로만 재분류한다. 직전주 미완료 = 지난주 월~일 날짜의 미완료(그 이전은 건수만, 큰 화면에선 일부 노출),
   // 다음주 = 다음 주 월~일 날짜가 잡힌 항목(별도 '연기' 상태 필드는 없음).
   const weekMonday  = shiftDateStr(today, 7 * weekOffset - ((dowOfDateStr(today) + 6) % 7))
   const prevMonday  = shiftDateStr(weekMonday, -7)
@@ -1402,7 +1418,7 @@ export default function HomePage() {
     return -1
   }
   const weekCols: WeekItem[][] = [[], [], [], [], [], [], []]
-  let olderOpenCount = 0
+  const olderItems: WeekItem[] = []   // 지난주보다 이전 날짜의 미완료 (기존엔 개수만 표시)
   for (const date of [today, wkTomorrow]) {
     const c = weekCol(date)
     if (c < 1 || c > 5) continue
@@ -1416,25 +1432,34 @@ export default function HomePage() {
     // target_date 없는 구 데이터는 schedule_tag 스냅샷으로 대체 (기존 오늘/금주 분류와 동일한 우선순위)
     const date = t.target_date ?? (t.schedule_tag === 'today' ? today : t.schedule_tag === 'tomorrow' ? wkTomorrow : t.schedule_tag === 'this_week' ? weekDays[4] : null)
     const c = weekCol(date)
-    if (c === -2) olderOpenCount++
-    if (c >= 0) weekCols[c].push({ key: `td_${t.id}`, kind: 'todo', title: t.title, meta: t.tasks?.short_name ?? t.tasks?.title ?? '', date: date!, todo: t })
+    const it: WeekItem = { key: `td_${t.id}`, kind: 'todo', title: t.title, meta: t.tasks?.short_name ?? t.tasks?.title ?? '', date: date!, todo: t }
+    if (c === -2) olderItems.push(it)
+    if (c >= 0) weekCols[c].push(it)
   }
   for (const q of quickTodos) {
     const c = weekCol(q.target_date)
-    if (c === -2) olderOpenCount++
-    if (c >= 0) weekCols[c].push({ key: `qt_${q.id}`, kind: 'quick', title: q.title, meta: '즉석 할 일', date: q.target_date!, quick: q })
+    const it: WeekItem = { key: `qt_${q.id}`, kind: 'quick', title: q.title, meta: '즉석 할 일', date: q.target_date!, quick: q }
+    if (c === -2) olderItems.push(it)
+    if (c >= 0) weekCols[c].push(it)
   }
   for (const st of subTasks) {
     const c = weekCol(st.target_date)
-    if (c === -2) olderOpenCount++
-    if (c >= 0) weekCols[c].push({ key: `st_${st.id}`, kind: 'agenda', title: st.title, meta: st.agenda_items?.title ?? '', date: st.target_date!, st })
+    const it: WeekItem = { key: `st_${st.id}`, kind: 'agenda', title: st.title, meta: st.agenda_items?.title ?? '', date: st.target_date!, st }
+    if (c === -2) olderItems.push(it)
+    if (c >= 0) weekCols[c].push(it)
   }
   weekCols[0].sort((a, b) => a.date.localeCompare(b.date))
   weekCols[6].sort((a, b) => a.date.localeCompare(b.date))
+  // 큰 화면(large/xl): 지난주 항목 아래에 '가장 최근' 이전 미완료부터 tier 개수만큼 실제 항목으로 이어 붙임.
+  // 각 항목은 원본 배열에서 한 번만 분류되므로 이번 주/지난주 항목과 중복되지 않는다.
+  const densityTier = densityTierOf(homeH)
+  const olderShown = [...olderItems].sort((a, b) => b.date.localeCompare(a.date)).slice(0, TIER_OLDER_EXTRA[densityTier])
+  weekCols[0].push(...olderShown)
+  const olderOpenCount = olderItems.length - olderShown.length   // 남은 개수 ('이전 N건')
   const shortDate = (d: string) => { const [, m, dd] = d.split('-').map(Number); return `${m}.${String(dd).padStart(2, '0')}` }
 
   // 하단 3박스 — 퀵메모/진행중 과업/회고 모두 같은 행 수 (같은 invisible grid 공유, 세로 한 화면 예산상 3행 — 금주 업무에 높이 우선 배분)
-  const BOTTOM_ROWS = 3
+  const BOTTOM_ROWS = TIER_BOTTOM_ROWS[densityTier]
   // 3행 높이만 보이고 나머지는 각 박스 안에서 스크롤 (퀵메모는 최근 30건, 과업은 전체)
   const bottomMemos = memos.slice(0, 30)
   const bottomTasks = sortedSubTasks
@@ -1724,7 +1749,7 @@ export default function HomePage() {
       {/* ── 데스크톱 ── */}
       <div className="hidden md:flex flex-col h-full overflow-hidden" style={{ background: BG }}>
 
-        <div className="flex-1 min-h-0 flex flex-col overflow-y-auto scrollbar-hide" style={{ paddingBottom: 4 }}>
+        <div ref={homeScrollRef} className="flex-1 min-h-0 flex flex-col overflow-y-auto scrollbar-hide" style={{ paddingBottom: 4 }}>
 
           {/* Hero — 2행 compact: [인사말 · 부제 | 바로가기] / [상태 칩 | 검색] (1366×768 한 화면 예산) */}
           <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', alignItems: 'center', columnGap: 20, rowGap: 6, marginBottom: 10, flexShrink: 0 }}>
@@ -1776,7 +1801,7 @@ export default function HomePage() {
           {/* ── 금주 업무 — 하나의 주간 작업면을 7열로 나눈 primary 영역 ── */}
           {/* 금주 업무는 내용 높이 기준(grow 없음) — 공간이 모자라면(노트북) WEEK_MIN_H까지 줄어들고 열 안에서 스크롤,
               남는 세로 공간은 아래 spacer가 흡수해 하단 3박스를 화면 아래쪽으로 내린다 */}
-          <section data-home="week" style={{ flex: '0 1 auto', minHeight: WEEK_MIN_H, maxHeight: WEEK_MAX_H, display: 'flex', flexDirection: 'column', marginTop: 12 }}>
+          <section data-home="week" style={{ flex: '0 1 auto', minHeight: WEEK_MIN_H, maxHeight: TIER_WEEK_MAX_H[densityTier], display: 'flex', flexDirection: 'column', marginTop: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6, padding: '0 12px', flexShrink: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <h2 style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 15, fontWeight: 600, color: TEXT1, letterSpacing: '-0.02em' }}>
