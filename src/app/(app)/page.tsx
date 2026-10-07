@@ -962,10 +962,6 @@ export default function HomePage() {
   const [memoViewId,    setMemoViewId]    = useState<string | null>(null)
   const [weekOffset,    setWeekOffset]    = useState(0)   // 금주 업무 주 이동 (0 = 이번 주)
   const [weekPickerOpen, setWeekPickerOpen] = useState(false)
-  // 금주 업무 열당 노출 개수 — 화면 높이에 따라 (초과분은 '+N건 더'로 펼침)
-  const [weekCap,       setWeekCap]       = useState(3)
-  const [weekExpanded,  setWeekExpanded]  = useState<Record<number, boolean>>({})
-  const weekScrollRef = useRef<HTMLDivElement>(null)
   const [hoveredStId,   setHoveredStId]   = useState<string | null>(null)
   const [datePickerStId,setDatePickerStId] = useState<string | null>(null)
   // 초기값을 epoch(고정값)로 둬서 SSR과 클라이언트 첫 렌더가 항상 일치하게 함 —
@@ -994,19 +990,6 @@ export default function HomePage() {
   const [jSaving,       setJSaving]       = useState(false)
   const [jMsg,          setJMsg]          = useState('')
   const [loading,       setLoading]       = useState(true)
-  // 열 본문 실제 높이로 노출 개수 결정 — 항목 1개 ≈ 46px(1줄 42 기준, 2줄 항목이 많으면 열 안에서 스크롤), '+N건 더' 줄 20px 확보
-  useEffect(() => {
-    const el = weekScrollRef.current
-    if (!el) return
-    const update = () => {
-      const bodyH = el.clientHeight - 30 - 8   // 요일 헤더 행 + 본문 상하 여백
-      setWeekCap(Math.min(8, Math.max(2, Math.floor((bodyH - 20) / 46))))
-    }
-    update()
-    const ro = new ResizeObserver(update)
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [loading])   // 로딩 후 금주 업무 영역이 다시 그려질 때 재연결
   const [gcalPicker,    setGcalPicker]    = useState<GoogleCalendarEvent | null>(null)
   const sb = useRef(createClient())
   const { org } = useOrgData()
@@ -1825,7 +1808,7 @@ export default function HomePage() {
               </button>}
             </div>
             {/* 폭이 모자라면 열을 찌그러뜨리지 않고 이 영역만 가로 스크롤 (섹션 헤더는 스크롤 밖에 고정) */}
-            <div data-week-scroll ref={weekScrollRef} style={{ flex: 1, minHeight: 0, minWidth: 0, width: '100%', overflowX: 'auto', overflowY: 'hidden', scrollbarWidth: 'thin', scrollbarColor: 'rgba(var(--ink-rgb),0.18) transparent' }}>
+            <div data-week-scroll style={{ flex: 1, minHeight: 0, minWidth: 0, width: '100%', overflowX: 'auto', overflowY: 'hidden', scrollbarWidth: 'thin', scrollbarColor: 'rgba(var(--ink-rgb),0.18) transparent' }}>
             <div style={{ height: '100%', minWidth: WEEK_GRID_MIN_W, display: 'grid', gridTemplateColumns: WEEK_GRID_COLS, gridTemplateRows: 'auto minmax(0, 1fr)' }}>
               {weekCols.map((items, ci) => {
                 const secondary = ci === 0 || ci === 6
@@ -1858,7 +1841,7 @@ export default function HomePage() {
                 const secondary = ci === 0 || ci === 6
                 const colDate = secondary ? null : weekDays[ci - 1]
                 return (
-                  <div key={`b${ci}`} data-week-body={ci} className="scrollbar-hide" style={{ gridRow: 2, gridColumn: ci + 1, minHeight: 0, overflowY: 'auto', padding: '4px 12px 4px', borderRight: ci === 0 ? '1px solid rgba(var(--ink-rgb),0.06)' : undefined, borderLeft: ci === 6 ? '1px solid rgba(var(--ink-rgb),0.06)' : undefined }}>
+                  <div key={`b${ci}`} data-week-body={ci} className="scrollbar-hide" style={{ gridRow: 2, gridColumn: ci + 1, minHeight: 0, overflowY: 'auto', overscrollBehavior: 'contain', padding: '4px 12px 4px', borderRight: ci === 0 ? '1px solid rgba(var(--ink-rgb),0.06)' : undefined, borderLeft: ci === 6 ? '1px solid rgba(var(--ink-rgb),0.06)' : undefined }}>
                     {colDate && weekAddDate === colDate && (
                       <input autoFocus value={quickAddTitle}
                         onChange={e => setQuickAddTitle(e.target.value)}
@@ -1869,18 +1852,10 @@ export default function HomePage() {
                     {loading ? skel(2)
                       : items.length === 0 && secondary
                         ? <p style={{ fontSize: 11.5, color: TEXT3, opacity: 0.6, padding: '6px 0' }}>없음</p>
-                        : (weekExpanded[ci] ? items : items.slice(0, weekCap)).map(item => renderWeekItem(item, secondary))}
-                    {/* 초과분 '+N건 더' — 직전주 열은 '이전 미완료 N건'도 같은 줄에 (세로 공간 절약) */}
-                    {!loading && (items.length > weekCap || (ci === 0 && olderOpenCount > 0)) && (
-                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, padding: '3px 0 2px 22px', fontSize: 10.5, color: TEXT3, whiteSpace: 'nowrap' }}>
-                        {items.length > weekCap && (
-                          <button type="button" onClick={() => setWeekExpanded(p => ({ ...p, [ci]: !p[ci] }))}
-                            style={{ fontSize: 10.5, color: TEXT3, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                            {weekExpanded[ci] ? '접기' : `+ ${items.length - weekCap}건 더`}
-                          </button>
-                        )}
-                        {ci === 0 && olderOpenCount > 0 && <span title="지난주보다 이전 날짜의 미완료" style={{ opacity: 0.75 }}>이전 {olderOpenCount}건</span>}
-                      </div>
+                        : items.map(item => renderWeekItem(item, secondary))}
+                    {/* 항목이 많으면 열 본문 안에서 스크롤 (스크롤바 숨김) — 직전주 열 끝에 '이전 N건' */}
+                    {!loading && ci === 0 && olderOpenCount > 0 && (
+                      <p title="지난주보다 이전 날짜의 미완료" style={{ padding: '3px 0 2px 22px', fontSize: 10.5, color: TEXT3, opacity: 0.75, whiteSpace: 'nowrap' }}>이전 {olderOpenCount}건</p>
                     )}
                   </div>
                 )
