@@ -201,16 +201,16 @@ const WEEK_GRID_MIN_W = WEEK_COL_MIN * 7
 // 홈 하단 진행중 과업 컬럼: 범주 | 프로젝트/과업 | 상태 | 마감 (노트북 폭에서 과업명 칸 확보를 위해 고정 칸 최소화)
 const BOTTOM_TASK_COLS = '56px minmax(0, 1fr) 50px 36px'
 // 하단 박스 안쪽 여백 (오늘의 타임라인 카드와 같은 cardBase 박스)
-const BOX_PAD_X = 22, BOX_PAD_Y = 14
+const BOX_PAD_X = 22, BOX_PAD_Y = 12
 const BOX_FIRST_ROW_H = 36   // 퀵메모 입력 ↔ 과업 헤더 ↔ 회고 헤더
 const BOTTOM_ROW_H = 32      // 데이터 행
-const BOX_TITLE_H = 40   // 박스 제목 행 높이 (제목 위아래 여백 포함)
+const BOX_TITLE_H = 36   // 박스 제목 행 높이 (제목 위아래 여백 포함)
 
 // ── Timeline constants ─────────────────────────────────────────────────────
 const H_START = 9, H_END = 21
 const TL_CARD_G    = 10
 const TL_TIME_H    = 16
-const TL_LANE_H    = 36
+const TL_LANE_H    = 34
 const TL_LANE_GAP  = 4
 const TL_LANE1_TOP = 20                                      // 구글캘린더 lane top
 const TL_LANE2_TOP = TL_LANE1_TOP + TL_LANE_H + TL_LANE_GAP  // 일정(회의)+업무추가 lane top
@@ -548,7 +548,7 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
 
   return (
     <div style={{ ...cardBase(), marginBottom: 10, overflow: 'hidden', transition: 'none', flexShrink: 0 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 22px 0' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 22px 0' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <span style={{ display: 'flex', alignItems: 'center' }}><Clock size={14} strokeWidth={2} style={{ color: '#E05252' }} /></span>
           <span style={{ fontSize: 13, fontWeight: 600, color: TEXT1, letterSpacing: '-0.01em' }}>오늘의 타임라인</span>
@@ -611,7 +611,7 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
       </div>
 
       <div ref={containerRef}
-        style={{ position: 'relative', margin: '6px 22px 11px', height: TL_CARD_H }}
+        style={{ position: 'relative', margin: '6px 22px 9px', height: TL_CARD_H }}
         onDragOver={onContainerDragOver}
         onDragLeave={onContainerDragLeave}
         onDrop={onContainerDrop}
@@ -994,13 +994,13 @@ export default function HomePage() {
   const [jSaving,       setJSaving]       = useState(false)
   const [jMsg,          setJMsg]          = useState('')
   const [loading,       setLoading]       = useState(true)
-  // 열 본문 실제 높이로 노출 개수 결정 — 항목 1개 ≈ 52px(1줄 44 · 2줄 62의 중간값), '+N건 더' 줄 20px 확보
+  // 열 본문 실제 높이로 노출 개수 결정 — 항목 1개 ≈ 48px(1줄 44 기준, 2줄 항목이 많으면 열 안에서 스크롤), '+N건 더' 줄 20px 확보
   useEffect(() => {
     const el = weekScrollRef.current
     if (!el) return
     const update = () => {
       const bodyH = el.clientHeight - 30 - 8   // 요일 헤더 행 + 본문 상하 여백
-      setWeekCap(Math.min(8, Math.max(2, Math.floor((bodyH - 20) / 52))))
+      setWeekCap(Math.min(8, Math.max(2, Math.floor((bodyH - 20) / 48))))
     }
     update()
     const ro = new ResizeObserver(update)
@@ -1445,8 +1445,8 @@ export default function HomePage() {
   weekCols[6].sort((a, b) => a.date.localeCompare(b.date))
   const shortDate = (d: string) => { const [, m, dd] = d.split('-').map(Number); return `${m}.${String(dd).padStart(2, '0')}` }
 
-  // 하단 50:50 — 퀵메모/진행중 과업 모두 정확히 5행 (같은 invisible grid 공유)
-  const BOTTOM_ROWS = 5
+  // 하단 3박스 — 퀵메모/진행중 과업/회고 모두 같은 행 수 (같은 invisible grid 공유, 세로 한 화면 예산상 3행 — 금주 업무에 높이 우선 배분)
+  const BOTTOM_ROWS = 3
   const bottomMemos = memos.slice(0, BOTTOM_ROWS)
   const bottomTasks = sortedSubTasks.slice(0, BOTTOM_ROWS)
   const SHOW_RECENT_MEETINGS = false   // 목업 평가 동안 홈 배치에서 제외 (데이터/컴포넌트는 유지)
@@ -1735,7 +1735,7 @@ export default function HomePage() {
       {/* ── 데스크톱 ── */}
       <div className="hidden md:flex flex-col h-full overflow-hidden" style={{ background: BG }}>
 
-        <div className="flex-1 min-h-0 flex flex-col overflow-y-auto scrollbar-hide" style={{ paddingBottom: 8 }}>
+        <div className="flex-1 min-h-0 flex flex-col overflow-y-auto scrollbar-hide" style={{ paddingBottom: 4 }}>
 
           {/* Hero — 2행 compact: [인사말 · 부제 | 바로가기] / [상태 칩 | 검색] (1366×768 한 화면 예산) */}
           <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', alignItems: 'center', columnGap: 20, rowGap: 6, marginBottom: 10, flexShrink: 0 }}>
@@ -1899,7 +1899,7 @@ export default function HomePage() {
             ))}
             {/* row 1: section title — 오늘의 타임라인 헤더와 같은 스타일 */}
             {([[1, '퀵메모', <StickyNote key="i" size={15} strokeWidth={2} style={{ color: '#70B8C4' }} />], [2, '진행중 과업', <Layers key="i" size={15} strokeWidth={2} style={{ color: '#5B7EC4' }} />], [3, '회고', <NotebookPen key="i" size={15} strokeWidth={2} style={{ color: '#C8A050' }} />]] as const).map(([col, label, icon]) => (
-              <h2 key={label} style={{ gridRow: 1, gridColumn: col, position: 'relative', display: 'flex', alignItems: 'center', gap: 10, fontSize: 15, fontWeight: 600, color: TEXT1, letterSpacing: '-0.02em', height: BOX_TITLE_H, paddingBottom: 10, margin: 0 }}>
+              <h2 key={label} style={{ gridRow: 1, gridColumn: col, position: 'relative', display: 'flex', alignItems: 'center', gap: 10, fontSize: 15, fontWeight: 600, color: TEXT1, letterSpacing: '-0.02em', height: BOX_TITLE_H, paddingBottom: 8, margin: 0 }}>
                 <span style={{ display: 'flex', alignItems: 'center' }}>{icon}</span>{label}
               </h2>
             ))}
