@@ -7,7 +7,7 @@ import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Search, Plus, FileText, Clock, NotebookPen, CalendarDays, Repeat2, X } from 'lucide-react'
+import { Search, Plus, FileText, Clock, NotebookPen, CalendarDays, Layers, StickyNote, Repeat2, X } from 'lucide-react'
 import ShortcutIcons from '@/components/ShortcutIcons'
 import type { TaskTodo, Meeting, QuickMemo, AgendaSubTask, ScheduleItem, QuickTodo } from '@/types'
 import { fetchMeetingNotesByMeetingIds, type MeetingNotesGrouped, type MeetingNoteRow } from '@/lib/meetingNotes'
@@ -194,6 +194,8 @@ function CardSection({
 
 // 홈 하단 진행중 과업 컬럼: 범주 | 프로젝트/과업 | 상태 | 마감
 const BOTTOM_TASK_COLS = '76px minmax(0, 1fr) 60px 44px'
+// 하단 박스 안쪽 여백 (오늘의 타임라인 카드와 같은 cardBase 박스)
+const BOX_PAD_X = 22, BOX_PAD_Y = 14
 
 // ── Timeline constants ─────────────────────────────────────────────────────
 const H_START = 9, H_END = 21
@@ -1686,23 +1688,30 @@ export default function HomePage() {
           </section>
 
           {/* ── 하단 50:50 — 퀵메모 | 진행중 과업. 한 개의 invisible grid를 공유해 행 높이/기준선 일치 ── */}
+          {/* 박스는 각 열 뒤에 까는 배경(음수 margin으로 bleed) — 행 정렬 grid는 하나로 유지 */}
           <section data-home="bottom" style={{
-            flexShrink: 0, marginTop: 24, display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', columnGap: 48,
+            flexShrink: 0, marginTop: 20, padding: `${BOX_PAD_Y}px ${BOX_PAD_X}px`, display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', columnGap: BOX_PAD_X * 2 + 10,
             gridTemplateRows: `auto 40px repeat(${BOTTOM_ROWS}, 36px) auto`,
           }}>
-            {/* row 1: section title */}
-            <h2 style={{ gridRow: 1, gridColumn: 1, fontSize: 16, fontWeight: 600, color: TEXT1, letterSpacing: '-0.02em', paddingBottom: 10 }}>퀵메모</h2>
-            <h2 style={{ gridRow: 1, gridColumn: 2, fontSize: 16, fontWeight: 600, color: TEXT1, letterSpacing: '-0.02em', paddingBottom: 10 }}>진행중 과업</h2>
+            {[1, 2].map(col => (
+              <div key={`box${col}`} aria-hidden style={{ ...cardBase(), transition: 'none', gridColumn: col, gridRow: '1 / -1', margin: `-${BOX_PAD_Y}px -${BOX_PAD_X}px` }} />
+            ))}
+            {/* row 1: section title — 오늘의 타임라인 헤더와 같은 스타일 */}
+            {([[1, '퀵메모', <StickyNote key="i" size={14} strokeWidth={2} style={{ color: '#70B8C4' }} />], [2, '진행중 과업', <Layers key="i" size={14} strokeWidth={2} style={{ color: '#5B7EC4' }} />]] as const).map(([col, label, icon]) => (
+              <h2 key={label} style={{ gridRow: 1, gridColumn: col, position: 'relative', display: 'flex', alignItems: 'center', gap: 12, fontSize: 13, fontWeight: 600, color: TEXT1, letterSpacing: '-0.01em', paddingBottom: 12 }}>
+                <span style={{ display: 'flex', alignItems: 'center' }}>{icon}</span>{label}
+              </h2>
+            ))}
 
             {/* row 2: 같은 첫 row — 메모 입력 trigger(기존 빠른 메모 팝업) ↔ 테이블 헤더 */}
             <button type="button" data-bottom="memo-input" onClick={() => openQuickMemo()}
-              style={{ gridRow: 2, gridColumn: 1, height: 40, display: 'flex', alignItems: 'center', gap: 8, padding: '0 12px', borderRadius: 8, border: '1px solid rgba(var(--ink-rgb),0.10)', background: 'rgba(var(--ink-rgb),0.025)', cursor: 'text', textAlign: 'left', transition: 'border-color 150ms ease' }}
+              style={{ position: 'relative', gridRow: 2, gridColumn: 1, height: 40, display: 'flex', alignItems: 'center', gap: 8, padding: '0 12px', borderRadius: 8, border: '1px solid rgba(var(--ink-rgb),0.10)', background: 'rgba(var(--ink-rgb),0.025)', cursor: 'text', textAlign: 'left', transition: 'border-color 150ms ease' }}
               onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(var(--ink-rgb),0.18)' }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(var(--ink-rgb),0.10)' }}>
               <span style={{ flex: 1, fontSize: 13, color: TEXT3 }}>메모를 빠르게 남겨보세요</span>
               <kbd style={{ fontSize: 10.5, color: TEXT3, opacity: 0.8, fontFamily: 'inherit' }}>Ctrl+3</kbd>
             </button>
-            <div data-bottom="task-header" style={{ gridRow: 2, gridColumn: 2, height: 40, display: 'grid', gridTemplateColumns: BOTTOM_TASK_COLS, alignItems: 'center', columnGap: 12, padding: '0 6px', borderBottom: `1px solid ${DIVIDER}` }}>
+            <div data-bottom="task-header" style={{ position: 'relative', gridRow: 2, gridColumn: 2, height: 40, display: 'grid', gridTemplateColumns: BOTTOM_TASK_COLS, alignItems: 'center', columnGap: 12, padding: '0 6px', borderBottom: `1px solid ${DIVIDER}` }}>
               {([['범주', '범주'], ['프로젝트 / 과업', '상세TASK'], ['상태', null], ['마감', '마감']] as const).map(([label, sortKey]) => (
                 <button key={label} type="button" disabled={!sortKey} onClick={() => sortKey && toggleSort(sortKey)}
                   style={{ fontSize: 12, fontWeight: 500, color: stSort?.col === sortKey ? TEXT2 : TEXT3, background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: sortKey ? 'pointer' : 'default', whiteSpace: 'nowrap' }}>
@@ -1715,7 +1724,7 @@ export default function HomePage() {
             {Array.from({ length: BOTTOM_ROWS }, (_, i) => {
               const memo = bottomMemos[i]
               const st = bottomTasks[i]
-              const cellBase: React.CSSProperties = { gridRow: 3 + i, height: 36, borderBottom: `1px solid ${DIVIDER}` }
+              const cellBase: React.CSSProperties = { position: 'relative', gridRow: 3 + i, height: 36, borderBottom: `1px solid ${DIVIDER}` }
               const emptyCell: React.CSSProperties = { gridRow: 3 + i, height: 36 }
               const memoTag = memo ? (memo.tag[0] ?? '기타') : ''
               const overdue = !!st && !!(st.target_date ?? st.due_date) && (st.target_date ?? st.due_date)! < today
@@ -1752,10 +1761,10 @@ export default function HomePage() {
             })}
 
             {/* last row: 전체 보기 */}
-            <Link href="/memos" style={{ gridRow: 3 + BOTTOM_ROWS, gridColumn: 1, fontSize: 12, color: TEXT3, textDecoration: 'none', paddingTop: 10, justifySelf: 'start' }}>
+            <Link href="/memos" style={{ position: 'relative', gridRow: 3 + BOTTOM_ROWS, gridColumn: 1, fontSize: 12, color: TEXT3, textDecoration: 'none', paddingTop: 10, justifySelf: 'start' }}>
               전체 보기 →{memos.length > BOTTOM_ROWS ? <span style={{ marginLeft: 6, opacity: 0.7 }}>{memos.length}건</span> : null}
             </Link>
-            <Link href="/project" style={{ gridRow: 3 + BOTTOM_ROWS, gridColumn: 2, fontSize: 12, color: TEXT3, textDecoration: 'none', paddingTop: 10, justifySelf: 'start' }}>
+            <Link href="/project" style={{ position: 'relative', gridRow: 3 + BOTTOM_ROWS, gridColumn: 2, fontSize: 12, color: TEXT3, textDecoration: 'none', paddingTop: 10, justifySelf: 'start' }}>
               전체 보기 →{subTasks.length > BOTTOM_ROWS ? <span style={{ marginLeft: 6, opacity: 0.7 }}>{subTasks.length}건</span> : null}
             </Link>
           </section>
