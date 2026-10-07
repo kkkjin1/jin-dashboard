@@ -7,13 +7,14 @@ import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Search, Plus, FileText, Clock, NotebookPen, Layers, CheckSquare, CalendarDays, StickyNote, Repeat2, X } from 'lucide-react'
+import { Search, Plus, FileText, Clock, NotebookPen, CalendarDays, Repeat2, X } from 'lucide-react'
 import ShortcutIcons from '@/components/ShortcutIcons'
 import type { TaskTodo, Meeting, QuickMemo, AgendaSubTask, ScheduleItem, QuickTodo } from '@/types'
 import { fetchMeetingNotesByMeetingIds, type MeetingNotesGrouped, type MeetingNoteRow } from '@/lib/meetingNotes'
 import type { GoogleCalendarEvent } from '@/app/api/calendar/today/route'
 import { JournalFullscreenEditor, type DailyJournal } from '@/components/home/DailyJournalWidget'
 import { useUserSetting } from '@/hooks/useUserSetting'
+import { openQuickMemo } from '@/lib/quickMemo'
 import { format, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
 
@@ -190,6 +191,9 @@ function CardSection({
     </div>
   )
 }
+
+// 홈 하단 진행중 과업 컬럼: 범주 | 프로젝트/과업 | 상태 | 마감
+const BOTTOM_TASK_COLS = '76px minmax(0, 1fr) 60px 44px'
 
 // ── Timeline constants ─────────────────────────────────────────────────────
 const H_START = 9, H_END = 21
@@ -860,7 +864,6 @@ export default function HomePage() {
   const [fMemoTexts,    setFMemoTexts]    = useState<Record<string, string>>({})
   const [fMemoSaving,   setFMemoSaving]   = useState<Record<string, boolean>>({})
   const [fMemoSaved,    setFMemoSaved]    = useState<Record<string, boolean>>({})
-  const [weekFilter,    setWeekFilter]    = useState<'all' | 'week' | 'unscheduled'>('all')
   const [memoViewId,    setMemoViewId]    = useState<string | null>(null)
   const [hoveredStId,   setHoveredStId]   = useState<string | null>(null)
   const [datePickerStId,setDatePickerStId] = useState<string | null>(null)
@@ -1210,12 +1213,6 @@ export default function HomePage() {
 
   const today          = todayStr()
   const todayMeetings  = meetings.filter(m => m.meeting_date?.startsWith(today))
-  const todayDow = now.getDay()
-  const todayFixedMeetings = fixedSchedules
-    .filter(s => s.is_recurring ? (s.days_of_week ?? []).includes(todayDow) : s.date === today)
-    .sort((a, b) => a.time.localeCompare(b.time))
-  // 오늘 실제 meeting 레코드가 있어도 오늘업무 카드에는 항상 표시 (기록 여부는 배지로 구분)
-  const todayFixedMeetingsVisible = todayFixedMeetings
 
   // 오늘의 타임라인 — timelineDate 기준 파생 데이터 (today와 다를 수 있음)
   const isTimelineToday   = timelineDate === today
@@ -1227,41 +1224,10 @@ export default function HomePage() {
   const timelineFixedTitles = new Set(timelineFixedMeetings.map(s => s.title))
   const timelineMeetings  = meetings.filter(m => m.meeting_date?.startsWith(timelineDate) && !timelineFixedTitles.has(m.title))
   const recentMeetings = meetings.slice(0, 5)
-  const _pad = (n: number) => String(n).padStart(2, '0')
-  const tomorrowDate = new Date(now); tomorrowDate.setDate(now.getDate() + 1)
-  const fridayDate   = new Date(now); fridayDate.setDate(now.getDate() + (5 - now.getDay() + 7) % 7)
-  const tomorrowStr  = `${tomorrowDate.getFullYear()}-${_pad(tomorrowDate.getMonth()+1)}-${_pad(tomorrowDate.getDate())}`
-  const fridayStr    = `${fridayDate.getFullYear()}-${_pad(fridayDate.getMonth()+1)}-${_pad(fridayDate.getDate())}`
-  const tomorrowDow  = tomorrowDate.getDay()
-  const tomorrowFixedMeetingsVisible = fixedSchedules
-    .filter(s => s.is_recurring ? (s.days_of_week ?? []).includes(tomorrowDow) : s.date === tomorrowStr)
-    .sort((a, b) => a.time.localeCompare(b.time))
-    .filter(s => {
-      const linked = meetings.find(m => m.title === s.title && m.meeting_date?.startsWith(tomorrowStr))
-      if (!linked) return true
-      // 사전 메모만 있는 레코드는 중복 취급 안 함
-      return (notesByMeeting[linked.id]?.regular.length ?? 0) === 0
-    })
-
-  // agenda_sub_tasks → date-based derived lists
-  const todayAgendaItems       = subTasks.filter(st => st.target_date === today)
-  const tomorrowAgendaItems    = subTasks.filter(st => st.target_date === tomorrowStr)
-  const weekAgendaItems        = subTasks.filter(st => st.target_date && st.target_date > tomorrowStr && st.target_date <= fridayStr)
-  const unscheduledAgendaItems = subTasks.filter(st => !st.target_date)
-  const futureAgendaItems      = subTasks.filter(st => st.target_date && st.target_date > fridayStr)
 
   // task_todos → target_date 기준 분류 (schedule_tag는 배정 시점 스냅샷이라 자정 경과 후에도 안 바뀜 → 신뢰하지 않음)
   const todayTodos = allTaskTodos.filter(t => t.target_date ? t.target_date === today : t.schedule_tag === 'today')
   const timelineTodos = isTimelineToday ? todayTodos : allTaskTodos.filter(t => t.target_date === timelineDate)
-  const weekTodos  = allTaskTodos.filter(t => t.target_date
-    ? t.target_date > today
-    : (t.schedule_tag === 'tomorrow' || t.schedule_tag === 'this_week'))
-
-  const filteredWeek = weekFilter === 'all'
-    ? weekTodos
-    : weekFilter === 'week'
-      ? weekTodos.filter(t => t.target_date ? t.target_date > tomorrowStr : t.schedule_tag === 'this_week')
-      : []
   const meetingsForJournal = meetings.map(m => ({ id: m.id, title: m.title, meeting_date: m.meeting_date ?? undefined }))
 
   const skel = (n: number) => Array.from({ length: n }, (_, i) => (
@@ -1269,6 +1235,164 @@ export default function HomePage() {
   ))
   const dots = ['#7A82D8', '#5E8FBF', '#38BE98', '#C87840']
 
+
+  // ── 금주 업무 7열 (홈 개편 목업) ─────────────────────────────────────────
+  // 새 조회/상태 없음 — 이미 로드한 task_todos / agenda_sub_tasks / quick_todos / 고정회의를
+  // 날짜(target_date)로만 재분류한다. 직전주 미완료 = 지난주 월~일 날짜의 미완료(그 이전은 건수만),
+  // 다음주 = 다음 주 월~일 날짜가 잡힌 항목(별도 '연기' 상태 필드는 없음).
+  const weekMonday  = shiftDateStr(today, -((dowOfDateStr(today) + 6) % 7))
+  const prevMonday  = shiftDateStr(weekMonday, -7)
+  const weekDays    = [0, 1, 2, 3, 4].map(i => shiftDateStr(weekMonday, i))
+  const weekSunday  = shiftDateStr(weekMonday, 6)
+  const nextMonday  = shiftDateStr(weekMonday, 7)
+  const nextSunday  = shiftDateStr(weekMonday, 13)
+  const wkTomorrow  = shiftDateStr(today, 1)
+  type WeekItem = {
+    key: string; kind: 'todo' | 'quick' | 'agenda' | 'fixed'; title: string; meta: string; date: string
+    todo?: TodayTodo; quick?: QuickTodo; st?: SubTaskWithContext; fixed?: MeetingSchedule; fixedKey?: string
+  }
+  // 0 = 직전주 미완료, 1~5 = 월~금(이번 주 토·일은 금으로), 6 = 다음주, -1 = 표시 안 함, -2 = 지난주 이전 미완료
+  function weekCol(date: string | null | undefined): number {
+    if (!date) return -1
+    if (date < prevMonday) return -2
+    if (date < weekMonday) return 0
+    if (date <= weekSunday) { const i = weekDays.indexOf(date); return i >= 0 ? i + 1 : 5 }
+    if (date >= nextMonday && date <= nextSunday) return 6
+    return -1
+  }
+  const weekCols: WeekItem[][] = [[], [], [], [], [], [], []]
+  let olderOpenCount = 0
+  for (const date of [today, wkTomorrow]) {
+    const c = weekCol(date)
+    if (c < 1 || c > 5) continue
+    const dow = dowOfDateStr(date)
+    fixedSchedules
+      .filter(s => s.is_recurring ? (s.days_of_week ?? []).includes(dow) : s.date === date)
+      .sort((a, b) => a.time.localeCompare(b.time))
+      .forEach(s => weekCols[c].push({ key: `fx_${date}_${s.id}`, kind: 'fixed', title: s.title, meta: s.time, date, fixed: s, fixedKey: date === today ? s.id : `tmr_${s.id}` }))
+  }
+  for (const t of allTaskTodos) {
+    // target_date 없는 구 데이터는 schedule_tag 스냅샷으로 대체 (기존 오늘/금주 분류와 동일한 우선순위)
+    const date = t.target_date ?? (t.schedule_tag === 'today' ? today : t.schedule_tag === 'tomorrow' ? wkTomorrow : t.schedule_tag === 'this_week' ? weekDays[4] : null)
+    const c = weekCol(date)
+    if (c === -2) olderOpenCount++
+    if (c >= 0) weekCols[c].push({ key: `td_${t.id}`, kind: 'todo', title: t.title, meta: t.tasks?.short_name ?? t.tasks?.title ?? '', date: date!, todo: t })
+  }
+  for (const q of quickTodos) weekCols[weekCol(today)].push({ key: `qt_${q.id}`, kind: 'quick', title: q.title, meta: '즉석 할 일', date: today, quick: q })
+  for (const st of subTasks) {
+    const c = weekCol(st.target_date)
+    if (c === -2) olderOpenCount++
+    if (c >= 0) weekCols[c].push({ key: `st_${st.id}`, kind: 'agenda', title: st.title, meta: st.agenda_items?.title ?? '', date: st.target_date!, st })
+  }
+  weekCols[0].sort((a, b) => a.date.localeCompare(b.date))
+  weekCols[6].sort((a, b) => a.date.localeCompare(b.date))
+  const shortDate = (d: string) => { const [, m, dd] = d.split('-').map(Number); return `${m}.${String(dd).padStart(2, '0')}` }
+
+  // 하단 50:50 — 퀵메모/진행중 과업 모두 정확히 5행 (같은 invisible grid 공유)
+  const BOTTOM_ROWS = 5
+  const bottomMemos = memos.slice(0, BOTTOM_ROWS)
+  const bottomTasks = sortedSubTasks.slice(0, BOTTOM_ROWS)
+  const SHOW_RECENT_MEETINGS = false   // 목업 평가 동안 홈 배치에서 제외 (데이터/컴포넌트는 유지)
+
+  function renderWeekItem(item: WeekItem, secondary: boolean) {
+    const showDate = secondary
+    const meta = [item.meta, showDate ? shortDate(item.date) : ''].filter(Boolean).join(' · ')
+    const titleColor = secondary ? TEXT2 : TEXT1
+    const check = (done: boolean, onClick: () => void) => (
+      <button type="button" onClick={e => { e.stopPropagation(); onClick() }} aria-label="완료"
+        style={{ width: 14, height: 14, marginTop: 2, borderRadius: 4, border: `1.5px solid ${done ? '#38BE98' : 'rgba(var(--ink-rgb),0.22)'}`, background: done ? '#38BE98' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer', padding: 0, transition: 'all 150ms ease-out' }}>
+        {done && <svg width="7" height="7" viewBox="0 0 8 8" fill="none"><path d="M1.5 4L3 5.5L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+      </button>
+    )
+    const body = (title: string, done: boolean, metaText: string, extra?: React.ReactNode) => (
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <p style={{ fontSize: 13, fontWeight: 400, lineHeight: '18px', color: done ? TEXT3 : titleColor, textDecoration: done ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0, letterSpacing: '-0.01em' }}>{title}</p>
+          {extra}
+        </div>
+        {metaText && <p style={{ fontSize: 11.5, lineHeight: '16px', color: TEXT3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{metaText}</p>}
+      </div>
+    )
+    const rowStyle: React.CSSProperties = { marginLeft: -6, marginRight: -6, paddingLeft: 6, paddingRight: 6, borderRadius: 6 }
+    const rowInner: React.CSSProperties = { display: 'flex', alignItems: 'flex-start', gap: 8, padding: '6px 0' }
+    const hoverBtn: React.CSSProperties = { fontSize: 11, color: TEXT3, background: 'none', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0, whiteSpace: 'nowrap' }
+
+    if (item.kind === 'fixed' && item.fixed) {
+      const s = item.fixed, k = item.fixedKey!
+      const isToday = item.date === today
+      const linked = meetings.find(m => m.title === s.title && m.meeting_date?.startsWith(item.date))
+      const prepNotes = notesByMeeting[linked?.id ?? '']?.prep ?? []
+      const isOpen = fMemoOpen[k] ?? false
+      const text = fMemoTexts[k] ?? ''
+      const metaText = [s.time, linked && isToday ? '기록됨' : '', prepNotes.length ? `안건 ${prepNotes.length}` : ''].filter(Boolean).join(' · ')
+      return (
+        <ListRow key={item.key} style={rowStyle} onClick={() => { if (isToday) goToFixedMeetingToday(s); else router.push(linked ? `/meetings/${linked.id}` : '/meetings') }}>
+          <div className="group" style={rowInner}>
+            <Repeat2 size={12} strokeWidth={2} style={{ color: TEXT3, marginTop: 3, flexShrink: 0 }} />
+            {body(s.title, false, fMemoSaved[k] ? `${s.time} · 저장됨 ✓` : metaText,
+              <button type="button" className="opacity-0 group-hover:opacity-100" style={hoverBtn}
+                onClick={e => { e.stopPropagation(); setFMemoOpen(p => ({ ...p, [k]: !p[k] })) }}>{isOpen ? '닫기' : '안건'}</button>)}
+          </div>
+          {isOpen && (
+            <div onClick={e => e.stopPropagation()} style={{ paddingLeft: 20, paddingBottom: 8 }}>
+              {prepNotes.map((n: MeetingNoteRow, ni: number) => (
+                <p key={ni} style={{ fontSize: 11.5, color: TEXT3, lineHeight: 1.6 }}>· {n.content}</p>
+              ))}
+              <textarea autoFocus value={text} rows={2}
+                onChange={e => setFMemoTexts(p => ({ ...p, [k]: e.target.value }))}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); saveFixedMeetingMemo(s, item.date, k) }
+                  if (e.key === 'Escape') setFMemoOpen(p => ({ ...p, [k]: false }))
+                }}
+                placeholder="회의 안건 메모 (Ctrl+Enter 저장)"
+                style={{ width: '100%', marginTop: 4, background: 'rgba(var(--ink-rgb),0.03)', border: `1px solid ${DIVIDER}`, borderRadius: 6, padding: '5px 8px', fontSize: 12, color: TEXT1, resize: 'none', outline: 'none', lineHeight: 1.5, fontFamily: 'inherit' }} />
+            </div>
+          )}
+        </ListRow>
+      )
+    }
+    if (item.kind === 'todo' && item.todo) {
+      const t = item.todo, done = doneTasks.includes(t.id)
+      return (
+        <ListRow key={item.key} style={rowStyle} draggable
+          onDragStart={e => { e.dataTransfer.setData('tl-extra', JSON.stringify({ id: `todo_${t.id}`, title: t.title, subtitle: t.tasks?.short_name ?? t.tasks?.title ?? '' })); e.dataTransfer.effectAllowed = 'copy' }}>
+          <div style={rowInner}>{check(done, () => toggleTask(t.id))}{body(t.title, done, meta)}</div>
+        </ListRow>
+      )
+    }
+    if (item.kind === 'quick' && item.quick) {
+      const q = item.quick, done = doneQuick.includes(q.id)
+      return (
+        <ListRow key={item.key} style={rowStyle}>
+          <div className="group" style={rowInner}>
+            {check(done, () => toggleQuickTodo(q.id))}
+            {body(q.title, done, meta,
+              <button type="button" className="opacity-0 group-hover:opacity-100" style={hoverBtn} onClick={() => removeQuickTodo(q.id)}>×</button>)}
+          </div>
+        </ListRow>
+      )
+    }
+    const st = item.st!, done = doneAgenda.includes(st.id)
+    const showPicker = datePickerStId === st.id
+    return (
+      <ListRow key={item.key} style={rowStyle} draggable
+        onDragStart={e => { e.dataTransfer.setData('tl-extra', JSON.stringify({ id: `st_${st.id}`, title: st.title, subtitle: st.agenda_items?.title ?? '' })); e.dataTransfer.effectAllowed = 'copy' }}>
+        <div className="group" style={rowInner}>
+          {check(done, () => completeSubTask(st.id))}
+          {body(st.title, done, meta,
+            !showPicker && <button type="button" className="opacity-0 group-hover:opacity-100" style={hoverBtn} onClick={() => setDatePickerStId(st.id)}>날짜</button>)}
+        </div>
+        {showPicker && (
+          <div style={{ paddingLeft: 22, paddingBottom: 6 }}>
+            <input type="date" autoFocus defaultValue={st.target_date ?? ''}
+              onChange={e => { if (e.target.value) assignSubTaskDate(st.id, e.target.value) }}
+              onBlur={() => { setDatePickerStId(null); setHoveredStId(null) }}
+              style={{ background: 'rgba(var(--ink-rgb),0.04)', border: `1px solid ${DIVIDER}`, borderRadius: 6, padding: '2px 6px', fontSize: 11.5, color: TEXT1, outline: 'none' }} />
+          </div>
+        )}
+      </ListRow>
+    )
+  }
 
   // Row divider
   function rd(i: number, len: number): React.CSSProperties {
@@ -1454,7 +1578,7 @@ export default function HomePage() {
       {/* ── 데스크톱 ── */}
       <div className="hidden md:flex flex-col h-full overflow-hidden" style={{ background: BG }}>
 
-        <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+        <div className="flex-1 min-h-0 flex flex-col overflow-y-auto scrollbar-hide" style={{ paddingBottom: 8 }}>
 
           {/* Hero — chips left, search right (aligned to same height) */}
           <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 20, marginBottom: 14, flexShrink: 0 }}>
@@ -1502,520 +1626,143 @@ export default function HomePage() {
             fixedMeetings={timelineFixedMeetings}
           />
 
-          {/* Rows 2 + 3 — 단일 3열 그리드, 열 정렬 보장 */}
-          <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gridTemplateRows: isCompact ? '0.9fr 1.1fr' : '1.15fr 0.85fr', columnGap: 12, rowGap: 14 }}>
-
-          {/* Row 2 — display:contents로 자식들이 바깥 그리드 직접 참여 */}
-          <div style={{ display: 'contents' }}>
-
-            {/* 진행중 과업 — col 1-2 span */}
-            <div style={{
-              gridColumn: '1 / 3',
-              background: 'transparent',
-              padding: '4px 0',
-              display: 'flex',
-              flexDirection: 'column',
-              minHeight: 0,
-              overflow: 'hidden',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4, flexShrink: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                  <span style={{ display: 'flex', alignItems: 'center' }}><Layers size={14} strokeWidth={2} style={{ color: '#5B7EC4' }} /></span>
-                  <h2 style={{ fontSize: 15, fontWeight: 700, color: TEXT1, letterSpacing: '-0.02em' }}>진행중 과업</h2>
-                </div>
-                <Link href="/project" style={{ fontSize: 11.5, color: TEXT3, textDecoration: 'none', transition: 'color 150ms' }}
-                  onMouseEnter={e => ((e.target as HTMLElement).style.color = TEXT2)}
-                  onMouseLeave={e => ((e.target as HTMLElement).style.color = TEXT3)}>전체 →</Link>
+          {/* ── 금주 업무 — 하나의 주간 작업면을 7열로 나눈 primary 영역 ── */}
+          <section data-home="week" style={{ flex: 1, minHeight: 320, display: 'flex', flexDirection: 'column', marginTop: 22 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10, flexShrink: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+                <h2 style={{ fontSize: 16, fontWeight: 600, color: TEXT1, letterSpacing: '-0.02em' }}>금주 업무</h2>
+                <span style={{ fontSize: 12, color: TEXT3, fontVariantNumeric: 'tabular-nums' }}>{shortDate(weekDays[0])} – {shortDate(weekDays[4])}</span>
               </div>
-              {/* 컬럼 헤더: 범주 | 안건 | 상세TASK(1fr) | 업데이트 | 업데이트내용 | 마감 */}
-              {!loading && subTasks.length > 0 && (
-                <div style={{ display: 'grid', gridTemplateColumns: `${stCols[0]}px ${stCols[1]}px minmax(44px, 1fr) ${stCols[4]}px ${stCols[2]}px ${stCols[3]}px`, padding: '0 0 6px', borderBottom: `1px solid ${DIVIDER}`, marginBottom: 2, flexShrink: 0, alignItems: 'center' }}>
-                  {/* 범주 */}
-                  <div style={{ textAlign: 'center' }}>
-                    <button onClick={() => toggleSort('범주')} style={{ fontSize: 10, fontWeight: 600, color: stSort?.col === '범주' ? TEXT2 : TEXT3, letterSpacing: '0.04em', textTransform: 'uppercase', background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 2, padding: 0 }}>
-                      범주{stSort?.col === '범주' ? <span style={{ fontSize: 9 }}>{stSort.dir === 'asc' ? '↑' : '↓'}</span> : null}
-                    </button>
+              <button type="button" onClick={() => setQuickAddOpen(v => !v)}
+                style={{ fontSize: 12, color: quickAddOpen ? TEXT2 : TEXT3, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                {quickAddOpen ? '취소' : '+ 오늘 할 일'}
+              </button>
+            </div>
+            <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: '0.85fr repeat(5, minmax(0, 1fr)) 0.85fr', gridTemplateRows: 'auto minmax(0, 1fr)' }}>
+              {weekCols.map((items, ci) => {
+                const secondary = ci === 0 || ci === 6
+                const date = secondary ? null : weekDays[ci - 1]
+                const isTodayCol = date === today
+                const isPast = !!date && date < today
+                return (
+                  <div key={`h${ci}`} data-week-col={ci} style={{ gridRow: 1, gridColumn: ci + 1, position: 'relative', display: 'flex', alignItems: 'baseline', gap: 6, height: 34, padding: '0 12px', borderBottom: `1px solid ${DIVIDER}`, borderRight: ci === 0 ? '1px solid rgba(var(--ink-rgb),0.06)' : undefined, borderLeft: ci === 6 ? '1px solid rgba(var(--ink-rgb),0.06)' : undefined, paddingTop: 9 }}>
+                    {secondary ? (
+                      <span style={{ fontSize: 12, fontWeight: 500, color: TEXT3 }}>{ci === 0 ? '직전주 미완료' : '다음주로 연기'}</span>
+                    ) : (
+                      <>
+                        <span style={{ fontSize: 13.5, fontWeight: 500, color: isPast ? TEXT3 : TEXT1 }}>{'월화수목금'[ci - 1]}</span>
+                        <span style={{ fontSize: 11.5, color: TEXT3, fontVariantNumeric: 'tabular-nums' }}>{shortDate(date!)}</span>
+                        {isTodayCol && <span style={{ fontSize: 10.5, fontWeight: 500, color: 'var(--accent-tint-text)', background: 'rgba(var(--accent-tint-rgb),0.12)', padding: '1px 6px', borderRadius: 4, alignSelf: 'center', marginTop: -9 }}>오늘</span>}
+                      </>
+                    )}
+                    {items.length > 0 && <span style={{ marginLeft: 'auto', fontSize: 11, color: TEXT3, opacity: 0.8, fontVariantNumeric: 'tabular-nums' }}>{items.length}</span>}
+                    {isTodayCol && <div style={{ position: 'absolute', left: 12, right: 12, bottom: -1, height: 2, borderRadius: 1, background: ACCENT }} />}
                   </div>
-                  {/* 안건: resize ci=0 */}
-                  <div style={{ position: 'relative', textAlign: 'center' }}>
-                    <div onMouseDown={e => { e.preventDefault(); startStColResize(0, e.clientX) }} style={{ position: 'absolute', left: -4, top: -4, bottom: -4, width: 16, cursor: 'col-resize', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <div style={{ width: 1, height: 12, background: 'rgba(var(--ink-rgb),0.18)', borderRadius: 1, pointerEvents: 'none' }} />
-                    </div>
-                    <button onClick={() => toggleSort('안건')} style={{ fontSize: 10, fontWeight: 600, color: stSort?.col === '안건' ? TEXT2 : TEXT3, letterSpacing: '0.04em', textTransform: 'uppercase', background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 2, padding: 0, paddingLeft: 10 }}>
-                      안건{stSort?.col === '안건' ? <span style={{ fontSize: 9 }}>{stSort.dir === 'asc' ? '↑' : '↓'}</span> : null}
-                    </button>
+                )
+              })}
+              {weekCols.map((items, ci) => {
+                const secondary = ci === 0 || ci === 6
+                const isTodayCol = !secondary && weekDays[ci - 1] === today
+                return (
+                  <div key={`b${ci}`} data-week-body={ci} className="scrollbar-hide" style={{ gridRow: 2, gridColumn: ci + 1, minHeight: 0, overflowY: 'auto', padding: '6px 12px 8px', borderRight: ci === 0 ? '1px solid rgba(var(--ink-rgb),0.06)' : undefined, borderLeft: ci === 6 ? '1px solid rgba(var(--ink-rgb),0.06)' : undefined }}>
+                    {isTodayCol && quickAddOpen && (
+                      <input autoFocus value={quickAddTitle}
+                        onChange={e => setQuickAddTitle(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') addQuickTodo(); if (e.key === 'Escape') setQuickAddOpen(false) }}
+                        placeholder="오늘 할 일 (Enter)"
+                        style={{ width: '100%', fontSize: 12.5, background: 'transparent', border: `1px solid ${DIVIDER}`, borderRadius: 6, padding: '5px 8px', color: TEXT1, outline: 'none', margin: '2px 0 4px' }} />
+                    )}
+                    {loading ? skel(2)
+                      : items.length === 0 && secondary
+                        ? <p style={{ fontSize: 11.5, color: TEXT3, opacity: 0.6, padding: '6px 0' }}>없음</p>
+                        : items.map(item => renderWeekItem(item, secondary))}
+                    {ci === 0 && !loading && olderOpenCount > 0 && (
+                      <p style={{ fontSize: 11.5, color: TEXT3, opacity: 0.75, padding: '8px 0 2px' }}>그 이전 미완료 {olderOpenCount}건</p>
+                    )}
                   </div>
-                  {/* 상세TASK: resize ci=1 */}
-                  <div style={{ position: 'relative', paddingLeft: 10 }}>
-                    <div onMouseDown={e => { e.preventDefault(); startStColResize(1, e.clientX) }} style={{ position: 'absolute', left: -4, top: -4, bottom: -4, width: 16, cursor: 'col-resize', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <div style={{ width: 1, height: 12, background: 'rgba(var(--ink-rgb),0.18)', borderRadius: 1, pointerEvents: 'none' }} />
-                    </div>
-                    <button onClick={() => toggleSort('상세TASK')} style={{ fontSize: 10, fontWeight: 600, color: stSort?.col === '상세TASK' ? TEXT2 : TEXT3, letterSpacing: '0.04em', textTransform: 'uppercase', background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 2, padding: 0 }}>
-                      상세TASK{stSort?.col === '상세TASK' ? <span style={{ fontSize: 9 }}>{stSort.dir === 'asc' ? '↑' : '↓'}</span> : null}
-                    </button>
-                  </div>
-                  {/* 업데이트 내용: resize ci=2 */}
-                  <div style={{ position: 'relative', paddingLeft: 10 }}>
-                    <div onMouseDown={e => { e.preventDefault(); startStColResize(2, e.clientX) }} style={{ position: 'absolute', left: -4, top: -4, bottom: -4, width: 16, cursor: 'col-resize', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <div style={{ width: 1, height: 12, background: 'rgba(var(--ink-rgb),0.18)', borderRadius: 1, pointerEvents: 'none' }} />
-                    </div>
-                    <span style={{ fontSize: 10, fontWeight: 600, color: TEXT3, letterSpacing: '0.04em', textTransform: 'uppercase' }}>업데이트 내용</span>
-                  </div>
-                  {/* 업데이트: resize ci=3 */}
-                  <div style={{ position: 'relative', textAlign: 'center' }}>
-                    <div onMouseDown={e => { e.preventDefault(); startStColResize(3, e.clientX) }} style={{ position: 'absolute', left: -4, top: -4, bottom: -4, width: 16, cursor: 'col-resize', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <div style={{ width: 1, height: 12, background: 'rgba(var(--ink-rgb),0.18)', borderRadius: 1, pointerEvents: 'none' }} />
-                    </div>
-                    <button onClick={() => toggleSort('업데이트')} style={{ fontSize: 10, fontWeight: 600, color: stSort?.col === '업데이트' ? TEXT2 : TEXT3, letterSpacing: '0.04em', textTransform: 'uppercase', background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 2, padding: 0, paddingLeft: 10 }}>
-                      업데이트{stSort?.col === '업데이트' ? <span style={{ fontSize: 9 }}>{stSort.dir === 'asc' ? '↑' : '↓'}</span> : null}
-                    </button>
-                  </div>
-                  {/* 마감: resize ci=4 */}
-                  <div style={{ position: 'relative', textAlign: 'center' }}>
-                    <div onMouseDown={e => { e.preventDefault(); startStColResize(4, e.clientX) }} style={{ position: 'absolute', left: -4, top: -4, bottom: -4, width: 16, cursor: 'col-resize', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <div style={{ width: 1, height: 12, background: 'rgba(var(--ink-rgb),0.18)', borderRadius: 1, pointerEvents: 'none' }} />
-                    </div>
-                    <button onClick={() => toggleSort('마감')} style={{ fontSize: 10, fontWeight: 600, color: stSort?.col === '마감' ? TEXT2 : TEXT3, letterSpacing: '0.04em', textTransform: 'uppercase', background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 2, padding: 0, paddingLeft: 10 }}>
-                      마감{stSort?.col === '마감' ? <span style={{ fontSize: 9 }}>{stSort.dir === 'asc' ? '↑' : '↓'}</span> : null}
-                    </button>
-                  </div>
-                </div>
-              )}
-              <div ref={stScrollRef} style={{ flex: 1, overflowY: 'auto', minHeight: 0 }} className="scrollbar-hide">
-                {loading ? <div>{skel(6)}</div>
-                  : subTasks.length === 0
-                    ? <EmptyState icon={<Layers size={20} strokeWidth={1.5} />} label="진행 중인 과업이 없습니다." sub="새로운 과업을 시작해보세요." />
-                    : sortedSubTasks.map((st, i) => {
-                        const gc = st.agenda_items?.agenda_groups?.color ?? '#818CF8'
-                        return (
-                          <Link key={st.id} href={`/subtasks/${st.id}`} style={{ textDecoration: 'none', display: 'block', height: stRowH }}
-                            draggable
-                            onDragStart={e => { e.dataTransfer.setData('tl-extra', JSON.stringify({ id: `st_${st.id}`, title: st.title, subtitle: st.agenda_items?.title ?? '' })); e.dataTransfer.effectAllowed = 'copy' }}>
-                            <ListRow style={{ ...rd(i, sortedSubTasks.length), height: '100%', display: 'flex', alignItems: 'center' }}>
-                              <div style={{ display: 'grid', gridTemplateColumns: `${stCols[0]}px ${stCols[1]}px minmax(44px, 1fr) ${stCols[4]}px ${stCols[2]}px ${stCols[3]}px`, alignItems: 'center', width: '100%' }}>
-                                {/* 범주: 고정 색상 */}
-                                <div style={{ textAlign: 'center' }}>
-                                  {st.agenda_items?.agenda_groups ? (() => {
-                                    const cat = st.agenda_items!.agenda_groups!.category
-                                    const cc = CATEGORY_COLOR[cat] ?? gc
-                                    return (
-                                      <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 5, background: `${cc}28`, color: cc, display: 'inline-block', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                        {cat}
-                                      </span>
-                                    )
-                                  })() : <span style={{ color: TEXT3, fontSize: 10 }}>—</span>}
-                                </div>
-                                {/* 안건 */}
-                                <div style={{ textAlign: 'center', paddingLeft: 8 }}>
-                                  {st.agenda_items ? (
-                                    <span style={{ fontSize: isCompact ? 10 : 11, fontWeight: 500, color: TEXT2, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                      {st.agenda_items.title}
-                                    </span>
-                                  ) : <span style={{ color: TEXT3, fontSize: 10 }}>—</span>}
-                                </div>
-                                {/* 상세TASK */}
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, paddingLeft: 10, overflow: 'hidden' }}>
-                                  <div style={{ width: 5, height: 5, borderRadius: '50%', background: gc, flexShrink: 0, opacity: 0.9 }} />
-                                  <span style={{ fontSize: isCompact ? 12 : 13.5, fontWeight: 500, color: TEXT1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: '1 1 0', minWidth: 0 }}>{st.title}</span>
-                                </div>
-                                {/* 업데이트 내용 */}
-                                <div style={{ paddingLeft: 10, overflow: 'hidden' }}>
-                                  <span style={{ fontSize: isCompact ? 10 : 11, color: TEXT3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>
-                                    {latestNoteContent(st) || '—'}
-                                  </span>
-                                </div>
-                                {/* 업데이트 */}
-                                <div style={{ textAlign: 'center' }}>
-                                  <span style={{ fontSize: isCompact ? 10 : 11, color: TEXT3, whiteSpace: 'nowrap' }}>
-                                    {(() => { try { const d = latestNoteDate(st); return d ? format(parseISO(d), 'yyyy.MM.dd') : '—' } catch { return '—' } })()}
-                                  </span>
-                                </div>
-                                {/* 마감 */}
-                                <div style={{ textAlign: 'center' }}>
-                                  <span style={{ fontSize: isCompact ? 10 : 11, color: TEXT3, whiteSpace: 'nowrap' }}>
-                                    {fmtDate(st.target_date ?? st.due_date ?? '') || '—'}
-                                  </span>
-                                </div>
-                              </div>
-                            </ListRow>
-                          </Link>
-                        )
-                      })
-                }
-              </div>
+                )
+              })}
+            </div>
+          </section>
+
+          {/* ── 하단 50:50 — 퀵메모 | 진행중 과업. 한 개의 invisible grid를 공유해 행 높이/기준선 일치 ── */}
+          <section data-home="bottom" style={{
+            flexShrink: 0, marginTop: 24, display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', columnGap: 48,
+            gridTemplateRows: `auto 40px repeat(${BOTTOM_ROWS}, 36px) auto`,
+          }}>
+            {/* row 1: section title */}
+            <h2 style={{ gridRow: 1, gridColumn: 1, fontSize: 16, fontWeight: 600, color: TEXT1, letterSpacing: '-0.02em', paddingBottom: 10 }}>퀵메모</h2>
+            <h2 style={{ gridRow: 1, gridColumn: 2, fontSize: 16, fontWeight: 600, color: TEXT1, letterSpacing: '-0.02em', paddingBottom: 10 }}>진행중 과업</h2>
+
+            {/* row 2: 같은 첫 row — 메모 입력 trigger(기존 빠른 메모 팝업) ↔ 테이블 헤더 */}
+            <button type="button" data-bottom="memo-input" onClick={() => openQuickMemo()}
+              style={{ gridRow: 2, gridColumn: 1, height: 40, display: 'flex', alignItems: 'center', gap: 8, padding: '0 12px', borderRadius: 8, border: '1px solid rgba(var(--ink-rgb),0.10)', background: 'rgba(var(--ink-rgb),0.025)', cursor: 'text', textAlign: 'left', transition: 'border-color 150ms ease' }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(var(--ink-rgb),0.18)' }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(var(--ink-rgb),0.10)' }}>
+              <span style={{ flex: 1, fontSize: 13, color: TEXT3 }}>메모를 빠르게 남겨보세요</span>
+              <kbd style={{ fontSize: 10.5, color: TEXT3, opacity: 0.8, fontFamily: 'inherit' }}>Ctrl+3</kbd>
+            </button>
+            <div data-bottom="task-header" style={{ gridRow: 2, gridColumn: 2, height: 40, display: 'grid', gridTemplateColumns: BOTTOM_TASK_COLS, alignItems: 'center', columnGap: 12, padding: '0 6px', borderBottom: `1px solid ${DIVIDER}` }}>
+              {([['범주', '범주'], ['프로젝트 / 과업', '상세TASK'], ['상태', null], ['마감', '마감']] as const).map(([label, sortKey]) => (
+                <button key={label} type="button" disabled={!sortKey} onClick={() => sortKey && toggleSort(sortKey)}
+                  style={{ fontSize: 12, fontWeight: 500, color: stSort?.col === sortKey ? TEXT2 : TEXT3, background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: sortKey ? 'pointer' : 'default', whiteSpace: 'nowrap' }}>
+                  {label}{sortKey && stSort?.col === sortKey ? (stSort.dir === 'asc' ? ' ↑' : ' ↓') : ''}
+                </button>
+              ))}
             </div>
 
-            {/* 오늘 업무 */}
-            <CardSection title="오늘 업무" icon={<CheckSquare size={14} strokeWidth={2} style={{ color: '#38BE98' }} />}
-              extra={
-                <button
-                  onClick={() => setQuickAddOpen(v => !v)}
-                  style={{ fontSize: 11.5, color: quickAddOpen ? '#38BE98' : TEXT3, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-                >
-                  {quickAddOpen ? '취소' : '+ 추가'}
-                </button>
-              }
-            >
-              {quickAddOpen && (
-                <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
-                  <input
-                    autoFocus
-                    value={quickAddTitle}
-                    onChange={e => setQuickAddTitle(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') addQuickTodo(); if (e.key === 'Escape') setQuickAddOpen(false) }}
-                    placeholder="오늘 할 일을 바로 추가..."
-                    style={{ flex: 1, fontSize: 13, background: 'rgba(var(--ink-rgb),0.05)', border: '1px solid rgba(var(--ink-rgb),0.09)', borderRadius: 7, padding: '6px 10px', color: TEXT1, outline: 'none' }}
-                  />
-                  <button
-                    onClick={addQuickTodo}
-                    disabled={!quickAddTitle.trim()}
-                    style={{ fontSize: 12, padding: '0 12px', borderRadius: 7, background: quickAddTitle.trim() ? 'rgba(56,190,152,0.18)' : 'rgba(var(--ink-rgb),0.04)', border: `1px solid ${quickAddTitle.trim() ? 'rgba(56,190,152,0.35)' : 'rgba(var(--ink-rgb),0.07)'}`, color: quickAddTitle.trim() ? '#38BE98' : TEXT3, cursor: quickAddTitle.trim() ? 'pointer' : 'default' }}
-                  >
-                    추가
-                  </button>
-                </div>
-              )}
-              {loading ? <div>{skel(4)}</div>
-                : todayTodos.length === 0 && quickTodos.length === 0 && todayAgendaItems.length === 0 && todayFixedMeetingsVisible.length === 0
-                    && tomorrowAgendaItems.length === 0 && tomorrowFixedMeetingsVisible.length === 0
-                  ? <EmptyState
-                      icon={<CheckSquare size={20} strokeWidth={1.5} />}
-                      label="오늘 업무가 비어있어요."
-                      sub="여유로운 하루거나, 추가해보세요."
-                    />
-                  : <>
-                      {/* ── 고정 회의 ── */}
-                      {todayFixedMeetingsVisible.length > 0 && (
-                        <>
-                          {todayFixedMeetingsVisible.map((s, i) => {
-                            const isOpen = fMemoOpen[s.id] ?? false
-                            const text   = fMemoTexts[s.id] ?? ''
-                            const saving = fMemoSaving[s.id] ?? false
-                            const saved  = fMemoSaved[s.id] ?? false
-                            const linkedMeeting = meetings.find(m => m.title === s.title && m.meeting_date?.startsWith(today))
-                            const prepNotes = notesByMeeting[linkedMeeting?.id ?? '']?.prep ?? []
-                            const isLogged = !!linkedMeeting
-                            const total = todayFixedMeetingsVisible.length + todayTodos.length + quickTodos.length + todayAgendaItems.length
-                            return (
-                              <div key={s.id} style={{ ...rd(i, total), paddingBottom: 2 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0 5px' }}>
-                                  <button
-                                    type="button"
-                                    onClick={() => goToFixedMeetingToday(s)}
-                                    style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0, textDecoration: 'none', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
-                                  >
-                                    <div style={{ width: 16, height: 16, borderRadius: 4, background: isLogged ? 'rgba(107,122,159,0.12)' : 'rgba(56,190,152,0.12)', border: `1px solid ${isLogged ? 'rgba(107,122,159,0.22)' : 'rgba(56,190,152,0.22)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                      <Repeat2 size={9} strokeWidth={2.5} style={{ color: isLogged ? '#6B7A9F' : '#38BE98' }} />
-                                    </div>
-                                    <p style={{ fontSize: 14, fontWeight: 500, color: TEXT1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>{s.title}</p>
-                                  </button>
-                                  {isLogged && (
-                                    <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 999, background: 'rgba(107,122,159,0.14)', color: '#8B98B8', flexShrink: 0, marginRight: 6, whiteSpace: 'nowrap' }}>기록됨</span>
-                                  )}
-                                  <span style={{ fontSize: 11, color: TEXT3, flexShrink: 0, fontVariantNumeric: 'tabular-nums', marginRight: 6 }}>{s.time}</span>
-                                  {saved ? (
-                                    <span style={{ fontSize: 10.5, color: '#38BE98', flexShrink: 0 }}>저장됨 ✓</span>
-                                  ) : (
-                                    <button
-                                      onClick={() => setFMemoOpen(p => ({ ...p, [s.id]: !p[s.id] }))}
-                                      style={{ fontSize: 11, padding: '2px 8px', borderRadius: 5, border: `1px solid ${isOpen ? 'rgba(56,190,152,0.35)' : 'rgba(var(--ink-rgb),0.08)'}`, background: isOpen ? 'rgba(56,190,152,0.12)' : 'transparent', color: isOpen ? '#38BE98' : TEXT3, cursor: 'pointer', flexShrink: 0, transition: 'all 150ms', whiteSpace: 'nowrap' }}
-                                    >
-                                      {prepNotes.length > 0 ? `안건 ${prepNotes.length}` : '안건'}
-                                    </button>
-                                  )}
-                                </div>
-                                {prepNotes.length > 0 && !isOpen && (
-                                  <div style={{ marginLeft: 26, marginBottom: 5 }}>
-                                    {prepNotes.slice(-3).map((n: MeetingNoteRow, ni: number) => (
-                                      <p key={ni} style={{ fontSize: 11.5, color: TEXT3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.6 }}>· {n.content}</p>
-                                    ))}
-                                  </div>
-                                )}
-                                {isOpen && (
-                                  <div style={{ marginLeft: 26, marginBottom: 7 }}>
-                                    {prepNotes.length > 0 && (
-                                      <div style={{ marginBottom: 6 }}>
-                                        {prepNotes.map((n: MeetingNoteRow, ni: number) => (
-                                          <p key={ni} style={{ fontSize: 11.5, color: TEXT3, lineHeight: 1.6 }}>· {n.content}</p>
-                                        ))}
-                                      </div>
-                                    )}
-                                    <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
-                                      <textarea
-                                        autoFocus
-                                        value={text}
-                                        onChange={e => setFMemoTexts(p => ({ ...p, [s.id]: e.target.value }))}
-                                        onKeyDown={e => {
-                                          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); saveFixedMeetingMemo(s) }
-                                          if (e.key === 'Escape') setFMemoOpen(p => ({ ...p, [s.id]: false }))
-                                        }}
-                                        placeholder="회의 안건 메모... (Ctrl+Enter 저장)"
-                                        rows={2}
-                                        style={{ flex: 1, background: 'rgba(var(--ink-rgb),0.04)', border: '1px solid rgba(var(--ink-rgb),0.09)', borderRadius: 7, padding: '6px 9px', fontSize: 12.5, color: TEXT1, resize: 'none', outline: 'none', lineHeight: 1.55, fontFamily: 'inherit', transition: 'border-color 150ms' }}
-                                        onFocus={e => { (e.target as HTMLTextAreaElement).style.borderColor = 'rgba(56,190,152,0.40)' }}
-                                        onBlur={e => { (e.target as HTMLTextAreaElement).style.borderColor = 'rgba(var(--ink-rgb),0.09)' }}
-                                      />
-                                      <button
-                                        onClick={() => saveFixedMeetingMemo(s)}
-                                        disabled={!text.trim() || saving}
-                                        style={{ fontSize: 11, padding: '5px 10px', borderRadius: 6, background: text.trim() ? 'rgba(56,190,152,0.18)' : 'rgba(var(--ink-rgb),0.04)', border: `1px solid ${text.trim() ? 'rgba(56,190,152,0.35)' : 'rgba(var(--ink-rgb),0.07)'}`, color: text.trim() ? '#38BE98' : TEXT3, cursor: text.trim() ? 'pointer' : 'default', flexShrink: 0, transition: 'all 150ms' }}
-                                      >
-                                        {saving ? '…' : '저장'}
-                                      </button>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            )
-                          })}
-                          {(todayTodos.length > 0 || quickTodos.length > 0 || todayAgendaItems.length > 0) && (
-                            <div style={{ borderTop: `1px solid ${DIVIDER}`, margin: '4px 0 6px' }} />
-                          )}
-                        </>
-                      )}
-                      {todayTodos.map((t, i) => {
-                        const done = doneTasks.includes(t.id)
-                        return (
-                          <ListRow key={t.id} style={{ ...rd(i, todayTodos.length + quickTodos.length + todayAgendaItems.length) }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0' }}>
-                              <button
-                                onClick={() => toggleTask(t.id)}
-                                style={{ width: 16, height: 16, borderRadius: '50%', border: `1.5px solid ${done ? '#38BE98' : 'rgba(var(--ink-rgb),0.18)'}`, background: done ? '#38BE98' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer', transition: 'all 200ms ease-out' }}
-                              >
-                                {done && <svg width="6" height="6" viewBox="0 0 8 8" fill="none"><path d="M1.5 4L3 5.5L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
-                              </button>
-                              <div style={{ flex: 1, minWidth: 0 }}>
-                                <p style={{ fontSize: 14, fontWeight: done ? 400 : 500, color: done ? TEXT3 : TEXT1, textDecoration: done ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', transition: 'color 200ms' }}>{t.title}</p>
-                                {t.tasks && <p style={{ fontSize: 12, color: TEXT3, marginTop: 1 }}>{t.tasks.short_name ?? t.tasks.title}</p>}
-                              </div>
-                              {t.tasks && <span className="text-[11px] font-medium px-2 py-0.5 rounded-full" style={tagStyle(t.tasks.part)}>{t.tasks.part}</span>}
-                            </div>
-                          </ListRow>
-                        )
-                      })}
-                      {quickTodos.map((t, i) => {
-                        const done = doneQuick.includes(t.id)
-                        return (
-                          <ListRow key={t.id} style={{ ...rd(todayTodos.length + i, todayTodos.length + quickTodos.length + todayAgendaItems.length) }}>
-                            <div className="group" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0' }}>
-                              <button
-                                onClick={() => toggleQuickTodo(t.id)}
-                                style={{ width: 16, height: 16, borderRadius: '50%', border: `1.5px solid ${done ? '#38BE98' : 'rgba(var(--ink-rgb),0.18)'}`, background: done ? '#38BE98' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer', transition: 'all 200ms ease-out' }}
-                              >
-                                {done && <svg width="6" height="6" viewBox="0 0 8 8" fill="none"><path d="M1.5 4L3 5.5L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
-                              </button>
-                              <div style={{ flex: 1, minWidth: 0 }}>
-                                <p style={{ fontSize: 14, fontWeight: done ? 400 : 500, color: done ? TEXT3 : TEXT1, textDecoration: done ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', transition: 'color 200ms' }}>{t.title}</p>
-                              </div>
-                              <button
-                                onClick={() => removeQuickTodo(t.id)}
-                                className="opacity-0 group-hover:opacity-100"
-                                style={{ fontSize: 12, color: TEXT3, background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0, padding: '0 2px', transition: 'opacity 150ms' }}
-                              >
-                                ×
-                              </button>
-                            </div>
-                          </ListRow>
-                        )
-                      })}
-                      {todayAgendaItems.map((st, i) => {
-                        const done = doneAgenda.includes(st.id)
-                        const groupColor = st.agenda_items?.agenda_groups?.color ?? TEXT3
-                        const total = todayTodos.length + quickTodos.length + todayAgendaItems.length
-                        const globalIdx = todayTodos.length + quickTodos.length + i
-                        return (
-                          <ListRow key={st.id}
-                            draggable
-                            onDragStart={e => { e.dataTransfer.setData('tl-extra', JSON.stringify({ id: `st_${st.id}`, title: st.title, subtitle: st.agenda_items?.title ?? '' })); e.dataTransfer.effectAllowed = 'copy' }}
-                            style={{ ...rd(globalIdx, total) }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0' }}>
-                              <div style={{ width: 5, height: 5, borderRadius: 2, background: groupColor, flexShrink: 0, opacity: 0.85 }} />
-                              <button
-                                onClick={() => completeSubTask(st.id)}
-                                style={{ width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${done ? '#38BE98' : 'rgba(var(--ink-rgb),0.18)'}`, background: done ? '#38BE98' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer', transition: 'all 200ms ease-out' }}
-                              >
-                                {done && <svg width="6" height="6" viewBox="0 0 8 8" fill="none"><path d="M1.5 4L3 5.5L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
-                              </button>
-                              <div style={{ flex: 1, minWidth: 0 }}>
-                                <p style={{ fontSize: 14, fontWeight: done ? 400 : 500, color: done ? TEXT3 : TEXT1, textDecoration: done ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', transition: 'color 200ms' }}>{st.title}</p>
-                                {st.agenda_items && <p style={{ fontSize: 12, color: TEXT3, marginTop: 1 }}>{st.agenda_items.title}</p>}
-                              </div>
-                            </div>
-                          </ListRow>
-                        )
-                      })}
-                      {/* ── 내일 (고정회의 + 상세task, dimmed) ── */}
-                      {(tomorrowAgendaItems.length > 0 || tomorrowFixedMeetingsVisible.length > 0) && (
-                        <>
-                          {(todayTodos.length > 0 || quickTodos.length > 0 || todayAgendaItems.length > 0) && (
-                            <div style={{ borderTop: `1px solid ${DIVIDER}`, margin: '4px 0 6px' }} />
-                          )}
-                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginBottom: 6, padding: '2px 8px', borderRadius: 999, background: 'rgba(94,143,191,0.08)', border: '1px solid rgba(94,143,191,0.18)' }}>
-                            <div style={{ width: 4, height: 4, borderRadius: '50%', background: '#5E8FBF' }} />
-                            <span style={{ fontSize: 10.5, fontWeight: 600, color: '#5E8FBF', letterSpacing: '0.01em' }}>내일</span>
-                          </div>
-                          {tomorrowFixedMeetingsVisible.map((s, i) => {
-                            const tmrKey = `tmr_${s.id}`
-                            const isOpen = fMemoOpen[tmrKey] ?? false
-                            const text   = fMemoTexts[tmrKey] ?? ''
-                            const saving = fMemoSaving[tmrKey] ?? false
-                            const saved  = fMemoSaved[tmrKey] ?? false
-                            const linkedMeeting = meetings.find(m => m.title === s.title && m.meeting_date?.startsWith(tomorrowStr))
-                            const prepNotes = notesByMeeting[linkedMeeting?.id ?? '']?.prep ?? []
-                            return (
-                              <div key={s.id} style={{ ...rd(i, tomorrowFixedMeetingsVisible.length), paddingBottom: 2, opacity: 0.75 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0 5px' }}>
-                                  <Link
-                                    href={linkedMeeting ? `/meetings/${linkedMeeting.id}` : '/meetings'}
-                                    style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0, textDecoration: 'none' }}
-                                  >
-                                    <div style={{ width: 16, height: 16, borderRadius: 4, background: 'rgba(56,190,152,0.12)', border: '1px solid rgba(56,190,152,0.22)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                      <Repeat2 size={9} strokeWidth={2.5} style={{ color: '#38BE98' }} />
-                                    </div>
-                                    <p style={{ fontSize: 14, fontWeight: 500, color: TEXT2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>{s.title}</p>
-                                    <span style={{ fontSize: 11, color: TEXT3, flexShrink: 0, fontVariantNumeric: 'tabular-nums', marginRight: 6 }}>{s.time}</span>
-                                  </Link>
-                                  {saved ? (
-                                    <span style={{ fontSize: 10.5, color: '#38BE98', flexShrink: 0 }}>저장됨 ✓</span>
-                                  ) : (
-                                    <button
-                                      onClick={() => setFMemoOpen(p => ({ ...p, [tmrKey]: !p[tmrKey] }))}
-                                      style={{ fontSize: 11, padding: '2px 8px', borderRadius: 5, border: `1px solid ${isOpen ? 'rgba(56,190,152,0.35)' : 'rgba(var(--ink-rgb),0.08)'}`, background: isOpen ? 'rgba(56,190,152,0.12)' : 'transparent', color: isOpen ? '#38BE98' : TEXT3, cursor: 'pointer', flexShrink: 0, transition: 'all 150ms', whiteSpace: 'nowrap' }}
-                                    >
-                                      {prepNotes.length > 0 ? `안건 ${prepNotes.length}` : '안건'}
-                                    </button>
-                                  )}
-                                </div>
-                                {prepNotes.length > 0 && !isOpen && (
-                                  <div style={{ marginLeft: 26, marginBottom: 5 }}>
-                                    {prepNotes.slice(-3).map((n: MeetingNoteRow, ni: number) => (
-                                      <p key={ni} style={{ fontSize: 11.5, color: TEXT3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.6 }}>· {n.content}</p>
-                                    ))}
-                                  </div>
-                                )}
-                                {isOpen && (
-                                  <div style={{ marginLeft: 26, marginBottom: 7 }}>
-                                    {prepNotes.length > 0 && (
-                                      <div style={{ marginBottom: 6 }}>
-                                        {prepNotes.map((n: MeetingNoteRow, ni: number) => (
-                                          <p key={ni} style={{ fontSize: 11.5, color: TEXT3, lineHeight: 1.6 }}>· {n.content}</p>
-                                        ))}
-                                      </div>
-                                    )}
-                                    <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
-                                      <textarea
-                                        autoFocus
-                                        value={text}
-                                        onChange={e => setFMemoTexts(p => ({ ...p, [tmrKey]: e.target.value }))}
-                                        onKeyDown={e => {
-                                          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); saveFixedMeetingMemo(s, tomorrowStr, tmrKey) }
-                                          if (e.key === 'Escape') setFMemoOpen(p => ({ ...p, [tmrKey]: false }))
-                                        }}
-                                        placeholder="회의 안건 메모... (Ctrl+Enter 저장)"
-                                        rows={2}
-                                        style={{ flex: 1, background: 'rgba(var(--ink-rgb),0.04)', border: '1px solid rgba(var(--ink-rgb),0.09)', borderRadius: 7, padding: '6px 9px', fontSize: 12.5, color: TEXT1, resize: 'none', outline: 'none', lineHeight: 1.55, fontFamily: 'inherit', transition: 'border-color 150ms' }}
-                                        onFocus={e => { (e.target as HTMLTextAreaElement).style.borderColor = 'rgba(56,190,152,0.40)' }}
-                                        onBlur={e => { (e.target as HTMLTextAreaElement).style.borderColor = 'rgba(var(--ink-rgb),0.09)' }}
-                                      />
-                                      <button
-                                        onClick={() => saveFixedMeetingMemo(s, tomorrowStr, tmrKey)}
-                                        disabled={!text.trim() || saving}
-                                        style={{ fontSize: 11, padding: '5px 10px', borderRadius: 6, background: text.trim() ? 'rgba(56,190,152,0.18)' : 'rgba(var(--ink-rgb),0.04)', border: `1px solid ${text.trim() ? 'rgba(56,190,152,0.35)' : 'rgba(var(--ink-rgb),0.07)'}`, color: text.trim() ? '#38BE98' : TEXT3, cursor: text.trim() ? 'pointer' : 'default', flexShrink: 0, transition: 'all 150ms' }}
-                                      >
-                                        {saving ? '…' : '저장'}
-                                      </button>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            )
-                          })}
-                          {tomorrowFixedMeetingsVisible.length > 0 && tomorrowAgendaItems.length > 0 && (
-                            <div style={{ borderTop: `1px solid ${DIVIDER}`, margin: '2px 0 4px' }} />
-                          )}
-                          {tomorrowAgendaItems.map((st, i) => {
-                            const gc = st.agenda_items?.agenda_groups?.color ?? TEXT3
-                            const hovered = hoveredStId === st.id
-                            const showPicker = datePickerStId === st.id
-                            return (
-                              <ListRow key={st.id}
-                                onMouseEnter={() => setHoveredStId(st.id)}
-                                onMouseLeave={() => { if (datePickerStId !== st.id) setHoveredStId(null) }}
-                                style={{ ...rd(i, tomorrowAgendaItems.length), opacity: 0.7 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0' }}>
-                                  <div style={{ width: 5, height: 5, borderRadius: 2, background: gc, flexShrink: 0, opacity: 0.65 }} />
-                                  <div style={{ flex: 1, minWidth: 0 }}>
-                                    <p style={{ fontSize: 14, color: TEXT2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{st.title}</p>
-                                    {st.agenda_items && <p style={{ fontSize: 12, color: TEXT3, marginTop: 1 }}>{st.agenda_items.title}</p>}
-                                  </div>
-                                  {hovered && !showPicker && (
-                                    <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
-                                      {['완료','오늘'].map(lbl => (
-                                        <button key={lbl} onClick={() => lbl === '완료' ? completeSubTask(st.id) : assignSubTaskDate(st.id, today)}
-                                          style={{ fontSize: 10.5, padding: '2px 7px', borderRadius: 5, border: `1px solid ${lbl === '완료' ? '#38BE9844' : '#5E8FBF44'}`, background: lbl === '완료' ? '#38BE9816' : '#5E8FBF16', color: lbl === '완료' ? '#38BE98' : '#5E8FBF', cursor: 'pointer' }}>
-                                          {lbl}
-                                        </button>
-                                      ))}
-                                      <button onClick={() => setDatePickerStId(st.id)}
-                                        style={{ fontSize: 10.5, padding: '2px 7px', borderRadius: 5, border: `1px solid rgba(var(--ink-rgb),0.12)`, background: 'rgba(var(--ink-rgb),0.05)', color: TEXT3, cursor: 'pointer' }}>
-                                        날짜▾
-                                      </button>
-                                    </div>
-                                  )}
-                                </div>
-                                {showPicker && (
-                                  <div style={{ paddingBottom: 6, paddingLeft: 15 }}>
-                                    <input type="date" autoFocus
-                                      onChange={e => { if (e.target.value) assignSubTaskDate(st.id, e.target.value) }}
-                                      onBlur={() => { setDatePickerStId(null); setHoveredStId(null) }}
-                                      style={{ background: 'rgba(var(--ink-rgb),0.06)', border: '1px solid rgba(var(--ink-rgb),0.12)', borderRadius: 6, padding: '3px 8px', fontSize: 12, color: TEXT1, outline: 'none' }}
-                                    />
-                                  </div>
-                                )}
-                              </ListRow>
-                            )
-                          })}
-                        </>
-                      )}
-                    </>
-              }
-            </CardSection>
-
-          </div>
-
-          {/* Row 3 — display:contents로 자식들이 바깥 그리드 직접 참여 */}
-          <div style={{ display: 'contents' }}>
-
-            {/* 퀵메모 */}
-            <CardSection title="퀵메모" link="/memos" linkLabel="전체 →" icon={<StickyNote size={14} strokeWidth={2} style={{ color: '#70B8C4' }} />}>
-              {loading ? <div>{skel(4)}</div>
-                : memos.length === 0
-                  ? <EmptyState
-                      icon={<StickyNote size={20} strokeWidth={1.5} />}
-                      label="저장된 메모가 없습니다."
-                      sub="Ctrl+3으로 빠르게 추가하세요."
-                    />
-                  : memos.map((memo, i) => {
-                      const primaryTag = memo.tag[0] ?? '기타'
-                      const dotColor = CATEGORY_PALETTE[MEMO_TAG[primaryTag] ?? colorKeyFromName(primaryTag)].solid
-                      return (
-                        <ListRow key={memo.id}
-                          draggable
-                          onDragStart={e => { e.dataTransfer.setData('tl-extra', JSON.stringify({ id: `memo_${memo.id}`, title: memo.title, subtitle: primaryTag })); e.dataTransfer.effectAllowed = 'copy' }}
-                          onClick={() => setMemoViewId(memo.id)}
-                          style={{ ...rd(i, memos.length) }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: isCompact ? '6px 0' : '8px 0' }}>
-                            <div style={{ width: 6, height: 6, borderRadius: '50%', background: dotColor, flexShrink: 0, boxShadow: `0 0 5px ${dotColor}80` }} />
-                            <span style={{ fontSize: isCompact ? 12 : 13.5, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: TEXT1, fontWeight: 500 }}>{memo.title}</span>
-                            <span style={{ fontSize: 10.5, color: TEXT3, flexShrink: 0 }}>{fmtDate(memo.created_at)}</span>
-                          </div>
+            {/* rows 3~7: 데이터 5행 — memo N ↔ task N 같은 grid row */}
+            {Array.from({ length: BOTTOM_ROWS }, (_, i) => {
+              const memo = bottomMemos[i]
+              const st = bottomTasks[i]
+              const cellBase: React.CSSProperties = { gridRow: 3 + i, height: 36, borderBottom: `1px solid ${DIVIDER}` }
+              const emptyCell: React.CSSProperties = { gridRow: 3 + i, height: 36 }
+              const memoTag = memo ? (memo.tag[0] ?? '기타') : ''
+              const overdue = !!st && !!(st.target_date ?? st.due_date) && (st.target_date ?? st.due_date)! < today
+              return (
+                <Fragment key={i}>
+                  {loading ? <div style={{ ...emptyCell, gridColumn: 1, paddingTop: 4 }}>{skel(1)}</div>
+                    : memo ? (
+                      <ListRow onClick={() => setMemoViewId(memo.id)} draggable
+                        onDragStart={e => { e.dataTransfer.setData('tl-extra', JSON.stringify({ id: `memo_${memo.id}`, title: memo.title, subtitle: memoTag })); e.dataTransfer.effectAllowed = 'copy' }}
+                        style={{ ...cellBase, gridColumn: 1, marginLeft: 0, marginRight: 0, paddingLeft: 6, paddingRight: 6, borderRadius: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{ width: 5, height: 5, borderRadius: '50%', background: CATEGORY_PALETTE[MEMO_TAG[memoTag] ?? colorKeyFromName(memoTag)].solid, flexShrink: 0, opacity: 0.85 }} />
+                        <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 400, color: TEXT1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{memo.title || '(제목 없음)'}</span>
+                        <span style={{ fontSize: 11.5, color: TEXT3, flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{fmtDate(memo.created_at)}</span>
+                      </ListRow>
+                    ) : <div style={{ ...emptyCell, gridColumn: 1 }} />}
+                  {loading ? <div style={{ ...emptyCell, gridColumn: 2, paddingTop: 4 }}>{skel(1)}</div>
+                    : st ? (
+                      <Link href={`/subtasks/${st.id}`} style={{ ...cellBase, gridColumn: 2, display: 'block', textDecoration: 'none' }}
+                        draggable
+                        onDragStart={e => { e.dataTransfer.setData('tl-extra', JSON.stringify({ id: `st_${st.id}`, title: st.title, subtitle: st.agenda_items?.title ?? '' })); e.dataTransfer.effectAllowed = 'copy' }}>
+                        <ListRow style={{ height: '100%', marginLeft: 0, marginRight: 0, paddingLeft: 6, paddingRight: 6, borderRadius: 0, display: 'grid', gridTemplateColumns: BOTTOM_TASK_COLS, alignItems: 'center', columnGap: 12 }}>
+                          <span style={{ fontSize: 11.5, color: TEXT3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{st.agenda_items?.agenda_groups?.category ?? '—'}</span>
+                          <span style={{ display: 'flex', alignItems: 'baseline', gap: 8, minWidth: 0 }}>
+                            <span style={{ fontSize: 13, fontWeight: 400, color: TEXT1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 1, minWidth: 0 }}>{st.title}</span>
+                            {st.agenda_items && <span style={{ fontSize: 11.5, color: TEXT3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 2, minWidth: 0 }}>{st.agenda_items.title}</span>}
+                          </span>
+                          <span style={{ fontSize: 11.5, color: overdue ? '#C86868' : TEXT3, whiteSpace: 'nowrap' }}>{overdue ? '기한 경과' : '진행중'}</span>
+                          <span style={{ fontSize: 11.5, color: TEXT3, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{(st.target_date ?? st.due_date) ? shortDate((st.target_date ?? st.due_date)!) : '—'}</span>
                         </ListRow>
-                      )
-                    })
-              }
-            </CardSection>
+                      </Link>
+                    ) : <div style={{ ...emptyCell, gridColumn: 2 }} />}
+                </Fragment>
+              )
+            })}
 
-            {/* 최근 회의록 */}
+            {/* last row: 전체 보기 */}
+            <Link href="/memos" style={{ gridRow: 3 + BOTTOM_ROWS, gridColumn: 1, fontSize: 12, color: TEXT3, textDecoration: 'none', paddingTop: 10, justifySelf: 'start' }}>
+              전체 보기 →{memos.length > BOTTOM_ROWS ? <span style={{ marginLeft: 6, opacity: 0.7 }}>{memos.length}건</span> : null}
+            </Link>
+            <Link href="/project" style={{ gridRow: 3 + BOTTOM_ROWS, gridColumn: 2, fontSize: 12, color: TEXT3, textDecoration: 'none', paddingTop: 10, justifySelf: 'start' }}>
+              전체 보기 →{subTasks.length > BOTTOM_ROWS ? <span style={{ marginLeft: 6, opacity: 0.7 }}>{subTasks.length}건</span> : null}
+            </Link>
+          </section>
+
+          {/* 최근 회의록 — 목업 평가 동안 홈 primary layout에서 제외 (컴포넌트/데이터 로직 유지) */}
+          {SHOW_RECENT_MEETINGS && (
+            <div style={{ height: 240, marginTop: 24, flexShrink: 0 }}>
             <CardSection title="최근 회의록" link="/meetings" linkLabel="전체 →" icon={<FileText size={14} strokeWidth={2} style={{ color: '#7A82D8' }} />}>
               {loading ? <div>{skel(3)}</div>
                 : recentMeetings.length === 0
@@ -2040,185 +1787,8 @@ export default function HomePage() {
                     ))
               }
             </CardSection>
-
-            {/* 금주 업무 (회고 자리로 이동) */}
-            <CardSection
-              title="금주 업무"
-              icon={<CalendarDays size={14} strokeWidth={2} style={{ color: '#5E8FBF' }} />}
-              extra={
-                <div style={{ display: 'flex', gap: 3 }}>
-                  {([['all','전체'],['week','금주'],['unscheduled','미진행']] as const).map(([f, label]) => {
-                    const isActive = weekFilter === f
-                    return (
-                      <button key={f} onClick={() => setWeekFilter(f)}
-                        style={{
-                          fontSize: 11,
-                          padding: '3px 7px',
-                          borderRadius: 7,
-                          border: `1px solid ${isActive ? 'rgba(var(--accent-tint-rgb),0.35)' : 'rgba(var(--ink-rgb),0.07)'}`,
-                          background: isActive ? 'rgba(var(--accent-tint-rgb),0.14)' : 'transparent',
-                          color: isActive ? 'var(--accent-tint-text)' : TEXT3,
-                          cursor: 'pointer',
-                          transition: 'all 150ms ease',
-                          fontWeight: isActive ? 600 : 400,
-                        }}>
-                        {label}
-                      </button>
-                    )
-                  })}
-                </div>
-              }
-            >
-              {loading ? <div>{skel(4)}</div>
-                : (() => {
-                    const filtAgenda = weekFilter === 'week'        ? weekAgendaItems
-                      : weekFilter === 'unscheduled' ? unscheduledAgendaItems
-                      : [] // 'all' handled separately below
-                    const isEmpty = weekFilter === 'all'
-                      ? filteredWeek.length === 0 && weekAgendaItems.length === 0 && unscheduledAgendaItems.length === 0 && futureAgendaItems.length === 0
-                      : filteredWeek.length === 0 && filtAgenda.length === 0
-                    if (isEmpty) return (
-                      <EmptyState
-                        icon={<CalendarDays size={20} strokeWidth={1.5} />}
-                        label={weekFilter === 'all' ? '이번 주 업무가 없습니다.' : weekFilter === 'week' ? '이번 주 업무가 없습니다.' : '미진행 항목이 없습니다.'}
-                      />
-                    )
-                    // ── 공통 row helpers ──
-                    function taskPartColor(part: string | null | undefined): string {
-                      if (!part) return CATEGORY_PALETTE['neutral'].solid
-                      return CATEGORY_PALETTE[PART_COLOR[part] ?? colorKeyFromName(part)].solid
-                    }
-                    function TaskRow({ t, i, len }: { t: TodayTodo; i: number; len: number }) {
-                      const dc = taskPartColor(t.tasks?.part)
-                      return (
-                        <ListRow
-                          draggable
-                          onDragStart={e => { e.dataTransfer.setData('tl-extra', JSON.stringify({ id: `todo_${t.id}`, title: t.title, subtitle: t.tasks?.short_name ?? t.tasks?.title ?? '' })); e.dataTransfer.effectAllowed = 'copy' }}
-                          style={{ ...rd(i, len) }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minHeight: isCompact ? 26 : 34 }}>
-                            <div style={{ width: 5, height: 5, borderRadius: 1.5, background: dc, flexShrink: 0, opacity: 0.85 }} />
-                            <span style={{ fontSize: isCompact ? 12 : 13, fontWeight: 500, color: TEXT1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>{t.title}</span>
-                            {t.tasks && <span style={{ fontSize: 10.5, color: TEXT3, flexShrink: 0, whiteSpace: 'nowrap', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.tasks.short_name ?? t.tasks.title}</span>}
-                          </div>
-                        </ListRow>
-                      )
-                    }
-                    function QuickBtn({ label, color, onClick }: { label: string; color: string; onClick: () => void }) {
-                      return (
-                        <button onClick={e => { e.stopPropagation(); onClick() }}
-                          style={{ fontSize: 10.5, padding: '2px 7px', borderRadius: 5, border: `1px solid ${color}44`, background: `${color}16`, color, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 120ms' }}>
-                          {label}
-                        </button>
-                      )
-                    }
-                    function AgendaRow({ st, i, len }: { st: SubTaskWithContext; i: number; len: number }) {
-                      const gc = st.agenda_items?.agenda_groups?.color ?? TEXT3
-                      const hovered = hoveredStId === st.id
-                      const showPicker = datePickerStId === st.id
-                      return (
-                        <ListRow
-                          draggable
-                          onDragStart={e => { e.dataTransfer.setData('tl-extra', JSON.stringify({ id: `st_${st.id}`, title: st.title, subtitle: st.agenda_items?.title ?? '' })); e.dataTransfer.effectAllowed = 'copy' }}
-                          onMouseEnter={() => setHoveredStId(st.id)}
-                          onMouseLeave={() => { if (datePickerStId !== st.id) setHoveredStId(null) }}
-                          style={{ ...rd(i, len) }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minHeight: isCompact ? 26 : 34 }}>
-                            <div style={{ width: 5, height: 5, borderRadius: 2, background: gc, flexShrink: 0, opacity: 0.85 }} />
-                            <span style={{ fontSize: isCompact ? 12 : 13, fontWeight: 500, color: TEXT1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>{st.title}</span>
-                            {!hovered && st.agenda_items && <span style={{ fontSize: 10.5, color: TEXT3, flexShrink: 0, whiteSpace: 'nowrap', maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis' }}>{st.agenda_items.title}</span>}
-                            {hovered && !showPicker && (
-                              <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
-                                <QuickBtn label="완료" color="#38BE98" onClick={() => completeSubTask(st.id)} />
-                                <QuickBtn label="오늘" color="#5E8FBF" onClick={() => assignSubTaskDate(st.id, today)} />
-                                <QuickBtn label="내일" color="#7A82D8" onClick={() => assignSubTaskDate(st.id, tomorrowStr)} />
-                                <QuickBtn label="날짜▾" color={TEXT3} onClick={() => setDatePickerStId(st.id)} />
-                              </div>
-                            )}
-                          </div>
-                          {showPicker && (
-                            <div style={{ paddingBottom: 6, paddingLeft: 15 }}>
-                              <input type="date" autoFocus
-                                onChange={e => { if (e.target.value) assignSubTaskDate(st.id, e.target.value) }}
-                                onBlur={() => { setDatePickerStId(null); setHoveredStId(null) }}
-                                style={{ background: 'rgba(var(--ink-rgb),0.06)', border: '1px solid rgba(var(--ink-rgb),0.12)', borderRadius: 6, padding: '3px 8px', fontSize: 12, color: TEXT1, outline: 'none' }}
-                              />
-                            </div>
-                          )}
-                        </ListRow>
-                      )
-                    }
-                    // ── 필터별 뷰 ──
-                    if (weekFilter !== 'all') {
-                      const combined = [...filteredWeek.map(t => ({ kind: 'task' as const, t })), ...filtAgenda.map(st => ({ kind: 'agenda' as const, st }))]
-                      return <>{combined.map((item, i) => item.kind === 'task'
-                        ? <TaskRow key={item.t.id} t={item.t} i={i} len={combined.length} />
-                        : <AgendaRow key={item.st.id} st={item.st} i={i} len={combined.length} />
-                      )}</>
-                    }
-                    // 'all' — 금주 / 이후날짜 / 미진행 grouped (내일은 오늘업무 박스로 이동)
-                    const allWeek = [...filteredWeek, ...weekAgendaItems]
-                    const allUnscheduled = unscheduledAgendaItems
-                    // 이후: target_date > fridayStr인 항목을 날짜별로 그룹핑
-                    const futureDateKeys = [...new Set(futureAgendaItems.map(st => st.target_date!))].sort()
-                    const futureDateGroups = futureDateKeys.map(date => ({
-                      date,
-                      items: futureAgendaItems.filter(st => st.target_date === date),
-                    }))
-                    function formatFutureDate(dateStr: string): string {
-                      const d = new Date(dateStr + 'T00:00:00')
-                      const m = d.getMonth() + 1
-                      const day = d.getDate()
-                      const dow = ['일','월','화','수','목','금','토'][d.getDay()]
-                      return `${m}/${day} (${dow})`
-                    }
-                    function GroupLabel({ color, label }: { color: string; label: string }) {
-                      return (
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginBottom: 6, padding: '2px 8px', borderRadius: 999, background: `${color}14`, border: `1px solid ${color}2A` }}>
-                          <div style={{ width: 4, height: 4, borderRadius: '50%', background: color }} />
-                          <span style={{ fontSize: 10.5, fontWeight: 600, color, letterSpacing: '0.01em' }}>{label}</span>
-                        </div>
-                      )
-                    }
-                    return (
-                      <>
-                        {allWeek.length > 0 && (
-                          <>
-                            <GroupLabel color="#7A82D8" label="금주" />
-                            {allWeek.map((item, i) => 'schedule_tag' in item
-                              ? <TaskRow key={item.id} t={item as TodayTodo} i={i} len={allWeek.length} />
-                              : <AgendaRow key={item.id} st={item as SubTaskWithContext} i={i} len={allWeek.length} />
-                            )}
-                          </>
-                        )}
-                        {futureDateGroups.map(({ date, items }, gi) => {
-                          const priorHasItems = allWeek.length > 0
-                          return (
-                            <Fragment key={date}>
-                              {(priorHasItems || gi > 0) && (
-                                <div style={{ borderTop: `1px solid ${DIVIDER}`, margin: '10px 0 8px' }} />
-                              )}
-                              <GroupLabel color="#6B7A9F" label={formatFutureDate(date)} />
-                              {items.map((st, i) => <AgendaRow key={st.id} st={st} i={i} len={items.length} />)}
-                            </Fragment>
-                          )
-                        })}
-                        {allUnscheduled.length > 0 && (
-                          <>
-                            {(allWeek.length > 0 || futureDateGroups.length > 0) && (
-                              <div style={{ borderTop: `1px solid ${DIVIDER}`, margin: '10px 0 8px' }} />
-                            )}
-                            <GroupLabel color="#C87840" label="미진행" />
-                            {allUnscheduled.map((st, i) => <AgendaRow key={st.id} st={st} i={i} len={allUnscheduled.length} />)}
-                          </>
-                        )}
-                      </>
-                    )
-                  })()
-              }
-            </CardSection>
-
-          </div>
-          </div>{/* end rows wrapper */}
+            </div>
+          )}
         </div>
       </div>
 
