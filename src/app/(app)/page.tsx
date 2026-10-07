@@ -200,8 +200,8 @@ const WEEK_GRID_MIN_W = WEEK_COL_MIN * 7
 // 금주 업무 섹션 높이 — 내용 높이 기준, 공간 부족 시 최소 200까지 축소, 업무가 많아도 340에서 멈춤(열 안 스크롤)
 const WEEK_MIN_H = 200
 const WEEK_MAX_H = 340
-// 금주 업무 ↔ 하단 3박스 사이 여백 상한 — 큰 모니터에서 두 영역이 따로 떨어져 보이지 않게
-const SPACER_MAX_H = 140
+// 금주 업무 ↔ 하단 3박스 간격 = 하단 marginTop 12 + 이 값 (총 48px). 노트북에서는 이 값부터 접힌다
+const SECTION_GAP_EXTRA = 36
 
 // 홈 하단 진행중 과업 컬럼: 범주 | 프로젝트/과업 | 상태 | 마감 (노트북 폭에서 과업명 칸 확보를 위해 고정 칸 최소화)
 const BOTTOM_TASK_COLS = '56px minmax(0, 1fr) 50px 36px'
@@ -1871,9 +1871,9 @@ export default function HomePage() {
             </div>
           </section>
 
-          {/* 금주 업무 ↔ 하단 3박스 사이 여백 — 노트북에서는 0, 큰 화면에서는 SPACER_MAX_H까지만 흡수하고
-              그 이상 남는 높이는 하단 3박스 아래 페이지 여백으로 남긴다 */}
-          <div aria-hidden data-home="spacer" style={{ flex: '1 1 0', minHeight: 0, maxHeight: SPACER_MAX_H }} />
+          {/* 금주 업무 ↔ 하단 3박스 section gap — 고정 간격(늘어나지 않음). 공간이 모자라면(노트북) 금주 업무보다 먼저 접혀
+              하단 marginTop 12만 남는다. 큰 화면에서 남는 높이는 어디에도 흡수되지 않고 콘텐츠 아래 페이지 여백이 된다 */}
+          <div aria-hidden data-home="section-gap" style={{ flex: `0 100 ${SECTION_GAP_EXTRA}px`, minHeight: 0 }} />
 
           {/* ── 하단 3박스 — 퀵메모 | 진행중 과업 | 회고. 한 개의 invisible grid를 공유해 행 높이/기준선 일치 ── */}
           {/* 박스는 각 열 뒤에 까는 배경(음수 margin으로 bleed) — 행 정렬 grid는 하나로 유지 */}
