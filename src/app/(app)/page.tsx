@@ -945,6 +945,7 @@ export default function HomePage() {
   const [quickTodos,    setQuickTodos]    = useState<QuickTodo[]>([])
   const [quickAddOpen,  setQuickAddOpen]  = useState(false)
   const [quickAddTitle, setQuickAddTitle] = useState('')
+  const [weekAddDate,   setWeekAddDate]   = useState<string | null>(null)   // 금주 업무: 즉석 할 일을 추가할 요일 날짜
   const [showJournal,   setShowJournal]   = useState(false)
   const [fMemoOpen,     setFMemoOpen]     = useState<Record<string, boolean>>({})
   const [fMemoTexts,    setFMemoTexts]    = useState<Record<string, string>>({})
@@ -1014,8 +1015,9 @@ export default function HomePage() {
         sb.current.from('meetings').select('*').order('meeting_date', { ascending: false }).limit(20),
         sb.current.from('quick_memos').select('*').order('created_at', { ascending: false }).limit(100),
         sb.current.from('daily_journals').select('id, date, content, linked_task_ids, linked_meeting_ids, tags').in('date', [today, yesterday]),
-        // 프로젝트/안건에 속하지 않는 즉석 추가 할일 — quick_todos 전용 테이블 (schedule 탭과 공유)
-        sb.current.from('quick_todos').select('*').eq('target_date', today).eq('done', false).order('sort_order'),
+        // 프로젝트/안건에 속하지 않는 즉석 추가 할일 — quick_todos 전용 테이블 (schedule 탭과 공유).
+        // 금주 업무 7열이 요일별로 보여주므로 일정 탭과 같이 미완료 전체를 읽고, '오늘'은 화면에서 거른다.
+        sb.current.from('quick_todos').select('*').eq('done', false).order('sort_order'),
       ])
 
       setSubTasks((stData ?? []) as SubTaskWithContext[])
@@ -1180,15 +1182,16 @@ export default function HomePage() {
   }
 
   // 즉석 할일 (quick_todos) — 프로젝트 상세task/안건에 속하지 않는, 홈에서 바로 추가하는 가벼운 항목
-  async function addQuickTodo() {
+  async function addQuickTodo(date: string = today) {
     const title = quickAddTitle.trim()
     if (!title) return
     const { data, error } = await sb.current.from('quick_todos')
-      .insert({ title, target_date: today }).select('*').single()
+      .insert({ title, target_date: date }).select('*').single()
     if (error) { console.error('즉석 할일 추가 실패:', error.message); return }
     if (data) setQuickTodos(p => [...p, data as QuickTodo])
     setQuickAddTitle('')
     setQuickAddOpen(false)
+    setWeekAddDate(null)
   }
 
   async function toggleQuickTodo(id: string) {
@@ -1343,6 +1346,7 @@ export default function HomePage() {
   const recentMeetings = meetings.slice(0, 5)
 
   // task_todos → target_date 기준 분류 (schedule_tag는 배정 시점 스냅샷이라 자정 경과 후에도 안 바뀜 → 신뢰하지 않음)
+  const todayQuickTodos = quickTodos.filter(q => q.target_date === today)
   const todayTodos = allTaskTodos.filter(t => t.target_date ? t.target_date === today : t.schedule_tag === 'today')
   const timelineTodos = isTimelineToday ? todayTodos : allTaskTodos.filter(t => t.target_date === timelineDate)
   const meetingsForJournal = meetings.map(m => ({ id: m.id, title: m.title, meeting_date: m.meeting_date ?? undefined }))
@@ -1402,8 +1406,11 @@ export default function HomePage() {
     if (c === -2) olderOpenCount++
     if (c >= 0) weekCols[c].push({ key: `td_${t.id}`, kind: 'todo', title: t.title, meta: t.tasks?.short_name ?? t.tasks?.title ?? '', date: date!, todo: t })
   }
-  const todayCol = weekCol(today)
-  if (todayCol >= 1 && todayCol <= 5) for (const q of quickTodos) weekCols[todayCol].push({ key: `qt_${q.id}`, kind: 'quick', title: q.title, meta: '즉석 할 일', date: today, quick: q })
+  for (const q of quickTodos) {
+    const c = weekCol(q.target_date)
+    if (c === -2) olderOpenCount++
+    if (c >= 0) weekCols[c].push({ key: `qt_${q.id}`, kind: 'quick', title: q.title, meta: '즉석 할 일', date: q.target_date!, quick: q })
+  }
   for (const st of subTasks) {
     const c = weekCol(st.target_date)
     if (c === -2) olderOpenCount++
@@ -1549,20 +1556,20 @@ export default function HomePage() {
                 className="flex-1 text-[13px] rounded-lg px-2.5 py-1.5 outline-none"
                 style={{ background: 'rgba(var(--ink-rgb),0.05)', border: '1px solid rgba(var(--ink-rgb),0.09)', color: TEXT1 }}
               />
-              <button onClick={addQuickTodo} disabled={!quickAddTitle.trim()} className="text-[12px] px-3 rounded-lg"
+              <button onClick={() => addQuickTodo()} disabled={!quickAddTitle.trim()} className="text-[12px] px-3 rounded-lg"
                 style={{ background: quickAddTitle.trim() ? 'rgba(56,190,152,0.18)' : 'rgba(var(--ink-rgb),0.04)', border: `1px solid ${quickAddTitle.trim() ? 'rgba(56,190,152,0.35)' : 'rgba(var(--ink-rgb),0.07)'}`, color: quickAddTitle.trim() ? '#38BE98' : TEXT3 }}>
                 추가
               </button>
             </div>
           )}
           {loading ? <div className="space-y-2">{skel(3)}</div>
-            : todayTodos.length === 0 && quickTodos.length === 0
+            : todayTodos.length === 0 && todayQuickTodos.length === 0
               ? <p className="text-[13px] py-1" style={{ color: TEXT3 }}>오늘 할 일이 없어요</p>
               : <>
                   {todayTodos.map((t, i) => {
                     const done = doneTasks.includes(t.id)
                     return (
-                      <div key={t.id} className="flex items-center gap-3 py-2.5" style={rd(i, todayTodos.length + quickTodos.length)}>
+                      <div key={t.id} className="flex items-center gap-3 py-2.5" style={rd(i, todayTodos.length + todayQuickTodos.length)}>
                         <button onClick={() => toggleTask(t.id)} className="flex-shrink-0 rounded-full border-2 flex items-center justify-center"
                           style={{ width: 18, height: 18, borderColor: done ? '#38BE98' : 'rgba(var(--ink-rgb),0.2)', background: done ? '#38BE98' : 'transparent' }}>
                           {done && <svg width="7" height="7" viewBox="0 0 8 8" fill="none"><path d="M1.5 4L3 5.5L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
@@ -1575,10 +1582,10 @@ export default function HomePage() {
                       </div>
                     )
                   })}
-                  {quickTodos.map((t, i) => {
+                  {todayQuickTodos.map((t, i) => {
                     const done = doneQuick.includes(t.id)
                     return (
-                      <div key={t.id} className="flex items-center gap-3 py-2.5" style={rd(todayTodos.length + i, todayTodos.length + quickTodos.length)}>
+                      <div key={t.id} className="flex items-center gap-3 py-2.5" style={rd(todayTodos.length + i, todayTodos.length + todayQuickTodos.length)}>
                         <button onClick={() => toggleQuickTodo(t.id)} className="flex-shrink-0 rounded-full border-2 flex items-center justify-center"
                           style={{ width: 18, height: 18, borderColor: done ? '#38BE98' : 'rgba(var(--ink-rgb),0.2)', background: done ? '#38BE98' : 'transparent' }}>
                           {done && <svg width="7" height="7" viewBox="0 0 8 8" fill="none"><path d="M1.5 4L3 5.5L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
@@ -1713,7 +1720,7 @@ export default function HomePage() {
               {!loading && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 8 }}>
                   <KpiChip dot="#5B7EC4" label={`오늘 일정 ${todayMeetings.length + (isTimelineToday ? googleEvents.length : 0)}건`} />
-                  <KpiChip dot="#7878D8" label={`오늘 업무 ${todayTodos.length + quickTodos.length}건`} />
+                  <KpiChip dot="#7878D8" label={`오늘 업무 ${todayTodos.length + todayQuickTodos.length}건`} />
                   <KpiChip dot="#38BE98" label={`진행중 과업 ${subTasks.length}건`} />
                   <KpiChip dot={todayJournal ? '#38BE98' : '#C86868'} label={todayJournal ? '회고 작성완료' : '회고 미작성'} onClick={() => setShowJournal(true)} />
                 </div>
@@ -1785,9 +1792,9 @@ export default function HomePage() {
                   </button>
                 )}
               </div>
-              {weekOffset === 0 && <button type="button" onClick={() => setQuickAddOpen(v => !v)}
-                style={{ fontSize: 12, color: quickAddOpen ? TEXT2 : TEXT3, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                {quickAddOpen ? '취소' : '+ 오늘 할 일'}
+              {weekOffset === 0 && <button type="button" onClick={() => { setQuickAddTitle(''); setWeekAddDate(d => d === today ? null : today) }}
+                style={{ fontSize: 12, color: weekAddDate === today ? TEXT2 : TEXT3, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                {weekAddDate === today ? '취소' : '+ 오늘 할 일'}
               </button>}
             </div>
             <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: '0.85fr repeat(5, minmax(0, 1fr)) 0.85fr', gridTemplateRows: 'auto minmax(0, 1fr)' }}>
@@ -1797,7 +1804,7 @@ export default function HomePage() {
                 const isTodayCol = date === today
                 const isPast = !!date && date < today
                 return (
-                  <div key={`h${ci}`} data-week-col={ci} style={{ gridRow: 1, gridColumn: ci + 1, position: 'relative', display: 'flex', alignItems: 'baseline', gap: 6, height: 34, padding: '0 12px', borderBottom: `1px solid ${DIVIDER}`, borderRight: ci === 0 ? '1px solid rgba(var(--ink-rgb),0.06)' : undefined, borderLeft: ci === 6 ? '1px solid rgba(var(--ink-rgb),0.06)' : undefined, paddingTop: 9 }}>
+                  <div key={`h${ci}`} data-week-col={ci} className="group" style={{ gridRow: 1, gridColumn: ci + 1, position: 'relative', display: 'flex', alignItems: 'baseline', gap: 6, height: 34, padding: '0 12px', borderBottom: `1px solid ${DIVIDER}`, borderRight: ci === 0 ? '1px solid rgba(var(--ink-rgb),0.06)' : undefined, borderLeft: ci === 6 ? '1px solid rgba(var(--ink-rgb),0.06)' : undefined, paddingTop: 9 }}>
                     {secondary ? (
                       <span style={{ fontSize: 12, fontWeight: 500, color: TEXT3 }}>{ci === 0 ? '직전주 미완료' : '다음주로 연기'}</span>
                     ) : (
@@ -1808,20 +1815,26 @@ export default function HomePage() {
                       </>
                     )}
                     {items.length > 0 && <span style={{ marginLeft: 'auto', fontSize: 11, color: TEXT3, opacity: 0.8, fontVariantNumeric: 'tabular-nums' }}>{items.length}</span>}
+                    {date && (
+                      <button type="button" aria-label={`${shortDate(date)}에 할 일 추가`} title={`${shortDate(date)}에 할 일 추가`}
+                        onClick={() => { setQuickAddTitle(''); setWeekAddDate(d => d === date ? null : date) }}
+                        className={weekAddDate === date ? '' : 'opacity-0 group-hover:opacity-100'}
+                        style={{ marginLeft: items.length > 0 ? 4 : 'auto', alignSelf: 'center', marginTop: -9, width: 18, height: 18, borderRadius: 5, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, lineHeight: 1, color: TEXT3, background: weekAddDate === date ? 'rgba(var(--ink-rgb),0.06)' : 'transparent', border: 'none', cursor: 'pointer', padding: 0, transition: 'opacity 120ms ease' }}>+</button>
+                    )}
                     {isTodayCol && <div style={{ position: 'absolute', left: 12, right: 12, bottom: -1, height: 2, borderRadius: 1, background: ACCENT }} />}
                   </div>
                 )
               })}
               {weekCols.map((items, ci) => {
                 const secondary = ci === 0 || ci === 6
-                const isTodayCol = !secondary && weekDays[ci - 1] === today
+                const colDate = secondary ? null : weekDays[ci - 1]
                 return (
                   <div key={`b${ci}`} data-week-body={ci} className="scrollbar-hide" style={{ gridRow: 2, gridColumn: ci + 1, minHeight: 0, overflowY: 'auto', padding: '6px 12px 8px', borderRight: ci === 0 ? '1px solid rgba(var(--ink-rgb),0.06)' : undefined, borderLeft: ci === 6 ? '1px solid rgba(var(--ink-rgb),0.06)' : undefined }}>
-                    {isTodayCol && quickAddOpen && (
+                    {colDate && weekAddDate === colDate && (
                       <input autoFocus value={quickAddTitle}
                         onChange={e => setQuickAddTitle(e.target.value)}
-                        onKeyDown={e => { if (e.key === 'Enter') addQuickTodo(); if (e.key === 'Escape') setQuickAddOpen(false) }}
-                        placeholder="오늘 할 일 (Enter)"
+                        onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) addQuickTodo(colDate); if (e.key === 'Escape') setWeekAddDate(null) }}
+                        placeholder={colDate === today ? '오늘 할 일 (Enter)' : `${shortDate(colDate)} 할 일 (Enter)`}
                         style={{ width: '100%', fontSize: 12.5, background: 'transparent', border: `1px solid ${DIVIDER}`, borderRadius: 6, padding: '5px 8px', color: TEXT1, outline: 'none', margin: '2px 0 4px' }} />
                     )}
                     {loading ? skel(2)
