@@ -201,18 +201,20 @@ const WEEK_GRID_MIN_W = WEEK_COL_MIN * 7
 // 홈 하단 진행중 과업 컬럼: 범주 | 프로젝트/과업 | 상태 | 마감 (노트북 폭에서 과업명 칸 확보를 위해 고정 칸 최소화)
 const BOTTOM_TASK_COLS = '56px minmax(0, 1fr) 50px 36px'
 // 하단 박스 안쪽 여백 (오늘의 타임라인 카드와 같은 cardBase 박스)
-const BOX_PAD_X = 22, BOX_PAD_Y = 18
-const BOX_TITLE_H = 46   // 박스 제목 행 높이 (제목 위아래 여백 포함)
+const BOX_PAD_X = 22, BOX_PAD_Y = 14
+const BOX_FIRST_ROW_H = 36   // 퀵메모 입력 ↔ 과업 헤더 ↔ 회고 헤더
+const BOTTOM_ROW_H = 32      // 데이터 행
+const BOX_TITLE_H = 40   // 박스 제목 행 높이 (제목 위아래 여백 포함)
 
 // ── Timeline constants ─────────────────────────────────────────────────────
 const H_START = 9, H_END = 21
 const TL_CARD_G    = 10
 const TL_TIME_H    = 16
-const TL_LANE_H    = 40
-const TL_LANE_GAP  = 5
-const TL_LANE1_TOP = 22                                      // 구글캘린더 lane top
+const TL_LANE_H    = 36
+const TL_LANE_GAP  = 4
+const TL_LANE1_TOP = 20                                      // 구글캘린더 lane top
 const TL_LANE2_TOP = TL_LANE1_TOP + TL_LANE_H + TL_LANE_GAP  // 일정(회의)+업무추가 lane top
-const TL_CARD_H    = TL_LANE2_TOP + TL_LANE_H + 10       // total height ≈ 117
+const TL_CARD_H    = TL_LANE2_TOP + TL_LANE_H + 8        // total height ≈ 104 (1366×768 한 화면 예산)
 
 // Single-lane vivid event palette
 const EV_COLS = [
@@ -546,7 +548,7 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
 
   return (
     <div style={{ ...cardBase(), marginBottom: 10, overflow: 'hidden', transition: 'none', flexShrink: 0 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 22px 0' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 22px 0' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <span style={{ display: 'flex', alignItems: 'center' }}><Clock size={14} strokeWidth={2} style={{ color: '#E05252' }} /></span>
           <span style={{ fontSize: 13, fontWeight: 600, color: TEXT1, letterSpacing: '-0.01em' }}>오늘의 타임라인</span>
@@ -609,7 +611,7 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
       </div>
 
       <div ref={containerRef}
-        style={{ position: 'relative', margin: '8px 22px 14px', height: TL_CARD_H }}
+        style={{ position: 'relative', margin: '6px 22px 11px', height: TL_CARD_H }}
         onDragOver={onContainerDragOver}
         onDragLeave={onContainerDragLeave}
         onDrop={onContainerDrop}
@@ -960,6 +962,10 @@ export default function HomePage() {
   const [memoViewId,    setMemoViewId]    = useState<string | null>(null)
   const [weekOffset,    setWeekOffset]    = useState(0)   // 금주 업무 주 이동 (0 = 이번 주)
   const [weekPickerOpen, setWeekPickerOpen] = useState(false)
+  // 금주 업무 열당 노출 개수 — 화면 높이에 따라 (초과분은 '+N건 더'로 펼침)
+  const [weekCap,       setWeekCap]       = useState(3)
+  const [weekExpanded,  setWeekExpanded]  = useState<Record<number, boolean>>({})
+  const weekScrollRef = useRef<HTMLDivElement>(null)
   const [hoveredStId,   setHoveredStId]   = useState<string | null>(null)
   const [datePickerStId,setDatePickerStId] = useState<string | null>(null)
   // 초기값을 epoch(고정값)로 둬서 SSR과 클라이언트 첫 렌더가 항상 일치하게 함 —
@@ -988,6 +994,19 @@ export default function HomePage() {
   const [jSaving,       setJSaving]       = useState(false)
   const [jMsg,          setJMsg]          = useState('')
   const [loading,       setLoading]       = useState(true)
+  // 열 본문 실제 높이로 노출 개수 결정 — 항목 1개 ≈ 52px(1줄 44 · 2줄 62의 중간값), '+N건 더' 줄 20px 확보
+  useEffect(() => {
+    const el = weekScrollRef.current
+    if (!el) return
+    const update = () => {
+      const bodyH = el.clientHeight - 30 - 8   // 요일 헤더 행 + 본문 상하 여백
+      setWeekCap(Math.min(8, Math.max(2, Math.floor((bodyH - 20) / 52))))
+    }
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [loading])   // 로딩 후 금주 업무 영역이 다시 그려질 때 재연결
   const [gcalPicker,    setGcalPicker]    = useState<GoogleCalendarEvent | null>(null)
   const sb = useRef(createClient())
   const { org } = useOrgData()
@@ -1452,7 +1471,7 @@ export default function HomePage() {
       </div>
     )
     const rowStyle: React.CSSProperties = { marginLeft: -6, marginRight: -6, paddingLeft: 6, paddingRight: 6, borderRadius: 6 }
-    const rowInner: React.CSSProperties = { display: 'flex', alignItems: 'flex-start', gap: 8, padding: '6px 0' }
+    const rowInner: React.CSSProperties = { display: 'flex', alignItems: 'flex-start', gap: 8, padding: '5px 0' }
     const hoverBtn: React.CSSProperties = { fontSize: 11, color: TEXT3, background: 'none', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0, whiteSpace: 'nowrap' }
 
     if (item.kind === 'fixed' && item.fixed) {
@@ -1718,30 +1737,31 @@ export default function HomePage() {
 
         <div className="flex-1 min-h-0 flex flex-col overflow-y-auto scrollbar-hide" style={{ paddingBottom: 8 }}>
 
-          {/* Hero — chips left, search right (aligned to same height) */}
-          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 20, marginBottom: 14, flexShrink: 0 }}>
-            <div>
-              <h1 style={{ fontSize: 24, fontWeight: 700, color: TEXT1, letterSpacing: '-0.03em', lineHeight: 1.2 }}>안녕하세요, 진일님 👋</h1>
-              <p style={{ fontSize: 13, color: TEXT2, marginTop: 4, letterSpacing: '-0.01em' }}>오늘도 집중해서 멋진 하루 보내세요.</p>
+          {/* Hero — 2행 compact: [인사말 · 부제 | 바로가기] / [상태 칩 | 검색] (1366×768 한 화면 예산) */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', alignItems: 'center', columnGap: 20, rowGap: 6, marginBottom: 10, flexShrink: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, minWidth: 0 }}>
+              <h1 style={{ fontSize: 21, fontWeight: 700, color: TEXT1, letterSpacing: '-0.03em', lineHeight: 1.2, whiteSpace: 'nowrap' }}>안녕하세요, 진일님 👋</h1>
+              <p style={{ fontSize: 12.5, color: TEXT3, letterSpacing: '-0.01em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>오늘도 집중해서 멋진 하루 보내세요.</p>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6, position: 'relative', zIndex: 2 }}>
+              <ShortcutIcons />
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, minHeight: 24 }}>
               {!loading && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 8 }}>
+                <>
                   <KpiChip dot="#5B7EC4" label={`오늘 일정 ${todayMeetings.length + (isTimelineToday ? googleEvents.length : 0)}건`} />
                   <KpiChip dot="#7878D8" label={`오늘 업무 ${todayTodos.length + todayQuickTodos.length}건`} />
                   <KpiChip dot="#38BE98" label={`진행중 과업 ${subTasks.length}건`} />
                   <KpiChip dot={todayJournal ? '#38BE98' : '#C86868'} label={todayJournal ? '회고 작성완료' : '회고 미작성'} onClick={() => setShowJournal(true)} />
-                </div>
+                </>
               )}
             </div>
-            {/* 바로가기 + 검색바 — flex-end로 칩 행 높이에 맞춤 */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8, flexShrink: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, position: 'relative', zIndex: 2 }}>
-                <ShortcutIcons />
-              </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
               <div
                 onClick={() => window.dispatchEvent(new Event('open-global-search'))}
                 onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = 'rgba(var(--ink-rgb),0.14)'; el.style.background = 'rgba(var(--ink-rgb),0.07)' }}
                 onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = 'rgba(var(--ink-rgb),0.08)'; el.style.background = 'rgba(var(--ink-rgb),0.04)' }}
-                style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8, width: 380, height: 30, borderRadius: 9, background: 'rgba(var(--ink-rgb),0.04)', border: '1px solid rgba(var(--ink-rgb),0.08)', padding: '0 11px', cursor: 'pointer', transition: 'all 150ms ease' }}
+                style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8, width: 340, height: 30, borderRadius: 9, background: 'rgba(var(--ink-rgb),0.04)', border: '1px solid rgba(var(--ink-rgb),0.08)', padding: '0 11px', cursor: 'pointer', transition: 'all 150ms ease' }}
               >
                 <Search size={12} style={{ color: 'rgba(var(--ink-rgb),0.28)', flexShrink: 0 }} />
                 <span style={{ fontSize: 12, color: 'rgba(var(--ink-rgb),0.26)', flex: 1 }}>검색 (과업, 안건, 회의록 등)</span>
@@ -1765,8 +1785,8 @@ export default function HomePage() {
           />
 
           {/* ── 금주 업무 — 하나의 주간 작업면을 7열로 나눈 primary 영역 ── */}
-          <section data-home="week" style={{ flex: 1, minHeight: 320, display: 'flex', flexDirection: 'column', marginTop: 22 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, padding: '0 12px', flexShrink: 0 }}>
+          <section data-home="week" style={{ flex: 1, minHeight: 200, display: 'flex', flexDirection: 'column', marginTop: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6, padding: '0 12px', flexShrink: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <h2 style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 15, fontWeight: 600, color: TEXT1, letterSpacing: '-0.02em' }}>
                   <CalendarCheck size={15} strokeWidth={2} style={{ color: '#5E8FBF' }} />금주 업무
@@ -1804,7 +1824,7 @@ export default function HomePage() {
               </button>}
             </div>
             {/* 폭이 모자라면 열을 찌그러뜨리지 않고 이 영역만 가로 스크롤 (섹션 헤더는 스크롤 밖에 고정) */}
-            <div data-week-scroll style={{ flex: 1, minHeight: 0, minWidth: 0, width: '100%', overflowX: 'auto', overflowY: 'hidden', scrollbarWidth: 'thin', scrollbarColor: 'rgba(var(--ink-rgb),0.18) transparent' }}>
+            <div data-week-scroll ref={weekScrollRef} style={{ flex: 1, minHeight: 0, minWidth: 0, width: '100%', overflowX: 'auto', overflowY: 'hidden', scrollbarWidth: 'thin', scrollbarColor: 'rgba(var(--ink-rgb),0.18) transparent' }}>
             <div style={{ height: '100%', minWidth: WEEK_GRID_MIN_W, display: 'grid', gridTemplateColumns: WEEK_GRID_COLS, gridTemplateRows: 'auto minmax(0, 1fr)' }}>
               {weekCols.map((items, ci) => {
                 const secondary = ci === 0 || ci === 6
@@ -1812,14 +1832,14 @@ export default function HomePage() {
                 const isTodayCol = date === today
                 const isPast = !!date && date < today
                 return (
-                  <div key={`h${ci}`} data-week-col={ci} className="group" style={{ gridRow: 1, gridColumn: ci + 1, position: 'relative', display: 'flex', alignItems: 'baseline', gap: 6, height: 34, padding: '0 12px', borderBottom: `1px solid ${DIVIDER}`, borderRight: ci === 0 ? '1px solid rgba(var(--ink-rgb),0.06)' : undefined, borderLeft: ci === 6 ? '1px solid rgba(var(--ink-rgb),0.06)' : undefined, paddingTop: 9 }}>
+                  <div key={`h${ci}`} data-week-col={ci} className="group" style={{ gridRow: 1, gridColumn: ci + 1, position: 'relative', display: 'flex', alignItems: 'baseline', gap: 6, height: 30, padding: '0 12px', borderBottom: `1px solid ${DIVIDER}`, borderRight: ci === 0 ? '1px solid rgba(var(--ink-rgb),0.06)' : undefined, borderLeft: ci === 6 ? '1px solid rgba(var(--ink-rgb),0.06)' : undefined, paddingTop: 7 }}>
                     {secondary ? (
                       <span style={{ fontSize: 12, fontWeight: 500, color: TEXT3 }}>{ci === 0 ? '직전주 미완료' : '다음주로 연기'}</span>
                     ) : (
                       <>
                         <span style={{ fontSize: 13.5, fontWeight: 500, color: isPast ? TEXT3 : TEXT1 }}>{'월화수목금'[ci - 1]}</span>
                         <span style={{ fontSize: 11.5, color: TEXT3, fontVariantNumeric: 'tabular-nums' }}>{shortDate(date!)}</span>
-                        {isTodayCol && <span style={{ fontSize: 10.5, fontWeight: 500, color: 'var(--accent-tint-text)', background: 'rgba(var(--accent-tint-rgb),0.12)', padding: '1px 6px', borderRadius: 4, alignSelf: 'center', marginTop: -9 }}>오늘</span>}
+                        {isTodayCol && <span style={{ fontSize: 10.5, fontWeight: 500, color: 'var(--accent-tint-text)', background: 'rgba(var(--accent-tint-rgb),0.12)', padding: '1px 6px', borderRadius: 4, alignSelf: 'center', marginTop: -7 }}>오늘</span>}
                       </>
                     )}
                     {items.length > 0 && <span style={{ marginLeft: 'auto', fontSize: 11, color: TEXT3, opacity: 0.8, fontVariantNumeric: 'tabular-nums' }}>{items.length}</span>}
@@ -1827,7 +1847,7 @@ export default function HomePage() {
                       <button type="button" aria-label={`${shortDate(date)}에 할 일 추가`} title={`${shortDate(date)}에 할 일 추가`}
                         onClick={() => { setQuickAddTitle(''); setWeekAddDate(d => d === date ? null : date) }}
                         className={weekAddDate === date ? '' : 'opacity-0 group-hover:opacity-100'}
-                        style={{ marginLeft: items.length > 0 ? 4 : 'auto', alignSelf: 'center', marginTop: -9, width: 18, height: 18, borderRadius: 5, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, lineHeight: 1, color: TEXT3, background: weekAddDate === date ? 'rgba(var(--ink-rgb),0.06)' : 'transparent', border: 'none', cursor: 'pointer', padding: 0, transition: 'opacity 120ms ease' }}>+</button>
+                        style={{ marginLeft: items.length > 0 ? 4 : 'auto', alignSelf: 'center', marginTop: -7, width: 18, height: 18, borderRadius: 5, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, lineHeight: 1, color: TEXT3, background: weekAddDate === date ? 'rgba(var(--ink-rgb),0.06)' : 'transparent', border: 'none', cursor: 'pointer', padding: 0, transition: 'opacity 120ms ease' }}>+</button>
                     )}
                     {isTodayCol && <div style={{ position: 'absolute', left: 12, right: 12, bottom: -1, height: 2, borderRadius: 1, background: ACCENT }} />}
                   </div>
@@ -1837,7 +1857,7 @@ export default function HomePage() {
                 const secondary = ci === 0 || ci === 6
                 const colDate = secondary ? null : weekDays[ci - 1]
                 return (
-                  <div key={`b${ci}`} data-week-body={ci} className="scrollbar-hide" style={{ gridRow: 2, gridColumn: ci + 1, minHeight: 0, overflowY: 'auto', padding: '6px 12px 8px', borderRight: ci === 0 ? '1px solid rgba(var(--ink-rgb),0.06)' : undefined, borderLeft: ci === 6 ? '1px solid rgba(var(--ink-rgb),0.06)' : undefined }}>
+                  <div key={`b${ci}`} data-week-body={ci} className="scrollbar-hide" style={{ gridRow: 2, gridColumn: ci + 1, minHeight: 0, overflowY: 'auto', padding: '4px 12px 4px', borderRight: ci === 0 ? '1px solid rgba(var(--ink-rgb),0.06)' : undefined, borderLeft: ci === 6 ? '1px solid rgba(var(--ink-rgb),0.06)' : undefined }}>
                     {colDate && weekAddDate === colDate && (
                       <input autoFocus value={quickAddTitle}
                         onChange={e => setQuickAddTitle(e.target.value)}
@@ -1848,9 +1868,18 @@ export default function HomePage() {
                     {loading ? skel(2)
                       : items.length === 0 && secondary
                         ? <p style={{ fontSize: 11.5, color: TEXT3, opacity: 0.6, padding: '6px 0' }}>없음</p>
-                        : items.map(item => renderWeekItem(item, secondary))}
-                    {ci === 0 && !loading && olderOpenCount > 0 && (
-                      <p style={{ fontSize: 11.5, color: TEXT3, opacity: 0.75, padding: '8px 0 2px' }}>그 이전 미완료 {olderOpenCount}건</p>
+                        : (weekExpanded[ci] ? items : items.slice(0, weekCap)).map(item => renderWeekItem(item, secondary))}
+                    {/* 초과분 '+N건 더' — 직전주 열은 '이전 미완료 N건'도 같은 줄에 (세로 공간 절약) */}
+                    {!loading && (items.length > weekCap || (ci === 0 && olderOpenCount > 0)) && (
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, padding: '3px 0 2px 22px', fontSize: 11.5, color: TEXT3, whiteSpace: 'nowrap' }}>
+                        {items.length > weekCap && (
+                          <button type="button" onClick={() => setWeekExpanded(p => ({ ...p, [ci]: !p[ci] }))}
+                            style={{ fontSize: 11.5, color: TEXT3, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                            {weekExpanded[ci] ? '접기' : `+ ${items.length - weekCap}건 더`}
+                          </button>
+                        )}
+                        {ci === 0 && olderOpenCount > 0 && <span title="지난주보다 이전 날짜의 미완료" style={{ opacity: 0.75 }}>이전 {olderOpenCount}건</span>}
+                      </div>
                     )}
                   </div>
                 )
@@ -1862,34 +1891,34 @@ export default function HomePage() {
           {/* ── 하단 50:50 — 퀵메모 | 진행중 과업. 한 개의 invisible grid를 공유해 행 높이/기준선 일치 ── */}
           {/* 박스는 각 열 뒤에 까는 배경(음수 margin으로 bleed) — 행 정렬 grid는 하나로 유지 */}
           <section data-home="bottom" style={{
-            flexShrink: 0, marginTop: 20, padding: `${BOX_PAD_Y}px ${BOX_PAD_X}px`, display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', columnGap: BOX_PAD_X * 2 + 10,
-            gridTemplateRows: `${BOX_TITLE_H}px 40px repeat(${BOTTOM_ROWS}, 36px) auto`,
+            flexShrink: 0, marginTop: 12, padding: `${BOX_PAD_Y}px ${BOX_PAD_X}px`, display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', columnGap: BOX_PAD_X * 2 + 10,
+            gridTemplateRows: `${BOX_TITLE_H}px ${BOX_FIRST_ROW_H}px repeat(${BOTTOM_ROWS}, ${BOTTOM_ROW_H}px) auto`,
           }}>
             {[1, 2, 3].map(col => (
               <div key={`box${col}`} aria-hidden style={{ ...cardBase(), transition: 'none', gridColumn: col, gridRow: '1 / -1', margin: `-${BOX_PAD_Y}px -${BOX_PAD_X}px` }} />
             ))}
             {/* row 1: section title — 오늘의 타임라인 헤더와 같은 스타일 */}
             {([[1, '퀵메모', <StickyNote key="i" size={15} strokeWidth={2} style={{ color: '#70B8C4' }} />], [2, '진행중 과업', <Layers key="i" size={15} strokeWidth={2} style={{ color: '#5B7EC4' }} />], [3, '회고', <NotebookPen key="i" size={15} strokeWidth={2} style={{ color: '#C8A050' }} />]] as const).map(([col, label, icon]) => (
-              <h2 key={label} style={{ gridRow: 1, gridColumn: col, position: 'relative', display: 'flex', alignItems: 'center', gap: 10, fontSize: 15, fontWeight: 600, color: TEXT1, letterSpacing: '-0.02em', height: BOX_TITLE_H, paddingBottom: 14, margin: 0 }}>
+              <h2 key={label} style={{ gridRow: 1, gridColumn: col, position: 'relative', display: 'flex', alignItems: 'center', gap: 10, fontSize: 15, fontWeight: 600, color: TEXT1, letterSpacing: '-0.02em', height: BOX_TITLE_H, paddingBottom: 10, margin: 0 }}>
                 <span style={{ display: 'flex', alignItems: 'center' }}>{icon}</span>{label}
               </h2>
             ))}
 
             {/* row 2: 같은 첫 row — 메모 입력 trigger(기존 빠른 메모 팝업) ↔ 테이블 헤더 */}
             <button type="button" data-bottom="memo-input" onClick={() => openQuickMemo()}
-              style={{ position: 'relative', gridRow: 2, gridColumn: 1, height: 40, display: 'flex', alignItems: 'center', gap: 8, padding: '0 12px', borderRadius: 8, border: '1px solid rgba(var(--ink-rgb),0.10)', background: 'rgba(var(--ink-rgb),0.025)', cursor: 'text', textAlign: 'left', transition: 'border-color 150ms ease' }}
+              style={{ position: 'relative', gridRow: 2, gridColumn: 1, height: BOX_FIRST_ROW_H, display: 'flex', alignItems: 'center', gap: 8, padding: '0 12px', borderRadius: 8, border: '1px solid rgba(var(--ink-rgb),0.10)', background: 'rgba(var(--ink-rgb),0.025)', cursor: 'text', textAlign: 'left', transition: 'border-color 150ms ease' }}
               onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(var(--ink-rgb),0.18)' }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(var(--ink-rgb),0.10)' }}>
               <span style={{ flex: 1, fontSize: 13, color: TEXT3 }}>메모를 빠르게 남겨보세요</span>
               <kbd style={{ fontSize: 10.5, color: TEXT3, opacity: 0.8, fontFamily: 'inherit' }}>Ctrl+3</kbd>
             </button>
-            <div data-bottom="journal-header" style={{ position: 'relative', gridRow: 2, gridColumn: 3, height: 40, display: 'flex', alignItems: 'center', gap: 10, padding: '0 6px', borderBottom: `1px solid ${DIVIDER}` }}>
+            <div data-bottom="journal-header" style={{ position: 'relative', gridRow: 2, gridColumn: 3, height: BOX_FIRST_ROW_H, display: 'flex', alignItems: 'center', gap: 10, padding: '0 6px', borderBottom: `1px solid ${DIVIDER}` }}>
               <span style={{ fontSize: 12, fontWeight: 500, color: TEXT2, fontVariantNumeric: 'tabular-nums' }}>{fmtDate(today)}</span>
               <span style={{ fontSize: 11.5, color: todayJournal ? '#38BE98' : TEXT3 }}>{todayJournal ? '작성됨' : '미작성'}</span>
               <button type="button" onClick={async () => { if (jEdits) await saveInlineJournal(); setShowJournal(true) }}
                 style={{ marginLeft: 'auto', fontSize: 12, color: TEXT3, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>전체 편집 ↗</button>
             </div>
-            <div data-bottom="task-header" style={{ position: 'relative', gridRow: 2, gridColumn: 2, height: 40, display: 'grid', gridTemplateColumns: BOTTOM_TASK_COLS, alignItems: 'center', columnGap: 10, padding: '0 6px', borderBottom: `1px solid ${DIVIDER}` }}>
+            <div data-bottom="task-header" style={{ position: 'relative', gridRow: 2, gridColumn: 2, height: BOX_FIRST_ROW_H, display: 'grid', gridTemplateColumns: BOTTOM_TASK_COLS, alignItems: 'center', columnGap: 10, padding: '0 6px', borderBottom: `1px solid ${DIVIDER}` }}>
               {([['범주', '범주'], ['프로젝트 / 과업', '상세TASK'], ['상태', null], ['마감', '마감']] as const).map(([label, sortKey]) => (
                 <button key={label} type="button" disabled={!sortKey} onClick={() => sortKey && toggleSort(sortKey)}
                   style={{ fontSize: 12, fontWeight: 500, color: stSort?.col === sortKey ? TEXT2 : TEXT3, background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: sortKey ? 'pointer' : 'default', whiteSpace: 'nowrap' }}>
@@ -1902,8 +1931,8 @@ export default function HomePage() {
             {Array.from({ length: BOTTOM_ROWS }, (_, i) => {
               const memo = bottomMemos[i]
               const st = bottomTasks[i]
-              const cellBase: React.CSSProperties = { position: 'relative', gridRow: 3 + i, height: 36, borderBottom: `1px solid ${DIVIDER}` }
-              const emptyCell: React.CSSProperties = { gridRow: 3 + i, height: 36 }
+              const cellBase: React.CSSProperties = { position: 'relative', gridRow: 3 + i, height: BOTTOM_ROW_H, borderBottom: `1px solid ${DIVIDER}` }
+              const emptyCell: React.CSSProperties = { gridRow: 3 + i, height: BOTTOM_ROW_H }
               const memoTag = memo ? (memo.tag[0] ?? '기타') : ''
               const overdue = !!st && !!(st.target_date ?? st.due_date) && (st.target_date ?? st.due_date)! < today
               return (
@@ -1944,7 +1973,7 @@ export default function HomePage() {
               {(() => {
                 const parsed = parseSections(todayJournal?.content ?? '')
                 return SECTION_KEYS.map(k => (
-                  <label key={k} style={{ height: 36, borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 12, padding: '0 6px', cursor: 'text' }}>
+                  <label key={k} style={{ height: BOTTOM_ROW_H, borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 12, padding: '0 6px', cursor: 'text' }}>
                     <span style={{ fontSize: 11.5, color: TEXT3, width: 64, flexShrink: 0, whiteSpace: 'nowrap' }}>{SECTION_META[k].label}</span>
                     <textarea value={jEdits?.[k] ?? parsed[k]} rows={1} disabled={loading}
                       onChange={e => setJEdits(p => ({ ...(p ?? {}), [k]: e.target.value }))}
@@ -1958,13 +1987,13 @@ export default function HomePage() {
             </div>
 
             {/* last row: 전체 보기 */}
-            <Link href="/memos" style={{ position: 'relative', gridRow: 3 + BOTTOM_ROWS, gridColumn: 1, fontSize: 12, color: TEXT3, textDecoration: 'none', paddingTop: 10, justifySelf: 'start' }}>
+            <Link href="/memos" style={{ position: 'relative', gridRow: 3 + BOTTOM_ROWS, gridColumn: 1, fontSize: 12, color: TEXT3, textDecoration: 'none', paddingTop: 8, justifySelf: 'start' }}>
               전체 보기 →{memos.length > BOTTOM_ROWS ? <span style={{ marginLeft: 6, opacity: 0.7 }}>{memos.length}건</span> : null}
             </Link>
-            <Link href="/project" style={{ position: 'relative', gridRow: 3 + BOTTOM_ROWS, gridColumn: 2, fontSize: 12, color: TEXT3, textDecoration: 'none', paddingTop: 10, justifySelf: 'start' }}>
+            <Link href="/project" style={{ position: 'relative', gridRow: 3 + BOTTOM_ROWS, gridColumn: 2, fontSize: 12, color: TEXT3, textDecoration: 'none', paddingTop: 8, justifySelf: 'start' }}>
               전체 보기 →{subTasks.length > BOTTOM_ROWS ? <span style={{ marginLeft: 6, opacity: 0.7 }}>{subTasks.length}건</span> : null}
             </Link>
-            <div style={{ position: 'relative', gridRow: 3 + BOTTOM_ROWS, gridColumn: 3, display: 'flex', alignItems: 'center', gap: 10, paddingTop: 10 }}>
+            <div style={{ position: 'relative', gridRow: 3 + BOTTOM_ROWS, gridColumn: 3, display: 'flex', alignItems: 'center', gap: 10, paddingTop: 8 }}>
               <span style={{ fontSize: 12, color: jMsg.startsWith('저장 실패') ? '#C86868' : jMsg ? '#38BE98' : TEXT3, flex: 1 }}>
                 {jMsg || (jEdits ? '수정됨 · Ctrl+Enter 저장' : 'Ctrl+Enter 저장')}
               </span>
