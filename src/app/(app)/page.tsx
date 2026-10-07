@@ -195,7 +195,8 @@ function CardSection({
 // 홈 하단 진행중 과업 컬럼: 범주 | 프로젝트/과업 | 상태 | 마감
 const BOTTOM_TASK_COLS = '76px minmax(0, 1fr) 60px 44px'
 // 하단 박스 안쪽 여백 (오늘의 타임라인 카드와 같은 cardBase 박스)
-const BOX_PAD_X = 22, BOX_PAD_Y = 14
+const BOX_PAD_X = 22, BOX_PAD_Y = 18
+const BOX_TITLE_H = 46   // 박스 제목 행 높이 (제목 위아래 여백 포함)
 
 // ── Timeline constants ─────────────────────────────────────────────────────
 const H_START = 9, H_END = 21
@@ -867,6 +868,7 @@ export default function HomePage() {
   const [fMemoSaving,   setFMemoSaving]   = useState<Record<string, boolean>>({})
   const [fMemoSaved,    setFMemoSaved]    = useState<Record<string, boolean>>({})
   const [memoViewId,    setMemoViewId]    = useState<string | null>(null)
+  const [weekOffset,    setWeekOffset]    = useState(0)   // 금주 업무 주 이동 (0 = 이번 주)
   const [hoveredStId,   setHoveredStId]   = useState<string | null>(null)
   const [datePickerStId,setDatePickerStId] = useState<string | null>(null)
   // 초기값을 epoch(고정값)로 둬서 SSR과 클라이언트 첫 렌더가 항상 일치하게 함 —
@@ -1242,7 +1244,7 @@ export default function HomePage() {
   // 새 조회/상태 없음 — 이미 로드한 task_todos / agenda_sub_tasks / quick_todos / 고정회의를
   // 날짜(target_date)로만 재분류한다. 직전주 미완료 = 지난주 월~일 날짜의 미완료(그 이전은 건수만),
   // 다음주 = 다음 주 월~일 날짜가 잡힌 항목(별도 '연기' 상태 필드는 없음).
-  const weekMonday  = shiftDateStr(today, -((dowOfDateStr(today) + 6) % 7))
+  const weekMonday  = shiftDateStr(today, 7 * weekOffset - ((dowOfDateStr(today) + 6) % 7))
   const prevMonday  = shiftDateStr(weekMonday, -7)
   const weekDays    = [0, 1, 2, 3, 4].map(i => shiftDateStr(weekMonday, i))
   const weekSunday  = shiftDateStr(weekMonday, 6)
@@ -1280,7 +1282,8 @@ export default function HomePage() {
     if (c === -2) olderOpenCount++
     if (c >= 0) weekCols[c].push({ key: `td_${t.id}`, kind: 'todo', title: t.title, meta: t.tasks?.short_name ?? t.tasks?.title ?? '', date: date!, todo: t })
   }
-  for (const q of quickTodos) weekCols[weekCol(today)].push({ key: `qt_${q.id}`, kind: 'quick', title: q.title, meta: '즉석 할 일', date: today, quick: q })
+  const todayCol = weekCol(today)
+  if (todayCol >= 1 && todayCol <= 5) for (const q of quickTodos) weekCols[todayCol].push({ key: `qt_${q.id}`, kind: 'quick', title: q.title, meta: '즉석 할 일', date: today, quick: q })
   for (const st of subTasks) {
     const c = weekCol(st.target_date)
     if (c === -2) olderOpenCount++
@@ -1630,15 +1633,34 @@ export default function HomePage() {
 
           {/* ── 금주 업무 — 하나의 주간 작업면을 7열로 나눈 primary 영역 ── */}
           <section data-home="week" style={{ flex: 1, minHeight: 320, display: 'flex', flexDirection: 'column', marginTop: 22 }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10, flexShrink: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, padding: '0 12px', flexShrink: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <h2 style={{ fontSize: 16, fontWeight: 600, color: TEXT1, letterSpacing: '-0.02em' }}>금주 업무</h2>
-                <span style={{ fontSize: 12, color: TEXT3, fontVariantNumeric: 'tabular-nums' }}>{shortDate(weekDays[0])} – {shortDate(weekDays[4])}</span>
+                <span style={{ fontSize: 12, color: TEXT3, fontVariantNumeric: 'tabular-nums' }}>{weekDays[0].replace(/-/g, '.')} – {shortDate(weekDays[4])}</span>
+                {/* 주 이동 — 오늘의 타임라인 날짜 네비와 같은 스타일 */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 2, padding: '3px 6px', borderRadius: 6, background: 'rgba(var(--accent-tint-rgb),0.12)', border: '1px solid rgba(var(--accent-tint-rgb),0.26)' }}>
+                  <button type="button" onClick={() => setWeekOffset(w => w - 1)} aria-label="이전 주"
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent-tint-text)', fontSize: 11, padding: '0 3px', lineHeight: 1 }}>‹</button>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '0 3px' }}>
+                    <CalendarDays size={10} strokeWidth={2} style={{ color: 'var(--accent-tint-text)' }} />
+                    <span style={{ fontSize: 11, color: 'var(--accent-tint-text)', fontWeight: 600, letterSpacing: '-0.01em', whiteSpace: 'nowrap' }}>
+                      {weekOffset === 0 ? '이번 주' : weekOffset === -1 ? '지난주' : weekOffset === 1 ? '다음 주' : `${weekOffset > 0 ? '+' : ''}${weekOffset}주`}
+                    </span>
+                  </span>
+                  <button type="button" onClick={() => setWeekOffset(w => w + 1)} aria-label="다음 주"
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent-tint-text)', fontSize: 11, padding: '0 3px', lineHeight: 1 }}>›</button>
+                </div>
+                {weekOffset !== 0 && (
+                  <button type="button" onClick={() => setWeekOffset(0)}
+                    style={{ fontSize: 10.5, color: TEXT3, background: 'none', border: '1px solid rgba(var(--ink-rgb),0.12)', borderRadius: 6, padding: '3px 8px', cursor: 'pointer' }}>
+                    이번 주로
+                  </button>
+                )}
               </div>
-              <button type="button" onClick={() => setQuickAddOpen(v => !v)}
+              {weekOffset === 0 && <button type="button" onClick={() => setQuickAddOpen(v => !v)}
                 style={{ fontSize: 12, color: quickAddOpen ? TEXT2 : TEXT3, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
                 {quickAddOpen ? '취소' : '+ 오늘 할 일'}
-              </button>
+              </button>}
             </div>
             <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: '0.85fr repeat(5, minmax(0, 1fr)) 0.85fr', gridTemplateRows: 'auto minmax(0, 1fr)' }}>
               {weekCols.map((items, ci) => {
@@ -1691,14 +1713,14 @@ export default function HomePage() {
           {/* 박스는 각 열 뒤에 까는 배경(음수 margin으로 bleed) — 행 정렬 grid는 하나로 유지 */}
           <section data-home="bottom" style={{
             flexShrink: 0, marginTop: 20, padding: `${BOX_PAD_Y}px ${BOX_PAD_X}px`, display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', columnGap: BOX_PAD_X * 2 + 10,
-            gridTemplateRows: `auto 40px repeat(${BOTTOM_ROWS}, 36px) auto`,
+            gridTemplateRows: `${BOX_TITLE_H}px 40px repeat(${BOTTOM_ROWS}, 36px) auto`,
           }}>
             {[1, 2].map(col => (
               <div key={`box${col}`} aria-hidden style={{ ...cardBase(), transition: 'none', gridColumn: col, gridRow: '1 / -1', margin: `-${BOX_PAD_Y}px -${BOX_PAD_X}px` }} />
             ))}
             {/* row 1: section title — 오늘의 타임라인 헤더와 같은 스타일 */}
             {([[1, '퀵메모', <StickyNote key="i" size={14} strokeWidth={2} style={{ color: '#70B8C4' }} />], [2, '진행중 과업', <Layers key="i" size={14} strokeWidth={2} style={{ color: '#5B7EC4' }} />]] as const).map(([col, label, icon]) => (
-              <h2 key={label} style={{ gridRow: 1, gridColumn: col, position: 'relative', display: 'flex', alignItems: 'center', gap: 12, fontSize: 13, fontWeight: 600, color: TEXT1, letterSpacing: '-0.01em', paddingBottom: 12 }}>
+              <h2 key={label} style={{ gridRow: 1, gridColumn: col, position: 'relative', display: 'flex', alignItems: 'center', gap: 12, fontSize: 13, fontWeight: 600, color: TEXT1, letterSpacing: '-0.01em', height: BOX_TITLE_H, paddingBottom: 14, margin: 0 }}>
                 <span style={{ display: 'flex', alignItems: 'center' }}>{icon}</span>{label}
               </h2>
             ))}
