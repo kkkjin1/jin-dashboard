@@ -197,7 +197,7 @@ function CardSection({
 const WEEK_COL_MIN = 150
 const WEEK_GRID_COLS = `minmax(${WEEK_COL_MIN}px, 0.9fr) repeat(5, minmax(${WEEK_COL_MIN}px, 1fr)) minmax(${WEEK_COL_MIN}px, 0.9fr)`
 const WEEK_GRID_MIN_W = WEEK_COL_MIN * 7
-// 금주 업무 섹션 높이 — 노트북(≈768)에서는 남는 높이를 채우고(≈228), 화면이 커져도 340px에서 멈춤
+// 금주 업무 섹션 높이 — 내용 높이 기준, 공간 부족 시 최소 200까지 축소, 업무가 많아도 340에서 멈춤(열 안 스크롤)
 const WEEK_MIN_H = 200
 const WEEK_MAX_H = 340
 
@@ -1772,8 +1772,9 @@ export default function HomePage() {
           />
 
           {/* ── 금주 업무 — 하나의 주간 작업면을 7열로 나눈 primary 영역 ── */}
-          {/* 남는 세로 공간을 채우되 WEEK_MIN_H~WEEK_MAX_H 사이에서만 — 큰 모니터에서는 cap 후 남는 공간이 하단 박스 아래 여백이 됨 */}
-          <section data-home="week" style={{ flex: '1 1 0', minHeight: WEEK_MIN_H, maxHeight: WEEK_MAX_H, display: 'flex', flexDirection: 'column', marginTop: 12 }}>
+          {/* 금주 업무는 내용 높이 기준(grow 없음) — 공간이 모자라면(노트북) WEEK_MIN_H까지 줄어들고 열 안에서 스크롤,
+              남는 세로 공간은 아래 spacer가 흡수해 하단 3박스를 화면 아래쪽으로 내린다 */}
+          <section data-home="week" style={{ flex: '0 1 auto', minHeight: WEEK_MIN_H, maxHeight: WEEK_MAX_H, display: 'flex', flexDirection: 'column', marginTop: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6, padding: '0 12px', flexShrink: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <h2 style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 15, fontWeight: 600, color: TEXT1, letterSpacing: '-0.02em' }}>
@@ -1812,7 +1813,7 @@ export default function HomePage() {
               </button>}
             </div>
             {/* 폭이 모자라면 열을 찌그러뜨리지 않고 이 영역만 가로 스크롤 (섹션 헤더는 스크롤 밖에 고정) */}
-            <div data-week-scroll style={{ flex: 1, minHeight: 0, minWidth: 0, width: '100%', overflowX: 'auto', overflowY: 'hidden', scrollbarWidth: 'thin', scrollbarColor: 'rgba(var(--ink-rgb),0.18) transparent' }}>
+            <div data-week-scroll style={{ flex: '1 1 auto', minHeight: 0, minWidth: 0, width: '100%', overflowX: 'auto', overflowY: 'hidden', scrollbarWidth: 'thin', scrollbarColor: 'rgba(var(--ink-rgb),0.18) transparent' }}>
             <div style={{ height: '100%', minWidth: WEEK_GRID_MIN_W, display: 'grid', gridTemplateColumns: WEEK_GRID_COLS, gridTemplateRows: 'auto minmax(0, 1fr)' }}>
               {weekCols.map((items, ci) => {
                 const secondary = ci === 0 || ci === 6
@@ -1868,7 +1869,10 @@ export default function HomePage() {
             </div>
           </section>
 
-          {/* ── 하단 50:50 — 퀵메모 | 진행중 과업. 한 개의 invisible grid를 공유해 행 높이/기준선 일치 ── */}
+          {/* 금주 업무 ↔ 하단 3박스 사이 여백 — 노트북에서는 0, 큰 화면에서 남는 높이를 여기서 흡수 */}
+          <div aria-hidden data-home="spacer" style={{ flex: '1 1 0', minHeight: 0 }} />
+
+          {/* ── 하단 3박스 — 퀵메모 | 진행중 과업 | 회고. 한 개의 invisible grid를 공유해 행 높이/기준선 일치 ── */}
           {/* 박스는 각 열 뒤에 까는 배경(음수 margin으로 bleed) — 행 정렬 grid는 하나로 유지 */}
           <section data-home="bottom" style={{
             flexShrink: 0, marginTop: 12, padding: `${BOX_PAD_Y}px ${BOX_PAD_X}px`, display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', columnGap: BOX_PAD_X * 2 + 10,
