@@ -976,6 +976,7 @@ export default function HomePage() {
   const [scheduleItems, setScheduleItems] = useState<ScheduleItem[]>([])
   const [todayJournal,  setTodayJournal]  = useState<DailyJournal | null>(null)
   const [yesterJournal, setYesterJournal] = useState<DailyJournal | null>(null)
+  const [recentJournals, setRecentJournals] = useState<Pick<DailyJournal, 'id' | 'date' | 'content'>[]>([])
   const [loading,       setLoading]       = useState(true)
   const [gcalPicker,    setGcalPicker]    = useState<GoogleCalendarEvent | null>(null)
   const sb = useRef(createClient())
@@ -1002,7 +1003,7 @@ export default function HomePage() {
       const [
         { data: stData }, { data: taskTodoData },
         { data: mData },  { data: mmData }, { data: jData },
-        { data: qtData },
+        { data: qtData }, { data: rjData },
       ] = await Promise.all([
         sb.current.from('agenda_sub_tasks').select('*, agenda_items(id, title, agenda_groups(name, color, category)), sub_task_notes(created_at, edited_at, content)').eq('status', 'active').order('sort_order').limit(100),
         // schedule_tag는 배정 시점의 스냅샷이라 자정이 지나도 갱신되지 않음 — target_date를 기준으로 오늘/금주 분류
@@ -1012,6 +1013,8 @@ export default function HomePage() {
         sb.current.from('daily_journals').select('id, date, content, linked_task_ids, linked_meeting_ids, tags').in('date', [today, yesterday]),
         // 프로젝트/안건에 속하지 않는 즉석 추가 할일 — quick_todos 전용 테이블 (schedule 탭과 공유)
         sb.current.from('quick_todos').select('*').eq('target_date', today).eq('done', false).order('sort_order'),
+        // 홈 하단 회고 열 — 최근 회고 5건 (읽기 전용)
+        sb.current.from('daily_journals').select('id, date, content').order('date', { ascending: false }).limit(5),
       ])
 
       setSubTasks((stData ?? []) as SubTaskWithContext[])
@@ -1021,6 +1024,7 @@ export default function HomePage() {
       setNotesByMeeting(await fetchMeetingNotesByMeetingIds(sb.current, loadedMeetings.map(m => m.id)))
       setMemos((mmData ?? []) as QuickMemo[])
       setQuickTodos((qtData ?? []) as QuickTodo[])
+      setRecentJournals((rjData ?? []) as Pick<DailyJournal, 'id' | 'date' | 'content'>[])
       const jList = (jData ?? []) as DailyJournal[]
       setTodayJournal(jList.find(j => j.date === today) ?? null)
       setYesterJournal(jList.find(j => j.date === yesterday) ?? null)
@@ -1811,14 +1815,14 @@ export default function HomePage() {
           {/* ── 하단 50:50 — 퀵메모 | 진행중 과업. 한 개의 invisible grid를 공유해 행 높이/기준선 일치 ── */}
           {/* 박스는 각 열 뒤에 까는 배경(음수 margin으로 bleed) — 행 정렬 grid는 하나로 유지 */}
           <section data-home="bottom" style={{
-            flexShrink: 0, marginTop: 20, padding: `${BOX_PAD_Y}px ${BOX_PAD_X}px`, display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', columnGap: BOX_PAD_X * 2 + 10,
+            flexShrink: 0, marginTop: 20, padding: `${BOX_PAD_Y}px ${BOX_PAD_X}px`, display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', columnGap: BOX_PAD_X * 2 + 10,
             gridTemplateRows: `${BOX_TITLE_H}px 40px repeat(${BOTTOM_ROWS}, 36px) auto`,
           }}>
-            {[1, 2].map(col => (
+            {[1, 2, 3].map(col => (
               <div key={`box${col}`} aria-hidden style={{ ...cardBase(), transition: 'none', gridColumn: col, gridRow: '1 / -1', margin: `-${BOX_PAD_Y}px -${BOX_PAD_X}px` }} />
             ))}
             {/* row 1: section title — 오늘의 타임라인 헤더와 같은 스타일 */}
-            {([[1, '퀵메모', <StickyNote key="i" size={15} strokeWidth={2} style={{ color: '#70B8C4' }} />], [2, '진행중 과업', <Layers key="i" size={15} strokeWidth={2} style={{ color: '#5B7EC4' }} />]] as const).map(([col, label, icon]) => (
+            {([[1, '퀵메모', <StickyNote key="i" size={15} strokeWidth={2} style={{ color: '#70B8C4' }} />], [2, '진행중 과업', <Layers key="i" size={15} strokeWidth={2} style={{ color: '#5B7EC4' }} />], [3, '회고', <NotebookPen key="i" size={15} strokeWidth={2} style={{ color: '#C8A050' }} />]] as const).map(([col, label, icon]) => (
               <h2 key={label} style={{ gridRow: 1, gridColumn: col, position: 'relative', display: 'flex', alignItems: 'center', gap: 10, fontSize: 15, fontWeight: 600, color: TEXT1, letterSpacing: '-0.02em', height: BOX_TITLE_H, paddingBottom: 14, margin: 0 }}>
                 <span style={{ display: 'flex', alignItems: 'center' }}>{icon}</span>{label}
               </h2>
@@ -1831,6 +1835,13 @@ export default function HomePage() {
               onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(var(--ink-rgb),0.10)' }}>
               <span style={{ flex: 1, fontSize: 13, color: TEXT3 }}>메모를 빠르게 남겨보세요</span>
               <kbd style={{ fontSize: 10.5, color: TEXT3, opacity: 0.8, fontFamily: 'inherit' }}>Ctrl+3</kbd>
+            </button>
+            <button type="button" data-bottom="journal-input" onClick={() => setShowJournal(true)}
+              style={{ position: 'relative', gridRow: 2, gridColumn: 3, height: 40, display: 'flex', alignItems: 'center', gap: 8, padding: '0 12px', borderRadius: 8, border: '1px solid rgba(var(--ink-rgb),0.10)', background: 'rgba(var(--ink-rgb),0.025)', cursor: 'text', textAlign: 'left', transition: 'border-color 150ms ease' }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(var(--ink-rgb),0.18)' }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(var(--ink-rgb),0.10)' }}>
+              <span style={{ flex: 1, fontSize: 13, color: TEXT3 }}>{todayJournal ? '오늘 회고 이어 쓰기' : '오늘 하루를 돌아보세요'}</span>
+              <span style={{ fontSize: 10.5, color: todayJournal ? '#38BE98' : TEXT3, opacity: 0.9 }}>{todayJournal ? '작성 완료' : '미작성'}</span>
             </button>
             <div data-bottom="task-header" style={{ position: 'relative', gridRow: 2, gridColumn: 2, height: 40, display: 'grid', gridTemplateColumns: BOTTOM_TASK_COLS, alignItems: 'center', columnGap: 12, padding: '0 6px', borderBottom: `1px solid ${DIVIDER}` }}>
               {([['범주', '범주'], ['프로젝트 / 과업', '상세TASK'], ['상태', null], ['마감', '마감']] as const).map(([label, sortKey]) => (
@@ -1847,6 +1858,7 @@ export default function HomePage() {
               const st = bottomTasks[i]
               const cellBase: React.CSSProperties = { position: 'relative', gridRow: 3 + i, height: 36, borderBottom: `1px solid ${DIVIDER}` }
               const emptyCell: React.CSSProperties = { gridRow: 3 + i, height: 36 }
+              const jr = recentJournals[i]
               const memoTag = memo ? (memo.tag[0] ?? '기타') : ''
               const overdue = !!st && !!(st.target_date ?? st.due_date) && (st.target_date ?? st.due_date)! < today
               return (
@@ -1877,6 +1889,16 @@ export default function HomePage() {
                         </ListRow>
                       </Link>
                     ) : <div style={{ ...emptyCell, gridColumn: 2 }} />}
+                  {loading ? <div style={{ ...emptyCell, gridColumn: 3, paddingTop: 4 }}>{skel(1)}</div>
+                    : jr ? (
+                      <ListRow onClick={() => { if (jr.date === today) setShowJournal(true); else router.push('/journal') }}
+                        style={{ ...cellBase, gridColumn: 3, marginLeft: 0, marginRight: 0, paddingLeft: 6, paddingRight: 6, borderRadius: 0, display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <span style={{ fontSize: 11.5, color: jr.date === today ? 'var(--accent-tint-text)' : TEXT3, flexShrink: 0, width: 58, fontVariantNumeric: 'tabular-nums' }}>{fmtDate(jr.date)}</span>
+                        <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 400, color: TEXT1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {(jr.content ?? '').replace(/<[^>]*>/g, ' ').replace(/&[^;]+;/g, ' ').replace(/(^|\s)(#{1,6}|[-*>]|\d+\.)\s+/g, '$1').replace(/\s+/g, ' ').trim() || '(내용 없음)'}
+                        </span>
+                      </ListRow>
+                    ) : <div style={{ ...emptyCell, gridColumn: 3 }} />}
                 </Fragment>
               )
             })}
@@ -1887,6 +1909,9 @@ export default function HomePage() {
             </Link>
             <Link href="/project" style={{ position: 'relative', gridRow: 3 + BOTTOM_ROWS, gridColumn: 2, fontSize: 12, color: TEXT3, textDecoration: 'none', paddingTop: 10, justifySelf: 'start' }}>
               전체 보기 →{subTasks.length > BOTTOM_ROWS ? <span style={{ marginLeft: 6, opacity: 0.7 }}>{subTasks.length}건</span> : null}
+            </Link>
+            <Link href="/journal" style={{ position: 'relative', gridRow: 3 + BOTTOM_ROWS, gridColumn: 3, fontSize: 12, color: TEXT3, textDecoration: 'none', paddingTop: 10, justifySelf: 'start' }}>
+              전체 보기 →
             </Link>
           </section>
 
@@ -2004,7 +2029,10 @@ export default function HomePage() {
           yesterday={yesterJournal}
           meetings={meetingsForJournal}
           supabaseClient={sb.current}
-          onSaved={(j) => { setTodayJournal(j); setShowJournal(false) }}
+          onSaved={(j) => {
+            setTodayJournal(j); setShowJournal(false)
+            setRecentJournals(p => [{ id: j.id, date: j.date, content: j.content }, ...p.filter(x => x.date !== j.date)].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5))
+          }}
           onClose={() => setShowJournal(false)}
         />,
         document.body
