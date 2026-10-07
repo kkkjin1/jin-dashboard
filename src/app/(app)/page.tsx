@@ -7,7 +7,7 @@ import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Search, Plus, FileText, Clock, NotebookPen, CalendarDays, Layers, StickyNote, Repeat2, X } from 'lucide-react'
+import { Search, Plus, FileText, Clock, NotebookPen, CalendarDays, CalendarCheck, Layers, StickyNote, Repeat2, X } from 'lucide-react'
 import ShortcutIcons from '@/components/ShortcutIcons'
 import type { TaskTodo, Meeting, QuickMemo, AgendaSubTask, ScheduleItem, QuickTodo } from '@/types'
 import { fetchMeetingNotesByMeetingIds, type MeetingNotesGrouped, type MeetingNoteRow } from '@/lib/meetingNotes'
@@ -869,6 +869,7 @@ export default function HomePage() {
   const [fMemoSaved,    setFMemoSaved]    = useState<Record<string, boolean>>({})
   const [memoViewId,    setMemoViewId]    = useState<string | null>(null)
   const [weekOffset,    setWeekOffset]    = useState(0)   // 금주 업무 주 이동 (0 = 이번 주)
+  const weekDateInputRef = useRef<HTMLInputElement>(null)
   const [hoveredStId,   setHoveredStId]   = useState<string | null>(null)
   const [datePickerStId,setDatePickerStId] = useState<string | null>(null)
   // 초기값을 epoch(고정값)로 둬서 SSR과 클라이언트 첫 렌더가 항상 일치하게 함 —
@@ -1246,6 +1247,12 @@ export default function HomePage() {
   // 다음주 = 다음 주 월~일 날짜가 잡힌 항목(별도 '연기' 상태 필드는 없음).
   const weekMonday  = shiftDateStr(today, 7 * weekOffset - ((dowOfDateStr(today) + 6) % 7))
   const prevMonday  = shiftDateStr(weekMonday, -7)
+  // 달력에서 고른 날짜가 속한 주 → 이번 주 기준 offset
+  function weekOffsetOf(dateStr: string): number {
+    const mondayOf = (s: string) => shiftDateStr(s, -((dowOfDateStr(s) + 6) % 7))
+    const [a, b] = [mondayOf(today), mondayOf(dateStr)].map(s => { const [y, m, d] = s.split('-').map(Number); return Date.UTC(y, m - 1, d) })
+    return Math.round((b - a) / (7 * 86400000))
+  }
   const weekDays    = [0, 1, 2, 3, 4].map(i => shiftDateStr(weekMonday, i))
   const weekSunday  = shiftDateStr(weekMonday, 6)
   const nextMonday  = shiftDateStr(weekMonday, 7)
@@ -1635,18 +1642,23 @@ export default function HomePage() {
           <section data-home="week" style={{ flex: 1, minHeight: 320, display: 'flex', flexDirection: 'column', marginTop: 22 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, padding: '0 12px', flexShrink: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <h2 style={{ fontSize: 16, fontWeight: 600, color: TEXT1, letterSpacing: '-0.02em' }}>금주 업무</h2>
+                <h2 style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 15, fontWeight: 600, color: TEXT1, letterSpacing: '-0.02em' }}>
+                  <CalendarCheck size={15} strokeWidth={2} style={{ color: '#5E8FBF' }} />금주 업무
+                </h2>
                 <span style={{ fontSize: 12, color: TEXT3, fontVariantNumeric: 'tabular-nums' }}>{weekDays[0].replace(/-/g, '.')} – {shortDate(weekDays[4])}</span>
                 {/* 주 이동 — 오늘의 타임라인 날짜 네비와 같은 스타일 */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 2, padding: '3px 6px', borderRadius: 6, background: 'rgba(var(--accent-tint-rgb),0.12)', border: '1px solid rgba(var(--accent-tint-rgb),0.26)' }}>
                   <button type="button" onClick={() => setWeekOffset(w => w - 1)} aria-label="이전 주"
                     style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent-tint-text)', fontSize: 11, padding: '0 3px', lineHeight: 1 }}>‹</button>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '0 3px' }}>
+                  <span onClick={() => { try { weekDateInputRef.current?.showPicker?.() } catch {} }} title="날짜로 이동"
+                    style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '0 3px', cursor: 'pointer' }}>
                     <CalendarDays size={10} strokeWidth={2} style={{ color: 'var(--accent-tint-text)' }} />
                     <span style={{ fontSize: 11, color: 'var(--accent-tint-text)', fontWeight: 600, letterSpacing: '-0.01em', whiteSpace: 'nowrap' }}>
                       {weekOffset === 0 ? '이번 주' : weekOffset === -1 ? '지난주' : weekOffset === 1 ? '다음 주' : `${weekOffset > 0 ? '+' : ''}${weekOffset}주`}
                     </span>
                   </span>
+                  <input ref={weekDateInputRef} type="date" value={weekDays[0]} className="sr-only" tabIndex={-1}
+                    onChange={e => { if (e.target.value) setWeekOffset(weekOffsetOf(e.target.value)) }} />
                   <button type="button" onClick={() => setWeekOffset(w => w + 1)} aria-label="다음 주"
                     style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent-tint-text)', fontSize: 11, padding: '0 3px', lineHeight: 1 }}>›</button>
                 </div>
@@ -1719,8 +1731,8 @@ export default function HomePage() {
               <div key={`box${col}`} aria-hidden style={{ ...cardBase(), transition: 'none', gridColumn: col, gridRow: '1 / -1', margin: `-${BOX_PAD_Y}px -${BOX_PAD_X}px` }} />
             ))}
             {/* row 1: section title — 오늘의 타임라인 헤더와 같은 스타일 */}
-            {([[1, '퀵메모', <StickyNote key="i" size={14} strokeWidth={2} style={{ color: '#70B8C4' }} />], [2, '진행중 과업', <Layers key="i" size={14} strokeWidth={2} style={{ color: '#5B7EC4' }} />]] as const).map(([col, label, icon]) => (
-              <h2 key={label} style={{ gridRow: 1, gridColumn: col, position: 'relative', display: 'flex', alignItems: 'center', gap: 12, fontSize: 13, fontWeight: 600, color: TEXT1, letterSpacing: '-0.01em', height: BOX_TITLE_H, paddingBottom: 14, margin: 0 }}>
+            {([[1, '퀵메모', <StickyNote key="i" size={15} strokeWidth={2} style={{ color: '#70B8C4' }} />], [2, '진행중 과업', <Layers key="i" size={15} strokeWidth={2} style={{ color: '#5B7EC4' }} />]] as const).map(([col, label, icon]) => (
+              <h2 key={label} style={{ gridRow: 1, gridColumn: col, position: 'relative', display: 'flex', alignItems: 'center', gap: 10, fontSize: 15, fontWeight: 600, color: TEXT1, letterSpacing: '-0.02em', height: BOX_TITLE_H, paddingBottom: 14, margin: 0 }}>
                 <span style={{ display: 'flex', alignItems: 'center' }}>{icon}</span>{label}
               </h2>
             ))}
