@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import { fetchAllTasks, fetchMembers } from '@/lib/tasks'
 import { useUserSetting } from '@/hooks/useUserSetting'
 import { useOrgData } from '@/hooks/useOrgData'
-import type { Task, Member, TaskStatus, Meeting, QuickTodo } from '@/types'
+import type { Task, Member, TaskStatus, Meeting, QuickTodo, ScheduleItem } from '@/types'
 import { fetchMeetingNotesByMeetingIds, type MeetingNotesGrouped, type MeetingNoteRow } from '@/lib/meetingNotes'
 import { CATEGORY_PALETTE, MEETING_CATEGORY, FIXED_MEETING_TAGS, type CategoryColorKey, colorKeyFromName } from '@/lib/categoryColors'
 import { GlassSelect } from '@/components/ui/GlassSelect'
@@ -196,6 +196,8 @@ export default function SchedulePage() {
   const [scheduledTodos, setScheduledTodos] = useState<ScheduledTodo[]>([])
   // 즉석 할일 (quick_todos) — 프로젝트 상세task/안건에 속하지 않는, 홈 "오늘 업무"에서 즉석 추가되는 항목
   const [quickTodos, setQuickTodos] = useState<QuickTodo[]>([])
+  // 홈 '오늘의 타임라인'에서 추가한 업무 일정 (schedule_items) — 일정 탭에서는 읽기 전용 표시
+  const [scheduleItems, setScheduleItems] = useState<ScheduleItem[]>([])
   const [quickAddTitle, setQuickAddTitle] = useState('')
   const [current, setCurrent] = useState(new Date())
   const [selectedDay, setSelectedDay] = useState<Date | null>(null)
@@ -367,11 +369,14 @@ export default function SchedulePage() {
       supabase.from('task_todos').select('*, tasks(id, title, short_name, part)').eq('done', false).limit(500),
       supabase.from('agenda_sub_tasks').select('id, title, target_date, agenda_items(id, title, agenda_groups(category))').not('target_date', 'is', null).neq('status', 'done'),
       supabase.from('quick_todos').select('*').eq('done', false).order('sort_order'),
-    ]).then(async ([t, m, { data: mtgs, error: mtgErr }, { data: allTodos, error: todosErr }, { data: subTaskData, error: stErr }, { data: qtData, error: qtErr }]) => {
+      supabase.from('schedule_items').select('*').order('start_hour'),
+    ]).then(async ([t, m, { data: mtgs, error: mtgErr }, { data: allTodos, error: todosErr }, { data: subTaskData, error: stErr }, { data: qtData, error: qtErr }, { data: siData, error: siErr }]) => {
       if (mtgErr) console.error('[schedule] meetings error:', mtgErr)
       if (todosErr) console.error('[schedule] todos error:', todosErr)
       if (stErr) console.error('[schedule] subtasks error:', stErr)
       if (qtErr) console.error('[schedule] quick_todos error:', qtErr)
+      if (siErr) console.error('[schedule] schedule_items error:', siErr)
+      setScheduleItems((siData ?? []) as ScheduleItem[])
       setTasks(t); setMembers(m)
       const loadedMeetings = (mtgs ?? []) as Pick<Meeting, 'id' | 'title' | 'meeting_date' | 'category'>[]
       setMeetings(loadedMeetings)
@@ -541,6 +546,16 @@ export default function SchedulePage() {
     return quickTodos.filter(t => t.target_date === dateStr)
   }
 
+  function getDayScheduleItems(day: Date): ScheduleItem[] {
+    if (viewFilter === '회의만') return []
+    const dateStr = format(day, 'yyyy-MM-dd')
+    return scheduleItems.filter(s => s.item_date === dateStr)
+  }
+  function hourLabel(h: number) {
+    const total = Math.round(h * 60)   // 13.999 같은 값이 13:60이 되지 않도록 분 단위로 먼저 반올림
+    return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`
+  }
+
   function getDayOneOnOnes(day: Date): ScheduledOneOnOne[] {
     if (viewFilter === '업무만') return []
     return scheduledOneOnOnes.filter(o => isSameDay(parseISO(o.next_appointment_date), day))
@@ -570,6 +585,7 @@ export default function SchedulePage() {
   const selectedDayOneOnOnes = selectedDay ? getDayOneOnOnes(selectedDay) : []
   const selectedDayFixedMeetings = selectedDay ? getDayFixedMeetings(selectedDay) : []
   const selectedDayQuickTodos = selectedDay ? getDayQuickTodos(selectedDay) : []
+  const selectedDaySchedItems = selectedDay ? getDayScheduleItems(selectedDay) : []
 
   type DayListItem =
     | { itemId: string; type: 'task'; data: DayTask }
@@ -667,6 +683,7 @@ export default function SchedulePage() {
     const dayOneOnOnes = getDayOneOnOnes(day)
     const dayFixed = getDayFixedMeetings(day)
     const dayQuick = getDayQuickTodos(day)
+    const daySched = getDayScheduleItems(day)
     // 실제 meeting 레코드가 있는 고정 회의는 중복 제외
     const dayFixedFiltered = dayFixed.filter(
       s => !dayMeetings.some(m => m.title === s.title)
@@ -675,6 +692,7 @@ export default function SchedulePage() {
       ...dayTasks.map(dt => ({ type: 'task' as const, dt })),
       ...dayMeetings.map(m => ({ type: 'meeting' as const, m })),
       ...dayFixedFiltered.map(s => ({ type: 'fixed' as const, s })),
+      ...daySched.map(si => ({ type: 'sched' as const, si })),
       ...dayTodos.map(t => ({ type: 'todo' as const, t })),
       ...dayQuick.map(q => ({ type: 'quick' as const, q })),
       ...dayOneOnOnes.map(o => ({ type: 'one-on-one' as const, o })),
@@ -736,6 +754,16 @@ export default function SchedulePage() {
                   title={`고정회의 | ${s.title} ${s.time} (클릭하면 회의록으로 이동)`}>
                   <span className="opacity-60 mr-0.5">↺</span>{s.time} {s.title}
                 </button>
+              )
+            } else if (item.type === 'sched') {
+              const { si } = item
+              return (
+                <div key={`sched-${si.id}-${idx}`}
+                  className="w-full text-left rounded-lg px-1.5 py-0.5 truncate text-[11px] leading-tight"
+                  style={{ background: 'rgba(91,126,196,0.16)', color: 'rgba(var(--text-rgb),0.85)' }}
+                  title={`타임라인 업무 | ${hourLabel(si.start_hour)} ${si.title} (홈 오늘의 타임라인에서 편집)`}>
+                  <span className="opacity-60 mr-0.5">{hourLabel(si.start_hour)}</span>{si.title}
+                </div>
               )
             } else if (item.type === 'quick') {
               const { q } = item
@@ -867,6 +895,10 @@ export default function SchedulePage() {
               <div className="flex items-center gap-1.5">
                 <div className="w-3 h-2.5 bg-amber-100/70 rounded border border-amber-200/50" />
                 <span className="text-xs text-[rgba(var(--text-rgb),0.4)]">즉석 할일</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-2.5 rounded" style={{ background: 'rgba(91,126,196,0.16)' }} />
+                <span className="text-xs text-[rgba(var(--text-rgb),0.4)]">타임라인 업무</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <div className="w-3 h-2.5 bg-purple-100/70 rounded border border-purple-200/50" />
@@ -1144,7 +1176,7 @@ export default function SchedulePage() {
               )}
               {!selectedDay ? (
                 <p className="text-xs text-[rgba(var(--text-rgb),0.3)] leading-relaxed">캘린더에서 날짜를 클릭하면 해당일 일정을 볼 수 있습니다</p>
-              ) : (selectedDayTasks.length === 0 && selectedDayMeetings.length === 0 && selectedDayTodos.length === 0 && selectedDayQuickTodos.length === 0 && selectedDayOneOnOnes.length === 0 && selectedDayFixedMeetings.length === 0) ? (
+              ) : (selectedDayTasks.length === 0 && selectedDayMeetings.length === 0 && selectedDayTodos.length === 0 && selectedDayQuickTodos.length === 0 && selectedDayOneOnOnes.length === 0 && selectedDayFixedMeetings.length === 0 && selectedDaySchedItems.length === 0) ? (
                 <p className="text-xs text-[rgba(var(--text-rgb),0.3)]">예정된 일정이 없습니다</p>
               ) : (
                 <div className="divide-y divide-[rgba(var(--ink-rgb),0.05)]">
@@ -1185,6 +1217,15 @@ export default function SchedulePage() {
                       </div>
                     )
                   })}
+                  {selectedDaySchedItems.map(si => (
+                    <div key={`sched-panel-${si.id}`} title="홈 '오늘의 타임라인'에서 추가한 업무 — 편집은 홈에서"
+                      className="flex items-center gap-2 py-2 rounded-lg px-1">
+                      <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: '#5B7EC4' }} />
+                      <span className="text-[10px] font-mono text-[rgba(var(--text-rgb),0.45)] flex-shrink-0">{hourLabel(si.start_hour)}</span>
+                      <span className="text-[12px] text-[rgba(var(--text-rgb),0.85)] truncate flex-1">{si.title}</span>
+                      <span className="text-[10px] text-[rgba(var(--text-rgb),0.3)] flex-shrink-0">타임라인</span>
+                    </div>
+                  ))}
                   {selectedDayOneOnOnes.map(o => (
                     <div key={`oo-panel-${o.id}`}
                       onClick={() => router.push(`/one-on-one/${o.member_id}`)}
