@@ -1447,8 +1447,9 @@ export default function HomePage() {
 
   // 하단 3박스 — 퀵메모/진행중 과업/회고 모두 같은 행 수 (같은 invisible grid 공유, 세로 한 화면 예산상 3행 — 금주 업무에 높이 우선 배분)
   const BOTTOM_ROWS = 3
-  const bottomMemos = memos.slice(0, BOTTOM_ROWS)
-  const bottomTasks = sortedSubTasks.slice(0, BOTTOM_ROWS)
+  // 3행 높이만 보이고 나머지는 각 박스 안에서 스크롤 (퀵메모는 최근 30건, 과업은 전체)
+  const bottomMemos = memos.slice(0, 30)
+  const bottomTasks = sortedSubTasks
   const SHOW_RECENT_MEETINGS = false   // 목업 평가 동안 홈 배치에서 제외 (데이터/컴포넌트는 유지)
 
   function renderWeekItem(item: WeekItem, secondary: boolean) {
@@ -1927,47 +1928,45 @@ export default function HomePage() {
               ))}
             </div>
 
-            {/* rows 3~7: 데이터 5행 — memo N ↔ task N 같은 grid row */}
-            {Array.from({ length: BOTTOM_ROWS }, (_, i) => {
-              const memo = bottomMemos[i]
-              const st = bottomTasks[i]
-              const cellBase: React.CSSProperties = { position: 'relative', gridRow: 3 + i, height: BOTTOM_ROW_H, borderBottom: `1px solid ${DIVIDER}` }
-              const emptyCell: React.CSSProperties = { gridRow: 3 + i, height: BOTTOM_ROW_H }
-              const memoTag = memo ? (memo.tag[0] ?? '기타') : ''
-              const overdue = !!st && !!(st.target_date ?? st.due_date) && (st.target_date ?? st.due_date)! < today
-              return (
-                <Fragment key={i}>
-                  {loading ? <div style={{ ...emptyCell, gridColumn: 1, paddingTop: 4 }}>{skel(1)}</div>
-                    : memo ? (
-                      <ListRow onClick={() => setMemoViewId(memo.id)} draggable
-                        onDragStart={e => { e.dataTransfer.setData('tl-extra', JSON.stringify({ id: `memo_${memo.id}`, title: memo.title, subtitle: memoTag })); e.dataTransfer.effectAllowed = 'copy' }}
-                        style={{ ...cellBase, gridColumn: 1, marginLeft: 0, marginRight: 0, paddingLeft: 6, paddingRight: 6, borderRadius: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <div style={{ width: 5, height: 5, borderRadius: '50%', background: CATEGORY_PALETTE[MEMO_TAG[memoTag] ?? colorKeyFromName(memoTag)].solid, flexShrink: 0, opacity: 0.85 }} />
-                        <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 400, color: TEXT1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{memo.title || '(제목 없음)'}</span>
-                        <span style={{ fontSize: 11.5, color: TEXT3, flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{fmtDate(memo.created_at)}</span>
-                      </ListRow>
-                    ) : <div style={{ ...emptyCell, gridColumn: 1 }} />}
-                  {loading ? <div style={{ ...emptyCell, gridColumn: 2, paddingTop: 4 }}>{skel(1)}</div>
-                    : st ? (
-                      <Link href={`/subtasks/${st.id}`} style={{ ...cellBase, gridColumn: 2, display: 'block', textDecoration: 'none' }}
-                        draggable
-                        onDragStart={e => { e.dataTransfer.setData('tl-extra', JSON.stringify({ id: `st_${st.id}`, title: st.title, subtitle: st.agenda_items?.title ?? '' })); e.dataTransfer.effectAllowed = 'copy' }}>
-                        <ListRow style={{ height: '100%', marginLeft: 0, marginRight: 0, paddingLeft: 6, paddingRight: 6, borderRadius: 0, display: 'grid', gridTemplateColumns: BOTTOM_TASK_COLS, alignItems: 'center', columnGap: 10 }}>
-                          <span style={{ fontSize: 11.5, color: TEXT3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{st.agenda_items?.agenda_groups?.category ?? '—'}</span>
-                          <span style={{ display: 'flex', alignItems: 'baseline', gap: 8, minWidth: 0 }}>
-                            <span style={{ fontSize: 13, fontWeight: 400, color: TEXT1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 0, maxWidth: '100%' }}>{st.title}</span>
-                            {st.agenda_items && <span style={{ fontSize: 11.5, color: TEXT3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 1, minWidth: 0 }}>{st.agenda_items.title}</span>}
-                          </span>
-                          <span style={{ fontSize: 11.5, color: overdue ? '#C86868' : TEXT3, whiteSpace: 'nowrap' }}>{overdue ? '기한 경과' : '진행중'}</span>
-                          <span style={{ fontSize: 11.5, color: TEXT3, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{(st.target_date ?? st.due_date) ? shortDate((st.target_date ?? st.due_date)!) : '—'}</span>
+            {/* 데이터 영역 — 3열 모두 BOTTOM_ROWS 높이의 스크롤 셀 (행 높이 동일 → 첫 화면 행 정렬 유지, 스크롤바 숨김) */}
+            {[1, 2].map(col => (
+              <div key={`list${col}`} className="scrollbar-hide" data-bottom={col === 1 ? 'memo-list' : 'task-list'}
+                style={{ position: 'relative', gridColumn: col, gridRow: `3 / ${3 + BOTTOM_ROWS}`, minHeight: 0, overflowY: 'auto', overscrollBehavior: 'contain' }}>
+                {loading ? <div style={{ paddingTop: 4 }}>{skel(BOTTOM_ROWS)}</div>
+                  : col === 1 ? bottomMemos.map(memo => {
+                      const memoTag = memo.tag[0] ?? '기타'
+                      return (
+                        <ListRow key={memo.id} onClick={() => setMemoViewId(memo.id)} draggable
+                          onDragStart={e => { e.dataTransfer.setData('tl-extra', JSON.stringify({ id: `memo_${memo.id}`, title: memo.title, subtitle: memoTag })); e.dataTransfer.effectAllowed = 'copy' }}
+                          style={{ height: BOTTOM_ROW_H, borderBottom: `1px solid ${DIVIDER}`, marginLeft: 0, marginRight: 0, paddingLeft: 6, paddingRight: 6, borderRadius: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <div style={{ width: 5, height: 5, borderRadius: '50%', background: CATEGORY_PALETTE[MEMO_TAG[memoTag] ?? colorKeyFromName(memoTag)].solid, flexShrink: 0, opacity: 0.85 }} />
+                          <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 400, color: TEXT1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{memo.title || '(제목 없음)'}</span>
+                          <span style={{ fontSize: 11.5, color: TEXT3, flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{fmtDate(memo.created_at)}</span>
                         </ListRow>
-                      </Link>
-                    ) : <div style={{ ...emptyCell, gridColumn: 2 }} />}
-                </Fragment>
-              )
-            })}
+                      )
+                    })
+                  : bottomTasks.map(st => {
+                      const overdue = !!(st.target_date ?? st.due_date) && (st.target_date ?? st.due_date)! < today
+                      return (
+                        <Link key={st.id} href={`/subtasks/${st.id}`} style={{ height: BOTTOM_ROW_H, borderBottom: `1px solid ${DIVIDER}`, display: 'block', textDecoration: 'none' }}
+                          draggable
+                          onDragStart={e => { e.dataTransfer.setData('tl-extra', JSON.stringify({ id: `st_${st.id}`, title: st.title, subtitle: st.agenda_items?.title ?? '' })); e.dataTransfer.effectAllowed = 'copy' }}>
+                          <ListRow style={{ height: '100%', marginLeft: 0, marginRight: 0, paddingLeft: 6, paddingRight: 6, borderRadius: 0, display: 'grid', gridTemplateColumns: BOTTOM_TASK_COLS, alignItems: 'center', columnGap: 10 }}>
+                            <span style={{ fontSize: 11.5, color: TEXT3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{st.agenda_items?.agenda_groups?.category ?? '—'}</span>
+                            <span style={{ display: 'flex', alignItems: 'baseline', gap: 8, minWidth: 0 }}>
+                              <span style={{ fontSize: 13, fontWeight: 400, color: TEXT1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 0, maxWidth: '100%' }}>{st.title}</span>
+                              {st.agenda_items && <span style={{ fontSize: 11.5, color: TEXT3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 1, minWidth: 0 }}>{st.agenda_items.title}</span>}
+                            </span>
+                            <span style={{ fontSize: 11.5, color: overdue ? '#C86868' : TEXT3, whiteSpace: 'nowrap' }}>{overdue ? '기한 경과' : '진행중'}</span>
+                            <span style={{ fontSize: 11.5, color: TEXT3, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{(st.target_date ?? st.due_date) ? shortDate((st.target_date ?? st.due_date)!) : '—'}</span>
+                          </ListRow>
+                        </Link>
+                      )
+                    })}
+              </div>
+            ))}
 
-            {/* 회고 — 전체 섹션(식사·감사·일반 포함)을 36px 행으로, 5행 높이 안에서 스크롤 */}
+            {/* 회고 — 전체 섹션(식사·감사·일반 포함)을 같은 행 높이로, BOTTOM_ROWS 높이 안에서 스크롤 */}
             <div className="scrollbar-hide" data-bottom="journal-sections"
               style={{ position: 'relative', gridColumn: 3, gridRow: `3 / ${3 + BOTTOM_ROWS}`, minHeight: 0, overflowY: 'auto', overscrollBehavior: 'contain' }}>
               {(() => {
