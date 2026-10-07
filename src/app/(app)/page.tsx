@@ -192,8 +192,14 @@ function CardSection({
   )
 }
 
-// 홈 하단 진행중 과업 컬럼: 범주 | 프로젝트/과업 | 상태 | 마감
-const BOTTOM_TASK_COLS = '76px minmax(0, 1fr) 60px 44px'
+// 금주 업무 7열 — 직전주 | 월~금 | 다음주. 열마다 최소 가독 폭을 두고 남는 폭만 비율 배분.
+// 합(1050px)보다 좁으면 금주 업무 columns 영역만 가로 스크롤된다.
+const WEEK_COL_MIN = 150
+const WEEK_GRID_COLS = `minmax(${WEEK_COL_MIN}px, 0.9fr) repeat(5, minmax(${WEEK_COL_MIN}px, 1fr)) minmax(${WEEK_COL_MIN}px, 0.9fr)`
+const WEEK_GRID_MIN_W = WEEK_COL_MIN * 7
+
+// 홈 하단 진행중 과업 컬럼: 범주 | 프로젝트/과업 | 상태 | 마감 (노트북 폭에서 과업명 칸 확보를 위해 고정 칸 최소화)
+const BOTTOM_TASK_COLS = '56px minmax(0, 1fr) 50px 36px'
 // 하단 박스 안쪽 여백 (오늘의 타임라인 카드와 같은 cardBase 박스)
 const BOX_PAD_X = 22, BOX_PAD_Y = 18
 const BOX_TITLE_H = 46   // 박스 제목 행 높이 (제목 위아래 여백 포함)
@@ -1438,8 +1444,8 @@ export default function HomePage() {
     )
     const body = (title: string, done: boolean, metaText: string, extra?: React.ReactNode) => (
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <p style={{ fontSize: 13, fontWeight: 400, lineHeight: '18px', color: done ? TEXT3 : titleColor, textDecoration: done ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0, letterSpacing: '-0.01em' }}>{title}</p>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+          <p title={title} style={{ fontSize: 13, fontWeight: 400, lineHeight: '18px', color: done ? TEXT3 : titleColor, textDecoration: done ? 'line-through' : 'none', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', wordBreak: 'keep-all', overflowWrap: 'anywhere', flex: 1, minWidth: 0, letterSpacing: '-0.01em' }}>{title}</p>
           {extra}
         </div>
         {metaText && <p style={{ fontSize: 11.5, lineHeight: '16px', color: TEXT3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{metaText}</p>}
@@ -1462,7 +1468,7 @@ export default function HomePage() {
           <div className="group" style={rowInner}>
             <Repeat2 size={12} strokeWidth={2} style={{ color: TEXT3, marginTop: 3, flexShrink: 0 }} />
             {body(s.title, false, fMemoSaved[k] ? `${s.time} · 저장됨 ✓` : metaText,
-              <button type="button" className="opacity-0 group-hover:opacity-100" style={hoverBtn}
+              <button type="button" className="hidden group-hover:block" style={hoverBtn}
                 onClick={e => { e.stopPropagation(); setFMemoOpen(p => ({ ...p, [k]: !p[k] })) }}>{isOpen ? '닫기' : '안건'}</button>)}
           </div>
           {isOpen && (
@@ -1499,7 +1505,7 @@ export default function HomePage() {
           <div className="group" style={rowInner}>
             {check(done, () => toggleQuickTodo(q.id))}
             {body(q.title, done, meta,
-              <button type="button" className="opacity-0 group-hover:opacity-100" style={hoverBtn} onClick={() => removeQuickTodo(q.id)}>×</button>)}
+              <button type="button" className="hidden group-hover:block" style={hoverBtn} onClick={() => removeQuickTodo(q.id)}>×</button>)}
           </div>
         </ListRow>
       )
@@ -1512,7 +1518,7 @@ export default function HomePage() {
         <div className="group" style={rowInner}>
           {check(done, () => completeSubTask(st.id))}
           {body(st.title, done, meta,
-            !showPicker && <button type="button" className="opacity-0 group-hover:opacity-100" style={hoverBtn} onClick={() => setDatePickerStId(st.id)}>날짜</button>)}
+            !showPicker && <button type="button" className="hidden group-hover:block" style={hoverBtn} onClick={() => setDatePickerStId(st.id)}>날짜</button>)}
         </div>
         {showPicker && (
           <div style={{ paddingLeft: 22, paddingBottom: 6 }}>
@@ -1797,7 +1803,9 @@ export default function HomePage() {
                 {weekAddDate === today ? '취소' : '+ 오늘 할 일'}
               </button>}
             </div>
-            <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: '0.85fr repeat(5, minmax(0, 1fr)) 0.85fr', gridTemplateRows: 'auto minmax(0, 1fr)' }}>
+            {/* 폭이 모자라면 열을 찌그러뜨리지 않고 이 영역만 가로 스크롤 (섹션 헤더는 스크롤 밖에 고정) */}
+            <div data-week-scroll style={{ flex: 1, minHeight: 0, minWidth: 0, width: '100%', overflowX: 'auto', overflowY: 'hidden', scrollbarWidth: 'thin', scrollbarColor: 'rgba(var(--ink-rgb),0.18) transparent' }}>
+            <div style={{ height: '100%', minWidth: WEEK_GRID_MIN_W, display: 'grid', gridTemplateColumns: WEEK_GRID_COLS, gridTemplateRows: 'auto minmax(0, 1fr)' }}>
               {weekCols.map((items, ci) => {
                 const secondary = ci === 0 || ci === 6
                 const date = secondary ? null : weekDays[ci - 1]
@@ -1848,6 +1856,7 @@ export default function HomePage() {
                 )
               })}
             </div>
+            </div>
           </section>
 
           {/* ── 하단 50:50 — 퀵메모 | 진행중 과업. 한 개의 invisible grid를 공유해 행 높이/기준선 일치 ── */}
@@ -1880,7 +1889,7 @@ export default function HomePage() {
               <button type="button" onClick={async () => { if (jEdits) await saveInlineJournal(); setShowJournal(true) }}
                 style={{ marginLeft: 'auto', fontSize: 12, color: TEXT3, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>전체 편집 ↗</button>
             </div>
-            <div data-bottom="task-header" style={{ position: 'relative', gridRow: 2, gridColumn: 2, height: 40, display: 'grid', gridTemplateColumns: BOTTOM_TASK_COLS, alignItems: 'center', columnGap: 12, padding: '0 6px', borderBottom: `1px solid ${DIVIDER}` }}>
+            <div data-bottom="task-header" style={{ position: 'relative', gridRow: 2, gridColumn: 2, height: 40, display: 'grid', gridTemplateColumns: BOTTOM_TASK_COLS, alignItems: 'center', columnGap: 10, padding: '0 6px', borderBottom: `1px solid ${DIVIDER}` }}>
               {([['범주', '범주'], ['프로젝트 / 과업', '상세TASK'], ['상태', null], ['마감', '마감']] as const).map(([label, sortKey]) => (
                 <button key={label} type="button" disabled={!sortKey} onClick={() => sortKey && toggleSort(sortKey)}
                   style={{ fontSize: 12, fontWeight: 500, color: stSort?.col === sortKey ? TEXT2 : TEXT3, background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: sortKey ? 'pointer' : 'default', whiteSpace: 'nowrap' }}>
@@ -1914,11 +1923,11 @@ export default function HomePage() {
                       <Link href={`/subtasks/${st.id}`} style={{ ...cellBase, gridColumn: 2, display: 'block', textDecoration: 'none' }}
                         draggable
                         onDragStart={e => { e.dataTransfer.setData('tl-extra', JSON.stringify({ id: `st_${st.id}`, title: st.title, subtitle: st.agenda_items?.title ?? '' })); e.dataTransfer.effectAllowed = 'copy' }}>
-                        <ListRow style={{ height: '100%', marginLeft: 0, marginRight: 0, paddingLeft: 6, paddingRight: 6, borderRadius: 0, display: 'grid', gridTemplateColumns: BOTTOM_TASK_COLS, alignItems: 'center', columnGap: 12 }}>
+                        <ListRow style={{ height: '100%', marginLeft: 0, marginRight: 0, paddingLeft: 6, paddingRight: 6, borderRadius: 0, display: 'grid', gridTemplateColumns: BOTTOM_TASK_COLS, alignItems: 'center', columnGap: 10 }}>
                           <span style={{ fontSize: 11.5, color: TEXT3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{st.agenda_items?.agenda_groups?.category ?? '—'}</span>
                           <span style={{ display: 'flex', alignItems: 'baseline', gap: 8, minWidth: 0 }}>
-                            <span style={{ fontSize: 13, fontWeight: 400, color: TEXT1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 1, minWidth: 0 }}>{st.title}</span>
-                            {st.agenda_items && <span style={{ fontSize: 11.5, color: TEXT3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 2, minWidth: 0 }}>{st.agenda_items.title}</span>}
+                            <span style={{ fontSize: 13, fontWeight: 400, color: TEXT1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 0, maxWidth: '100%' }}>{st.title}</span>
+                            {st.agenda_items && <span style={{ fontSize: 11.5, color: TEXT3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 1, minWidth: 0 }}>{st.agenda_items.title}</span>}
                           </span>
                           <span style={{ fontSize: 11.5, color: overdue ? '#C86868' : TEXT3, whiteSpace: 'nowrap' }}>{overdue ? '기한 경과' : '진행중'}</span>
                           <span style={{ fontSize: 11.5, color: TEXT3, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{(st.target_date ?? st.due_date) ? shortDate((st.target_date ?? st.due_date)!) : '—'}</span>
