@@ -14,7 +14,7 @@ const HANDLE_WIDTH = 18
 const AUTO_SCROLL_EDGE = 48
 const AUTO_SCROLL_STEP = 14
 
-interface DropTarget { pos: number; y: number }
+interface DropTarget { pos: number; y: number; left: number }
 
 function findTablePos(editor: Editor, wrapper: Element): number {
   let found = -1
@@ -26,21 +26,54 @@ function findTablePos(editor: Editor, wrapper: Element): number {
   return found
 }
 
-// 포인터 Y 아래쪽에서 가장 먼저 만나는 최상위 블록의 "앞" 경계 — 블록 높이의 절반을
-// 넘기 전이면 그 블록 앞, 넘었으면 다음 블록 앞(마지막이면 문서 끝)으로 본다.
-function findDropTarget(editor: Editor, clientY: number): DropTarget | null {
-  const { doc } = editor.state
-  let result: DropTarget | null = null
-  let lastBottom = 0
-  doc.forEach((node, offset) => {
-    if (result) return
-    const dom = editor.view.nodeDOM(offset) as HTMLElement | null
-    if (!dom?.getBoundingClientRect) return
-    const r = dom.getBoundingClientRect()
-    lastBottom = r.bottom
-    if (clientY < r.top + r.height / 2) result = { pos: offset, y: r.top }
+// 드롭 후보 = "줄" 단위 — 문단/제목/목록 항목 줄 같은 텍스트블록 하나하나와(다른 표는
+// 통째로 한 칸) 그 사이 경계. 예전엔 문서 최상위 블록만 봐서, 줄이 여러 개인 번호 목록이
+// 블록 하나로 취급돼 목록 중간에는 놓을 수 없었다. 표 안의 셀 문단은 후보에서 뺀다.
+interface DropItem { pos: number; size: number; rect: DOMRect }
+
+function collectDropItems(editor: Editor, draggedFrom: number): DropItem[] {
+  const items: DropItem[] = []
+  editor.state.doc.descendants((node, pos) => {
+    const isTable = node.type.name === 'table'
+    if (!isTable && !node.isTextblock) return true
+    if (!(isTable && pos === draggedFrom)) {
+      const dom = editor.view.nodeDOM(pos) as HTMLElement | null
+      if (dom?.getBoundingClientRect) items.push({ pos, size: node.nodeSize, rect: dom.getBoundingClientRect() })
+    }
+    return false
   })
-  return result ?? { pos: doc.content.size, y: lastBottom }
+  return items
+}
+
+// 경계 위치에 표가 스키마상 못 들어가면(예: 목록 항목의 첫 줄 앞, 토글 제목 뒤) 바깥
+// 노드 앞/뒤로 한 단계씩 올라가며 들어갈 수 있는 가장 가까운 자리를 찾는다.
+function fitTablePos(editor: Editor, pos: number, dir: 'before' | 'after'): number | null {
+  const { doc, schema } = editor.state
+  const tableType = schema.nodes.table
+  let $p = doc.resolve(pos)
+  for (;;) {
+    const idx = $p.index()
+    if ($p.parent.canReplaceWith(idx, idx, tableType)) return $p.pos
+    if ($p.depth === 0) return null
+    $p = doc.resolve(dir === 'after' ? $p.after() : $p.before())
+  }
+}
+
+// 포인터 Y가 어떤 줄의 위쪽 절반이면 그 줄 앞(= 윗줄 뒤), 아래쪽 절반이면 그 줄 뒤.
+// "줄 앞"은 가능하면 "윗줄 뒤"로 바꿔 목록 항목 안(들여쓰기 유지)에 들어가게 한다.
+function findDropTarget(editor: Editor, clientY: number, draggedFrom: number): DropTarget | null {
+  const items = collectDropItems(editor, draggedFrom)
+  if (items.length === 0) return null
+  let i = items.findIndex(it => clientY < it.rect.top + it.rect.height / 2)
+  if (i === -1) i = items.length
+  if (i === 0) {
+    const first = items[0]
+    const pos = fitTablePos(editor, first.pos, 'before')
+    return pos === null ? null : { pos, y: first.rect.top, left: first.rect.left }
+  }
+  const prev = items[i - 1]
+  const pos = fitTablePos(editor, prev.pos + prev.size, 'after')
+  return pos === null ? null : { pos, y: prev.rect.bottom, left: prev.rect.left }
 }
 
 function moveTable(editor: Editor, from: number, target: number) {
@@ -112,12 +145,13 @@ export function TableDragHandle({ editor, containerRef }: {
       if (e.clientY < s.top + AUTO_SCROLL_EDGE) scroller.scrollBy(0, -AUTO_SCROLL_STEP)
       else if (e.clientY > s.bottom - AUTO_SCROLL_EDGE) scroller.scrollBy(0, AUTO_SCROLL_STEP)
     }
-    const target = findDropTarget(editor, e.clientY)
+    const target = findDropTarget(editor, e.clientY, drag.from)
     drag.target = target
     if (!target) { setIndicator(null); return }
     const c = container.getBoundingClientRect()
     const ed = editor.view.dom.getBoundingClientRect()
-    setIndicator({ top: target.y - c.top - 1, left: ed.left - c.left, width: ed.width })
+    // 표시선은 그 줄의 들여쓰기 위치에서 시작 — 목록 안에 들어가는지 눈으로 구분되게
+    setIndicator({ top: target.y - c.top - 1, left: target.left - c.left, width: ed.right - target.left })
   }
 
   function onPointerUp(e: React.PointerEvent<HTMLDivElement>) {
