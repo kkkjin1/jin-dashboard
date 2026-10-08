@@ -15,6 +15,7 @@ import { Table, TableRow, TableHeader, TableCell } from '@tiptap/extension-table
 import { BASE_TIPTAP_EXTENSIONS, ToggleInputRules, legacyToHtml, handleListKeymapWorkaround } from '@/lib/tiptapExtensions'
 import { FontSize, getCurrentBlockFontSize } from '@/lib/tiptapFontSize'
 import { parseSpreadsheetClipboard } from '@/lib/spreadsheetClipboard'
+import { TableDragHandle } from './TableDragHandle'
 
 const RED = '#EF4444'
 const HILITE = '#FEF08A'
@@ -147,6 +148,7 @@ function MountedSketchEditor({
   const onContentChangeRef = useRef(onContentChange)
   const onExitEditRef = useRef(onExitEdit)
   const editorRef = useRef<Editor | null>(null)
+  const wrapRef = useRef<HTMLDivElement>(null)
   const [displaySize, setDisplaySize] = useState(fallbackFontSize)
   // useEditor는 transaction마다 리렌더하지 않으므로, 표 편집 버튼 노출 여부는 state로 따로 추적
   const [inTable, setInTable] = useState(false)
@@ -287,7 +289,7 @@ function MountedSketchEditor({
   if (!editor) return null
 
   return (
-    <div className={variant === 'document' ? 'flex flex-col gap-1' : 'flex-1 min-h-0 flex flex-col gap-1'} onPointerDown={e => e.stopPropagation()}>
+    <div ref={wrapRef} className={variant === 'document' ? 'relative flex flex-col gap-1' : 'flex-1 min-h-0 flex flex-col gap-1'} onPointerDown={e => e.stopPropagation()}>
       <div
         className="nodrag nopan flex items-center gap-1 px-1.5 py-1 rounded-lg flex-shrink-0"
         style={{ background: 'rgba(var(--ink-rgb),0.06)', border: '1px solid rgba(var(--ink-rgb),0.08)', width: 'fit-content' }}
@@ -348,6 +350,8 @@ function MountedSketchEditor({
         )}
       </div>
       <EditorContent editor={editor} className={variant === 'document' ? undefined : 'flex-1 min-h-0 overflow-y-auto scrollbar-hide'} />
+      {/* 표 줄간 이동 손잡이 — 본문(document)에서만. 카드는 고정 박스라 왼쪽 여백이 없다 */}
+      {variant === 'document' && <TableDragHandle editor={editor} containerRef={wrapRef} />}
     </div>
   )
 }

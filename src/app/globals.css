@@ -572,7 +572,7 @@ html, body {
 .tiptap-input img, .tiptap-input-dark img { max-width: 100%; border-radius: 6px; display: block; margin: 4px 0; }
 
 /* ── 생각스케치 본문 인라인 표 (Tiptap Table, 텍스트 줄 사이 블록) ── */
-.tiptap-input .tableWrapper { overflow-x: auto; margin: 6px 0; }
+.tiptap-input .tableWrapper { overflow-x: auto; overflow-y: hidden; width: fit-content; max-width: 100%; margin: 6px 0; }
 .tiptap-input table { border-collapse: collapse; table-layout: fixed; margin: 6px 0; }
 .tiptap-input .tableWrapper table { margin: 0; }
 .tiptap-input :is(td, th) {
