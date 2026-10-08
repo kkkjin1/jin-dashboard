@@ -571,6 +571,25 @@ html, body {
 .tiptap-input li > p, .tiptap-input-dark li > p { margin: 0; min-height: auto; }
 .tiptap-input img, .tiptap-input-dark img { max-width: 100%; border-radius: 6px; display: block; margin: 4px 0; }
 
+/* ── 생각스케치 본문 인라인 표 (Tiptap Table, 텍스트 줄 사이 블록) ── */
+.tiptap-input .tableWrapper { overflow-x: auto; margin: 6px 0; }
+.tiptap-input table { border-collapse: collapse; table-layout: fixed; margin: 6px 0; }
+.tiptap-input .tableWrapper table { margin: 0; }
+.tiptap-input :is(td, th) {
+  border: 1px solid rgba(var(--ink-rgb),0.18); padding: 3px 8px; min-width: 48px;
+  vertical-align: top; position: relative; box-sizing: border-box; white-space: pre-wrap;
+}
+.tiptap-input th { background: rgba(107,182,199,0.14); font-weight: 600; text-align: left; }
+.tiptap-input :is(td, th) > p { margin: 0; min-height: 1.5em; }
+.tiptap-input :is(td, th) > p + p { margin-top: 0; }
+.tiptap-input .selectedCell::after {
+  content: ""; position: absolute; inset: 0; background: rgba(76,127,224,0.16); pointer-events: none; z-index: 2;
+}
+.tiptap-input .column-resize-handle {
+  position: absolute; right: -2px; top: 0; bottom: -2px; width: 4px; background: #6BB6C7; pointer-events: none; z-index: 3;
+}
+.tiptap-input.resize-cursor { cursor: col-resize; }
+
 /* ── 노션식 토글(details) ──
    에디터: Tiptap Details nodeView = div[data-type=details] > button + div > (summary, div[data-type=detailsContent])
    읽기모드: 저장된 HTML 그대로 = <details class="details" [open]> > summary + div[data-type=detailsContent]

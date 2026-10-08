@@ -8,9 +8,13 @@
 // 이 파일의 드래그/캐럿 배치 wiring뿐 — 새 Markdown/서식 체계를 따로 만들지 않는다.
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useEditor, EditorContent, type Editor } from '@tiptap/react'
-import { Pen, Highlighter } from 'lucide-react'
+import { Pen, Highlighter, Table2 } from 'lucide-react'
+import type { EditorView } from '@tiptap/pm/view'
+import type { JSONContent } from '@tiptap/core'
+import { Table, TableRow, TableHeader, TableCell } from '@tiptap/extension-table'
 import { BASE_TIPTAP_EXTENSIONS, ToggleInputRules, legacyToHtml, handleListKeymapWorkaround } from '@/lib/tiptapExtensions'
 import { FontSize, getCurrentBlockFontSize } from '@/lib/tiptapFontSize'
+import { parseSpreadsheetClipboard } from '@/lib/spreadsheetClipboard'
 
 const RED = '#EF4444'
 const HILITE = '#FEF08A'
@@ -19,7 +23,42 @@ const MAX_FONT_SIZE = 48
 const FONT_SIZE_STEP = 1.5
 
 // 모듈 레벨 상수 — TiptapEditor.tsx와 동일한 이유(참조 안정성)로 컴포넌트 바깥에 둔다.
-const SKETCH_EXTENSIONS = [...BASE_TIPTAP_EXTENSIONS, FontSize, ToggleInputRules]
+// 표는 문서 흐름 안의 블록 노드(Table) — 예전처럼 본문 위에 떠 있는 오버레이가 아니라
+// 텍스트 줄 사이에 끼어들어가고, 위아래 텍스트가 표 높이만큼 자연스럽게 밀린다.
+// StarterKit v3의 TrailingNode 덕분에 표가 문서 마지막이어도 아래에 빈 줄이 항상 남는다.
+const SKETCH_EXTENSIONS = [
+  ...BASE_TIPTAP_EXTENSIONS, FontSize, ToggleInputRules,
+  Table.configure({ resizable: true, HTMLAttributes: { class: 'sketch-table' } }),
+  TableRow, TableHeader, TableCell,
+]
+
+// Excel/Sheets 셀 범위 → Table 노드 JSON. 셀 안 줄바꿈은 문단으로 나눈다.
+function matrixToTableJson(matrix: string[][]): JSONContent {
+  return {
+    type: 'table',
+    content: matrix.map(row => ({
+      type: 'tableRow',
+      content: row.map(cell => ({
+        type: 'tableCell',
+        content: cell.split('\n').map(line => (line ? { type: 'paragraph', content: [{ type: 'text', text: line }] } : { type: 'paragraph' })),
+      })),
+    })),
+  }
+}
+
+// 붙여넣은 직후 커서를 표 바로 아래 줄로 옮긴다 — 표 마지막 칸에 커서가 남으면 다음
+// 텍스트(2행)를 쓰려고 표 밖으로 다시 클릭해야 한다. 아래 줄이 문단이 아니면 하나 만든다.
+function moveCursorBelowTable(ed: Editor) {
+  const { $from } = ed.state.selection
+  for (let d = $from.depth; d > 0; d--) {
+    if ($from.node(d).type.name !== 'table') continue
+    const after = $from.after(d)
+    const next = ed.state.doc.nodeAt(after)
+    if (next?.type.name === 'paragraph') ed.chain().focus().setTextSelection(after + 1).run()
+    else ed.chain().focus().insertContentAt(after, { type: 'paragraph' }).setTextSelection(after + 1).run()
+    return
+  }
+}
 
 interface CaretPos { x: number; y: number }
 
@@ -109,6 +148,8 @@ function MountedSketchEditor({
   const onExitEditRef = useRef(onExitEdit)
   const editorRef = useRef<Editor | null>(null)
   const [displaySize, setDisplaySize] = useState(fallbackFontSize)
+  // useEditor는 transaction마다 리렌더하지 않으므로, 표 편집 버튼 노출 여부는 state로 따로 추적
+  const [inTable, setInTable] = useState(false)
   useEffect(() => {
     onContentChangeRef.current = onContentChange
     onExitEditRef.current = onExitEdit
@@ -142,6 +183,13 @@ function MountedSketchEditor({
       adjustFontSize(e.code === 'Period' ? FONT_SIZE_STEP : -FONT_SIZE_STEP)
       return true
     }
+    // 표 셀 안의 Tab/Shift+Tab — 엑셀처럼 다음/이전 칸, 마지막 칸에서 Tab이면 행 추가
+    if (e.key === 'Tab' && ed.isActive('table')) {
+      e.preventDefault()
+      if (e.shiftKey) { ed.commands.goToPreviousCell(); return true }
+      if (!ed.commands.goToNextCell()) ed.chain().addRowAfter().goToNextCell().run()
+      return true
+    }
     if (e.key === 'Tab') {
       e.preventDefault()
       e.shiftKey
@@ -151,6 +199,20 @@ function MountedSketchEditor({
     }
     return handleListKeymapWorkaround(ed, e)
   }, [adjustFontSize])
+
+  // 표 셀 범위 붙여넣기 — 문서 흐름 안에 Table 노드로 넣는다(커서 위치 = 텍스트 줄 사이).
+  // 이미 표 안에 커서가 있으면 prosemirror-tables 기본 동작(셀 단위로 덮어쓰기)에 맡긴다.
+  // 여기서 true를 반환하면 ProseMirror가 preventDefault하므로, FreeNoteCanvas의 window paste
+  // 핸들러는 그걸 보고 떠있는 표 오버레이를 따로 만들지 않는다.
+  const stablePaste = useCallback((_view: EditorView, e: ClipboardEvent) => {
+    const ed = editorRef.current
+    if (!ed || !e.clipboardData || ed.isActive('table')) return false
+    const matrix = parseSpreadsheetClipboard(e.clipboardData)
+    if (!matrix) return false
+    ed.chain().focus().insertContent(matrixToTableJson(matrix)).run()
+    moveCursorBelowTable(ed)
+    return true
+  }, [])
 
   const editor = useEditor({
     extensions: SKETCH_EXTENSIONS,
@@ -162,6 +224,7 @@ function MountedSketchEditor({
           + (variant === 'document' ? ' min-height:200px; max-width:min(100%, 1100px);' : ''),
       },
       handleKeyDown: stableKeyDown,
+      handlePaste: stablePaste,
       transformPastedText: (text: string) => text.replace(/\n{3,}/g, '\n\n'),
     },
   })
@@ -171,7 +234,10 @@ function MountedSketchEditor({
   useEffect(() => {
     if (!editor) return
     const handleUpdate = () => { onContentChangeRef.current(editor.getHTML()) }
-    const handleSelection = () => { setDisplaySize(getCurrentBlockFontSize(editor.state, fallbackFontSize)) }
+    const handleSelection = () => {
+      setDisplaySize(getCurrentBlockFontSize(editor.state, fallbackFontSize))
+      setInTable(editor.isActive('table'))
+    }
     const handleBlur = () => { onExitEditRef.current() }
     editor.on('update', handleUpdate)
     editor.on('selectionUpdate', handleSelection)
@@ -255,6 +321,31 @@ function MountedSketchEditor({
           onClick={() => editor.chain().focus().toggleHighlight({ color: HILITE }).run()}
           title="형광펜 (Alt+2)"
         ><Highlighter size={12} /></button>
+        <div className="w-px h-3.5 mx-0.5 flex-shrink-0" style={{ background: 'rgba(var(--ink-rgb),0.16)' }} />
+        <button
+          className="w-5 h-5 flex items-center justify-center rounded opacity-70 hover:opacity-100 hover:bg-[rgba(107,182,199,0.18)] transition-opacity flex-shrink-0"
+          style={{ color: '#6BB6C7' }} onMouseDown={e => e.preventDefault()}
+          onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: false }).run()}
+          title="커서 위치에 표 넣기 (엑셀 셀 범위를 Ctrl+V해도 표로 들어감)"
+        ><Table2 size={12} /></button>
+        {inTable && (
+          <>
+            {([
+              ['행+', '아래에 행 추가', () => editor.chain().focus().addRowAfter().run()],
+              ['행−', '현재 행 삭제', () => editor.chain().focus().deleteRow().run()],
+              ['열+', '오른쪽에 열 추가', () => editor.chain().focus().addColumnAfter().run()],
+              ['열−', '현재 열 삭제', () => editor.chain().focus().deleteColumn().run()],
+              ['머리행', '첫 행을 머리행으로 켜기/끄기', () => editor.chain().focus().toggleHeaderRow().run()],
+              ['표 삭제', '표 전체 삭제', () => editor.chain().focus().deleteTable().run()],
+            ] as const).map(([label, title, run]) => (
+              <button
+                key={label}
+                className="h-5 px-1.5 flex items-center justify-center rounded text-[10.5px] opacity-70 hover:opacity-100 hover:bg-[rgba(var(--ink-rgb),0.08)] transition-opacity flex-shrink-0 whitespace-nowrap"
+                style={{ color: textColor }} onMouseDown={e => e.preventDefault()} onClick={run} title={title}
+              >{label}</button>
+            ))}
+          </>
+        )}
       </div>
       <EditorContent editor={editor} className={variant === 'document' ? undefined : 'flex-1 min-h-0 overflow-y-auto scrollbar-hide'} />
     </div>

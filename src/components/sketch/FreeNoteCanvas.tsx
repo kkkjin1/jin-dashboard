@@ -365,6 +365,12 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
   useEffect(() => {
     async function onPaste(e: ClipboardEvent) {
       if (!e.clipboardData) return
+      // 본문/포스트잇 편집기(.ProseMirror) 안에서 붙여넣은 셀 범위는 편집기가 직접
+      // 문서 흐름 안의 표로 넣는다(SketchTextEditor handlePaste) — 여기서 떠있는 표를
+      // 또 만들면 중복되므로 손대지 않는다. Excel 클립보드엔 이미지 사본도 같이 실려
+      // 올 수 있어 이미지 판정보다 먼저 확인한다.
+      const inEditor = (e.target as HTMLElement | null)?.closest?.('.ProseMirror')
+      if (inEditor && parseSpreadsheetClipboard(e.clipboardData)) return
       const items = Array.from(e.clipboardData.items)
       const imageItem = items.find(item => item.type.startsWith('image/'))
       if (!imageItem) {
@@ -588,7 +594,7 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
       <p className="text-center text-[11px] pt-2 flex-shrink-0" style={{ color: 'rgba(var(--text-rgb),0.28)' }}>
         바로 타이핑하세요 · <span className="font-mono">Ctrl+V</span>로 이미지 붙여넣기(크기·회전 조절 가능) ·
         <span className="font-mono">Alt+1</span> 빨간펜 · <span className="font-mono">Alt+2</span> 형광펜 ·
-        마인드맵 카드는 더블클릭(또는 확장 아이콘)으로 편집 · 표는 셀을 엑셀처럼 편집 · 선택 후 <span className="font-mono">Delete</span>로 삭제
+        마인드맵 카드는 더블클릭(또는 확장 아이콘)으로 편집 · 엑셀 셀 범위 <span className="font-mono">Ctrl+V</span>는 본문 줄 사이에 표로 삽입 · 선택 후 <span className="font-mono">Delete</span>로 삭제
       </p>
 
       {expandedMindmap && (
