@@ -199,18 +199,22 @@ const WEEK_GRID_COLS = `minmax(${WEEK_COL_MIN}px, 0.9fr) repeat(5, minmax(${WEEK
 const WEEK_GRID_MIN_W = WEEK_COL_MIN * 7
 // 금주 업무 섹션 높이 — 내용 높이 기준, 공간 부족 시 최소 200까지 축소, 업무가 많아도 340에서 멈춤(열 안 스크롤)
 const WEEK_MIN_H = 200
-// 높이 density tier — 홈 스크롤 영역 높이(= viewport 높이 − main 상하 padding 38px) 기준.
-// viewport 900 / 1050 / 1250 경계. 화면이 높을수록 박스가 커지는 게 아니라 '보이는 정보 수'가 늘어난다.
-type DensityTier = 'compact' | 'standard' | 'large' | 'xl'
-function densityTierOf(homeH: number): DensityTier {
-  return homeH >= 1212 ? 'xl' : homeH >= 1012 ? 'large' : homeH >= 862 ? 'standard' : 'compact'
-}
-// 하단 3박스 노출 행 수 (회고 8섹션이 정보 상한이라 최대 8)
-const TIER_BOTTOM_ROWS: Record<DensityTier, number> = { compact: 3, standard: 5, large: 7, xl: 8 }
-// 직전주 열에 실제 항목으로 추가 노출할 '지난주 이전 미완료' 수 (나머지는 개수만)
-const TIER_OLDER_EXTRA: Record<DensityTier, number> = { compact: 0, standard: 0, large: 3, xl: 5 }
-// 금주 업무 높이 상한 — 추가 노출 항목만큼만 완화 (빈 열을 늘리려는 값이 아님)
-const TIER_WEEK_MAX_H: Record<DensityTier, number> = { compact: 340, standard: 340, large: 400, xl: 480 }
+// 화면 비율 맞춤 — 노트북(2880×1800, 배율 200% → 홈 높이 752px) 화면이 기준.
+// 더 높은 화면은 ① 본문을 최대 HOME_MAX_ZOOM까지 확대(메뉴바 제외)하고 ② 그래도 남는 세로 높이는
+// 행·간격·타임라인 레인 높이를 같은 배수(--vs)로 늘려 채운다. 행 수·노출 항목 수는 기준 화면과 같다.
+const HOME_REF_H = 752
+const HOME_MAX_ZOOM = 1.1
+// 세로 배수 적용 길이 (글자 크기에는 쓰지 않음)
+const vs = (px: number) => `calc(${px}px * var(--vs, 1))`
+// 타임라인은 레인이 커 보이지 않게 배수 상한을 따로 둔다 (남는 높이는 금주 업무가 흡수)
+const TL_MAX_VS = 1.15
+const vsTl = (px: number) => `calc(${px}px * var(--vs-tl, 1))`
+// 하단 3박스 기준 행 수 — 박스 높이는 배수만큼 커지고, 그 안에 들어가는 행 수는 floor(3 × 배수)
+const BASE_BOTTOM_ROWS = 3
+// 금주 업무 높이 상한 (기준 화면 값)
+const WEEK_MAX_H = 340
+// 금주 업무 헤더 박스 — 제목 행 + 요일 머리글 행만 퀵메모와 같은 카드로 감싸고, 본문은 배경에 둔다
+const WEEK_HEAD_PAD = 6, WEEK_TITLE_H = 28, WEEK_TITLE_GAP = 6, WEEK_COLHEAD_H = 30
 // 금주 업무 ↔ 하단 3박스 간격 = 하단 marginTop 12 + 이 값 (총 48px). 노트북에서는 이 값부터 접힌다
 const SECTION_GAP_EXTRA = 36
 
@@ -285,6 +289,8 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
   const containerRef = useRef<HTMLDivElement>(null)
   const dateInputRef = useRef<HTMLInputElement>(null)
   const [cw, setCw] = useState(0)
+  // 본문 zoom 배율 — clientX·getBoundingClientRect(화면 px)를 레이아웃 px(zoom 전)로 환산할 때 나눈다
+  const cssZoom = () => (containerRef.current as (HTMLElement & { currentCSSZoom?: number }) | null)?.currentCSSZoom ?? 1
   const [gTooltip, setGTooltip] = useState<{ ev: GoogleCalendarEvent; x: number; y: number } | null>(null)
 
   useEffect(() => {
@@ -357,7 +363,7 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
     siDragRef.current = { id, startX, startHour }
     function onMove(e: MouseEvent) {
       if (!siDragRef.current || hW === 0) return
-      const newH = Math.max(H_START, Math.min(H_END - fixedDur, siDragRef.current.startHour + (e.clientX - siDragRef.current.startX) / hW))
+      const newH = Math.max(H_START, Math.min(H_END - fixedDur, siDragRef.current.startHour + (e.clientX - siDragRef.current.startX) / (hW * cssZoom())))
       latestHour = newH
       setSiPos(p => ({ ...p, [id]: newH }))
     }
@@ -376,7 +382,7 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
     siResizeRef.current = { id, startX, startDur }
     function onMove(e: MouseEvent) {
       if (!siResizeRef.current || hW === 0) return
-      const newD = Math.max(0.25, Math.min(H_END - fixedHour, siResizeRef.current.startDur + (e.clientX - siResizeRef.current.startX) / hW))
+      const newD = Math.max(0.25, Math.min(H_END - fixedHour, siResizeRef.current.startDur + (e.clientX - siResizeRef.current.startX) / (hW * cssZoom())))
       latestDur = newD
       setSiDur(p => ({ ...p, [id]: newD }))
     }
@@ -445,7 +451,7 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
     function onMove(e: MouseEvent) {
       if (!mDragRef.current || hW === 0) return
       const dur = mDur[id] ?? 1
-      const newH = Math.max(H_START, Math.min(H_END - dur, mDragRef.current.startHour + (e.clientX - mDragRef.current.startX) / hW))
+      const newH = Math.max(H_START, Math.min(H_END - dur, mDragRef.current.startHour + (e.clientX - mDragRef.current.startX) / (hW * cssZoom())))
       setMPos(p => ({ ...p, [id]: newH }))
     }
     function onUp() { mDragRef.current = null; window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
@@ -456,7 +462,7 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
     mResizeRef.current = { id, startX, startDur: mDur[id] ?? 1 }
     function onMove(e: MouseEvent) {
       if (!mResizeRef.current || hW === 0) return
-      const newD = Math.max(0.25, Math.min(H_END - (mPos[id] ?? H_START), mResizeRef.current.startDur + (e.clientX - mResizeRef.current.startX) / hW))
+      const newD = Math.max(0.25, Math.min(H_END - (mPos[id] ?? H_START), mResizeRef.current.startDur + (e.clientX - mResizeRef.current.startX) / (hW * cssZoom())))
       setMDur(p => ({ ...p, [id]: newD }))
     }
     function onUp() { mResizeRef.current = null; window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
@@ -469,7 +475,7 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
     function onMove(e: MouseEvent) {
       if (!tDragRef.current || hW === 0) return
       const dur = tDur[id] ?? 1
-      const newH = Math.max(H_START, Math.min(H_END - dur, tDragRef.current.startHour + (e.clientX - tDragRef.current.startX) / hW))
+      const newH = Math.max(H_START, Math.min(H_END - dur, tDragRef.current.startHour + (e.clientX - tDragRef.current.startX) / (hW * cssZoom())))
       setTPos(p => ({ ...p, [id]: newH }))
     }
     function onUp() { tDragRef.current = null; window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
@@ -480,7 +486,7 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
     tResizeRef.current = { id, startX, startDur: tDur[id] ?? 1 }
     function onMove(e: MouseEvent) {
       if (!tResizeRef.current || hW === 0) return
-      const newD = Math.max(0.25, Math.min(H_END - (tPos[id] ?? H_START), tResizeRef.current.startDur + (e.clientX - tResizeRef.current.startX) / hW))
+      const newD = Math.max(0.25, Math.min(H_END - (tPos[id] ?? H_START), tResizeRef.current.startDur + (e.clientX - tResizeRef.current.startX) / (hW * cssZoom())))
       setTDur(p => ({ ...p, [id]: newD }))
     }
     function onUp() { tResizeRef.current = null; window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
@@ -494,7 +500,7 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
     function onMove(e: MouseEvent) {
       if (!exDragRef.current || hW === 0) return
       const dur = extraDur[id] ?? 1
-      const newH = Math.max(H_START, Math.min(H_END - dur, exDragRef.current.startHour + (e.clientX - exDragRef.current.startX) / hW))
+      const newH = Math.max(H_START, Math.min(H_END - dur, exDragRef.current.startHour + (e.clientX - exDragRef.current.startX) / (hW * cssZoom())))
       setExtraPos(p => ({ ...p, [id]: newH }))
     }
     function onUp() { exDragRef.current = null; window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
@@ -505,7 +511,7 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
     exResizeRef.current = { id, startX, startDur: extraDur[id] ?? 1 }
     function onMove(e: MouseEvent) {
       if (!exResizeRef.current || hW === 0) return
-      const newD = Math.max(0.25, Math.min(H_END - (extraPos[id] ?? H_START), exResizeRef.current.startDur + (e.clientX - exResizeRef.current.startX) / hW))
+      const newD = Math.max(0.25, Math.min(H_END - (extraPos[id] ?? H_START), exResizeRef.current.startDur + (e.clientX - exResizeRef.current.startX) / (hW * cssZoom())))
       setExtraDur(p => ({ ...p, [id]: newD }))
     }
     function onUp() { exResizeRef.current = null; window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
@@ -524,7 +530,7 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
     e.dataTransfer.dropEffect = 'copy'
     if (!containerRef.current || hW === 0) return
     const rect = containerRef.current.getBoundingClientRect()
-    setDropIndicatorX(e.clientX - rect.left)
+    setDropIndicatorX((e.clientX - rect.left) / cssZoom())
   }
 
   function onContainerDragLeave() { setDropIndicatorX(null) }
@@ -537,7 +543,7 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
       if (!raw || !containerRef.current || hW === 0) return
       const item: TLExtra = JSON.parse(raw)
       const rect = containerRef.current.getBoundingClientRect()
-      const hour = Math.max(H_START, Math.min(H_END - 1, H_START + (e.clientX - rect.left) / hW))
+      const hour = Math.max(H_START, Math.min(H_END - 1, H_START + (e.clientX - rect.left) / (hW * cssZoom())))
       if (extras.some(ex => ex.id === item.id)) {
         setExtraPos(p => ({ ...p, [item.id]: hour }))
         return
@@ -563,8 +569,8 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
   }
 
   return (
-    <div style={{ ...cardBase(), marginBottom: 10, overflow: 'hidden', transition: 'none', flexShrink: 0 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 22px 0' }}>
+    <div style={{ ...cardBase(), marginBottom: vsTl(10), overflow: 'hidden', transition: 'none', flexShrink: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: `${vsTl(10)} 22px 0` }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <span style={{ display: 'flex', alignItems: 'center' }}><Clock size={14} strokeWidth={2} style={{ color: '#E05252' }} /></span>
           <span style={{ fontSize: 13, fontWeight: 600, color: TEXT1, letterSpacing: '-0.01em' }}>오늘의 타임라인</span>
@@ -627,7 +633,7 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
       </div>
 
       <div ref={containerRef}
-        style={{ position: 'relative', margin: '6px 22px 9px', height: TL_CARD_H }}
+        style={{ position: 'relative', margin: `${vsTl(6)} 22px ${vsTl(9)}`, height: vsTl(TL_CARD_H) }}
         onDragOver={onContainerDragOver}
         onDragLeave={onContainerDragLeave}
         onDrop={onContainerDrop}
@@ -643,16 +649,16 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
 
         {/* Vertical grid lines */}
         {cw > 0 && hours.map((_, i) => (
-          <div key={i} style={{ position: 'absolute', left: i * hW, top: TL_TIME_H, bottom: 0, width: 1, background: 'rgba(var(--ink-rgb),0.05)', pointerEvents: 'none' }} />
+          <div key={i} style={{ position: 'absolute', left: i * hW, top: vsTl(TL_TIME_H), bottom: 0, width: 1, background: 'rgba(var(--ink-rgb),0.05)', pointerEvents: 'none' }} />
         ))}
 
         {/* Lane track backgrounds */}
-        {cw > 0 && <div style={{ position: 'absolute', left: 0, right: 0, top: TL_LANE1_TOP, height: TL_LANE_H, borderRadius: 5, background: 'rgba(var(--ink-rgb),0.018)', pointerEvents: 'none' }} />}
-        {cw > 0 && <div style={{ position: 'absolute', left: 0, right: 0, top: TL_LANE2_TOP, height: TL_LANE_H, borderRadius: 5, background: 'rgba(var(--ink-rgb),0.018)', pointerEvents: 'none' }} />}
+        {cw > 0 && <div style={{ position: 'absolute', left: 0, right: 0, top: vsTl(TL_LANE1_TOP), height: vsTl(TL_LANE_H), borderRadius: 5, background: 'rgba(var(--ink-rgb),0.018)', pointerEvents: 'none' }} />}
+        {cw > 0 && <div style={{ position: 'absolute', left: 0, right: 0, top: vsTl(TL_LANE2_TOP), height: vsTl(TL_LANE_H), borderRadius: 5, background: 'rgba(var(--ink-rgb),0.018)', pointerEvents: 'none' }} />}
 
         {/* Current time — vertical line */}
         {inRange && cw > 0 && (
-          <div style={{ position: 'absolute', left: curX, top: TL_TIME_H, bottom: 0, width: 1.5, background: 'rgb(var(--accent-tint-rgb))', pointerEvents: 'none', zIndex: 10 }} />
+          <div style={{ position: 'absolute', left: curX, top: vsTl(TL_TIME_H), bottom: 0, width: 1.5, background: 'rgb(var(--accent-tint-rgb))', pointerEvents: 'none', zIndex: 10 }} />
         )}
 
         {/* Current time — pill badge */}
@@ -688,7 +694,7 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
               onMouseDown={e => { e.preventDefault(); onMDragStart(m.id, e.clientX) }}
               style={{
                 position: 'absolute', left: x, width: w,
-                top: TL_LANE2_TOP, height: TL_LANE_H,
+                top: vsTl(TL_LANE2_TOP), height: vsTl(TL_LANE_H),
                 borderRadius: 8, cursor: 'grab',
                 background: col.bg,
                 border: `1px solid ${col.bd}`,
@@ -718,7 +724,7 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
               onMouseDown={e => { e.preventDefault(); onMDragStart(fid, e.clientX) }}
               style={{
                 position: 'absolute', left: x, width: w,
-                top: TL_LANE2_TOP, height: TL_LANE_H,
+                top: vsTl(TL_LANE2_TOP), height: vsTl(TL_LANE_H),
                 borderRadius: 8, cursor: 'grab',
                 background: col.bg,
                 border: `1px solid rgba(56,190,152,0.30)`,
@@ -742,12 +748,13 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
               onClick={() => onSelectGoogleEvent(ev)}
               onMouseEnter={e => {
                 const r = e.currentTarget.getBoundingClientRect()
-                setGTooltip({ ev, x: r.left + r.width / 2, y: r.top })
+                const z = cssZoom()   // fixed 툴팁도 zoom 안에 있어 left/top이 배율만큼 곱해짐
+                setGTooltip({ ev, x: (r.left + r.width / 2) / z, y: r.top / z })
               }}
               onMouseLeave={() => setGTooltip(t => (t?.ev.id === ev.id ? null : t))}
               style={{
                 position: 'absolute', left: x, width: w,
-                top: TL_LANE1_TOP, height: TL_LANE_H,
+                top: vsTl(TL_LANE1_TOP), height: vsTl(TL_LANE_H),
                 borderRadius: 8, cursor: 'pointer',
                 background: 'rgba(66,133,244,0.16)',
                 border: '1px solid rgba(66,133,244,0.4)',
@@ -791,7 +798,7 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
               onMouseDown={e => { e.preventDefault(); onTDragStart(t.id, e.clientX) }}
               style={{
                 position: 'absolute', left: x, width: w,
-                top: TL_LANE2_TOP, height: TL_LANE_H,
+                top: vsTl(TL_LANE2_TOP), height: vsTl(TL_LANE_H),
                 borderRadius: 8, cursor: 'grab',
                 background: col.bg,
                 border: `1px solid ${col.bd}`,
@@ -809,7 +816,7 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
 
         {/* ── Drop indicator ── */}
         {dropIndicatorX !== null && cw > 0 && (
-          <div style={{ position: 'absolute', left: dropIndicatorX, top: TL_TIME_H, bottom: 0, width: 2, background: 'rgba(76,127,224,0.7)', pointerEvents: 'none', zIndex: 20, boxShadow: '0 0 8px rgba(76,127,224,0.4)' }} />
+          <div style={{ position: 'absolute', left: dropIndicatorX, top: vsTl(TL_TIME_H), bottom: 0, width: 2, background: 'rgba(76,127,224,0.7)', pointerEvents: 'none', zIndex: 20, boxShadow: '0 0 8px rgba(76,127,224,0.4)' }} />
         )}
 
         {/* ── Lane 2: extras (외부 드래그 항목) ── */}
@@ -820,7 +827,7 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
           return (
             <div key={ex.id}
               onMouseDown={e => { e.preventDefault(); onExDragStart(ex.id, e.clientX) }}
-              style={{ position: 'absolute', left: x, width: w, top: TL_LANE2_TOP, height: TL_LANE_H, borderRadius: 8, cursor: 'grab', background: 'rgba(40,98,130,0.62)', border: '1px solid rgba(70,148,200,0.22)', padding: '5px 10px', display: 'flex', flexDirection: 'column', justifyContent: 'center', overflow: 'hidden', userSelect: 'none', zIndex: 6 }}>
+              style={{ position: 'absolute', left: x, width: w, top: vsTl(TL_LANE2_TOP), height: vsTl(TL_LANE_H), borderRadius: 8, cursor: 'grab', background: 'rgba(40,98,130,0.62)', border: '1px solid rgba(70,148,200,0.22)', padding: '5px 10px', display: 'flex', flexDirection: 'column', justifyContent: 'center', overflow: 'hidden', userSelect: 'none', zIndex: 6 }}>
               <span style={{ fontSize: 9.5, fontWeight: 600, color: 'rgba(255,255,255,0.50)', lineHeight: 1, marginBottom: 3 }}>{hourToStr(hour)}</span>
               <span style={{ fontSize: 11.5, fontWeight: 500, color: 'rgba(255,255,255,0.88)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }}>{ex.title}</span>
               {ex.subtitle && <span style={{ fontSize: 9.5, color: 'rgba(255,255,255,0.40)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }}>{ex.subtitle}</span>}
@@ -845,7 +852,7 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
           return (
             <div key={s.id}
               onMouseDown={e => { e.preventDefault(); onSiDragStart(s.id, e.clientX) }}
-              style={{ position: 'absolute', left: x, width: w, top: TL_LANE2_TOP, height: TL_LANE_H, borderRadius: 8, cursor: 'grab', background: col.bg, border: `1px solid ${col.bd}`, padding: '5px 10px', display: 'flex', flexDirection: 'column', justifyContent: 'center', overflow: 'hidden', userSelect: 'none', zIndex: 6 }}>
+              style={{ position: 'absolute', left: x, width: w, top: vsTl(TL_LANE2_TOP), height: vsTl(TL_LANE_H), borderRadius: 8, cursor: 'grab', background: col.bg, border: `1px solid ${col.bd}`, padding: '5px 10px', display: 'flex', flexDirection: 'column', justifyContent: 'center', overflow: 'hidden', userSelect: 'none', zIndex: 6 }}>
               <span style={{ fontSize: 9.5, fontWeight: 600, color: 'rgba(255,255,255,0.50)', lineHeight: 1, marginBottom: 3 }}>{hourToStr(hour)}</span>
               <span style={{ fontSize: 11.5, fontWeight: 500, color: 'rgba(255,255,255,0.88)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }}>{s.title}</span>
               <div onMouseDown={e => { e.stopPropagation(); e.preventDefault(); onSiResizeStart(s.id, e.clientX) }}
@@ -862,12 +869,12 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
 
         {/* Overflow indicators per lane */}
         {mHasOverflow && cw > 0 && (
-          <div style={{ position: 'absolute', right: -18, top: TL_LANE2_TOP + TL_LANE_H / 2 - 10, pointerEvents: 'none' }}>
+          <div style={{ position: 'absolute', right: -18, top: `calc(${vsTl(TL_LANE2_TOP + TL_LANE_H / 2)} - 10px)`, pointerEvents: 'none' }}>
             <span style={{ fontSize: 18, color: TEXT2, opacity: 0.55 }}>›</span>
           </div>
         )}
         {tHasOverflow && cw > 0 && (
-          <div style={{ position: 'absolute', right: -18, top: TL_LANE2_TOP + TL_LANE_H / 2 - 10, pointerEvents: 'none' }}>
+          <div style={{ position: 'absolute', right: -18, top: `calc(${vsTl(TL_LANE2_TOP + TL_LANE_H / 2)} - 10px)`, pointerEvents: 'none' }}>
             <span style={{ fontSize: 18, color: TEXT2, opacity: 0.55 }}>›</span>
           </div>
         )}
@@ -989,8 +996,8 @@ export default function HomePage() {
   const [stSort,        setStSort]        = useState<{ col: string; dir: 'asc' | 'desc' } | null>({ col: '업데이트', dir: 'desc' })
   const [stRowH,        setStRowH]        = useState(40)
   const [isCompact,     setIsCompact]     = useState(false)
-  const [homeH,         setHomeH]         = useState(0)   // 홈 스크롤 영역 높이 → density tier
-  const homeScrollRef = useRef<HTMLDivElement>(null)
+  const [homeFit,       setHomeFit]       = useState({ zoom: 1, vs: 1 })   // 화면 비율 맞춤 (HOME_REF_H 기준)
+  const homeOuterRef  = useRef<HTMLDivElement>(null)
   const stScrollRef = useRef<HTMLDivElement>(null)
   const stColsRef = useRef(stCols)
   stColsRef.current = stCols   // always fresh — reads latest value at drag start
@@ -1021,9 +1028,17 @@ export default function HomePage() {
 
   useEffect(() => {
     const check = () => setIsCompact(window.innerWidth < 1600)
-    const homeEl = homeScrollRef.current
-    const ro = homeEl ? new ResizeObserver(() => setHomeH(homeEl.clientHeight)) : null
-    if (homeEl && ro) { setHomeH(homeEl.clientHeight); ro.observe(homeEl) }
+    // zoom 밖(바깥 래퍼) 높이로 배율 결정 → zoom 후에도 기준보다 남는 높이 비율이 세로 배수
+    const homeEl = homeOuterRef.current
+    const fit = () => {
+      const h = homeEl?.clientHeight ?? 0
+      if (h === 0) return
+      const zoom = Math.min(HOME_MAX_ZOOM, Math.max(1, h / HOME_REF_H))
+      const v = Math.max(1, h / zoom / HOME_REF_H)
+      setHomeFit(p => (Math.abs(p.zoom - zoom) < 0.001 && Math.abs(p.vs - v) < 0.001 ? p : { zoom, vs: v }))
+    }
+    const ro = homeEl ? new ResizeObserver(fit) : null
+    if (homeEl && ro) { fit(); ro.observe(homeEl) }
     check()
     window.addEventListener('resize', check)
     return () => { window.removeEventListener('resize', check); ro?.disconnect() }
@@ -1450,16 +1465,12 @@ export default function HomePage() {
   }
   weekCols[0].sort((a, b) => a.date.localeCompare(b.date))
   weekCols[6].sort((a, b) => a.date.localeCompare(b.date))
-  // 큰 화면(large/xl): 지난주 항목 아래에 '가장 최근' 이전 미완료부터 tier 개수만큼 실제 항목으로 이어 붙임.
-  // 각 항목은 원본 배열에서 한 번만 분류되므로 이번 주/지난주 항목과 중복되지 않는다.
-  const densityTier = densityTierOf(homeH)
-  const olderShown = [...olderItems].sort((a, b) => b.date.localeCompare(a.date)).slice(0, TIER_OLDER_EXTRA[densityTier])
-  weekCols[0].push(...olderShown)
-  const olderOpenCount = olderItems.length - olderShown.length   // 남은 개수 ('이전 N건')
+  const olderOpenCount = olderItems.length   // 지난주보다 이전 미완료는 개수만 ('이전 N건')
+  // 하단 3박스 — 박스 높이는 기준 3행 × 배수 그대로, 그 안의 행 수만 늘림 (행 높이 ≥ 기준 32px)
+  const BOTTOM_ROWS = Math.max(BASE_BOTTOM_ROWS, Math.floor(BASE_BOTTOM_ROWS * homeFit.vs + 1e-6))
+  const bottomRowH = `calc(${BOTTOM_ROW_H}px * var(--vs, 1) * ${BASE_BOTTOM_ROWS / BOTTOM_ROWS})`
   const shortDate = (d: string) => { const [, m, dd] = d.split('-').map(Number); return `${m}.${String(dd).padStart(2, '0')}` }
 
-  // 하단 3박스 — 퀵메모/진행중 과업/회고 모두 같은 행 수 (같은 invisible grid 공유, 세로 한 화면 예산상 3행 — 금주 업무에 높이 우선 배분)
-  const BOTTOM_ROWS = TIER_BOTTOM_ROWS[densityTier]
   // 3행 높이만 보이고 나머지는 각 박스 안에서 스크롤 (퀵메모는 최근 30건, 과업은 전체)
   const bottomMemos = memos.slice(0, 30)
   const bottomTasks = sortedSubTasks
@@ -1485,7 +1496,7 @@ export default function HomePage() {
       </div>
     )
     const rowStyle: React.CSSProperties = { marginLeft: -6, marginRight: -6, paddingLeft: 6, paddingRight: 6, borderRadius: 6 }
-    const rowInner: React.CSSProperties = { display: 'flex', alignItems: 'flex-start', gap: 8, padding: '5px 0' }
+    const rowInner: React.CSSProperties = { display: 'flex', alignItems: 'flex-start', gap: 8, padding: `calc(5px + 21px * (var(--vs, 1) - 1)) 0` }   // 기준 42px 행 → 42 × 배수
     const hoverBtn: React.CSSProperties = { fontSize: 11, color: TEXT3, background: 'none', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0, whiteSpace: 'nowrap' }
 
     if (item.kind === 'fixed' && item.fixed) {
@@ -1747,12 +1758,14 @@ export default function HomePage() {
       </div>
 
       {/* ── 데스크톱 ── */}
-      <div className="hidden md:flex flex-col h-full overflow-hidden" style={{ background: BG }}>
+      <div ref={homeOuterRef} className="hidden md:flex flex-col h-full overflow-hidden" style={{ background: BG }}>
 
-        <div ref={homeScrollRef} className="flex-1 min-h-0 flex flex-col overflow-y-auto scrollbar-hide" style={{ paddingBottom: 4 }}>
+        {/* 본문 zoom(메뉴바 제외) + 세로 배수 --vs — 위 homeFit 참고 */}
+        <div className="flex-1 min-h-0 flex flex-col overflow-y-auto scrollbar-hide"
+          style={{ paddingBottom: 4, zoom: homeFit.zoom, '--vs': homeFit.vs, '--vs-tl': Math.min(homeFit.vs, TL_MAX_VS) } as React.CSSProperties}>
 
           {/* Hero — 2행 compact: [인사말 · 부제 | 바로가기] / [상태 칩 | 검색] (1366×768 한 화면 예산) */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', alignItems: 'center', columnGap: 20, rowGap: 6, marginBottom: 10, flexShrink: 0 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', alignItems: 'center', columnGap: 20, rowGap: vs(6), marginBottom: vs(10), flexShrink: 0 }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, minWidth: 0 }}>
               <h1 style={{ fontSize: 21, fontWeight: 700, color: TEXT1, letterSpacing: '-0.03em', lineHeight: 1.2, whiteSpace: 'nowrap' }}>안녕하세요, 진일님 👋</h1>
               <p style={{ fontSize: 12.5, color: TEXT3, letterSpacing: '-0.01em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>오늘도 집중해서 멋진 하루 보내세요.</p>
@@ -1799,10 +1812,14 @@ export default function HomePage() {
           />
 
           {/* ── 금주 업무 — 하나의 주간 작업면을 7열로 나눈 primary 영역 ── */}
-          {/* 금주 업무는 내용 높이 기준(grow 없음) — 공간이 모자라면(노트북) WEEK_MIN_H까지 줄어들고 열 안에서 스크롤,
-              남는 세로 공간은 아래 spacer가 흡수해 하단 3박스를 화면 아래쪽으로 내린다 */}
-          <section data-home="week" style={{ flex: '0 1 auto', minHeight: WEEK_MIN_H, maxHeight: TIER_WEEK_MAX_H[densityTier], display: 'flex', flexDirection: 'column', marginTop: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6, padding: '0 12px', flexShrink: 0 }}>
+          {/* 금주 업무는 내용 높이 기준 — 공간이 모자라면(노트북) WEEK_MIN_H까지 줄어들고 열 안에서 스크롤,
+              남는 몇 px(인사말 등 배수가 안 붙는 고정 높이분)는 WEEK_MAX_H × 배수까지 여기서 흡수 */}
+          <section data-home="week" style={{ position: 'relative', flex: '1 1 auto', minHeight: vs(WEEK_MIN_H), maxHeight: vs(WEEK_MAX_H), display: 'flex', flexDirection: 'column', marginTop: vs(12), paddingTop: vs(WEEK_HEAD_PAD) }}>
+            {/* 카드 배경 — 섹션 전체는 반투명 패널, 두 헤더 행만 불투명 카드 면(행 구조·가로 스크롤은 그대로).
+                헤더만 떠 보이지 않도록 그림자 없이 같은 테두리로 이어 하나의 카드처럼 보이게 한다 */}
+            <div aria-hidden data-week-panel style={{ position: 'absolute', inset: 0, borderRadius: 16, background: `color-mix(in srgb, ${CARD} 45%, transparent)`, border: '1px solid rgba(var(--ink-rgb),0.07)', pointerEvents: 'none' }} />
+            <div aria-hidden data-week-headbox style={{ position: 'absolute', left: 0, right: 0, top: 0, height: vs(WEEK_HEAD_PAD + WEEK_TITLE_H + WEEK_TITLE_GAP + WEEK_COLHEAD_H), borderRadius: '16px 16px 0 0', background: CARD, border: '1px solid rgba(var(--ink-rgb),0.07)', borderBottomColor: DIVIDER, pointerEvents: 'none' }} />
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: vs(WEEK_TITLE_H), marginBottom: vs(WEEK_TITLE_GAP), padding: '0 12px', flexShrink: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <h2 style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 15, fontWeight: 600, color: TEXT1, letterSpacing: '-0.02em' }}>
                   <CalendarCheck size={15} strokeWidth={2} style={{ color: '#5E8FBF' }} />금주 업무
@@ -1840,7 +1857,7 @@ export default function HomePage() {
               </button>}
             </div>
             {/* 폭이 모자라면 열을 찌그러뜨리지 않고 이 영역만 가로 스크롤 (섹션 헤더는 스크롤 밖에 고정) */}
-            <div data-week-scroll style={{ flex: '1 1 auto', minHeight: 0, minWidth: 0, width: '100%', overflowX: 'auto', overflowY: 'hidden', scrollbarWidth: 'thin', scrollbarColor: 'rgba(var(--ink-rgb),0.18) transparent' }}>
+            <div data-week-scroll style={{ position: 'relative', flex: '1 1 auto', minHeight: 0, minWidth: 0, width: '100%', overflowX: 'auto', overflowY: 'hidden', scrollbarWidth: 'thin', scrollbarColor: 'rgba(var(--ink-rgb),0.18) transparent' }}>
             <div style={{ height: '100%', minWidth: WEEK_GRID_MIN_W, display: 'grid', gridTemplateColumns: WEEK_GRID_COLS, gridTemplateRows: 'auto minmax(0, 1fr)' }}>
               {weekCols.map((items, ci) => {
                 const secondary = ci === 0 || ci === 6
@@ -1848,7 +1865,7 @@ export default function HomePage() {
                 const isTodayCol = date === today
                 const isPast = !!date && date < today
                 return (
-                  <div key={`h${ci}`} data-week-col={ci} className="group" style={{ gridRow: 1, gridColumn: ci + 1, position: 'relative', display: 'flex', alignItems: 'baseline', gap: 6, height: 30, padding: '0 12px', borderBottom: `1px solid ${DIVIDER}`, borderRight: ci === 0 ? '1px solid rgba(var(--ink-rgb),0.06)' : undefined, borderLeft: ci === 6 ? '1px solid rgba(var(--ink-rgb),0.06)' : undefined, paddingTop: 7 }}>
+                  <div key={`h${ci}`} data-week-col={ci} className="group" style={{ gridRow: 1, gridColumn: ci + 1, position: 'relative', display: 'flex', alignItems: 'baseline', gap: 6, height: vs(WEEK_COLHEAD_H), padding: '0 12px', borderRight: ci === 0 ? '1px solid rgba(var(--ink-rgb),0.06)' : undefined, borderLeft: ci === 6 ? '1px solid rgba(var(--ink-rgb),0.06)' : undefined, paddingTop: vs(7) }}>
                     {secondary ? (
                       <span style={{ fontSize: 12, fontWeight: 500, color: TEXT3 }}>{ci === 0 ? '직전주 미완료' : '다음주로 연기'}</span>
                     ) : (
@@ -1865,7 +1882,7 @@ export default function HomePage() {
                         className={weekAddDate === date ? '' : 'opacity-0 group-hover:opacity-100'}
                         style={{ marginLeft: items.length > 0 ? 4 : 'auto', alignSelf: 'center', marginTop: -7, width: 18, height: 18, borderRadius: 5, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, lineHeight: 1, color: TEXT3, background: weekAddDate === date ? 'rgba(var(--ink-rgb),0.06)' : 'transparent', border: 'none', cursor: 'pointer', padding: 0, transition: 'opacity 120ms ease' }}>+</button>
                     )}
-                    {isTodayCol && <div style={{ position: 'absolute', left: 12, right: 12, bottom: -1, height: 2, borderRadius: 1, background: ACCENT }} />}
+                    {isTodayCol && <div style={{ position: 'absolute', left: 12, right: 12, bottom: 1, height: 2, borderRadius: 1, background: ACCENT }} />}
                   </div>
                 )
               })}
@@ -1873,7 +1890,7 @@ export default function HomePage() {
                 const secondary = ci === 0 || ci === 6
                 const colDate = secondary ? null : weekDays[ci - 1]
                 return (
-                  <div key={`b${ci}`} data-week-body={ci} className="scrollbar-hide" style={{ gridRow: 2, gridColumn: ci + 1, minHeight: 0, overflowY: 'auto', overscrollBehavior: 'contain', padding: '4px 12px 4px', borderRight: ci === 0 ? '1px solid rgba(var(--ink-rgb),0.06)' : undefined, borderLeft: ci === 6 ? '1px solid rgba(var(--ink-rgb),0.06)' : undefined }}>
+                  <div key={`b${ci}`} data-week-body={ci} className="scrollbar-hide" style={{ gridRow: 2, gridColumn: ci + 1, minHeight: 0, overflowY: 'auto', overscrollBehavior: 'contain', padding: `${vs(4)} 12px`, borderRight: ci === 0 ? '1px solid rgba(var(--ink-rgb),0.06)' : undefined, borderLeft: ci === 6 ? '1px solid rgba(var(--ink-rgb),0.06)' : undefined }}>
                     {colDate && weekAddDate === colDate && (
                       <input autoFocus value={quickAddTitle}
                         onChange={e => setQuickAddTitle(e.target.value)}
@@ -1896,41 +1913,41 @@ export default function HomePage() {
             </div>
           </section>
 
-          {/* 금주 업무 ↔ 하단 3박스 section gap — 고정 간격(늘어나지 않음). 공간이 모자라면(노트북) 금주 업무보다 먼저 접혀
-              하단 marginTop 12만 남는다. 큰 화면에서 남는 높이는 어디에도 흡수되지 않고 콘텐츠 아래 페이지 여백이 된다 */}
-          <div aria-hidden data-home="section-gap" style={{ flex: `0 100 ${SECTION_GAP_EXTRA}px`, minHeight: 0 }} />
+          {/* 금주 업무 ↔ 하단 3박스 section gap — 기본 36 × 배수. 공간이 모자라면(노트북) 금주 업무보다 먼저 접혀
+              하단 marginTop만 남는다. 금주 업무가 상한에 닿은 뒤 남는 높이만 여기서 흡수(grow 0.001) */}
+          <div aria-hidden data-home="section-gap" style={{ flex: `0.001 100 ${vs(SECTION_GAP_EXTRA)}`, minHeight: 0 }} />
 
           {/* ── 하단 3박스 — 퀵메모 | 진행중 과업 | 회고. 한 개의 invisible grid를 공유해 행 높이/기준선 일치 ── */}
           {/* 박스는 각 열 뒤에 까는 배경(음수 margin으로 bleed) — 행 정렬 grid는 하나로 유지 */}
           <section data-home="bottom" style={{
-            flexShrink: 0, marginTop: 12, padding: `${BOX_PAD_Y}px ${BOX_PAD_X}px`, display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', columnGap: BOX_PAD_X * 2 + 10,
-            gridTemplateRows: `${BOX_TITLE_H}px ${BOX_FIRST_ROW_H}px repeat(${BOTTOM_ROWS}, ${BOTTOM_ROW_H}px) auto`,
+            flexShrink: 0, marginTop: vs(12), padding: `${vs(BOX_PAD_Y)} ${BOX_PAD_X}px`, display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', columnGap: BOX_PAD_X * 2 + 10,
+            gridTemplateRows: `${vs(BOX_TITLE_H)} ${vs(BOX_FIRST_ROW_H)} repeat(${BOTTOM_ROWS}, ${bottomRowH}) auto`,
           }}>
             {[1, 2, 3].map(col => (
-              <div key={`box${col}`} aria-hidden style={{ ...cardBase(), transition: 'none', gridColumn: col, gridRow: '1 / -1', margin: `-${BOX_PAD_Y}px -${BOX_PAD_X}px` }} />
+              <div key={`box${col}`} aria-hidden style={{ ...cardBase(), transition: 'none', gridColumn: col, gridRow: '1 / -1', margin: `calc(-1 * ${vs(BOX_PAD_Y)}) -${BOX_PAD_X}px` }} />
             ))}
             {/* row 1: section title — 오늘의 타임라인 헤더와 같은 스타일 */}
             {([[1, '퀵메모', <StickyNote key="i" size={15} strokeWidth={2} style={{ color: '#70B8C4' }} />], [2, '진행중 과업', <Layers key="i" size={15} strokeWidth={2} style={{ color: '#5B7EC4' }} />], [3, '회고', <NotebookPen key="i" size={15} strokeWidth={2} style={{ color: '#C8A050' }} />]] as const).map(([col, label, icon]) => (
-              <h2 key={label} style={{ gridRow: 1, gridColumn: col, position: 'relative', display: 'flex', alignItems: 'center', gap: 10, fontSize: 15, fontWeight: 600, color: TEXT1, letterSpacing: '-0.02em', height: BOX_TITLE_H, paddingBottom: 8, margin: 0 }}>
+              <h2 key={label} style={{ gridRow: 1, gridColumn: col, position: 'relative', display: 'flex', alignItems: 'center', gap: 10, fontSize: 15, fontWeight: 600, color: TEXT1, letterSpacing: '-0.02em', height: vs(BOX_TITLE_H), paddingBottom: vs(8), margin: 0 }}>
                 <span style={{ display: 'flex', alignItems: 'center' }}>{icon}</span>{label}
               </h2>
             ))}
 
             {/* row 2: 같은 첫 row — 메모 입력 trigger(기존 빠른 메모 팝업) ↔ 테이블 헤더 */}
             <button type="button" data-bottom="memo-input" onClick={() => openQuickMemo()}
-              style={{ position: 'relative', gridRow: 2, gridColumn: 1, height: BOX_FIRST_ROW_H, display: 'flex', alignItems: 'center', gap: 8, padding: '0 12px', borderRadius: 8, border: '1px solid rgba(var(--ink-rgb),0.10)', background: 'rgba(var(--ink-rgb),0.025)', cursor: 'text', textAlign: 'left', transition: 'border-color 150ms ease' }}
+              style={{ position: 'relative', gridRow: 2, gridColumn: 1, height: vs(BOX_FIRST_ROW_H), display: 'flex', alignItems: 'center', gap: 8, padding: '0 12px', borderRadius: 8, border: '1px solid rgba(var(--ink-rgb),0.10)', background: 'rgba(var(--ink-rgb),0.025)', cursor: 'text', textAlign: 'left', transition: 'border-color 150ms ease' }}
               onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(var(--ink-rgb),0.18)' }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(var(--ink-rgb),0.10)' }}>
               <span style={{ flex: 1, fontSize: 13, color: TEXT3 }}>메모를 빠르게 남겨보세요</span>
               <kbd style={{ fontSize: 10.5, color: TEXT3, opacity: 0.8, fontFamily: 'inherit' }}>Ctrl+3</kbd>
             </button>
-            <div data-bottom="journal-header" style={{ position: 'relative', gridRow: 2, gridColumn: 3, height: BOX_FIRST_ROW_H, display: 'flex', alignItems: 'center', gap: 10, padding: '0 6px', borderBottom: `1px solid ${DIVIDER}` }}>
+            <div data-bottom="journal-header" style={{ position: 'relative', gridRow: 2, gridColumn: 3, height: vs(BOX_FIRST_ROW_H), display: 'flex', alignItems: 'center', gap: 10, padding: '0 6px', borderBottom: `1px solid ${DIVIDER}` }}>
               <span style={{ fontSize: 12, fontWeight: 500, color: TEXT2, fontVariantNumeric: 'tabular-nums' }}>{fmtDate(today)}</span>
               <span style={{ fontSize: 11.5, color: todayJournal ? '#38BE98' : TEXT3 }}>{todayJournal ? '작성됨' : '미작성'}</span>
               <button type="button" onClick={async () => { if (jEdits) await saveInlineJournal(); setShowJournal(true) }}
                 style={{ marginLeft: 'auto', fontSize: 12, color: TEXT3, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>전체 편집 ↗</button>
             </div>
-            <div data-bottom="task-header" style={{ position: 'relative', gridRow: 2, gridColumn: 2, height: BOX_FIRST_ROW_H, display: 'grid', gridTemplateColumns: BOTTOM_TASK_COLS, alignItems: 'center', columnGap: 10, padding: '0 6px', borderBottom: `1px solid ${DIVIDER}` }}>
+            <div data-bottom="task-header" style={{ position: 'relative', gridRow: 2, gridColumn: 2, height: vs(BOX_FIRST_ROW_H), display: 'grid', gridTemplateColumns: BOTTOM_TASK_COLS, alignItems: 'center', columnGap: 10, padding: '0 6px', borderBottom: `1px solid ${DIVIDER}` }}>
               {([['범주', '범주'], ['프로젝트 / 과업', '상세TASK'], ['상태', null], ['마감', '마감']] as const).map(([label, sortKey]) => (
                 <button key={label} type="button" disabled={!sortKey} onClick={() => sortKey && toggleSort(sortKey)}
                   style={{ fontSize: 12, fontWeight: 500, color: stSort?.col === sortKey ? TEXT2 : TEXT3, background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: sortKey ? 'pointer' : 'default', whiteSpace: 'nowrap' }}>
@@ -1949,7 +1966,7 @@ export default function HomePage() {
                       return (
                         <ListRow key={memo.id} onClick={() => setMemoViewId(memo.id)} draggable
                           onDragStart={e => { e.dataTransfer.setData('tl-extra', JSON.stringify({ id: `memo_${memo.id}`, title: memo.title, subtitle: memoTag })); e.dataTransfer.effectAllowed = 'copy' }}
-                          style={{ height: BOTTOM_ROW_H, borderBottom: `1px solid ${DIVIDER}`, marginLeft: 0, marginRight: 0, paddingLeft: 6, paddingRight: 6, borderRadius: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
+                          style={{ height: bottomRowH, borderBottom: `1px solid ${DIVIDER}`, marginLeft: 0, marginRight: 0, paddingLeft: 6, paddingRight: 6, borderRadius: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
                           <div style={{ width: 5, height: 5, borderRadius: '50%', background: CATEGORY_PALETTE[MEMO_TAG[memoTag] ?? colorKeyFromName(memoTag)].solid, flexShrink: 0, opacity: 0.85 }} />
                           <span style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 400, color: TEXT1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{memo.title || '(제목 없음)'}</span>
                           <span style={{ fontSize: 10.5, color: TEXT3, flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{fmtDate(memo.created_at)}</span>
@@ -1959,7 +1976,7 @@ export default function HomePage() {
                   : bottomTasks.map(st => {
                       const overdue = !!(st.target_date ?? st.due_date) && (st.target_date ?? st.due_date)! < today
                       return (
-                        <Link key={st.id} href={`/subtasks/${st.id}`} style={{ height: BOTTOM_ROW_H, borderBottom: `1px solid ${DIVIDER}`, display: 'block', textDecoration: 'none' }}
+                        <Link key={st.id} href={`/subtasks/${st.id}`} style={{ height: bottomRowH, borderBottom: `1px solid ${DIVIDER}`, display: 'block', textDecoration: 'none' }}
                           draggable
                           onDragStart={e => { e.dataTransfer.setData('tl-extra', JSON.stringify({ id: `st_${st.id}`, title: st.title, subtitle: st.agenda_items?.title ?? '' })); e.dataTransfer.effectAllowed = 'copy' }}>
                           <ListRow style={{ height: '100%', marginLeft: 0, marginRight: 0, paddingLeft: 6, paddingRight: 6, borderRadius: 0, display: 'grid', gridTemplateColumns: BOTTOM_TASK_COLS, alignItems: 'center', columnGap: 10 }}>
@@ -1983,7 +2000,7 @@ export default function HomePage() {
               {(() => {
                 const parsed = parseSections(todayJournal?.content ?? '')
                 return SECTION_KEYS.map(k => (
-                  <label key={k} style={{ height: BOTTOM_ROW_H, borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 12, padding: '0 6px', cursor: 'text' }}>
+                  <label key={k} style={{ height: bottomRowH, borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 12, padding: '0 6px', cursor: 'text' }}>
                     <span style={{ fontSize: 10.5, color: TEXT3, width: 60, flexShrink: 0, whiteSpace: 'nowrap' }}>{SECTION_META[k].label}</span>
                     <textarea value={jEdits?.[k] ?? parsed[k]} rows={1} disabled={loading}
                       onChange={e => setJEdits(p => ({ ...(p ?? {}), [k]: e.target.value }))}
@@ -1997,13 +2014,13 @@ export default function HomePage() {
             </div>
 
             {/* last row: 전체 보기 */}
-            <Link href="/memos" style={{ position: 'relative', gridRow: 3 + BOTTOM_ROWS, gridColumn: 1, fontSize: 12, color: TEXT3, textDecoration: 'none', paddingTop: 8, justifySelf: 'start' }}>
+            <Link href="/memos" style={{ position: 'relative', gridRow: 3 + BOTTOM_ROWS, gridColumn: 1, fontSize: 12, color: TEXT3, textDecoration: 'none', paddingTop: vs(8), justifySelf: 'start' }}>
               전체 보기 →{memos.length > BOTTOM_ROWS ? <span style={{ marginLeft: 6, opacity: 0.7 }}>{memos.length}건</span> : null}
             </Link>
-            <Link href="/project" style={{ position: 'relative', gridRow: 3 + BOTTOM_ROWS, gridColumn: 2, fontSize: 12, color: TEXT3, textDecoration: 'none', paddingTop: 8, justifySelf: 'start' }}>
+            <Link href="/project" style={{ position: 'relative', gridRow: 3 + BOTTOM_ROWS, gridColumn: 2, fontSize: 12, color: TEXT3, textDecoration: 'none', paddingTop: vs(8), justifySelf: 'start' }}>
               전체 보기 →{subTasks.length > BOTTOM_ROWS ? <span style={{ marginLeft: 6, opacity: 0.7 }}>{subTasks.length}건</span> : null}
             </Link>
-            <div style={{ position: 'relative', gridRow: 3 + BOTTOM_ROWS, gridColumn: 3, display: 'flex', alignItems: 'center', gap: 10, paddingTop: 8 }}>
+            <div style={{ position: 'relative', gridRow: 3 + BOTTOM_ROWS, gridColumn: 3, display: 'flex', alignItems: 'center', gap: 10, paddingTop: vs(8) }}>
               <span style={{ fontSize: 12, color: jMsg.startsWith('저장 실패') ? '#C86868' : jMsg ? '#38BE98' : TEXT3, flex: 1 }}>
                 {jMsg || (jEdits ? '수정됨 · Ctrl+Enter 저장' : 'Ctrl+Enter 저장')}
               </span>
