@@ -11,6 +11,7 @@ import { Search, Plus, FileText, Clock, NotebookPen, CalendarDays, CalendarCheck
 import ShortcutIcons from '@/components/ShortcutIcons'
 import type { TaskTodo, Meeting, QuickMemo, AgendaSubTask, ScheduleItem, QuickTodo } from '@/types'
 import { fetchMeetingNotesByMeetingIds, type MeetingNotesGrouped, type MeetingNoteRow } from '@/lib/meetingNotes'
+import { scheduleOccursOn, type MeetingRecurrence } from '@/lib/meetingSchedule'
 import type { GoogleCalendarEvent } from '@/app/api/calendar/today/route'
 import { JournalFullscreenEditor, type DailyJournal, parseSections, serializeSections, SECTION_KEYS, SECTION_META, type SectionKey } from '@/components/home/DailyJournalWidget'
 import { useUserSetting } from '@/hooks/useUserSetting'
@@ -19,13 +20,10 @@ import { format, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
 
 // ── Types ──────────────────────────────────────────────────────────────────
-interface MeetingSchedule {
+interface MeetingSchedule extends MeetingRecurrence {
   id: string
   title: string
   time: string
-  is_recurring: boolean
-  days_of_week?: number[]
-  date?: string
   category?: string
 }
 
@@ -1380,9 +1378,8 @@ export default function HomePage() {
 
   // 오늘의 타임라인 — timelineDate 기준 파생 데이터 (today와 다를 수 있음)
   const isTimelineToday   = timelineDate === today
-  const timelineDow       = dowOfDateStr(timelineDate)
   const timelineFixedMeetings = fixedSchedules
-    .filter(s => s.is_recurring ? (s.days_of_week ?? []).includes(timelineDow) : s.date === timelineDate)
+    .filter(s => scheduleOccursOn(s, timelineDate))
     .sort((a, b) => a.time.localeCompare(b.time))
   // 고정회의가 기록되면(사전메모 저장 등) 같은 제목의 meeting 레코드가 생겨 Lane 2에 중복 박스로 겹쳐 보이므로 제외
   const timelineFixedTitles = new Set(timelineFixedMeetings.map(s => s.title))
@@ -1434,15 +1431,13 @@ export default function HomePage() {
   }
   const weekCols: WeekItem[][] = [[], [], [], [], [], [], []]
   const olderItems: WeekItem[] = []   // 지난주보다 이전 날짜의 미완료 (기존엔 개수만 표시)
-  for (const date of [today, wkTomorrow]) {
-    const c = weekCol(date)
-    if (c < 1 || c > 5) continue
-    const dow = dowOfDateStr(date)
+  // 고정회의(일정 탭 반복/단발) — 보고 있는 주의 월~금 각 날짜에 일정 탭과 같은 규칙으로 배치 (다음주로 연기 열엔 넣지 않음)
+  weekDays.forEach((date, i) => {
     fixedSchedules
-      .filter(s => s.is_recurring ? (s.days_of_week ?? []).includes(dow) : s.date === date)
+      .filter(s => scheduleOccursOn(s, date))
       .sort((a, b) => a.time.localeCompare(b.time))
-      .forEach(s => weekCols[c].push({ key: `fx_${date}_${s.id}`, kind: 'fixed', title: s.title, meta: s.time, date, fixed: s, fixedKey: date === today ? s.id : `tmr_${s.id}` }))
-  }
+      .forEach(s => weekCols[i + 1].push({ key: `fx_${date}_${s.id}`, kind: 'fixed', title: s.title, meta: s.time, date, fixed: s, fixedKey: `${date}_${s.id}` }))
+  })
   for (const t of allTaskTodos) {
     // target_date 없는 구 데이터는 schedule_tag 스냅샷으로 대체 (기존 오늘/금주 분류와 동일한 우선순위)
     const date = t.target_date ?? (t.schedule_tag === 'today' ? today : t.schedule_tag === 'tomorrow' ? wkTomorrow : t.schedule_tag === 'this_week' ? weekDays[4] : null)
@@ -1502,13 +1497,14 @@ export default function HomePage() {
     if (item.kind === 'fixed' && item.fixed) {
       const s = item.fixed, k = item.fixedKey!
       const isToday = item.date === today
+      const isPastDay = item.date < today   // 지난 요일 — 기록 확인용으로 흐리게
       const linked = meetings.find(m => m.title === s.title && m.meeting_date?.startsWith(item.date))
       const prepNotes = notesByMeeting[linked?.id ?? '']?.prep ?? []
       const isOpen = fMemoOpen[k] ?? false
       const text = fMemoTexts[k] ?? ''
-      const metaText = [s.time, linked && isToday ? '기록됨' : '', prepNotes.length ? `안건 ${prepNotes.length}` : ''].filter(Boolean).join(' · ')
+      const metaText = [s.time, linked && item.date <= today ? '기록됨' : '', prepNotes.length ? `안건 ${prepNotes.length}` : ''].filter(Boolean).join(' · ')
       return (
-        <ListRow key={item.key} style={rowStyle} onClick={() => { if (isToday) goToFixedMeetingToday(s); else router.push(linked ? `/meetings/${linked.id}` : '/meetings') }}>
+        <ListRow key={item.key} style={isPastDay ? { ...rowStyle, opacity: 0.55 } : rowStyle} onClick={() => { if (isToday) goToFixedMeetingToday(s); else router.push(linked ? `/meetings/${linked.id}` : '/meetings') }}>
           <div className="group" style={rowInner}>
             <Repeat2 size={12} strokeWidth={2} style={{ color: TEXT3, marginTop: 3, flexShrink: 0 }} />
             {body(s.title, false, fMemoSaved[k] ? `${s.time} · 저장됨 ✓` : metaText,

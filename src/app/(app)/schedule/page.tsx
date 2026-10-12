@@ -10,6 +10,7 @@ import { useUserSetting } from '@/hooks/useUserSetting'
 import { useOrgData } from '@/hooks/useOrgData'
 import type { Task, Member, TaskStatus, Meeting, QuickTodo, ScheduleItem } from '@/types'
 import { fetchMeetingNotesByMeetingIds, type MeetingNotesGrouped, type MeetingNoteRow } from '@/lib/meetingNotes'
+import { scheduleOccursOn } from '@/lib/meetingSchedule'
 import { CATEGORY_PALETTE, MEETING_CATEGORY, FIXED_MEETING_TAGS, type CategoryColorKey, colorKeyFromName } from '@/lib/categoryColors'
 import { GlassSelect } from '@/components/ui/GlassSelect'
 
@@ -563,19 +564,10 @@ export default function SchedulePage() {
 
   function getDayFixedMeetings(day: Date): MeetingSchedule[] {
     if (viewFilter === '업무만') return []
-    const dow = getDay(day)
     const dateStr = format(day, 'yyyy-MM-dd')
     return schedules.filter(s => {
       if (partFilter !== '전체' && s.team_id && s.team_id !== partFilter) return false
-      if (!s.is_recurring) return s.date === dateStr
-      if (s.start_date && dateStr < s.start_date) return false
-      if (s.repeat_until && dateStr > s.repeat_until) return false
-      if (s.recur_type === 'monthly') {
-        const dim = getDaysInMonth(day)
-        const dom = Math.min(s.day_of_month ?? 1, dim)
-        return day.getDate() === dom
-      }
-      return (s.days_of_week ?? []).includes(dow)
+      return scheduleOccursOn(s, dateStr)
     }).sort((a, b) => a.time.localeCompare(b.time))
   }
 

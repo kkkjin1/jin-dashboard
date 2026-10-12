@@ -6,6 +6,7 @@ import { useUserSetting } from '@/hooks/useUserSetting'
 import { useOrgData } from '@/hooks/useOrgData'
 import { createClient } from '@/lib/supabase/client'
 import { MEETING_CATEGORY, CATEGORY_PALETTE, colorKeyFromName, FIXED_MEETING_TAGS } from '@/lib/categoryColors'
+import { scheduleOccursOn } from '@/lib/meetingSchedule'
 
 interface MeetingSchedule {
   id: string
@@ -54,23 +55,9 @@ function dateLabel(target: string, today: string): string {
   const d = new Date(target + 'T00:00:00')
   return `${d.getMonth() + 1}/${d.getDate()}(${DOW_LABELS[d.getDay()]})`
 }
-function daysInMonth(d: Date): number {
-  return new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()
-}
 function getMeetingsForDate(schedules: MeetingSchedule[], date: string): MeetingSchedule[] {
-  const d = new Date(date + 'T00:00:00')
-  const dow = d.getDay()
   return schedules
-    .filter(s => {
-      if (!s.is_recurring) return s.date === date
-      if (s.start_date && date < s.start_date) return false
-      if (s.repeat_until && date > s.repeat_until) return false
-      if (s.recur_type === 'monthly') {
-        const dom = Math.min(s.day_of_month ?? 1, daysInMonth(d))
-        return d.getDate() === dom
-      }
-      return (s.days_of_week ?? []).includes(dow)
-    })
+    .filter(s => scheduleOccursOn(s, date))
     .sort((a, b) => a.time.localeCompare(b.time))
 }
 function getNoteForDate(m: MeetingSchedule, dateStr: string, today: string): string {
