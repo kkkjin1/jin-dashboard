@@ -13,7 +13,7 @@ import {
   ImageOverlay, BoxOverlay, TableOverlay, MindmapCardOverlay,
   AutosaveStatusHint, type OverlayBox,
 } from './FreeNoteOverlays'
-import { SketchTextEditor } from './SketchTextEditor'
+import { SketchTextEditor, type CaretPos } from './SketchTextEditor'
 
 // 마인드맵 카드를 확장할 때만 필요한 무거운 캔버스(React Flow)라, 자유노트를 열 때마다
 // 같이 불러오지 않도록 지연 로딩한다.
@@ -68,6 +68,8 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
   // SketchTextEditor는 자체 DOM을 소유하므로 직접 조작하지 않는다 — 이 ref는 오직
   // 렌더된 본문 높이를 읽어(scrollHeight) 캔버스 minHeight를 계산하는 용도.
   const bodyWrapperRef = useRef<HTMLDivElement>(null)
+  // 본문 아래 빈 여백 클릭으로 편집에 들어갈 때 클릭 좌표를 SketchTextEditor에 넘긴다(스크롤 튐 방지)
+  const bodyCaretPosRef = useRef<CaretPos | null>(null)
 
   const [board, setBoard] = useState<SketchBoard | null>(null)
   const [nameInput, setNameInput] = useState('')
@@ -416,14 +418,18 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
 
   // 마지막 줄을 화면 맨 위까지 올릴 수 있게 본문 아래에 "보이는 화면 높이"만큼 여백을 둔다
   // (코드 에디터의 scroll beyond last line) — 예전엔 빈 줄을 여러 개 쳐서 억지로 올려야 했다.
+  // 스크롤 컨테이너가 새로 붙을 때마다(로딩 화면 → 문서) 다시 관찰하도록 callback ref로 건다.
   const [viewportHeight, setViewportHeight] = useState(0)
-  useEffect(() => {
-    const el = scrollRef.current
+  const viewportObserverRef = useRef<ResizeObserver | null>(null)
+  const setScrollEl = useCallback((el: HTMLDivElement | null) => {
+    scrollRef.current = el
+    viewportObserverRef.current?.disconnect()
+    viewportObserverRef.current = null
     if (!el) return
     const ro = new ResizeObserver(() => setViewportHeight(el.clientHeight))
     ro.observe(el)
-    return () => ro.disconnect()
-  }, [loading])
+    viewportObserverRef.current = ro
+  }, [])
 
   function handleCanvasMouseDown(e: React.MouseEvent) {
     if (e.target === scrollRef.current) { setSelectedId(null); return }
@@ -434,6 +440,7 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
       // 들어가면 SketchTextEditor가 문서 끝에 포커스를 놓는다. 클릭한 세로 위치에
       // 맞춰 빈 줄을 미리 채워주던 예전 동작은 새 구조에서는 생략한다.
       setSelectedId(null)
+      bodyCaretPosRef.current = { x: e.clientX, y: e.clientY }
       setIsEditingBody(true)
     }
   }
@@ -521,7 +528,7 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
       )}
 
       {/* 문서 */}
-      <div ref={scrollRef} className="flex-1 min-h-0 rounded-2xl overflow-auto relative" style={{ border: '1px solid rgba(var(--ink-rgb),0.08)', background: 'var(--bg-page)' }} onMouseDown={handleCanvasMouseDown}>
+      <div ref={setScrollEl} className="flex-1 min-h-0 rounded-2xl overflow-auto relative" style={{ border: '1px solid rgba(var(--ink-rgb),0.08)', background: 'var(--bg-page)' }} onMouseDown={handleCanvasMouseDown}>
         <div ref={innerRef} className="relative" style={{ minHeight, padding: '32px 40px', paddingBottom: Math.max(40, viewportHeight - 80) }}>
           <div ref={bodyWrapperRef}>
             <SketchTextEditor
@@ -535,6 +542,7 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
               placeholder="여기에 바로 적어보세요…"
               textColor="var(--text-primary)"
               variant="document"
+              caretPosRef={bodyCaretPosRef}
             />
           </div>
           {elements.map(el => {

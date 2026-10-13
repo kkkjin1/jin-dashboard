@@ -61,7 +61,7 @@ function moveCursorBelowTable(ed: Editor) {
   }
 }
 
-interface CaretPos { x: number; y: number }
+export interface CaretPos { x: number; y: number }
 
 // 저장된 HTML은 그대로 쓴다 — legacyToHtml은 HTML이면 연속 빈 문단을 1개로 합치는데
 // (Quick Memo용 붙여넣기 정리), 스케치에서는 사용자가 글을 화면 위쪽으로 올리려고 일부러
@@ -92,6 +92,8 @@ export interface SketchTextEditorProps {
   placeholder?: string
   textColor: string
   variant?: SketchTextEditorVariant
+  /** 바깥(예: 본문 아래 빈 여백)에서 편집모드로 들일 때 클릭 좌표를 넘기는 용도 — 없으면 내부 ref 사용 */
+  caretPosRef?: React.RefObject<CaretPos | null>
 }
 
 function surfaceClassName(variant: SketchTextEditorVariant): string {
@@ -282,12 +284,13 @@ function MountedSketchEditor({
       // 한 번 쓰고 비운다 — 남겨두면 다음 진입(본문 아래 여백 클릭 등)이 옛 클릭 좌표로 캐럿을 놓는다
       initialCaretPosRef.current = null
       if (initialCaretPos) {
+        // 클릭으로 들어온 경우엔 스크롤을 건드리지 않는다 — 클릭한 곳은 이미 화면 안이고,
+        // 본문 아래 여백 클릭(좌표가 본문 밖 → 문서 끝)에서 scrollIntoView가 돌면 스크롤이
+        // 맨 끝까지 튀어 마지막 줄이 화면 맨 위로 올라갔다.
         const pos = editor.view.posAtCoords({ left: initialCaretPos.x, top: initialCaretPos.y })
-        if (pos) {
-          editor.commands.setTextSelection(pos.pos)
-          editor.commands.focus()
-          return
-        }
+        if (pos) editor.commands.setTextSelection(pos.pos)
+        editor.commands.focus(pos ? null : 'end', { scrollIntoView: false })
+        return
       }
       editor.commands.focus('end')
     }
@@ -372,8 +375,10 @@ function MountedSketchEditor({
 /** 진입점 — editing 여부에 따라 프리뷰/Tiptap을 스위칭한다. */
 export function SketchTextEditor({
   content, onContentChange, editing, onEnterEdit, onExitEdit, fallbackFontSize, placeholder, textColor, variant = 'card',
+  caretPosRef: externalCaretPosRef,
 }: SketchTextEditorProps) {
-  const caretPosRef = useRef<CaretPos | null>(null)
+  const internalCaretPosRef = useRef<CaretPos | null>(null)
+  const caretPosRef = externalCaretPosRef ?? internalCaretPosRef
 
   if (!editing) {
     return (
