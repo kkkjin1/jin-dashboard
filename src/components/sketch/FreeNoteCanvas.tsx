@@ -414,9 +414,22 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
     setMinHeight(Math.max(600, bodyHeight + 200, ...(bottoms.length ? [Math.max(...bottoms) + 120] : [0])))
   }, [elements, autosaveBody])
 
+  // 마지막 줄을 화면 맨 위까지 올릴 수 있게 본문 아래에 "보이는 화면 높이"만큼 여백을 둔다
+  // (코드 에디터의 scroll beyond last line) — 예전엔 빈 줄을 여러 개 쳐서 억지로 올려야 했다.
+  const [viewportHeight, setViewportHeight] = useState(0)
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const ro = new ResizeObserver(() => setViewportHeight(el.clientHeight))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [loading])
+
   function handleCanvasMouseDown(e: React.MouseEvent) {
     if (e.target === scrollRef.current) { setSelectedId(null); return }
     if (e.target === innerRef.current) {
+      // 이미 편집 중이면 기본 동작(포커스 이탈 → 프리뷰 전환)을 막아 커서·스크롤을 그대로 둔다
+      if (isEditingBody) { e.preventDefault(); setSelectedId(null); return }
       // 본문도 카드도 아닌 빈 캔버스(본문 아래 여백)를 클릭 — 본문 편집모드로
       // 들어가면 SketchTextEditor가 문서 끝에 포커스를 놓는다. 클릭한 세로 위치에
       // 맞춰 빈 줄을 미리 채워주던 예전 동작은 새 구조에서는 생략한다.
@@ -509,7 +522,7 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
 
       {/* 문서 */}
       <div ref={scrollRef} className="flex-1 min-h-0 rounded-2xl overflow-auto relative" style={{ border: '1px solid rgba(var(--ink-rgb),0.08)', background: 'var(--bg-page)' }} onMouseDown={handleCanvasMouseDown}>
-        <div ref={innerRef} className="relative" style={{ minHeight, padding: '32px 40px' }}>
+        <div ref={innerRef} className="relative" style={{ minHeight, padding: '32px 40px', paddingBottom: Math.max(40, viewportHeight - 80) }}>
           <div ref={bodyWrapperRef}>
             <SketchTextEditor
               key={bodyRemountKey}

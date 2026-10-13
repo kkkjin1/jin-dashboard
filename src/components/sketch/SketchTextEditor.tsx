@@ -63,6 +63,14 @@ function moveCursorBelowTable(ed: Editor) {
 
 interface CaretPos { x: number; y: number }
 
+// 저장된 HTML은 그대로 쓴다 — legacyToHtml은 HTML이면 연속 빈 문단을 1개로 합치는데
+// (Quick Memo용 붙여넣기 정리), 스케치에서는 사용자가 글을 화면 위쪽으로 올리려고 일부러
+// 넣은 빈 줄이 클릭(프리뷰↔편집 전환)할 때마다 사라지는 원인이었다. 옛 평문만 변환한다.
+function toSketchHtml(content: string): string {
+  if (content && content.trimStart().startsWith('<')) return content
+  return legacyToHtml(content)
+}
+
 function isContentEmpty(html: string): boolean {
   if (!html) return true
   const text = html.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim()
@@ -128,7 +136,7 @@ function SketchPreview({
       className={className}
       style={style}
       onMouseDown={onMouseDown}
-      dangerouslySetInnerHTML={{ __html: legacyToHtml(content) }}
+      dangerouslySetInnerHTML={{ __html: toSketchHtml(content) }}
     />
   )
 }
@@ -218,7 +226,7 @@ function MountedSketchEditor({
 
   const editor = useEditor({
     extensions: SKETCH_EXTENSIONS,
-    content: legacyToHtml(content),
+    content: toSketchHtml(content),
     editorProps: {
       attributes: {
         class: surfaceClassName(variant),
@@ -271,6 +279,8 @@ function MountedSketchEditor({
         return
       }
       const initialCaretPos = initialCaretPosRef.current
+      // 한 번 쓰고 비운다 — 남겨두면 다음 진입(본문 아래 여백 클릭 등)이 옛 클릭 좌표로 캐럿을 놓는다
+      initialCaretPosRef.current = null
       if (initialCaretPos) {
         const pos = editor.view.posAtCoords({ left: initialCaretPos.x, top: initialCaretPos.y })
         if (pos) {
@@ -290,9 +300,12 @@ function MountedSketchEditor({
 
   return (
     <div ref={wrapRef} className={variant === 'document' ? 'relative flex flex-col gap-1' : 'flex-1 min-h-0 flex flex-col gap-1'} onPointerDown={e => e.stopPropagation()}>
+      {/* 본문(document)에서는 툴바를 문서 흐름 밖(위 여백)에 띄운다 — 흐름 안에 있으면 클릭으로
+          편집모드에 들어갈 때마다 본문 전체가 툴바 높이만큼 밀려 내려가 맞춰둔 위치가 뒤틀리고,
+          클릭 좌표로 잡는 캐럿도 한 줄 어긋났다. */}
       <div
-        className="nodrag nopan flex items-center gap-1 px-1.5 py-1 rounded-lg flex-shrink-0"
-        style={{ background: 'rgba(var(--ink-rgb),0.06)', border: '1px solid rgba(var(--ink-rgb),0.08)', width: 'fit-content' }}
+        className={`nodrag nopan flex items-center gap-1 px-1.5 py-1 rounded-lg flex-shrink-0${variant === 'document' ? ' absolute left-0 z-10' : ''}`}
+        style={{ background: 'rgba(var(--ink-rgb),0.06)', border: '1px solid rgba(var(--ink-rgb),0.08)', width: 'fit-content', ...(variant === 'document' ? { bottom: '100%', marginBottom: 2 } : {}) }}
         onPointerDown={e => e.stopPropagation()}
       >
         <button
