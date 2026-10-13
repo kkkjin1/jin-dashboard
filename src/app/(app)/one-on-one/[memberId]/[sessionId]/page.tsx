@@ -27,9 +27,9 @@ export default function OneOnOneSessionPage() {
   const [member, setMember]                 = useState<Member | null>(null)
   const [prevNextAppointment, setPrevNext]  = useState<string | null>(null)
   const [prevSessionDate, setPrevDate]      = useState<string | null>(null)
-  const [prevTitle, setPrevTitle]           = useState<string | null>(null)
-  const [prevContent, setPrevContent]       = useState<string | null>(null)
-  const [prevOpen, setPrevOpen]             = useState(false)
+  // 하단 '이전 기록' — 이 세션보다 앞선 기록 전부(최신순). 모두 접힌 토글로 시작
+  const [prevSessions, setPrevSessions]     = useState<OneOnOne[]>([])
+  const [openPrevIds, setOpenPrevIds]       = useState<Set<string>>(new Set())
   const [titleInput, setTitleInput]         = useState('')
   const [contentInput, setContentInput]     = useState('')
   const [nextAppointment, setNextAppointment]       = useState('')
@@ -73,8 +73,8 @@ export default function OneOnOneSessionPage() {
           const prev = (allSessions as OneOnOne[])[idx - 1]
           setPrevNext(prev.next_appointment ?? null)
           setPrevDate(prev.session_date ?? null)
-          setPrevTitle(prev.title ?? null)
-          setPrevContent(prev.notes?.[0]?.content ?? null)
+          const earlier = (allSessions as OneOnOne[]).slice(0, idx).reverse()
+          setPrevSessions(earlier)
         }
       }
     }
@@ -263,7 +263,6 @@ export default function OneOnOneSessionPage() {
   const prevDateLabel = prevSessionDate
     ? (() => { try { return format(parseISO(prevSessionDate), 'M월 d일', { locale: ko }) } catch { return prevSessionDate } })()
     : null
-  const hasPrev = !!(prevNextAppointment || prevContent)
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -289,15 +288,23 @@ export default function OneOnOneSessionPage() {
             onMouseLeave={e => { e.currentTarget.style.color = T3; e.currentTarget.style.background = 'transparent' }}>
             MD 다운로드
           </button>
+          <button onClick={deleteSession} disabled={deleting}
+            style={{ fontSize: 11, color: 'rgba(248,113,113,0.6)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: 8, padding: '4px 12px', background: 'transparent', cursor: 'pointer', transition: 'color 150ms, background 150ms' }}
+            onMouseEnter={e => { e.currentTarget.style.color = '#f87171'; e.currentTarget.style.background = 'rgba(248,113,113,0.08)' }}
+            onMouseLeave={e => { e.currentTarget.style.color = 'rgba(248,113,113,0.6)'; e.currentTarget.style.background = 'transparent' }}>
+            이 기록 삭제
+          </button>
         </div>
       </div>
 
-      {/* 본문 */}
-      <div style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'flex-start', gap: 16, padding: '16px 20px 32px', overflowY: 'auto' }} className="scrollbar-hide">
+      {/* 본문 — 위 절반: 입력 영역(제목 + 8:2 기록|약속) 고정, 아래 절반: 이전 기록만 스크롤.
+          제목은 두 박스 위 전체 폭 줄에 둬서 기록·다음 약속 박스의 시작선/높이를 맞춘다.
+          1on1은 회의보다 길고 구조화가 어려워 입력과 과거 기록을 동시에 넓게 보게 한다.
+          (lg 미만은 한 화면에 반반이 비좁아 전체 스크롤로 쌓는다) */}
+      <div style={{ flex: 1, minHeight: 0, padding: '14px 20px 0', display: 'flex', flexDirection: 'column', gap: 14 }} className="overflow-y-auto lg:overflow-hidden scrollbar-hide">
 
-        {/* ── 메인 콘텐츠 ── */}
-        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
-
+        {/* ── 위 절반: 입력 (고정) ── */}
+        <div className="flex flex-col gap-3 lg:h-1/2 lg:min-h-[300px] flex-shrink-0">
           {/* 저장 실패 안내 — canonical write 실패 시 표시 */}
           {saveError && (
             <div className="flex items-center gap-2 rounded-xl"
@@ -337,12 +344,18 @@ export default function OneOnOneSessionPage() {
             />
           </div>
 
+
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,4fr)_minmax(0,1fr)] gap-4 lg:flex-1 lg:min-h-0">
+
+          {/* ── 8: 이번 1on1 기록 ── */}
+          <div style={{ minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
+
           {/* 기록 에디터 */}
-          <div className="surface-card rounded-2xl overflow-hidden">
-            <div style={{ padding: '10px 20px 8px', borderBottom: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div className="surface-card rounded-2xl overflow-hidden" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '10px 20px 8px', borderBottom: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
               <span style={{ fontSize: 11, fontWeight: 600, color: T3, letterSpacing: '0.04em', textTransform: 'uppercase' }}>기록</span>
             </div>
-            <div style={{ padding: '0 20px 16px' }}>
+            <div style={{ padding: '0 20px 16px', flex: 1, minHeight: 0, overflowY: 'auto' }} className="scrollbar-hide">
               {contentAutosave.recovered && (
                 <div className="flex items-center gap-2 rounded-lg"
                   style={{ padding: '8px 14px', marginBottom: 8, background: 'rgba(76,127,224,0.12)', border: '1px solid rgba(76,127,224,0.25)', color: 'var(--accent-soft)', fontSize: 12 }}>
@@ -357,33 +370,33 @@ export default function OneOnOneSessionPage() {
                 value={contentInput}
                 onChange={handleContentChange}
                 autoFocus={false}
-                minHeight={300}
+                minHeight={200}
               />
             </div>
           </div>
 
-          {/* 구 노트 데이터 */}
-          {session.notes.length > 1 && (
-            <div>
-              <p style={{ fontSize: 11, color: T3, marginBottom: 8 }}>이전 기록</p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {session.notes.slice(1).map((note, idx) => (
-                  <div key={idx} className="surface-card rounded-xl" style={{ padding: 14 }}>
-                    <p style={{ fontSize: 11, color: T3, marginBottom: 6 }}>{note.title}</p>
-                    <MarkdownContent content={note.content} dark className="text-[13px]" />
-                  </div>
-                ))}
+          </div>
+
+          {/* ── 2: 이전 약속 확인 + 다음 약속 ── */}
+          <div style={{ minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {/* 이전 약속 */}
+            {prevNextAppointment && (
+              <div style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: 14, padding: '12px 14px', flexShrink: 0, maxHeight: '40%', overflowY: 'auto' }} className="scrollbar-hide">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: '#fbbf24', letterSpacing: '0.02em' }}>이전 약속</span>
+                  {prevDateLabel && <span style={{ fontSize: 10, color: 'rgba(251,191,36,0.5)' }}>{prevDateLabel}</span>}
+                </div>
+                <p style={{ fontSize: 13, color: 'rgba(253,230,138,0.82)', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{prevNextAppointment}</p>
               </div>
-            </div>
-          )}
+            )}
 
           {/* 다음 약속 */}
-          <div className="surface-card rounded-2xl overflow-hidden">
-            <div style={{ padding: '10px 20px 8px', borderBottom: `1px solid ${BORDER}` }}>
+          <div className="surface-card rounded-2xl overflow-hidden" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '10px 16px 8px', borderBottom: `1px solid ${BORDER}`, flexShrink: 0 }}>
               <span style={{ fontSize: 11, fontWeight: 600, color: T3, letterSpacing: '0.04em', textTransform: 'uppercase' }}>다음 약속</span>
               <p style={{ fontSize: 11, color: T3, marginTop: 1, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>다음 1on1에서 확인할 약속이나 과제</p>
             </div>
-            <div style={{ padding: '12px 20px 16px' }}>
+            <div style={{ padding: '12px 16px 16px', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
               {nextAppointmentAutosave.recovered && (
                 <div className="flex items-center gap-2 rounded-lg"
                   style={{ padding: '8px 14px', marginBottom: 8, background: 'rgba(76,127,224,0.12)', border: '1px solid rgba(76,127,224,0.25)', color: 'var(--accent-soft)', fontSize: 12 }}>
@@ -392,7 +405,7 @@ export default function OneOnOneSessionPage() {
                   <button onClick={() => nextAppointmentAutosave.discardRecovered()} style={{ textDecoration: 'underline', background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: 12 }}>무시</button>
                 </div>
               )}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, paddingBottom: 12, borderBottom: `1px solid ${BORDER}` }}>
+              <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 12, paddingBottom: 12, borderBottom: `1px solid ${BORDER}` }}>
                 <span style={{ fontSize: 11, color: T2, fontWeight: 500, whiteSpace: 'nowrap' }}>다음 1on1 일자</span>
                 <input type="date" value={nextAppointmentDate}
                   onChange={e => { setNextAppointmentDate(e.target.value); saveNextAppointmentDate(e.target.value) }}
@@ -413,63 +426,77 @@ export default function OneOnOneSessionPage() {
                 onChange={e => handleNextAppointmentChange(e.target.value)}
                 onBlur={saveNextAppointment}
                 placeholder="다음 1on1에서 챙길 것들을 입력하세요"
-                rows={3}
-                style={{ width: '100%', fontSize: 13, color: T1, background: 'transparent', border: 'none', outline: 'none', resize: 'none', lineHeight: 1.65 }}
+                rows={8}
+                style={{ width: '100%', flex: 1, minHeight: 0, fontSize: 13, color: T1, background: 'transparent', border: 'none', outline: 'none', resize: 'none', lineHeight: 1.65 }}
                 className="placeholder:text-[rgba(var(--text-rgb),0.25)]" />
             </div>
           </div>
 
-          {/* 삭제 */}
-          <div style={{ paddingTop: 4 }}>
-            <button onClick={deleteSession} disabled={deleting}
-              style={{ fontSize: 12, color: 'rgba(248,113,113,0.5)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, transition: 'color 150ms' }}
-              onMouseEnter={e => (e.currentTarget.style.color = '#f87171')}
-              onMouseLeave={e => (e.currentTarget.style.color = 'rgba(248,113,113,0.5)')}>
-              이 기록 삭제
-            </button>
           </div>
         </div>
+        </div>
 
-        {/* ── 우측 사이드 패널 ── */}
-        {hasPrev && (
-          <div style={{ width: 220, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {/* ── 아래 절반: 이전 기록 (이 영역만 스크롤) ── */}
+        <div className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto scrollbar-hide flex flex-col gap-5" style={{ paddingBottom: 28 }}>
 
-            {/* 이전 약속 */}
-            {prevNextAppointment && (
-              <div style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: 14, padding: '12px 14px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <span style={{ fontSize: 11, fontWeight: 600, color: '#fbbf24', letterSpacing: '0.02em' }}>이전 약속</span>
-                  {prevDateLabel && <span style={{ fontSize: 10, color: 'rgba(251,191,36,0.5)' }}>{prevDateLabel}</span>}
-                </div>
-                <p style={{ fontSize: 13, color: 'rgba(253,230,138,0.82)', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{prevNextAppointment}</p>
+        {/* 구 노트 데이터 */}
+          {session.notes.length > 1 && (
+            <div>
+              <p style={{ fontSize: 11, color: T3, marginBottom: 8 }}>구 노트</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {session.notes.slice(1).map((note, idx) => (
+                  <div key={idx} className="surface-card rounded-xl" style={{ padding: 14 }}>
+                    <p style={{ fontSize: 11, color: T3, marginBottom: 6 }}>{note.title}</p>
+                    <MarkdownContent content={note.content} dark className="text-[13px]" />
+                  </div>
+                ))}
               </div>
-            )}
+            </div>
+          )}
 
-            {/* 이전 기록 (접기/펼치기) */}
-            {prevContent && (
-              <div style={{ border: `1px solid ${BORDER}`, borderRadius: 14, overflow: 'hidden', background: 'rgba(var(--ink-rgb),0.03)' }}>
-                <button onClick={() => setPrevOpen(v => !v)}
-                  style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', gap: 8 }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
-                    <span style={{ fontSize: 11, fontWeight: 600, color: T2 }}>이전 기록</span>
-                    {(prevDateLabel || prevTitle) && (
-                      <span style={{ fontSize: 10, color: T3 }}>
-                        {[prevDateLabel, prevTitle].filter(Boolean).join(' · ')}
-                      </span>
+        {/* ── 하단: 이전 기록 (최신순, 모두 접힌 토글) ── */}
+        {prevSessions.length > 0 && (
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: T3, letterSpacing: '0.04em' }}>이전 기록</span>
+              <span style={{ fontSize: 10, color: T3, border: `1px solid ${BORDER}`, borderRadius: 20, padding: '1px 8px' }}>{prevSessions.length}건</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {prevSessions.map(ps => {
+                const open = openPrevIds.has(ps.id)
+                const content = ps.notes?.[0]?.content ?? ''
+                const dateLabel = ps.session_date ? format(parseISO(ps.session_date), 'yyyy.M.d (E)', { locale: ko }) : '날짜 없음'
+                return (
+                  <div key={ps.id} className="surface-card rounded-2xl overflow-hidden">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 20px' }}>
+                      <button onClick={() => setOpenPrevIds(prev => { const n = new Set(prev); if (n.has(ps.id)) n.delete(ps.id); else n.add(ps.id); return n })}
+                        style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 10, background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}>
+                        <span style={{ fontSize: 11, color: T3, flexShrink: 0, transition: 'transform 200ms', transform: open ? 'rotate(0deg)' : 'rotate(-90deg)', display: 'inline-block' }}>▾</span>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: T2, flexShrink: 0 }}>{dateLabel}</span>
+                        <span style={{ fontSize: 13, color: T1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ps.title || '(제목 없음)'}</span>
+                      </button>
+                      <Link href={`/one-on-one/${memberId}/${ps.id}`} style={{ fontSize: 11, color: T3, textDecoration: 'none', flexShrink: 0 }}>열기 →</Link>
+                    </div>
+                    {open && (
+                      <div style={{ borderTop: `1px solid ${BORDER}`, padding: '12px 20px 16px' }}>
+                        {content
+                          ? <MarkdownContent content={content} dark className="text-[13px]" />
+                          : <p style={{ fontSize: 12, color: T3 }}>기록 내용 없음</p>}
+                        {ps.next_appointment && (
+                          <div style={{ marginTop: 12, paddingTop: 10, borderTop: `1px dashed ${BORDER}` }}>
+                            <span style={{ fontSize: 10, fontWeight: 600, color: '#fbbf24' }}>이때 정한 다음 약속</span>
+                            <p style={{ fontSize: 12, color: T2, whiteSpace: 'pre-wrap', lineHeight: 1.6, marginTop: 4 }}>{ps.next_appointment}</p>
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
-                  <span style={{ fontSize: 11, color: T3, flexShrink: 0, transition: 'transform 200ms', transform: prevOpen ? 'rotate(180deg)' : 'rotate(0deg)', display: 'inline-block' }}>▾</span>
-                </button>
-                {prevOpen && (
-                  <div style={{ borderTop: `1px solid ${BORDER}`, padding: '10px 14px 14px', maxHeight: 380, overflowY: 'auto' }} className="scrollbar-hide">
-                    <MarkdownContent content={prevContent} dark className="text-[13px]" />
-                  </div>
-                )}
-              </div>
-            )}
-
+                )
+              })}
+            </div>
           </div>
         )}
+        </div>
       </div>
     </div>
   )
