@@ -10,7 +10,7 @@ import { format, parseISO, differenceInDays } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import dynamic from 'next/dynamic'
 import MarkdownContent from '@/components/MarkdownContent'
-import { useOrgData } from '@/hooks/useOrgData'
+import { useOrgData, isTeamActive, filterActiveMembers } from '@/hooks/useOrgData'
 import { Search, Users, CheckCircle2, AlertCircle } from 'lucide-react'
 const TiptapEditor = dynamic(() => import('@/components/TiptapEditor'), { ssr: false })
 
@@ -129,14 +129,14 @@ function MemberRow({ member, sessions, role, teamLabel, onNewSession }: {
         style={{ borderBottom: '1px solid rgba(var(--ink-rgb),0.045)' }}>
 
         {/* 정체성: 아바타 + 이름 + 직책 + "마지막 O/O · N회" 한 줄 요약 — 남는 폭을 흡수하되 480px 상한 */}
-        <div className="flex items-center gap-3 min-w-[150px] max-w-[480px]" style={{ flex: '1 1 260px' }}>
+        <Link href={`/one-on-one/${member.id}`} className="group/name flex items-center gap-3 min-w-[150px] max-w-[480px]" style={{ flex: '1 1 260px' }}>
           <div className="w-[38px] h-[38px] rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0"
             style={{ background: 'rgba(var(--ink-rgb),0.07)', color: 'rgba(var(--text-rgb),0.6)', boxShadow: `0 0 0 2px ${daysRingColor(days)}` }}>
             {member.name[0]}
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 min-w-0">
-              <span className="text-sm font-semibold truncate" style={{ color: 'rgba(var(--text-rgb),1)' }}>{member.name}</span>
+              <span className="text-sm font-semibold truncate group-hover/name:underline" style={{ color: 'rgba(var(--text-rgb),1)' }}>{member.name}</span>
               {roleStyle && <span className="text-[9px] px-1.5 py-0.5 rounded-full flex-shrink-0" style={roleStyle}>{role}</span>}
             </div>
             <p className="text-[11px] truncate" style={{ color: 'rgba(var(--text-rgb),0.35)' }}>
@@ -145,7 +145,7 @@ function MemberRow({ member, sessions, role, teamLabel, onNewSession }: {
                 : (ms.length > 0 ? `기록 ${ms.length}회 · 최근 날짜 없음` : '아직 진행한 1on1이 없음')}
             </p>
           </div>
-        </div>
+        </Link>
 
         {/* 오른쪽 메타 클러스터: 팀 · 진행 상태 · 다음 일정 · 메모 · 액션 — Header와 동일한 grid */}
         <div className="grid items-center gap-2.5 flex-shrink-0" style={{ gridTemplateColumns: MEMBER_META_COLS }}>
@@ -209,17 +209,19 @@ function MemberRow({ member, sessions, role, teamLabel, onNewSession }: {
           1) 프로필+이름+진행상태  2) 팀·최근/다음 일정·메모 칩  3) 액션 버튼 ── */}
       <div className="lg:hidden px-4 py-3" style={{ borderBottom: '1px solid rgba(var(--ink-rgb),0.045)' }}>
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0"
-            style={{ background: 'rgba(var(--ink-rgb),0.07)', color: 'rgba(var(--text-rgb),0.6)', boxShadow: `0 0 0 2px ${daysRingColor(days)}` }}>
-            {member.name[0]}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <span className="text-sm font-semibold truncate" style={{ color: 'rgba(var(--text-rgb),1)' }}>{member.name}</span>
-              {roleStyle && <span className="text-[9px] px-1.5 py-0.5 rounded-full flex-shrink-0" style={roleStyle}>{role}</span>}
+          <Link href={`/one-on-one/${member.id}`} className="flex items-center gap-3 flex-1 min-w-0">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0"
+              style={{ background: 'rgba(var(--ink-rgb),0.07)', color: 'rgba(var(--text-rgb),0.6)', boxShadow: `0 0 0 2px ${daysRingColor(days)}` }}>
+              {member.name[0]}
             </div>
-            <p className="text-[11px] truncate" style={{ color: 'rgba(var(--text-rgb),0.35)' }}>{teamLabel}</p>
-          </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="text-sm font-semibold truncate" style={{ color: 'rgba(var(--text-rgb),1)' }}>{member.name}</span>
+                {roleStyle && <span className="text-[9px] px-1.5 py-0.5 rounded-full flex-shrink-0" style={roleStyle}>{role}</span>}
+              </div>
+              <p className="text-[11px] truncate" style={{ color: 'rgba(var(--text-rgb),0.35)' }}>{teamLabel}</p>
+            </div>
+          </Link>
           <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full border whitespace-nowrap flex-shrink-0 ${daysBadgeClass(days)}`}>
             {daysLabel(days)}
           </span>
@@ -490,7 +492,9 @@ function NextQuestionsPanel() {
 function MyFeedbackView() {
   const supabase = createClient()
   const [feedbacks, setFeedbacks] = useState<MyFeedback[]>([])
-  const [members, setMembers] = useState<Member[]>([])
+  const [allMembers, setMembers] = useState<Member[]>([])
+  const { org } = useOrgData()
+  const members = useMemo(() => filterActiveMembers(allMembers, org), [allMembers, org])
   const [loading, setLoading] = useState(true)
   const [period, setPeriod] = useState<Period>('이번 달')
   const [openMonths, setOpenMonths] = useState<Set<string>>(new Set([currentMonth()]))
@@ -658,12 +662,15 @@ function MyFeedbackView() {
 
 // ─── 메인 페이지 ──────────────────────────────────────────────────────────────
 export default function OneOnOnePage() {
-  const [members, setMembers]           = useState<Member[]>([])
+  const [allMembers, setMembers]        = useState<Member[]>([])
   const [archivedMembers, setArchivedMembers] = useState<Member[]>([])
   const [sessions, setSessions]         = useState<OneOnOne[]>([])
   const [memberRoles, setMemberRoles]   = useState<Record<string, string>>({})
   const [view, setView]                 = useState<'team' | 'my-feedback'>('team')
-  const { org } = useOrgData()
+  const { org: fullOrg } = useOrgData()
+  // 설정에서 off한 팀과 그 소속 인원은 1on1 화면 전체(목록·필터·통계·우선순위)에서 제외
+  const org = useMemo(() => fullOrg.filter(isTeamActive), [fullOrg])
+  const members = useMemo(() => filterActiveMembers(allMembers, fullOrg), [allMembers, fullOrg])
   const [selectedTeamId, setSelectedTeamId] = useState<string>('__all')
   const [memberQuery, setMemberQuery]   = useState('')
   const [archiveOpen, setArchiveOpen]   = useState(false)

@@ -6,10 +6,8 @@ import type { Member } from '@/types'
 import { format, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { NAV_ITEMS } from '@/lib/nav-config'
-
-// ── 조직 구조 타입 ────────────────────────────────────────────────
-interface OrgPart { id: string; name: string }
-interface OrgTeam { id: string; name: string; parts: OrgPart[] }
+import { isTeamActive } from '@/hooks/useOrgData'
+import type { OrgTeam, OrgPart } from '@/hooks/useOrgData'
 
 // ── 메뉴 (Desktop Sidebar/Mobile TopNav와 동일한 canonical 목록) ──────
 const ALL_NAV = NAV_ITEMS.map(i => ({ href: i.href, label: i.label }))
@@ -47,6 +45,10 @@ export default function SettingsPage() {
   const [teamNameInput, setTeamNameInput] = useState('')
   const [editingPartNameId, setEditingPartNameId] = useState<string | null>(null)
   const [partNameInput, setPartNameInput] = useState('')
+  // 팀 on/off — off 팀 카드는 접어 두고, 끌 때 소속 인원 일괄 이동 다이얼로그를 띄운다
+  const [expandedOffTeams, setExpandedOffTeams] = useState<Set<string>>(new Set())
+  const [offDialog, setOffDialog] = useState<{ teamId: string; target: string } | null>(null)
+  const [movingBulk, setMovingBulk] = useState(false)
 
   // 팀원 추가
   const [newName, setNewName] = useState('')
@@ -185,6 +187,59 @@ export default function SettingsPage() {
       ? { ...t, parts: t.parts.filter(p => p.id !== partId) }
       : t
     ))
+  }
+
+  // ── 팀 on/off + 인원 재배치 ─────────────────────────────────────
+  function teamMembersOf(team: OrgTeam) {
+    return members.filter(m => m.part === team.id || team.parts.some(p => p.id === m.part))
+  }
+
+  // 이동 대상: "팀id::파트id" (파트 없는 팀은 파트id 비움). 파트 id가 팀 간 겹칠 수 있어 팀까지 같이 인코딩
+  const moveTargets = org.flatMap(t =>
+    t.parts.length === 0
+      ? [{ value: `${t.id}::`, label: t.name, active: isTeamActive(t) }]
+      : t.parts.map(p => ({ value: `${t.id}::${p.id}`, label: `${t.name} · ${p.name}`, active: isTeamActive(t) }))
+  )
+
+  async function moveMembers(ids: string[], target: string): Promise<boolean> {
+    const [teamId, partId] = target.split('::')
+    const partValue = resolvePartValue(teamId, partId)
+    const { error } = await supabase.from('members').update({ part: partValue }).in('id', ids)
+    if (error) { alert(`이동 실패: ${error.message}`); return false }
+    setMembers(prev => prev.map(m => ids.includes(m.id) ? { ...m, part: partValue } : m))
+    return true
+  }
+
+  function toggleTeamActive(team: OrgTeam) {
+    if (!isTeamActive(team)) {
+      saveOrg(org.map(t => t.id === team.id ? { ...t, active: true } : t))
+      return
+    }
+    if (teamMembersOf(team).length === 0) {
+      saveOrg(org.map(t => t.id === team.id ? { ...t, active: false } : t))
+      return
+    }
+    const firstTarget = moveTargets.find(mt => mt.active && !mt.value.startsWith(`${team.id}::`))
+    setOffDialog({ teamId: team.id, target: firstTarget?.value ?? '' })
+  }
+
+  async function confirmTurnOff(moveFirst: boolean) {
+    if (!offDialog) return
+    const team = org.find(t => t.id === offDialog.teamId)
+    if (!team) { setOffDialog(null); return }
+    if (moveFirst) {
+      if (!offDialog.target) return
+      setMovingBulk(true)
+      const ok = await moveMembers(teamMembersOf(team).map(m => m.id), offDialog.target)
+      setMovingBulk(false)
+      if (!ok) return
+    }
+    saveOrg(org.map(t => t.id === team.id ? { ...t, active: false } : t))
+    setOffDialog(null)
+  }
+
+  function toggleOffExpanded(teamId: string) {
+    setExpandedOffTeams(prev => { const s = new Set(prev); s.has(teamId) ? s.delete(teamId) : s.add(teamId); return s })
   }
 
   // ── 직책 저장 ──────────────────────────────────────────────────
@@ -347,6 +402,53 @@ export default function SettingsPage() {
     <div className="p-8 max-w-lg">
       <h1 className="text-xl font-bold mb-6" style={{ color: 'rgba(var(--text-rgb),1)' }}>설정</h1>
 
+      {/* ══ 팀 off 다이얼로그: 소속 인원 일괄 이동 ══════════════════ */}
+      {offDialog && (() => {
+        const team = org.find(t => t.id === offDialog.teamId)
+        if (!team) return null
+        const list = teamMembersOf(team)
+        const targets = moveTargets.filter(mt => !mt.value.startsWith(`${team.id}::`))
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.45)' }}
+            onClick={() => !movingBulk && setOffDialog(null)}>
+            <div className="w-full max-w-sm rounded-2xl p-5 flex flex-col gap-3" onClick={e => e.stopPropagation()}
+              style={{ background: 'var(--bg-page)', border: '1px solid rgba(var(--ink-rgb),0.12)' }}>
+              <h3 className="text-sm font-semibold" style={{ color: 'rgba(var(--text-rgb),1)' }}>「{team.name}」 끄기</h3>
+              <p className="text-xs leading-relaxed" style={{ color: 'rgba(var(--text-rgb),0.55)' }}>
+                소속 {list.length}명({list.map(m => m.name).join(', ')})이 있습니다.
+                다른 팀으로 옮기거나, 그대로 두고 끌 수 있습니다. 그대로 두면 1on1에서 함께 숨겨집니다.
+              </p>
+              {targets.length > 0 ? (
+                <select value={offDialog.target} onChange={e => setOffDialog({ ...offDialog, target: e.target.value })}
+                  style={{ ...inp, cursor: 'pointer' }}>
+                  {targets.map(mt => (
+                    <option key={mt.value} value={mt.value} style={{ background: 'var(--select-option-bg-2)' }}>
+                      {mt.label}{mt.active ? '' : ' (off)'}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <p className="text-[11px]" style={{ color: 'rgba(var(--text-rgb),0.35)' }}>옮길 수 있는 다른 팀이 없습니다.</p>
+              )}
+              <div className="flex gap-2 justify-end mt-1">
+                <button onClick={() => setOffDialog(null)} disabled={movingBulk}
+                  className="text-xs px-3 py-1.5 rounded-lg" style={{ color: 'rgba(var(--text-rgb),0.45)' }}>취소</button>
+                <button onClick={() => confirmTurnOff(false)} disabled={movingBulk}
+                  className="text-xs px-3 py-1.5 rounded-lg"
+                  style={{ border: '1px solid rgba(var(--ink-rgb),0.12)', color: 'rgba(var(--text-rgb),0.6)' }}>그대로 끄기</button>
+                {targets.length > 0 && (
+                  <button onClick={() => confirmTurnOff(true)} disabled={movingBulk || !offDialog.target}
+                    className="text-xs px-3 py-1.5 rounded-lg font-semibold"
+                    style={{ background: 'rgba(76,127,224,0.25)', border: '1px solid rgba(76,127,224,0.35)', color: 'var(--accent-badge-text)' }}>
+                    {movingBulk ? '이동 중…' : '이동 후 끄기'}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
       {/* ══ 조직 구조 ══════════════════════════════════════════ */}
       <section className="mb-8">
         <h2 className="text-sm font-semibold mb-3" style={{ color: 'rgba(var(--text-rgb),0.5)' }}>조직 구조</h2>
@@ -376,8 +478,10 @@ export default function SettingsPage() {
             const teamMemberCount = team.parts.length === 0
               ? members.filter(m => m.part === team.id).length
               : members.filter(m => team.parts.some(p => p.id === m.part)).length
+            const active = isTeamActive(team)
+            const showBody = active || expandedOffTeams.has(team.id)
             return (
-              <div key={team.id} style={card}>
+              <div key={team.id} style={{ ...card, opacity: active ? 1 : 0.6 }}>
                 {/* 팀 헤더 */}
                 <div className="flex items-center gap-2 px-4 py-3 group" style={{ borderBottom: '1px solid rgba(var(--ink-rgb),0.06)' }}>
                   {editingTeamNameId === team.id ? (
@@ -400,13 +504,29 @@ export default function SettingsPage() {
                   <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: 'rgba(76,127,224,0.12)', color: 'var(--accent-badge-text)', border: '1px solid rgba(76,127,224,0.2)' }}>
                     {teamMemberCount}명
                   </span>
+                  {!active && (
+                    <button onClick={() => toggleOffExpanded(team.id)} className="text-[10px]"
+                      style={{ color: 'rgba(var(--text-rgb),0.4)' }}>
+                      {showBody ? '접기' : '펼치기'}
+                    </button>
+                  )}
+                  <button onClick={() => toggleTeamActive(team)} role="switch" aria-checked={active}
+                    title={active ? '이 팀 끄기 (1on1에서 숨김)' : '이 팀 켜기'}
+                    className="flex items-center gap-1.5 text-[10px] font-semibold"
+                    style={{ color: active ? 'var(--accent-badge-text)' : 'rgba(var(--text-rgb),0.35)' }}>
+                    <span className="relative inline-block w-7 h-4 rounded-full transition-colors"
+                      style={{ background: active ? 'rgba(76,127,224,0.6)' : 'rgba(var(--ink-rgb),0.15)' }}>
+                      <span className="absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all" style={{ left: active ? 14 : 2 }} />
+                    </span>
+                    {active ? 'ON' : 'OFF'}
+                  </button>
                   <button onClick={() => deleteTeam(team.id)}
                     className="text-xs transition-colors hover:text-red-400"
                     style={{ color: 'rgba(var(--text-rgb),0.25)' }}>삭제</button>
                 </div>
 
-                {/* 팀원 목록 (파트별) */}
-                {(() => {
+                {/* 팀원 목록 (파트별) — off 팀은 펼쳤을 때만 */}
+                {showBody && (() => {
                   const tg = grouped.find(g => g.team.id === team.id)
                   if (!tg) return null
                   return tg.subgroups.map(({ part, list }) => {
@@ -429,7 +549,7 @@ export default function SettingsPage() {
                                 <select value={editTeamId} onChange={e => { setEditTeamId(e.target.value); setEditPartId('') }}
                                   style={{ ...inp, padding: '4px 8px', fontSize: 12, cursor: 'pointer' }}>
                                   <option value="" style={{ background: 'var(--select-option-bg-2)' }}>팀</option>
-                                  {org.map(t => <option key={t.id} value={t.id} style={{ background: 'var(--select-option-bg-2)' }}>{t.name}</option>)}
+                                  {org.map(t => <option key={t.id} value={t.id} style={{ background: 'var(--select-option-bg-2)' }}>{t.name}{isTeamActive(t) ? '' : ' (off)'}</option>)}
                                 </select>
                                 {selectedEditTeam && selectedEditTeam.parts.length > 0 && (
                                   <select value={editPartId} onChange={e => setEditPartId(e.target.value)}
@@ -458,7 +578,17 @@ export default function SettingsPage() {
                                     {memberRoles[m.id]}
                                   </span>
                                 )}
-                                <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div className="flex gap-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                                  <select value="" onChange={e => { if (e.target.value) moveMembers([m.id], e.target.value) }}
+                                    title="다른 팀/파트로 이동" className="text-xs"
+                                    style={{ background: 'transparent', color: 'rgba(var(--text-rgb),0.5)', outline: 'none', cursor: 'pointer', maxWidth: 64 }}>
+                                    <option value="" style={{ background: 'var(--select-option-bg-2)' }}>이동</option>
+                                    {moveTargets.map(mt => (
+                                      <option key={mt.value} value={mt.value} style={{ background: 'var(--select-option-bg-2)' }}>
+                                        {mt.label}{mt.active ? '' : ' (off)'}
+                                      </option>
+                                    ))}
+                                  </select>
                                   <button onClick={() => startEdit(m)} className="text-xs" style={{ color: 'rgba(var(--text-rgb),0.5)' }}>수정</button>
                                   <button onClick={() => archiveMember(m.id)} className="text-xs" style={{ color: 'rgba(var(--text-rgb),0.28)' }}>퇴사</button>
                                   <button onClick={() => deleteMember(m.id)} className="text-xs hover:text-red-400 transition-colors" style={{ color: 'rgba(var(--text-rgb),0.2)' }}>삭제</button>
@@ -473,6 +603,7 @@ export default function SettingsPage() {
                 })()}
 
                 {/* 파트 목록 + 추가 */}
+                {showBody && (
                 <div className="px-4 py-2" style={{ borderTop: '1px solid rgba(var(--ink-rgb),0.05)' }}>
                   {team.parts.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 py-1">
@@ -520,6 +651,7 @@ export default function SettingsPage() {
                     </button>
                   </div>
                 </div>
+                )}
               </div>
             )
           })}
@@ -539,7 +671,7 @@ export default function SettingsPage() {
               <select value={newTeamId} onChange={e => { setNewTeamId(e.target.value); setNewPartId('') }}
                 style={{ ...inp, flex: 1, cursor: 'pointer' }}>
                 <option value="" style={{ background: 'var(--select-option-bg-2)' }}>팀 선택</option>
-                {org.map(t => <option key={t.id} value={t.id} style={{ background: 'var(--select-option-bg-2)' }}>{t.name}</option>)}
+                {org.map(t => <option key={t.id} value={t.id} style={{ background: 'var(--select-option-bg-2)' }}>{t.name}{isTeamActive(t) ? '' : ' (off)'}</option>)}
               </select>
               {selectedTeam && selectedTeam.parts.length > 0 && (
                 <select value={newPartId} onChange={e => setNewPartId(e.target.value)}
@@ -583,7 +715,7 @@ export default function SettingsPage() {
                     <select value={editTeamId} onChange={e => { setEditTeamId(e.target.value); setEditPartId('') }}
                       style={{ ...inp, padding: '4px 8px', fontSize: 12, cursor: 'pointer' }}>
                       <option value="" style={{ background: 'var(--select-option-bg-2)' }}>팀</option>
-                      {org.map(t => <option key={t.id} value={t.id} style={{ background: 'var(--select-option-bg-2)' }}>{t.name}</option>)}
+                      {org.map(t => <option key={t.id} value={t.id} style={{ background: 'var(--select-option-bg-2)' }}>{t.name}{isTeamActive(t) ? '' : ' (off)'}</option>)}
                     </select>
                     {selectedEditTeam && selectedEditTeam.parts.length > 0 && (
                       <select value={editPartId} onChange={e => setEditPartId(e.target.value)}
