@@ -6,6 +6,7 @@ import Image from '@tiptap/extension-image'
 import { collapseEmptyParagraphs } from '@/lib/htmlCleanup'
 import {
   BASE_TIPTAP_EXTENSIONS, ToggleInputRules, legacyToHtml, handleListKeymapWorkaround, toggleDetailsAtSelection,
+  QaShortcut, toggleQuestionAtSelection, isQuestionAtSelection,
 } from '@/lib/tiptapExtensions'
 
 // ── Clipboard: ProseMirror document → Markdown (GFM) ─────────────────────────
@@ -114,6 +115,9 @@ const HIGHLIGHTS = [
 const EXTENSIONS = [...BASE_TIPTAP_EXTENSIONS, Image.configure({ allowBase64: true })]
 // enableToggle: "> " 토글 / '" ' 인용구 입력 규칙 (Quick Memo·회의록·프로젝트 화면에서만)
 const EXTENSIONS_WITH_TOGGLE = [...EXTENSIONS, ToggleInputRules]
+// enableQa: 질문 줄 지정(Ctrl+Alt+Q / 툴바 Q) — 1on1 기록 화면에서만
+const EXTENSIONS_WITH_QA = [...EXTENSIONS, QaShortcut]
+const EXTENSIONS_WITH_TOGGLE_QA = [...EXTENSIONS_WITH_TOGGLE, QaShortcut]
 
 interface Props {
   value: string
@@ -128,10 +132,11 @@ interface Props {
   dark?: boolean
   hideToolbar?: boolean
   enableToggle?: boolean
+  enableQa?: boolean
 }
 
 export default function TiptapEditor({
-  value, onChange, onSubmit, onEscape, onExpand, onSelectionChange, autoFocus, minHeight = 160, className, dark, hideToolbar, enableToggle,
+  value, onChange, onSubmit, onEscape, onExpand, onSelectionChange, autoFocus, minHeight = 160, className, dark, hideToolbar, enableToggle, enableQa,
 }: Props) {
   // Refs로 콜백 최신값 유지 — useCallback deps를 [] 로 고정해 Tiptap이 매 렌더마다 options 변경을 감지하지 않도록 함
   const onChangeRef          = useRef(onChange)
@@ -220,7 +225,9 @@ export default function TiptapEditor({
   }, [])
 
   const editor = useEditor({
-    extensions: enableToggle ? EXTENSIONS_WITH_TOGGLE : EXTENSIONS,
+    extensions: enableToggle
+      ? (enableQa ? EXTENSIONS_WITH_TOGGLE_QA : EXTENSIONS_WITH_TOGGLE)
+      : (enableQa ? EXTENSIONS_WITH_QA : EXTENSIONS),
     content: legacyToHtml(value),
     editorProps: {
       attributes: { class: `${dark ? 'tiptap-input-dark' : 'tiptap-input'} outline-none`, style: `min-height:${minHeight}px; padding:8px 0;` },
@@ -331,6 +338,16 @@ export default function TiptapEditor({
             onMouseDown={e => { e.preventDefault(); editor.chain().focus().toggleHeading({ level }).run() }}
             className={btnCls(editor.isActive('heading', { level }), 'text-[11px] font-semibold')}>H{level}</button>
         ))}
+
+        {enableQa && (
+          <>
+            <div className={divCls} />
+            <button type="button"
+              onMouseDown={e => { e.preventDefault(); editor.commands.focus(); toggleQuestionAtSelection(editor) }}
+              className={btnCls(isQuestionAtSelection(editor), 'text-[11px] font-bold')}
+              title="질문 줄로 표시/해제 (Ctrl+Alt+Q) — 표시 없는 줄은 위 질문의 답변">Q</button>
+          </>
+        )}
 
         <div className={divCls} />
         {/* Text colors */}

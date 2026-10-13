@@ -227,6 +227,62 @@ const SyncedDetails = Details.extend({
   },
 })
 
+// ── 1on1 질문/답변 구분 ───────────────────────────────────────────────────────
+// 질문인 줄(문단·제목·토글 제목)에 data-qa="q" 속성을 단다. 표시가 없는 줄은 바로 위 질문의 답변.
+// 속성 스키마는 모든 에디터에 등록한다 — 다른 화면 에디터가 같은 HTML을 열어도 속성이 벗겨진 채
+// autosave되지 않도록(토글 스키마와 같은 이유). 지정 단축키/버튼은 1on1 화면(QaShortcut)에서만.
+export const QaAttribute = Extension.create({
+  name: 'qaAttribute',
+  addGlobalAttributes() {
+    return [{
+      types: ['paragraph', 'heading', 'detailsSummary'],
+      attributes: {
+        qa: {
+          default: null,
+          // Enter로 줄을 나누면 새 줄은 일반(답변) 줄 — 질문 표시가 따라 내려오지 않게
+          keepOnSplit: false,
+          parseHTML: el => el.getAttribute('data-qa'),
+          renderHTML: attrs => (attrs.qa ? { 'data-qa': attrs.qa } : {}),
+        },
+      },
+    }]
+  },
+})
+
+const QA_TYPES = ['paragraph', 'heading', 'detailsSummary']
+
+export function isQuestionAtSelection(editor: Editor): boolean {
+  const { $from } = editor.state.selection
+  return QA_TYPES.includes($from.parent.type.name) && $from.parent.attrs.qa === 'q'
+}
+
+// 선택 범위(커서만 있으면 그 줄)의 줄들을 질문 ↔ 일반으로 뒤집는다. 모두 질문이면 해제, 아니면 전부 질문.
+export function toggleQuestionAtSelection(editor: Editor): boolean {
+  const { state } = editor
+  const { $from, from, to, empty } = state.selection
+  const blocks: { pos: number; node: PMNode }[] = []
+  if (empty) {
+    if (QA_TYPES.includes($from.parent.type.name)) blocks.push({ pos: $from.before(), node: $from.parent })
+  } else {
+    state.doc.nodesBetween(from, to, (node, pos) => {
+      if (QA_TYPES.includes(node.type.name)) blocks.push({ pos, node })
+    })
+  }
+  if (blocks.length === 0) return false
+  const allQ = blocks.every(b => b.node.attrs.qa === 'q')
+  const tr = state.tr
+  for (const b of blocks) tr.setNodeMarkup(b.pos, undefined, { ...b.node.attrs, qa: allQ ? null : 'q' })
+  editor.view.dispatch(tr)
+  return true
+}
+
+export const QaShortcut = Extension.create({
+  name: 'qaShortcut',
+  addKeyboardShortcuts() {
+    return { 'Mod-Alt-q': () => toggleQuestionAtSelection(this.editor) }
+  },
+})
+
 // 모듈 레벨 상수 — 렌더마다 새 참조 생성 방지 (Tiptap v3에서 extensions 참조 변경 시 refreshEditorInstance 호출됨)
 // Quick Memo/생각스케치가 공유하는 최소 코어. Quick Memo 전용 기능(Image 붙여넣기 등)은
 // 각 에디터가 이 배열 위에 자신만 추가한다.
@@ -243,6 +299,7 @@ export const BASE_TIPTAP_EXTENSIONS = [
   SyncedDetails.configure({ persist: true, HTMLAttributes: { class: 'details' } }),
   DetailsSummary,
   DetailsContent,
+  QaAttribute,
 ]
 
 // ── Ctrl+Enter 토글 열기/닫기 ─────────────────────────────────────────────────

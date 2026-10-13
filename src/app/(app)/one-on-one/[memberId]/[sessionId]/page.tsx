@@ -10,6 +10,7 @@ import { useAutosave } from '@/hooks/useAutosave'
 import type { OneOnOne, Member, NoteEntry } from '@/types'
 import dynamic from 'next/dynamic'
 import MarkdownContent from '@/components/MarkdownContent'
+import QaCopyMenu from '@/components/one-on-one/QaCopyMenu'
 const TiptapEditor = dynamic(() => import('@/components/TiptapEditor'), { ssr: false })
 
 const T1 = 'rgba(var(--text-rgb),0.92)'
@@ -282,6 +283,8 @@ export default function OneOnOneSessionPage() {
             style={{ fontSize: 11, border: `1px solid ${BORDER}`, borderRadius: 7, padding: '3px 8px', background: 'rgba(var(--ink-rgb),0.05)', color: T2, outline: 'none' }} />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <QaCopyMenu getContent={() => contentInput}
+            header={`[1on1] ${member.name} · ${session.session_date ?? '날짜 없음'}${titleInput.trim() ? ` · ${titleInput.trim()}` : ''}`} />
           <button onClick={handleDownload}
             style={{ fontSize: 11, color: T3, border: `1px solid ${BORDER}`, borderRadius: 8, padding: '4px 12px', background: 'transparent', cursor: 'pointer', transition: 'color 150ms, background 150ms' }}
             onMouseEnter={e => { e.currentTarget.style.color = T2; e.currentTarget.style.background = 'rgba(var(--ink-rgb),0.05)' }}
@@ -370,6 +373,7 @@ export default function OneOnOneSessionPage() {
                 value={contentInput}
                 onChange={handleContentChange}
                 autoFocus={false}
+                enableQa
                 minHeight={200}
               />
             </div>
@@ -475,6 +479,8 @@ export default function OneOnOneSessionPage() {
                         <span style={{ fontSize: 12, fontWeight: 600, color: T2, flexShrink: 0 }}>{dateLabel}</span>
                         <span style={{ fontSize: 13, color: T1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ps.title || '(제목 없음)'}</span>
                       </button>
+                      <QaCopyMenu compact getContent={() => content}
+                        header={`[1on1] ${member.name} · ${ps.session_date ?? '날짜 없음'}${ps.title ? ` · ${ps.title}` : ''}`} />
                       <Link href={`/one-on-one/${memberId}/${ps.id}`} style={{ fontSize: 11, color: T3, textDecoration: 'none', flexShrink: 0 }}>열기 →</Link>
                     </div>
                     {open && (

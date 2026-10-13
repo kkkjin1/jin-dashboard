@@ -674,3 +674,22 @@ details.details > [data-type="detailsContent"] { padding-left: 1.3em; }
 .md-preview table { border-collapse: collapse; width: 100%; margin: 0.4rem 0; font-size: 0.875em; }
 .md-preview th { background: #F8FAFC; font-weight: 600; padding: 5px 10px; border: 1px solid #E5E9F0; text-align: left; }
 .md-preview td { padding: 4px 10px; border: 1px solid #E5E9F0; }
+
+/* ── 1on1 질문 줄 (data-qa="q") ── 에디터·읽기모드 공통. 표시 없는 줄은 위 질문의 답변 */
+.tiptap-input [data-qa="q"], .tiptap-input-dark [data-qa="q"], .note-html [data-qa="q"], .note-html-dark [data-qa="q"] {
+  font-weight: 700;
+  border-left: 3px solid rgba(76,127,224,0.85);
+  background: rgba(76,127,224,0.08);
+  border-radius: 0 6px 6px 0;
+  padding: 2px 8px;
+  margin-top: 8px;
+}
+.tiptap-input [data-qa="q"]::before, .tiptap-input-dark [data-qa="q"]::before,
+.note-html [data-qa="q"]::before, .note-html-dark [data-qa="q"]::before {
+  content: 'Q';
+  display: inline-block;
+  font-size: 10px; font-weight: 800; line-height: 16px;
+  padding: 0 5px; margin-right: 6px; border-radius: 4px;
+  color: #fff; background: rgba(76,127,224,0.9);
+  vertical-align: 1px;
+}
