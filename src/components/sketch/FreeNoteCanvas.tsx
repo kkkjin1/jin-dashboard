@@ -431,6 +431,70 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
     viewportObserverRef.current = ro
   }, [])
 
+  // ── 스크롤 위치 유지 ─────────────────────────────────────────────────────
+  // 사용자가 맞춰둔 스크롤 위치는 (1) 다른 메뉴에 갔다 와도(보드가 새로 마운트돼도) 그대로,
+  // (2) 클릭으로 편집에 들어가는 순간에도 그대로여야 한다. (1)은 보드별로 localStorage에 저장 후
+  // 복원, (2)는 클릭 직후 잠깐 동안 사용자가 직접 하지 않은 스크롤(포커스·캐럿 이동이 일으키는
+  // 브라우저/에디터 자동 스크롤)을 되돌린다.
+  const scrollStorageKey = `freenote-scroll:${boardId}`
+  const [savedScrollTop] = useState<number | null>(() => {
+    try {
+      const v = localStorage.getItem(`freenote-scroll:${boardId}`)
+      return v === null ? null : Number(v)
+    } catch { return null }
+  })
+  const scrollSaveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const scrollGuardRef = useRef<{ top: number; until: number; x: number; y: number } | null>(null)
+  const scrollRestoredRef = useRef(savedScrollTop === null)
+
+  useEffect(() => {
+    if (loading || scrollRestoredRef.current || savedScrollTop === null || viewportHeight === 0) return
+    // 본문(Tiptap) 마운트·하단 여백 계산이 끝나 스크롤 가능한 높이가 생길 때까지 몇 프레임 재시도
+    let frames = 0
+    let rafId: number
+    const tryRestore = () => {
+      const el = scrollRef.current
+      if (!el || scrollRestoredRef.current) return
+      el.scrollTop = savedScrollTop
+      if (Math.abs(el.scrollTop - savedScrollTop) < 2 || frames++ > 60) { scrollRestoredRef.current = true; return }
+      rafId = requestAnimationFrame(tryRestore)
+    }
+    rafId = requestAnimationFrame(tryRestore)
+    return () => cancelAnimationFrame(rafId)
+  }, [loading, savedScrollTop, viewportHeight, minHeight])
+
+  function handleScroll() {
+    const el = scrollRef.current
+    if (!el) return
+    const guard = scrollGuardRef.current
+    if (guard) {
+      if (performance.now() < guard.until) {
+        if (el.scrollTop !== guard.top) el.scrollTop = guard.top
+        return
+      }
+      scrollGuardRef.current = null
+    }
+    if (!scrollRestoredRef.current) return
+    clearTimeout(scrollSaveTimer.current)
+    scrollSaveTimer.current = setTimeout(() => {
+      try { localStorage.setItem(scrollStorageKey, String(Math.round(el.scrollTop))) } catch { /* 저장 불가 환경은 무시 */ }
+    }, 200)
+  }
+
+  // 캡처 단계 — 본문 프리뷰는 mousedown 전파를 막으므로 여기서 먼저 잡는다. 스크롤바 클릭은 제외.
+  function handleScrollAreaMouseDownCapture(e: React.MouseEvent) {
+    const el = scrollRef.current
+    if (!el || e.target === el) { scrollGuardRef.current = null; return }
+    scrollRestoredRef.current = true
+    scrollGuardRef.current = { top: el.scrollTop, until: performance.now() + 700, x: e.clientX, y: e.clientY }
+  }
+  function cancelScrollGuard() { scrollGuardRef.current = null }
+  function handleScrollAreaMouseMove(e: React.MouseEvent) {
+    const guard = scrollGuardRef.current
+    // 드래그로 글자를 선택하며 가장자리로 끌면 스크롤돼야 하므로 마우스를 움직이면 보호 해제
+    if (guard && e.buttons && Math.hypot(e.clientX - guard.x, e.clientY - guard.y) > 5) scrollGuardRef.current = null
+  }
+
   function handleCanvasMouseDown(e: React.MouseEvent) {
     if (e.target === scrollRef.current) { setSelectedId(null); return }
     if (e.target === innerRef.current) {
@@ -528,7 +592,9 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
       )}
 
       {/* 문서 */}
-      <div ref={setScrollEl} className="flex-1 min-h-0 rounded-2xl overflow-auto relative" style={{ border: '1px solid rgba(var(--ink-rgb),0.08)', background: 'var(--bg-page)' }} onMouseDown={handleCanvasMouseDown}>
+      <div ref={setScrollEl} className="flex-1 min-h-0 rounded-2xl overflow-auto relative" style={{ border: '1px solid rgba(var(--ink-rgb),0.08)', background: 'var(--bg-page)' }} onMouseDown={handleCanvasMouseDown}
+        onMouseDownCapture={handleScrollAreaMouseDownCapture} onMouseMove={handleScrollAreaMouseMove}
+        onWheel={cancelScrollGuard} onKeyDownCapture={cancelScrollGuard} onTouchStart={cancelScrollGuard} onScroll={handleScroll}>
         <div ref={innerRef} className="relative" style={{ minHeight, padding: '32px 40px', paddingBottom: Math.max(40, viewportHeight - 80) }}>
           <div ref={bodyWrapperRef}>
             <SketchTextEditor
@@ -543,6 +609,7 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
               textColor="var(--text-primary)"
               variant="document"
               caretPosRef={bodyCaretPosRef}
+              scrollOnInitialFocus={savedScrollTop === null}
             />
           </div>
           {elements.map(el => {

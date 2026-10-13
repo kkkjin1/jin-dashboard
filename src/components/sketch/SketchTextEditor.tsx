@@ -94,6 +94,8 @@ export interface SketchTextEditorProps {
   variant?: SketchTextEditorVariant
   /** 바깥(예: 본문 아래 빈 여백)에서 편집모드로 들일 때 클릭 좌표를 넘기는 용도 — 없으면 내부 ref 사용 */
   caretPosRef?: React.RefObject<CaretPos | null>
+  /** 클릭 없이 편집모드에 들어갈 때(보드 첫 진입 등) 문서 끝이 보이게 스크롤할지 — 저장된 스크롤 위치를 복원할 땐 false */
+  scrollOnInitialFocus?: boolean
 }
 
 function surfaceClassName(variant: SketchTextEditorVariant): string {
@@ -145,7 +147,7 @@ function SketchPreview({
 
 /** 편집 상태 — 실제 Tiptap 인스턴스가 마운트되는 동안만 존재(언마운트 시 editor.destroy()). */
 function MountedSketchEditor({
-  content, onContentChange, onExitEdit, fallbackFontSize, textColor, variant, initialCaretPosRef,
+  content, onContentChange, onExitEdit, fallbackFontSize, textColor, variant, initialCaretPosRef, scrollOnInitialFocus,
 }: {
   content: string
   onContentChange: (html: string) => void
@@ -154,6 +156,7 @@ function MountedSketchEditor({
   textColor: string
   variant: SketchTextEditorVariant
   initialCaretPosRef: React.RefObject<CaretPos | null>
+  scrollOnInitialFocus: boolean
 }) {
   const onContentChangeRef = useRef(onContentChange)
   const onExitEditRef = useRef(onExitEdit)
@@ -292,7 +295,7 @@ function MountedSketchEditor({
         editor.commands.focus(pos ? null : 'end', { scrollIntoView: false })
         return
       }
-      editor.commands.focus('end')
+      editor.commands.focus('end', { scrollIntoView: scrollOnInitialFocus })
     }
     rafId = requestAnimationFrame(tryFocus)
     return () => cancelAnimationFrame(rafId)
@@ -375,7 +378,7 @@ function MountedSketchEditor({
 /** 진입점 — editing 여부에 따라 프리뷰/Tiptap을 스위칭한다. */
 export function SketchTextEditor({
   content, onContentChange, editing, onEnterEdit, onExitEdit, fallbackFontSize, placeholder, textColor, variant = 'card',
-  caretPosRef: externalCaretPosRef,
+  caretPosRef: externalCaretPosRef, scrollOnInitialFocus = true,
 }: SketchTextEditorProps) {
   const internalCaretPosRef = useRef<CaretPos | null>(null)
   const caretPosRef = externalCaretPosRef ?? internalCaretPosRef
@@ -406,6 +409,7 @@ export function SketchTextEditor({
       textColor={textColor}
       variant={variant}
       initialCaretPosRef={caretPosRef}
+      scrollOnInitialFocus={scrollOnInitialFocus}
     />
   )
 }
