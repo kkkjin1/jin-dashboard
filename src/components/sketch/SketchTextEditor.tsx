@@ -96,6 +96,8 @@ export interface SketchTextEditorProps {
   caretPosRef?: React.RefObject<CaretPos | null>
   /** 클릭 없이 편집모드에 들어갈 때(보드 첫 진입 등) 문서 끝이 보이게 스크롤할지 — 저장된 스크롤 위치를 복원할 땐 false */
   scrollOnInitialFocus?: boolean
+  /** 바깥에서 "포커스가 없으면 스크롤 없이 문서 끝에 커서" 를 호출할 수 있게 채워주는 ref */
+  focusEndRef?: React.RefObject<(() => void) | null>
 }
 
 function surfaceClassName(variant: SketchTextEditorVariant): string {
@@ -147,7 +149,7 @@ function SketchPreview({
 
 /** 편집 상태 — 실제 Tiptap 인스턴스가 마운트되는 동안만 존재(언마운트 시 editor.destroy()). */
 function MountedSketchEditor({
-  content, onContentChange, onExitEdit, fallbackFontSize, textColor, variant, initialCaretPosRef, scrollOnInitialFocus,
+  content, onContentChange, onExitEdit, fallbackFontSize, textColor, variant, initialCaretPosRef, scrollOnInitialFocus, focusEndRef,
 }: {
   content: string
   onContentChange: (html: string) => void
@@ -157,6 +159,7 @@ function MountedSketchEditor({
   variant: SketchTextEditorVariant
   initialCaretPosRef: React.RefObject<CaretPos | null>
   scrollOnInitialFocus: boolean
+  focusEndRef?: React.RefObject<(() => void) | null>
 }) {
   const onContentChangeRef = useRef(onContentChange)
   const onExitEditRef = useRef(onExitEdit)
@@ -165,6 +168,8 @@ function MountedSketchEditor({
   const [displaySize, setDisplaySize] = useState(fallbackFontSize)
   // useEditor는 transaction마다 리렌더하지 않으므로, 표 편집 버튼 노출 여부는 state로 따로 추적
   const [inTable, setInTable] = useState(false)
+  // 본문(document)은 포커스가 빠져도 마운트를 유지하므로 툴바만 포커스 있을 때 보인다
+  const [focused, setFocused] = useState(false)
   useEffect(() => {
     onContentChangeRef.current = onContentChange
     onExitEditRef.current = onExitEdit
@@ -253,7 +258,9 @@ function MountedSketchEditor({
       setDisplaySize(getCurrentBlockFontSize(editor.state, fallbackFontSize))
       setInTable(editor.isActive('table'))
     }
-    const handleBlur = () => { onExitEditRef.current() }
+    const handleBlur = () => { setFocused(false); onExitEditRef.current() }
+    const handleFocus = () => { setFocused(true) }
+    editor.on('focus', handleFocus)
     editor.on('update', handleUpdate)
     editor.on('selectionUpdate', handleSelection)
     editor.on('transaction', handleSelection)
@@ -263,6 +270,7 @@ function MountedSketchEditor({
       editor.off('selectionUpdate', handleSelection)
       editor.off('transaction', handleSelection)
       editor.off('blur', handleBlur)
+      editor.off('focus', handleFocus)
     }
   }, [editor, fallbackFontSize])
 
@@ -302,6 +310,12 @@ function MountedSketchEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor])
 
+  useEffect(() => {
+    if (!editor || !focusEndRef) return
+    focusEndRef.current = () => { if (!editor.isFocused) editor.commands.focus('end', { scrollIntoView: false }) }
+    return () => { focusEndRef.current = null }
+  }, [editor, focusEndRef])
+
   if (!editor) return null
 
   return (
@@ -311,7 +325,7 @@ function MountedSketchEditor({
           클릭 좌표로 잡는 캐럿도 한 줄 어긋났다. */}
       <div
         className={`nodrag nopan flex items-center gap-1 px-1.5 py-1 rounded-lg flex-shrink-0${variant === 'document' ? ' absolute left-0 z-10' : ''}`}
-        style={{ background: 'rgba(var(--ink-rgb),0.06)', border: '1px solid rgba(var(--ink-rgb),0.08)', width: 'fit-content', ...(variant === 'document' ? { bottom: '100%', marginBottom: 2 } : {}) }}
+        style={{ background: 'rgba(var(--ink-rgb),0.06)', border: '1px solid rgba(var(--ink-rgb),0.08)', width: 'fit-content', ...(variant === 'document' ? { bottom: '100%', marginBottom: 2, visibility: focused ? 'visible' : 'hidden' } : {}) }}
         onPointerDown={e => e.stopPropagation()}
       >
         <button
@@ -378,7 +392,7 @@ function MountedSketchEditor({
 /** 진입점 — editing 여부에 따라 프리뷰/Tiptap을 스위칭한다. */
 export function SketchTextEditor({
   content, onContentChange, editing, onEnterEdit, onExitEdit, fallbackFontSize, placeholder, textColor, variant = 'card',
-  caretPosRef: externalCaretPosRef, scrollOnInitialFocus = true,
+  caretPosRef: externalCaretPosRef, scrollOnInitialFocus = true, focusEndRef,
 }: SketchTextEditorProps) {
   const internalCaretPosRef = useRef<CaretPos | null>(null)
   const caretPosRef = externalCaretPosRef ?? internalCaretPosRef
@@ -410,6 +424,7 @@ export function SketchTextEditor({
       variant={variant}
       initialCaretPosRef={caretPosRef}
       scrollOnInitialFocus={scrollOnInitialFocus}
+      focusEndRef={focusEndRef}
     />
   )
 }

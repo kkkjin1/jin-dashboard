@@ -70,6 +70,7 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
   const bodyWrapperRef = useRef<HTMLDivElement>(null)
   // 본문 아래 빈 여백 클릭으로 편집에 들어갈 때 클릭 좌표를 SketchTextEditor에 넘긴다(스크롤 튐 방지)
   const bodyCaretPosRef = useRef<CaretPos | null>(null)
+  const focusBodyEndRef = useRef<(() => void) | null>(null)
 
   const [board, setBoard] = useState<SketchBoard | null>(null)
   const [nameInput, setNameInput] = useState('')
@@ -488,7 +489,8 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
     scrollRestoredRef.current = true
     scrollGuardRef.current = { top: el.scrollTop, until: performance.now() + 700, x: e.clientX, y: e.clientY }
   }
-  function cancelScrollGuard() { scrollGuardRef.current = null }
+  // 사용자가 직접 스크롤하면 보호도, (아직 안 끝난) 저장 위치 복원도 그만둔다
+  function cancelScrollGuard() { scrollGuardRef.current = null; scrollRestoredRef.current = true }
   function handleScrollAreaMouseMove(e: React.MouseEvent) {
     const guard = scrollGuardRef.current
     // 드래그로 글자를 선택하며 가장자리로 끌면 스크롤돼야 하므로 마우스를 움직이면 보호 해제
@@ -498,8 +500,9 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
   function handleCanvasMouseDown(e: React.MouseEvent) {
     if (e.target === scrollRef.current) { setSelectedId(null); return }
     if (e.target === innerRef.current) {
-      // 이미 편집 중이면 기본 동작(포커스 이탈 → 프리뷰 전환)을 막아 커서·스크롤을 그대로 둔다
-      if (isEditingBody) { e.preventDefault(); setSelectedId(null); return }
+      // 본문 에디터는 로드 후 계속 마운트돼 있다 — 기본 동작(포커스 이탈)을 막고, 포커스가
+      // 없으면 스크롤을 건드리지 않고 문서 끝에 커서를 놓는다(포커스 중이면 커서 유지).
+      if (isEditingBody) { e.preventDefault(); setSelectedId(null); focusBodyEndRef.current?.(); return }
       // 본문도 카드도 아닌 빈 캔버스(본문 아래 여백)를 클릭 — 본문 편집모드로
       // 들어가면 SketchTextEditor가 문서 끝에 포커스를 놓는다. 클릭한 세로 위치에
       // 맞춰 빈 줄을 미리 채워주던 예전 동작은 새 구조에서는 생략한다.
@@ -603,7 +606,11 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
               onContentChange={persistBody}
               editing={isEditingBody}
               onEnterEdit={() => setIsEditingBody(true)}
-              onExitEdit={() => { setIsEditingBody(false); void bodyAutosave.flush() }}
+              // 포커스가 빠져도 프리뷰로 바꾸지 않는다 — 정적 프리뷰와 Tiptap은 빈 줄·토글 높이가
+              // 미세하게 달라서(이 보드에서 ~40px), 전환될 때마다 본문 높이가 변해 맞춰둔 스크롤
+              // 위치가 깎였다가(맨 아래 근처일 때) 다시 클릭하면 내용이 아래로 밀려 보였다.
+              onExitEdit={() => { void bodyAutosave.flush() }}
+              focusEndRef={focusBodyEndRef}
               fallbackFontSize={15}
               placeholder="여기에 바로 적어보세요…"
               textColor="var(--text-primary)"
