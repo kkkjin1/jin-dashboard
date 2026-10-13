@@ -148,6 +148,7 @@ export default function JournalPage() {
     journal: DailyJournal | null
     yesterday: DailyJournal | null
   } | null>(null)
+  const datePickerRef = useRef<HTMLInputElement>(null)
 
   const supabase = createClient()
 
@@ -273,9 +274,18 @@ export default function JournalPage() {
           style={{ background: 'rgba(var(--ink-rgb),0.06)' }}>
           총 {journals.length}건
         </span>
+        <button onClick={() => openEditor(nDaysAgo(1))} className={`${pill} ${pOff}`}>
+          어제 회고
+        </button>
+        <button onClick={() => datePickerRef.current?.showPicker?.()} className={`${pill} ${pOff}`}>
+          📅 날짜 선택
+        </button>
+        <input ref={datePickerRef} type="date" max={todayStr()} value=""
+          onChange={e => { const v = e.target.value; if (v && v <= todayStr()) openEditor(v) }}
+          className="sr-only" tabIndex={-1} aria-hidden />
         <button onClick={openNewJournal}
           className="text-sm bg-[rgba(76,127,224,0.4)] text-[var(--accent-badge-text)] border border-[rgba(76,127,224,0.5)] px-4 py-2 rounded-full hover:bg-[rgba(76,127,224,0.6)] transition-colors">
-          ✏️ 회고 작성하기
+          ✏️ 오늘 회고 작성하기
         </button>
       </div>
 
