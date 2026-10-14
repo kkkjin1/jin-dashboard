@@ -7,7 +7,7 @@ import type { AnnualGoalItem, AnnualGoalTask, AgreedPriority, ImportanceLevel } 
 import { GlassSelect } from '@/components/ui/GlassSelect'
 import { DateCellPicker } from '@/components/ui/MiniDatePicker'
 import { MONTH_KO, periodToDateRange, monthToDateRange, getWeekColumnsBetween, overlapsRange, type PeriodKey } from '@/lib/dateGrid'
-import { ArrowUpDown, ChevronsUpDown } from 'lucide-react'
+import { Filter, ChevronsUpDown } from 'lucide-react'
 
 // ── 상수 ────────────────────────────────────────────────────────────
 const STATUS_LABEL: Record<string, string> = { active: '진행필요', hold: '진행중', done: '진행완료' }
@@ -63,9 +63,6 @@ const PRIORITY_OPTIONS: { value: AgreedPriority; label: string; color: string }[
   { value: '유예',   label: '유예',   color: '#6B7280' },
 ]
 
-const PRIORITY_RANK: Record<string, number> = { '1순위': 0, '2순위': 1, '유예': 2 }
-const IMPORTANCE_RANK: Record<string, number> = { '상': 0, '중': 1, '하': 2 }
-
 // 중요성 — 기존 트랙·HR 중요도·HR 시급도를 하나로 통일. 값은 hr_importance 컬럼을 그대로 쓴다(track/hr_urgency는 DB에만 보존)
 const IMPORTANCE_OPTIONS: { value: ImportanceLevel; label: string; color: string }[] = [
   { value: '상', label: '상', color: '#C0504D' },
@@ -73,16 +70,8 @@ const IMPORTANCE_OPTIONS: { value: ImportanceLevel; label: string; color: string
   { value: '하', label: '하', color: '#6A9A4B' },
 ]
 
-function rank(v: string | null | undefined, table: Record<string, number>): number {
-  return v != null ? (table[v] ?? 99) : 99
-}
-function priorityComparator(a: AnnualGoalTask, b: AnnualGoalTask): number {
-  return (
-    rank(a.agreed_priority, PRIORITY_RANK)   - rank(b.agreed_priority, PRIORITY_RANK) ||
-    rank(a.hr_importance, IMPORTANCE_RANK)   - rank(b.hr_importance, IMPORTANCE_RANK) ||
-    a.sort_order - b.sort_order
-  )
-}
+// '중요도 상' 보기 — 중요성이 '상'인 과제만 남긴다
+function isTopTask(t: AnnualGoalTask): boolean { return t.hr_importance === '상' }
 
 const S = { bd: '1px solid rgba(var(--ink-rgb),0.08)', bdL: '1px solid rgba(var(--ink-rgb),0.14)', bg: 'var(--surface-panel)', t1: 'rgba(var(--text-rgb),1)', t2: 'rgba(var(--text-rgb),0.7)', t3: 'rgba(var(--text-rgb),0.4)' }
 const W_ITEM = 130  // 로드맵: 목표 열 너비
@@ -201,7 +190,7 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
   const [viewMode, setViewMode] = useState<'list' | 'roadmap'>('list')
   const [yearNav, setYearNav] = useState(() => new Date().getFullYear())
   const [zoom, setZoom] = useState<ZoomState>({ level: 'year' })
-  const [prioritySort, setPrioritySort] = useState(false)
+  const [topOnly, setTopOnly] = useState(false)
   const [scheduleUnit, setScheduleUnit] = useState<'week' | 'month'>('month')
   const [pickerTaskId, setPickerTaskId] = useState<string | null>(null)
   const [pickerPos, setPickerPos] = useState<{ x: number; y: number } | null>(null)
@@ -371,6 +360,9 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
     )
   }
 
+  // '중요도 상만' 보기 — 상 과제가 하나라도 있는 목표만
+  const shownItems = topOnly ? items.filter(i => tasks.some(t => t.item_id === i.id && isTopTask(t))) : items
+
   // ── 뷰 토글 헤더 ─────────────────────────────────────────────────
   const viewToggle = (
     <div className="flex-shrink-0 flex items-center justify-between gap-3 px-4 md:px-6 pb-3 flex-wrap">
@@ -380,6 +372,12 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
           {segmentBtn(viewMode === 'list', () => setViewMode('list'), '목록')}
           {segmentBtn(viewMode === 'roadmap', () => { setViewMode('roadmap'); setZoom({ level: 'year' }) }, '로드맵')}
         </>)}
+        <button onClick={() => setTopOnly(p => !p)} title="중요성이 '상'인 과제와 그 목표만 보기"
+          className={`flex items-center gap-1 text-xs px-3 py-1.5 rounded-full font-medium transition-all ${topOnly ? 'text-[rgba(var(--text-rgb),1)]' : 'text-[rgba(var(--text-rgb),0.5)] hover:text-[rgba(var(--text-rgb),0.8)]'}`}
+          style={{ background: topOnly ? 'rgba(var(--ink-rgb),0.1)' : 'rgba(var(--ink-rgb),0.04)' }}>
+          <Filter size={12} />
+          중요도 상만
+        </button>
         {viewMode === 'roadmap' && zoom.level === 'year' && (
           <div className="flex items-center gap-1.5">
             <button onClick={() => setYearNav(p => p - 1)} className="text-[rgba(var(--text-rgb),0.4)] hover:text-[rgba(var(--text-rgb),1)] text-base px-1 leading-none">‹</button>
@@ -405,14 +403,6 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
 
       {/* 오른쪽: 정렬 + 보기단위 + 펼치기 */}
       <div className="flex items-center gap-2 flex-wrap">
-        {(
-          <button onClick={() => setPrioritySort(p => !p)}
-            className={`flex items-center gap-1 text-xs px-3 py-1.5 rounded-full font-medium transition-all ${prioritySort ? 'text-[rgba(var(--text-rgb),1)]' : 'text-[rgba(var(--text-rgb),0.5)] hover:text-[rgba(var(--text-rgb),0.8)]'}`}
-            style={{ background: prioritySort ? 'rgba(var(--ink-rgb),0.1)' : 'rgba(var(--ink-rgb),0.04)' }}>
-            <ArrowUpDown size={12} />
-            우선순위순 정렬
-          </button>
-        )}
         {viewMode === 'list' && segmentTrack(<>
           {segmentBtn(scheduleUnit === 'month', () => setScheduleUnit('month'), '월')}
           {segmentBtn(scheduleUnit === 'week', () => setScheduleUnit('week'), '주')}
@@ -436,9 +426,6 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
         })()}
       </div>
 
-      {prioritySort && (
-        <span className="w-full" style={{ fontSize: 10, color: S.t3 }}>정렬 기준: 합의우선순위 → 중요성</span>
-      )}
       {dndErr && <span className="w-full" style={{ fontSize: 11, color: 'var(--error-badge-text)' }}>{dndErr}</span>}
     </div>
   )
@@ -477,7 +464,7 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
       <div key={task.id}
         className="group/trow flex hover:bg-[rgba(59,130,246,0.04)] transition-colors"
         style={{ opacity: draggingTaskId === task.id ? 0.35 : 1, borderTop: dragOverTaskId === task.id ? '2px solid #3B82F6' : '0.5px solid rgba(var(--ink-rgb),0.06)', cursor: 'pointer' }}
-        draggable={!prioritySort}
+        draggable={!topOnly}
         onDragStart={e => { e.stopPropagation(); _dragTaskId = task.id; e.dataTransfer.effectAllowed = 'move'; setDraggingTaskId(task.id) }}
         onDragEnd={e => { e.stopPropagation(); _dragTaskId = null; setDraggingTaskId(null); setDragOverTaskId(null) }}
         onDragOver={e => { if (!_dragTaskId) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverTaskId(task.id) }}
@@ -488,7 +475,7 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
       >
         <div style={{ flex: 1, minWidth: 200, padding: '12px 16px 12px 20px', display: 'flex', alignItems: 'center' }}>
           <div className="flex items-center gap-2 min-w-0">
-            {!prioritySort && (
+            {!topOnly && (
               <span draggable
                 onDragStart={e => { e.stopPropagation(); _dragTaskId = task.id; e.dataTransfer.effectAllowed = 'move'; setDraggingTaskId(task.id) }}
                 onDragEnd={e => { e.stopPropagation(); _dragTaskId = null; setDraggingTaskId(null); setDragOverTaskId(null) }}
@@ -587,8 +574,8 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
     const itemTasksAll = tasks.filter(t => t.item_id === item.id).sort((a, b) => a.sort_order - b.sort_order)
     const doneItemTasks = itemTasksAll.filter(t => t.status === 'done')
     const visibleTasks = showDoneItems.has(item.id) ? itemTasksAll : itemTasksAll.filter(t => t.status !== 'done')
-    const orderedTasks = prioritySort ? [...visibleTasks].sort(priorityComparator) : visibleTasks
-    const isOpen = openItems.has(item.id)
+    const orderedTasks = topOnly ? visibleTasks.filter(isTopTask) : visibleTasks
+    const isOpen = topOnly || openItems.has(item.id)   // '중요도 상만' 보기에서는 펼쳐서 바로 보여줌
     const itemBg = draggingItemId === item.id ? 'rgba(0,0,0,0.08)' : dragOverItemId === item.id ? 'rgba(var(--ink-rgb),0.07)' : 'transparent'
     const progress = taskProgress(itemTasksAll)
     // 목표 중요성 — 하위 과제 값이 모두 같으면 그 값, 섞여 있으면 '혼합'
@@ -799,7 +786,7 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
           <div className="pb-4" style={{ width: '100%' }}>
             {isAll ? (
               allCats.map((cat, ci) => {
-                const catItems = items.filter(i => i.category === cat).sort((a, b) => a.sort_order - b.sort_order)
+                const catItems = shownItems.filter(i => i.category === cat).sort((a, b) => a.sort_order - b.sort_order)
                 if (catItems.length === 0) return null
                 const sectionColor = categorySectionColor(cat)
                 return (
@@ -846,7 +833,7 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
                 )
               })
             ) : (
-              <div>{[...items].sort((a, b) => a.sort_order - b.sort_order).map(item => renderItemCard(item))}</div>
+              <div>{[...shownItems].sort((a, b) => a.sort_order - b.sort_order).map(item => renderItemCard(item))}</div>
             )}
 
             <div className="mt-4 rounded-xl border border-dashed border-[rgba(var(--ink-rgb),0.1)] overflow-hidden">
@@ -887,11 +874,11 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
     <>
       {viewToggle}
       <AnnualRoadmapView
-        items={items} tasks={tasks} isAll={isAll} allCats={allCats}
+        items={shownItems} tasks={tasks} isAll={isAll} allCats={allCats}
         yearNav={yearNav} zoom={zoom} setZoom={setZoom}
         openItems={openItems} toggleItem={toggleItem}
         showDoneItems={showDoneItems} toggleShowDone={toggleShowDone}
-        prioritySort={prioritySort}
+        topOnly={topOnly}
         updateTaskRoadmapRange={updateTaskRoadmapRange}
         router={router}
         reorderTask={reorderTask}
@@ -904,7 +891,7 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
 // ── 로드맵 뷰 (연간 3단 헤더 + 주 단위 줌) ──────────────────────────
 function AnnualRoadmapView({
   items, tasks, isAll, allCats, yearNav, zoom, setZoom,
-  openItems, toggleItem, showDoneItems, toggleShowDone, prioritySort,
+  openItems, toggleItem, showDoneItems, toggleShowDone, topOnly,
   updateTaskRoadmapRange, router, reorderTask, displayCat,
 }: {
   items: AnnualGoalItem[]
@@ -918,7 +905,7 @@ function AnnualRoadmapView({
   toggleItem: (id: string) => void
   showDoneItems: Set<string>
   toggleShowDone: (id: string) => void
-  prioritySort: boolean
+  topOnly: boolean
   updateTaskRoadmapRange: (taskId: string, start: string | null, end: string | null) => void
   router: ReturnType<typeof useRouter>
   reorderTask: (dragId: string, targetId: string) => void
@@ -1060,8 +1047,8 @@ function AnnualRoadmapView({
     const itemTasksAll = tasks.filter(t => t.item_id === item.id).sort((a,b) => a.sort_order - b.sort_order)
     const doneTasks = itemTasksAll.filter(t => t.status === 'done')
     const visibleTasks = showDoneItems.has(item.id) ? itemTasksAll : itemTasksAll.filter(t => t.status !== 'done')
-    const orderedTasks = prioritySort ? [...visibleTasks].sort(priorityComparator) : visibleTasks
-    const isOpen = openItems.has(item.id)
+    const orderedTasks = topOnly ? visibleTasks.filter(isTopTask) : visibleTasks
+    const isOpen = topOnly || openItems.has(item.id)   // '중요도 상만' 보기에서는 펼쳐서 바로 보여줌
 
     const itemStart = item.roadmap_start_date ?? itemTasksAll.map(t => t.roadmap_start_date).filter(Boolean).sort()[0] ?? null
     const itemEndCands = itemTasksAll.map(t => t.roadmap_end_date).filter(Boolean).sort()
@@ -1141,7 +1128,7 @@ function AnnualRoadmapView({
               <td style={{ position: 'sticky', left: 0, zIndex: 1, background: S.bg, borderRight: S.bd }} />
               <td style={{ position: 'sticky', left: W_ITEM, zIndex: 1, background: S.bg, borderRight: S.bdL, padding: '7px 10px 7px 26px' }}>
                 <div className="flex items-center gap-1.5" style={{ minWidth: 0 }}>
-                  {!prioritySort && <span draggable
+                  {!topOnly && <span draggable
                     onDragStart={e => { e.stopPropagation(); _dragTaskId = task.id; e.dataTransfer.effectAllowed = 'move'; setRdDraggingId(task.id) }}
                     onDragEnd={() => { _dragTaskId = null; setRdDraggingId(null); setRdDragOverId(null) }}
                     className="opacity-0 group-hover/rdtask:opacity-100 cursor-grab text-gray-300 text-xs select-none" style={{ fontSize: 12 }}>⠿</span>}
