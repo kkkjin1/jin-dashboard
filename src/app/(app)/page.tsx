@@ -230,6 +230,7 @@ const BOX_TITLE_H = 36   // 박스 제목 행 높이 (제목 위아래 여백 �
 
 // ── Timeline constants ─────────────────────────────────────────────────────
 const H_START = 9, H_END = 21
+const snap5 = (h: number) => Math.round(h * 12) / 12   // 타임라인 시간은 5분 단위
 const TL_CARD_G    = 10
 const TL_TIME_H    = 16
 const TL_LANE_H    = 37
@@ -307,10 +308,7 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
   const [tPos, setTPos] = useState<Record<string, number>>({})
   const [tDur, setTDur] = useState<Record<string, number>>({})
 
-  const mDragRef   = useRef<{ id: string; startX: number; startHour: number } | null>(null)
-  const mResizeRef = useRef<{ id: string; startX: number; startDur: number } | null>(null)
-  const tDragRef   = useRef<{ id: string; startX: number; startHour: number } | null>(null)
-  const tResizeRef = useRef<{ id: string; startX: number; startDur: number } | null>(null)
+  const [live, setLive] = useState<{ hour: number; dur: number } | null>(null)   // 이동/끝시간 조절 중인 카드의 시간 범위
 
   // ── 일정 추가 팝오버 (회의는 구글캘린더 연동으로 대체 — 업무만 수기 추가) ──
   const [addOpen, setAddOpen] = useState(false)
@@ -342,8 +340,7 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
   //    끝났을 때만 부모로 올려 DB에 저장 (todos/meetings와 같은 패턴) ──────
   const [siPos, setSiPos] = useState<Record<string, number>>({})
   const [siDur, setSiDur] = useState<Record<string, number>>({})
-  const siDragRef   = useRef<{ id: string; startX: number; startHour: number } | null>(null)
-  const siResizeRef = useRef<{ id: string; startX: number; startDur: number } | null>(null)
+
 
   useEffect(() => {
     setSiPos(prev => {
@@ -358,51 +355,16 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
     })
   }, [scheduleItems])
 
-  function onSiDragStart(id: string, startX: number) {
-    const startHour = siPos[id] ?? H_START
-    const fixedDur = siDur[id] ?? 1
-    let latestHour = startHour
-    siDragRef.current = { id, startX, startHour }
-    function onMove(e: MouseEvent) {
-      if (!siDragRef.current || hW === 0) return
-      const newH = Math.max(H_START, Math.min(H_END - fixedDur, siDragRef.current.startHour + (e.clientX - siDragRef.current.startX) / (hW * cssZoom())))
-      latestHour = newH
-      setSiPos(p => ({ ...p, [id]: newH }))
-    }
-    function onUp() {
-      siDragRef.current = null
-      window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp)
-      onUpdateScheduleItemPosition(id, latestHour, fixedDur)
-    }
-    window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp)
-  }
-
-  function onSiResizeStart(id: string, startX: number) {
-    const fixedHour = siPos[id] ?? H_START
-    const startDur = siDur[id] ?? 1
-    let latestDur = startDur
-    siResizeRef.current = { id, startX, startDur }
-    function onMove(e: MouseEvent) {
-      if (!siResizeRef.current || hW === 0) return
-      const newD = Math.max(0.25, Math.min(H_END - fixedHour, siResizeRef.current.startDur + (e.clientX - siResizeRef.current.startX) / (hW * cssZoom())))
-      latestDur = newD
-      setSiDur(p => ({ ...p, [id]: newD }))
-    }
-    function onUp() {
-      siResizeRef.current = null
-      window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp)
-      onUpdateScheduleItemPosition(id, fixedHour, latestDur)
-    }
-    window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp)
-  }
+  // 업무 일정은 드래그가 끝났을 때만 부모로 올려 DB에 저장
+  const onSiDrag   = (id: string, x: number, h: number, d: number) => startCardDrag('move',   x, h, d, nh => setSiPos(p => ({ ...p, [id]: nh })), onUpdateScheduleItemPosition.bind(null, id))
+  const onSiResize = (id: string, x: number, h: number, d: number) => startCardDrag('resize', x, h, d, (nh, nd) => setSiDur(p => ({ ...p, [id]: nd })), onUpdateScheduleItemPosition.bind(null, id))
 
   // ── Extras (외부에서 드래그된 항목) ────────────────────────────────────
   const [extras,   setExtras]   = useState<TLExtra[]>([])
   const [extraPos, setExtraPos] = useState<Record<string, number>>({})
   const [extraDur, setExtraDur] = useState<Record<string, number>>({})
   const [dropIndicatorX, setDropIndicatorX] = useState<number | null>(null)
-  const exDragRef   = useRef<{ id: string; startX: number; startHour: number } | null>(null)
-  const exResizeRef = useRef<{ id: string; startX: number; startDur: number } | null>(null)
+
 
   useEffect(() => {
     try {
@@ -447,78 +409,38 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
     return { x: rawX + TL_CARD_G / 2, w: Math.max(16, rawW - TL_CARD_G) }
   }
 
-  function onMDragStart(id: string, startX: number) {
-    const startHour = mPos[id] ?? H_START
-    mDragRef.current = { id, startX, startHour }
+  // 카드 이동/끝시간 조절 공통 — 5분 단위로 스냅하고, 움직이는 동안 시간 범위 배지(live)를 띄운다.
+  // hour/dur는 화면에 그려진 카드 값을 그대로 받는다 (저장 위치가 없는 카드의 기본 배치도 그대로 시작점)
+  function startCardDrag(mode: 'move' | 'resize', startX: number, hour: number, dur: number,
+    apply: (hour: number, dur: number) => void, onDone?: (hour: number, dur: number) => void) {
+    if (hW === 0) return
+    const z = cssZoom()
+    let cur = { hour, dur }
+    setLive(cur)
     function onMove(e: MouseEvent) {
-      if (!mDragRef.current || hW === 0) return
-      const dur = mDur[id] ?? 1
-      const newH = Math.max(H_START, Math.min(H_END - dur, mDragRef.current.startHour + (e.clientX - mDragRef.current.startX) / (hW * cssZoom())))
-      setMPos(p => ({ ...p, [id]: newH }))
+      const delta = (e.clientX - startX) / (hW * z)
+      if (mode === 'move') {
+        cur = { hour: Math.max(H_START, Math.min(H_END - dur, snap5(hour + delta))), dur }
+      } else {
+        const end = Math.max(hour + 0.25, Math.min(H_END, snap5(hour + dur + delta)))   // 끝 시각을 5분에 맞춤, 최소 15분
+        cur = { hour, dur: end - hour }
+      }
+      setLive(cur)
+      apply(cur.hour, cur.dur)
     }
-    function onUp() { mDragRef.current = null; window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
+    function onUp() {
+      window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp)
+      setLive(null)
+      onDone?.(cur.hour, cur.dur)
+    }
     window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp)
   }
-
-  function onMResizeStart(id: string, startX: number) {
-    mResizeRef.current = { id, startX, startDur: mDur[id] ?? 1 }
-    function onMove(e: MouseEvent) {
-      if (!mResizeRef.current || hW === 0) return
-      const newD = Math.max(0.25, Math.min(H_END - (mPos[id] ?? H_START), mResizeRef.current.startDur + (e.clientX - mResizeRef.current.startX) / (hW * cssZoom())))
-      setMDur(p => ({ ...p, [id]: newD }))
-    }
-    function onUp() { mResizeRef.current = null; window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
-    window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp)
-  }
-
-  function onTDragStart(id: string, startX: number) {
-    const startHour = tPos[id] ?? H_START
-    tDragRef.current = { id, startX, startHour }
-    function onMove(e: MouseEvent) {
-      if (!tDragRef.current || hW === 0) return
-      const dur = tDur[id] ?? 1
-      const newH = Math.max(H_START, Math.min(H_END - dur, tDragRef.current.startHour + (e.clientX - tDragRef.current.startX) / (hW * cssZoom())))
-      setTPos(p => ({ ...p, [id]: newH }))
-    }
-    function onUp() { tDragRef.current = null; window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
-    window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp)
-  }
-
-  function onTResizeStart(id: string, startX: number) {
-    tResizeRef.current = { id, startX, startDur: tDur[id] ?? 1 }
-    function onMove(e: MouseEvent) {
-      if (!tResizeRef.current || hW === 0) return
-      const newD = Math.max(0.25, Math.min(H_END - (tPos[id] ?? H_START), tResizeRef.current.startDur + (e.clientX - tResizeRef.current.startX) / (hW * cssZoom())))
-      setTDur(p => ({ ...p, [id]: newD }))
-    }
-    function onUp() { tResizeRef.current = null; window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
-    window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp)
-  }
-
-  // ── Extra drag/resize handlers ─────────────────────────────────────────
-  function onExDragStart(id: string, startX: number) {
-    const startHour = extraPos[id] ?? H_START
-    exDragRef.current = { id, startX, startHour }
-    function onMove(e: MouseEvent) {
-      if (!exDragRef.current || hW === 0) return
-      const dur = extraDur[id] ?? 1
-      const newH = Math.max(H_START, Math.min(H_END - dur, exDragRef.current.startHour + (e.clientX - exDragRef.current.startX) / (hW * cssZoom())))
-      setExtraPos(p => ({ ...p, [id]: newH }))
-    }
-    function onUp() { exDragRef.current = null; window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
-    window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp)
-  }
-
-  function onExResizeStart(id: string, startX: number) {
-    exResizeRef.current = { id, startX, startDur: extraDur[id] ?? 1 }
-    function onMove(e: MouseEvent) {
-      if (!exResizeRef.current || hW === 0) return
-      const newD = Math.max(0.25, Math.min(H_END - (extraPos[id] ?? H_START), exResizeRef.current.startDur + (e.clientX - exResizeRef.current.startX) / (hW * cssZoom())))
-      setExtraDur(p => ({ ...p, [id]: newD }))
-    }
-    function onUp() { exResizeRef.current = null; window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
-    window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp)
-  }
+  const onMDrag   = (id: string, x: number, h: number, d: number) => startCardDrag('move',   x, h, d, nh => setMPos(p => ({ ...p, [id]: nh })))
+  const onMResize = (id: string, x: number, h: number, d: number) => startCardDrag('resize', x, h, d, (nh, nd) => setMDur(p => ({ ...p, [id]: nd })))
+  const onTDrag   = (id: string, x: number, h: number, d: number) => startCardDrag('move',   x, h, d, nh => setTPos(p => ({ ...p, [id]: nh })))
+  const onTResize = (id: string, x: number, h: number, d: number) => startCardDrag('resize', x, h, d, (nh, nd) => setTDur(p => ({ ...p, [id]: nd })))
+  const onExDrag   = (id: string, x: number, h: number, d: number) => startCardDrag('move',   x, h, d, nh => setExtraPos(p => ({ ...p, [id]: nh })))
+  const onExResize = (id: string, x: number, h: number, d: number) => startCardDrag('resize', x, h, d, (nh, nd) => setExtraDur(p => ({ ...p, [id]: nd })))
 
   function onRemoveExtra(id: string) {
     setExtras(p => p.filter(e => e.id !== id))
@@ -545,7 +467,7 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
       if (!raw || !containerRef.current || hW === 0) return
       const item: TLExtra = JSON.parse(raw)
       const rect = containerRef.current.getBoundingClientRect()
-      const hour = Math.max(H_START, Math.min(H_END - 1, H_START + (e.clientX - rect.left) / (hW * cssZoom())))
+      const hour = Math.max(H_START, Math.min(H_END - 1, snap5(H_START + (e.clientX - rect.left) / (hW * cssZoom()))))
       if (extras.some(ex => ex.id === item.id)) {
         setExtraPos(p => ({ ...p, [item.id]: hour }))
         return
@@ -565,10 +487,10 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
   const tHasOverflow = todos.some(t    => (tPos[t.id] ?? H_START) + (tDur[t.id] ?? 1) > H_END)
 
   function hourToStr(h: number) {
-    const hr = Math.floor(h)
-    const mn = Math.round((h - hr) * 60)
-    return `${String(hr).padStart(2,'0')}:${String(mn).padStart(2,'0')}`
+    const total = Math.round(h * 60)   // 분 단위로 먼저 반올림 — 9.999h가 09:60으로 찍히지 않게
+    return `${String(Math.floor(total / 60)).padStart(2,'0')}:${String(total % 60).padStart(2,'0')}`
   }
+  const rangeStr = (h: number, d: number) => `${hourToStr(h)} – ${hourToStr(h + d)}`
 
   return (
     <div style={{ ...cardBase(), marginBottom: vsTl(10), overflow: 'hidden', transition: 'none', flexShrink: 0 }}>
@@ -693,7 +615,7 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
           const col = EV_COLS[i % EV_COLS.length]
           return (
             <div key={m.id}
-              onMouseDown={e => { e.preventDefault(); onMDragStart(m.id, e.clientX) }}
+              onMouseDown={e => { e.preventDefault(); onMDrag(m.id, e.clientX, hour, dur) }}
               style={{
                 position: 'absolute', left: x, width: w,
                 top: vsTl(TL_LANE2_TOP), height: vsTl(TL_LANE_H),
@@ -704,9 +626,9 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
                 display: 'flex', flexDirection: 'column', justifyContent: 'center',
                 overflow: 'hidden', userSelect: 'none', zIndex: 5,
               }}>
-              <span style={{ fontSize: 9.5, fontWeight: 600, color: 'rgba(255,255,255,0.50)', lineHeight: 1, marginBottom: 3 }}>{hourToStr(hour)}</span>
+              <span style={{ fontSize: 9.5, fontWeight: 600, color: 'rgba(255,255,255,0.50)', lineHeight: 1, marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{rangeStr(hour, dur)}</span>
               <span style={{ fontSize: 11.5, fontWeight: 500, color: 'rgba(255,255,255,0.88)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }}>{m.title}</span>
-              <div onMouseDown={e => { e.stopPropagation(); e.preventDefault(); onMResizeStart(m.id, e.clientX) }}
+              <div onMouseDown={e => { e.stopPropagation(); e.preventDefault(); onMResize(m.id, e.clientX, hour, dur) }}
                 style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 8, cursor: 'ew-resize' }} />
             </div>
           )
@@ -723,7 +645,7 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
           const col = EV_COLS[(meetings.length + i) % EV_COLS.length]
           return (
             <div key={fid}
-              onMouseDown={e => { e.preventDefault(); onMDragStart(fid, e.clientX) }}
+              onMouseDown={e => { e.preventDefault(); onMDrag(fid, e.clientX, hour, dur) }}
               style={{
                 position: 'absolute', left: x, width: w,
                 top: vsTl(TL_LANE2_TOP), height: vsTl(TL_LANE_H),
@@ -734,9 +656,9 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
                 display: 'flex', flexDirection: 'column', justifyContent: 'center',
                 overflow: 'hidden', userSelect: 'none', zIndex: 4,
               }}>
-              <span style={{ fontSize: 9.5, fontWeight: 600, color: 'rgba(255,255,255,0.50)', lineHeight: 1, marginBottom: 3 }}>{s.time}</span>
+              <span style={{ fontSize: 9.5, fontWeight: 600, color: 'rgba(255,255,255,0.50)', lineHeight: 1, marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{rangeStr(hour, dur)}</span>
               <span style={{ fontSize: 11.5, fontWeight: 500, color: 'rgba(255,255,255,0.88)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }}>↺ {s.title}</span>
-              <div onMouseDown={e => { e.stopPropagation(); e.preventDefault(); onMResizeStart(fid, e.clientX) }}
+              <div onMouseDown={e => { e.stopPropagation(); e.preventDefault(); onMResize(fid, e.clientX, hour, dur) }}
                 style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 8, cursor: 'ew-resize' }} />
             </div>
           )
@@ -764,7 +686,7 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
                 display: 'flex', flexDirection: 'column', justifyContent: 'center',
                 overflow: 'hidden', userSelect: 'none', zIndex: 5,
               }}>
-              <span style={{ fontSize: 9.5, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1, marginBottom: 3 }}>{ev.allDay ? '종일' : hourToStr(ev.start_hour)}</span>
+              <span style={{ fontSize: 9.5, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1, marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ev.allDay ? '종일' : rangeStr(ev.start_hour, ev.duration_hours)}</span>
               <span style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }}>📅 {ev.title}</span>
             </div>
           )
@@ -797,7 +719,7 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
           const col = EV_COLS[(i + 2) % EV_COLS.length]
           return (
             <div key={t.id}
-              onMouseDown={e => { e.preventDefault(); onTDragStart(t.id, e.clientX) }}
+              onMouseDown={e => { e.preventDefault(); onTDrag(t.id, e.clientX, hour, dur) }}
               style={{
                 position: 'absolute', left: x, width: w,
                 top: vsTl(TL_LANE2_TOP), height: vsTl(TL_LANE_H),
@@ -808,13 +730,26 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
                 display: 'flex', flexDirection: 'column', justifyContent: 'center',
                 overflow: 'hidden', userSelect: 'none', zIndex: 5,
               }}>
-              <span style={{ fontSize: 9.5, fontWeight: 600, color: 'rgba(255,255,255,0.50)', lineHeight: 1, marginBottom: 3 }}>{hourToStr(hour)}</span>
+              <span style={{ fontSize: 9.5, fontWeight: 600, color: 'rgba(255,255,255,0.50)', lineHeight: 1, marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{rangeStr(hour, dur)}</span>
               <span style={{ fontSize: 11.5, fontWeight: 500, color: 'rgba(255,255,255,0.88)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }}>{t.title}</span>
-              <div onMouseDown={e => { e.stopPropagation(); e.preventDefault(); onTResizeStart(t.id, e.clientX) }}
+              <div onMouseDown={e => { e.stopPropagation(); e.preventDefault(); onTResize(t.id, e.clientX, hour, dur) }}
                 style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 8, cursor: 'ew-resize' }} />
             </div>
           )
         })}
+
+        {/* ── 이동/끝시간 조절 중 시간 범위 배지 — 카드가 좁아 시간이 잘려도 몇 시부터 몇 시인지 보이게 ── */}
+        {live && cw > 0 && (
+          <div style={{
+            position: 'absolute', top: 1, zIndex: 14, pointerEvents: 'none', whiteSpace: 'nowrap',
+            left: Math.min(Math.max(0, (live.hour - H_START) * hW), Math.max(0, cw - 104)),
+            background: 'var(--surface-tooltip)', color: TEXT1, border: '1px solid rgba(var(--accent-tint-rgb),0.45)',
+            fontSize: 10.5, fontWeight: 700, padding: '2px 8px', borderRadius: 999, fontVariantNumeric: 'tabular-nums',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
+          }}>
+            {rangeStr(live.hour, live.dur)}
+          </div>
+        )}
 
         {/* ── Drop indicator ── */}
         {dropIndicatorX !== null && cw > 0 && (
@@ -828,12 +763,12 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
           const { x, w } = cardGeom(hour, dur)
           return (
             <div key={ex.id}
-              onMouseDown={e => { e.preventDefault(); onExDragStart(ex.id, e.clientX) }}
+              onMouseDown={e => { e.preventDefault(); onExDrag(ex.id, e.clientX, hour, dur) }}
               style={{ position: 'absolute', left: x, width: w, top: vsTl(TL_LANE2_TOP), height: vsTl(TL_LANE_H), borderRadius: 8, cursor: 'grab', background: 'rgba(40,98,130,0.62)', border: '1px solid rgba(70,148,200,0.22)', padding: '5px 10px', display: 'flex', flexDirection: 'column', justifyContent: 'center', overflow: 'hidden', userSelect: 'none', zIndex: 6 }}>
-              <span style={{ fontSize: 9.5, fontWeight: 600, color: 'rgba(255,255,255,0.50)', lineHeight: 1, marginBottom: 3 }}>{hourToStr(hour)}</span>
+              <span style={{ fontSize: 9.5, fontWeight: 600, color: 'rgba(255,255,255,0.50)', lineHeight: 1, marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{rangeStr(hour, dur)}</span>
               <span style={{ fontSize: 11.5, fontWeight: 500, color: 'rgba(255,255,255,0.88)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }}>{ex.title}</span>
               {ex.subtitle && <span style={{ fontSize: 9.5, color: 'rgba(255,255,255,0.40)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }}>{ex.subtitle}</span>}
-              <div onMouseDown={e => { e.stopPropagation(); e.preventDefault(); onExResizeStart(ex.id, e.clientX) }}
+              <div onMouseDown={e => { e.stopPropagation(); e.preventDefault(); onExResize(ex.id, e.clientX, hour, dur) }}
                 style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 8, cursor: 'ew-resize' }} />
               <button
                 onMouseDown={e => e.stopPropagation()}
@@ -853,11 +788,11 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
           const col = EV_COLS[(i + 4) % EV_COLS.length]
           return (
             <div key={s.id}
-              onMouseDown={e => { e.preventDefault(); onSiDragStart(s.id, e.clientX) }}
+              onMouseDown={e => { e.preventDefault(); onSiDrag(s.id, e.clientX, hour, dur) }}
               style={{ position: 'absolute', left: x, width: w, top: vsTl(TL_LANE2_TOP), height: vsTl(TL_LANE_H), borderRadius: 8, cursor: 'grab', background: col.bg, border: `1px solid ${col.bd}`, padding: '5px 10px', display: 'flex', flexDirection: 'column', justifyContent: 'center', overflow: 'hidden', userSelect: 'none', zIndex: 6 }}>
-              <span style={{ fontSize: 9.5, fontWeight: 600, color: 'rgba(255,255,255,0.50)', lineHeight: 1, marginBottom: 3 }}>{hourToStr(hour)}</span>
+              <span style={{ fontSize: 9.5, fontWeight: 600, color: 'rgba(255,255,255,0.50)', lineHeight: 1, marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{rangeStr(hour, dur)}</span>
               <span style={{ fontSize: 11.5, fontWeight: 500, color: 'rgba(255,255,255,0.88)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }}>{s.title}</span>
-              <div onMouseDown={e => { e.stopPropagation(); e.preventDefault(); onSiResizeStart(s.id, e.clientX) }}
+              <div onMouseDown={e => { e.stopPropagation(); e.preventDefault(); onSiResize(s.id, e.clientX, hour, dur) }}
                 style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 8, cursor: 'ew-resize' }} />
               <button
                 onMouseDown={e => e.stopPropagation()}
