@@ -49,32 +49,36 @@ export default function AnnualGoalsPage() {
 
   return (
     <div className="flex flex-col h-full min-h-0 pt-4 md:pt-6 px-0" style={{ background: 'var(--bg-page)', minHeight: '100%' }}>
-      {/* 헤더 */}
-      <div className="flex-shrink-0 mb-3 px-4 md:px-6 flex items-center justify-between gap-3 flex-wrap">
-        <h1 className="text-lg font-bold" style={{ color: 'rgba(var(--text-rgb),1)' }}>연간목표</h1>
-      </div>
+      {/* 헤더 — 제목(좌) · 영역 세그먼트(중앙, macOS 세그먼트 컨트롤 스타일). 3열 그리드라 제목 길이와 무관하게 세그먼트가 정중앙 */}
+      <div className="flex-shrink-0 px-4 md:px-6 pb-4 mb-4 grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] items-center gap-3"
+        style={{ borderBottom: '1px solid rgba(var(--ink-rgb),0.07)' }}>
+        <h1 className="text-lg font-bold" style={{ color: 'rgba(var(--text-rgb),1)', letterSpacing: '-0.01em' }}>연간목표</h1>
 
-      {/* 영역 탭 — 본문 상단에 위치, 클릭 시 아래 컨텐츠가 바로 연동되어 필터링됨 */}
-      <div className="flex-shrink-0 flex items-center gap-1.5 px-4 md:px-6 mb-4 overflow-x-auto scrollbar-hide" style={{ borderBottom: '1px solid rgba(var(--ink-rgb),0.08)', paddingBottom: 10 }}>
-        {DISPLAY_CATS.map(c => (
-          <button key={c} onClick={() => selectCat(c)}
-            className="text-sm font-semibold whitespace-nowrap transition-colors"
-            style={cat === c ? {
-              background: CAT_ACTIVE_COLOR[c]?.bg ?? '#fff',
-              color: CAT_ACTIVE_COLOR[c]?.text ?? '#111827',
-              borderRadius: 8,
-              padding: '5px 14px',
-            } : {
-              background: 'transparent',
-              color: 'rgba(var(--text-rgb),0.45)',
-              borderRadius: 8,
-              padding: '5px 14px',
-            }}
-            onMouseEnter={e => { if (cat !== c) (e.currentTarget as HTMLButtonElement).style.color = 'rgba(var(--text-rgb),0.8)' }}
-            onMouseLeave={e => { if (cat !== c) (e.currentTarget as HTMLButtonElement).style.color = 'rgba(var(--text-rgb),0.45)' }}>
-            {c === '전체' ? c : (categoryLabels[c] ?? fallbackLabel(c))}
-          </button>
-        ))}
+        <div className="min-w-0 overflow-x-auto scrollbar-hide md:justify-self-center">
+          <div className="inline-flex items-center rounded-[12px]" role="tablist"
+            style={{ padding: 4, gap: 2, background: 'rgba(var(--ink-rgb),0.06)', boxShadow: 'inset 0 0 0 0.5px rgba(var(--ink-rgb),0.06)' }}>
+            {DISPLAY_CATS.map(c => {
+              const active = cat === c
+              const dot = CAT_ACTIVE_COLOR[c]
+              return (
+                <button key={c} role="tab" aria-selected={active} onClick={() => selectCat(c)}
+                  className={`flex items-center gap-1.5 whitespace-nowrap rounded-[9px] text-[13px] transition-all duration-150 ${active ? '' : 'hover:text-[rgba(var(--text-rgb),0.85)]'}`}
+                  style={{
+                    padding: '8px 16px',
+                    fontWeight: active ? 600 : 500,
+                    color: active ? 'rgba(var(--text-rgb),1)' : 'rgba(var(--text-rgb),0.5)',
+                    background: active ? 'var(--surface-elevated)' : 'transparent',
+                    boxShadow: active ? '0 1px 2px rgba(0,0,0,0.10), 0 0 0 0.5px rgba(var(--ink-rgb),0.08)' : 'none',
+                  }}>
+                  {dot && <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: dot.text, opacity: active ? 1 : 0.55 }} />}
+                  {c === '전체' ? c : (categoryLabels[c] ?? fallbackLabel(c))}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        <div className="hidden md:block" />
       </div>
 
       <div className="flex-1 min-h-0 flex flex-col">

@@ -339,17 +339,25 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
   }
 
   // ── 세그먼트 컨트롤 공용 스타일 (트랙 + 활성 pill, 테두리 없음) ──────
+  // 상단 연간목표 영역 세그먼트와 같은 macOS 세그먼트 톤 — 트랙은 옅은 회색, 선택 칸만 떠 있는 흰 면
   function segmentTrack(children: React.ReactNode) {
-    return <div className="flex items-center gap-0.5 rounded-lg p-0.5" style={{ background: 'rgba(var(--ink-rgb),0.04)' }}>{children}</div>
+    return <div className="flex items-center rounded-[10px]" style={{ padding: 2, gap: 2, background: 'rgba(var(--ink-rgb),0.06)', boxShadow: 'inset 0 0 0 0.5px rgba(var(--ink-rgb),0.06)' }}>{children}</div>
   }
   function segmentBtn(active: boolean, onClick: () => void, label: React.ReactNode) {
     return (
       <button onClick={onClick}
-        className={`text-xs px-3 py-1 rounded-md transition-all font-medium ${active ? 'text-[rgba(var(--text-rgb),1)]' : 'text-[rgba(var(--text-rgb),0.4)] hover:text-[rgba(var(--text-rgb),0.7)]'}`}
-        style={{ background: active ? 'rgba(var(--ink-rgb),0.1)' : 'transparent' }}>
+        className={`text-xs px-3.5 rounded-[8px] transition-all duration-150 ${active ? 'text-[rgba(var(--text-rgb),1)] font-semibold' : 'text-[rgba(var(--text-rgb),0.5)] font-medium hover:text-[rgba(var(--text-rgb),0.8)]'}`}
+        style={{ height: 30, background: active ? 'var(--surface-elevated)' : 'transparent', boxShadow: active ? '0 1px 2px rgba(0,0,0,0.10), 0 0 0 0.5px rgba(var(--ink-rgb),0.08)' : 'none' }}>
         {label}
       </button>
     )
+  }
+  // 툴바 단독 버튼 — 세그먼트와 같은 높이(34)·모서리
+  function toolBtn(active: boolean): { className: string; style: React.CSSProperties } {
+    return {
+      className: `flex items-center gap-1.5 text-xs px-3.5 rounded-[10px] transition-all duration-150 ${active ? 'text-[rgba(var(--text-rgb),1)] font-semibold' : 'text-[rgba(var(--text-rgb),0.55)] font-medium hover:text-[rgba(var(--text-rgb),0.85)]'}`,
+      style: { height: 34, background: active ? 'var(--surface-elevated)' : 'rgba(var(--ink-rgb),0.06)', boxShadow: active ? '0 1px 2px rgba(0,0,0,0.10), 0 0 0 0.5px rgba(var(--ink-rgb),0.12)' : 'inset 0 0 0 0.5px rgba(var(--ink-rgb),0.06)' },
+    }
   }
 
   // '중요도 상만' 보기 — 상 과제가 하나라도 있는 목표만
@@ -367,6 +375,19 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
     setTopOnly(p => !p)
   }
 
+  // 목표 칼럼 라벨 행 — 목표 행·과제 표와 같은 칼럼 폭(COLS)을 공유해 세로 정렬선이 일치. md 미만은 목표 행이 카드형이라 생략
+  const columnLabels = (
+    <div className="hidden md:flex items-center" style={{ padding: '8px 0 8px 16px', borderBottom: '0.5px solid rgba(var(--ink-rgb),0.06)' }}>
+      <span style={{ flex: 1, marginLeft: 39, fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>목표</span>
+      <div className="flex items-center flex-shrink-0">
+        <span style={{ width: COLS.importance, flexShrink: 0, padding: '0 8px', fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>중요성</span>
+        <span style={{ width: COLS.schedule, flexShrink: 0, padding: '0 8px', fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>기한</span>
+        <span style={{ width: COLS.progress, flexShrink: 0, textAlign: 'center', fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>진행률</span>
+        <span style={{ width: COLS.actions, flexShrink: 0 }} />
+      </div>
+    </div>
+  )
+
   // ── 뷰 토글 헤더 ─────────────────────────────────────────────────
   const viewToggle = (
     <div className="flex-shrink-0 flex items-center justify-between gap-3 px-4 md:px-6 pb-3 flex-wrap">
@@ -376,11 +397,9 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
           {segmentBtn(viewMode === 'list', () => setViewMode('list'), '목록')}
           {segmentBtn(viewMode === 'roadmap', () => { setViewMode('roadmap'); setZoom({ level: 'year' }) }, '로드맵')}
         </>)}
-        <button onClick={toggleTopOnly} title="중요성이 '상'인 과제와 그 목표만 보기"
-          className={`flex items-center gap-1 text-xs px-3 py-1.5 rounded-full font-medium transition-all ${topOnly ? 'text-[rgba(var(--text-rgb),1)]' : 'text-[rgba(var(--text-rgb),0.5)] hover:text-[rgba(var(--text-rgb),0.8)]'}`}
-          style={{ background: topOnly ? 'rgba(var(--ink-rgb),0.1)' : 'rgba(var(--ink-rgb),0.04)' }}>
-          <Filter size={12} />
-          중요도 상만
+        <button onClick={toggleTopOnly} title="중요성이 '상'인 과제와 그 목표만 보기" {...toolBtn(topOnly)}>
+          <Filter size={12} style={{ color: topOnly ? '#C0504D' : undefined }} />
+          중요도
         </button>
         {viewMode === 'roadmap' && zoom.level === 'year' && (
           <div className="flex items-center gap-1.5">
@@ -420,9 +439,7 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
           if (sectionKeys.length === 0) return null
           const allOpen = sectionKeys.every(k => openItems.has(k))
           return (
-            <button onClick={() => setOpenItems(allOpen ? new Set() : new Set(sectionKeys))}
-              className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-full font-medium transition-all text-[rgba(var(--text-rgb),0.5)] hover:text-[rgba(var(--text-rgb),0.8)]"
-              style={{ background: 'rgba(var(--ink-rgb),0.04)' }}>
+            <button onClick={() => setOpenItems(allOpen ? new Set() : new Set(sectionKeys))} {...toolBtn(false)}>
               <ChevronsUpDown size={12} />
               {allOpen ? '과제 모두 접기' : '과제 모두 펼치기'}
             </button>
@@ -572,7 +589,7 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
   }
 
   // ── 목표 행 렌더 (카테고리 색은 배지 하나로만 표시 — 행 자체는 중립색으로 통일) ─
-  function renderItemCard(item: AnnualGoalItem) {
+  function renderItemCard(item: AnnualGoalItem, asCard = false) {
     const itemTasksAll = tasks.filter(t => t.item_id === item.id).sort((a, b) => a.sort_order - b.sort_order)
     const doneItemTasks = itemTasksAll.filter(t => t.status === 'done')
     const visibleTasks = showDoneItems.has(item.id) ? itemTasksAll : itemTasksAll.filter(t => t.status !== 'done')
@@ -590,7 +607,9 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
 
     return (
       <div key={item.id}
-        style={{ borderBottom: '0.5px solid rgba(var(--ink-rgb),0.06)', opacity: draggingItemId === item.id ? 0.4 : 1 }}
+        style={asCard
+          ? { background: 'var(--surface-primary)', border: '0.5px solid rgba(var(--ink-rgb),0.08)', borderRadius: 12, boxShadow: '0 1px 2px rgba(0,0,0,0.03)', overflow: 'hidden', opacity: draggingItemId === item.id ? 0.4 : 1 }
+          : { borderBottom: '0.5px solid rgba(var(--ink-rgb),0.06)', opacity: draggingItemId === item.id ? 0.4 : 1 }}
         onDragOver={e => { if (!_dragItemId) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverItemId(item.id) }}
         onDrop={e => { e.preventDefault(); const dragId = _dragItemId; _dragItemId = null; if (dragId && dragId !== item.id) reorderItem(dragId, item.id); setDraggingItemId(null); setDragOverItemId(null) }}
         onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverItemId(null) }}
@@ -784,14 +803,14 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
                 if (catItems.length === 0) return null
                 const sectionColor = categorySectionColor(cat)
                 return (
-                  <div key={cat} style={{ marginTop: ci === 0 ? 0 : 14, background: 'rgba(var(--ink-rgb),0.06)', border: '0.5px solid rgba(var(--ink-rgb),0.09)', borderRadius: 20, padding: '14px 24px', overflow: 'hidden' }}>
+                  <div key={cat} style={{ marginTop: ci === 0 ? 0 : 14, background: 'var(--surface-primary)', border: '0.5px solid rgba(var(--ink-rgb),0.08)', borderRadius: 16, boxShadow: '0 1px 2px rgba(0,0,0,0.03), 0 4px 16px rgba(0,0,0,0.03)', padding: '14px 24px', overflow: 'hidden' }}>
                     {/* ── 영역(대분류) 헤더 — 카드 좌우 끝까지 꽉 채운 파스텔 배너, 상단 모서리만 카드 radius(20px)에 맞춤. padding 19px 균일(/project 실측 기준, 약 62px) ── */}
                     <div className="flex items-center" style={{
                       margin: '-14px -24px 0 -24px',
                       padding: '19px',
                       background: sectionColor.bg,
-                      borderTopLeftRadius: 20,
-                      borderTopRightRadius: 20,
+                      borderTopLeftRadius: 16,
+                      borderTopRightRadius: 16,
                     }}>
                       {/* 본문 행의 드래그핸들 아이콘과 같은 자리/opacity — 파스텔 배너 배경에서도 보이도록 sectionColor.text(카테고리 진한 톤)로 대비 확보. 나머지 폭은 펼치기 화살표 자리(빈 공간)로 남겨 타이틀 시작선을 본문과 맞춤 (본문 행 padding 16px 기준 재계산) */}
                       <span style={{ width: 60, flexShrink: 0, display: 'flex', alignItems: 'center', paddingLeft: 16, fontSize: 13, color: sectionColor.text, opacity: 0.6, lineHeight: 1, userSelect: 'none' }}>⠿</span>
@@ -811,23 +830,17 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
                       </div>
                     </div>
 
-                    {/* ── 컬럼 라벨 서브행 — 목표 행·과제 표와 같은 칼럼 폭(COLS)을 공유해 좌/우 정렬선이 항상 일치. 좌우 패딩도 본문 행(16px)과 동일하게 맞춰 rem 스케일링에 따른 오차를 없앰. md 미만은 목표 행이 카드형이라 컬럼 라벨 자체가 불필요 ── */}
-                    <div className="hidden md:flex items-center" style={{ padding: '8px 0 8px 16px', borderBottom: '0.5px solid rgba(var(--ink-rgb),0.06)' }}>
-                      <span style={{ flex: 1, marginLeft: 39, fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>목표</span>
-                      <div className="flex items-center flex-shrink-0">
-                        <span style={{ width: COLS.importance, flexShrink: 0, padding: '0 8px', fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>중요성</span>
-                        <span style={{ width: COLS.schedule, flexShrink: 0, padding: '0 8px', fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>기한</span>
-                        <span style={{ width: COLS.progress, flexShrink: 0, textAlign: 'center', fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>진행률</span>
-                        <span style={{ width: COLS.actions, flexShrink: 0 }} />
-                      </div>
-                    </div>
+                    {columnLabels}
 
                     {catItems.map(item => renderItemCard(item))}
                   </div>
                 )
               })
             ) : (
-              <div>{[...shownItems].sort((a, b) => a.sort_order - b.sort_order).map(item => renderItemCard(item))}</div>
+              // 영역 하나만 볼 때 — 목표 하나하나를 옅은 카드로 띄워, 핸들(⠿ ▶)만 늘어선 맨 목록처럼 보이지 않게
+              <div className="flex flex-col gap-2">
+                {[...shownItems].sort((a, b) => a.sort_order - b.sort_order).map(item => renderItemCard(item, true))}
+              </div>
             )}
 
             <div className="mt-4 rounded-xl border border-dashed border-[rgba(var(--ink-rgb),0.1)] overflow-hidden">
@@ -988,14 +1001,14 @@ function AnnualRoadmapView({
   function renderCategoryCard(cat: string, catItems: AnnualGoalItem[], ci: number) {
     const sc = categorySectionColor(cat)
     return (
-      <div key={cat} style={{ marginTop: ci === 0 ? 0 : 14, background: 'rgba(var(--ink-rgb),0.06)', border: '0.5px solid rgba(var(--ink-rgb),0.09)', borderRadius: 20, padding: '14px 24px', overflow: 'hidden' }}>
+      <div key={cat} style={{ marginTop: ci === 0 ? 0 : 14, background: 'var(--surface-primary)', border: '0.5px solid rgba(var(--ink-rgb),0.08)', borderRadius: 16, boxShadow: '0 1px 2px rgba(0,0,0,0.03), 0 4px 16px rgba(0,0,0,0.03)', padding: '14px 24px', overflow: 'hidden' }}>
         {/* 헤더 배너 */}
         <div className="flex items-center gap-2.5" style={{
           margin: '-14px -24px 0 -24px',
           padding: '19px',
           background: sc.bg,
-          borderTopLeftRadius: 20,
-          borderTopRightRadius: 20,
+          borderTopLeftRadius: 16,
+          borderTopRightRadius: 16,
         }}>
           <span style={{ fontSize: 13, color: sc.text, opacity: 0.6, lineHeight: 1, userSelect: 'none' }}>⠿</span>
           <span style={{ fontSize: 13, fontWeight: 800, color: sc.text, flexShrink: 0, whiteSpace: 'nowrap' }}>{displayCat(cat)}</span>
