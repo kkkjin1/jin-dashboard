@@ -213,10 +213,10 @@ function JournalRow({ journal, isFirst, isLast, selectMode, selected, flash, mas
 }
 
 /* ── 우측 사이드바 카드 ── */
-function SideCard({ title, right, children }: { title: string; right?: React.ReactNode; children: React.ReactNode }) {
+function SideCard({ title, right, minHeight, children }: { title: string; right?: React.ReactNode; minHeight?: number; children: React.ReactNode }) {
   return (
-    <section className="rounded-xl p-4"
-      style={{ background: 'var(--surface-primary)', border: '1px solid var(--border-default)', boxShadow: 'var(--shadow-card)' }}>
+    <section className="rounded-xl p-4 flex flex-col"
+      style={{ minHeight, background: 'var(--surface-primary)', border: '1px solid var(--border-default)', boxShadow: 'var(--shadow-card)' }}>
       <div className="flex items-center mb-3">
         <h2 className="text-[12px] font-semibold" style={{ color: 'var(--text-secondary)' }}>{title}</h2>
         <div className="ml-auto">{right}</div>
@@ -226,13 +226,14 @@ function SideCard({ title, right, children }: { title: string; right?: React.Rea
   )
 }
 
-function MiniCalendar({ ym, onMove, journalDates, today, onPickDate, onPickMonth }: {
+function MiniCalendar({ ym, onMove, journalDates, today, onPickDate, onPickMonth, minHeight }: {
   ym: string
   onMove: (delta: number) => void
   journalDates: Set<string>
   today: string
   onPickDate: (date: string) => void
   onPickMonth: () => void
+  minHeight?: number
 }) {
   const [y, m] = ym.split('-').map(Number)
   const first = new Date(y, m - 1, 1)
@@ -245,6 +246,7 @@ function MiniCalendar({ ym, onMove, journalDates, today, onPickDate, onPickMonth
   return (
     <SideCard
       title="캘린더"
+      minHeight={minHeight}
       right={
         <div className="flex items-center gap-0.5">
           <button onClick={() => onMove(-1)} aria-label="이전 달" className={navBtn} style={{ color: 'var(--text-secondary)' }}>‹</button>
@@ -256,7 +258,7 @@ function MiniCalendar({ ym, onMove, journalDates, today, onPickDate, onPickMonth
           <button onClick={() => onMove(1)} aria-label="다음 달" className={navBtn} style={{ color: 'var(--text-secondary)' }}>›</button>
         </div>
       }>
-      <div className="grid grid-cols-7 gap-y-0.5 text-center">
+      <div className="flex-1 grid grid-cols-7 gap-y-0.5 text-center" style={{ gridTemplateRows: `auto repeat(${cells.length / 7}, minmax(2rem, 1fr))` }}>
         {WEEKDAYS.map((w, i) => (
           <div key={w} className="text-[10.5px] pb-1" style={{ color: i === 0 ? 'rgba(220,90,90,0.75)' : 'var(--text-muted)' }}>{w}</div>
         ))}
@@ -267,7 +269,7 @@ function MiniCalendar({ ym, onMove, journalDates, today, onPickDate, onPickMonth
           return (
             <button key={ds} type="button" disabled={!has} onClick={() => onPickDate(ds)}
               title={has ? `${formatDateShort(ds)} 회고로 이동` : undefined}
-              className={`relative h-8 flex flex-col items-center justify-center rounded-md text-[12px] tabular-nums transition-colors ${has ? 'cursor-pointer hover:bg-[var(--surface-hover-strong)]' : 'cursor-default'}`}
+              className={`relative h-full flex flex-col items-center justify-center rounded-md text-[12px] tabular-nums transition-colors ${has ? 'cursor-pointer hover:bg-[var(--surface-hover-strong)]' : 'cursor-default'}`}
               style={{
                 color: has ? 'var(--text-primary)' : 'var(--text-muted)',
                 fontWeight: has || isToday ? 600 : 400,
@@ -326,6 +328,9 @@ export default function JournalPage() {
   } | null>(null)
   const datePickerRef = useRef<HTMLInputElement>(null)
   const rowRefs = useRef(new Map<string, HTMLDivElement>())
+  // 좌측 첫 달 surface와 우측 캘린더 카드의 높이를 맞춘다 — 캘린더가 작을 때만 늘림(상한 440px)
+  const firstBoxRef = useRef<HTMLDivElement | null>(null)
+  const [calMinH, setCalMinH] = useState<number | undefined>(undefined)
 
   const supabase = createClient()
   const today = todayStr()
@@ -442,6 +447,18 @@ export default function JournalPage() {
     const t = setTimeout(() => setFlashDate(null), 1600)
     return () => clearTimeout(t)
   }, [flashDate])
+
+  useEffect(() => {
+    const el = firstBoxRef.current
+    if (!el) { setCalMinH(undefined); return }
+    const mq = window.matchMedia('(min-width: 1024px)')
+    const sync = () => setCalMinH(mq.matches ? Math.min(Math.round(el.getBoundingClientRect().height), 440) : undefined)
+    sync()
+    const ro = new ResizeObserver(sync)
+    ro.observe(el)
+    mq.addEventListener('change', sync)
+    return () => { ro.disconnect(); mq.removeEventListener('change', sync) }
+  }, [monthGroups, collapsedMonths])
 
   const journalDates = useMemo(() => new Set(journals.map(j => j.date)), [journals])
   const countBetween = (from: string, to: string) => journals.filter(j => j.date >= from && j.date <= to).length
@@ -566,7 +583,7 @@ export default function JournalPage() {
         {/* ── 좌측 ── */}
         <div className="lg:flex-1 min-w-0 lg:min-h-0 lg:overflow-y-auto scrollbar-hide">
           {/* 보기 상태 줄: 탐색 범위 칩 + 선택 도구 */}
-          <div className="flex items-center gap-2 mb-3 min-h-[28px] flex-wrap">
+          <div className="flex items-center gap-2 mb-3 min-h-[28px] flex-wrap lg:h-7 lg:flex-nowrap">
             {scope ? (
               <span className="inline-flex items-center gap-1.5 text-[12px] font-medium pl-2.5 pr-1 py-0.5 rounded-md"
                 style={{ background: 'var(--surface-selected)', color: 'var(--accent-text)' }}>
@@ -618,13 +635,13 @@ export default function JournalPage() {
             </div>
           ) : (
             <div className="space-y-6 pb-6">
-              {monthGroups.map(([ym, items]) => {
+              {monthGroups.map(([ym, items], gi) => {
                 const isCollapsed = collapsedMonths.has(ym)
                 const monthSelected = items.filter(j => selected.has(j.date)).length
                 return (
                   <div key={ym}>
                     <button onClick={() => toggleMonth(ym)}
-                      className="flex items-center gap-2 w-full text-left mb-2 px-1 group">
+                      className="flex items-center gap-2 w-full h-7 text-left mb-2 px-1 group">
                       <span className="text-[13px] font-semibold" style={{ color: 'var(--text-primary)' }}>
                         {formatMonthLabel(ym)}
                       </span>
@@ -639,7 +656,7 @@ export default function JournalPage() {
                       </span>
                     </button>
                     {!isCollapsed && (
-                      <div className="rounded-xl overflow-hidden"
+                      <div ref={gi === 0 ? firstBoxRef : undefined} className="rounded-xl overflow-hidden"
                         style={{ background: 'var(--surface-primary)', border: '1px solid var(--border-default)', boxShadow: 'var(--shadow-card)' }}>
                         {items.map((j, idx) => (
                           <JournalRow
@@ -667,13 +684,14 @@ export default function JournalPage() {
         </div>
 
         {/* ── 우측 인사이트 ── */}
-        <aside className="flex-shrink-0 lg:w-[27%] lg:min-w-[264px] lg:max-w-[320px] lg:min-h-0 lg:overflow-y-auto scrollbar-hide pb-6 grid sm:grid-cols-2 lg:flex lg:flex-col gap-3 content-start">
+        <aside className="flex-shrink-0 lg:w-[27%] lg:min-w-[264px] lg:max-w-[320px] lg:min-h-0 lg:overflow-y-auto lg:pt-[4.75rem] scrollbar-hide pb-6 grid sm:grid-cols-2 lg:flex lg:flex-col gap-3 content-start">
           <MiniCalendar
             ym={calYm}
             onMove={delta => setCalYm(prev => shiftYm(prev, delta))}
             journalDates={journalDates}
             today={today}
             onPickDate={jumpToDate}
+            minHeight={calMinH}
             onPickMonth={() => pickScope({ key: `ym:${calYm}`, label: formatMonthLabel(calYm), from: `${calYm}-01`, to: lastDayOfYm(calYm) })}
           />
 
