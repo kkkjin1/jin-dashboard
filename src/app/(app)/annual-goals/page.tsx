@@ -50,11 +50,11 @@ export default function AnnualGoalsPage() {
   return (
     <div className="flex flex-col h-full min-h-0 pt-4 md:pt-6 px-0" style={{ background: 'var(--bg-page)', minHeight: '100%' }}>
       {/* 헤더 — 제목(좌) · 영역 세그먼트(중앙, macOS 세그먼트 컨트롤 스타일). 3열 그리드라 제목 길이와 무관하게 세그먼트가 정중앙 */}
-      <div className="flex-shrink-0 px-4 md:px-6 pb-4 mb-4 grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] items-center gap-3"
-        style={{ borderBottom: '1px solid rgba(var(--ink-rgb),0.07)' }}>
+      <div className="flex-shrink-0 px-4 md:px-6 mb-5 grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] items-center gap-3">
         <h1 className="text-lg font-bold" style={{ color: 'rgba(var(--text-rgb),1)', letterSpacing: '-0.01em' }}>연간목표</h1>
 
-        <div className="min-w-0 overflow-x-auto scrollbar-hide md:justify-self-center">
+        {/* 데스크톱: 높이 0 칸에 세그먼트를 세로 가운데로 띄워, 줄 높이는 항상 제목(h1) 기준 — 화면 너비가 바뀌어도 프로젝트 탭과 아래 위치가 같음 */}
+        <div className="min-w-0 overflow-x-auto scrollbar-hide md:overflow-visible md:h-0 md:flex md:items-center md:justify-self-center">
           <div className="inline-flex items-center rounded-[12px]" role="tablist"
             style={{ padding: 4, gap: 2, background: 'rgba(var(--ink-rgb),0.06)', boxShadow: 'inset 0 0 0 0.5px rgba(var(--ink-rgb),0.06)' }}>
             {DISPLAY_CATS.map(c => {
