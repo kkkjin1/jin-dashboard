@@ -226,7 +226,7 @@ function SideCard({ title, right, minHeight, children }: { title: string; right?
   )
 }
 
-function MiniCalendar({ ym, onMove, journalDates, today, onPickDate, onPickMonth, minHeight }: {
+function MiniCalendar({ ym, onMove, journalDates, today, onPickDate, onPickMonth, minHeight, summary }: {
   ym: string
   onMove: (delta: number) => void
   journalDates: Set<string>
@@ -234,8 +234,11 @@ function MiniCalendar({ ym, onMove, journalDates, today, onPickDate, onPickMonth
   onPickDate: (date: string) => void
   onPickMonth: () => void
   minHeight?: number
+  /** 하단 요약 — 이 달 기록 수, 지난달 기록 수(0이면 비교 생략), 마지막 작성일 */
+  summary: { label: string; count: number; prevCount: number; latest: string | null }
 }) {
   const [y, m] = ym.split('-').map(Number)
+  const diff = summary.count - summary.prevCount
   const first = new Date(y, m - 1, 1)
   const days = new Date(y, m, 0).getDate()
   const cells: (string | null)[] = Array(first.getDay()).fill(null)
@@ -251,16 +254,16 @@ function MiniCalendar({ ym, onMove, journalDates, today, onPickDate, onPickMonth
         <div className="flex items-center gap-0.5">
           <button onClick={() => onMove(-1)} aria-label="이전 달" className={navBtn} style={{ color: 'var(--text-secondary)' }}>‹</button>
           <button onClick={onPickMonth} title="이 달의 기록만 보기"
-            className="text-[12px] font-semibold px-1.5 py-0.5 rounded tabular-nums transition-colors hover:bg-[var(--surface-hover-strong)]"
-            style={{ color: 'var(--text-primary)' }}>
+            className="text-[12px] font-semibold px-1.5 py-0.5 rounded tabular-nums transition-colors hover:bg-[var(--jr-blue-bg)]"
+            style={{ color: 'var(--accent-text)' }}>
             {y}. {m}
           </button>
           <button onClick={() => onMove(1)} aria-label="다음 달" className={navBtn} style={{ color: 'var(--text-secondary)' }}>›</button>
         </div>
       }>
-      <div className="flex-1 grid grid-cols-7 gap-y-0.5 text-center" style={{ gridTemplateRows: `auto repeat(${cells.length / 7}, minmax(2rem, 1fr))` }}>
+      <div className="flex-1 grid grid-cols-7 gap-y-0.5 text-center" style={{ gridTemplateRows: `auto repeat(${cells.length / 7}, minmax(1.4rem, 1fr))` }}>
         {WEEKDAYS.map((w, i) => (
-          <div key={w} className="text-[10.5px] pb-1" style={{ color: i === 0 ? 'rgba(220,90,90,0.75)' : 'var(--text-muted)' }}>{w}</div>
+          <div key={w} className="text-[10.5px] pb-1 font-medium" style={{ color: i === 0 ? 'var(--jr-sun)' : i === 6 ? 'var(--accent-text)' : 'var(--text-muted)' }}>{w}</div>
         ))}
         {cells.map((ds, i) => {
           if (!ds) return <div key={`e${i}`} />
@@ -269,11 +272,12 @@ function MiniCalendar({ ym, onMove, journalDates, today, onPickDate, onPickMonth
           return (
             <button key={ds} type="button" disabled={!has} onClick={() => onPickDate(ds)}
               title={has ? `${formatDateShort(ds)} 회고로 이동` : undefined}
-              className={`relative h-full flex flex-col items-center justify-center rounded-md text-[12px] tabular-nums transition-colors ${has ? 'cursor-pointer hover:bg-[var(--surface-hover-strong)]' : 'cursor-default'}`}
+              className={`relative h-full flex flex-col items-center justify-center rounded-md text-[12px] tabular-nums transition-[filter] ${has ? 'cursor-pointer hover:brightness-95' : 'cursor-default'}`}
               style={{
-                color: has ? 'var(--text-primary)' : 'var(--text-muted)',
+                background: has ? 'var(--jr-blue-bg)' : undefined,
+                color: has ? 'var(--accent-text)' : 'var(--text-muted)',
                 fontWeight: has || isToday ? 600 : 400,
-                boxShadow: isToday ? 'inset 0 0 0 1px var(--border-strong)' : undefined,
+                boxShadow: isToday ? 'inset 0 0 0 1.5px var(--accent-primary)' : undefined,
               }}>
               {Number(ds.slice(8))}
               <span className="absolute bottom-[3px] w-1 h-1 rounded-full" style={{ background: has ? 'var(--accent-primary)' : 'transparent' }} />
@@ -281,9 +285,32 @@ function MiniCalendar({ ym, onMove, journalDates, today, onPickDate, onPickMonth
           )
         })}
       </div>
+
+      {/* 이 달 요약 */}
+      <div className="mt-3 pt-3 flex items-center gap-2 flex-wrap" style={{ borderTop: '1px solid var(--border-default)' }}>
+        <span className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>{summary.label}</span>
+        <span className="text-[15px] font-bold tabular-nums" style={{ color: 'var(--accent-text)' }}>{summary.count}건</span>
+        {summary.prevCount > 0 && (
+          <span className="text-[11px] font-medium px-1.5 py-px rounded tabular-nums"
+            style={diff > 0 ? { background: 'var(--jr-teal-bg)', color: 'var(--jr-teal)' }
+              : diff < 0 ? { background: 'var(--jr-amber-bg)', color: 'var(--jr-amber)' }
+              : { background: 'rgba(var(--ink-rgb),0.05)', color: 'var(--text-secondary)' }}>
+            지난달 {summary.prevCount}건{diff > 0 ? ` · +${diff}` : diff < 0 ? ` · −${-diff}` : ' · 같음'}
+          </span>
+        )}
+        <span className="ml-auto text-[11px] tabular-nums" style={{ color: 'var(--text-muted)' }}>
+          {summary.latest ? `마지막 ${formatDateShort(summary.latest)}` : '기록 없음'}
+        </span>
+      </div>
     </SideCard>
   )
 }
+
+/* 우측 사이드바 전용 보조 색 — 보라 계열 제외. 기본(:root)이 dark라 dark 값을 먼저 두고 light에서 덮어쓴다 */
+const JOURNAL_SIDE_COLORS = `
+.jr-side { --jr-blue-bg: rgba(76,127,224,0.18); --jr-teal: #4CC3AC; --jr-teal-bg: rgba(47,168,138,0.18); --jr-amber: #E8B04B; --jr-amber-bg: rgba(224,162,59,0.16); --jr-sun: #E27A76; }
+[data-theme="light"] .jr-side { --jr-blue-bg: rgba(76,127,224,0.09); --jr-teal: #0E8C7A; --jr-teal-bg: rgba(47,168,138,0.11); --jr-amber: #B4690E; --jr-amber-bg: rgba(224,162,59,0.14); --jr-sun: #D2504B; }
+`
 
 /* ── 필터 정의 ── */
 type FilterRange = 'all' | '7d' | '30d' | '90d'
@@ -591,12 +618,12 @@ export default function JournalPage() {
                 <button onClick={() => setScope(null)} aria-label="탐색 범위 해제"
                   className="w-5 h-5 flex items-center justify-center rounded hover:bg-[rgba(var(--ink-rgb),0.06)]">×</button>
               </span>
-            ) : (
-              <span className="text-[12px]" style={{ color: 'var(--text-muted)' }}>
-                {filterRange === 'all' ? '전체 기록' : RANGES.find(r => r.key === filterRange)!.label}
-              </span>
+            ) : filterRange !== 'all' && (
+              <span className="text-[12px]" style={{ color: 'var(--text-muted)' }}>{RANGES.find(r => r.key === filterRange)!.label}</span>
             )}
-            <span className="text-[12px] tabular-nums" style={{ color: 'var(--text-muted)' }}>{displayed.length}건 표시</span>
+            {(scope || filterRange !== 'all') && (
+              <span className="text-[12px] tabular-nums" style={{ color: 'var(--text-muted)' }}>{displayed.length}건 표시</span>
+            )}
 
             <div className="ml-auto flex items-center gap-1">
               <button onClick={toggleMasked} className={ghostBtn} style={{ color: masked ? 'var(--text-secondary)' : 'var(--accent-text)' }}
@@ -684,7 +711,8 @@ export default function JournalPage() {
         </div>
 
         {/* ── 우측 인사이트 ── */}
-        <aside className="flex-shrink-0 lg:w-[27%] lg:min-w-[264px] lg:max-w-[320px] lg:min-h-0 lg:overflow-y-auto lg:pt-[4.75rem] scrollbar-hide pb-6 grid sm:grid-cols-2 lg:flex lg:flex-col gap-3 content-start">
+        <style>{JOURNAL_SIDE_COLORS}</style>
+        <aside className="jr-side flex-shrink-0 lg:w-[27%] lg:min-w-[264px] lg:max-w-[320px] lg:min-h-0 lg:overflow-y-auto lg:pt-[4.75rem] scrollbar-hide pb-6 grid sm:grid-cols-2 lg:flex lg:flex-col gap-3 content-start">
           <MiniCalendar
             ym={calYm}
             onMove={delta => setCalYm(prev => shiftYm(prev, delta))}
@@ -692,40 +720,25 @@ export default function JournalPage() {
             today={today}
             onPickDate={jumpToDate}
             minHeight={calMinH}
+            summary={{ label: calYm === thisYm ? '이번 달' : `${Number(calYm.slice(5))}월`, count: calCount, prevCount, latest: calLatest }}
             onPickMonth={() => pickScope({ key: `ym:${calYm}`, label: formatMonthLabel(calYm), from: `${calYm}-01`, to: lastDayOfYm(calYm) })}
           />
-
-          <SideCard title={calYm === thisYm ? '이번 달 회고' : `${formatMonthLabel(calYm)} 회고`}>
-            <div className="flex items-baseline gap-1">
-              <span className="text-[26px] font-bold tabular-nums leading-none" style={{ color: 'var(--text-primary)' }}>{calCount}</span>
-              <span className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>건</span>
-            </div>
-            <div className="mt-2.5 space-y-1 text-[12px]" style={{ color: 'var(--text-secondary)' }}>
-              {prevCount > 0 && (
-                <p>
-                  지난달 {prevCount}건
-                  {calCount !== prevCount && (
-                    <span style={{ color: 'var(--text-muted)' }}> · {calCount > prevCount ? `${calCount - prevCount}건 많음` : `${prevCount - calCount}건 적음`}</span>
-                  )}
-                  {calCount === prevCount && <span style={{ color: 'var(--text-muted)' }}> · 같음</span>}
-                </p>
-              )}
-              {calLatest && <p>마지막 작성 {formatDateShort(calLatest)}</p>}
-              {calCount === 0 && <p style={{ color: 'var(--text-muted)' }}>이 달에는 기록이 없습니다</p>}
-            </div>
-          </SideCard>
 
           <SideCard title="기록 탐색">
             <div className="flex flex-col -mx-1.5">
               {exploreItems.map(it => {
                 const n = countBetween(it.from, it.to)
                 const on = scope?.key === it.key
+                const tone = it.key.startsWith('w')
+                  ? { bg: 'var(--jr-blue-bg)', fg: 'var(--accent-text)' }
+                  : { bg: 'var(--jr-teal-bg)', fg: 'var(--jr-teal)' }
                 return (
                   <button key={it.key} onClick={() => pickScope(it)}
                     className="flex items-center px-1.5 py-1.5 rounded-md text-[12.5px] text-left transition-colors hover:bg-[var(--surface-hover-strong)]"
                     style={on ? { background: 'var(--surface-selected)', color: 'var(--accent-text)', fontWeight: 600 } : { color: 'var(--text-primary)' }}>
                     {it.label}
-                    <span className="ml-auto tabular-nums text-[12px]" style={{ color: on ? 'var(--accent-text)' : 'var(--text-muted)' }}>{n}건</span>
+                    <span className="ml-auto tabular-nums text-[11.5px] font-semibold px-1.5 py-px rounded"
+                      style={n > 0 ? { background: tone.bg, color: tone.fg } : { color: 'var(--text-muted)', fontWeight: 400 }}>{n}건</span>
                   </button>
                 )
               })}
@@ -736,6 +749,7 @@ export default function JournalPage() {
               <div className="flex flex-col -mx-1.5">
                 {monthlyStats.rows.map(({ ym, count }) => {
                   const on = scope?.key === `ym:${ym}`
+                  const current = ym === thisYm
                   return (
                     <button key={ym} disabled={count === 0}
                       onClick={() => pickScope({ key: `ym:${ym}`, label: formatMonthLabel(ym), from: `${ym}-01`, to: lastDayOfYm(ym) })}
@@ -746,7 +760,7 @@ export default function JournalPage() {
                       </span>
                       <span className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(var(--ink-rgb),0.05)' }}>
                         <span className="block h-full rounded-full"
-                          style={{ width: `${(count / monthlyStats.max) * 100}%`, background: on ? 'var(--accent-primary)' : 'rgba(var(--ink-rgb),0.22)' }} />
+                          style={{ width: `${(count / monthlyStats.max) * 100}%`, background: on ? 'var(--accent-primary)' : 'var(--jr-teal)', opacity: on || current ? 1 : 0.55 }} />
                       </span>
                       <span className="w-7 text-right tabular-nums" style={{ color: count ? 'var(--text-secondary)' : 'var(--text-muted)' }}>{count}</span>
                     </button>
