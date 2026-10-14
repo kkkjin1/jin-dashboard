@@ -254,6 +254,9 @@ export interface AnnualGoalYearPlan {
   year: number
   annual_goal_item_id: string
   priority: YearPlanPriority
+  /** v60 — 연도 계획 일정 */
+  start_date?: string | null
+  end_date?: string | null
   created_at: string
   updated_at: string
 }

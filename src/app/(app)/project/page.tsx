@@ -1,77 +1,24 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useMemo } from 'react'
 import AgendaMatrix from '@/components/meetings/AgendaMatrix'
 import { useOrgData } from '@/hooks/useOrgData'
 
-const SESSION_KEY = 'project-tab'
-
 export default function ProjectPage() {
   const { org } = useOrgData()
-  // 팀명은 조직 설정에서 동적으로 옴 + '개인'은 고정 탭
-  const teamNames = useMemo(() => org.map(t => t.name), [org])
-  const allCatsValues = useMemo(() => [...teamNames, '개인'], [teamNames])
-  const displayCats = useMemo(() => ['전체', ...teamNames.map(n => `${n}회의록`), '개인'], [teamNames])
-  const catValue: Record<string, string> = useMemo(() => {
-    const m: Record<string, string> = { '전체': '전체', '개인': '개인' }
-    teamNames.forEach(n => { m[`${n}회의록`] = n })
-    return m
-  }, [teamNames])
-
-  const [cat, setCat] = useState('전체')
-
-  useEffect(() => {
-    const saved = sessionStorage.getItem(SESSION_KEY)
-    if (saved) setCat(saved)
-  }, [])
-
-  function selectCat(c: string) {
-    setCat(c)
-    sessionStorage.setItem(SESSION_KEY, c)
-  }
-
-  const resolvedCatValue = catValue[cat] ?? '전체'
+  // 범주 소속(팀명은 조직 설정에서 동적으로 옴 + '개인') — 범주 추가/이동 선택지로만 쓰고 화면은 항상 전체를 보여준다
+  const allCatsValues = useMemo(() => [...org.map(t => t.name), '개인'], [org])
 
   return (
     <div className="flex flex-col h-full min-h-0 pt-4 md:pt-6 px-0" style={{ background: 'var(--bg-page)', minHeight: '100%' }}>
       {/* 헤더 */}
-      <div className="flex-shrink-0 flex items-center gap-3 mb-5 px-4 md:px-6 overflow-x-auto scrollbar-hide">
+      <div className="flex-shrink-0 flex items-center gap-3 mb-5 px-4 md:px-6">
         <h1 className="text-lg font-bold whitespace-nowrap flex-shrink-0" style={{ color: 'rgba(var(--text-rgb),1)' }}>프로젝트</h1>
-        <div className="flex items-center gap-1.5 flex-shrink-0">
-          {displayCats.map(c => (
-            <button key={c} onClick={() => selectCat(c)}
-              className="text-xs px-3.5 py-1.5 rounded-full font-semibold transition-all whitespace-nowrap"
-              style={cat === c ? {
-                background: 'var(--accent-primary)',
-                color: '#E2E8F0',
-                border: '1px solid var(--accent-primary)',
-                boxShadow: '0 1px 4px rgba(0,0,0,0.3)',
-              } : {
-                background: 'rgba(var(--ink-rgb),0.06)',
-                border: '1px solid rgba(var(--ink-rgb),0.09)',
-                color: 'rgba(var(--text-rgb),0.5)',
-              }}
-              onMouseEnter={e => {
-                if (cat !== c) {
-                  (e.currentTarget as HTMLButtonElement).style.background = 'rgba(var(--ink-rgb),0.1)'
-                  ;(e.currentTarget as HTMLButtonElement).style.color = 'rgba(var(--text-rgb),1)'
-                }
-              }}
-              onMouseLeave={e => {
-                if (cat !== c) {
-                  (e.currentTarget as HTMLButtonElement).style.background = 'rgba(var(--ink-rgb),0.06)'
-                  ;(e.currentTarget as HTMLButtonElement).style.color = 'rgba(var(--text-rgb),0.5)'
-                }
-              }}>
-              {c}
-            </button>
-          ))}
-        </div>
       </div>
 
       {/* 매트릭스 — px 없이 전체 너비 */}
       <div className="flex-1 min-h-0 flex flex-col">
-        <AgendaMatrix key={resolvedCatValue} category={resolvedCatValue} allCats={allCatsValues} />
+        <AgendaMatrix category="전체" allCats={allCatsValues} />
       </div>
     </div>
   )

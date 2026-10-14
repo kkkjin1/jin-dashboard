@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { AgendaItem, AnnualGoalItem, AnnualGoalYearPlan, YearPlanPriority } from '@/types'
 import { GlassSelect } from '@/components/ui/GlassSelect'
+import { DateCellPicker } from '@/components/ui/MiniDatePicker'
 import { YEAR_PLAN_OPTIONS, YEAR_PLAN_PRIORITIES, YEAR_PLAN_LABEL, YEAR_PLAN_COLOR, canCreateProject, catLabel, yearPlanSourceLabel } from '@/lib/yearPlan'
 import CreateGoalProjectModal from './CreateGoalProjectModal'
 
@@ -30,7 +31,8 @@ const S = {
   t1: 'rgba(var(--text-rgb),1)', t2: 'rgba(var(--text-rgb),0.7)', t3: 'rgba(var(--text-rgb),0.4)', t4: 'rgba(var(--text-rgb),0.28)',
   bd: '1px solid rgba(var(--ink-rgb),0.07)',
 }
-const COL = { priority: 104, action: 104 } as const
+// 일정 칸은 폭이 좁은 모바일에서는 숨긴다(우선순위만 표시)
+const COL = { priority: 104, schedule: 168, action: 104 } as const
 
 interface Props {
   category: string
@@ -115,6 +117,16 @@ export default function YearPlanView({ category, allCats, year, categoryLabels, 
     setPlans(prev => [...prev.filter(p => p.annual_goal_item_id !== item.id), saved])
   }
 
+  // ── 일정 (이미 있는 연도계획 행만 수정 — 행은 우선순위를 정할 때 생긴다) ─────────
+  async function updatePlan(plan: AnnualGoalYearPlan, patch: Partial<Pick<AnnualGoalYearPlan, 'start_date' | 'end_date'>>) {
+    setPlans(prev => prev.map(p => p.id === plan.id ? { ...p, ...patch } : p))
+    const { error } = await supabase.from('annual_goal_year_plans').update(patch).eq('id', plan.id)
+    if (error) {
+      flashError(`저장 실패(schema v60 적용 필요?): ${error.message}`)
+      setPlans(prev => prev.map(p => p.id === plan.id ? plan : p))
+    }
+  }
+
   // ── 목표(HR Master) 추가/이름변경/삭제 ─────────────────────────────
   async function addItem(cat: string) {
     const title = newIName.trim()
@@ -176,6 +188,14 @@ export default function YearPlanView({ category, allCats, year, categoryLabels, 
           <div style={{ width: COL.priority }} className="flex-shrink-0">
             <GlassSelect value={plan?.priority ?? ''} onChange={v => { if (v) setPriority(item, v as YearPlanPriority) }}
               options={YEAR_PLAN_OPTIONS} placeholder="미설정" variant="inline" />
+          </div>
+          <div style={{ width: COL.schedule }} className="flex-shrink-0 hidden md:flex items-center gap-2">
+            {plan ? (
+              <>
+                <DateCellPicker label="시작" value={plan.start_date ?? null} color="var(--accent-primary)" onChange={v => updatePlan(plan, { start_date: v })} />
+                <DateCellPicker label="종료" value={plan.end_date ?? null} color="var(--accent-primary)" onChange={v => updatePlan(plan, { end_date: v })} />
+              </>
+            ) : <span className="text-[11px]" style={{ color: S.t4 }} title="우선순위를 먼저 정하세요">-</span>}
           </div>
           <div style={{ width: COL.action }} className="flex-shrink-0 flex items-center justify-end gap-1.5">
             {plan && canCreateProject(plan.priority) && (
@@ -246,6 +266,7 @@ export default function YearPlanView({ category, allCats, year, categoryLabels, 
                 <span style={{ width: COL.priority }} className="flex-shrink-0 text-[10.5px] font-semibold" >
                   <span style={{ color: S.t3 }}>{year} 우선순위</span>
                 </span>
+                <span style={{ width: COL.schedule }} className="flex-shrink-0 hidden md:block text-[10.5px] font-semibold" ><span style={{ color: S.t3 }}>일정</span></span>
                 <span style={{ width: COL.action }} className="flex-shrink-0" />
               </div>
 

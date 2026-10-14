@@ -17,7 +17,6 @@ const STATUS_CLS: Record<Status, string> = {
   done:   'bg-gray-100 text-gray-400 border-gray-200',
 }
 const STATUS_DOT: Record<Status, string> = { active: '#3B82F6', hold: '#F59E0B', done: '#10B981' }
-const TRACK_COLOR: Record<string, string> = { A: '#3B82F6', B: '#EF4444', C: '#9CA3AF' }
 const IMPORTANCE_OPTIONS: { value: ImportanceLevel; label: string; color: string }[] = [
   { value: '상', label: '상', color: '#EF4444' },
   { value: '중', label: '중', color: '#F59E0B' },
@@ -165,9 +164,10 @@ export default function AnnualGoalTaskDetailPage() {
     await supabase.from('annual_goal_tasks').update({ roadmap_end_date: date }).eq('id', id)
     setTask(p => p ? { ...p, roadmap_end_date: date } : p)
   }
-  async function updateExecImportance(v: ImportanceLevel | null) {
-    await supabase.from('annual_goal_tasks').update({ exec_importance: v }).eq('id', id)
-    setTask(p => p ? { ...p, exec_importance: v } : p)
+  // 중요성 — 트랙·HR 중요도·HR 시급도를 통일한 값. hr_importance 컬럼에 저장
+  async function updateImportance(v: ImportanceLevel | null) {
+    await supabase.from('annual_goal_tasks').update({ hr_importance: v }).eq('id', id)
+    setTask(p => p ? { ...p, hr_importance: v } : p)
   }
   async function updateAgreedPriority(v: AgreedPriority | null) {
     await supabase.from('annual_goal_tasks').update({ agreed_priority: v }).eq('id', id)
@@ -284,21 +284,18 @@ export default function AnnualGoalTaskDetailPage() {
               <button onClick={cycleStatus} className={`text-xs px-2.5 py-1 rounded-full border font-semibold transition-all ${STATUS_CLS[task.status as Status]}`}>
                 {STATUS_LABEL[task.status as Status]}
               </button>
-              {task.track && <span className="text-xs px-2.5 py-1 rounded-full font-semibold" style={{ color: TRACK_COLOR[task.track], background: `${TRACK_COLOR[task.track]}1E` }}>트랙 {task.track}</span>}
               {task.maturity_level != null && <span className="text-xs text-[rgba(var(--text-rgb),0.5)] bg-white/[0.06] border border-white/[0.09] px-2.5 py-1 rounded-full">성숙도 {task.maturity_level}</span>}
             </div>
           </div>
         </div>
 
         {/* ── 엑셀 원본 참고 카드 (읽기전용) ── */}
-        {(task.maturity_rationale || task.hr_importance || task.hr_urgency || task.suggested_period || task.hrm_function || task.notes) && (
+        {(task.maturity_rationale || task.suggested_period || task.hrm_function || task.notes) && (
           <div className="surface-card rounded-2xl overflow-hidden">
             <div className="px-5 py-3 border-b border-[rgba(var(--ink-rgb),0.06)]">
               <span className="text-xs font-semibold text-[rgba(var(--text-rgb),0.4)] uppercase tracking-wider">HR 전략 프레임 원본 참고</span>
             </div>
             <div className="px-5 py-4 grid grid-cols-2 gap-x-6 gap-y-2.5 text-xs">
-              {task.hr_importance && <div><span className="text-[rgba(var(--text-rgb),0.35)]">HR 중요도</span> <span className="text-[rgba(var(--text-rgb),0.8)] font-medium ml-1">{task.hr_importance}</span></div>}
-              {task.hr_urgency && <div><span className="text-[rgba(var(--text-rgb),0.35)]">HR 시급도</span> <span className="text-[rgba(var(--text-rgb),0.8)] font-medium ml-1">{task.hr_urgency}</span></div>}
               {task.suggested_period && <div><span className="text-[rgba(var(--text-rgb),0.35)]">실행 제안 구간</span> <span className="text-[rgba(var(--text-rgb),0.8)] font-medium ml-1">{task.suggested_period}</span></div>}
               {task.hrm_function && <div><span className="text-[rgba(var(--text-rgb),0.35)]">HRM 기능</span> <span className="text-[rgba(var(--text-rgb),0.8)] font-medium ml-1">{task.hrm_function}</span></div>}
               {task.maturity_rationale && <div className="col-span-2"><span className="text-[rgba(var(--text-rgb),0.35)]">성숙도 판단 근거</span> <span className="text-[rgba(var(--text-rgb),0.7)] ml-1">{task.maturity_rationale}</span></div>}
@@ -314,8 +311,8 @@ export default function AnnualGoalTaskDetailPage() {
           </div>
           <div className="px-5 py-4 flex items-center gap-6 flex-wrap">
             <div className="flex items-center gap-2">
-              <span className="text-xs text-[rgba(var(--text-rgb),0.5)]">경영진 중요도</span>
-              <GlassSelect value={task.exec_importance ?? ''} onChange={v => updateExecImportance((v || null) as ImportanceLevel | null)} options={IMPORTANCE_OPTIONS} placeholder="미정" variant="pill" activeWhenFilled />
+              <span className="text-xs text-[rgba(var(--text-rgb),0.5)]">중요성</span>
+              <GlassSelect value={task.hr_importance ?? ''} onChange={v => updateImportance((v || null) as ImportanceLevel | null)} options={IMPORTANCE_OPTIONS} placeholder="미정" variant="pill" activeWhenFilled />
             </div>
             <div className="flex items-center gap-2">
               <span className="text-xs text-[rgba(var(--text-rgb),0.5)]">합의 우선순위</span>
@@ -342,7 +339,7 @@ export default function AnnualGoalTaskDetailPage() {
             )}
           </div>
           <div className="px-5 pb-4 flex items-center gap-6 flex-wrap" style={{ borderTop: '1px solid rgba(var(--ink-rgb),0.05)', paddingTop: 12 }}>
-            <span className="text-xs text-[rgba(var(--text-rgb),0.5)]">로드맵 기간</span>
+            <span className="text-xs text-[rgba(var(--text-rgb),0.5)]">일정</span>
             <DateCellPicker label="시작" value={task.roadmap_start_date ?? null} color={itemColor} onChange={updateRoadmapStart} />
             <DateCellPicker label="종료" value={task.roadmap_end_date ?? null} color={itemColor} onChange={updateRoadmapEnd} />
           </div>

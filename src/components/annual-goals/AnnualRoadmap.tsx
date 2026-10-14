@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo, Fragment } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import type { AnnualGoalItem, AnnualGoalTask, Member, AgreedPriority } from '@/types'
+import type { AnnualGoalItem, AnnualGoalTask, Member, AgreedPriority, ImportanceLevel } from '@/types'
 import { GlassSelect } from '@/components/ui/GlassSelect'
 import { DateCellPicker } from '@/components/ui/MiniDatePicker'
 import { MONTH_KO, periodToDateRange, monthToDateRange, getWeekColumnsBetween, overlapsRange, type PeriodKey } from '@/lib/dateGrid'
@@ -42,13 +42,6 @@ const NEUTRAL_ACCENT = 'var(--accent-primary)'
 // 목표 행 우측 컬럼(분류/기한/진행률) 폭 — 카드의 컬럼 라벨 서브행과 실제 목표 행이 이 값을 공유해 항상 같이 정렬됨
 const ITEM_ROW_COLS = { category: 88, deadline: 78, progress: 40 } as const
 
-// 상태(중요도/시급도) 배지 파스텔 톤 (bg/text)
-const STATUS_BADGE: Record<string, { bg: string; text: string }> = {
-  상: { bg: '#E4C2C2', text: '#8B3B3B' },
-  중: { bg: '#E6D3A8', text: '#83611F' },
-  하: { bg: '#C7DBB9', text: '#446631' },
-}
-
 // HRM 기능 관점 (엑셀 1B.기능뷰 시트 기준 F1~F10) — 과제의 hrm_function 값 그대로 사용
 const HRM_FUNCTION_SHORT: Record<string, string> = {
   'F1. 인사기획·HR전략': '인사기획', 'F2. 채용·확보': '채용', 'F3. 인력운영·유지': '인력운영', 'F4. 평가·성과관리': '평가',
@@ -80,10 +73,13 @@ const PRIORITY_OPTIONS: { value: AgreedPriority; label: string; color: string }[
 
 const PRIORITY_RANK: Record<string, number> = { '1순위': 0, '2순위': 1, '유예': 2 }
 const IMPORTANCE_RANK: Record<string, number> = { '상': 0, '중': 1, '하': 2 }
-const TRACK_RANK: Record<string, number> = { A: 0, B: 1, C: 2 }
 
-// 트랙 dot 전용 포인트 컬러 — 카테고리색과 별개, 과제 행 좌측에 트랙을 한눈에 구분하는 용도
-const TRACK_DOT_COLOR: Record<string, string> = { A: '#378ADD', B: '#639922', C: '#9CA3AF' }
+// 중요성 — 기존 트랙·HR 중요도·HR 시급도를 하나로 통일. 값은 hr_importance 컬럼을 그대로 쓴다(track/hr_urgency는 DB에만 보존)
+const IMPORTANCE_OPTIONS: { value: ImportanceLevel; label: string; color: string }[] = [
+  { value: '상', label: '상', color: '#C0504D' },
+  { value: '중', label: '중', color: '#C99A2E' },
+  { value: '하', label: '하', color: '#6A9A4B' },
+]
 
 function rank(v: string | null | undefined, table: Record<string, number>): number {
   return v != null ? (table[v] ?? 99) : 99
@@ -91,10 +87,7 @@ function rank(v: string | null | undefined, table: Record<string, number>): numb
 function priorityComparator(a: AnnualGoalTask, b: AnnualGoalTask): number {
   return (
     rank(a.agreed_priority, PRIORITY_RANK)   - rank(b.agreed_priority, PRIORITY_RANK) ||
-    rank(a.exec_importance, IMPORTANCE_RANK) - rank(b.exec_importance, IMPORTANCE_RANK) ||
-    rank(a.track, TRACK_RANK)                - rank(b.track, TRACK_RANK) ||
     rank(a.hr_importance, IMPORTANCE_RANK)   - rank(b.hr_importance, IMPORTANCE_RANK) ||
-    rank(a.hr_urgency, IMPORTANCE_RANK)      - rank(b.hr_urgency, IMPORTANCE_RANK) ||
     a.sort_order - b.sort_order
   )
 }
@@ -313,6 +306,10 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
     await supabase.from('annual_goal_tasks').update({ agreed_priority: v }).eq('id', taskId)
     setTasks(p => p.map(t => t.id === taskId ? { ...t, agreed_priority: v } : t))
   }
+  async function updateTaskImportance(taskId: string, v: ImportanceLevel | null) {
+    await supabase.from('annual_goal_tasks').update({ hr_importance: v }).eq('id', taskId)
+    setTasks(p => p.map(t => t.id === taskId ? { ...t, hr_importance: v } : t))
+  }
   async function updateTaskRoadmapRange(taskId: string, start: string | null, end: string | null) {
     await supabase.from('annual_goal_tasks').update({ roadmap_start_date: start, roadmap_end_date: end }).eq('id', taskId)
     setTasks(p => p.map(t => t.id === taskId ? { ...t, roadmap_start_date: start, roadmap_end_date: end } : t))
@@ -452,7 +449,7 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
       </div>
 
       {prioritySort && (
-        <span className="w-full" style={{ fontSize: 10, color: S.t3 }}>정렬 기준: 합의우선순위 → 경영진중요도 → 트랙 → HR중요도 → HR시급도</span>
+        <span className="w-full" style={{ fontSize: 10, color: S.t3 }}>정렬 기준: 합의우선순위 → 중요성</span>
       )}
       {dndErr && <span className="w-full" style={{ fontSize: 11, color: 'var(--error-badge-text)' }}>{dndErr}</span>}
     </div>
@@ -503,7 +500,6 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
       >
         <div style={{ flex: 1, minWidth: 200, padding: '12px 16px 12px 20px', display: 'flex', alignItems: 'center' }}>
           <div className="flex items-center gap-2 min-w-0">
-            {task.track && <span style={{ width: 6, height: 6, borderRadius: '50%', background: TRACK_DOT_COLOR[task.track] ?? '#9CA3AF', flexShrink: 0 }} />}
             {!prioritySort && (
               <span draggable
                 onDragStart={e => { e.stopPropagation(); _dragTaskId = task.id; e.dataTransfer.effectAllowed = 'move'; setDraggingTaskId(task.id) }}
@@ -536,9 +532,6 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
             {c.content}
           </div>
         ))}
-        <div style={{ width: 40, borderLeft: S.bdL, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          {task.track && <span style={{ fontSize: 9, fontWeight: 700, color: 'rgba(var(--text-rgb),0.85)', background: 'rgba(var(--ink-rgb),0.06)', padding: '1px 6px', borderRadius: 999 }}>{task.track}</span>}
-        </div>
         <div style={{ width: 92, padding: '7px 8px', borderLeft: S.bdL, display: 'flex', alignItems: 'center' }}>
           <GlassSelect
             value={task.assignee_id ?? ''}
@@ -561,11 +554,8 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
             {task.hrm_function && <span style={{ fontSize: 9, fontWeight: 600, color: 'rgba(var(--text-rgb),0.85)', background: 'rgba(var(--ink-rgb),0.06)', padding: '1px 6px', borderRadius: 999 }}>{hrmFunctionShort(task.hrm_function)}</span>}
           </div>
         )}
-        <div style={{ width: 46, padding: '7px 4px', borderLeft: S.bdL, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          {task.hr_importance && <span style={{ fontSize: 10, fontWeight: 600, color: STATUS_BADGE[task.hr_importance].text, background: STATUS_BADGE[task.hr_importance].bg, padding: '1px 7px', borderRadius: 999 }}>{task.hr_importance}</span>}
-        </div>
-        <div style={{ width: 46, padding: '7px 4px', borderLeft: S.bdL, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          {task.hr_urgency && <span style={{ fontSize: 10, fontWeight: 600, color: STATUS_BADGE[task.hr_urgency].text, background: STATUS_BADGE[task.hr_urgency].bg, padding: '1px 7px', borderRadius: 999 }}>{task.hr_urgency}</span>}
+        <div style={{ width: 60, padding: '7px 6px', borderLeft: S.bdL, display: 'flex', alignItems: 'center' }} onClick={e => e.stopPropagation()}>
+          <GlassSelect value={task.hr_importance ?? ''} onChange={v => updateTaskImportance(task.id, (v || null) as ImportanceLevel | null)} options={IMPORTANCE_OPTIONS} placeholder="-" variant="inline" />
         </div>
         <div style={{ width: 90, padding: '7px 6px', borderLeft: S.bdL, display: 'flex', alignItems: 'center' }} onClick={e => e.stopPropagation()}>
           <GlassSelect value={task.agreed_priority ?? ''} onChange={v => updateAgreedPriority(task.id, (v || null) as AgreedPriority | null)} options={PRIORITY_OPTIONS} placeholder="-" variant="inline" />
@@ -610,12 +600,10 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
             ) : c.label}
           </div>
         ))}
-        <div style={{ width: 40, ...hd }}>트랙</div>
         <div style={{ width: 92, ...hd }}>담당자</div>
         <div style={{ width: 100, ...hd }}>일정({scheduleUnit === 'month' ? '월' : '주'})</div>
         {showFunctionCol && <div style={{ width: 68, ...hd }}>기능</div>}
-        <div style={{ width: 46, ...hd }}>중요도</div>
-        <div style={{ width: 46, ...hd }}>시급도</div>
+        <div style={{ width: 60, ...hd }}>중요성</div>
         <div style={{ width: 90, ...hd }}>경영진 싱크</div>
         {showLinkCol && <div style={{ width: 170, ...hd }}>프로젝트 연동</div>}
         <div style={{ width: 56, ...hd }} />
