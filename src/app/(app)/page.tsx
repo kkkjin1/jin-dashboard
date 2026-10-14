@@ -112,12 +112,13 @@ function EmptyState({ icon, label, sub }: { icon: React.ReactNode; label: string
 }
 
 // ── List Row wrapper (row-level hover) ──────────────────────────────────────
-function ListRow({ children, style, onClick, draggable, onDragStart, onMouseEnter, onMouseLeave }: {
+function ListRow({ children, style, onClick, draggable, onDragStart, onDragEnd, onMouseEnter, onMouseLeave }: {
   children: React.ReactNode
   style?: React.CSSProperties
   onClick?: () => void
   draggable?: boolean
   onDragStart?: (e: React.DragEvent) => void
+  onDragEnd?: (e: React.DragEvent) => void
   onMouseEnter?: () => void
   onMouseLeave?: () => void
 }) {
@@ -129,6 +130,7 @@ function ListRow({ children, style, onClick, draggable, onDragStart, onMouseEnte
       onClick={onClick}
       draggable={draggable}
       onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
       style={{
         borderRadius: 8,
         marginLeft: -10, marginRight: -10,
@@ -195,6 +197,8 @@ function CardSection({
 const WEEK_COL_MIN = 150
 const WEEK_GRID_COLS = `minmax(${WEEK_COL_MIN}px, 0.9fr) repeat(5, minmax(${WEEK_COL_MIN}px, 1fr)) minmax(${WEEK_COL_MIN}px, 0.9fr)`
 const WEEK_GRID_MIN_W = WEEK_COL_MIN * 7
+// 금주 업무 즉석 할일 요일 이동용 드래그 데이터 타입 (타임라인용 'tl-extra'와 구분)
+const WEEK_QUICK_DND = 'week-quick-id'
 // 금주 업무 섹션 높이 — 내용 높이 기준, 공간 부족 시 최소 200까지 축소, 업무가 많아도 340에서 멈춤(열 안 스크롤)
 const WEEK_MIN_H = 200
 // 화면 비율 맞춤 — 노트북(2880×1800, 배율 200% → 홈 높이 752px) 화면이 기준.
@@ -979,6 +983,7 @@ export default function HomePage() {
   const [fMemoSaved,    setFMemoSaved]    = useState<Record<string, boolean>>({})
   const [memoViewId,    setMemoViewId]    = useState<string | null>(null)
   const [weekOffset,    setWeekOffset]    = useState(0)   // 금주 업무 주 이동 (0 = 이번 주)
+  const [weekDropDate,  setWeekDropDate]  = useState<string | null>(null)   // 즉석 할일 드래그 중 강조할 요일 열
   const [weekPickerOpen, setWeekPickerOpen] = useState(false)
   const [hoveredStId,   setHoveredStId]   = useState<string | null>(null)
   const [datePickerStId,setDatePickerStId] = useState<string | null>(null)
@@ -1257,6 +1262,19 @@ export default function HomePage() {
     }
   }
 
+  // 금주 업무에서 다른 열로 드래그해 날짜/연기 변경 — 즉석 할일만 대상 (연동 task는 각 출처에서 관리)
+  // 요일 열에 놓으면 그 날짜 + 연기 해제, '다음주로 연기' 열에 놓으면 날짜는 두고 연기 표시만 켠다
+  async function moveQuickTodo(id: string, date: string, deferred = false) {
+    const cur = quickTodos.find(t => t.id === id)
+    if (!cur || (cur.target_date === date && !!cur.deferred === deferred)) return
+    setQuickTodos(p => p.map(t => t.id === id ? { ...t, target_date: date, deferred } : t))
+    const { error } = await sb.current.from('quick_todos').update({ target_date: date, deferred }).eq('id', id)
+    if (error) {
+      console.error('즉석 할일 이동 실패:', error.message)
+      setQuickTodos(p => p.map(t => t.id === id ? { ...t, target_date: cur.target_date, deferred: cur.deferred } : t))
+    }
+  }
+
   function removeQuickTodo(id: string) {
     setQuickTodos(p => p.filter(t => t.id !== id))
     sb.current.from('quick_todos').delete().eq('id', id)
@@ -1416,7 +1434,7 @@ export default function HomePage() {
   const recentMeetings = meetings.slice(0, 5)
 
   // task_todos → target_date 기준 분류 (schedule_tag는 배정 시점 스냅샷이라 자정 경과 후에도 안 바뀜 → 신뢰하지 않음)
-  const todayQuickTodos = quickTodos.filter(q => q.target_date === today)
+  const todayQuickTodos = quickTodos.filter(q => q.target_date === today && !q.deferred)
   const todayTodos = allTaskTodos.filter(t => t.target_date ? t.target_date === today : t.schedule_tag === 'today')
   const timelineTodos = (isTimelineToday ? todayTodos : allTaskTodos.filter(t => t.target_date === timelineDate)).filter(t => !t.done)
   // 오늘 업무 건수 — 취소선으로 남은 완료분은 세지 않음
@@ -1479,9 +1497,11 @@ export default function HomePage() {
     if (c >= 0) weekCols[c].push(it)
   }
   for (const q of quickTodos) {
-    const c = weekCol(q.target_date)
+    // 연기된 항목은 원래 날짜가 속한 주에서는 요일 대신 '다음주로 연기' 열로 — 다음 주에는 날짜 그대로 직전주 미완료로 잡힌다
+    const raw = weekCol(q.target_date)
+    const c = q.deferred && raw >= 1 && raw <= 5 ? 6 : raw
     if (q.done && (c === 0 || c === -2)) continue   // 직전주/이전 '미완료' 집계에서 완료분 제외
-    const it: WeekItem = { key: `qt_${q.id}`, kind: 'quick', title: q.title, meta: '즉석 할 일', date: q.target_date!, quick: q }
+    const it: WeekItem = { key: `qt_${q.id}`, kind: 'quick', title: q.title, meta: q.deferred ? '연기' : '즉석 할 일', date: q.target_date!, quick: q }
     if (c === -2) olderItems.push(it)
     if (c >= 0) weekCols[c].push(it)
   }
@@ -1575,7 +1595,9 @@ export default function HomePage() {
     if (item.kind === 'quick' && item.quick) {
       const q = item.quick, done = q.done
       return (
-        <ListRow key={item.key} style={rowStyle}>
+        <ListRow key={item.key} style={rowStyle} draggable
+          onDragStart={e => { e.dataTransfer.setData(WEEK_QUICK_DND, q.id); e.dataTransfer.effectAllowed = 'move' }}
+          onDragEnd={() => setWeekDropDate(null)}>
           <div className="group" style={rowInner}>
             {check(done, () => toggleQuickTodo(q.id))}
             {body(q.title, done, meta,
@@ -1919,8 +1941,24 @@ export default function HomePage() {
               {weekCols.map((items, ci) => {
                 const secondary = ci === 0 || ci === 6
                 const colDate = secondary ? null : weekDays[ci - 1]
+                // 즉석 할일 드롭 대상 — 월~금은 그 날짜로 이동, '다음주로 연기' 열은 연기 표시. 직전주 열은 날짜가 정해지지 않아 제외
+                const dropKey = ci === 6 ? 'defer' : colDate
+                const isQuickDrag = (e: React.DragEvent) => e.dataTransfer.types.includes(WEEK_QUICK_DND)
+                const isDropTarget = !!dropKey && weekDropDate === dropKey
                 return (
-                  <div key={`b${ci}`} data-week-body={ci} className="scrollbar-hide" style={{ gridRow: 2, gridColumn: ci + 1, minHeight: 0, overflowY: 'auto', overscrollBehavior: 'contain', padding: `${vs(4)} 12px`, borderRight: ci === 0 ? '1px solid rgba(var(--ink-rgb),0.06)' : undefined, borderLeft: ci === 6 ? '1px solid rgba(var(--ink-rgb),0.06)' : undefined }}>
+                  <div key={`b${ci}`} data-week-body={ci} className="scrollbar-hide"
+                    onDragOver={dropKey ? e => { if (!isQuickDrag(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (weekDropDate !== dropKey) setWeekDropDate(dropKey) } : undefined}
+                    onDragLeave={dropKey ? e => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setWeekDropDate(d => d === dropKey ? null : d) } : undefined}
+                    onDrop={dropKey ? e => {
+                      const id = e.dataTransfer.getData(WEEK_QUICK_DND); setWeekDropDate(null); if (!id) return; e.preventDefault()
+                      if (colDate) { moveQuickTodo(id, colDate); return }
+                      const cur = quickTodos.find(t => t.id === id)
+                      if (!cur || cur.target_date > weekSunday) return   // 이미 다음 주 이후 날짜면 그대로
+                      // 보고 있는 주의 항목은 날짜 유지, 직전주 이전에서 끌어온 항목은 보고 있는 주 월요일로 당겨 연기
+                      moveQuickTodo(id, cur.target_date >= weekMonday ? cur.target_date : weekMonday, true)
+                    } : undefined}
+                    // 세로만 contain — 가로(틸트 휠)까지 막으면 바깥 가로 스크롤로 전달되지 않는다
+                    style={{ gridRow: 2, gridColumn: ci + 1, minHeight: 0, overflowY: 'auto', overscrollBehaviorY: 'contain', padding: `${vs(4)} 12px`, borderRight: ci === 0 ? '1px solid rgba(var(--ink-rgb),0.06)' : undefined, borderLeft: ci === 6 ? '1px solid rgba(var(--ink-rgb),0.06)' : undefined, background: isDropTarget ? 'rgba(var(--accent-tint-rgb),0.10)' : undefined, boxShadow: isDropTarget ? 'inset 0 0 0 1.5px rgba(var(--accent-tint-rgb),0.45)' : undefined, borderRadius: isDropTarget ? 8 : undefined, transition: 'background 120ms ease' }}>
                     {colDate && weekAddDate === colDate && (
                       <input autoFocus value={quickAddTitle}
                         onChange={e => setQuickAddTitle(e.target.value)}

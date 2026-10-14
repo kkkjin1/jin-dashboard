@@ -422,6 +422,7 @@ export interface QuickTodo {
   title: string
   target_date: string
   done: boolean
+  deferred?: boolean   // 홈 금주 업무 '다음주로 연기' — 날짜는 원래 요일 유지, 그 주엔 연기 열·다음 주엔 직전주 미완료 열에 표시
   sort_order: number
   created_at: string
   updated_at: string
