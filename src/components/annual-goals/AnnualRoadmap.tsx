@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo, Fragment } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import type { AnnualGoalItem, AnnualGoalTask, Member, AgreedPriority, ImportanceLevel } from '@/types'
+import type { AnnualGoalItem, AnnualGoalTask, AgreedPriority, ImportanceLevel } from '@/types'
 import { GlassSelect } from '@/components/ui/GlassSelect'
 import { DateCellPicker } from '@/components/ui/MiniDatePicker'
 import { MONTH_KO, periodToDateRange, monthToDateRange, getWeekColumnsBetween, overlapsRange, type PeriodKey } from '@/lib/dateGrid'
@@ -11,7 +11,6 @@ import { ArrowUpDown, ChevronsUpDown } from 'lucide-react'
 
 // ── 상수 ────────────────────────────────────────────────────────────
 const STATUS_LABEL: Record<string, string> = { active: '진행필요', hold: '진행중', done: '진행완료' }
-const MEMBER_COLORS = ['#3B82F6','#10B981','#8B5CF6','#F59E0B','#EC4899','#06B6D4','#EF4444','#84CC16','#F97316','#A78BFA']
 
 // 카테고리 pill 배지 전용 파스텔 톤 (bg/text) — 목표/과제 행 옆의 작은 배지에만 사용
 const CATEGORY_BADGE: Record<string, { bg: string; text: string }> = {
@@ -40,15 +39,8 @@ const NEUTRAL_TEXT = 'rgba(var(--text-rgb),1)'
 const NEUTRAL_ACCENT = 'var(--accent-primary)'
 
 // 목표 행 우측 컬럼(분류/기한/진행률) 폭 — 카드의 컬럼 라벨 서브행과 실제 목표 행이 이 값을 공유해 항상 같이 정렬됨
-const ITEM_ROW_COLS = { category: 88, deadline: 78, progress: 40 } as const
+const ITEM_ROW_COLS = { importance: 60, category: 88, deadline: 78, progress: 40 } as const
 
-// HRM 기능 관점 (엑셀 1B.기능뷰 시트 기준 F1~F10) — 과제의 hrm_function 값 그대로 사용
-const HRM_FUNCTION_SHORT: Record<string, string> = {
-  'F1. 인사기획·HR전략': '인사기획', 'F2. 채용·확보': '채용', 'F3. 인력운영·유지': '인력운영', 'F4. 평가·성과관리': '평가',
-  'F5. 보상': '보상', 'F6. 교육·육성': '교육', 'F7. 조직·직무설계': '조직설계', 'F8. 노무·ER': '노무',
-  'F9. 조직문화·커뮤니케이션': '조직문화', 'F10. HR운영·시스템': '시스템',
-}
-function hrmFunctionShort(fn: string): string { return HRM_FUNCTION_SHORT[fn] ?? fn }
 function taskProgress(itemTasks: AnnualGoalTask[]): { done: number; total: number; pct: number } {
   const total = itemTasks.length
   const done = itemTasks.filter(t => t.status === 'done').length
@@ -169,7 +161,6 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
 
   const [items, setItems] = useState<AnnualGoalItem[]>([])
   const [tasks, setTasks] = useState<AnnualGoalTask[]>([])
-  const [members, setMembers] = useState<Member[]>([])
   const [loading, setLoading] = useState(true)
 
   const [editingCatKey, setEditingCatKey] = useState<string | null>(null)
@@ -218,9 +209,6 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
 
   const isAll = category === '전체'
 
-  const memberColors = useMemo(() =>
-    Object.fromEntries(members.map((m, i) => [m.id, MEMBER_COLORS[i % MEMBER_COLORS.length]])),
-  [members])
 
   // ── 데이터 로드 ──────────────────────────────────────────────────
   useEffect(() => { load() }, [category])
@@ -238,9 +226,6 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
       const { data: tData } = await supabase.from('annual_goal_tasks').select('*').in('item_id', fetchedItems.map(i => i.id)).order('sort_order')
       setTasks((tData ?? []) as AnnualGoalTask[])
     } else { setTasks([]) }
-
-    const { data: memberListData } = await supabase.from('members').select('id, name').is('archived_at', null).order('name')
-    setMembers((memberListData ?? []) as Member[])
 
     setLoading(false)
   }
@@ -298,13 +283,16 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
     await supabase.from('annual_goal_tasks').update({ status: next }).eq('id', task.id)
     setTasks(p => p.map(t => t.id === task.id ? { ...t, status: next } : t))
   }
-  async function updateTaskAssignee(taskId: string, assigneeId: string | null) {
-    await supabase.from('annual_goal_tasks').update({ assignee_id: assigneeId }).eq('id', taskId)
-    setTasks(p => p.map(t => t.id === taskId ? { ...t, assignee_id: assigneeId } : t))
-  }
   async function updateAgreedPriority(taskId: string, v: AgreedPriority | null) {
     await supabase.from('annual_goal_tasks').update({ agreed_priority: v }).eq('id', taskId)
     setTasks(p => p.map(t => t.id === taskId ? { ...t, agreed_priority: v } : t))
+  }
+  // 목표 중요성 → 하위 과제 전체에 일괄 적용 (완료 과제 포함)
+  async function updateItemImportance(itemId: string, v: ImportanceLevel | null) {
+    const prev = tasks
+    setTasks(p => p.map(t => t.item_id === itemId ? { ...t, hr_importance: v } : t))
+    const { error } = await supabase.from('annual_goal_tasks').update({ hr_importance: v }).eq('item_id', itemId)
+    if (error) { console.error('중요성 일괄 저장 실패:', error.message); setTasks(prev) }
   }
   async function updateTaskImportance(taskId: string, v: ImportanceLevel | null) {
     await supabase.from('annual_goal_tasks').update({ hr_importance: v }).eq('id', taskId)
@@ -484,7 +472,7 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
   ) : null
 
   // ── 과제 한 행 렌더 (목록/기능/우선순위 모드 공용) ──────────────
-  function renderTaskRow(task: AnnualGoalTask, itemColor: string, contextBadge?: string, showFunctionCol = true, extraCol?: React.ReactNode, extraCells?: { key: string; width: number; content: React.ReactNode }[]) {
+  function renderTaskRow(task: AnnualGoalTask, itemColor: string, contextBadge?: string, extraCol?: React.ReactNode, extraCells?: { key: string; width: number; content: React.ReactNode }[]) {
     return (
       <div key={task.id}
         className="group/trow flex hover:bg-[rgba(59,130,246,0.04)] transition-colors"
@@ -532,16 +520,6 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
             {c.content}
           </div>
         ))}
-        <div style={{ width: 92, padding: '7px 8px', borderLeft: S.bdL, display: 'flex', alignItems: 'center' }}>
-          <GlassSelect
-            value={task.assignee_id ?? ''}
-            onChange={v => updateTaskAssignee(task.id, v || null)}
-            options={members.map(m => ({ value: m.id, label: m.name, color: memberColors[m.id] }))}
-            placeholder="-"
-            variant="inline"
-            avatarSize={18}
-          />
-        </div>
         <div style={{ width: 100, padding: '7px 8px', borderLeft: S.bdL, display: 'flex', alignItems: 'center' }} onClick={e => openSchedulePicker(e, task.id)}>
           {formatSchedule(task, scheduleUnit) ? (
             <span style={{ fontSize: 11, color: task.roadmap_start_date ? 'var(--text-secondary)' : S.t3, cursor: 'pointer' }}>{formatSchedule(task, scheduleUnit)}</span>
@@ -549,11 +527,6 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
             <span style={{ fontSize: 10, color: 'rgba(var(--text-rgb),0.2)', cursor: 'pointer' }}>+ 설정</span>
           )}
         </div>
-        {showFunctionCol && (
-          <div style={{ width: 68, padding: '7px 4px', borderLeft: S.bdL, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            {task.hrm_function && <span style={{ fontSize: 9, fontWeight: 600, color: 'rgba(var(--text-rgb),0.85)', background: 'rgba(var(--ink-rgb),0.06)', padding: '1px 6px', borderRadius: 999 }}>{hrmFunctionShort(task.hrm_function)}</span>}
-          </div>
-        )}
         <div style={{ width: 60, padding: '7px 6px', borderLeft: S.bdL, display: 'flex', alignItems: 'center' }} onClick={e => e.stopPropagation()}>
           <GlassSelect value={task.hr_importance ?? ''} onChange={v => updateTaskImportance(task.id, (v || null) as ImportanceLevel | null)} options={IMPORTANCE_OPTIONS} placeholder="-" variant="inline" />
         </div>
@@ -585,7 +558,7 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
   }
 
   // ── 과제 테이블 컬럼 헤더 (목록/기능/우선순위 모드 공용) ────────
-  function renderColumnHeader(showFunctionCol = true, showLinkCol = false, extraHeaderCols?: { key: string; label: string; width: number; sortDir?: 'asc' | 'desc' | null; onSortClick?: () => void }[]) {
+  function renderColumnHeader(showLinkCol = false, extraHeaderCols?: { key: string; label: string; width: number; sortDir?: 'asc' | 'desc' | null; onSortClick?: () => void }[]) {
     const hd: React.CSSProperties = { fontSize: 10, fontWeight: 700, color: S.t3, letterSpacing: '.05em', textTransform: 'uppercase', padding: '6px 8px', borderLeft: S.bdL }
     return (
       <div className="flex" style={{ borderTop: '0.5px solid rgba(var(--ink-rgb),0.06)' }}>
@@ -600,9 +573,7 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
             ) : c.label}
           </div>
         ))}
-        <div style={{ width: 92, ...hd }}>담당자</div>
         <div style={{ width: 100, ...hd }}>일정({scheduleUnit === 'month' ? '월' : '주'})</div>
-        {showFunctionCol && <div style={{ width: 68, ...hd }}>기능</div>}
         <div style={{ width: 60, ...hd }}>중요성</div>
         <div style={{ width: 90, ...hd }}>경영진 싱크</div>
         {showLinkCol && <div style={{ width: 170, ...hd }}>프로젝트 연동</div>}
@@ -620,6 +591,13 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
     const isOpen = openItems.has(item.id)
     const itemBg = draggingItemId === item.id ? 'rgba(0,0,0,0.08)' : dragOverItemId === item.id ? 'rgba(var(--ink-rgb),0.07)' : 'transparent'
     const progress = taskProgress(itemTasksAll)
+    // 목표 중요성 — 하위 과제 값이 모두 같으면 그 값, 섞여 있으면 '혼합'
+    const impValues = new Set(itemTasksAll.map(t => t.hr_importance ?? ''))
+    const itemImportance = impValues.size === 1 ? [...impValues][0] : ''
+    const importanceSelect = (
+      <GlassSelect value={itemImportance} onChange={v => updateItemImportance(item.id, (v || null) as ImportanceLevel | null)}
+        options={IMPORTANCE_OPTIONS} placeholder={impValues.size > 1 ? '혼합' : '-'} variant="inline" />
+    )
 
     return (
       <div key={item.id}
@@ -654,6 +632,11 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
           <span style={{ fontSize: 10, color: S.t3, background: 'rgba(var(--ink-rgb),0.1)', padding: '1px 6px', borderRadius: 99, flexShrink: 0 }}>{visibleTasks.length}</span>
 
           <div className="ml-auto flex items-center gap-3 flex-shrink-0">
+            {/* 중요성 컬럼 — 고르면 하위 과제 전체에 같은 값이 적용됨 */}
+            <div style={{ width: ITEM_ROW_COLS.importance, flexShrink: 0, display: 'flex', alignItems: 'center' }} onClick={e => e.stopPropagation()}>
+              {importanceSelect}
+            </div>
+
             {/* 분류 컬럼 — 라벨 서브행의 '분류'와 폭(ITEM_ROW_COLS.category) 공유 */}
             <div style={{ width: ITEM_ROW_COLS.category, flexShrink: 0, display: 'flex', alignItems: 'center' }}>
               {isAll && (() => {
@@ -741,6 +724,8 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
                 onChange={v => updateItemDeadline(item.id, v)}
               />
             </div>
+
+            <div className="flex-shrink-0" style={{ width: ITEM_ROW_COLS.importance }} onClick={e => e.stopPropagation()}>{importanceSelect}</div>
 
             {progress.total > 0 && (
               <div className="flex-shrink-0">
@@ -849,6 +834,7 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
                     <div className="hidden md:flex items-center" style={{ padding: '8px 16px', borderBottom: '0.5px solid rgba(var(--ink-rgb),0.06)' }}>
                       <span style={{ flex: 1, marginLeft: 39, fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>목표</span>
                       <div className="flex items-center gap-3 flex-shrink-0">
+                        <span style={{ width: ITEM_ROW_COLS.importance, flexShrink: 0, fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>중요성</span>
                         <span style={{ width: ITEM_ROW_COLS.category, flexShrink: 0, fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>분류</span>
                         <span style={{ width: ITEM_ROW_COLS.deadline, flexShrink: 0, fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>기한</span>
                         <span style={{ width: ITEM_ROW_COLS.progress, flexShrink: 0, fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>진행률</span>
@@ -942,6 +928,15 @@ function AnnualRoadmapView({
   const [pickerPos, setPickerPos] = useState<{ x: number; y: number } | null>(null)
   const [rdDraggingId, setRdDraggingId] = useState<string | null>(null)
   const [rdDragOverId, setRdDragOverId] = useState<string | null>(null)
+  // 일정 드래그 — 빈 칸: 새 기간 선택 / 막대 가운데: 이동 / 막대 양 끝: 시작·종료 조절 (열 단위로 맞춰 저장)
+  type BarDrag = { taskId: string; mode: 'new' | 'move' | 'start' | 'end'; anchor: number; first: number; last: number; cur: number }
+  const [barDrag, setBarDrag] = useState<BarDrag | null>(null)
+  useEffect(() => {
+    if (!barDrag) return
+    const cancel = () => setBarDrag(null)
+    window.addEventListener('mouseup', cancel)
+    return () => window.removeEventListener('mouseup', cancel)
+  }, [barDrag])
 
   const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), [])
 
@@ -951,6 +946,28 @@ function AnnualRoadmapView({
   }, [zoom, yearNav])
 
   const W_COL = zoom.level === 'week' ? 58 : 68
+
+  function barDragRange(d: BarDrag): [number, number] {
+    if (d.mode === 'new') return [Math.min(d.anchor, d.cur), Math.max(d.anchor, d.cur)]
+    if (d.mode === 'start') return [Math.min(d.cur, d.last), Math.max(d.cur, d.last)]
+    if (d.mode === 'end') return [Math.min(d.first, d.cur), Math.max(d.first, d.cur)]
+    const delta = Math.max(-d.first, Math.min(cols.length - 1 - d.last, d.cur - d.anchor))
+    return [d.first + delta, d.last + delta]
+  }
+  function startBarDrag(e: React.MouseEvent, taskId: string, ci: number, first: number, last: number) {
+    if (e.button !== 0) return
+    e.preventDefault(); e.stopPropagation()
+    const onBar = first >= 0 && ci >= first && ci <= last
+    const mode: BarDrag['mode'] = !onBar ? 'new' : last > first && ci === first ? 'start' : last > first && ci === last ? 'end' : 'move'
+    setBarDrag({ taskId, mode, anchor: ci, first, last, cur: ci })
+  }
+  function finishBarDrag(task: AnnualGoalTask) {
+    if (!barDrag || barDrag.taskId !== task.id) return
+    const [a, b] = barDragRange(barDrag)
+    const unchanged = barDrag.mode !== 'new' && a === barDrag.first && b === barDrag.last
+    setBarDrag(null)
+    if (!unchanged) updateTaskRoadmapRange(task.id, cols[a].start, cols[b].end)
+  }
 
   function openMonth(month1to12: number) {
     const r = monthToDateRange(yearNav, month1to12)
@@ -1104,16 +1121,17 @@ function AnnualRoadmapView({
           })()}
         </tr>
         {isOpen && orderedTasks.map(task => {
-          const inRangeArr = cols.map(col => overlapsRange(task.roadmap_start_date, task.roadmap_end_date, col.start, col.end))
-          const firstIdx = inRangeArr.indexOf(true)
-          const lastIdx = inRangeArr.lastIndexOf(true)
+          const savedArr = cols.map(col => overlapsRange(task.roadmap_start_date, task.roadmap_end_date, col.start, col.end))
+          const savedFirst = savedArr.indexOf(true)
+          const savedLast = savedArr.lastIndexOf(true)
+          // 드래그 중이면 미리보기 범위로 그린다
+          const dragging = barDrag?.taskId === task.id ? barDrag : null
+          const [firstIdx, lastIdx] = dragging ? barDragRange(dragging) : [savedFirst, savedLast]
+          const inRangeArr = cols.map((_, ci) => firstIdx >= 0 && ci >= firstIdx && ci <= lastIdx)
           const isRdOver = rdDragOverId === task.id
           const isRdDragging = rdDraggingId === task.id
           return (
             <tr key={task.id}
-              draggable={!prioritySort}
-              onDragStart={e => { e.stopPropagation(); _dragTaskId = task.id; e.dataTransfer.effectAllowed = 'move'; setRdDraggingId(task.id) }}
-              onDragEnd={() => { _dragTaskId = null; setRdDraggingId(null); setRdDragOverId(null) }}
               onDragOver={e => { if (!_dragTaskId || _dragTaskId === task.id) return; e.preventDefault(); e.stopPropagation(); setRdDragOverId(task.id) }}
               onDrop={e => { e.preventDefault(); e.stopPropagation(); if (_dragTaskId && _dragTaskId !== task.id) reorderTask(_dragTaskId, task.id); _dragTaskId = null; setRdDraggingId(null); setRdDragOverId(null) }}
               onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setRdDragOverId(null) }}
@@ -1123,7 +1141,10 @@ function AnnualRoadmapView({
               <td style={{ position: 'sticky', left: 0, zIndex: 1, background: S.bg, borderRight: S.bd }} />
               <td style={{ position: 'sticky', left: W_ITEM, zIndex: 1, background: S.bg, borderRight: S.bdL, padding: '7px 10px 7px 26px' }}>
                 <div className="flex items-center gap-1.5" style={{ minWidth: 0 }}>
-                  {!prioritySort && <span className="opacity-0 group-hover/rdtask:opacity-100 cursor-grab text-gray-300 text-xs select-none" style={{ fontSize: 12 }}>⠿</span>}
+                  {!prioritySort && <span draggable
+                    onDragStart={e => { e.stopPropagation(); _dragTaskId = task.id; e.dataTransfer.effectAllowed = 'move'; setRdDraggingId(task.id) }}
+                    onDragEnd={() => { _dragTaskId = null; setRdDraggingId(null); setRdDragOverId(null) }}
+                    className="opacity-0 group-hover/rdtask:opacity-100 cursor-grab text-gray-300 text-xs select-none" style={{ fontSize: 12 }}>⠿</span>}
                   <button onClick={e => openPicker(e, task.id)}
                     style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 999, cursor: 'pointer', minWidth: 20, textAlign: 'center', flexShrink: 0,
                       color: task.roadmap_start_date ? S.t2 : 'var(--text-muted)',
@@ -1139,9 +1160,17 @@ function AnnualRoadmapView({
                 const isCur = col.start <= todayStr && todayStr <= col.end
                 const isFirst = ci === firstIdx, isLast = ci === lastIdx
                 return (
-                  <td key={col.start} style={{ borderLeft: S.bd, padding: '8px 1px', verticalAlign: 'middle', background: isCur ? 'rgba(var(--ink-rgb),0.05)' : undefined }}>
+                  <td key={col.start}
+                    onMouseDown={e => startBarDrag(e, task.id, ci, savedFirst, savedLast)}
+                    onMouseEnter={() => { if (dragging && dragging.cur !== ci) setBarDrag({ ...dragging, cur: ci }) }}
+                    onMouseUp={() => finishBarDrag(task)}
+                    title={inRange ? '드래그: 가운데는 이동, 양 끝은 기간 조절' : '드래그해서 기간 선택'}
+                    style={{ borderLeft: S.bd, padding: '8px 1px', verticalAlign: 'middle', userSelect: 'none',
+                      cursor: !inRange ? 'crosshair' : lastIdx > firstIdx && (ci === firstIdx || ci === lastIdx) ? 'ew-resize' : 'grab',
+                      background: isCur ? 'rgba(var(--ink-rgb),0.05)' : undefined }}>
                     {inRange && (
                       <div style={{
+                        opacity: dragging ? 0.75 : 1,
                         // 과제(하위) 바 — 목표 바(barTrackUpper, 12px)보다 얇고(8px) 옅은 solid 톤(barTrack/barFillSub)을 써서, 두께+색 둘 다로 상/하위가 구분됨
                         height: 8, borderRadius: isFirst && isLast ? 4 : isFirst ? '4px 0 0 4px' : isLast ? '0 4px 4px 0' : 0,
                         background: task.status === 'done' ? barFillSub : barTrack,
