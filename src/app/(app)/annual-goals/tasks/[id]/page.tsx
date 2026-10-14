@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import type { AnnualGoalTask, AnnualGoalTaskNote, Attachment, Member, ImportanceLevel, AgreedPriority } from '@/types'
+import type { AnnualGoalTask, AnnualGoalTaskNote, Attachment, Member, ImportanceLevel } from '@/types'
 import TiptapEditor from '@/components/TiptapEditor'
 import { GlassSelect } from '@/components/ui/GlassSelect'
 import { DateCellPicker } from '@/components/ui/MiniDatePicker'
@@ -21,11 +21,6 @@ const IMPORTANCE_OPTIONS: { value: ImportanceLevel; label: string; color: string
   { value: '상', label: '상', color: '#EF4444' },
   { value: '중', label: '중', color: '#F59E0B' },
   { value: '하', label: '하', color: '#9CA3AF' },
-]
-const PRIORITY_OPTIONS: { value: AgreedPriority; label: string; color: string }[] = [
-  { value: '1순위', label: '1순위', color: '#3B82F6' },
-  { value: '2순위', label: '2순위', color: '#8B5CF6' },
-  { value: '유예',   label: '유예',   color: '#6B7280' },
 ]
 
 function NoteTitleInput({ note, placeholder, onSave }: { note: AnnualGoalTaskNote; placeholder: string; onSave: (title: string) => void }) {
@@ -169,10 +164,6 @@ export default function AnnualGoalTaskDetailPage() {
     await supabase.from('annual_goal_tasks').update({ hr_importance: v }).eq('id', id)
     setTask(p => p ? { ...p, hr_importance: v } : p)
   }
-  async function updateAgreedPriority(v: AgreedPriority | null) {
-    await supabase.from('annual_goal_tasks').update({ agreed_priority: v }).eq('id', id)
-    setTask(p => p ? { ...p, agreed_priority: v } : p)
-  }
 
   function formatNoteDate(dateStr: string) {
     const d = new Date(dateStr)
@@ -313,10 +304,6 @@ export default function AnnualGoalTaskDetailPage() {
             <div className="flex items-center gap-2">
               <span className="text-xs text-[rgba(var(--text-rgb),0.5)]">중요성</span>
               <GlassSelect value={task.hr_importance ?? ''} onChange={v => updateImportance((v || null) as ImportanceLevel | null)} options={IMPORTANCE_OPTIONS} placeholder="미정" variant="pill" activeWhenFilled />
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-[rgba(var(--text-rgb),0.5)]">합의 우선순위</span>
-              <GlassSelect value={task.agreed_priority ?? ''} onChange={v => updateAgreedPriority((v || null) as AgreedPriority | null)} options={PRIORITY_OPTIONS} placeholder="미정" variant="pill" activeWhenFilled />
             </div>
           </div>
         </div>
