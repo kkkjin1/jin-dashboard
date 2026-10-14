@@ -116,13 +116,15 @@ function weekRange(offsetWeeks: number): [string, string] {
 interface Scope { key: string; label: string; from: string; to: string }
 
 /* ── 행 컴포넌트 ── */
-function JournalRow({ journal, isFirst, isLast, selectMode, selected, flash, rowRef, onToggleSelect, onOpen, onDelete }: {
+function JournalRow({ journal, isFirst, isLast, selectMode, selected, flash, masked, rowRef, onToggleSelect, onOpen, onDelete }: {
   journal: DailyJournal
   isFirst: boolean
   isLast: boolean
   selectMode: boolean
   selected: boolean
   flash: boolean
+  /** 본문 가리기 — 옆 사람 시선 차단용 화면 블러(데이터는 그대로). 행에 마우스를 올리거나 포커스하면 그 행만 보임 */
+  masked: boolean
   rowRef: (el: HTMLDivElement | null) => void
   onToggleSelect: (date: string) => void
   onOpen: (j: DailyJournal) => void
@@ -176,7 +178,7 @@ function JournalRow({ journal, isFirst, isLast, selectMode, selected, flash, row
       </div>
 
       {/* 본문 preview — 실제 원문을 그대로 2줄까지 */}
-      <div className="flex-1 min-w-0 py-3.5 pl-2 pr-2">
+      <div className={`flex-1 min-w-0 py-3.5 pl-2 pr-2 transition-[filter] duration-150 ${masked ? 'blur-[5px] group-hover:blur-none group-focus-visible:blur-none' : ''}`}>
         <p className="text-[13.5px] leading-[1.6] line-clamp-2 break-words" style={{ color: preview ? 'rgba(var(--text-rgb),0.88)' : 'var(--text-muted)' }}>
           {preview || '(내용 없음)'}
         </p>
@@ -305,6 +307,17 @@ export default function JournalPage() {
   const [collapsedMonths, setCollapsedMonths] = useState<Set<string>>(new Set())
   const [calYm, setCalYm] = useState(() => ymOf(new Date()))
   const [flashDate, setFlashDate] = useState<string | null>(null)
+  // 본문 가리기 — 기본 켜짐, 이 브라우저에만 기억
+  // (첫 렌더는 로딩 스켈레톤이라 서버/클라이언트 값 차이가 화면에 드러나지 않음)
+  const [masked, setMasked] = useState(() => {
+    try { return typeof window === 'undefined' || localStorage.getItem('journal_mask_body') !== '0' } catch { return true }
+  })
+  function toggleMasked() {
+    setMasked(prev => {
+      try { localStorage.setItem('journal_mask_body', prev ? '0' : '1') } catch {}
+      return !prev
+    })
+  }
   const [pendingJump, setPendingJump] = useState<string | null>(null)
   const [editorState, setEditorState] = useState<{
     date: string
@@ -569,6 +582,10 @@ export default function JournalPage() {
             <span className="text-[12px] tabular-nums" style={{ color: 'var(--text-muted)' }}>{displayed.length}건 표시</span>
 
             <div className="ml-auto flex items-center gap-1">
+              <button onClick={toggleMasked} className={ghostBtn} style={{ color: masked ? 'var(--text-secondary)' : 'var(--accent-text)' }}
+                title={masked ? '본문이 가려져 있습니다. 행에 마우스를 올리면 그 행만 보입니다' : '본문을 다시 가립니다'}>
+                {masked ? '본문 보기' : '본문 가리기'}
+              </button>
               {showSelectBar ? (
                 <>
                   <span className="text-[12px] tabular-nums mr-1" style={{ color: 'var(--text-secondary)' }}>{selected.size}개 선택</span>
@@ -633,6 +650,7 @@ export default function JournalPage() {
                             selectMode={selectMode}
                             selected={selected.has(j.date)}
                             flash={flashDate === j.date}
+                            masked={masked}
                             rowRef={el => { if (el) rowRefs.current.set(j.date, el); else rowRefs.current.delete(j.date) }}
                             onToggleSelect={toggleSelect}
                             onOpen={j => openEditor(j.date, j)}
