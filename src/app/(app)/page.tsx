@@ -968,9 +968,6 @@ function WeekPicker({ weekMonday, today, onPick, onClose }: {
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function HomePage() {
   const router = useRouter()
-  const [doneTasks,     setDoneTasks]     = useState<string[]>([])
-  const [doneAgenda,    setDoneAgenda]    = useState<string[]>([])
-  const [doneQuick,     setDoneQuick]     = useState<string[]>([])
   const [quickTodos,    setQuickTodos]    = useState<QuickTodo[]>([])
   const [quickAddOpen,  setQuickAddOpen]  = useState(false)
   const [quickAddTitle, setQuickAddTitle] = useState('')
@@ -1001,6 +998,7 @@ export default function HomePage() {
   stColsRef.current = stCols   // always fresh — reads latest value at drag start
 
   const [subTasks,      setSubTasks]      = useState<SubTaskWithContext[]>([])
+  const [doneSubTasks,  setDoneSubTasks]  = useState<SubTaskWithContext[]>([])   // 금주 업무에 취소선으로 남길 최근 완료 안건 세부task
   const [allTaskTodos,  setAllTaskTodos]  = useState<TodayTodo[]>([])
   const [meetings,      setMeetings]      = useState<Meeting[]>([])
   const [notesByMeeting, setNotesByMeeting] = useState<Record<string, MeetingNotesGrouped>>({})
@@ -1049,20 +1047,24 @@ export default function HomePage() {
       const [
         { data: stData }, { data: taskTodoData },
         { data: mData },  { data: mmData }, { data: jData },
-        { data: qtData },
+        { data: qtData }, { data: doneStData },
       ] = await Promise.all([
         sb.current.from('agenda_sub_tasks').select('*, agenda_items(id, title, agenda_groups(name, color, category)), sub_task_notes(created_at, edited_at, content)').eq('status', 'active').order('sort_order').limit(100),
         // schedule_tag는 배정 시점의 스냅샷이라 자정이 지나도 갱신되지 않음 — target_date를 기준으로 오늘/금주 분류
-        sb.current.from('task_todos').select('*, tasks(id, title, short_name, part)').eq('done', false).order('sort_order').limit(60),
+        // 완료 항목도 금주 업무에 취소선으로 남기기 위해 최근 60일치 완료분을 함께 읽는다.
+        sb.current.from('task_todos').select('*, tasks(id, title, short_name, part)').or(`done.eq.false,target_date.gte.${shiftDateStr(today, -60)}`).order('sort_order').limit(200),
         sb.current.from('meetings').select('*').order('meeting_date', { ascending: false }).limit(20),
         sb.current.from('quick_memos').select('*').order('created_at', { ascending: false }).limit(100),
         sb.current.from('daily_journals').select('id, date, content, linked_task_ids, linked_meeting_ids, tags').in('date', [today, yesterday]),
         // 프로젝트/안건에 속하지 않는 즉석 추가 할일 — quick_todos 전용 테이블 (schedule 탭과 공유).
         // 금주 업무 7열이 요일별로 보여주므로 일정 탭과 같이 미완료 전체를 읽고, '오늘'은 화면에서 거른다.
-        sb.current.from('quick_todos').select('*').eq('done', false).order('sort_order'),
+        // 완료 항목도 취소선으로 남겨 보여주기 위해 최근 60일치 완료분을 함께 읽는다.
+        sb.current.from('quick_todos').select('*').or(`done.eq.false,target_date.gte.${shiftDateStr(today, -60)}`).order('sort_order'),
+        sb.current.from('agenda_sub_tasks').select('*, agenda_items(id, title, agenda_groups(name, color, category)), sub_task_notes(created_at, edited_at, content)').eq('status', 'done').gte('target_date', shiftDateStr(today, -60)).order('sort_order').limit(100),
       ])
 
       setSubTasks((stData ?? []) as SubTaskWithContext[])
+      setDoneSubTasks((doneStData ?? []) as SubTaskWithContext[])
       setAllTaskTodos((taskTodoData ?? []) as TodayTodo[])
       const loadedMeetings = (mData ?? []) as Meeting[]
       setMeetings(loadedMeetings)
@@ -1215,12 +1217,18 @@ export default function HomePage() {
     })
   }, [subTasks, stSort])
 
+  // 완료해도 목록에서 빼지 않고 취소선으로 남김 — 다시 누르면 완료 취소
   async function toggleTask(id: string) {
-    // 체크 시만 완료 처리 (토글 아님 — 취소 불필요)
-    setDoneTasks(p => [...p, id])
-    await sb.current.from('task_todos').update({ done: true }).eq('id', id)
-    // 애니메이션 후 목록에서 제거
-    setTimeout(() => setAllTaskTodos(p => p.filter(t => t.id !== id)), 600)
+    const cur = allTaskTodos.find(t => t.id === id)
+    if (!cur) return
+    const done = !cur.done
+    const doneAt = done ? new Date().toISOString() : null
+    setAllTaskTodos(p => p.map(t => t.id === id ? { ...t, done, done_at: doneAt } : t))
+    const { error } = await sb.current.from('task_todos').update({ done, done_at: doneAt }).eq('id', id)
+    if (error) {
+      console.error('할 일 완료 처리 실패:', error.message)
+      setAllTaskTodos(p => p.map(t => t.id === id ? { ...t, done: cur.done, done_at: cur.done_at } : t))
+    }
   }
 
   // 즉석 할일 (quick_todos) — 프로젝트 상세task/안건에 속하지 않는, 홈에서 바로 추가하는 가벼운 항목
@@ -1236,10 +1244,17 @@ export default function HomePage() {
     setWeekAddDate(null)
   }
 
+  // 완료해도 목록에서 빼지 않고 취소선으로 남김 — 다시 누르면 완료 취소
   async function toggleQuickTodo(id: string) {
-    setDoneQuick(p => [...p, id])
-    await sb.current.from('quick_todos').update({ done: true }).eq('id', id)
-    setTimeout(() => setQuickTodos(p => p.filter(t => t.id !== id)), 600)
+    const cur = quickTodos.find(t => t.id === id)
+    if (!cur) return
+    const done = !cur.done
+    setQuickTodos(p => p.map(t => t.id === id ? { ...t, done } : t))
+    const { error } = await sb.current.from('quick_todos').update({ done }).eq('id', id)
+    if (error) {
+      console.error('즉석 할일 완료 처리 실패:', error.message)
+      setQuickTodos(p => p.map(t => t.id === id ? { ...t, done: cur.done } : t))
+    }
   }
 
   function removeQuickTodo(id: string) {
@@ -1248,10 +1263,24 @@ export default function HomePage() {
       .then(({ error }) => { if (error) console.error('즉석 할일 삭제 실패:', error.message) })
   }
 
+  // 완료 시 진행중 목록(subTasks)에서 완료 목록(doneSubTasks)으로 옮겨 금주 업무에는 취소선으로 남김 — 다시 누르면 진행중으로 복귀
   async function completeSubTask(id: string) {
-    setDoneAgenda(p => [...p, id])
-    await sb.current.from('agenda_sub_tasks').update({ status: 'done' }).eq('id', id)
-    setTimeout(() => setSubTasks(p => p.filter(st => st.id !== id)), 600)
+    const active = subTasks.find(st => st.id === id)
+    const finished = doneSubTasks.find(st => st.id === id)
+    const cur = active ?? finished
+    if (!cur) return
+    const status = active ? 'done' : 'active'
+    const moved = { ...cur, status } as SubTaskWithContext
+    const apply = (toDone: boolean, item: SubTaskWithContext) => {
+      setSubTasks(p => toDone ? p.filter(st => st.id !== id) : [...p.filter(st => st.id !== id), item].sort((a, b) => a.sort_order - b.sort_order))
+      setDoneSubTasks(p => toDone ? [...p.filter(st => st.id !== id), item] : p.filter(st => st.id !== id))
+    }
+    apply(status === 'done', moved)
+    const { error } = await sb.current.from('agenda_sub_tasks').update({ status }).eq('id', id)
+    if (error) {
+      console.error('세부task 완료 처리 실패:', error.message)
+      apply(status !== 'done', cur)
+    }
   }
 
   async function assignSubTaskDate(id: string, date: string) {
@@ -1389,7 +1418,9 @@ export default function HomePage() {
   // task_todos → target_date 기준 분류 (schedule_tag는 배정 시점 스냅샷이라 자정 경과 후에도 안 바뀜 → 신뢰하지 않음)
   const todayQuickTodos = quickTodos.filter(q => q.target_date === today)
   const todayTodos = allTaskTodos.filter(t => t.target_date ? t.target_date === today : t.schedule_tag === 'today')
-  const timelineTodos = isTimelineToday ? todayTodos : allTaskTodos.filter(t => t.target_date === timelineDate)
+  const timelineTodos = (isTimelineToday ? todayTodos : allTaskTodos.filter(t => t.target_date === timelineDate)).filter(t => !t.done)
+  // 오늘 업무 건수 — 취소선으로 남은 완료분은 세지 않음
+  const todayOpenCount = todayTodos.filter(t => !t.done).length + todayQuickTodos.filter(q => !q.done).length
   const meetingsForJournal = meetings.map(m => ({ id: m.id, title: m.title, meeting_date: m.meeting_date ?? undefined }))
 
   const skel = (n: number) => Array.from({ length: n }, (_, i) => (
@@ -1442,18 +1473,21 @@ export default function HomePage() {
     // target_date 없는 구 데이터는 schedule_tag 스냅샷으로 대체 (기존 오늘/금주 분류와 동일한 우선순위)
     const date = t.target_date ?? (t.schedule_tag === 'today' ? today : t.schedule_tag === 'tomorrow' ? wkTomorrow : t.schedule_tag === 'this_week' ? weekDays[4] : null)
     const c = weekCol(date)
+    if (t.done && (c === 0 || c === -2)) continue   // 직전주/이전 '미완료' 집계에서 완료분 제외
     const it: WeekItem = { key: `td_${t.id}`, kind: 'todo', title: t.title, meta: t.tasks?.short_name ?? t.tasks?.title ?? '', date: date!, todo: t }
     if (c === -2) olderItems.push(it)
     if (c >= 0) weekCols[c].push(it)
   }
   for (const q of quickTodos) {
     const c = weekCol(q.target_date)
+    if (q.done && (c === 0 || c === -2)) continue   // 직전주/이전 '미완료' 집계에서 완료분 제외
     const it: WeekItem = { key: `qt_${q.id}`, kind: 'quick', title: q.title, meta: '즉석 할 일', date: q.target_date!, quick: q }
     if (c === -2) olderItems.push(it)
     if (c >= 0) weekCols[c].push(it)
   }
-  for (const st of subTasks) {
+  for (const st of [...subTasks, ...doneSubTasks].sort((a, b) => a.sort_order - b.sort_order)) {
     const c = weekCol(st.target_date)
+    if (st.status === 'done' && (c === 0 || c === -2)) continue
     const it: WeekItem = { key: `st_${st.id}`, kind: 'agenda', title: st.title, meta: st.agenda_items?.title ?? '', date: st.target_date!, st }
     if (c === -2) olderItems.push(it)
     if (c >= 0) weekCols[c].push(it)
@@ -1530,7 +1564,7 @@ export default function HomePage() {
       )
     }
     if (item.kind === 'todo' && item.todo) {
-      const t = item.todo, done = doneTasks.includes(t.id)
+      const t = item.todo, done = t.done
       return (
         <ListRow key={item.key} style={rowStyle} draggable
           onDragStart={e => { e.dataTransfer.setData('tl-extra', JSON.stringify({ id: `todo_${t.id}`, title: t.title, subtitle: t.tasks?.short_name ?? t.tasks?.title ?? '' })); e.dataTransfer.effectAllowed = 'copy' }}>
@@ -1539,7 +1573,7 @@ export default function HomePage() {
       )
     }
     if (item.kind === 'quick' && item.quick) {
-      const q = item.quick, done = doneQuick.includes(q.id)
+      const q = item.quick, done = q.done
       return (
         <ListRow key={item.key} style={rowStyle}>
           <div className="group" style={rowInner}>
@@ -1550,7 +1584,7 @@ export default function HomePage() {
         </ListRow>
       )
     }
-    const st = item.st!, done = doneAgenda.includes(st.id)
+    const st = item.st!, done = st.status === 'done'
     const showPicker = datePickerStId === st.id
     return (
       <ListRow key={item.key} style={rowStyle} draggable
@@ -1613,7 +1647,7 @@ export default function HomePage() {
               ? <p className="text-[13px] py-1" style={{ color: TEXT3 }}>오늘 할 일이 없어요</p>
               : <>
                   {todayTodos.map((t, i) => {
-                    const done = doneTasks.includes(t.id)
+                    const done = t.done
                     return (
                       <div key={t.id} className="flex items-center gap-3 py-2.5" style={rd(i, todayTodos.length + todayQuickTodos.length)}>
                         <button onClick={() => toggleTask(t.id)} className="flex-shrink-0 rounded-full border-2 flex items-center justify-center"
@@ -1629,7 +1663,7 @@ export default function HomePage() {
                     )
                   })}
                   {todayQuickTodos.map((t, i) => {
-                    const done = doneQuick.includes(t.id)
+                    const done = t.done
                     return (
                       <div key={t.id} className="flex items-center gap-3 py-2.5" style={rd(todayTodos.length + i, todayTodos.length + todayQuickTodos.length)}>
                         <button onClick={() => toggleQuickTodo(t.id)} className="flex-shrink-0 rounded-full border-2 flex items-center justify-center"
@@ -1773,7 +1807,7 @@ export default function HomePage() {
               {!loading && (
                 <>
                   <KpiChip dot="#5B7EC4" label={`오늘 일정 ${todayMeetings.length + (isTimelineToday ? googleEvents.length : 0)}건`} />
-                  <KpiChip dot="#7878D8" label={`오늘 업무 ${todayTodos.length + todayQuickTodos.length}건`} />
+                  <KpiChip dot="#7878D8" label={`오늘 업무 ${todayOpenCount}건`} />
                   <KpiChip dot="#38BE98" label={`진행중 과업 ${subTasks.length}건`} />
                   <KpiChip dot={todayJournal ? '#38BE98' : '#C86868'} label={todayJournal ? '회고 작성완료' : '회고 미작성'} onClick={() => setShowJournal(true)} />
                 </>
