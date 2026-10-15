@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect, useMemo, Fragment } from 'react'
+import { useState, useRef, useEffect, useMemo, useCallback, Fragment } from 'react'
 import { CATEGORY_PALETTE, MEMO_TAG, MEETING_CATEGORY, FIXED_MEETING_TAGS, colorKeyFromName, PART_COLOR } from '@/lib/categoryColors'
 import { useOrgData } from '@/hooks/useOrgData'
 import { createPortal } from 'react-dom'
@@ -248,6 +248,104 @@ const EV_COLS = [
   { bg: 'rgba(45,48,125,0.58)',  bd: 'rgba(70,76,178,0.22)' },
 ]
 
+// ── TimelineCard — 2행(회의·고정회의·할일·업무·드래그 항목) 공통 카드 ─────────
+// 드래그로 이동/끝시간 조절, 움직이지 않고 떼면 클릭 — 제목이 잘린 경우에만 확대 팝오버를 연다.
+type TlCardInfo = {
+  title: string; subtitle?: string; range: string
+  bg: string; bd: string; light?: boolean   // light: 밝은 배경(구글캘린더) — 글자색을 본문색으로
+  action?: { label: string; run: () => void }
+  anchor: { left: number; top: number; width: number; height: number }
+}
+function TimelineCard({ x, w, top, height, bg, bd, title, prefix, subtitle, range, zIndex = 5, onDrag, onResize, onRemove, onOpen }: {
+  x: number; w: number; top: string; height: string
+  bg: string; bd: string; title: string; prefix?: string; subtitle?: string; range: string
+  zIndex?: number
+  onDrag: (clientX: number, onClick: () => void) => void
+  onResize: (clientX: number) => void
+  onRemove?: () => void
+  onOpen: (info: TlCardInfo) => void
+}) {
+  const rootRef = useRef<HTMLDivElement>(null)
+  const handleClick = () => {
+    const el = rootRef.current
+    if (!el || !Array.from(el.querySelectorAll('span')).some(sp => sp.scrollWidth > sp.clientWidth + 1)) return
+    const r = el.getBoundingClientRect()
+    onOpen({ title: `${prefix ?? ''}${title}`, subtitle, range, bg, bd, anchor: { left: r.left, top: r.top, width: r.width, height: r.height } })
+  }
+  return (
+    <div ref={rootRef}
+      onMouseDown={e => { e.preventDefault(); onDrag(e.clientX, handleClick) }}
+      style={{
+        position: 'absolute', left: x, width: w, top, height,
+        borderRadius: 8, cursor: 'grab',
+        background: bg,
+        border: `1px solid ${bd}`,
+        padding: '5px 10px',
+        display: 'flex', flexDirection: 'column', justifyContent: 'center',
+        overflow: 'hidden', userSelect: 'none', zIndex,
+      }}>
+      <span style={{ fontSize: 9.5, fontWeight: 600, color: 'rgba(255,255,255,0.50)', lineHeight: 1, marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', paddingRight: onRemove ? 14 : 0 }}>{range}</span>
+      <span style={{ fontSize: 11.5, fontWeight: 500, color: 'rgba(255,255,255,0.88)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }}>{prefix}{title}</span>
+      {subtitle && <span style={{ fontSize: 9.5, color: 'rgba(255,255,255,0.40)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }}>{subtitle}</span>}
+      <div onMouseDown={e => { e.stopPropagation(); e.preventDefault(); onResize(e.clientX) }}
+        style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 8, cursor: 'ew-resize' }} />
+      {onRemove && (
+        <button
+          onMouseDown={e => e.stopPropagation()}
+          onClick={e => { e.stopPropagation(); onRemove() }}
+          style={{ position: 'absolute', right: 6, top: 4, width: 14, height: 14, background: 'rgba(255,255,255,0.14)', border: 'none', borderRadius: '50%', color: 'rgba(255,255,255,0.7)', cursor: 'pointer', fontSize: 9, lineHeight: 1, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <X size={9} />
+        </button>
+      )}
+    </div>
+  )
+}
+
+// ── TimelineCardPopover — 잘린 카드를 그 자리에서 조금 크게 보여주는 팝오버 (ESC·바깥 클릭으로 닫힘) ──
+function TimelineCardPopover({ info, onClose }: { info: TlCardInfo; onClose: () => void }) {
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') { e.preventDefault(); onClose() } }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+  // 원래 박스 중심에 맞춰 배치 — 화면 밖으로 나가지 않게 보정
+  const a = info.anchor
+  const width = Math.min(340, Math.max(260, a.width + 40))
+  const left = Math.min(Math.max(8, a.left + a.width / 2 - width / 2), window.innerWidth - width - 8)
+  const top = Math.max(8, a.top - 6)
+  const fg = info.light ? 'var(--text-primary)' : 'rgba(255,255,255,0.92)'
+  const fgSub = info.light ? 'var(--text-secondary)' : 'rgba(255,255,255,0.60)'
+  return createPortal(
+    <>
+      <div onMouseDown={onClose} style={{ position: 'fixed', inset: 0, zIndex: 69 }} />
+      <div style={{
+        position: 'fixed', left, top, width, zIndex: 70,
+        borderRadius: 10, padding: '9px 12px 11px',
+        background: `linear-gradient(${info.bg}, ${info.bg}), var(--surface-primary)`,
+        border: `1px solid ${info.bd}`,
+        boxShadow: '0 12px 32px rgba(0,0,0,0.28)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
+          <span style={{ flex: 1, fontSize: 10.5, fontWeight: 600, color: fgSub }}>{info.range}</span>
+          <button onClick={onClose} aria-label="닫기 (ESC)" title="닫기 (ESC)"
+            style={{ display: 'flex', color: fgSub, background: 'none', border: 'none', cursor: 'pointer', padding: 1 }}><X size={13} /></button>
+        </div>
+        <div style={{ fontSize: 13, fontWeight: 500, color: fg, lineHeight: 1.45, wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>{info.title}</div>
+        {info.subtitle && <div style={{ fontSize: 11, color: fgSub, marginTop: 3, lineHeight: 1.45, wordBreak: 'break-word' }}>{info.subtitle}</div>}
+        {info.action && (
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+            <button onClick={() => { const run = info.action!.run; onClose(); run() }}
+              style={{ fontSize: 11.5, fontWeight: 600, padding: '4px 11px', borderRadius: 7, border: `1px solid ${info.bd}`, background: 'var(--surface-primary)', color: 'var(--accent-tint-text)', cursor: 'pointer' }}>
+              {info.action.label}
+            </button>
+          </div>
+        )}
+      </div>
+    </>,
+    document.body
+  )
+}
+
 // ── KpiChip ────────────────────────────────────────────────────────────────
 function KpiChip({ dot, label, onClick }: { dot: string; label: string; onClick?: () => void }) {
   const [h, setH] = useState(false)
@@ -356,7 +454,7 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
   }, [scheduleItems])
 
   // 업무 일정은 드래그가 끝났을 때만 부모로 올려 DB에 저장
-  const onSiDrag   = (id: string, x: number, h: number, d: number) => startCardDrag('move',   x, h, d, nh => setSiPos(p => ({ ...p, [id]: nh })), onUpdateScheduleItemPosition.bind(null, id))
+  const onSiDrag   = (id: string, x: number, h: number, d: number, c?: () => void) => startCardDrag('move',   x, h, d, nh => setSiPos(p => ({ ...p, [id]: nh })), onUpdateScheduleItemPosition.bind(null, id), c)
   const onSiResize = (id: string, x: number, h: number, d: number) => startCardDrag('resize', x, h, d, (nh, nd) => setSiDur(p => ({ ...p, [id]: nd })), onUpdateScheduleItemPosition.bind(null, id))
 
   // ── Extras (외부에서 드래그된 항목) ────────────────────────────────────
@@ -411,13 +509,16 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
 
   // 카드 이동/끝시간 조절 공통 — 5분 단위로 스냅하고, 움직이는 동안 시간 범위 배지(live)를 띄운다.
   // hour/dur는 화면에 그려진 카드 값을 그대로 받는다 (저장 위치가 없는 카드의 기본 배치도 그대로 시작점)
+  // 움직이지 않고 마우스를 떼면 onClick (DB 저장도 생략)
   function startCardDrag(mode: 'move' | 'resize', startX: number, hour: number, dur: number,
-    apply: (hour: number, dur: number) => void, onDone?: (hour: number, dur: number) => void) {
+    apply: (hour: number, dur: number) => void, onDone?: (hour: number, dur: number) => void, onClick?: () => void) {
     if (hW === 0) return
     const z = cssZoom()
     let cur = { hour, dur }
-    setLive(cur)
+    let moved = false
     function onMove(e: MouseEvent) {
+      if (!moved && Math.abs(e.clientX - startX) < 3) return
+      moved = true
       const delta = (e.clientX - startX) / (hW * z)
       if (mode === 'move') {
         cur = { hour: Math.max(H_START, Math.min(H_END - dur, snap5(hour + delta))), dur }
@@ -431,16 +532,19 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
     function onUp() {
       window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp)
       setLive(null)
-      onDone?.(cur.hour, cur.dur)
+      if (moved) onDone?.(cur.hour, cur.dur)
+      else onClick?.()
     }
     window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp)
   }
-  const onMDrag   = (id: string, x: number, h: number, d: number) => startCardDrag('move',   x, h, d, nh => setMPos(p => ({ ...p, [id]: nh })))
+  const onMDrag   = (id: string, x: number, h: number, d: number, c?: () => void) => startCardDrag('move',   x, h, d, nh => setMPos(p => ({ ...p, [id]: nh })), undefined, c)
   const onMResize = (id: string, x: number, h: number, d: number) => startCardDrag('resize', x, h, d, (nh, nd) => setMDur(p => ({ ...p, [id]: nd })))
-  const onTDrag   = (id: string, x: number, h: number, d: number) => startCardDrag('move',   x, h, d, nh => setTPos(p => ({ ...p, [id]: nh })))
+  const onTDrag   = (id: string, x: number, h: number, d: number, c?: () => void) => startCardDrag('move',   x, h, d, nh => setTPos(p => ({ ...p, [id]: nh })), undefined, c)
   const onTResize = (id: string, x: number, h: number, d: number) => startCardDrag('resize', x, h, d, (nh, nd) => setTDur(p => ({ ...p, [id]: nd })))
-  const onExDrag   = (id: string, x: number, h: number, d: number) => startCardDrag('move',   x, h, d, nh => setExtraPos(p => ({ ...p, [id]: nh })))
+  const onExDrag   = (id: string, x: number, h: number, d: number, c?: () => void) => startCardDrag('move',   x, h, d, nh => setExtraPos(p => ({ ...p, [id]: nh })), undefined, c)
   const onExResize = (id: string, x: number, h: number, d: number) => startCardDrag('resize', x, h, d, (nh, nd) => setExtraDur(p => ({ ...p, [id]: nd })))
+  const [openCard, setOpenCard] = useState<TlCardInfo | null>(null)
+  const closeCard = useCallback(() => setOpenCard(null), [])
 
   function onRemoveExtra(id: string) {
     setExtras(p => p.filter(e => e.id !== id))
@@ -612,25 +716,10 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
           const hour = mPos[m.id] ?? (H_START + i * 1.5)
           const dur  = mDur[m.id] ?? 1
           const { x, w } = cardGeom(hour, dur)
-          const col = EV_COLS[i % EV_COLS.length]
           return (
-            <div key={m.id}
-              onMouseDown={e => { e.preventDefault(); onMDrag(m.id, e.clientX, hour, dur) }}
-              style={{
-                position: 'absolute', left: x, width: w,
-                top: vsTl(TL_LANE2_TOP), height: vsTl(TL_LANE_H),
-                borderRadius: 8, cursor: 'grab',
-                background: col.bg,
-                border: `1px solid ${col.bd}`,
-                padding: '5px 10px',
-                display: 'flex', flexDirection: 'column', justifyContent: 'center',
-                overflow: 'hidden', userSelect: 'none', zIndex: 5,
-              }}>
-              <span style={{ fontSize: 9.5, fontWeight: 600, color: 'rgba(255,255,255,0.50)', lineHeight: 1, marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{rangeStr(hour, dur)}</span>
-              <span style={{ fontSize: 11.5, fontWeight: 500, color: 'rgba(255,255,255,0.88)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }}>{m.title}</span>
-              <div onMouseDown={e => { e.stopPropagation(); e.preventDefault(); onMResize(m.id, e.clientX, hour, dur) }}
-                style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 8, cursor: 'ew-resize' }} />
-            </div>
+            <TimelineCard key={m.id} x={x} w={w} top={vsTl(TL_LANE2_TOP)} height={vsTl(TL_LANE_H)}
+              bg={EV_COLS[i % EV_COLS.length].bg} bd={EV_COLS[i % EV_COLS.length].bd} title={m.title} range={rangeStr(hour, dur)}
+              onDrag={(cx, c) => onMDrag(m.id, cx, hour, dur, c)} onResize={cx => onMResize(m.id, cx, hour, dur)} onOpen={setOpenCard} />
           )
         })}
 
@@ -642,25 +731,10 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
           const hour = mPos[fid] ?? timeHour
           const dur  = mDur[fid] ?? 1
           const { x, w } = cardGeom(hour, dur)
-          const col = EV_COLS[(meetings.length + i) % EV_COLS.length]
           return (
-            <div key={fid}
-              onMouseDown={e => { e.preventDefault(); onMDrag(fid, e.clientX, hour, dur) }}
-              style={{
-                position: 'absolute', left: x, width: w,
-                top: vsTl(TL_LANE2_TOP), height: vsTl(TL_LANE_H),
-                borderRadius: 8, cursor: 'grab',
-                background: col.bg,
-                border: `1px solid rgba(56,190,152,0.30)`,
-                padding: '5px 10px',
-                display: 'flex', flexDirection: 'column', justifyContent: 'center',
-                overflow: 'hidden', userSelect: 'none', zIndex: 4,
-              }}>
-              <span style={{ fontSize: 9.5, fontWeight: 600, color: 'rgba(255,255,255,0.50)', lineHeight: 1, marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{rangeStr(hour, dur)}</span>
-              <span style={{ fontSize: 11.5, fontWeight: 500, color: 'rgba(255,255,255,0.88)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }}>↺ {s.title}</span>
-              <div onMouseDown={e => { e.stopPropagation(); e.preventDefault(); onMResize(fid, e.clientX, hour, dur) }}
-                style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 8, cursor: 'ew-resize' }} />
-            </div>
+            <TimelineCard key={fid} x={x} w={w} top={vsTl(TL_LANE2_TOP)} height={vsTl(TL_LANE_H)} zIndex={4}
+              bg={EV_COLS[(meetings.length + i) % EV_COLS.length].bg} bd="rgba(56,190,152,0.30)" prefix="↺ " title={s.title} range={rangeStr(hour, dur)}
+              onDrag={(cx, c) => onMDrag(fid, cx, hour, dur, c)} onResize={cx => onMResize(fid, cx, hour, dur)} onOpen={setOpenCard} />
           )
         })}
 
@@ -669,7 +743,15 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
           const { x, w } = cardGeom(ev.start_hour, ev.duration_hours)
           return (
             <div key={ev.id}
-              onClick={() => onSelectGoogleEvent(ev)}
+              onClick={e => {
+                // 제목/시간이 잘린 짧은 박스는 전체 보기 모달 먼저 (회의록 만들기는 모달 버튼으로)
+                const clipped = Array.from(e.currentTarget.querySelectorAll('span')).some(s => s.scrollWidth > s.clientWidth + 1)
+                if (!clipped) { onSelectGoogleEvent(ev); return }
+                setGTooltip(null)
+                const r = e.currentTarget.getBoundingClientRect()
+                setOpenCard({ anchor: { left: r.left, top: r.top, width: r.width, height: r.height }, title: ev.title, range: ev.allDay ? '종일' : rangeStr(ev.start_hour, ev.duration_hours), bg: 'rgba(66,133,244,0.16)', bd: 'rgba(66,133,244,0.4)', light: true,
+                  action: { label: '회의록 만들기 →', run: () => onSelectGoogleEvent(ev) } })
+              }}
               onMouseEnter={e => {
                 const r = e.currentTarget.getBoundingClientRect()
                 const z = cssZoom()   // fixed 툴팁도 zoom 안에 있어 left/top이 배율만큼 곱해짐
@@ -716,25 +798,10 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
           const hour = tPos[t.id] ?? (H_START + i * 1.5)
           const dur  = tDur[t.id] ?? 1
           const { x, w } = cardGeom(hour, dur)
-          const col = EV_COLS[(i + 2) % EV_COLS.length]
           return (
-            <div key={t.id}
-              onMouseDown={e => { e.preventDefault(); onTDrag(t.id, e.clientX, hour, dur) }}
-              style={{
-                position: 'absolute', left: x, width: w,
-                top: vsTl(TL_LANE2_TOP), height: vsTl(TL_LANE_H),
-                borderRadius: 8, cursor: 'grab',
-                background: col.bg,
-                border: `1px solid ${col.bd}`,
-                padding: '5px 10px',
-                display: 'flex', flexDirection: 'column', justifyContent: 'center',
-                overflow: 'hidden', userSelect: 'none', zIndex: 5,
-              }}>
-              <span style={{ fontSize: 9.5, fontWeight: 600, color: 'rgba(255,255,255,0.50)', lineHeight: 1, marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{rangeStr(hour, dur)}</span>
-              <span style={{ fontSize: 11.5, fontWeight: 500, color: 'rgba(255,255,255,0.88)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }}>{t.title}</span>
-              <div onMouseDown={e => { e.stopPropagation(); e.preventDefault(); onTResize(t.id, e.clientX, hour, dur) }}
-                style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 8, cursor: 'ew-resize' }} />
-            </div>
+            <TimelineCard key={t.id} x={x} w={w} top={vsTl(TL_LANE2_TOP)} height={vsTl(TL_LANE_H)}
+              bg={EV_COLS[(i + 2) % EV_COLS.length].bg} bd={EV_COLS[(i + 2) % EV_COLS.length].bd} title={t.title} range={rangeStr(hour, dur)}
+              onDrag={(cx, c) => onTDrag(t.id, cx, hour, dur, c)} onResize={cx => onTResize(t.id, cx, hour, dur)} onOpen={setOpenCard} />
           )
         })}
 
@@ -762,21 +829,10 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
           const dur  = extraDur[ex.id] ?? 1
           const { x, w } = cardGeom(hour, dur)
           return (
-            <div key={ex.id}
-              onMouseDown={e => { e.preventDefault(); onExDrag(ex.id, e.clientX, hour, dur) }}
-              style={{ position: 'absolute', left: x, width: w, top: vsTl(TL_LANE2_TOP), height: vsTl(TL_LANE_H), borderRadius: 8, cursor: 'grab', background: 'rgba(40,98,130,0.62)', border: '1px solid rgba(70,148,200,0.22)', padding: '5px 10px', display: 'flex', flexDirection: 'column', justifyContent: 'center', overflow: 'hidden', userSelect: 'none', zIndex: 6 }}>
-              <span style={{ fontSize: 9.5, fontWeight: 600, color: 'rgba(255,255,255,0.50)', lineHeight: 1, marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{rangeStr(hour, dur)}</span>
-              <span style={{ fontSize: 11.5, fontWeight: 500, color: 'rgba(255,255,255,0.88)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }}>{ex.title}</span>
-              {ex.subtitle && <span style={{ fontSize: 9.5, color: 'rgba(255,255,255,0.40)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }}>{ex.subtitle}</span>}
-              <div onMouseDown={e => { e.stopPropagation(); e.preventDefault(); onExResize(ex.id, e.clientX, hour, dur) }}
-                style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 8, cursor: 'ew-resize' }} />
-              <button
-                onMouseDown={e => e.stopPropagation()}
-                onClick={e => { e.stopPropagation(); onRemoveExtra(ex.id) }}
-                style={{ position: 'absolute', right: 12, top: 5, width: 14, height: 14, background: 'rgba(255,255,255,0.14)', border: 'none', borderRadius: '50%', color: 'rgba(255,255,255,0.7)', cursor: 'pointer', fontSize: 9, lineHeight: 1, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                ×
-              </button>
-            </div>
+            <TimelineCard key={ex.id} x={x} w={w} top={vsTl(TL_LANE2_TOP)} height={vsTl(TL_LANE_H)} zIndex={6}
+              bg="rgba(40,98,130,0.62)" bd="rgba(70,148,200,0.22)" title={ex.title} subtitle={ex.subtitle} range={rangeStr(hour, dur)}
+              onDrag={(cx, c) => onExDrag(ex.id, cx, hour, dur, c)} onResize={cx => onExResize(ex.id, cx, hour, dur)}
+              onRemove={() => onRemoveExtra(ex.id)} onOpen={setOpenCard} />
           )
         })}
 
@@ -785,22 +841,11 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
           const hour = siPos[s.id] ?? s.start_hour
           const dur  = siDur[s.id] ?? s.duration_hours
           const { x, w } = cardGeom(hour, dur)
-          const col = EV_COLS[(i + 4) % EV_COLS.length]
           return (
-            <div key={s.id}
-              onMouseDown={e => { e.preventDefault(); onSiDrag(s.id, e.clientX, hour, dur) }}
-              style={{ position: 'absolute', left: x, width: w, top: vsTl(TL_LANE2_TOP), height: vsTl(TL_LANE_H), borderRadius: 8, cursor: 'grab', background: col.bg, border: `1px solid ${col.bd}`, padding: '5px 10px', display: 'flex', flexDirection: 'column', justifyContent: 'center', overflow: 'hidden', userSelect: 'none', zIndex: 6 }}>
-              <span style={{ fontSize: 9.5, fontWeight: 600, color: 'rgba(255,255,255,0.50)', lineHeight: 1, marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{rangeStr(hour, dur)}</span>
-              <span style={{ fontSize: 11.5, fontWeight: 500, color: 'rgba(255,255,255,0.88)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }}>{s.title}</span>
-              <div onMouseDown={e => { e.stopPropagation(); e.preventDefault(); onSiResize(s.id, e.clientX, hour, dur) }}
-                style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 8, cursor: 'ew-resize' }} />
-              <button
-                onMouseDown={e => e.stopPropagation()}
-                onClick={e => { e.stopPropagation(); onRemoveScheduleItem(s.id) }}
-                style={{ position: 'absolute', right: 12, top: 5, width: 14, height: 14, background: 'rgba(255,255,255,0.14)', border: 'none', borderRadius: '50%', color: 'rgba(255,255,255,0.7)', cursor: 'pointer', fontSize: 9, lineHeight: 1, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <X size={9} />
-              </button>
-            </div>
+            <TimelineCard key={s.id} x={x} w={w} top={vsTl(TL_LANE2_TOP)} height={vsTl(TL_LANE_H)} zIndex={6}
+              bg={EV_COLS[(i + 4) % EV_COLS.length].bg} bd={EV_COLS[(i + 4) % EV_COLS.length].bd} title={s.title} range={rangeStr(hour, dur)}
+              onDrag={(cx, c) => onSiDrag(s.id, cx, hour, dur, c)} onResize={cx => onSiResize(s.id, cx, hour, dur)}
+              onRemove={() => onRemoveScheduleItem(s.id)} onOpen={setOpenCard} />
           )
         })}
 
@@ -817,6 +862,7 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
         )}
 
       </div>
+      {openCard && typeof document !== 'undefined' && <TimelineCardPopover info={openCard} onClose={closeCard} />}
     </div>
   )
 }
