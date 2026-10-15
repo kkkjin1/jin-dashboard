@@ -3,6 +3,7 @@
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { createClient } from '@/lib/supabase/client'
 import { fetchAllTasks } from '@/lib/tasks'
 import type { Task } from '@/types'
@@ -548,7 +549,7 @@ export default function JournalPage() {
     <div className="h-full flex flex-col overflow-hidden font-sans">
 
       {/* 풀스크린 에디터 */}
-      {editorState && (
+      {editorState && typeof document !== 'undefined' && createPortal(
         <JournalFullscreenEditor
           selectedDate={editorState.date}
           current={editorState.journal}
@@ -557,7 +558,8 @@ export default function JournalPage() {
           supabaseClient={supabase}
           onSaved={handleEditorSaved}
           onClose={() => setEditorState(null)}
-        />
+        />,
+        document.body
       )}
 
       {/* 헤더: 제목 + 기간 필터 | 총 건수 + 작성 */}

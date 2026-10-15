@@ -44,11 +44,29 @@ const THEME_BOOTSTRAP_SCRIPT = `
 })();
 `;
 
+// http://192.168.x.x 같은 비보안 컨텍스트(휴대폰으로 로컬 dev 접속)에서는
+// crypto.randomUUID가 없다 — getRandomValues로 v4 UUID를 만드는 폴백을 채운다.
+// https 배포 환경에서는 원래 함수가 있으므로 아무것도 하지 않는다.
+const RANDOM_UUID_POLYFILL_SCRIPT = `
+(function () {
+  var c = window.crypto;
+  if (!c || typeof c.randomUUID === 'function' || typeof c.getRandomValues !== 'function') return;
+  c.randomUUID = function () {
+    var b = c.getRandomValues(new Uint8Array(16));
+    b[6] = (b[6] & 0x0f) | 0x40;
+    b[8] = (b[8] & 0x3f) | 0x80;
+    var h = Array.prototype.map.call(b, function (x) { return (x + 0x100).toString(16).slice(1); }).join('');
+    return h.slice(0, 8) + '-' + h.slice(8, 12) + '-' + h.slice(12, 16) + '-' + h.slice(16, 20) + '-' + h.slice(20);
+  };
+})();
+`;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ko" data-theme="dark" style={{ colorScheme: 'dark' }} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP_SCRIPT }} />
+        <script dangerouslySetInnerHTML={{ __html: RANDOM_UUID_POLYFILL_SCRIPT }} />
         {/* Pretendard Variable 동적 서브셋 — 화면에 쓰인 글자 조각만 받고, 굵기는 45~920 연속 조절 */}
         <link rel="preconnect" href="https://cdn.jsdelivr.net" crossOrigin="anonymous" />
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" />

@@ -553,10 +553,10 @@ export function JournalFullscreenEditor({ selectedDate, current, yesterday, meet
         </div>
 
         {/* 본문: 좌(작성) + 우(오늘 활동) */}
-        <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
+        <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-y-auto md:overflow-hidden">
 
           {/* ── 좌: 어제 회고(compact) + 오늘 작성 ── */}
-          <div className="flex-1 md:w-1/2 flex flex-col min-h-0 overflow-hidden">
+          <div className="flex-shrink-0 md:flex-shrink md:flex-1 md:w-1/2 flex flex-col md:min-h-0 md:overflow-hidden">
 
             {/* 어제 회고 — 상단 compact 표시 */}
             {yesterday && (
@@ -567,7 +567,7 @@ export function JournalFullscreenEditor({ selectedDate, current, yesterday, meet
             )}
 
             {/* 오늘 작성 영역 */}
-            <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-3 min-h-0">
+            <div className="md:flex-1 md:overflow-y-auto px-5 py-4 flex flex-col gap-3 md:min-h-0">
               <p className="text-[11px] font-semibold flex-shrink-0" style={{ color: D.t3 }}>{dateLabel} 회고</p>
 
               {/* Autosave 복구 배너 — 자동 적용하지 않음(회의록/빠른메모와 동일 패턴) */}
@@ -727,7 +727,7 @@ export function JournalFullscreenEditor({ selectedDate, current, yesterday, meet
           </div>
 
           {/* ── 우: 오늘 활동 피드 (고정 섹션) ── */}
-          <div className="md:w-1/2 flex flex-col border-t md:border-t-0 md:border-l border-[rgba(var(--ink-rgb),0.08)] min-h-0" style={{ background: D.surface }}>
+          <div className="flex-shrink-0 md:flex-shrink md:w-1/2 flex flex-col border-t md:border-t-0 md:border-l border-[rgba(var(--ink-rgb),0.08)] md:min-h-0" style={{ background: D.surface }}>
             <div className="px-4 py-3 flex-shrink-0 flex items-center gap-2" style={{ borderBottom: `1px solid ${D.border}` }}>
               <p className="text-[11px] font-semibold flex-1" style={{ color: D.t2 }}>{dateLabel} 활동</p>
               {totalActivity > 0 && (
@@ -735,7 +735,7 @@ export function JournalFullscreenEditor({ selectedDate, current, yesterday, meet
                   style={{ background: 'rgba(139,92,246,0.15)', color: '#A78BFA' }}>{totalActivity}</span>
               )}
             </div>
-            <div className="flex-1 overflow-y-auto scrollbar-hide" style={{ borderTop: `1px solid ${D.divider}` }}>
+            <div className="md:flex-1 md:overflow-y-auto scrollbar-hide" style={{ borderTop: `1px solid ${D.divider}` }}>
 
               {/* 일정 (홈 타임라인 "일정 추가"로 만든 업무 블록) */}
               <div className="px-4 py-3" style={{ borderBottom: `1px solid ${D.divider}` }}>

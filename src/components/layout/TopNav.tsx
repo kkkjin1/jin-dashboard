@@ -42,6 +42,7 @@ export default function TopNav() {
   const [editOpen, setEditOpen] = useState(false)
   const [sheetOpen, setSheetOpen] = useState(false)
   const moreRef = useRef<HTMLDivElement>(null)
+  const barRef = useRef<HTMLDivElement>(null)
   const [navConfig, setNavConfig] = useState<NavConfig>({ order: ALL_NAV.map(i => i.href), hidden: [] })
   const [dragHref, setDragHref] = useState<string | null>(null)
   const [dragOverHref, setDragOverHref] = useState<string | null>(null)
@@ -90,6 +91,17 @@ export default function TopNav() {
     return () => document.removeEventListener('mousedown', onClickOutside)
   }, [])
 
+  // 모바일 하단 바 — 현재 메뉴가 스크롤 밖에 있으면 보이는 위치로 당겨온다
+  useEffect(() => {
+    const bar = barRef.current
+    const active = bar?.querySelector<HTMLElement>('[data-active]')
+    if (!bar || !active) return
+    const left = active.offsetLeft - bar.offsetLeft
+    if (left < bar.scrollLeft || left + active.offsetWidth > bar.scrollLeft + bar.clientWidth) {
+      bar.scrollTo({ left: Math.max(0, left - (bar.clientWidth - active.offsetWidth) / 2) })
+    }
+  }, [pathname, navConfig])
+
   // 더보기 시트 — ESC로 닫기
   useEffect(() => {
     if (!sheetOpen) return
@@ -121,7 +133,7 @@ export default function TopNav() {
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
               <span className="text-sm font-semibold text-gray-800">메뉴 편집</span>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] text-gray-400">상위 {PRIMARY_COUNT}개가 바에 표시됩니다</span>
+                <span className="text-[10px] text-gray-400">이 순서로 하단 바에 표시 (가로 스크롤)</span>
                 <button onClick={() => setEditOpen(false)}
                   className="text-gray-400 hover:text-gray-700 transition-colors"><X size={14} /></button>
               </div>
@@ -261,20 +273,23 @@ export default function TopNav() {
       <nav className="theme-transition md:hidden fixed bottom-0 left-0 right-0 z-[60]"
         style={{ background: 'var(--bg-sidebar)', borderTop: '1px solid var(--border-strong)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <div className="flex">
-          {primaryNav.map(item => {
-            const isActive = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)
-            return (
-              <Link key={item.href} href={item.href}
-                className="flex-1 min-w-0 flex flex-col items-center gap-0.5 px-1 py-2.5 transition-colors"
-                style={{ color: isActive ? 'var(--accent-soft)' : 'var(--text-muted)' }}>
-                <item.icon size={18} strokeWidth={1.5} />
-                <span className="text-[9px] whitespace-nowrap truncate max-w-full">{item.label}</span>
-              </Link>
-            )
-          })}
+          {/* 숨기지 않은 메뉴 전부를 가로 스크롤로 — 한 화면에 약 5.5개만 보여 다음 메뉴가 살짝 잘려 보이게 */}
+          <div ref={barRef} className="flex-1 min-w-0 flex overflow-x-auto scrollbar-hide overscroll-x-contain">
+            {visibleItems.map(item => {
+              const isActive = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)
+              return (
+                <Link key={item.href} href={item.href} data-active={isActive || undefined}
+                  className="flex-shrink-0 w-[16vw] flex flex-col items-center gap-0.5 px-1 py-2.5 transition-colors"
+                  style={{ color: isActive ? 'var(--accent-soft)' : 'var(--text-muted)' }}>
+                  <item.icon size={18} strokeWidth={1.5} />
+                  <span className="text-[9px] whitespace-nowrap truncate max-w-full">{item.label}</span>
+                </Link>
+              )
+            })}
+          </div>
           <button onClick={() => setSheetOpen(true)}
-            className="flex-1 min-w-0 flex flex-col items-center gap-0.5 px-1 py-2.5 transition-colors"
-            style={{ color: isSecondaryActive ? 'var(--accent-soft)' : 'var(--text-muted)' }}>
+            className="flex-shrink-0 w-[14vw] flex flex-col items-center gap-0.5 px-1 py-2.5 transition-colors"
+            style={{ color: 'var(--text-muted)', borderLeft: '1px solid var(--border-strong)' }}>
             <MoreHorizontal size={18} strokeWidth={1.5} />
             <span className="text-[9px] whitespace-nowrap">더보기</span>
           </button>
