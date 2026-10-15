@@ -572,6 +572,9 @@ html, body {
 .tiptap-input img, .tiptap-input-dark img { max-width: 100%; border-radius: 6px; display: block; margin: 4px 0; }
 
 /* ── 생각스케치 본문 인라인 표 (Tiptap Table, 텍스트 줄 사이 블록) ── */
+/* 자유노트 본문: 글 줄은 가독성상 1100px 상한, 표는 본문 전체 폭까지 쓰고 그보다 넓을 때만 가로 스크롤.
+   (예전엔 본문 자체에 1100px 상한이 걸려 넓은 화면에서 표가 화면 절반쯤부터 스크롤됐다) */
+.freenote-doc > :not(table, .tableWrapper) { max-width: 1100px; }
 .tiptap-input .tableWrapper { overflow-x: auto; overflow-y: hidden; width: fit-content; max-width: 100%; margin: 6px 0; }
 .tiptap-input table { border-collapse: collapse; table-layout: fixed; margin: 6px 0; }
 .tiptap-input .tableWrapper table { margin: 0; }
