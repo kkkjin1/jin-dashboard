@@ -373,6 +373,7 @@ export default function OneOnOneSessionPage() {
                 value={contentInput}
                 onChange={handleContentChange}
                 autoFocus={false}
+                enableToggle
                 enableQa
                 minHeight={200}
               />
