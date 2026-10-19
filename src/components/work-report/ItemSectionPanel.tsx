@@ -113,6 +113,8 @@ type CellNav = {
   onEnter: (id: string, col: Col, rowEmpty: boolean) => void
   onMove: (id: string, col: Col, dir: -1 | 1) => void
   onBackspaceEmpty: (id: string) => void
+  // 빈 행 삭제로 위 행에 옮겨 온 뒤 Backspace를 아직 떼지 않았는지 — 누르고 있는 반복 입력이 위 행 글자를 지우지 않게.
+  isBackspaceLocked: () => boolean
   onPaste: (r: number, c: number, e: React.ClipboardEvent<HTMLTextAreaElement>) => void
   onCellMouseDown: (r: number, c: number, e: React.MouseEvent) => void
   onCellMouseEnter: (r: number, c: number) => void
@@ -296,9 +298,12 @@ function ItemRow({
     } else if (e.key === 'ArrowDown' && el.selectionStart === el.value.length) {
       e.preventDefault()
       nav.onMove(item.id, col, 1)
+    } else if (e.key === 'Backspace' && e.repeat && nav.isBackspaceLocked()) {
+      e.preventDefault()
     } else if (e.key === 'Backspace' && !readOnly && col === 'title' && rowEmpty) {
       e.preventDefault()
-      nav.onBackspaceEmpty(item.id)
+      // 글자를 지우다 Backspace를 계속 누르고 있어 빈 행이 된 경우엔 행을 지우지 않는다 — 새로 눌렀을 때만.
+      if (!e.repeat) nav.onBackspaceEmpty(item.id)
     }
   }
 
@@ -377,6 +382,12 @@ const ItemSectionPanel = forwardRef<ItemSectionPanelHandle, Props>(function Item
   const cells = useRef<Map<string, HTMLTextAreaElement>>(new Map())
   const pendingFocus = useRef<{ id: string; col: Col; atEnd?: boolean; soft?: boolean } | null>(null)
   const adding = useRef(false)
+  const backspaceLock = useRef(false)
+  useEffect(() => {
+    const onKeyUp = (e: KeyboardEvent) => { if (e.key === 'Backspace') backspaceLock.current = false }
+    window.addEventListener('keyup', onKeyUp)
+    return () => window.removeEventListener('keyup', onKeyUp)
+  }, [])
   // 행 추가 대기 행 — INSERT 응답(수백 ms) 전에 바로 그려서 포커스를 받아, 그사이 입력이 이전
   // 셀로 새지 않게 한다(2026-10-06). DB와 무관한 화면 전용 행이고, 응답이 오면 입력한 타이틀을
   // 실제 행으로 옮긴 뒤 사라진다. 실패하면 그냥 사라지고 아래에 안내만 남긴다.
@@ -608,12 +619,14 @@ const ItemSectionPanel = forwardRef<ItemSectionPanelHandle, Props>(function Item
     onBackspaceEmpty: id => {
       const idx = items.findIndex(i => i.id === id)
       const target = items[idx - 1] ?? items[idx + 1]
+      backspaceLock.current = true
       void onDelete(items[idx], { skipConfirm: true }).then(ok => {
         if (ok && target) {
           pendingFocus.current = { id: target.id, col: target === items[idx - 1] ? 'summary' : 'title', atEnd: true }
         }
       })
     },
+    isBackspaceLocked: () => backspaceLock.current,
     onPaste: (r, c, e) => {
       if (readOnly || !e.clipboardData) return
       const matrix = parseSpreadsheetClipboard(e.clipboardData)
