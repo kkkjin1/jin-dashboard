@@ -532,7 +532,7 @@ const ReportEditorPanel = forwardRef<ReportEditorPanelHandle, Props>(function Re
           <span className="text-[12px] font-bold" style={{ color: S.t1 }}>이번 업데이트</span>,
           '진행 상황 · 변화된 수치',
           hValue(0),
-          <TextBox label="" value={reportText} onChange={setReportText} minHeight={170}
+          <TextBox label="" value={reportText} onChange={setReportText} minHeight={360}
             placeholder="자유롭게 줄글로 작성합니다." readOnly={readOnly} variant="cell" fill />,
         )}
         {fieldTable(
@@ -540,7 +540,7 @@ const ReportEditorPanel = forwardRef<ReportEditorPanelHandle, Props>(function Re
           <span className="text-[12px] font-bold" style={{ color: S.t1 }}>{POINT_LABEL}</span>,
           '경영진 판단 요청 · 다음 보고까지 할 일',
           hValue(1),
-          <TextBox label="" value={execText} onChange={setExecText} minHeight={110}
+          <TextBox label="" value={execText} onChange={setExecText} minHeight={240}
             placeholder="경영진 전달·판단 요청, 다음 액션을 적습니다." readOnly={readOnly} variant="cell" fill />,
         )}
 
@@ -551,7 +551,7 @@ const ReportEditorPanel = forwardRef<ReportEditorPanelHandle, Props>(function Re
           </button>,
           '보고서에 포함되지 않음',
           hValue(2),
-          <TextBox label="" value={memoText} onChange={setMemoText} minHeight={110}
+          <TextBox label="" value={memoText} onChange={setMemoText} minHeight={240}
             placeholder="CFO 미팅, 지급률 재계산 등 기억용 raw note" readOnly={readOnly} variant="cell" fill />,
         ) : (
           <section className="rounded-[10px] overflow-hidden" style={{ border: `1px solid ${S.border}` }}>
