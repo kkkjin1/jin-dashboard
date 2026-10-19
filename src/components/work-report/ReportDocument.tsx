@@ -1,7 +1,7 @@
 'use client'
 
 import type { WorkReport, WorkReportEntry, WorkReportItem, WorkReportTopic } from '@/types'
-import { S, CONTENT_MAX_WIDTH, hasContent, POINT_LABEL, entryPointText } from './style'
+import { S, CONTENT_MAX_WIDTH, hasContent, POINT_LABEL, entryPointText, fmtPeriodLabel } from './style'
 import { ITEM_SECTIONS, ITEM_SECTION_META, isItemWritten, sortItems } from './items'
 
 // 보고 1건을 "읽는" 문서 형태로 렌더링하는 순수 컨텐츠 — 작성 화면의 "문서로 보기"
@@ -14,6 +14,50 @@ interface Props {
   report: WorkReport
   rows: { entry: WorkReportEntry; topic: WorkReportTopic }[]
   items: WorkReportItem[]   // 이 회차의 3-1/3-2/3-3 항목 전체
+}
+
+// 같은 내용을 마크다운으로 — "마크다운 복사"로 Claude 앱 PPT 프로젝트에 붙여넣는 용도(2026-10-19).
+// 순서·포함 기준은 아래 문서 뷰와 같다(작업 메모 제외, 3번은 작성된 항목만).
+export function reportToMarkdown(
+  report: WorkReport,
+  rows: { entry: WorkReportEntry; topic: WorkReportTopic }[],
+  items: WorkReportItem[],
+): string {
+  const text = (v: string | null | undefined) => (hasContent(v) ? v!.trim() : '(작성된 내용 없음)')
+  // 여러 줄 값을 목록 항목 아래에 들여 쓴다 — 줄바꿈이 목록 밖으로 새지 않게.
+  const sub = (label: string, v: string) => {
+    const [first, ...rest] = v.trim().split('\n')
+    return [`  - ${label}: ${first}`, ...rest.map(l => `    ${l}`)]
+  }
+  const out: string[] = [`# ${fmtPeriodLabel(report.period_start, report.period_end)} 업무보고`, '']
+
+  out.push('## 1. 핵심 요약', '', text(report.summary), '')
+
+  out.push('## 2. 주요 내용', '')
+  if (rows.length === 0) out.push('(포함된 주제 없음)', '')
+  rows.forEach(({ entry }, i) => {
+    out.push(`### 2.${i + 1} ${entry.topic_title_snapshot}`, '', '**이번 업데이트**', '', text(entry.report_text), '')
+    const point = entryPointText(entry)
+    if (hasContent(point)) out.push(`**${POINT_LABEL}**`, '', point.trim(), '')
+  })
+
+  out.push('## 3. 운영 · 이슈 · 의사결정', '')
+  for (const sec of ITEM_SECTIONS) {
+    const list = sortItems(items.filter(i => i.section === sec && isItemWritten(i)))
+    const meta = ITEM_SECTION_META[sec]
+    out.push(`### ${meta.no}. ${meta.title}`, '')
+    if (list.length === 0) out.push('(등록된 항목 없음)')
+    for (const it of list) {
+      out.push(`- **${(it.title || '(제목 없음)').replace(/\s*\n\s*/g, ' ')}**`)
+      if (hasContent(it.detail)) out.push(...sub('세부내용', it.detail))
+      if (hasContent(it.summary)) out.push(...sub('비고', it.summary))
+    }
+    out.push('')
+  }
+  if (hasContent(report.issues)) out.push('**(이전 형식) 주요 이슈 / 의사결정**', '', report.issues.trim(), '')
+
+  out.push('## 4. 다음 단계', '', text(report.next_steps))
+  return out.join('\n').replace(/\n{3,}/g, '\n\n').trim() + '\n'
 }
 
 function Block({ label, value }: { label: string; value: string }) {

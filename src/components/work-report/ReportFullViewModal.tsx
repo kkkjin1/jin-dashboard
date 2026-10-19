@@ -1,9 +1,10 @@
 'use client'
 
-import { X } from 'lucide-react'
+import { useState } from 'react'
+import { Check, Copy, X } from 'lucide-react'
 import type { WorkReport, WorkReportEntry, WorkReportItem, WorkReportTopic } from '@/types'
 import { S, fmtPeriodLabel } from './style'
-import ReportDocument from './ReportDocument'
+import ReportDocument, { reportToMarkdown } from './ReportDocument'
 
 interface Props {
   report: WorkReport
@@ -13,6 +14,18 @@ interface Props {
 }
 
 export default function ReportFullViewModal({ report, rows, items, onClose }: Props) {
+  const [copied, setCopied] = useState<'ok' | 'fail' | null>(null)
+
+  async function copyMarkdown() {
+    try {
+      await navigator.clipboard.writeText(reportToMarkdown(report, rows, items))
+      setCopied('ok')
+    } catch {
+      setCopied('fail')
+    }
+    setTimeout(() => setCopied(null), 1800)
+  }
+
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-6" style={{ background: 'rgba(0,0,0,0.65)' }}>
       <div className="absolute inset-0" onClick={onClose} />
@@ -25,9 +38,22 @@ export default function ReportFullViewModal({ report, rows, items, onClose }: Pr
             <p className="text-[16px] font-semibold" style={{ color: S.t1 }}>{fmtPeriodLabel(report.period_start, report.period_end)} 업무보고</p>
             <p className="text-[11px] mt-0.5" style={{ color: S.t4 }}>{report.status === 'final' ? '확정' : '작성중'}</p>
           </div>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[rgba(var(--ink-rgb),0.07)]" style={{ color: S.t3 }}>
-            <X size={16} />
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => { void copyMarkdown() }}
+              title="보고서 전체를 마크다운으로 복사"
+              className="flex items-center gap-1 px-2.5 h-8 rounded-lg text-[12px] font-medium transition-colors"
+              style={copied === 'ok'
+                ? { color: S.accentText, background: S.accentDim }
+                : { color: copied === 'fail' ? '#F87171' : S.t2, background: 'rgba(var(--ink-rgb),0.05)' }}
+            >
+              {copied === 'ok' ? <Check size={13} /> : <Copy size={13} />}
+              {copied === 'ok' ? '복사됨' : copied === 'fail' ? '복사 실패' : '마크다운 복사'}
+            </button>
+            <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[rgba(var(--ink-rgb),0.07)]" style={{ color: S.t3 }}>
+              <X size={16} />
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 min-h-0 overflow-auto px-7 py-6 select-text">

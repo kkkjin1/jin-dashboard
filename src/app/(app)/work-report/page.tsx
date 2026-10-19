@@ -11,6 +11,7 @@ import ContextPanel, { type HistoryItem } from '@/components/work-report/Context
 import RestoreTopicModal from '@/components/work-report/RestoreTopicModal'
 import ArchiveView from '@/components/work-report/ArchiveView'
 import ReportFullViewModal from '@/components/work-report/ReportFullViewModal'
+import { reportToMarkdown } from '@/components/work-report/ReportDocument'
 import ItemSectionPanel, { type ItemSectionPanelHandle } from '@/components/work-report/ItemSectionPanel'
 import { ITEM_SECTIONS, ITEM_SECTION_META, parseItemSelection, sortItems, isItemWritten, itemsToText } from '@/components/work-report/items'
 import { S, fmtPeriodLabel, fmtDateFull, addDaysToDateStr, todayStr, hasContent, isEntryWritten, POINT_LABEL, entryPointText, type TopicChangeBadge } from '@/components/work-report/style'
@@ -88,6 +89,10 @@ export default function WorkReportPage() {
   const [selection, setSelection] = useState<string>('summary')
   const [mode, setMode] = useState<Mode>('write')
   const [fullViewOpen, setFullViewOpen] = useState(false)
+  // ⋯ > 마크다운 복사 — 입력 대기 중인 저장을 먼저 밀어 넣은 뒤, 반영된 state로 복사한다(copyReq 증가 → effect).
+  const [copyReq, setCopyReq] = useState(0)
+  const copyHandled = useRef(0)
+  const [copyNotice, setCopyNotice] = useState<string | null>(null)
   const [contextDrawerOpen, setContextDrawerOpen] = useState(false)
   const [topicDrawerOpen, setTopicDrawerOpen] = useState(false)
   const [restoreOpen, setRestoreOpen] = useState(false)
@@ -633,6 +638,29 @@ export default function WorkReportPage() {
       .filter((r): r is { entry: WorkReportEntry; topic: WorkReportTopic } => !!r.topic)
   }, [currentReport, entriesByReport, topicsById])
 
+  useEffect(() => {
+    if (copyReq === copyHandled.current || !currentReport) return
+    copyHandled.current = copyReq
+    const md = reportToMarkdown(currentReport, fullViewRows, allItems.filter(i => i.report_id === currentReport.id))
+    navigator.clipboard.writeText(md).then(
+      () => setCopyNotice('보고서를 마크다운으로 복사했습니다'),
+      () => setCopyNotice('복사에 실패했습니다 — 문서로 보기에서 다시 시도해 주세요'),
+    )
+  }, [copyReq, currentReport, fullViewRows, allItems])
+
+  useEffect(() => {
+    if (!copyNotice) return
+    const t = setTimeout(() => setCopyNotice(null), 2200)
+    return () => clearTimeout(t)
+  }, [copyNotice])
+
+  async function handleCopyMarkdown() {
+    setMoreOpen(false)
+    await editorRef.current?.flushPending()
+    await itemPanelRef.current?.flushPending()
+    setCopyReq(n => n + 1)
+  }
+
   if (loading) {
     return <div className="h-full flex items-center justify-center" style={{ color: S.t4, fontSize: 12.5 }}>불러오는 중…</div>
   }
@@ -854,6 +882,13 @@ export default function WorkReportPage() {
                           문서로 보기
                         </button>
                         <button
+                          onClick={() => { void handleCopyMarkdown() }}
+                          className="w-full text-left px-3 py-2 text-[12.5px] transition-colors hover:bg-[rgba(var(--ink-rgb),0.06)]"
+                          style={{ color: S.t1 }}
+                        >
+                          마크다운 복사
+                        </button>
+                        <button
                           onClick={() => { setMoreOpen(false); void handleDeleteReport(currentReport) }}
                           className="w-full text-left px-3 py-2 text-[12.5px] transition-colors hover:bg-[rgba(var(--ink-rgb),0.06)]"
                           style={{ color: '#F87171' }}
@@ -1055,6 +1090,15 @@ export default function WorkReportPage() {
 
       {fullViewOpen && currentReport && (
         <ReportFullViewModal report={currentReport} rows={fullViewRows} items={allItems.filter(i => i.report_id === currentReport.id)} onClose={() => setFullViewOpen(false)} />
+      )}
+
+      {copyNotice && (
+        <div
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[210] px-4 py-2 rounded-lg text-[12.5px]"
+          style={{ background: 'var(--surface-elevated)', color: S.t1, border: `1px solid ${S.borderStrong}`, boxShadow: '0 12px 32px rgba(0,0,0,0.25)' }}
+        >
+          {copyNotice}
+        </div>
       )}
     </div>
   )
