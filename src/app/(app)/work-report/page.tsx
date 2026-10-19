@@ -13,7 +13,7 @@ import ArchiveView from '@/components/work-report/ArchiveView'
 import ReportFullViewModal from '@/components/work-report/ReportFullViewModal'
 import ItemSectionPanel, { type ItemSectionPanelHandle } from '@/components/work-report/ItemSectionPanel'
 import { ITEM_SECTIONS, ITEM_SECTION_META, parseItemSelection, sortItems, isItemWritten, itemsToText } from '@/components/work-report/items'
-import { S, fmtPeriodLabel, fmtDateFull, addDaysToDateStr, todayStr, hasContent, isEntryWritten, type TopicChangeBadge } from '@/components/work-report/style'
+import { S, fmtPeriodLabel, fmtDateFull, addDaysToDateStr, todayStr, hasContent, isEntryWritten, POINT_LABEL, entryPointText, type TopicChangeBadge } from '@/components/work-report/style'
 
 // TOP LEVEL — "보고서 작성"(한 주제에 집중해서 깊게 작성) / "보고 아카이브"(과거 참고) 2-way.
 // 예전의 "테이블 작성"(이번 회차 전체 topic을 표로 편집)은 아카이브 "전체 비교"와 역할이
@@ -129,7 +129,9 @@ export default function WorkReportPage() {
           .from('work_report_entries').select('*').eq('report_id', latest.id).order('sort_order')
         const list = (entriesData as WorkReportEntry[]) ?? []
         entriesCacheRef.current.set(latest.id, list)
-        setEntriesByReport(new Map([[latest.id, list]]))
+        // 덮어쓰지 않고 합친다 — 이 응답보다 먼저 끝난 직전 회차 로드(ensureEntries)를 지우면
+        // loadedReportIds에는 남아 다시 읽지 않으므로, 목차가 전부 NEW·직전 대조가 비게 된다(2026-10-19).
+        setEntriesByReport(prev => new Map(prev).set(latest.id, list))
       }
       setLoading(false)
     })()
@@ -268,6 +270,11 @@ export default function WorkReportPage() {
       label: fmtPeriodLabel(r.period_start, r.period_end),
       dateLabel: fmtDateFull(r.report_date ?? r.period_end),
       value: e.report_text,
+      fields: [
+        { label: '이번 업데이트', value: e.report_text },
+        { label: POINT_LABEL, value: entryPointText(e) },
+        { label: '작업 메모', value: e.working_memo },
+      ],
       isCurrent: r.id === currentReport?.id,
     }))
   }, [selection, itemSection, itemsOf, reportsByDate, topicHistory, currentReport])
@@ -946,6 +953,8 @@ export default function WorkReportPage() {
                     onPrevTopic={goPrevTopic}
                     onNextTopic={goNextTopic}
                     onAddTopic={handleAddTopic}
+                    historyItems={isFixedKey(selection) ? undefined : historyItems}
+                    onOpenFullHistory={() => { setArchiveJumpTopicId(selectedTopic?.id ?? null); setMode('archive') }}
                   />
                 )}
               </div>
@@ -960,7 +969,8 @@ export default function WorkReportPage() {
                 컨텍스트
               </button>}
 
-              {!itemSection && <div className="hidden lg:block h-full" style={{ background: 'rgba(var(--ink-rgb),0.015)' }}>
+              {/* 2번 주제는 데스크톱에서 편집 화면 안 대조 열(ReportEditorPanel)이 히스토리를 맡는다. */}
+              {!itemSection && isFixedKey(selection) && <div className="hidden lg:block h-full" style={{ background: 'rgba(var(--ink-rgb),0.015)' }}>
                 <ContextPanel
                   key={`${currentReport.id}:${selection}`}
                   title={historyTitle}

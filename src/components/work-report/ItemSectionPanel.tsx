@@ -31,9 +31,10 @@ import { ITEM_SECTION_META, type ItemDraft } from './items'
 //
 // 직전 보고 열(2026-10-05): 우측 히스토리 패널 대신 표 첫 열에 직전 회차의 같은 항목(같은
 // lineage_id)을 읽기 전용으로 보여준다. 새 보고는 3-x를 더 이상 자동 이월하지 않고, 직전 회차
-// 항목 중 이번 회차에 lineage가 없는 것을 표 아래 "후보" 행으로 보여준다 —
+// 항목 중 이번 회차에 lineage가 없는 것을 표 맨 위 "후보" 행으로 고정해 보여준다(2026-10-19) —
 // - 이어가기: 직전 값을 같은 lineage_id로 복사해 이번 회차 행을 만든다(onRestore, 과거 행 불변).
-//   UNIQUE(report_id, lineage_id)라 같은 항목을 두 번 이어갈 수 없다.
+//   UNIQUE(report_id, lineage_id)라 같은 항목을 두 번 이어갈 수 없다. 만든 행은 이번 회차 행들 중
+//   이어온 행 묶음 바로 뒤(= 새로 추가한 행들 위)에 끼워 넣는다 — 순서: 후보 → 이어온 행 → 신규 행.
 // - 제외: 이번 화면에서만 후보를 흐리게 내려두는 UI 상태(DB·localStorage 저장 없음, 재진입 시 초기화).
 // 확정 회차에서는 후보 행 자체를 보여주지 않는다(이어가지 않은 항목 = 그 회차에서 제외된 것).
 
@@ -701,11 +702,20 @@ const ItemSectionPanel = forwardRef<ItemSectionPanelHandle, Props>(function Item
     setCarrying(prev.id)
     try {
       const created = await onRestore(prev)
-      if (created) pendingFocus.current = { id: created.id, col: 'title', atEnd: true, soft: true }
+      if (created) {
+        pendingFocus.current = { id: created.id, col: 'title', atEnd: true, soft: true }
+        // onRestore는 맨 끝 sort_order로 만든다 — 첫 신규 행(직전 lineage가 없는 행) 앞으로 옮긴다.
+        const at = items.findIndex(i => !prevByLineage.has(i.lineage_id))
+        if (at !== -1) {
+          const ids = items.map(i => i.id)
+          ids.splice(at, 0, created.id)
+          onReorder(ids)
+        }
+      }
     } finally {
       setCarrying(null)
     }
-  }, [readOnly, carrying, onRestore])
+  }, [readOnly, carrying, onRestore, items, prevByLineage, onReorder])
 
   function toggleExclude(prevId: string) {
     setExcludedIds(prev => {
@@ -751,7 +761,7 @@ const ItemSectionPanel = forwardRef<ItemSectionPanelHandle, Props>(function Item
         </div>
         <p className="text-[12px] mb-4" style={{ color: S.t4 }}>
           {meta.helper}{' '}
-          {prevReport && !readOnly ? '직전 보고 항목 중 이어갈 것만 "이어가기"로 가져옵니다.' : ''}
+          {prevReport && !readOnly ? '위쪽 직전 보고 항목 중 이어갈 것만 "이어가기"로 가져오고, 새 항목은 아래 행 추가로 씁니다.' : ''}
         </p>
 
         <div className="rounded-xl overflow-x-auto" style={{ border: `1px solid ${S.border}` }}>
@@ -787,6 +797,17 @@ const ItemSectionPanel = forwardRef<ItemSectionPanelHandle, Props>(function Item
                   />
                 )}
               </div>
+            ))}
+            {/* 직전 보고에서 아직 안 가져온 항목 — 표 맨 위에 고정, 아래는 이번 회차 행(이어온 행 → 신규 행). */}
+            {showPrev && [...candidates, ...excludedCandidates].map(p => (
+              <CandidateRow
+                key={p.id}
+                prev={p}
+                excluded={excludedIds.has(p.id)}
+                busy={carrying !== null}
+                onCarry={() => void carry(p)}
+                onToggleExclude={() => toggleExclude(p.id)}
+              />
             ))}
             {items.map((item, r) => {
               const inRows = !!rect && r >= rect.r0 && r <= rect.r1
@@ -842,16 +863,6 @@ const ItemSectionPanel = forwardRef<ItemSectionPanelHandle, Props>(function Item
                 등록된 항목이 없습니다.
               </div>
             )}
-            {showPrev && [...candidates, ...excludedCandidates].map(p => (
-              <CandidateRow
-                key={p.id}
-                prev={p}
-                excluded={excludedIds.has(p.id)}
-                busy={carrying !== null}
-                onCarry={() => void carry(p)}
-                onToggleExclude={() => toggleExclude(p.id)}
-              />
-            ))}
             {!readOnly && (
               <button
                 // 버튼이 포커스를 가져가지 않게 한다 — 연타 시 대기 행의 포커스(그사이 입력)를 뺏지 않도록.
@@ -873,7 +884,7 @@ const ItemSectionPanel = forwardRef<ItemSectionPanelHandle, Props>(function Item
           <p className="text-[11px] leading-[1.6] mt-2.5" style={{ color: S.t4 }}>
             Enter 아래 행·새 행 · Shift+Enter 줄바꿈 · ↑↓ 행 이동 · 빈 행에서 Backspace 삭제<br />
             셀 드래그/Shift+클릭 범위 선택 → Delete 지우기 · Ctrl+C/X/V · 행 번호 클릭 → Delete 행 삭제 · 행 번호 드래그로 순서 이동 · 머리글 경계 드래그로 열 너비
-            {showPrev && <><br />직전 보고 항목에 마우스를 올리면 이어가기 · 제외(제외는 이 화면에서만 유지)</>}
+            {showPrev && <><br />표 위쪽 직전 보고 항목에 마우스를 올리면 이어가기 · 제외(제외는 이 화면에서만 유지) · 이어간 행은 신규 행보다 위에 놓입니다</>}
           </p>
         )}
 

@@ -1,7 +1,7 @@
 'use client'
 
 import type { WorkReport, WorkReportEntry, WorkReportItem, WorkReportTopic } from '@/types'
-import { S, CONTENT_MAX_WIDTH, hasContent } from './style'
+import { S, CONTENT_MAX_WIDTH, hasContent, POINT_LABEL, entryPointText } from './style'
 import { ITEM_SECTIONS, ITEM_SECTION_META, isItemWritten, sortItems } from './items'
 
 // 보고 1건을 "읽는" 문서 형태로 렌더링하는 순수 컨텐츠 — 작성 화면의 "문서로 보기"
@@ -41,11 +41,9 @@ export default function ReportDocument({ report, rows, items }: Props) {
         <div key={entry.id} className="mb-5 pl-1">
           <p className="text-[13.5px] font-semibold mb-2" style={{ color: S.t1 }}>2.{i + 1} {entry.topic_title_snapshot}</p>
           <Block label="내용" value={entry.report_text} />
-          {entry.executive_point && <Block label="경영진 전달 포인트" value={entry.executive_point} />}
-          {/* 향후 Feedback Loop 자리 — 경영진 전달 포인트(결정/요청)는 보고 후 피드백이
-              가장 먼저 달리는 지점이라, 여기 바로 아래가 자연스러운 삽입 위치다.
-              지금은 표시하지 않는다(work_report_feedback 테이블 없음). */}
-          {entry.next_action && <Block label="다음 액션" value={entry.next_action} />}
+          {/* 향후 Feedback Loop 자리 — 전달 포인트(결정/요청) 바로 아래가 보고 후 피드백이
+              가장 먼저 달리는 지점이다. 지금은 표시하지 않는다(work_report_feedback 테이블 없음). */}
+          {hasContent(entryPointText(entry)) && <Block label={POINT_LABEL} value={entryPointText(entry)} />}
         </div>
       ))}
 

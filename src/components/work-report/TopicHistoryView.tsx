@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { WorkReport, WorkReportEntry, WorkReportTopic } from '@/types'
-import { S, selectClass, selectStyle, fmtPeriodLabel, hasContent, WRITING_CONTENT_WIDTH } from './style'
+import { S, selectClass, selectStyle, fmtPeriodLabel, hasContent, WRITING_CONTENT_WIDTH, POINT_LABEL, entryPointText } from './style'
 
 // "주제 히스토리" — "전체 비교"(여러 topic × 여러 report를 가로로 훑기)와 역할이 뚜렷이
 // 갈리는 화면이어야 한다: 여기는 하나의 topic을 골라 시간축을 위(최신)→아래(과거)로 깊게
@@ -19,7 +19,7 @@ interface Props {
   initialTopicId?: string
 }
 
-// 필드 하나(이번 업데이트/경영진 전달 포인트/다음 액션)를 깊게 읽는 카드 — 너무 길면
+// 필드 하나(이번 업데이트/전달 포인트 · 다음 액션)를 깊게 읽는 카드 — 너무 길면
 // clamp하고 펼쳐보기 토글을 둔다. ReportEditorPanel의 "직전 보고" 미리보기와 동일한
 // 패턴(clamp 3줄 + 펼쳐보기)을 재사용해 앱 전체의 상호작용 언어를 통일한다.
 function Field({ label, value, emphasis }: { label: string; value: string; emphasis?: boolean }) {
@@ -130,8 +130,7 @@ export default function TopicHistoryView({ supabase, topics, reports, initialTop
                 </div>
                 <div className="rounded-lg px-4 py-3.5" style={{ background: 'rgba(var(--ink-rgb),0.02)', border: `1px solid ${S.border}` }}>
                   <Field label="이번 업데이트" value={entry.report_text} emphasis />
-                  <Field label="경영진 전달 포인트" value={entry.executive_point} />
-                  <Field label="다음 액션" value={entry.next_action} />
+                  <Field label={POINT_LABEL} value={entryPointText(entry)} />
                   {!hasContent(entry.report_text) && !hasContent(entry.executive_point) && !hasContent(entry.next_action) && (
                     <p className="text-[12.5px]" style={{ color: S.t4 }}>작성된 내용이 없습니다.</p>
                   )}

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { WorkReport, WorkReportEntry, WorkReportItem, WorkReportTopic } from '@/types'
-import { S, fmtPeriodLabel, ARCHIVE_LABEL_COL_WIDTH, ARCHIVE_REPORT_COL_WIDTH } from './style'
+import { S, fmtPeriodLabel, ARCHIVE_LABEL_COL_WIDTH, ARCHIVE_REPORT_COL_WIDTH, POINT_LABEL, entryPointText } from './style'
 import ArchiveCell from './ArchiveCell'
 import EntryDetailModal from './EntryDetailModal'
 import { ITEM_SECTIONS, ITEM_SECTION_META, itemsToText } from './items'
@@ -172,16 +172,14 @@ export default function ArchiveCompareView({ supabase, topics, reports, items, o
                         // entry는 있는데 3필드가 다 비어 있으면 빈 배열 → "내용 없음".
                         fields={entry ? [
                           { label: '업데이트', value: entry.report_text },
-                          { label: '경영진 전달', value: entry.executive_point },
-                          { label: '다음 액션', value: entry.next_action },
+                          { label: '전달·액션', value: entryPointText(entry) },
                         ] : null}
                         onClick={entry ? () => setDetail({
                           title: entry.topic_title_snapshot,
                           reportLabel: fmtPeriodLabel(col.period_start, col.period_end),
                           fields: [
                             { label: '이번 업데이트', value: entry.report_text },
-                            { label: '경영진 전달 포인트', value: entry.executive_point },
-                            { label: '다음 액션', value: entry.next_action },
+                            { label: POINT_LABEL, value: entryPointText(entry) },
                           ],
                         }) : undefined}
                       />

@@ -1,13 +1,14 @@
 'use client'
 
-import { forwardRef, useImperativeHandle, useMemo, useState } from 'react'
+import { forwardRef, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { ChevronDown, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import type { WorkReport, WorkReportEntry, WorkReportTopic } from '@/types'
 import { useAutosave } from '@/hooks/useAutosave'
 import { useCanonicalSync, canonicalStatusText } from '@/hooks/useCanonicalSync'
-import { S, fmtPeriodLabel, WRITING_CONTENT_WIDTH } from './style'
+import { S, WRITING_CONTENT_WIDTH, POINT_LABEL, entryPointText } from './style'
 import { isFixedKey, type FixedSectionKey } from './TopicOutline'
+import { useHistoryPick, type HistoryItem } from './ContextPanel'
 
 // canonical(work_reports/work_report_entries) 저장은 useCanonicalSync(src/hooks/
 // useCanonicalSync.ts)로 뺐다 — (구) Topic Table View(테이블 작성, 2026-09-28 제거)도 동일한 entry를 편집했으므로
@@ -45,17 +46,84 @@ interface Props {
   onNextTopic: () => void
   // topic이 0개일 때 CENTER의 empty state에서 "+ 첫 주제 추가"가 재사용하는 기존 handler.
   onAddTopic: (title: string) => void
+  // 이 주제의 히스토리(최신 → 과거) — 데스크톱에서 오른쪽 대조 열로 그린다(아래 showHistory).
+  historyItems?: HistoryItem[]
+  onOpenFullHistory?: () => void
+}
+
+// ── 직전 보고 대조 표(2026-10-19, 목업 "해석 2 수정") ──────────────────────
+// 칸(이번 업데이트 / 전달 포인트 · 다음 액션 / 작업 메모)마다 작은 표를 따로 두고, 표 안은
+// [고른 회차(기본 = 직전) | 이번 보고] 2열. 열 위치는 표 밖 회차 머리글 줄과 모든 표가 같은
+// 너비 값을 공유해 맞춘다. 직전|이번 사이 선을 끌면 너비가 바뀌고 이 브라우저에 기억된다
+// (3-x 표 열 너비와 같은 방식, 더블클릭 = 기본).
+const PREV_COL_KEY = 'work-report-entry-prev-col-width'
+const PREV_COL_DEFAULT = 230
+const PREV_COL_MIN = 140
+const PREV_COL_MAX = 560
+const PREV_CLAMP_LINES = 6
+const CUR_BG = 'rgba(76,127,224,0.035)'
+const WIDE_QUERY = '(min-width: 1024px)' // page.tsx RIGHT 패널의 lg 기준과 같게
+
+function subscribeWide(cb: () => void) {
+  const mq = window.matchMedia(WIDE_QUERY)
+  mq.addEventListener('change', cb)
+  return () => mq.removeEventListener('change', cb)
+}
+
+function loadPrevColWidth(): number {
+  try {
+    const n = Number(window.localStorage.getItem(PREV_COL_KEY))
+    if (n >= PREV_COL_MIN && n <= PREV_COL_MAX) return n
+  } catch { /* 저장소 접근 불가 — 기본값 */ }
+  return PREV_COL_DEFAULT
+}
+
+// 직전 칸 — 6줄까지만 보이고 넘치면 "…더보기"로 펼친다(줄 높이가 과거 내용 때문에 터지지 않게).
+function PrevCell({ value }: { value: string | undefined }) {
+  const has = !!value?.trim()
+  const [open, setOpen] = useState(false)
+  const [overflow, setOverflow] = useState(false)
+  const textRef = useRef<HTMLParagraphElement>(null)
+  useLayoutEffect(() => {
+    const el = textRef.current
+    if (!el || open) return
+    const next = el.scrollHeight > el.clientHeight + 1
+    setOverflow(prev => (prev === next ? prev : next))
+  }, [value, open])
+  return (
+    <div className="min-w-0 px-3 py-3" style={{ fontSize: 12.5, lineHeight: 1.65 }}>
+      <p
+        ref={textRef}
+        className="whitespace-pre-wrap break-words"
+        style={{
+          color: has ? S.t2 : S.t4,
+          display: open ? 'block' : '-webkit-box',
+          WebkitBoxOrient: 'vertical',
+          WebkitLineClamp: open ? undefined : PREV_CLAMP_LINES,
+          overflow: open ? 'visible' : 'hidden',
+        }}
+      >
+        {value === undefined ? '' : has ? value : '—'}
+      </p>
+      {(overflow || open) && (
+        <button onClick={() => setOpen(o => !o)} className="text-[11px] font-medium mt-1" style={{ color: S.accentText }}>
+          {open ? '접기' : '…더보기'}
+        </button>
+      )}
+    </div>
+  )
 }
 
 // variant는 4개 필드를 "하나의 균일한 form"이 아니라 명확한 위계로 보이게 하기 위한
 // 최소한의 시각적 구분이다 — 새 카드 박스를 늘리는 대신 label 무게와 테두리 강조 정도만 바꾼다.
 //   primary : "이번 업데이트" — writing workspace의 main surface
-//   callout : "경영진 전달 포인트" — 그대로 보고에 옮겨지는 decision/request 문구라 좌측 accent bar로 구분
-//   default : 그 외(다음 액션, 내 작업 메모, 고정 섹션)
-type TextBoxVariant = 'primary' | 'callout' | 'default'
+//   callout : "전달 포인트 · 다음 액션" — 그대로 보고에 옮겨지는 decision/request 문구라 좌측 accent bar로 구분
+//   default : 그 외(내 작업 메모, 고정 섹션)
+//   cell    : 2번 주제 대조 표의 이번 칸 — 표 칸이 테두리·배경을 맡으므로 textarea는 맨몸으로 칸을 채운다
+type TextBoxVariant = 'primary' | 'callout' | 'default' | 'cell'
 
 function TextBox({
-  label, secondaryLabel, helper, value, onChange, minHeight, placeholder, readOnly, statusLabel, variant = 'default',
+  label, secondaryLabel, helper, value, onChange, minHeight, placeholder, readOnly, statusLabel, variant = 'default', fill = false,
 }: {
   label: string
   secondaryLabel?: string
@@ -67,9 +135,11 @@ function TextBox({
   readOnly: boolean
   statusLabel?: string
   variant?: TextBoxVariant
+  // 부모(grid row) 높이를 채운다 — 대조 열과 높이를 맞출 때.
+  fill?: boolean
 }) {
   return (
-    <div>
+    <div style={fill ? { height: '100%' } : undefined}>
       {(label || statusLabel) && (
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-baseline gap-1.5">
@@ -92,15 +162,17 @@ function TextBox({
         placeholder={placeholder}
         style={{
           width: '100%',
+          height: fill ? '100%' : undefined,
+          display: 'block',
           minHeight,
           resize: 'vertical',
           // callout은 예전에 accentDim(0.15) 배경 전체를 채워 "파란 박스"처럼 튀었다 —
           // 왼쪽 accent bar 하나로도 이번 업데이트/다음 액션과는 다른 성격(결정/요청)임이
           // 충분히 구분되므로 배경은 아주 옅은 tint로만 남긴다.
-          background: variant === 'callout' ? 'rgba(76,127,224,0.05)' : 'rgba(var(--ink-rgb),0.03)',
-          border: variant === 'primary' ? `1px solid ${S.borderStrong}` : `1px solid ${S.border}`,
+          background: variant === 'cell' ? 'transparent' : variant === 'callout' ? 'rgba(76,127,224,0.05)' : 'rgba(var(--ink-rgb),0.03)',
+          border: variant === 'cell' ? 'none' : variant === 'primary' ? `1px solid ${S.borderStrong}` : `1px solid ${S.border}`,
           borderLeft: variant === 'callout' ? `3px solid ${S.accent}` : undefined,
-          borderRadius: S.r,
+          borderRadius: variant === 'cell' ? 0 : S.r,
           padding: variant === 'callout' ? '12px 14px 12px 12px' : '12px 14px',
           color: S.t1,
           fontSize: 13.5,
@@ -120,8 +192,11 @@ export type ReportEditorPanelHandle = {
 
 const ReportEditorPanel = forwardRef<ReportEditorPanelHandle, Props>(function ReportEditorPanel({
   supabase, selection, report, topic, entry, prevEntry, prevReport, readOnly, onEntrySaved, onReportSaved,
-  hasPrevTopic, hasNextTopic, onPrevTopic, onNextTopic, onAddTopic,
+  hasPrevTopic, hasNextTopic, onPrevTopic, onNextTopic, onAddTopic, historyItems, onOpenFullHistory,
 }, ref) {
+  const historyPick = useHistoryPick(historyItems ?? [])
+  const wide = useSyncExternalStore(subscribeWide, () => window.matchMedia(WIDE_QUERY).matches, () => true)
+  const [prevColW, setPrevColW] = useState(loadPrevColWidth)
   const isFixed = isFixedKey(selection)
 
   // ── 고정 섹션(핵심요약/이슈/다음단계) 로컬 상태 — report 3필드를 항상 함께 들고 있는다.
@@ -158,23 +233,21 @@ const ReportEditorPanel = forwardRef<ReportEditorPanelHandle, Props>(function Re
 
   // ── 주제(entry) 로컬 상태 — entry가 바뀔 때의 리셋도 위와 동일하게 key remount로 처리 ──
   const [reportText, setReportText] = useState(entry?.report_text ?? '')
-  const [execText, setExecText] = useState(entry?.executive_point ?? '')
-  const [nextActionText, setNextActionText] = useState(entry?.next_action ?? '')
+  // 전달 포인트 · 다음 액션은 한 칸(executive_point) — 합치기 전 next_action은 이어 붙여 시작하고,
+  // 저장할 때 next_action을 비운다(style.ts entryPointText). 입력 전에는 저장하지 않는다(dirty-check).
+  const [execText, setExecText] = useState(entry ? entryPointText(entry) : '')
   const [memoText, setMemoText] = useState(entry?.working_memo ?? '')
   const [memoOpen, setMemoOpen] = useState(false)
-  // 지난 보고 reference — 기본은 접힌 상태로 두되, 헤더에 truncate된 미리보기를
-  // 같이 보여줘서 펼치지 않아도 "지난번에 뭘 썼는지"가 바로 보이게 한다(기억 의존 최소화).
-  // report/topic 전환은 이 컴포넌트가 key remount되므로 매번 접힌 기본값으로 리셋된다.
-  const [prevOpen, setPrevOpen] = useState(false)
+  const prev = !!(prevEntry && prevReport)
   // topic 0개 empty state의 "+ 첫 주제 추가" 인라인 입력 — TopicOutline의 add 흐름과
   // 별개 로컬 상태지만 제출은 동일한 onAddTopic(page.tsx의 handleAddTopic)을 그대로 쓴다.
   const [addingTopic, setAddingTopic] = useState(false)
   const [newTopicTitle, setNewTopicTitle] = useState('')
 
   const entryDraft: EntryDraft | null = useMemo(() => entry ? {
-    report_text: reportText, executive_point: execText, next_action: nextActionText, working_memo: memoText,
+    report_text: reportText, executive_point: execText, next_action: '', working_memo: memoText,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  } : null, [entry?.id, reportText, execText, nextActionText, memoText])
+  } : null, [entry?.id, reportText, execText, memoText])
 
   const entryCanonical = useCanonicalSync<EntryDraft>({
     supabase,
@@ -214,8 +287,7 @@ const ReportEditorPanel = forwardRef<ReportEditorPanelHandle, Props>(function Re
     } else {
       const v = activeAutosave.recovered.value as EntryDraft
       setReportText(v.report_text ?? '')
-      setExecText(v.executive_point ?? '')
-      setNextActionText(v.next_action ?? '')
+      setExecText(entryPointText({ executive_point: v.executive_point ?? '', next_action: v.next_action ?? '' }))
       setMemoText(v.working_memo ?? '')
     }
     activeAutosave.discardRecovered()
@@ -316,10 +388,73 @@ const ReportEditorPanel = forwardRef<ReportEditorPanelHandle, Props>(function Re
     )
   }
 
+  // ── 직전 보고 대조 표 ─────────────────────────────────────────────────
+  // 데스크톱(lg 이상)이고 이 주제의 히스토리가 있을 때만 왼쪽 비교 열을 그린다. 좁은 화면은
+  // 이번 열만(기존 "컨텍스트" 서랍으로 히스토리 확인).
+  const hItem = historyPick.item
+  const showPrev = wide && !!hItem
+  const hValue = (i: number) => hItem?.fields?.[i]?.value
+  const isJustBefore = !!historyPick.asc[historyPick.index + 1]?.isCurrent
+  const curDateLabel = historyItems?.find(i => i.isCurrent)?.dateLabel
+  const cols = showPrev ? `${prevColW}px minmax(0, 1fr)` : 'minmax(0, 1fr)'
+
+  function startPrevColResize(e: React.PointerEvent) {
+    e.preventDefault()
+    const sx = e.clientX
+    const start = prevColW
+    let latest = start
+    function onMove(ev: PointerEvent) {
+      latest = Math.max(PREV_COL_MIN, Math.min(PREV_COL_MAX, Math.round(start + ev.clientX - sx)))
+      setPrevColW(latest)
+    }
+    function onUp() {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      try { window.localStorage.setItem(PREV_COL_KEY, String(latest)) } catch { /* 무시 */ }
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+  }
+  function resetPrevColW() {
+    setPrevColW(PREV_COL_DEFAULT)
+    try { window.localStorage.setItem(PREV_COL_KEY, String(PREV_COL_DEFAULT)) } catch { /* 무시 */ }
+  }
+
+  // 칸 하나 = 표 하나: 라벨 줄 + [비교 회차 | 이번] 본문. 사이 선은 평범한 1px — 마우스를 올리면
+  // col-resize 커서와 옅은 강조만 보인다(3-x 표 머리글 경계와 같은 모양).
+  const fieldTable = (
+    key: string, title: React.ReactNode, helper: string, prevValue: string | undefined, current: React.ReactNode,
+  ) => (
+    <section key={key} className="rounded-[10px] overflow-hidden" style={{ border: `1px solid ${S.border}` }}>
+      <div className="flex items-baseline gap-2 px-3.5 py-[7px]" style={{ background: S.panel, borderBottom: `1px solid ${S.border}` }}>
+        {title}
+        <span className="text-[10.5px]" style={{ color: S.t4 }}>{helper}</span>
+      </div>
+      <div className="grid relative" style={{ gridTemplateColumns: cols }}>
+        {showPrev && <PrevCell value={prevValue} />}
+        <div className="min-w-0" style={{ background: CUR_BG, borderLeft: showPrev ? `1px solid ${S.border}` : undefined }}>
+          {current}
+        </div>
+        {showPrev && (
+          <button
+            type="button"
+            tabIndex={-1}
+            aria-label="비교 열 너비 조절"
+            title="드래그: 너비 조절 · 더블클릭: 기본 너비"
+            onPointerDown={startPrevColResize}
+            onDoubleClick={resetPrevColW}
+            className="absolute top-0 bottom-0 hover:bg-[rgba(76,127,224,0.45)]"
+            style={{ left: prevColW - 3, width: 7, cursor: 'col-resize', zIndex: 2 }}
+          />
+        )}
+      </div>
+    </section>
+  )
+
   return (
     <div className="h-full overflow-y-auto px-8 py-5">
-    <div style={{ maxWidth: WRITING_CONTENT_WIDTH }}>
-      <div className="flex items-center justify-between gap-2 mb-4">
+    <div style={{ maxWidth: WRITING_CONTENT_WIDTH + (showPrev ? prevColW : 0) }}>
+      <div className="flex items-center justify-between gap-2 mb-3">
         {/* NEW/업데이트됨 배지는 LEFT Outline에서만 보여준다 — 같은 정보를 여기서
             다시 강조하지 않는다(중복 제거). */}
         <p className="text-[16px] font-semibold truncate min-w-0" style={{ color: S.t1 }}>{entry.topic_title_snapshot}</p>
@@ -347,99 +482,91 @@ const ReportEditorPanel = forwardRef<ReportEditorPanelHandle, Props>(function Re
 
       {recoveredBanner}
 
-      {/* 직전 보고 — 작성의 직접적인 context이므로 CENTER 최상단, 클릭 없이도 바로
-          몇 줄이 보이는 preview로 둔다("지난번 어디까지 썼는지"를 기억에 의존하지 않게).
-          RIGHT의 "이 주제의 히스토리"와 역할이 다르다: 여기는 항상 바로 직전 회차 하나,
-          RIGHT는 과거 전체 회차를 훑는 탐색용. 클릭해도 report_text에는 복사되지 않는다. */}
-      {prevEntry && prevReport ? (
-        <div className="mb-5 rounded-lg px-3.5 py-3" style={{ background: 'rgba(var(--ink-rgb),0.025)', border: `1px solid ${S.border}` }}>
-          <p className="text-[11px] font-semibold mb-1.5" style={{ color: S.t3 }}>
-            직전 보고 · {fmtPeriodLabel(prevReport.period_start, prevReport.period_end)}
-          </p>
-          <p
-            className="text-[13px] leading-[1.65] whitespace-pre-wrap"
-            style={{
-              color: S.t2,
-              display: '-webkit-box',
-              WebkitBoxOrient: 'vertical',
-              WebkitLineClamp: prevOpen ? undefined : 3,
-              overflow: prevOpen ? 'visible' : 'hidden',
-            }}
-          >
-            {prevEntry.report_text || '(작성된 내용 없음)'}
-          </p>
-          {prevEntry.report_text && (
+      {/* 회차 머리글 — 표 밖 한 줄, 아래 표들과 같은 열 너비. */}
+      <div className="grid mb-2.5" style={{ gridTemplateColumns: cols }}>
+        {showPrev && hItem && (
+          <div className="flex items-center gap-1 px-2 min-w-0">
             <button
-              onClick={() => setPrevOpen(o => !o)}
-              className="block ml-auto text-[11px] font-medium underline mt-1"
-              style={{ color: S.t3 }}
+              onClick={() => historyPick.go(-1)}
+              disabled={historyPick.index <= 0}
+              title="이전 회차"
+              className="p-0.5 rounded disabled:opacity-25 hover:bg-[rgba(var(--ink-rgb),0.06)]"
             >
-              {prevOpen ? '접기' : '펼쳐보기'}
+              <ChevronLeft size={13} style={{ color: S.t2 }} />
             </button>
-          )}
+            <span className="text-[11.5px] font-semibold truncate" style={{ color: hItem.isCurrent ? S.accentText : S.t2 }} title={hItem.label}>
+              {hItem.dateLabel.slice(5)} 보고
+            </span>
+            {isJustBefore && <span className="text-[10.5px] flex-shrink-0" style={{ color: S.t4 }}>직전</span>}
+            {hItem.isCurrent && <span className="text-[10.5px] flex-shrink-0" style={{ color: S.t4 }}>현재</span>}
+            <button
+              onClick={() => historyPick.go(1)}
+              disabled={historyPick.index >= historyPick.asc.length - 1}
+              title="다음 회차"
+              className="p-0.5 rounded disabled:opacity-25 hover:bg-[rgba(var(--ink-rgb),0.06)]"
+            >
+              <ChevronRight size={13} style={{ color: S.t2 }} />
+            </button>
+            {onOpenFullHistory && (
+              <button onClick={onOpenFullHistory} className="ml-auto text-[10.5px] underline underline-offset-2 flex-shrink-0" style={{ color: S.t4 }}>
+                전체
+              </button>
+            )}
+          </div>
+        )}
+        <div className="flex items-center justify-between px-3.5">
+          <span className="text-[11.5px] font-bold" style={{ color: S.accentText }}>
+            {curDateLabel ? `${curDateLabel.slice(5)} 이번 보고` : '이번 보고'}
+          </span>
+          <span className="text-[10.5px]" style={{ color: S.t4 }}>{canonicalStatusText(activeCanonical.status)}</span>
         </div>
-      ) : (
-        <p className="text-[11.5px] mb-5" style={{ color: S.t4 }}>이번 보고에서 새로 추가된 주제입니다.</p>
+      </div>
+
+      {!prev && !showPrev && (
+        <p className="text-[11.5px] mb-2.5" style={{ color: S.t4 }}>이번 보고에서 새로 추가된 주제입니다.</p>
       )}
 
-      {/* main writing surface(이번 업데이트) → decision/request 콜아웃 → follow-up →
-          (구분선 아래) 개인 메모, 순서로 명확한 위계를 준다. 4개를 같은 무게의 textarea
-          더미로 늘어놓지 않는다. */}
-      <div className="space-y-5">
-        <TextBox
-          label="이번 업데이트"
-          helper="이번 기간에 새롭게 업데이트된 내용, 변화된 수치, 진행 상황을 작성합니다."
-          value={reportText}
-          onChange={setReportText}
-          minHeight={170}
-          placeholder="자유롭게 줄글로 작성합니다."
-          readOnly={readOnly}
-          statusLabel={canonicalStatusText(activeCanonical.status)}
-          variant="primary"
-        />
-        <TextBox
-          label="경영진 전달 포인트"
-          secondaryLabel="의사결정 필요사항"
-          helper="경영진에게 반드시 전달하거나 판단받아야 하는 내용을 작성합니다."
-          value={execText}
-          onChange={setExecText}
-          minHeight={110}
-          readOnly={readOnly}
-          variant="callout"
-        />
-        {/* 향후 Feedback Loop 자리 — 경영진 전달 포인트 바로 아래가 "이 요청/결정에 대해
-            지난번 경영진이 뭐라고 했는지"를 붙이기 가장 자연스러운 지점이다. 지금은 표시
-            하지 않는다(work_report_feedback 테이블 없음, 이번 Phase 범위 밖). */}
-        <TextBox
-          label="다음 액션"
-          helper="이번 보고 이후 진행할 후속 액션을 작성합니다."
-          value={nextActionText}
-          onChange={setNextActionText}
-          minHeight={90}
-          readOnly={readOnly}
-        />
+      <div className="space-y-3.5">
+        {fieldTable(
+          'update',
+          <span className="text-[12px] font-bold" style={{ color: S.t1 }}>이번 업데이트</span>,
+          '진행 상황 · 변화된 수치',
+          hValue(0),
+          <TextBox label="" value={reportText} onChange={setReportText} minHeight={170}
+            placeholder="자유롭게 줄글로 작성합니다." readOnly={readOnly} variant="cell" fill />,
+        )}
+        {fieldTable(
+          'point',
+          <span className="text-[12px] font-bold" style={{ color: S.t1 }}>{POINT_LABEL}</span>,
+          '경영진 판단 요청 · 다음 보고까지 할 일',
+          hValue(1),
+          <TextBox label="" value={execText} onChange={setExecText} minHeight={110}
+            placeholder="경영진 전달·판단 요청, 다음 액션을 적습니다." readOnly={readOnly} variant="cell" fill />,
+        )}
 
-        <div className="pt-4" style={{ borderTop: `1px solid ${S.border}` }}>
-          <button
-            onClick={() => setMemoOpen(o => !o)}
-            className="flex items-center gap-1 text-[11px] font-semibold mb-1.5"
-            style={{ color: S.t4 }}
-          >
-            {memoOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-            내 작업 메모 (PT 문안에는 포함되지 않음)
-          </button>
-          {memoOpen && (
-            <TextBox
-              label=""
-              helper="개인용 메모입니다. 보고서에는 포함되지 않습니다."
-              value={memoText}
-              onChange={setMemoText}
-              minHeight={120}
-              placeholder="CFO 미팅, 지급률 재계산 등 기억용 raw note"
-              readOnly={readOnly}
-            />
-          )}
-        </div>
+        {memoOpen ? fieldTable(
+          'memo',
+          <button onClick={() => setMemoOpen(false)} className="flex items-center gap-1 text-[12px] font-semibold" style={{ color: S.t2 }}>
+            <ChevronDown size={12} /> 작업 메모
+          </button>,
+          '보고서에 포함되지 않음',
+          hValue(2),
+          <TextBox label="" value={memoText} onChange={setMemoText} minHeight={110}
+            placeholder="CFO 미팅, 지급률 재계산 등 기억용 raw note" readOnly={readOnly} variant="cell" fill />,
+        ) : (
+          <section className="rounded-[10px] overflow-hidden" style={{ border: `1px solid ${S.border}` }}>
+            <button
+              onClick={() => setMemoOpen(true)}
+              className="w-full flex items-baseline gap-2 px-3.5 py-[7px] text-left"
+              style={{ background: S.panel }}
+            >
+              <span className="flex items-center gap-1 text-[12px] font-semibold" style={{ color: S.t2 }}>
+                <ChevronRight size={12} /> 작업 메모
+              </span>
+              <span className="text-[10.5px]" style={{ color: S.t4 }}>보고서에 포함되지 않음 · 접힘</span>
+            </button>
+          </section>
+        )}
       </div>
     </div>
     </div>

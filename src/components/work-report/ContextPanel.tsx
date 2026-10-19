@@ -18,6 +18,9 @@ export interface HistoryItem {
   label: string        // "2026.09.14 ~ 09.27"
   dateLabel: string    // 보고일 "2026.09.28"
   value: string
+  // 주제(2번)는 CENTER 입력칸과 같은 순서·라벨의 칸으로 나눠 보여준다(2026-10-19) — 직전 회차를
+  // CENTER와 1:1로 대조하는 용도. 없으면 value 한 덩어리로 표시(고정 섹션·3-x).
+  fields?: { label: string; value: string }[]
   isCurrent: boolean
 }
 
@@ -28,7 +31,8 @@ interface Props {
   onOpenFullHistory: () => void
 }
 
-export default function ContextPanel({ title, items, showFullHistoryLink, onOpenFullHistory }: Props) {
+// 회차 선택 상태 — RIGHT 패널과 2번 주제 편집 화면의 대조 열(ReportEditorPanel)이 함께 쓴다.
+export function useHistoryPick(items: HistoryItem[]) {
   // 네비게이션은 좌→우 = 과거→최신으로 읽히게 뒤집어 쓴다(상단 보고 이력 타임라인과 같은 방향).
   const asc = useMemo(() => [...items].reverse(), [items])
   const defaultIndex = useMemo(() => {
@@ -43,24 +47,88 @@ export default function ContextPanel({ title, items, showFullHistoryLink, onOpen
   const [pickedId, setPickedId] = useState<string | null>(null)
   const pickedIndex = pickedId ? asc.findIndex(i => i.id === pickedId) : -1
   const index = pickedIndex >= 0 ? pickedIndex : defaultIndex
-  const item = asc[index]
-
-  const chipsRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    const el = chipsRef.current?.querySelector<HTMLElement>(`[data-idx="${index}"]`)
-    el?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
-  }, [index])
+  const item = asc[index] as HistoryItem | undefined
 
   function go(delta: number) {
     const next = asc[index + delta]
     if (next) setPickedId(next.id)
   }
 
+  return { asc, index, item, go, pick: setPickedId }
+}
+
+export type HistoryPick = ReturnType<typeof useHistoryPick>
+
+// 상단 네비게이션 — ◀ 이전 회차 / 보고일 / 다음 회차 ▶ + 전 회차 보고일 칩
+export function HistoryNav({ pick }: { pick: HistoryPick }) {
+  const { asc, index, item, go } = pick
+  const chipsRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = chipsRef.current?.querySelector<HTMLElement>(`[data-idx="${index}"]`)
+    el?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  }, [index])
+  if (!item) return null
+  return (
+    <>
+      <div className="flex items-center justify-between gap-1">
+        <button
+          onClick={() => go(-1)}
+          disabled={index <= 0}
+          className="p-1 rounded-lg disabled:opacity-25 hover:bg-[rgba(var(--ink-rgb),0.06)]"
+          title="이전 보고"
+        >
+          <ChevronLeft size={14} style={{ color: S.t2 }} />
+        </button>
+        <div className="min-w-0 text-center">
+          <p className="text-[12.5px] font-semibold truncate" style={{ color: item.isCurrent ? S.accentText : S.t1 }}>
+            {item.dateLabel} 보고{item.isCurrent && ' · 현재'}
+          </p>
+          <p className="text-[10.5px] truncate" style={{ color: S.t4 }}>
+            {item.label} · {index + 1}/{asc.length}
+          </p>
+        </div>
+        <button
+          onClick={() => go(1)}
+          disabled={index >= asc.length - 1}
+          className="p-1 rounded-lg disabled:opacity-25 hover:bg-[rgba(var(--ink-rgb),0.06)]"
+          title="다음 보고"
+        >
+          <ChevronRight size={14} style={{ color: S.t2 }} />
+        </button>
+      </div>
+
+      <div ref={chipsRef} className="flex items-center gap-1 overflow-x-auto mt-2 pb-0.5" style={{ scrollbarWidth: 'thin' }}>
+        {asc.map((it, i) => {
+          const active = i === index
+          return (
+            <button
+              key={it.id}
+              data-idx={i}
+              onClick={() => pick.pick(it.id)}
+              title={it.label}
+              className="flex-shrink-0 px-2 py-0.5 rounded-full text-[10.5px] transition-colors"
+              style={active
+                ? { color: S.accentText, background: S.accentDim, border: `1px solid ${S.accentBorder}`, fontWeight: 600 }
+                : { color: it.isCurrent ? S.accentText : S.t3, background: 'rgba(var(--ink-rgb),0.04)', border: `1px solid ${S.border}` }}
+            >
+              {it.dateLabel.slice(5)}
+            </button>
+          )
+        })}
+      </div>
+    </>
+  )
+}
+
+export default function ContextPanel({ title, items, showFullHistoryLink, onOpenFullHistory }: Props) {
+  const pick = useHistoryPick(items)
+  const { asc, item } = pick
   const hasValue = !!(item?.value ?? '').trim()
 
   return (
     // LEFT(TopicOutline)와 같은 폭 전략 — 1366/1440에서는 좁게, 1920+에서 조금 더 넓혀
-    // "붙어 있는 작은 부록"처럼 보이지 않게 한다.
+    // "붙어 있는 작은 부록"처럼 보이지 않게 한다. 2번 주제는 데스크톱에서 이 패널 대신
+    // 편집 화면 안의 대조 열(ReportEditorPanel)을 쓴다 — 여기는 고정 섹션·좁은 화면 서랍용.
     <div className="h-full flex flex-col w-[230px] xl:w-[260px] 2xl:w-[290px]" style={{ flexShrink: 0 }}>
       <div className="px-4 pt-3.5 pb-2">
         <p className="text-[10.5px] font-semibold uppercase tracking-wide" style={{ color: S.t4 }}>{title}</p>
@@ -70,63 +138,36 @@ export default function ContextPanel({ title, items, showFullHistoryLink, onOpen
         <p className="px-4 text-[12px]" style={{ color: S.t4 }}>히스토리가 없습니다.</p>
       ) : (
         <>
-          {/* 상단 네비게이션 — ◀ 이전 회차 / 보고일 / 다음 회차 ▶ + 전 회차 보고일 칩 */}
           <div className="px-3 pb-2.5 flex-shrink-0" style={{ borderBottom: `1px solid ${S.border}` }}>
-            <div className="flex items-center justify-between gap-1">
-              <button
-                onClick={() => go(-1)}
-                disabled={index <= 0}
-                className="p-1 rounded-lg disabled:opacity-25 hover:bg-[rgba(var(--ink-rgb),0.06)]"
-                title="이전 보고"
-              >
-                <ChevronLeft size={14} style={{ color: S.t2 }} />
-              </button>
-              <div className="min-w-0 text-center">
-                <p className="text-[12.5px] font-semibold truncate" style={{ color: item.isCurrent ? S.accentText : S.t1 }}>
-                  {item.dateLabel} 보고{item.isCurrent && ' · 현재'}
-                </p>
-                <p className="text-[10.5px] truncate" style={{ color: S.t4 }}>
-                  {item.label} · {index + 1}/{asc.length}
-                </p>
-              </div>
-              <button
-                onClick={() => go(1)}
-                disabled={index >= asc.length - 1}
-                className="p-1 rounded-lg disabled:opacity-25 hover:bg-[rgba(var(--ink-rgb),0.06)]"
-                title="다음 보고"
-              >
-                <ChevronRight size={14} style={{ color: S.t2 }} />
-              </button>
-            </div>
-
-            <div ref={chipsRef} className="flex items-center gap-1 overflow-x-auto mt-2 pb-0.5" style={{ scrollbarWidth: 'thin' }}>
-              {asc.map((it, i) => {
-                const active = i === index
-                return (
-                  <button
-                    key={it.id}
-                    data-idx={i}
-                    onClick={() => setPickedId(it.id)}
-                    title={it.label}
-                    className="flex-shrink-0 px-2 py-0.5 rounded-full text-[10.5px] transition-colors"
-                    style={active
-                      ? { color: S.accentText, background: S.accentDim, border: `1px solid ${S.accentBorder}`, fontWeight: 600 }
-                      : { color: it.isCurrent ? S.accentText : S.t3, background: 'rgba(var(--ink-rgb),0.04)', border: `1px solid ${S.border}` }}
-                  >
-                    {it.dateLabel.slice(5)}
-                  </button>
-                )
-              })}
-            </div>
+            <HistoryNav pick={pick} />
           </div>
 
           <div className="flex-1 overflow-y-auto px-4 py-3">
-            <p
-              className="text-[12.5px] leading-[1.7] whitespace-pre-wrap break-words"
-              style={{ color: hasValue ? S.t2 : S.t4 }}
-            >
-              {hasValue ? item.value : '(내용 없음)'}
-            </p>
+            {item.fields ? (
+              <div className="space-y-4">
+                {item.fields.map(f => {
+                  const has = !!f.value.trim()
+                  return (
+                    <div key={f.label}>
+                      <p className="text-[11px] font-semibold mb-1" style={{ color: S.t3 }}>{f.label}</p>
+                      <p
+                        className="rounded-lg px-3 py-2.5 text-[12.5px] leading-[1.7] whitespace-pre-wrap break-words"
+                        style={{ color: has ? S.t2 : S.t4, background: 'rgba(var(--ink-rgb),0.03)', border: `1px solid ${S.border}` }}
+                      >
+                        {has ? f.value : '(작성된 내용 없음)'}
+                      </p>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <p
+                className="text-[12.5px] leading-[1.7] whitespace-pre-wrap break-words"
+                style={{ color: hasValue ? S.t2 : S.t4 }}
+              >
+                {hasValue ? item.value : '(내용 없음)'}
+              </p>
+            )}
 
             {showFullHistoryLink && (
               <button

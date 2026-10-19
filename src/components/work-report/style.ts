@@ -94,6 +94,19 @@ export function hasContent(text: string | null | undefined): boolean {
   return !!(text ?? '').trim()
 }
 
+// 2번 주제의 "전달 포인트 · 다음 액션" 칸(2026-10-19) — 예전에는 경영진 전달 포인트와 다음 액션이
+// 따로였는데 한 칸으로 합쳤다. DB 컬럼은 그대로 두고 executive_point에 합친 글을 쓰며, 합치기 전에
+// 쓴 next_action은 화면에서 이어 붙여 보여준다(편집하면 executive_point로 합쳐지고 next_action은 비운다).
+export const POINT_LABEL = '전달 포인트 · 다음 액션'
+
+export function entryPointText(entry: { executive_point: string; next_action: string }): string {
+  const exec = entry.executive_point ?? ''
+  const next = entry.next_action ?? ''
+  if (!hasContent(next)) return exec
+  if (!hasContent(exec)) return next
+  return `${exec.trimEnd()}\n${next}`
+}
+
 export function isEntryWritten(entry: { report_text: string; executive_point: string; next_action: string }): boolean {
   return hasContent(entry.report_text) || hasContent(entry.executive_point) || hasContent(entry.next_action)
 }
