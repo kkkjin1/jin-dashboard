@@ -2,7 +2,7 @@
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { Plus, X } from 'lucide-react'
+import { GripVertical, Plus, X } from 'lucide-react'
 import type { WorkReport, WorkReportItem, WorkReportItemSection } from '@/types'
 import { useCanonicalSync } from '@/hooks/useCanonicalSync'
 import { parseSpreadsheetClipboard } from '@/lib/spreadsheetClipboard'
@@ -21,7 +21,7 @@ import { ITEM_SECTION_META, type ItemDraft } from './items'
 // - 셀을 드래그하거나 Shift+클릭으로 범위 선택 → Delete/Backspace 지우기, Ctrl+C/X 복사·잘라내기,
 //   Ctrl+V는 범위 왼쪽 위부터 붙여넣기. Excel/Sheets 범위를 셀에 붙여넣으면 행·열로 나눠
 //   채우고, 모자라는 행은 새로 만든다.
-// - 왼쪽 행 번호: 클릭(Shift+클릭) = 행 선택 → Delete로 행 삭제, 드래그 = 행 순서 이동
+// - 왼쪽 행 번호(hover 시 ⋮⋮ 손잡이): 클릭(Shift+클릭) = 행 선택 → Delete로 행 삭제, 드래그 = 행 순서 이동
 //   (선택된 여러 행을 잡으면 묶음으로 이동).
 //
 // 각 행은 자기 row를 useCanonicalSync로 직접 저장한다(ReportEditorPanel의 entry 저장과
@@ -327,7 +327,9 @@ function ItemRow({
           background: rowSelected ? SEL_BG : cellBase.background ?? S.panel,
         }}
       >
-        {index + 1}
+        {/* 행에 마우스를 올리면 번호 대신 끌기 손잡이 — 이 칸 전체가 드래그 핸들이다(2026-10-19). */}
+        <span className={readOnly ? '' : 'group-hover:hidden'}>{index + 1}</span>
+        {!readOnly && <GripVertical size={13} className="hidden group-hover:block mt-px" style={{ color: S.t3 }} />}
       </div>
       {showPrev && <PrevCell prev={prevItem} {...dragProps} style={{ borderTop: cellBase.borderTop, boxShadow: edgeShadow, opacity: cellBase.opacity }} />}
       {COLS.map((col, ci) => (
