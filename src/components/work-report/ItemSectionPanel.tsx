@@ -15,7 +15,8 @@ import { ITEM_SECTION_META, type ItemDraft } from './items'
 // 화면에서만 title=타이틀, detail=세부내용, summary=비고로 쓴다(status/owner는 기존 값 보존만).
 //
 // 키보드: Enter = 아래 행(마지막 행이면 새 행 추가), Shift/Alt+Enter = 셀 안 줄바꿈,
-// ↑/↓ = 커서가 셀 맨 앞/맨 끝일 때 위/아래 행, 빈 행에서 Backspace = 행 삭제 후 위 행으로.
+// ↑/↓ = 커서가 셀 맨 앞/맨 끝일 때 위/아래 행. Backspace는 셀 안 글자만 지운다 — 빈 행에서 행 삭제+위 행
+// 이동은 연타하다 위 행으로 올라가는 실수가 잦아 없앴다(2026-10-19). 행 삭제는 행 번호 클릭 → Delete.
 //
 // 엑셀식 조작(생각스케치 표와 같은 붙여넣기 분배 — parseSpreadsheetClipboard 공용):
 // - 셀을 드래그하거나 Shift+클릭으로 범위 선택 → Delete/Backspace 지우기, Ctrl+C/X 복사·잘라내기,
@@ -112,9 +113,6 @@ type CellNav = {
   register: (id: string, col: Col, el: HTMLTextAreaElement | null) => void
   onEnter: (id: string, col: Col, rowEmpty: boolean) => void
   onMove: (id: string, col: Col, dir: -1 | 1) => void
-  onBackspaceEmpty: (id: string) => void
-  // 빈 행 삭제로 위 행에 옮겨 온 뒤 Backspace를 아직 떼지 않았는지 — 누르고 있는 반복 입력이 위 행 글자를 지우지 않게.
-  isBackspaceLocked: () => boolean
   onPaste: (r: number, c: number, e: React.ClipboardEvent<HTMLTextAreaElement>) => void
   onCellMouseDown: (r: number, c: number, e: React.MouseEvent) => void
   onCellMouseEnter: (r: number, c: number) => void
@@ -298,12 +296,6 @@ function ItemRow({
     } else if (e.key === 'ArrowDown' && el.selectionStart === el.value.length) {
       e.preventDefault()
       nav.onMove(item.id, col, 1)
-    } else if (e.key === 'Backspace' && e.repeat && nav.isBackspaceLocked()) {
-      e.preventDefault()
-    } else if (e.key === 'Backspace' && !readOnly && col === 'title' && rowEmpty) {
-      e.preventDefault()
-      // 글자를 지우다 Backspace를 계속 누르고 있어 빈 행이 된 경우엔 행을 지우지 않는다 — 새로 눌렀을 때만.
-      if (!e.repeat) nav.onBackspaceEmpty(item.id)
     }
   }
 
@@ -382,12 +374,6 @@ const ItemSectionPanel = forwardRef<ItemSectionPanelHandle, Props>(function Item
   const cells = useRef<Map<string, HTMLTextAreaElement>>(new Map())
   const pendingFocus = useRef<{ id: string; col: Col; atEnd?: boolean; soft?: boolean } | null>(null)
   const adding = useRef(false)
-  const backspaceLock = useRef(false)
-  useEffect(() => {
-    const onKeyUp = (e: KeyboardEvent) => { if (e.key === 'Backspace') backspaceLock.current = false }
-    window.addEventListener('keyup', onKeyUp)
-    return () => window.removeEventListener('keyup', onKeyUp)
-  }, [])
   // 행 추가 대기 행 — INSERT 응답(수백 ms) 전에 바로 그려서 포커스를 받아, 그사이 입력이 이전
   // 셀로 새지 않게 한다(2026-10-06). DB와 무관한 화면 전용 행이고, 응답이 오면 입력한 타이틀을
   // 실제 행으로 옮긴 뒤 사라진다. 실패하면 그냥 사라지고 아래에 안내만 남긴다.
@@ -616,17 +602,6 @@ const ItemSectionPanel = forwardRef<ItemSectionPanelHandle, Props>(function Item
       const target = items[idx + dir]
       if (target) focusCell(target.id, col, dir === -1)
     },
-    onBackspaceEmpty: id => {
-      const idx = items.findIndex(i => i.id === id)
-      const target = items[idx - 1] ?? items[idx + 1]
-      backspaceLock.current = true
-      void onDelete(items[idx], { skipConfirm: true }).then(ok => {
-        if (ok && target) {
-          pendingFocus.current = { id: target.id, col: target === items[idx - 1] ? 'summary' : 'title', atEnd: true }
-        }
-      })
-    },
-    isBackspaceLocked: () => backspaceLock.current,
     onPaste: (r, c, e) => {
       if (readOnly || !e.clipboardData) return
       const matrix = parseSpreadsheetClipboard(e.clipboardData)
@@ -696,7 +671,7 @@ const ItemSectionPanel = forwardRef<ItemSectionPanelHandle, Props>(function Item
       if (sel?.rows) setSel({ a: { r: at, c: 0 }, b: { r: at + moving.length - 1, c: COLS.length - 1 }, rows: true })
     },
     onDragEnd: () => { setDragRows(null); setDrop(null) },
-  }), [items, focusCell, addRow, onDelete, readOnly, pasteMatrix, sel, dragRows, drop, onReorder])
+  }), [items, focusCell, addRow, readOnly, pasteMatrix, sel, dragRows, drop, onReorder])
 
   // 직전 보고 열 — 이번 회차 행과 같은 lineage_id의 직전 항목. 이번 회차에 lineage가 없는 직전
   // 항목은 후보(이어가기/제외)로 표 아래에 보인다(확정 회차는 후보 없음).
@@ -897,7 +872,7 @@ const ItemSectionPanel = forwardRef<ItemSectionPanelHandle, Props>(function Item
         )}
         {!readOnly && (
           <p className="text-[11px] leading-[1.6] mt-2.5" style={{ color: S.t4 }}>
-            Enter 아래 행·새 행 · Shift+Enter 줄바꿈 · ↑↓ 행 이동 · 빈 행에서 Backspace 삭제<br />
+            Enter 아래 행·새 행 · Shift+Enter 줄바꿈 · ↑↓ 행 이동<br />
             셀 드래그/Shift+클릭 범위 선택 → Delete 지우기 · Ctrl+C/X/V · 행 번호 클릭 → Delete 행 삭제 · 행 번호 드래그로 순서 이동 · 머리글 경계 드래그로 열 너비
             {showPrev && <><br />표 위쪽 직전 보고 항목에 마우스를 올리면 이어가기 · 제외(제외는 이 화면에서만 유지) · 이어간 행은 신규 행보다 위에 놓입니다</>}
           </p>
