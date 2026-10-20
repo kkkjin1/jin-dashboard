@@ -180,9 +180,37 @@ export default function MeetingNotesNew() {
     if (!catOrderLoadedRef.current) return
     if (catOrder.length > 0) {
       localStorage.setItem('meetings_cat_order', JSON.stringify(catOrder))
+      // supabase 쿼리 빌더는 then/await 전엔 요청을 보내지 않는다 — 예전엔 then 없이 호출만 해서
+      // DB에 한 번도 저장되지 않았고, 새로고침 시 DB의 옛 값이 localStorage를 덮어써 롤백됐다.
       supabase.from('user_preferences').upsert({ key: 'meetings_cat_order', value: catOrder })
+        .then(({ error }) => { if (error) console.error('meetings_cat_order_save_failed', error) })
     }
   }, [catOrder])
+
+  // 범주 삭제/이름변경은 회의록(meetings.category)도 함께 바꾼다 — 목록에서만 빼면 위의
+  // "DB에 있는 신규 범주 자동 추가"가 남은 회의록을 근거로 새로고침 때 범주를 되살린다.
+  async function moveMeetingsCategory(from: string, to: string): Promise<boolean> {
+    const { error } = await supabase.from('meetings').update({ category: to }).eq('category', from)
+    if (error) {
+      console.error('meetings_category_move_failed', { from, to, error })
+      alert(`회의록 범주 변경 실패 — 새로고침 후 다시 시도해 주세요 (${error.message})`)
+      return false
+    }
+    setMeetings(prev => prev.map(m => m.category === from ? { ...m, category: to } : m))
+    return true
+  }
+  // 삭제: 해당 범주 회의록을 '기타'로 옮긴다. false를 돌려주면 목록에서도 빼지 않는다.
+  function handleDeleteCat(name: string): boolean {
+    if (name === '기타') return true
+    const count = meetings.filter(m => m.category === name).length
+    if (count > 0 && !confirm(`'${name}' 범주를 삭제하면 회의록 ${count}건이 '기타'로 옮겨집니다. 삭제할까요?`)) return false
+    if (count > 0) moveMeetingsCategory(name, '기타')
+    return true
+  }
+  function handleRenameCat(from: string, to: string) {
+    if (from === '기타') return
+    if (meetings.some(m => m.category === from)) moveMeetingsCategory(from, to)
+  }
 
   // "+ 새 회의록" 클릭 시 sessionStorage(탭별 격리)에서 qid를 읽거나 없으면 새로
   // 발급해 저장 — MobileMemoSheet의 mount effect와 동일한 mint 로직을, 이 화면은
@@ -425,6 +453,7 @@ export default function MeetingNotesNew() {
           teamFilter={teamFilter}     setTeamFilter={setTeamFilter}
           sortOrder={sortOrder}       setSortOrder={setSortOrder}
           catOrder={catOrder}         setCatOrder={setCatOrder}
+          onDeleteCat={handleDeleteCat} onRenameCat={handleRenameCat}
           total={filtered.length}
         />
       </div>

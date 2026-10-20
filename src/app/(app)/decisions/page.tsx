@@ -144,7 +144,7 @@ export default function DecisionsPage() {
         key: `persona_profile_${persona}`,
         value: text,
         updated_at: new Date().toISOString(),
-      })
+      }).then(({ error }) => { if (error) console.error('persona_profile_save_failed', error) })
     }, 800)
   }
 

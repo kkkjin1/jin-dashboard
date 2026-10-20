@@ -102,7 +102,7 @@ export default function SettingsPage() {
         localStorage.setItem('dashboard_org', JSON.stringify(prefMap.org))
       } else {
         const stored = localStorage.getItem('dashboard_org')
-        if (stored) { try { const v = JSON.parse(stored) as OrgTeam[]; setOrg(v); supabase.from('user_preferences').upsert({ key: 'org', value: v }) } catch {} }
+        if (stored) { try { const v = JSON.parse(stored) as OrgTeam[]; setOrg(v); supabase.from('user_preferences').upsert({ key: 'org', value: v }).then(({ error }) => { if (error) console.error('settings_org_migrate_failed', error) }) } catch {} }
       }
 
       // hidden_menus
@@ -111,7 +111,7 @@ export default function SettingsPage() {
         localStorage.setItem('dashboard_hidden_menus', JSON.stringify(prefMap.hidden_menus))
       } else {
         const stored = localStorage.getItem('dashboard_hidden_menus')
-        if (stored) { try { const v = JSON.parse(stored) as string[]; setHiddenMenus(v); supabase.from('user_preferences').upsert({ key: 'hidden_menus', value: v }) } catch {} }
+        if (stored) { try { const v = JSON.parse(stored) as string[]; setHiddenMenus(v); supabase.from('user_preferences').upsert({ key: 'hidden_menus', value: v }).then(({ error }) => { if (error) console.error('settings_hidden_menus_migrate_failed', error) }) } catch {} }
       }
 
       // menu_order
@@ -122,7 +122,7 @@ export default function SettingsPage() {
         localStorage.setItem('dashboard_menu_order', JSON.stringify(full))
       } else {
         const stored = localStorage.getItem('dashboard_menu_order')
-        if (stored) { try { const o = JSON.parse(stored) as string[]; const full = [...o, ...ALL_NAV.map(i => i.href).filter(h => !o.includes(h))]; setMenuOrder(full); supabase.from('user_preferences').upsert({ key: 'menu_order', value: o }) } catch {} }
+        if (stored) { try { const o = JSON.parse(stored) as string[]; const full = [...o, ...ALL_NAV.map(i => i.href).filter(h => !o.includes(h))]; setMenuOrder(full); supabase.from('user_preferences').upsert({ key: 'menu_order', value: o }).then(({ error }) => { if (error) console.error('settings_menu_order_migrate_failed', error) }) } catch {} }
       }
     }
     load()
@@ -132,7 +132,9 @@ export default function SettingsPage() {
   function saveOrg(next: OrgTeam[]) {
     setOrg(next)
     localStorage.setItem('dashboard_org', JSON.stringify(next))
+    // supabase 쿼리 빌더는 then/await 없이는 요청을 보내지 않는다 — 예전엔 DB에 저장되지 않았음
     supabase.from('user_preferences').upsert({ key: 'org', value: next })
+      .then(({ error }) => { if (error) console.error('settings_org_save_failed', error) })
   }
 
   function addTeam() {
@@ -248,6 +250,7 @@ export default function SettingsPage() {
     setMemberRoles(next)
     localStorage.setItem('dashboard_member_roles', JSON.stringify(next))
     supabase.from('members').update({ role }).eq('id', memberId)
+      .then(({ error }) => { if (error) console.error('settings_role_save_failed', error) })
   }
 
   function roleBadgeStyle(role: string): React.CSSProperties {
@@ -362,6 +365,7 @@ export default function SettingsPage() {
     setHiddenMenus(next)
     localStorage.setItem('dashboard_hidden_menus', JSON.stringify(next))
     supabase.from('user_preferences').upsert({ key: 'hidden_menus', value: next })
+      .then(({ error }) => { if (error) console.error('settings_hidden_menus_save_failed', error) })
     window.dispatchEvent(new Event('nav-visibility-change'))
   }
 

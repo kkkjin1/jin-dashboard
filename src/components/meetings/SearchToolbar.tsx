@@ -25,6 +25,8 @@ interface Props {
   setSortOrder: (v: SortOrder) => void
   catOrder: string[]
   setCatOrder: (order: string[]) => void
+  onDeleteCat?: (name: string) => boolean
+  onRenameCat?: (from: string, to: string) => void
   total: number
 }
 
@@ -78,6 +80,7 @@ export default function SearchToolbar({
   teamFilter, setTeamFilter,
   sortOrder, setSortOrder,
   catOrder, setCatOrder,
+  onDeleteCat, onRenameCat,
   total,
 }: Props) {
   const [calOpen, setCalOpen] = useState(false)
@@ -178,13 +181,17 @@ export default function SearchToolbar({
     setEditValue(team)
   }
   function commitEdit() {
+    if (!editingTeam) return
     const newName = editValue.trim()
     if (!newName || newName === editingTeam) { setEditingTeam(null); return }
-    setCatOrder(catOrder.map(t => t === editingTeam ? newName : t))
+    // 이미 있는 이름으로 바꾸면 두 범주를 합친다(중복 칩 방지)
+    setCatOrder([...new Set(catOrder.map(t => t === editingTeam ? newName : t))])
+    onRenameCat?.(editingTeam, newName)
     if (teamFilter === editingTeam) setTeamFilter(newName)
     setEditingTeam(null)
   }
   function deleteTeam(team: string) {
+    if (onDeleteCat && !onDeleteCat(team)) return
     setCatOrder(catOrder.filter(t => t !== team))
     if (teamFilter === team) setTeamFilter('전체')
   }
