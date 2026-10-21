@@ -398,7 +398,7 @@ export default function SubTaskDetailPage() {
                       </button>
                     </div>
                   </div>
-                  <TiptapEditor dark key={selectedNote.id} value={selectedNote.content}
+                  <TiptapEditor enableVoice dark key={selectedNote.id} value={selectedNote.content}
                     onChange={v => handleNoteChange(selectedNote.id, v)}
                     minHeight={120} className="px-4 py-1" />
                 </>
@@ -553,7 +553,7 @@ export default function SubTaskDetailPage() {
                   placeholder={`${formatNoteDate(selectedNote.created_at)} 기록`}
                   onSave={title => updateNoteTitle(selectedNote.id, title)} />
               </div>
-              <TiptapEditor dark key={`expand_${selectedNote.id}`} value={selectedNote.content}
+              <TiptapEditor enableVoice dark key={`expand_${selectedNote.id}`} value={selectedNote.content}
                 onChange={v => handleNoteChange(selectedNote.id, v)}
                 autoFocus minHeight={300} className="px-8 py-4" />
             </div>

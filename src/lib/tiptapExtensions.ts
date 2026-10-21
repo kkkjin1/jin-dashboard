@@ -3,7 +3,7 @@
 // 보정. 두 에디터가 동일한 문서 스키마/Markdown input rule을 쓰도록 이 모듈만 참조한다.
 import { Extension, InputRule, mergeAttributes, wrappingInputRule } from '@tiptap/core'
 import type { Editor } from '@tiptap/react'
-import { Selection, TextSelection } from '@tiptap/pm/state'
+import { Plugin, PluginKey, Selection, TextSelection } from '@tiptap/pm/state'
 import type { Node as PMNode } from '@tiptap/pm/model'
 import StarterKit from '@tiptap/starter-kit'
 import OrderedList from '@tiptap/extension-ordered-list'
@@ -283,6 +283,127 @@ export const QaShortcut = Extension.create({
   },
 })
 
+// ── 경영진 의견 표시 ──────────────────────────────────────────────────────────
+// 경영진 발언인 줄(문단·제목·토글 제목)에 data-voice="CEO|CSO"와 발언 ID(data-voice-id)를 단다.
+// 의견은 원래 기록 위치(회의록·안건·세부task 메모·퀵메모)에 그대로 두고 표시만 HTML에 남긴다 —
+// 의사결정 탭이 이 표시를 모아 본다. 발언 ID는 회의록 HTML이 안건으로 복사돼도 같은 발언임을
+// 알아보기 위한 불투명한 랜덤 값. 스키마는 QaAttribute와 같은 이유로 모든 에디터에 등록하고,
+// 지정 단축키(Alt+3/Alt+4)·버튼은 TiptapEditor의 enableVoice 화면에서만.
+export const VOICE_TARGETS = ['CEO', 'CSO'] as const
+export type VoiceTarget = typeof VOICE_TARGETS[number]
+const VOICE_TYPES = ['paragraph', 'heading', 'detailsSummary']
+
+function isVoiceTarget(v: unknown): v is VoiceTarget {
+  return VOICE_TARGETS.includes(v as VoiceTarget)
+}
+
+function newVoiceId(): string {
+  const c = globalThis.crypto
+  if (c?.randomUUID) return c.randomUUID().replace(/-/g, '').slice(0, 16)
+  return Array.from({ length: 16 }, () => Math.floor(Math.random() * 16).toString(16)).join('')
+}
+
+// Enter로 표시된 줄을 나누면 ProseMirror는 줄 중간/맨 앞에서 나눌 때 두 블록에 속성을 모두 복사한다
+// (keepOnSplit:false는 줄 끝에서 나눌 때만 적용). 그래서 문서 순서상 바로 붙은 두 블록이 같은 발언 ID를
+// 가지면 "방금 나뉜 것"으로 보고 원래 줄에만 표시를 남긴다 — 맨 앞에서 Enter(빈 줄이 위에 생김)면 위 빈 줄을,
+// 그 외에는 아래 새 줄을 해제. 붙여넣기·끌어놓기 트랜잭션은 건드리지 않는다(복사본의 ID 보존).
+const voiceSplitGuard = new Plugin({
+  key: new PluginKey('voiceSplitGuard'),
+  appendTransaction(trs, _oldState, state) {
+    if (!trs.some(tr => tr.docChanged)) return null
+    if (trs.some(tr => tr.getMeta('paste') || tr.getMeta('uiEvent') === 'paste' || tr.getMeta('uiEvent') === 'drop')) return null
+    const clearAt: number[] = []
+    let prev: { pos: number; node: PMNode } | null = null
+    state.doc.descendants((node, pos) => {
+      if (!node.isTextblock) return true
+      const p = prev
+      if (p && node.attrs.voiceId && p.node.attrs.voiceId === node.attrs.voiceId) {
+        clearAt.push(p.node.content.size === 0 && node.content.size > 0 ? p.pos : pos)
+      }
+      prev = { pos, node }
+      return false
+    })
+    if (clearAt.length === 0) return null
+    const tr = state.tr
+    for (const pos of clearAt) {
+      const node = tr.doc.nodeAt(pos)
+      if (node) tr.setNodeMarkup(pos, undefined, { ...node.attrs, voice: null, voiceId: null })
+    }
+    return tr
+  },
+})
+
+export const VoiceAttribute = Extension.create({
+  name: 'voiceAttribute',
+  addGlobalAttributes() {
+    return [{
+      types: VOICE_TYPES,
+      attributes: {
+        voice: {
+          default: null,
+          keepOnSplit: false,
+          parseHTML: el => { const v = el.getAttribute('data-voice'); return isVoiceTarget(v) ? v : null },
+          renderHTML: attrs => (attrs.voice ? { 'data-voice': attrs.voice } : {}),
+        },
+        voiceId: {
+          default: null,
+          keepOnSplit: false,
+          parseHTML: el => (isVoiceTarget(el.getAttribute('data-voice')) ? el.getAttribute('data-voice-id') : null),
+          renderHTML: attrs => (attrs.voice && attrs.voiceId ? { 'data-voice-id': attrs.voiceId } : {}),
+        },
+      },
+    }]
+  },
+  addProseMirrorPlugins() {
+    return [voiceSplitGuard]
+  },
+})
+
+function voiceBlocksInSelection(editor: Editor): { pos: number; node: PMNode }[] {
+  const { state } = editor
+  const { $from, from, to, empty } = state.selection
+  const blocks: { pos: number; node: PMNode }[] = []
+  if (empty) {
+    if (VOICE_TYPES.includes($from.parent.type.name)) blocks.push({ pos: $from.before(), node: $from.parent })
+  } else {
+    state.doc.nodesBetween(from, to, (node, pos) => {
+      if (VOICE_TYPES.includes(node.type.name)) blocks.push({ pos, node })
+    })
+  }
+  return blocks
+}
+
+// 커서가 있는 줄의 표시 (툴바 상태 표시용)
+export function getVoiceAtSelection(editor: Editor): VoiceTarget | null {
+  const { $from } = editor.state.selection
+  if (!VOICE_TYPES.includes($from.parent.type.name)) return null
+  const v = $from.parent.attrs.voice
+  return isVoiceTarget(v) ? v : null
+}
+
+// 선택 범위(커서만 있으면 그 줄)의 줄들을 target으로 표시, null이면 해제. 속성만 바꾸고 문서 구조는
+// 건드리지 않는다. 이미 표시된 줄의 대상만 바꿀 때는 발언 ID를 유지한다. 대상 줄을 특정할 수 없으면 false.
+export function setVoiceAtSelection(editor: Editor, target: VoiceTarget | null): boolean {
+  if (editor.view.composing) return false
+  const blocks = voiceBlocksInSelection(editor)
+  if (blocks.length === 0) return false
+  const tr = editor.state.tr
+  for (const b of blocks) {
+    tr.setNodeMarkup(b.pos, undefined, target
+      ? { ...b.node.attrs, voice: target, voiceId: b.node.attrs.voiceId ?? newVoiceId() }
+      : { ...b.node.attrs, voice: null, voiceId: null })
+  }
+  editor.view.dispatch(tr)
+  return true
+}
+
+// 단축키 동작 — 선택한 줄이 모두 이미 target이면 전부 해제, 아니면 전부 target으로 통일
+export function toggleVoiceAtSelection(editor: Editor, target: VoiceTarget): boolean {
+  const blocks = voiceBlocksInSelection(editor)
+  if (blocks.length === 0) return false
+  return setVoiceAtSelection(editor, blocks.every(b => b.node.attrs.voice === target) ? null : target)
+}
+
 // 모듈 레벨 상수 — 렌더마다 새 참조 생성 방지 (Tiptap v3에서 extensions 참조 변경 시 refreshEditorInstance 호출됨)
 // Quick Memo/생각스케치가 공유하는 최소 코어. Quick Memo 전용 기능(Image 붙여넣기 등)은
 // 각 에디터가 이 배열 위에 자신만 추가한다.
@@ -300,6 +421,7 @@ export const BASE_TIPTAP_EXTENSIONS = [
   DetailsSummary,
   DetailsContent,
   QaAttribute,
+  VoiceAttribute,
 ]
 
 // ── Ctrl+Enter 토글 열기/닫기 ─────────────────────────────────────────────────

@@ -1,12 +1,13 @@
 'use client'
 
-import { useCallback, useEffect, useRef } from 'react'
-import { useEditor, EditorContent } from '@tiptap/react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEditor, useEditorState, EditorContent } from '@tiptap/react'
 import Image from '@tiptap/extension-image'
 import { cleanPastedHTML } from '@/lib/htmlCleanup'
 import {
   BASE_TIPTAP_EXTENSIONS, ToggleInputRules, legacyToHtml, handleListKeymapWorkaround, toggleDetailsAtSelection,
   QaShortcut, toggleQuestionAtSelection, isQuestionAtSelection,
+  getVoiceAtSelection, setVoiceAtSelection, toggleVoiceAtSelection, type VoiceTarget,
 } from '@/lib/tiptapExtensions'
 
 // ── Clipboard: ProseMirror document → Markdown (GFM) ─────────────────────────
@@ -133,23 +134,31 @@ interface Props {
   hideToolbar?: boolean
   enableToggle?: boolean
   enableQa?: boolean
+  // enableVoice: 경영진 의견 줄 표시(Alt+3 CEO / Alt+4 CSO / 툴바) — 회의록·안건·세부task 메모·퀵메모에서만
+  enableVoice?: boolean
 }
 
+const VOICE_SHORTCUTS: Record<VoiceTarget, string> = { CEO: 'Alt+3', CSO: 'Alt+4' }
+
 export default function TiptapEditor({
-  value, onChange, onSubmit, onEscape, onExpand, onSelectionChange, autoFocus, minHeight = 160, className, dark, hideToolbar, enableToggle, enableQa,
+  value, onChange, onSubmit, onEscape, onExpand, onSelectionChange, autoFocus, minHeight = 160, className, dark, hideToolbar, enableToggle, enableQa, enableVoice,
 }: Props) {
   // Refs로 콜백 최신값 유지 — useCallback deps를 [] 로 고정해 Tiptap이 매 렌더마다 options 변경을 감지하지 않도록 함
   const onChangeRef          = useRef(onChange)
   const onSubmitRef          = useRef(onSubmit)
   const onEscapeRef          = useRef(onEscape)
   const onSelectionChangeRef = useRef(onSelectionChange)
+  const enableVoiceRef       = useRef(enableVoice)
   const editorRef            = useRef<ReturnType<typeof useEditor>>(null)
   useEffect(() => {
     onChangeRef.current = onChange
     onSubmitRef.current = onSubmit
     onEscapeRef.current = onEscape
     onSelectionChangeRef.current = onSelectionChange
+    enableVoiceRef.current = enableVoice
   })
+  const [voiceMenuOpen, setVoiceMenuOpen] = useState(false)
+  const voiceMenuRef = useRef<HTMLDivElement>(null)
 
   const stableKeyDown = useCallback((_view: unknown, e: KeyboardEvent) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
@@ -169,6 +178,12 @@ export default function TiptapEditor({
     if (e.altKey && e.key === '2') {
       ed.chain().focus().toggleHighlight({ color: '#FEF08A' }).run()
       return true
+    }
+    // 경영진 의견 표시 — e.code로 판별(macOS Option+숫자는 e.key가 특수문자). 한글 조합 중에는 무시하고,
+    // 표시할 줄을 특정 못 하면 false로 넘겨 기본 동작을 막지 않는다.
+    if (enableVoiceRef.current && e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.isComposing && e.keyCode !== 229
+      && (e.code === 'Digit3' || e.code === 'Digit4')) {
+      return toggleVoiceAtSelection(ed, e.code === 'Digit3' ? 'CEO' : 'CSO')
     }
     // Tab/Shift-Tab을 리스트 밖(또는 더 이상 들여쓰기/내어쓰기 불가한 위치)에서 누르면
     // sinkListItem/liftListItem이 실패(false)해 브라우저 기본 동작인 "다음 포커스 요소로 이동"이
@@ -311,6 +326,19 @@ export default function TiptapEditor({
     return () => dom.removeEventListener('copy', handleCopy)
   }, [editor])
 
+  // 커서 줄의 의견 표시 — 선택만 옮겨도 툴바 버튼에 반영되도록 에디터 상태를 구독
+  const currentVoice = useEditorState({
+    editor,
+    selector: ({ editor: ed }) => (ed && enableVoice ? getVoiceAtSelection(ed) : null),
+  })
+
+  useEffect(() => {
+    if (!voiceMenuOpen) return
+    const onDown = (e: MouseEvent) => { if (!voiceMenuRef.current?.contains(e.target as Node)) setVoiceMenuOpen(false) }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [voiceMenuOpen])
+
   if (!editor) return null
 
   const d = dark
@@ -346,6 +374,40 @@ export default function TiptapEditor({
               onMouseDown={e => { e.preventDefault(); editor.commands.focus(); toggleQuestionAtSelection(editor) }}
               className={btnCls(isQuestionAtSelection(editor), 'text-[11px] font-bold')}
               title="질문 줄로 표시/해제 (Ctrl+Alt+Q) — 표시 없는 줄은 위 질문의 답변">Q</button>
+          </>
+        )}
+
+        {enableVoice && (
+          <>
+            <div className={divCls} />
+            <div ref={voiceMenuRef} className="relative">
+              <button type="button"
+                onMouseDown={e => { e.preventDefault(); setVoiceMenuOpen(v => !v) }}
+                className={btnCls(!!currentVoice, 'text-[11px] font-semibold')}
+                title="경영진 의견 줄 표시 (Alt+3 CEO · Alt+4 CSO)">{currentVoice ?? '의견'}</button>
+              {voiceMenuOpen && (
+                <div className="absolute left-0 top-full mt-1 z-50 min-w-[150px] rounded-lg py-1 text-xs"
+                  style={{ background: 'var(--dropdown-panel-bg)', border: '1px solid rgba(var(--ink-rgb),0.1)', boxShadow: 'var(--shadow-modal)' }}>
+                  {(['CEO', 'CSO'] as const).map(t => (
+                    <button key={t} type="button"
+                      onMouseDown={e => { e.preventDefault(); editor.commands.focus(); toggleVoiceAtSelection(editor, t); setVoiceMenuOpen(false) }}
+                      className="w-full flex items-center justify-between gap-3 px-3 py-1.5 text-left hover:bg-[rgba(var(--ink-rgb),0.06)]"
+                      style={{ color: 'rgba(var(--text-rgb),0.85)' }}>
+                      <span className="flex items-center gap-1.5">
+                        <span style={{ width: 10, display: 'inline-block', color: 'var(--accent-tint-text)' }}>{currentVoice === t ? '✓' : ''}</span>{t}
+                      </span>
+                      <span style={{ color: 'rgba(var(--text-rgb),0.4)', fontSize: 10.5 }}>{VOICE_SHORTCUTS[t]}</span>
+                    </button>
+                  ))}
+                  <button type="button" disabled={!currentVoice}
+                    onMouseDown={e => { e.preventDefault(); editor.commands.focus(); setVoiceAtSelection(editor, null); setVoiceMenuOpen(false) }}
+                    className="w-full px-3 py-1.5 text-left hover:bg-[rgba(var(--ink-rgb),0.06)] disabled:opacity-40 disabled:hover:bg-transparent"
+                    style={{ color: 'rgba(var(--text-rgb),0.6)', borderTop: '1px solid rgba(var(--ink-rgb),0.07)', marginTop: 2, paddingLeft: 28 }}>
+                    표시 해제
+                  </button>
+                </div>
+              )}
+            </div>
           </>
         )}
 

@@ -710,3 +710,29 @@ details.details[open] > summary::before { transform: rotate(90deg); }
   color: #fff; background: rgba(76,127,224,0.9);
   vertical-align: 1px;
 }
+
+/* ── 경영진 의견 줄 (data-voice="CEO|CSO") ── 에디터·읽기모드 공통. 왼쪽 얇은 막대 + 끝에 작은 라벨.
+   막대는 inset 그림자라 질문 줄(data-qa)의 border-left와 겹쳐도 둘 다 보인다 */
+.tiptap-input [data-voice], .tiptap-input-dark [data-voice], .note-html [data-voice], .note-html-dark [data-voice] {
+  box-shadow: inset 2px 0 0 var(--voice-bar);
+  padding-left: 9px;
+}
+:is(.tiptap-input, .tiptap-input-dark, .note-html, .note-html-dark) [data-voice="CEO"] {
+  --voice-bar: color-mix(in srgb, var(--brand-amber) 80%, transparent);
+  --voice-text: var(--quick-todo-text);
+}
+:is(.tiptap-input, .tiptap-input-dark, .note-html, .note-html-dark) [data-voice="CSO"] {
+  --voice-bar: rgba(var(--accent-tint-rgb), 0.75);
+  --voice-text: var(--accent-tint-text);
+}
+.tiptap-input [data-voice]::after, .tiptap-input-dark [data-voice]::after,
+.note-html [data-voice]::after, .note-html-dark [data-voice]::after {
+  content: attr(data-voice);
+  display: inline-block;
+  font-size: 9.5px; font-weight: 700; line-height: 14px; letter-spacing: 0.02em;
+  padding: 0 4px; margin-left: 6px; border-radius: 4px;
+  color: var(--voice-text);
+  border: 1px solid color-mix(in srgb, var(--voice-text) 35%, transparent);
+  vertical-align: 1px;
+  user-select: none; pointer-events: none;
+}
