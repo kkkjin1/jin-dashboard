@@ -8,6 +8,7 @@ import { useUserSetting } from '@/hooks/useUserSetting'
 import type { AgendaItem, AgendaSubTask, Attachment, Member, LearningResource } from '@/types'
 import TiptapEditor from '@/components/TiptapEditor'
 import ProjectSourceSelect from '@/components/project/ProjectSourceSelect'
+import { revealVoiceBlock, showVoiceNotice } from '@/lib/executiveVoices'
 
 const STATUS_CYCLE = ['active', 'hold', 'done'] as const
 type Status = typeof STATUS_CYCLE[number]
@@ -679,6 +680,22 @@ export default function AgendaItemDetailPage() {
       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
     }, 150)
   }, [focusSTId, subTasks.length])
+
+  // 의사결정 탭 "원본 →" — note(세부task 메모 id)를 선택하고 voice(발언 id) 줄로 스크롤·강조. 로드 직후 한 번만.
+  const noteParam = searchParams.get('note'), voiceParam = searchParams.get('voice')
+  const voiceLinkDone = useRef(false)
+  useEffect(() => {
+    if (loading || voiceLinkDone.current || (!noteParam && !voiceParam)) return
+    voiceLinkDone.current = true
+    if (!item) { showVoiceNotice('원본 안건을 찾지 못했습니다 — 삭제되었을 수 있습니다.'); return }
+    if (noteParam && focusSTId) {
+      const st = subTasks.find(s => s.id === focusSTId)
+      const found = st && (st.currentNote?.id === noteParam || st.historyNotes.some(n => n.id === noteParam))
+      if (!found) { showVoiceNotice('원본 메모를 찾지 못했습니다 — 삭제되었거나 다른 세부 Task로 옮겨졌을 수 있습니다.'); return }
+      queueMicrotask(() => setSelectedNoteIds(p => ({ ...p, [focusSTId]: noteParam })))
+    }
+    if (voiceParam) setTimeout(() => revealVoiceBlock(voiceParam), 250)
+  }, [loading, item, subTasks, focusSTId, noteParam, voiceParam])
 
   // 크게 편집 ESC 닫기
   useEffect(() => {

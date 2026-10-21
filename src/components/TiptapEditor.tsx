@@ -311,6 +311,7 @@ export default function TiptapEditor({
             const shell = /^(P|H[1-6])$/.test(el.tagName) ? el.cloneNode(false) as HTMLElement : document.createElement('p')
             shell.setAttribute('data-voice', block.attrs.voice)
             if (block.attrs.voiceId) shell.setAttribute('data-voice-id', block.attrs.voiceId)
+            if (block.attrs.voiceAt) shell.setAttribute('data-voice-at', block.attrs.voiceAt)
             shell.innerHTML = htmlContent
             htmlContent = shell.outerHTML
           }

@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { AgendaSubTask, Attachment, Member, AgendaItemStatus, LearningResource } from '@/types'
 import { useUserSetting } from '@/hooks/useUserSetting'
+import { revealVoiceBlock, showVoiceNotice } from '@/lib/executiveVoices'
 import dynamic from 'next/dynamic'
 const TiptapEditor = dynamic(() => import('@/components/TiptapEditor'), { ssr: false })
 
@@ -100,8 +101,14 @@ export default function SubTaskDetailPage() {
       setMembers((ms ?? []) as Member[])
       const noteList = (n ?? []) as SubTaskNote[]
       setNotes(noteList)
-      setSelectedNoteId(noteList[0]?.id ?? null)
+      // 의사결정 탭 "원본 →" — ?note=<메모 id>&voice=<발언 id>면 그 메모를 열고 의견 줄로 스크롤·강조
+      const params = new URLSearchParams(window.location.search)
+      const noteParam = params.get('note'), voiceParam = params.get('voice')
+      const linked = noteParam ? noteList.find(x => x.id === noteParam) : undefined
+      setSelectedNoteId(linked?.id ?? noteList[0]?.id ?? null)
       setAttachments((a ?? []) as Attachment[])
+      if (noteParam && !linked) showVoiceNotice('원본 메모를 찾지 못했습니다 — 삭제되었을 수 있습니다.')
+      else if (voiceParam) setTimeout(() => revealVoiceBlock(voiceParam), 250)
     }
     load()
   // eslint-disable-next-line react-hooks/exhaustive-deps

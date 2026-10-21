@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { Meeting, Attachment } from '@/types'
 import { generateMeetingMd, downloadMd } from '@/lib/markdown'
 import { fetchMeetingNotes, wasEdited, type MeetingNoteRow } from '@/lib/meetingNotes'
+import { revealVoiceBlock, showVoiceNotice } from '@/lib/executiveVoices'
 import { useAutosave, clearAutosaveBuffer } from '@/hooks/useAutosave'
 import dynamic from 'next/dynamic'
 import MarkdownContent from '@/components/MarkdownContent'
@@ -619,6 +620,21 @@ export default function MeetingDetailPage() {
         .sort((x, y) => (y.meeting_date ?? '').localeCompare(x.meeting_date ?? ''))
     : []
   const selectedNote = selectedNoteId ? regularNotes.find(n => n.id === selectedNoteId) ?? null : null
+
+  // 의사결정 탭 "원본 →" — ?note=<노트 id>&voice=<발언 id>로 들어오면 그 노트를 오른쪽에 열고 의견 줄로
+  // 스크롤·강조한다. 로드 직후 한 번만(작성 중인 입력·편집 상태는 건드리지 않음).
+  const deepLinkDone = useRef(false)
+  useEffect(() => {
+    if (deepLinkDone.current || !meeting) return
+    deepLinkDone.current = true
+    const params = new URLSearchParams(window.location.search)
+    const noteId = params.get('note'), voiceId = params.get('voice')
+    if (noteId) {
+      if (regularNotes.some(n => n.id === noteId)) queueMicrotask(() => setSelectedNoteId(noteId))
+      else if (!prepNotes.some(n => n.id === noteId)) { showVoiceNotice('원본 노트를 찾지 못했습니다 — 삭제되었을 수 있습니다.'); return }
+    }
+    if (voiceId) revealVoiceBlock(voiceId)
+  }, [meeting, regularNotes, prepNotes])
 
   useEffect(() => {
     function onEsc(e: KeyboardEvent) {

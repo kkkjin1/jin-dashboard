@@ -368,7 +368,7 @@ const voiceSplitGuard = new Plugin({
     const tr = state.tr
     for (const pos of clearAt) {
       const node = tr.doc.nodeAt(pos)
-      if (node) tr.setNodeMarkup(pos, undefined, { ...node.attrs, voice: null, voiceId: null })
+      if (node) tr.setNodeMarkup(pos, undefined, { ...node.attrs, voice: null, voiceId: null, voiceAt: null })
     }
     return tr
   },
@@ -432,6 +432,13 @@ export const VoiceAttribute = Extension.create({
           parseHTML: el => (isVoiceTarget(el.getAttribute('data-voice')) ? el.getAttribute('data-voice-id') : null),
           renderHTML: attrs => (attrs.voice && attrs.voiceId ? { 'data-voice-id': attrs.voiceId } : {}),
         },
+        // 표시일(YYYY-MM-DD) — 처음 표시한 날. 실제 발언일이 아니라 "표시한 날"이라 의사결정 탭에서 구분해 보여준다.
+        voiceAt: {
+          default: null,
+          keepOnSplit: false,
+          parseHTML: el => (isVoiceTarget(el.getAttribute('data-voice')) ? el.getAttribute('data-voice-at') : null),
+          renderHTML: attrs => (attrs.voice && attrs.voiceAt ? { 'data-voice-at': attrs.voiceAt } : {}),
+        },
       },
     }]
   },
@@ -462,17 +469,26 @@ export function getVoiceAtSelection(editor: Editor): VoiceTarget | null {
   return isVoiceTarget(v) ? v : null
 }
 
+function todayYmd(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 // 선택 범위(커서만 있으면 그 줄)의 줄들을 target으로 표시, null이면 해제. 속성만 바꾸고 문서 구조는
-// 건드리지 않는다. 이미 표시된 줄의 대상만 바꿀 때는 발언 ID를 유지한다. 대상 줄을 특정할 수 없으면 false.
+// 건드리지 않는다. 이미 표시된 줄의 대상만 바꿀 때는 발언 ID·표시일을 유지한다(표시일이 없던 예전 표시에
+// 날짜를 새로 채우지 않음). 새로 표시하는 줄은 새 ID + 오늘 표시일. 대상 줄을 특정할 수 없으면 false.
 export function setVoiceAtSelection(editor: Editor, target: VoiceTarget | null): boolean {
   if (editor.view.composing) return false
   const blocks = voiceBlocksInSelection(editor)
   if (blocks.length === 0) return false
   const tr = editor.state.tr
   for (const b of blocks) {
+    const tagged = isVoiceTarget(b.node.attrs.voice)
     tr.setNodeMarkup(b.pos, undefined, target
-      ? { ...b.node.attrs, voice: target, voiceId: b.node.attrs.voiceId ?? newVoiceId() }
-      : { ...b.node.attrs, voice: null, voiceId: null })
+      ? { ...b.node.attrs, voice: target,
+          voiceId: tagged && b.node.attrs.voiceId ? b.node.attrs.voiceId : newVoiceId(),
+          voiceAt: tagged ? b.node.attrs.voiceAt : todayYmd() }
+      : { ...b.node.attrs, voice: null, voiceId: null, voiceAt: null })
   }
   editor.view.dispatch(tr)
   return true
