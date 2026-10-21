@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import Image from '@tiptap/extension-image'
-import { collapseEmptyParagraphs } from '@/lib/htmlCleanup'
+import { cleanPastedHTML } from '@/lib/htmlCleanup'
 import {
   BASE_TIPTAP_EXTENSIONS, ToggleInputRules, legacyToHtml, handleListKeymapWorkaround, toggleDetailsAtSelection,
   QaShortcut, toggleQuestionAtSelection, isQuestionAtSelection,
@@ -237,7 +237,7 @@ export default function TiptapEditor({
       // 붙여넣는 텍스트에 빈 줄이 여러 개 연달아 있으면(문서에서 문단 구분용으로 흔함)
       // 그만큼 빈 <p>가 쌓여 줄간격이 과도해진다 — 빈 줄 1개(문단 구분)까지만 남긴다.
       transformPastedText: (text: string) => text.replace(/\n{3,}/g, '\n\n'),
-      transformPastedHTML: (html: string) => collapseEmptyParagraphs(html),
+      transformPastedHTML: (html: string) => cleanPastedHTML(html),
     },
   })
 

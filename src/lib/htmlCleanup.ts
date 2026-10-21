@@ -7,3 +7,12 @@ const CONSECUTIVE_EMPTY_P_RE = new RegExp(`(?:${EMPTY_P}\\s*){2,}`, 'gi')
 export function collapseEmptyParagraphs(html: string): string {
   return html.replace(CONSECUTIVE_EMPTY_P_RE, '<p></p>')
 }
+
+// Windows Chrome 클립보드 HTML은 `<html>\n<body>\n<!--StartFragment-->…<!--EndFragment-->\n</body>\n</html>`
+// 로 감싸진다. 다른 에디터에서 복사해 data-pm-slice가 붙어 있으면 ProseMirror가 공백을 보존해서 파싱하고,
+// HardBreak(linebreakReplacement)가 감싼 부분의 "\n"을 <br>로 바꿔 붙여넣은 내용 앞뒤에
+// <p><br><br></p>가 생겼다(2026-10-21 토글 붙여넣기 빈 줄 5줄 증상). 조각만 남기고 앞뒤 공백을 걷어낸다.
+export function cleanPastedHTML(html: string): string {
+  const m = html.match(/<!--StartFragment-->([\s\S]*?)<!--EndFragment-->/)
+  return collapseEmptyParagraphs((m ? m[1] : html).trim())
+}

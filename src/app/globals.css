@@ -598,6 +598,22 @@ html, body {
    읽기모드: 저장된 HTML 그대로 = <details class="details" [open]> > summary + div[data-type=detailsContent]
    에디터/스케치/읽기 화면마다 루트 클래스가 달라서 루트 클래스 대신 data-type/class로 잡는다. */
 .ProseMirror div[data-type="details"] { display: flex; align-items: flex-start; gap: 2px; margin: 1px 0; }
+/* 토글 영역 구분: 제목은 굵게 + 글자 아래쪽 형광펜 밑줄(파랑 계열), 내용(본문)에만 슬랙 인용구식 왼쪽 막대 */
+.ProseMirror div[data-type="details"], details.details { margin: 4px 0; }
+.ProseMirror div[data-type="details"] summary:not(:has(> .ProseMirror-trailingBreak:only-child)),
+details.details > summary {
+  width: fit-content; max-width: 100%; font-weight: 600; padding: 0 2px;
+  background: linear-gradient(transparent 62%, rgba(var(--accent-tint-rgb),0.22) 62%);
+}
+.ProseMirror div[data-type="details"] [data-type="detailsContent"] {
+  border-left: 3px solid rgba(var(--ink-rgb),0.1); border-radius: 2px; padding-left: 8px; margin-top: 3px;
+}
+/* 읽기모드: ▶(::before)를 summary 상자 밖 왼쪽으로 빼서 형광펜이 제목 글자만 칠하게 한다 */
+details.details > summary { position: relative; margin-left: calc(1.3em - 2px); }
+details.details > summary::before { position: absolute; left: calc(2px - 1.3em / 0.6); top: 0; } /* ::before는 font-size 0.6em이라 em 환산 */
+details.details > [data-type="detailsContent"] {
+  border-left: 3px solid rgba(var(--ink-rgb),0.1); border-radius: 2px; margin-left: 1.3em; padding-left: 8px; margin-top: 3px;
+}
 .ProseMirror div[data-type="details"] > button,
 details.details > summary::before {
   flex-shrink: 0; width: 1.3em; height: 1.7em; display: inline-flex; align-items: center; justify-content: center;
@@ -613,12 +629,10 @@ details.details > summary::before {
   content: "토글 제목"; float: left; height: 0; opacity: 0.35; pointer-events: none;
 }
 .ProseMirror [data-type="detailsContent"][hidden] { display: none; }
-details.details { margin: 1px 0; }
 details.details > summary { display: flex; align-items: flex-start; list-style: none; cursor: pointer; min-height: 1.5em; }
 details.details > summary::-webkit-details-marker { display: none; }
 details.details > summary::before { content: "▶"; font-size: 0.6em; height: calc(1.7em / 0.6); width: calc(1.3em / 0.6); transition: transform 0.15s; }
 details.details[open] > summary::before { transform: rotate(90deg); }
-details.details > [data-type="detailsContent"] { padding-left: 1.3em; }
 /* 토글 안의 리스트는 에디터 루트 직계가 아니라 1단계 넘버링/불릿 규칙(> ol, > ul)이 안 먹는다 — 동일하게 적용 */
 [data-type="detailsContent"] > ol { padding-left: 1.4rem; counter-reset: notecnt var(--ol-start, 0); }
 [data-type="detailsContent"] > ol > li { counter-increment: notecnt; }
