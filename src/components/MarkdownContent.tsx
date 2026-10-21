@@ -79,20 +79,23 @@ const DARK = {
   markerSub: 'text-[rgba(var(--text-rgb),0.45)]',
 }
 
-function renderLine(line: string, keyVal: string | number, dark?: boolean): React.ReactNode {
+// lineNo: 원문(예전 형식 텍스트)의 줄 번호 — data-line으로 남겨 읽기 화면 의견 표시(VoiceReadableNote)가
+// 화면의 줄을 원문 줄과 정확히 짝짓게 한다. 화면 모양에는 영향 없음.
+function renderLine(line: string, keyVal: string | number, dark?: boolean, lineNo?: number): React.ReactNode {
   const k = keyVal
   const c = dark ? DARK : LIGHT
+  const la = lineNo === undefined ? {} : { 'data-line': lineNo }
 
-  if (line.startsWith('# ')) return <p key={k} className={c.h1}>{parseInline(line.slice(2), `${k}`)}</p>
-  if (line.startsWith('## ')) return <p key={k} className={c.h2}>{parseInline(line.slice(3), `${k}`)}</p>
-  if (line.startsWith('### ')) return <p key={k} className={c.h3}>{parseInline(line.slice(4), `${k}`)}</p>
+  if (line.startsWith('# ')) return <p key={k} {...la} className={c.h1}>{parseInline(line.slice(2), `${k}`)}</p>
+  if (line.startsWith('## ')) return <p key={k} {...la} className={c.h2}>{parseInline(line.slice(3), `${k}`)}</p>
+  if (line.startsWith('### ')) return <p key={k} {...la} className={c.h3}>{parseInline(line.slice(4), `${k}`)}</p>
 
   // \s* → 마커 뒤 공백 0개 이상 허용 ("1.항목", "1. 항목" 모두 인식)
   const numMatch = line.match(/^( *)(\d+)\.\s*(.*)$/)
   if (numMatch) {
     const lvl = Math.floor(numMatch[1].length / INDENT_SIZE)
     return (
-      <div key={k} className={`flex gap-1.5 ${c.body}`} style={{ paddingLeft: `${lvl * 20}px` }}>
+      <div key={k} {...la} className={`flex gap-1.5 ${c.body}`} style={{ paddingLeft: `${lvl * 20}px` }}>
         <span className={`${c.marker} flex-shrink-0 min-w-[1.25rem] text-right`}>{numMatch[2]}.</span>
         <span className="flex-1 min-w-0">{parseInline(numMatch[3] ?? '', `${k}`)}</span>
       </div>
@@ -103,7 +106,7 @@ function renderLine(line: string, keyVal: string | number, dark?: boolean): Reac
   if (korMatch) {
     const lvl = Math.floor(korMatch[1].length / INDENT_SIZE)
     return (
-      <div key={k} className={`flex gap-1.5 ${c.body}`} style={{ paddingLeft: `${lvl * 20}px` }}>
+      <div key={k} {...la} className={`flex gap-1.5 ${c.body}`} style={{ paddingLeft: `${lvl * 20}px` }}>
         <span className={`${c.marker} flex-shrink-0`}>{korMatch[2]}.</span>
         <span className="flex-1 min-w-0">{parseInline(korMatch[3] ?? '', `${k}`)}</span>
       </div>
@@ -114,7 +117,7 @@ function renderLine(line: string, keyVal: string | number, dark?: boolean): Reac
   if (parenMatch) {
     const lvl = Math.floor(parenMatch[1].length / INDENT_SIZE)
     return (
-      <div key={k} className={`flex gap-1.5 ${c.body}`} style={{ paddingLeft: `${lvl * 20}px` }}>
+      <div key={k} {...la} className={`flex gap-1.5 ${c.body}`} style={{ paddingLeft: `${lvl * 20}px` }}>
         <span className={`${c.marker} flex-shrink-0`}>{parenMatch[2]})</span>
         <span className="flex-1 min-w-0">{parseInline(parenMatch[3] ?? '', `${k}`)}</span>
       </div>
@@ -126,7 +129,7 @@ function renderLine(line: string, keyVal: string | number, dark?: boolean): Reac
     const lvl = Math.floor(bulletMatch[1].length / INDENT_SIZE)
     const sym = bulletMatch[0].trim()[0]
     return (
-      <div key={k} className={`flex gap-1.5 ${c.body}`} style={{ paddingLeft: `${lvl * 20}px` }}>
+      <div key={k} {...la} className={`flex gap-1.5 ${c.body}`} style={{ paddingLeft: `${lvl * 20}px` }}>
         <span className={`${c.markerBullet} flex-shrink-0 leading-relaxed`}>{sym}</span>
         <span className="flex-1 min-w-0">{parseInline(bulletMatch[2], `${k}`)}</span>
       </div>
@@ -138,17 +141,17 @@ function renderLine(line: string, keyVal: string | number, dark?: boolean): Reac
     const lvl = Math.floor(subBulletMatch[1].length / INDENT_SIZE)
     const sym = subBulletMatch[0].trim()[0]
     return (
-      <div key={k} className={`flex gap-1.5 ${c.sub}`} style={{ paddingLeft: `${(lvl + 1) * 20}px` }}>
+      <div key={k} {...la} className={`flex gap-1.5 ${c.sub}`} style={{ paddingLeft: `${(lvl + 1) * 20}px` }}>
         <span className={`${c.markerSub} flex-shrink-0 leading-relaxed`}>{sym}</span>
         <span className="flex-1 min-w-0">{parseInline(subBulletMatch[2], `${k}`)}</span>
       </div>
     )
   }
 
-  return <p key={k} className={c.body}>{parseInline(line, `${k}`)}</p>
+  return <p key={k} {...la} className={c.body}>{parseInline(line, `${k}`)}</p>
 }
 
-function ToggleBlock({ title, lines, blockKey, dark }: { title: string; lines: string[]; blockKey: string; dark?: boolean }) {
+function ToggleBlock({ title, lines, blockKey, dark, startLine }: { title: string; lines: string[]; blockKey: string; dark?: boolean; startLine?: number }) {
   const [open, setOpen] = useState(false)
   const toggleText = dark ? 'text-[rgba(var(--text-rgb),0.6)] hover:text-[rgba(var(--text-rgb),0.9)]' : 'text-gray-600 hover:text-gray-900'
   const arrowColor = dark ? 'text-[rgba(var(--text-rgb),0.35)]' : 'text-gray-400'
@@ -157,6 +160,7 @@ function ToggleBlock({ title, lines, blockKey, dark }: { title: string; lines: s
     <div className="my-1.5">
       <button
         onClick={() => setOpen(o => !o)}
+        {...(startLine === undefined ? {} : { 'data-line': startLine })}
         className={`flex items-center gap-1.5 text-sm ${toggleText} transition-colors w-full text-left select-none`}
       >
         <span
@@ -167,7 +171,7 @@ function ToggleBlock({ title, lines, blockKey, dark }: { title: string; lines: s
       </button>
       {open && (
         <div className={`pl-4 mt-1 border-l-2 ${borderColor}`}>
-          {lines.map((line, i) => renderLine(line, `${blockKey}-${i}`, dark))}
+          {lines.map((line, i) => renderLine(line, `${blockKey}-${i}`, dark, startLine === undefined ? undefined : startLine + 1 + i))}
         </div>
       )}
     </div>
@@ -190,6 +194,7 @@ export default function MarkdownContent({ content, className, dark }: { content:
     // Toggle block: "> 제목" 으로 시작, 다음 빈 줄까지 콘텐츠 수집
     if (line.startsWith('> ')) {
       const title = line.slice(2)
+      const titleLine = i
       const contentLines: string[] = []
       i++
       while (i < lines.length && lines[i] !== '') {
@@ -197,7 +202,7 @@ export default function MarkdownContent({ content, className, dark }: { content:
         i++
       }
       nodes.push(
-        <ToggleBlock key={`toggle-${i}`} title={title} lines={contentLines} blockKey={`toggle-${i}`} dark={dark} />
+        <ToggleBlock key={`toggle-${i}`} title={title} lines={contentLines} blockKey={`toggle-${i}`} dark={dark} startLine={titleLine} />
       )
       continue
     }
@@ -214,7 +219,7 @@ export default function MarkdownContent({ content, className, dark }: { content:
       continue
     }
 
-    nodes.push(renderLine(line, i, dark))
+    nodes.push(renderLine(line, i, dark, i))
     i++
   }
 

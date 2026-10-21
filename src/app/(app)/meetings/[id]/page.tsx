@@ -12,6 +12,7 @@ import { revealVoiceBlock, showVoiceNotice } from '@/lib/executiveVoices'
 import { useAutosave, clearAutosaveBuffer } from '@/hooks/useAutosave'
 import dynamic from 'next/dynamic'
 import MarkdownContent from '@/components/MarkdownContent'
+import VoiceReadableNote from '@/components/VoiceReadableNote'
 import TextSelectionCapture from '@/components/TextSelectionCapture'
 import { useOrgData } from '@/hooks/useOrgData'
 import { MEETING_CATEGORY, CATEGORY_PALETTE, colorKeyFromName, FIXED_MEETING_TAGS } from '@/lib/categoryColors'
@@ -58,9 +59,10 @@ interface NoteAccordionProps {
   onFullscreen: (content: string) => void
   agendaItems: AgendaItemOption[]
   onAddToItem: (itemId: string, noteContent: string, noteTitle: string) => Promise<void>
+  onVoiceSaved: (id: string, content: string, updatedAt: string) => void
 }
 
-function NoteAccordion({ note, isOpen, onToggle, onDelete, onEdit, onFullscreen, agendaItems, onAddToItem }: NoteAccordionProps) {
+function NoteAccordion({ note, isOpen, onToggle, onDelete, onEdit, onFullscreen, agendaItems, onAddToItem, onVoiceSaved }: NoteAccordionProps) {
   const supabase = createClient()
   const [editing, setEditing] = useState(false)
   const [editContent, setEditContent] = useState(note.content)
@@ -293,7 +295,8 @@ function NoteAccordion({ note, isOpen, onToggle, onDelete, onEdit, onFullscreen,
             </>
           ) : (
             <>
-              <MarkdownContent content={note.content} dark className="pt-3" />
+              <VoiceReadableNote noteId={note.id} content={note.content} updatedAt={note.updated_at}
+                onSaved={(c, u) => onVoiceSaved(note.id, c, u)} dark className="pt-3" />
               <div className="flex items-center gap-3 mt-2">
                 <button onClick={() => { setEditContent(note.content); setEditing(true) }}
                   className="text-xs text-[rgba(var(--text-rgb),0.5)] hover:text-blue-400 transition-colors">수정</button>
@@ -368,6 +371,8 @@ export default function MeetingDetailPage() {
   const [meetingPreview, setMeetingPreview] = useState<Pick<Meeting, 'id' | 'title' | 'meeting_date'> | null>(null)
   const [meetingPreviewLabel, setMeetingPreviewLabel] = useState('')
   const [meetingPreviewContent, setMeetingPreviewContent] = useState('')
+  // 미리보기 노트의 id·수정 시각 — 읽기 화면에서 의견 표시(Alt+3/4)를 저장할 때 쓴다
+  const [meetingPreviewNote, setMeetingPreviewNote] = useState<{ id: string; updated_at: string } | null>(null)
   const [meetingPreviewLoading, setMeetingPreviewLoading] = useState(false)
   // RIGHT 범주 트리의 펼침 상태 — 이 안건 그룹은 기본 펼침, 다른 안건 그룹은 기본 접힘.
   const [threadGroupOpen, setThreadGroupOpen] = useState(true)
@@ -592,9 +597,12 @@ export default function MeetingDetailPage() {
     setMeetingPreview(m)
     setMeetingPreviewLabel(label)
     setMeetingPreviewContent('')
+    setMeetingPreviewNote(null)
     setMeetingPreviewLoading(true)
     const grouped = await fetchMeetingNotes(supabase, m.id)
-    setMeetingPreviewContent(grouped.regular[0]?.content ?? '')
+    const first = grouped.regular[0]
+    setMeetingPreviewContent(first?.content ?? '')
+    setMeetingPreviewNote(first ? { id: first.id, updated_at: first.updated_at } : null)
     setMeetingPreviewLoading(false)
   }
   function closeMeetingPreview() {
@@ -1099,7 +1107,8 @@ export default function MeetingDetailPage() {
                       <NoteAccordion key={selectedNote.id} note={selectedNote}
                         isOpen onToggle={() => setSelectedNoteId(null)} onDelete={deleteNote}
                         onEdit={editNote} onFullscreen={(content) => { setFullscreenContent(content); setShowFullscreen(true) }}
-                        agendaItems={agendaItems} onAddToItem={addNoteToItem} />
+                        agendaItems={agendaItems} onAddToItem={addNoteToItem}
+                        onVoiceSaved={(nid, c, u) => setRegularNotes(prev => prev.map(n => n.id === nid ? { ...n, content: c, updated_at: u } : n))} />
                     </div>
                   ) : meetingPreview ? (
                     <>
@@ -1124,8 +1133,10 @@ export default function MeetingDetailPage() {
                       <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide pr-1">
                         {meetingPreviewLoading ? (
                           <p className="text-sm text-[rgba(var(--text-rgb),0.3)]">불러오는 중...</p>
-                        ) : meetingPreviewContent ? (
-                          <MarkdownContent content={meetingPreviewContent} dark className="text-[13px] leading-relaxed" />
+                        ) : meetingPreviewContent && meetingPreviewNote ? (
+                          <VoiceReadableNote noteId={meetingPreviewNote.id} content={meetingPreviewContent} updatedAt={meetingPreviewNote.updated_at}
+                            onSaved={(c, u) => { setMeetingPreviewContent(c); setMeetingPreviewNote(n => n ? { ...n, updated_at: u } : n) }}
+                            dark className="text-[13px] leading-relaxed" />
                         ) : (
                           <p className="text-sm text-[rgba(var(--text-rgb),0.3)]">기록된 노트가 없습니다</p>
                         )}

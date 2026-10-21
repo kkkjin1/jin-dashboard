@@ -297,7 +297,7 @@ function isVoiceTarget(v: unknown): v is VoiceTarget {
   return VOICE_TARGETS.includes(v as VoiceTarget)
 }
 
-function newVoiceId(): string {
+export function newVoiceId(): string {
   const c = globalThis.crypto
   if (c?.randomUUID) return c.randomUUID().replace(/-/g, '').slice(0, 16)
   return Array.from({ length: 16 }, () => Math.floor(Math.random() * 16).toString(16)).join('')
@@ -469,7 +469,7 @@ export function getVoiceAtSelection(editor: Editor): VoiceTarget | null {
   return isVoiceTarget(v) ? v : null
 }
 
-function todayYmd(): string {
+export function todayYmd(): string {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }

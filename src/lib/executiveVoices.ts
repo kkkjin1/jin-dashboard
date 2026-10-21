@@ -2,7 +2,7 @@
 // 모아 의사결정 탭에 보여준다. 원본 HTML은 읽기만 하고 별도 테이블에 복사하지 않는다.
 // HTML 파싱(DOMParser)을 쓰므로 클라이언트에서만 호출한다.
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { VOICE_TARGETS, type VoiceTarget } from '@/lib/tiptapExtensions'
+import { VOICE_TARGETS, type VoiceTarget, legacyToHtml, newVoiceId, todayYmd } from '@/lib/tiptapExtensions'
 
 export type VoiceSourceType = 'meeting' | 'agenda' | 'subtask'
 // spoken=발언일(회의 날짜) · recorded=기록일(메모 작성일) · marked=표시일(Alt+3/4 누른 날) · unknown=날짜 미상
@@ -316,6 +316,86 @@ export function mergeVoiceOccurrences(occ: VoiceOccurrence[]): VoiceEntry[] {
   }
   // 날짜 내림차순, 날짜 미상은 맨 아래
   return entries.sort((a, b) => (b.date ?? '').localeCompare(a.date ?? '') || (a.date ? 0 : 1) - (b.date ? 0 : 1))
+}
+
+// ── 읽기 화면에서 표시 붙이기 (VoiceReadableNote) ─────────────────────────────────────────────────
+// 화면 줄 ↔ 원문 블록을 번호로 짝짓는다: HTML 노트는 렌더 전에 블록마다 data-vblk 순번을 달고,
+// 예전 형식(순수 텍스트) 노트는 MarkdownContent가 원문 줄 번호를 data-line으로 단다.
+
+export const READ_BLOCK_SELECTOR = 'p,h1,h2,h3,h4,h5,h6,summary'
+
+export function isHtmlContent(content: string | null | undefined): boolean {
+  return !!content && content.trimStart().startsWith('<')
+}
+
+export function withReadBlockMarkers(html: string): string {
+  const doc = new DOMParser().parseFromString(html, 'text/html')
+  doc.body.querySelectorAll(READ_BLOCK_SELECTOR).forEach((el, i) => el.setAttribute('data-vblk', String(i)))
+  return doc.body.innerHTML
+}
+
+export type ReadSelection = { kind: 'html'; blocks: number[] } | { kind: 'legacy'; lines: number[] }
+export type ApplyVoiceResult =
+  | { ok: true; content: string; action: 'set' | 'clear'; converted: boolean }
+  | { ok: false; reason: string }
+
+function setVoiceAttrs(el: Element, target: VoiceTarget | null) {
+  if (!target) { el.removeAttribute('data-voice'); el.removeAttribute('data-voice-id'); el.removeAttribute('data-voice-at'); return }
+  const tagged = isVoiceTarget(el.getAttribute('data-voice'))
+  el.setAttribute('data-voice', target)
+  if (!(tagged && el.getAttribute('data-voice-id'))) el.setAttribute('data-voice-id', newVoiceId())
+  // 이미 표시된 줄은 표시일 유지(없던 표시일을 새로 채우지 않음), 새 표시는 오늘
+  if (!tagged) el.setAttribute('data-voice-at', todayYmd())
+}
+
+const plain = (html: string) => (new DOMParser().parseFromString(html, 'text/html').body.textContent ?? '').replace(/\s+/g, '')
+
+// 표시 규칙은 에디터(Alt+3/4)와 같다 — 고른 줄이 모두 이미 target이면 해제, 아니면 전부 target.
+// 속성(과 예전 형식의 목록 항목 문단 감싸기)만 바꾸고, 저장 전 글자 내용이 원문과 같은지 검사한다.
+export function applyVoiceToContent(content: string, sel: ReadSelection, target: VoiceTarget): ApplyVoiceResult {
+  if (sel.kind === 'html') {
+    if (!isHtmlContent(content) || sel.blocks.length === 0) return { ok: false, reason: '표시할 줄을 찾지 못했습니다' }
+    const doc = new DOMParser().parseFromString(content, 'text/html')
+    const all = Array.from(doc.body.querySelectorAll(READ_BLOCK_SELECTOR))
+    const picked = sel.blocks.map(i => all[i])
+    if (picked.some(el => !el)) return { ok: false, reason: '화면과 원문이 맞지 않습니다 — 새로고침 후 다시 시도해 주세요' }
+    const clear = picked.every(el => el.getAttribute('data-voice') === target)
+    picked.forEach(el => setVoiceAttrs(el, clear ? null : target))
+    const next = doc.body.innerHTML
+    if (plain(next) !== plain(content)) return { ok: false, reason: '원문 글자가 달라져 저장을 중단했습니다' }
+    return { ok: true, content: next, action: clear ? 'clear' : 'set', converted: false }
+  }
+  // 예전 형식 — 줄 끝에 줄 번호 표식을 붙여 legacyToHtml(수정→저장과 같은 변환)로 바꾼 뒤, 표식이 든 블록을 찾는다
+  if (isHtmlContent(content) || sel.lines.length === 0) return { ok: false, reason: '표시할 줄을 찾지 못했습니다' }
+  const lines = content.split('\n')
+  const marked = lines.map((l, i) => (l.trim() ? `${l}${i}` : l)).join('\n')
+  const doc = new DOMParser().parseFromString(legacyToHtml(marked), 'text/html')
+  const byLine = new Map<number, Element>()
+  const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT)
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+    const text = n.nodeValue ?? ''
+    for (const m of text.matchAll(/(\d+)/g)) {
+      const block = n.parentElement?.closest('p,h1,h2,h3,li')
+      if (block) byLine.set(Number(m[1]), block)
+    }
+    n.nodeValue = text.replace(/\d+/g, '')
+  }
+  const picked = sel.lines.map(l => byLine.get(l))
+  if (picked.some(el => !el)) return { ok: false, reason: '화면과 원문이 맞지 않습니다 — 새로고침 후 다시 시도해 주세요' }
+  for (const el of picked as Element[]) {
+    let block: Element = el
+    if (el.tagName === 'LI') {
+      // 목록 항목은 글자를 문단으로 감싸야 에디터가 같은 줄 표시로 읽는다(하위 목록은 그대로 둠)
+      const p = doc.createElement('p')
+      while (el.firstChild && !(el.firstChild instanceof HTMLElement && /^(UL|OL)$/.test(el.firstChild.tagName))) p.appendChild(el.firstChild)
+      el.insertBefore(p, el.firstChild)
+      block = p
+    }
+    setVoiceAttrs(block, target)
+  }
+  const next = doc.body.innerHTML
+  if (plain(next) !== plain(legacyToHtml(content))) return { ok: false, reason: '원문 글자가 달라져 저장을 중단했습니다' }
+  return { ok: true, content: next, action: 'set', converted: true }
 }
 
 // ── 원본 이동 — 도착 화면에서 의견 줄로 스크롤 후 잠깐 강조 ─────────────────────────────────────────

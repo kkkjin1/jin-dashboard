@@ -9,7 +9,7 @@ import { useAutosave, clearAutosaveBuffer } from '@/hooks/useAutosave'
 import { format, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import type { Meeting } from '@/types'
-import MarkdownContent from '@/components/MarkdownContent'
+import VoiceReadableNote from '@/components/VoiceReadableNote'
 import { CATEGORY_PALETTE, MEETING_CATEGORY, colorKeyFromName } from '@/lib/categoryColors'
 import { fetchMeetingNotes, fetchMeetingNoteCounts, type MeetingNotesGrouped } from '@/lib/meetingNotes'
 import SearchToolbar, { type SortOrder, type DateSelection } from './SearchToolbar'
@@ -571,7 +571,9 @@ export default function MeetingNotesNew() {
                         )}
                       </div>
                     )}
-                    <MarkdownContent content={n.content} dark className="text-[13px] leading-relaxed" />
+                    <VoiceReadableNote noteId={n.id} content={n.content} updatedAt={n.updated_at}
+                      onSaved={(c, u) => setSelectedNotes(prev => prev ? { ...prev, regular: prev.regular.map(x => x.id === n.id ? { ...x, content: c, updated_at: u } : x) } : prev)}
+                      dark className="text-[13px] leading-relaxed" />
                     {i < allNotes.length - 1 && (
                       <div className="h-px mt-4" style={{ background: 'rgba(var(--ink-rgb),0.1)' }} />
                     )}
