@@ -70,6 +70,19 @@ function subscribeWide(cb: () => void) {
   return () => mq.removeEventListener('change', cb)
 }
 
+// 입력칸 높이(textarea 우하단 끌기) — 새로고침하면 기본 높이로 돌아가던 문제(2026-10-21)로
+// 칸 종류별로 이 브라우저에 기억한다. 고정 섹션은 summary/issues/next_steps, 주제는 update/point/memo.
+const BOX_H_KEY_PREFIX = 'work-report-box-height:'
+
+function loadBoxHeight(key: string | undefined): number | undefined {
+  if (!key) return undefined
+  try {
+    const n = Number(window.localStorage.getItem(BOX_H_KEY_PREFIX + key))
+    if (n >= 60 && n <= 4000) return n
+  } catch { /* 저장소 접근 불가 — 기본값 */ }
+  return undefined
+}
+
 function loadPrevColWidth(): number {
   try {
     const n = Number(window.localStorage.getItem(PREV_COL_KEY))
@@ -123,7 +136,7 @@ function PrevCell({ value }: { value: string | undefined }) {
 type TextBoxVariant = 'primary' | 'callout' | 'default' | 'cell'
 
 function TextBox({
-  label, secondaryLabel, helper, value, onChange, minHeight, placeholder, readOnly, statusLabel, variant = 'default', fill = false,
+  label, secondaryLabel, helper, value, onChange, minHeight, placeholder, readOnly, statusLabel, variant = 'default', fill = false, heightKey,
 }: {
   label: string
   secondaryLabel?: string
@@ -137,7 +150,21 @@ function TextBox({
   variant?: TextBoxVariant
   // 부모(grid row) 높이를 채운다 — 대조 열과 높이를 맞출 때.
   fill?: boolean
+  // 지정하면 사용자가 끌어서 바꾼 높이를 이 키로 기억해 다음에도 그 높이로 연다
+  heightKey?: string
 }) {
+  const [savedHeight] = useState(() => loadBoxHeight(heightKey))
+  // 내용이나 옆 칸 때문에 바뀐 높이는 저장하지 않도록, 사용자가 누르고 뗀 사이에 바뀐 경우만 저장한다
+  function trackResize(e: React.PointerEvent<HTMLTextAreaElement>) {
+    if (!heightKey) return
+    const el = e.currentTarget
+    const before = el.offsetHeight
+    window.addEventListener('pointerup', () => {
+      const after = el.offsetHeight
+      if (after === before) return
+      try { window.localStorage.setItem(BOX_H_KEY_PREFIX + heightKey, String(after)) } catch { /* 무시 */ }
+    }, { once: true })
+  }
   return (
     <div style={fill ? { height: '100%' } : undefined}>
       {(label || statusLabel) && (
@@ -160,9 +187,10 @@ function TextBox({
         onChange={e => onChange(e.target.value)}
         readOnly={readOnly}
         placeholder={placeholder}
+        onPointerDown={trackResize}
         style={{
           width: '100%',
-          height: fill ? '100%' : undefined,
+          height: savedHeight ?? (fill ? '100%' : undefined),
           display: 'block',
           minHeight,
           resize: 'vertical',
@@ -326,6 +354,8 @@ const ReportEditorPanel = forwardRef<ReportEditorPanelHandle, Props>(function Re
           <p className="text-[12px] mb-4" style={{ color: S.t4 }}>{meta.placeholder}</p>
           {recoveredBanner}
           <TextBox
+            key={selection}
+            heightKey={selection}
             label=""
             value={value}
             onChange={setValue}
@@ -532,7 +562,7 @@ const ReportEditorPanel = forwardRef<ReportEditorPanelHandle, Props>(function Re
           <span className="text-[12px] font-bold" style={{ color: S.t1 }}>이번 업데이트</span>,
           '진행 상황 · 변화된 수치',
           hValue(0),
-          <TextBox label="" value={reportText} onChange={setReportText} minHeight={360}
+          <TextBox label="" value={reportText} onChange={setReportText} minHeight={360} heightKey="update"
             placeholder="자유롭게 줄글로 작성합니다." readOnly={readOnly} variant="cell" fill />,
         )}
         {fieldTable(
@@ -540,7 +570,7 @@ const ReportEditorPanel = forwardRef<ReportEditorPanelHandle, Props>(function Re
           <span className="text-[12px] font-bold" style={{ color: S.t1 }}>{POINT_LABEL}</span>,
           '경영진 판단 요청 · 다음 보고까지 할 일',
           hValue(1),
-          <TextBox label="" value={execText} onChange={setExecText} minHeight={240}
+          <TextBox label="" value={execText} onChange={setExecText} minHeight={240} heightKey="point"
             placeholder="경영진 전달·판단 요청, 다음 액션을 적습니다." readOnly={readOnly} variant="cell" fill />,
         )}
 
@@ -551,7 +581,7 @@ const ReportEditorPanel = forwardRef<ReportEditorPanelHandle, Props>(function Re
           </button>,
           '보고서에 포함되지 않음',
           hValue(2),
-          <TextBox label="" value={memoText} onChange={setMemoText} minHeight={240}
+          <TextBox label="" value={memoText} onChange={setMemoText} minHeight={240} heightKey="memo"
             placeholder="CFO 미팅, 지급률 재계산 등 기억용 raw note" readOnly={readOnly} variant="cell" fill />,
         ) : (
           <section className="rounded-[10px] overflow-hidden" style={{ border: `1px solid ${S.border}` }}>
