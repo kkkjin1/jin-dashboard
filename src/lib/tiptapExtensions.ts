@@ -3,8 +3,8 @@
 // 보정. 두 에디터가 동일한 문서 스키마/Markdown input rule을 쓰도록 이 모듈만 참조한다.
 import { Extension, InputRule, mergeAttributes, wrappingInputRule } from '@tiptap/core'
 import type { Editor } from '@tiptap/react'
-import { Plugin, PluginKey, Selection, TextSelection } from '@tiptap/pm/state'
-import type { Node as PMNode } from '@tiptap/pm/model'
+import { Plugin, PluginKey, Selection, TextSelection, type Transaction } from '@tiptap/pm/state'
+import { Slice, type Node as PMNode } from '@tiptap/pm/model'
 import StarterKit from '@tiptap/starter-kit'
 import OrderedList from '@tiptap/extension-ordered-list'
 import { Color, TextStyle } from '@tiptap/extension-text-style'
@@ -303,26 +303,67 @@ function newVoiceId(): string {
   return Array.from({ length: 16 }, () => Math.floor(Math.random() * 16).toString(16)).join('')
 }
 
+function voiceIdCounts(doc: PMNode): Map<string, number> {
+  const counts = new Map<string, number>()
+  doc.descendants(node => {
+    if (!node.isTextblock) return true
+    const id = node.attrs.voiceId as string | null
+    if (id) counts.set(id, (counts.get(id) ?? 0) + 1)
+    return false
+  })
+  return counts
+}
+
+// 이번 트랜잭션들이 바꾼 범위(최종 문서 좌표)
+function changedRanges(trs: readonly Transaction[]): [number, number][] {
+  const ranges: [number, number][] = []
+  trs.forEach((tr, t) => {
+    tr.mapping.maps.forEach((map, i) => {
+      map.forEach((_oldStart, _oldEnd, newStart, newEnd) => {
+        let s = newStart, e = newEnd
+        for (let j = i + 1; j < tr.mapping.maps.length; j++) { s = tr.mapping.maps[j].map(s, -1); e = tr.mapping.maps[j].map(e, 1) }
+        for (let k = t + 1; k < trs.length; k++) { s = trs[k].mapping.map(s, -1); e = trs[k].mapping.map(e, 1) }
+        ranges.push([s, e])
+      })
+    })
+  })
+  return ranges
+}
+
 // Enter로 표시된 줄을 나누면 ProseMirror는 줄 중간/맨 앞에서 나눌 때 두 블록에 속성을 모두 복사한다
-// (keepOnSplit:false는 줄 끝에서 나눌 때만 적용). 그래서 문서 순서상 바로 붙은 두 블록이 같은 발언 ID를
-// 가지면 "방금 나뉜 것"으로 보고 원래 줄에만 표시를 남긴다 — 맨 앞에서 Enter(빈 줄이 위에 생김)면 위 빈 줄을,
-// 그 외에는 아래 새 줄을 해제. 붙여넣기·끌어놓기 트랜잭션은 건드리지 않는다(복사본의 ID 보존).
+// (keepOnSplit:false는 줄 끝에서 나눌 때만 적용). 그래서 "이번 편집으로 같은 발언 ID 블록 수가 늘었고,
+// 늘어난 두 블록이 바로 붙어 있으며 그 경계가 이번에 바뀐 범위 안"일 때만 분할로 보고 새로 생긴 쪽만
+// 해제한다 — 맨 앞에서 Enter(빈 줄이 위에 생김)면 위 빈 줄을, 그 외에는 아래 새 줄을.
+// 붙여넣기·끌어놓기·실행취소/다시실행은 건드리지 않는다(복사본의 ID 보존, 기록 재생 그대로).
 const voiceSplitGuard = new Plugin({
   key: new PluginKey('voiceSplitGuard'),
-  appendTransaction(trs, _oldState, state) {
+  appendTransaction(trs, oldState, state) {
     if (!trs.some(tr => tr.docChanged)) return null
-    if (trs.some(tr => tr.getMeta('paste') || tr.getMeta('uiEvent') === 'paste' || tr.getMeta('uiEvent') === 'drop')) return null
-    const clearAt: number[] = []
-    let prev: { pos: number; node: PMNode } | null = null
+    if (trs.some(tr => tr.getMeta('paste') || tr.getMeta('uiEvent') === 'paste' || tr.getMeta('uiEvent') === 'drop' || tr.getMeta('history$'))) return null
+    const before = voiceIdCounts(oldState.doc)
+    const blocks: { pos: number; node: PMNode }[] = []
+    const byId = new Map<string, number[]>()
     state.doc.descendants((node, pos) => {
       if (!node.isTextblock) return true
-      const p = prev
-      if (p && node.attrs.voiceId && p.node.attrs.voiceId === node.attrs.voiceId) {
-        clearAt.push(p.node.content.size === 0 && node.content.size > 0 ? p.pos : pos)
-      }
-      prev = { pos, node }
+      const id = node.attrs.voiceId as string | null
+      if (id) byId.set(id, [...(byId.get(id) ?? []), blocks.length])
+      blocks.push({ pos, node })
       return false
     })
+    const ranges = changedRanges(trs)
+    const touches = (from: number, to: number) => ranges.some(([s, e]) => s <= to && e >= from)
+    const clearAt: number[] = []
+    for (const [id, idx] of byId) {
+      let extra = idx.length - Math.max(before.get(id) ?? 0, 1)
+      for (let k = idx.length - 1; k > 0 && extra > 0; k--) {
+        const a = idx[k - 1], b = idx[k]
+        if (b !== a + 1) continue
+        const A = blocks[a], B = blocks[b]
+        if (!touches(A.pos + A.node.nodeSize, B.pos)) continue
+        clearAt.push(A.node.content.size === 0 && B.node.content.size > 0 ? A.pos : B.pos)
+        extra--
+      }
+    }
     if (clearAt.length === 0) return null
     const tr = state.tr
     for (const pos of clearAt) {
@@ -330,6 +371,46 @@ const voiceSplitGuard = new Plugin({
       if (node) tr.setNodeMarkup(pos, undefined, { ...node.attrs, voice: null, voiceId: null })
     }
     return tr
+  },
+})
+
+// 붙여넣기 — 외부(=data-pm-slice 없는) HTML은 첫/끝 블록이 "열린" 채로 들어와 붙여넣는 위치의 문단에
+// 합쳐지고, 합쳐질 때 붙여넣은 블록의 속성은 버려진다(TiptapEditor 복사 핸들러가 클립보드 HTML을 DOM
+// 조각으로 덮어써서 앱 안 복사도 여기에 해당). 표시된 블록이 가장자리에 있을 때만 그쪽을 닫아 독립 블록으로
+// 넣는다 — 기존 문단은 자기 표시·ID를 그대로 유지하고, 붙여넣은 발언도 자기 표시·ID를 유지. 표시 없는
+// 붙여넣기는 기존 동작 그대로.
+function closeVoiceEdges(slice: Slice): Slice {
+  const edgeHasVoice = (fromStart: boolean) => {
+    const depth = fromStart ? slice.openStart : slice.openEnd
+    let node = fromStart ? slice.content.firstChild : slice.content.lastChild
+    for (let d = 1; node && d < depth; d++) node = fromStart ? node.firstChild : node.lastChild
+    return !!node && node.isTextblock && isVoiceTarget(node.attrs.voice)
+  }
+  const closeStart = slice.openStart > 0 && edgeHasVoice(true)
+  const closeEnd = slice.openEnd > 0 && edgeHasVoice(false)
+  if (!closeStart && !closeEnd) return slice
+  return new Slice(slice.content, closeStart ? 0 : slice.openStart, closeEnd ? 0 : slice.openEnd)
+}
+
+// 끝을 닫은 블록 붙여넣기는 ProseMirror 기본값대로 커서가 "다음 줄 맨 앞"에 놓인다 — 이어서 타이핑하면
+// 아래 줄에 들어가므로, 이 경우에만 커서를 붙여넣은 블록 끝으로 돌려놓는다(일반 붙여넣기와 같은 위치).
+let closedPasteEnd = false
+const voicePasteGuard = new Plugin({
+  key: new PluginKey('voicePasteGuard'),
+  props: {
+    transformPasted: slice => {
+      const out = closeVoiceEdges(slice)
+      closedPasteEnd = slice.openEnd > 0 && out.openEnd === 0
+      return out
+    },
+  },
+  appendTransaction(trs, _oldState, state) {
+    if (!closedPasteEnd || !trs.some(tr => tr.getMeta('paste') || tr.getMeta('uiEvent') === 'paste')) return null
+    closedPasteEnd = false
+    const { $from, empty } = state.selection
+    if (!empty || $from.parentOffset !== 0 || $from.depth === 0) return null
+    const sel = Selection.near(state.doc.resolve($from.before()), -1)
+    return sel.from < $from.pos ? state.tr.setSelection(sel) : null
   },
 })
 
@@ -355,7 +436,7 @@ export const VoiceAttribute = Extension.create({
     }]
   },
   addProseMirrorPlugins() {
-    return [voiceSplitGuard]
+    return [voiceSplitGuard, voicePasteGuard]
   },
 })
 

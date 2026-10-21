@@ -301,6 +301,20 @@ export default function TiptapEditor({
         const tmp = document.createElement('div')
         tmp.appendChild(range.cloneContents())
         htmlContent = tmp.innerHTML
+        // 경영진 의견 줄 하나를 통째로 선택한 경우 DOM 조각에는 글자만 담기고 줄 표시(data-voice)가 빠진다 —
+        // 그 줄의 껍데기 태그로 감싸 표시·발언 ID가 붙여넣기까지 따라가게 한다. 일부만 선택하면 기존 그대로.
+        const { $from, $to } = editor.state.selection
+        const block = $from.parent
+        if ($from.sameParent($to) && block.attrs.voice && $from.parentOffset === 0 && $to.parentOffset === block.content.size) {
+          const el = editor.view.nodeDOM($from.before())
+          if (el instanceof HTMLElement) {
+            const shell = /^(P|H[1-6])$/.test(el.tagName) ? el.cloneNode(false) as HTMLElement : document.createElement('p')
+            shell.setAttribute('data-voice', block.attrs.voice)
+            if (block.attrs.voiceId) shell.setAttribute('data-voice-id', block.attrs.voiceId)
+            shell.innerHTML = htmlContent
+            htmlContent = shell.outerHTML
+          }
+        }
       }
 
       // text/plain: GFM Markdown serialized from ProseMirror document
