@@ -48,6 +48,35 @@ export default function OneOnOneSessionPage() {
   const nextAppointmentSaveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const autoFocused = useRef(false)
 
+  // 위(입력)·아래(이전 기록) 분할 높이 — 가운데 손잡이를 끌어 조절, 새로고침해도 유지(localStorage).
+  // null이면 기본 반반. 더블클릭하면 기본으로 되돌린다.
+  const [topH, setTopH] = useState<number | null>(null)
+  const bodyRef = useRef<HTMLDivElement>(null)
+  const topRef  = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    try { const v = Number(localStorage.getItem('oneOnOne.topH')); if (v > 0) setTopH(v) } catch {}
+  }, [])
+  function startSplitDrag(e: React.PointerEvent) {
+    if (!topRef.current || !bodyRef.current) return
+    e.preventDefault()
+    const startY = e.clientY
+    const startH = topRef.current.getBoundingClientRect().height
+    const maxH = bodyRef.current.getBoundingClientRect().height - 120   // 아래 이전 기록이 최소한 보이게
+    let last = startH
+    const onMove = (ev: PointerEvent) => { last = Math.round(Math.min(maxH, Math.max(300, startH + ev.clientY - startY))); setTopH(last) }
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp)
+      document.body.style.cursor = ''; document.body.style.userSelect = ''
+      try { localStorage.setItem('oneOnOne.topH', String(last)) } catch {}
+    }
+    document.body.style.cursor = 'row-resize'; document.body.style.userSelect = 'none'
+    window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onUp)
+  }
+  function resetSplit() {
+    setTopH(null)
+    try { localStorage.removeItem('oneOnOne.topH') } catch {}
+  }
+
   useEffect(() => {
     async function load() {
       const [{ data: s }, { data: m }, { data: allSessions }] = await Promise.all([
@@ -304,10 +333,11 @@ export default function OneOnOneSessionPage() {
           제목은 두 박스 위 전체 폭 줄에 둬서 기록·다음 약속 박스의 시작선/높이를 맞춘다.
           1on1은 회의보다 길고 구조화가 어려워 입력과 과거 기록을 동시에 넓게 보게 한다.
           (lg 미만은 한 화면에 반반이 비좁아 전체 스크롤로 쌓는다) */}
-      <div style={{ flex: 1, minHeight: 0, padding: '14px 20px 0', display: 'flex', flexDirection: 'column', gap: 14 }} className="overflow-y-auto lg:overflow-hidden scrollbar-hide">
+      <div ref={bodyRef} style={{ flex: 1, minHeight: 0, padding: '14px 20px 0', display: 'flex', flexDirection: 'column' }} className="gap-[14px] lg:gap-0 overflow-y-auto lg:overflow-hidden scrollbar-hide">
 
-        {/* ── 위 절반: 입력 (고정) ── */}
-        <div className="flex flex-col gap-3 lg:h-1/2 lg:min-h-[300px] flex-shrink-0">
+        {/* ── 위 절반: 입력 (고정) — 높이는 아래 손잡이로 조절(기본 반반) ── */}
+        <div ref={topRef} className="flex flex-col gap-3 lg:h-[var(--oo-top-h,50%)] lg:min-h-[300px] flex-shrink-0"
+          style={topH ? { '--oo-top-h': `${topH}px` } as React.CSSProperties : undefined}>
           {/* 저장 실패 안내 — canonical write 실패 시 표시 */}
           {saveError && (
             <div className="flex items-center gap-2 rounded-xl"
@@ -439,6 +469,12 @@ export default function OneOnOneSessionPage() {
 
           </div>
         </div>
+        </div>
+
+        {/* 위·아래 분할 손잡이 (lg 이상) — 끌어서 높이 조절, 더블클릭으로 반반 복귀 */}
+        <div onPointerDown={startSplitDrag} onDoubleClick={resetSplit} title="끌어서 높이 조절 · 더블클릭하면 반반으로"
+          className="hidden lg:flex group" style={{ height: 14, flexShrink: 0, alignItems: 'center', justifyContent: 'center', cursor: 'row-resize', touchAction: 'none' }}>
+          <div className="opacity-40 group-hover:opacity-100" style={{ width: 44, height: 4, borderRadius: 2, background: 'rgba(var(--ink-rgb),0.25)', transition: 'opacity 120ms' }} />
         </div>
 
         {/* ── 아래 절반: 이전 기록 (이 영역만 스크롤) ── */}
