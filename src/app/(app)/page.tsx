@@ -1852,7 +1852,7 @@ export default function HomePage() {
                 헤더만 떠 보이지 않도록 그림자 없이 같은 테두리로 이어 하나의 카드처럼 보이게 한다 */}
             <div aria-hidden data-week-panel style={{ position: 'absolute', inset: 0, borderRadius: 16, background: `color-mix(in srgb, ${CARD} 45%, transparent)`, border: '1px solid rgba(var(--ink-rgb),0.07)', pointerEvents: 'none' }} />
             <div aria-hidden data-week-headbox style={{ position: 'absolute', left: 0, right: 0, top: 0, height: vs(WEEK_HEAD_PAD + WEEK_TITLE_H + WEEK_TITLE_GAP + WEEK_COLHEAD_H), borderRadius: '16px 16px 0 0', background: CARD, border: '1px solid rgba(var(--ink-rgb),0.07)', borderBottomColor: DIVIDER, pointerEvents: 'none' }} />
-            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: vs(WEEK_TITLE_H), marginBottom: vs(WEEK_TITLE_GAP), padding: '0 12px', flexShrink: 0 }}>
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: vs(WEEK_TITLE_H), padding: '0 12px', flexShrink: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <h2 style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 15, fontWeight: 600, color: TEXT1, letterSpacing: '-0.02em' }}>
                   <CalendarCheck size={15} strokeWidth={2} style={{ color: '#5E8FBF' }} />금주 업무
@@ -1889,8 +1889,9 @@ export default function HomePage() {
                 {weekAddDate === today ? '취소' : '+ 오늘 할 일'}
               </button>}
             </div>
-            {/* 폭이 모자라면 열을 찌그러뜨리지 않고 이 영역만 가로 스크롤 (섹션 헤더는 스크롤 밖에 고정) */}
-            <div data-week-scroll style={{ position: 'relative', flex: '1 1 auto', minHeight: 0, minWidth: 0, width: '100%', overflowX: 'auto', overflowY: 'hidden', scrollbarWidth: 'thin', scrollbarColor: 'rgba(var(--ink-rgb),0.18) transparent' }}>
+            {/* 폭이 모자라면 열을 찌그러뜨리지 않고 이 영역만 가로 스크롤 (섹션 헤더는 스크롤 밖에 고정).
+                제목 행 아래 간격은 여기 paddingTop으로 둔다 — 오늘 열 유리 테두리가 이 간격까지 위로 올라가도 잘리지 않게 */}
+            <div data-week-scroll style={{ position: 'relative', flex: '1 1 auto', minHeight: 0, minWidth: 0, width: '100%', paddingTop: vs(WEEK_TITLE_GAP), overflowX: 'auto', overflowY: 'hidden', scrollbarWidth: 'thin', scrollbarColor: 'rgba(var(--ink-rgb),0.18) transparent' }}>
             <div style={{ height: '100%', minWidth: WEEK_GRID_MIN_W, display: 'grid', gridTemplateColumns: WEEK_GRID_COLS, gridTemplateRows: 'auto minmax(0, 1fr)' }}>
               {weekCols.map((items, ci) => {
                 const secondary = ci === 0 || ci === 6
@@ -1915,7 +1916,6 @@ export default function HomePage() {
                         className={weekAddDate === date ? '' : 'opacity-0 group-hover:opacity-100'}
                         style={{ marginLeft: items.length > 0 ? 4 : 'auto', alignSelf: 'center', marginTop: -7, width: 18, height: 18, borderRadius: 5, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, lineHeight: 1, color: TEXT3, background: weekAddDate === date ? 'rgba(var(--ink-rgb),0.06)' : 'transparent', border: 'none', cursor: 'pointer', padding: 0, transition: 'opacity 120ms ease' }}>+</button>
                     )}
-                    {isTodayCol && <div style={{ position: 'absolute', left: 12, right: 12, bottom: 1, height: 2, borderRadius: 1, background: ACCENT }} />}
                   </div>
                 )
               })}
@@ -1958,6 +1958,18 @@ export default function HomePage() {
                   </div>
                 )
               })}
+              {/* 오늘 열 유리 테두리 — 머리글+본문을 한 장의 유리판처럼 감싼다. 얇은 그라데이션 선(마스크) + 위쪽 하이라이트·아래 그림자로 입체감.
+                  클릭·드래그는 그대로 통과(pointerEvents none) */}
+              {weekDays.includes(today) && (
+                <div aria-hidden data-week-today-frame
+                  style={{ gridRow: '1 / 3', gridColumn: weekDays.indexOf(today) + 2, position: 'relative', zIndex: 1, margin: `${vs(-5)} 3px ${vs(4)}`, borderRadius: 12, pointerEvents: 'none',
+                    boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.7), inset 0 -1px 0 rgba(var(--accent-tint-rgb),0.12), 0 1px 2px rgba(var(--ink-rgb),0.06), 0 10px 24px -12px rgba(var(--accent-tint-rgb),0.5)' }}>
+                  <div style={{ position: 'absolute', inset: 0, borderRadius: 'inherit', padding: 1,
+                    background: 'linear-gradient(165deg, rgba(var(--accent-tint-rgb),0.5) 0%, rgba(var(--accent-tint-rgb),0.6) 30%, rgba(var(--accent-tint-rgb),0.22) 70%, rgba(255,255,255,0.55) 100%)',
+                    WebkitMask: 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)', WebkitMaskComposite: 'xor',
+                    mask: 'linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0)' }} />
+                </div>
+              )}
             </div>
             </div>
           </section>
