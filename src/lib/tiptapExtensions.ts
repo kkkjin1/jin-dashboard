@@ -20,8 +20,14 @@ const COLOR_MAP: Record<string, string> = {
   orange: '#F97316', purple: '#A855F7', gray: '#9CA3AF',
 }
 
+// 예전 형식은 순수 텍스트라 "A<B", "R&R" 같은 글자를 태그·엔티티로 읽히지 않게 먼저 이스케이프한다
+// (서식 표기 **, __, !!, ==, ~~, {color}는 이 문자들을 안 쓰므로 영향 없음)
+function escapeHtml(text: string): string {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
 function inlineToHtml(text: string): string {
-  let s = text
+  let s = escapeHtml(text)
   s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
   s = s.replace(/__(.+?)__/g, '<u>$1</u>')
   s = s.replace(/!!(.+?)!!/g, '<span style="color:#EF4444">$1</span>')
@@ -40,7 +46,50 @@ const BULL_RE = /^[-*▪●■]\s+(.*)$/
 const SUBB_RE = /^[▫○□]\s+(.*)$/
 
 type LegacyKind = 'ol1' | 'ol2' | 'ul3' | 'ul4' | 'h1' | 'h2' | 'h3' | 'quote' | 'blank' | 'text'
-interface LegacyLine { kind: LegacyKind; body: string }
+// n: 원문에 적힌 번호(1. / 1) / 가.=1) — 번호 목록만
+interface LegacyLine { kind: LegacyKind; body: string; n?: number }
+
+const KOR_ORDER = '가나다라마바사아자차카타파하'
+
+function parseLegacyLine(raw: string): LegacyLine {
+  const t = raw.trimStart()
+  const num  = t.match(NUM_RE)
+  const par  = t.match(PAR_RE)
+  const kor  = t.match(KOR_RE)
+  const bull = t.match(BULL_RE)
+  const subb = t.match(SUBB_RE)
+  if (num)  return { kind: 'ol1',   body: num[2], n: Number(num[1]) }
+  if (par)  return { kind: 'ol2',   body: par[2], n: Number(par[1]) }
+  if (kor)  return { kind: 'ol2',   body: kor[2], n: KOR_ORDER.indexOf(kor[1]) + 1 }
+  if (bull) return { kind: 'ul3',   body: bull[1] }
+  if (subb) return { kind: 'ul4',   body: subb[1] }
+  if (t.startsWith('# '))   return { kind: 'h1',    body: t.slice(2) }
+  if (t.startsWith('## '))  return { kind: 'h2',    body: t.slice(3) }
+  if (t.startsWith('### ')) return { kind: 'h3',    body: t.slice(4) }
+  if (t.startsWith('> '))   return { kind: 'quote', body: t.slice(2) }
+  if (t === '')             return { kind: 'blank',  body: '' }
+  return { kind: 'text', body: t }
+}
+
+// 원문 번호를 지킨다 — 설명 줄·빈 줄로 끊긴 "2."가 새 목록 "1."로 보이지 않도록 start를 단다.
+// --ol-start는 CustomOrderedList.renderHTML과 같은 형태(저장된 HTML을 읽기 화면 CSS 카운터가 그대로 쓴다)
+// 목록 항목 글자도 에디터가 저장하는 형태(<li><p>…</p>)로 낸다 — 읽기 화면 줄 표시(data-vblk)가 문단 단위라서
+// 변환 결과를 그대로 저장해도 목록 줄에 Alt+3/4를 붙일 수 있다
+function olOpen(start = 1): string {
+  return `<ol${start !== 1 ? ` start="${start}"` : ''} style="--ol-start:${start - 1}">`
+}
+
+// 예전 형식 원문에서 legacyToHtml 결과에 남아야 할 글자만(목록·제목 표기와 서식 기호 제외, 공백 제거) —
+// 변환 결과의 textContent와 같아야 글자가 빠지지 않은 것
+export function legacyPlainText(text: string): string {
+  return text.split('\n').map(raw => {
+    let s = parseLegacyLine(raw).body
+    s = s.replace(/\*\*(.+?)\*\*/g, '$1').replace(/__(.+?)__/g, '$1').replace(/!!(.+?)!!/g, '$1')
+      .replace(/==(.+?)==/g, '$1').replace(/~~(.+?)~~/g, '$1')
+    for (const name of Object.keys(COLOR_MAP)) s = s.replace(new RegExp(`\\{${name}\\}(.+?)\\{\\/${name}\\}`, 'g'), '$1')
+    return s
+  }).join('').replace(/\s+/g, '')
+}
 
 // Convert old custom markdown → HTML for Tiptap loading
 // Hierarchy: 1. → 1) / 가. → • → ○
@@ -50,25 +99,7 @@ export function legacyToHtml(text: string): string {
 
   // 연달아 여러 줄이 비어있어도 빈 <p>는 1개만 생성되도록 미리 합친다
   const normalized = text.replace(/\n{3,}/g, '\n\n')
-  const parsed: LegacyLine[] = normalized.split('\n').map(raw => {
-    const t = raw.trimStart()
-    const num  = t.match(NUM_RE)
-    const par  = t.match(PAR_RE)
-    const kor  = t.match(KOR_RE)
-    const bull = t.match(BULL_RE)
-    const subb = t.match(SUBB_RE)
-    if (num)  return { kind: 'ol1',   body: num[2] }
-    if (par)  return { kind: 'ol2',   body: par[2] }
-    if (kor)  return { kind: 'ol2',   body: kor[2] }
-    if (bull) return { kind: 'ul3',   body: bull[1] }
-    if (subb) return { kind: 'ul4',   body: subb[1] }
-    if (t.startsWith('# '))   return { kind: 'h1',    body: t.slice(2) }
-    if (t.startsWith('## '))  return { kind: 'h2',    body: t.slice(3) }
-    if (t.startsWith('### ')) return { kind: 'h3',    body: t.slice(4) }
-    if (t.startsWith('> '))   return { kind: 'quote', body: t.slice(2) }
-    if (t === '')             return { kind: 'blank',  body: '' }
-    return { kind: 'text', body: t }
-  })
+  const parsed: LegacyLine[] = normalized.split('\n').map(parseLegacyLine)
 
   let html = ''
   let i = 0
@@ -77,27 +108,33 @@ export function legacyToHtml(text: string): string {
     const item = parsed[i]
 
     if (item.kind === 'ol1') {
-      html += '<ol>'
+      // 번호가 이어지지 않으면(1. 다음 3.) 목록을 끊고 바깥 루프가 새 start로 다시 연다
+      let expect = item.n ?? 1
+      html += olOpen(expect)
       while (i < parsed.length && ['ol1', 'ol2', 'ul3', 'ul4'].includes(parsed[i].kind)) {
         if (parsed[i].kind === 'ol1') {
-          html += `<li>${inlineToHtml(parsed[i].body)}`
+          if (parsed[i].n !== expect) break
+          expect++
+          html += `<li><p>${inlineToHtml(parsed[i].body)}</p>`
           i++
-          // Collect sub-items belonging to this ol1 item
-          if (i < parsed.length && parsed[i].kind === 'ol2') {
-            html += '<ol>'
-            while (i < parsed.length && parsed[i].kind === 'ol2') {
-              html += `<li>${inlineToHtml(parsed[i].body)}`
+          // Collect sub-items belonging to this ol1 item (하위 번호가 끊기면 새 start로 다시 연다)
+          while (i < parsed.length && parsed[i].kind === 'ol2') {
+            let expect2 = parsed[i].n ?? 1
+            html += olOpen(expect2)
+            while (i < parsed.length && parsed[i].kind === 'ol2' && parsed[i].n === expect2) {
+              expect2++
+              html += `<li><p>${inlineToHtml(parsed[i].body)}</p>`
               i++
               if (i < parsed.length && parsed[i].kind === 'ul3') {
                 html += '<ul>'
                 while (i < parsed.length && (parsed[i].kind === 'ul3' || parsed[i].kind === 'ul4')) {
                   if (parsed[i].kind === 'ul3') {
-                    html += `<li>${inlineToHtml(parsed[i].body)}`
+                    html += `<li><p>${inlineToHtml(parsed[i].body)}</p>`
                     i++
                     if (i < parsed.length && parsed[i].kind === 'ul4') {
                       html += '<ul>'
                       while (i < parsed.length && parsed[i].kind === 'ul4') {
-                        html += `<li>${inlineToHtml(parsed[i].body)}</li>`
+                        html += `<li><p>${inlineToHtml(parsed[i].body)}</p></li>`
                         i++
                       }
                       html += '</ul>'
@@ -110,16 +147,17 @@ export function legacyToHtml(text: string): string {
               html += '</li>'
             }
             html += '</ol>'
-          } else if (i < parsed.length && parsed[i].kind === 'ul3') {
+          }
+          if (i < parsed.length && parsed[i].kind === 'ul3') {
             html += '<ul>'
             while (i < parsed.length && (parsed[i].kind === 'ul3' || parsed[i].kind === 'ul4')) {
               if (parsed[i].kind === 'ul3') {
-                html += `<li>${inlineToHtml(parsed[i].body)}`
+                html += `<li><p>${inlineToHtml(parsed[i].body)}</p>`
                 i++
                 if (i < parsed.length && parsed[i].kind === 'ul4') {
                   html += '<ul>'
                   while (i < parsed.length && parsed[i].kind === 'ul4') {
-                    html += `<li>${inlineToHtml(parsed[i].body)}</li>`
+                    html += `<li><p>${inlineToHtml(parsed[i].body)}</p></li>`
                     i++
                   }
                   html += '</ul>'
@@ -132,15 +170,17 @@ export function legacyToHtml(text: string): string {
           html += '</li>'
         } else {
           // ol2/ul3/ul4 without preceding ol1 — treat as standalone within this ol
-          html += `<li>${inlineToHtml(parsed[i].body)}</li>`
+          html += `<li><p>${inlineToHtml(parsed[i].body)}</p></li>`
           i++
         }
       }
       html += '</ol>'
     } else if (item.kind === 'ol2') {
-      html += '<ol>'
-      while (i < parsed.length && parsed[i].kind === 'ol2') {
-        html += `<li>${inlineToHtml(parsed[i].body)}</li>`
+      let expect = item.n ?? 1
+      html += olOpen(expect)
+      while (i < parsed.length && parsed[i].kind === 'ol2' && parsed[i].n === expect) {
+        expect++
+        html += `<li><p>${inlineToHtml(parsed[i].body)}</p></li>`
         i++
       }
       html += '</ol>'
@@ -148,12 +188,12 @@ export function legacyToHtml(text: string): string {
       html += '<ul>'
       while (i < parsed.length && (parsed[i].kind === 'ul3' || parsed[i].kind === 'ul4')) {
         if (parsed[i].kind === 'ul3') {
-          html += `<li>${inlineToHtml(parsed[i].body)}`
+          html += `<li><p>${inlineToHtml(parsed[i].body)}</p>`
           i++
           if (i < parsed.length && parsed[i].kind === 'ul4') {
             html += '<ul>'
             while (i < parsed.length && parsed[i].kind === 'ul4') {
-              html += `<li>${inlineToHtml(parsed[i].body)}</li>`
+              html += `<li><p>${inlineToHtml(parsed[i].body)}</p></li>`
               i++
             }
             html += '</ul>'
@@ -165,7 +205,7 @@ export function legacyToHtml(text: string): string {
     } else if (item.kind === 'ul4') {
       html += '<ul>'
       while (i < parsed.length && parsed[i].kind === 'ul4') {
-        html += `<li>${inlineToHtml(parsed[i].body)}</li>`
+        html += `<li><p>${inlineToHtml(parsed[i].body)}</p></li>`
         i++
       }
       html += '</ul>'

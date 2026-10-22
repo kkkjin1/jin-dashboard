@@ -2,7 +2,7 @@
 // 모아 의사결정 탭에 보여준다. 원본 HTML은 읽기만 하고 별도 테이블에 복사하지 않는다.
 // HTML 파싱(DOMParser)을 쓰므로 클라이언트에서만 호출한다.
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { VOICE_TARGETS, type VoiceTarget, legacyToHtml, newVoiceId, todayYmd } from '@/lib/tiptapExtensions'
+import { VOICE_TARGETS, type VoiceTarget, legacyToHtml, legacyPlainText, newVoiceId, todayYmd } from '@/lib/tiptapExtensions'
 
 export type VoiceSourceType = 'meeting' | 'agenda' | 'subtask'
 // spoken=발언일(회의 날짜) · recorded=기록일(메모 작성일) · marked=표시일(Alt+3/4 누른 날) · unknown=날짜 미상
@@ -394,7 +394,8 @@ export function applyVoiceToContent(content: string, sel: ReadSelection, target:
     setVoiceAttrs(block, target)
   }
   const next = doc.body.innerHTML
-  if (plain(next) !== plain(legacyToHtml(content))) return { ok: false, reason: '원문 글자가 달라져 저장을 중단했습니다' }
+  // 변환 결과가 아니라 원문 글자와 직접 대조한다(변환 중 글자가 빠져도 잡히도록)
+  if (plain(next) !== legacyPlainText(content)) return { ok: false, reason: '원문 글자가 달라져 저장을 중단했습니다' }
   return { ok: true, content: next, action: 'set', converted: true }
 }
 

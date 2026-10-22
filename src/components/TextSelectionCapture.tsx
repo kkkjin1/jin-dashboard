@@ -1,9 +1,12 @@
 'use client'
 
+// 회의록·업무 상세에서 글자를 드래그하면 뜨는 "오늘 업무로" 버튼 — 누르면 고른 글자를 그 시점의 오늘 날짜
+// 즉석 할 일(quick_todos)로 추가한다. 홈 금주 업무의 오늘 요일 열에 바로 보인다(일정 탭과 같은 테이블).
+// 읽기 화면과 편집 중(에디터 안 드래그) 모두 document mouseup으로 잡는다.
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { createClient } from '@/lib/supabase/client'
-import type { MemoTag } from '@/types'
+import { todayYmd } from '@/lib/tiptapExtensions'
 
 interface Props {
   sourceName: string
@@ -16,37 +19,25 @@ interface FloatPos {
   y: number
 }
 
-interface AgendaItemResult {
-  id: string
-  title: string
-  groupName: string
+type Mode = 'button' | 'saved' | 'failed'
+
+// 즉석 할 일 제목은 한 줄 — 여러 줄을 골랐으면 " / "로 잇고 너무 길면 자른다
+const MAX_TITLE = 200
+function toTodoTitle(text: string): string {
+  const one = text.split('\n').map(l => l.trim()).filter(Boolean).join(' / ').replace(/\s+/g, ' ')
+  return one.length > MAX_TITLE ? `${one.slice(0, MAX_TITLE)}…` : one
 }
-
-const TAG_OPTIONS: { tag: MemoTag; label: string; cls: string }[] = [
-  { tag: '아이디어', label: '아이디어', cls: 'bg-[#DCC8C8]/70 text-[#6A3A3A] border-[#CCA8A8]/60' },
-  { tag: '업무관련', label: '업무관련', cls: 'bg-[#C8D8C8]/70 text-[#3A5A3A] border-[#A8C4A8]/60' },
-  { tag: '회의관련', label: '회의관련', cls: 'bg-[#C8D0DC]/70 text-[#3A4A5A] border-[#A8B8CC]/60' },
-]
-
-type Mode = 'button' | 'memo' | 'link-item' | 'saved-memo' | 'saved-link'
 
 export default function TextSelectionCapture({ sourceName, sourceType }: Props) {
   const [float, setFloat] = useState<FloatPos | null>(null)
   const [mode, setMode] = useState<Mode>('button')
-  const [title, setTitle] = useState('')
-  const [tag, setTag] = useState<MemoTag>('아이디어')
   const [saving, setSaving] = useState(false)
-  const [itemSearch, setItemSearch] = useState('')
-  const [allItems, setAllItems] = useState<AgendaItemResult[]>([])
-  const [itemSearching, setItemSearching] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const supabase = createClient()
 
   const dismiss = useCallback(() => {
     setFloat(null)
     setMode('button')
-    setItemSearch('')
-    setAllItems([])
   }, [])
 
   const handleMouseUp = useCallback((e: MouseEvent) => {
@@ -57,11 +48,7 @@ export default function TextSelectionCapture({ sourceName, sourceType }: Props) 
     const range = selection!.getRangeAt(0)
     const rect = range.getBoundingClientRect()
     setFloat({ text, x: rect.left + rect.width / 2, y: rect.top })
-    setTitle(text.split('\n')[0].replace(/#+\s*/g, '').trim().slice(0, 50))
-    setTag('아이디어')
     setMode('button')
-    setItemSearch('')
-    setAllItems([])
   }, [])
 
   const handleMouseDown = useCallback((e: MouseEvent) => {
@@ -78,72 +65,20 @@ export default function TextSelectionCapture({ sourceName, sourceType }: Props) 
     }
   }, [handleMouseUp, handleMouseDown])
 
-  // link-item 모드 진입 시 전체 로드 (meetings 페이지와 동일한 패턴)
-  useEffect(() => {
-    if (mode !== 'link-item') return
-    setItemSearching(true)
-    supabase
-      .from('agenda_items')
-      .select('id, title, agenda_groups(name)')
-      .neq('status', 'done')
-      .order('sort_order')
-      .then(({ data }) => {
-        setAllItems(
-          (data ?? []).map((d: any) => ({
-            id: d.id,
-            title: d.title,
-            groupName: d.agenda_groups?.name ?? '',
-          }))
-        )
-        setItemSearching(false)
-      })
-  }, [mode])
-
-  async function saveMemo() {
-    if (!float || !title.trim()) return
+  async function addToToday() {
+    if (!float || saving) return
+    const title = toTodoTitle(float.text)
+    if (!title) return
     setSaving(true)
-    const content = `[${sourceType}: ${sourceName}]\n\n${float.text}`
-    await supabase.from('quick_memos').insert({ title: title.trim(), content, tag: [tag] })
+    const { error } = await supabase.from('quick_todos').insert({ title, target_date: todayYmd() })
     setSaving(false)
-    setMode('saved-memo')
-    window.getSelection()?.removeAllRanges()
-    setTimeout(dismiss, 1000)
-  }
-
-  async function linkToItem(item: AgendaItemResult) {
-    if (!float) return
-    setSaving(true)
-    const today = new Date().toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' })
-    const stTitle = `${sourceName.slice(0, 30)} · ${today}`
-
-    // 기존 서브태스크의 최대 sort_order 조회
-    const { data: existingSTs } = await supabase
-      .from('agenda_sub_tasks')
-      .select('sort_order')
-      .eq('agenda_item_id', item.id)
-      .order('sort_order', { ascending: false })
-      .limit(1)
-    const nextOrder = ((existingSTs?.[0] as any)?.sort_order ?? 0) + 1
-
-    // 새 서브태스크 생성
-    const { data: newST } = await supabase
-      .from('agenda_sub_tasks')
-      .insert({ agenda_item_id: item.id, title: stTitle, status: 'active', sort_order: nextOrder })
-      .select()
-      .single()
-
-    // 선택된 텍스트를 노트로 추가
-    if (newST) {
-      const safeHtml = `<p>${float.text.replace(/\n/g, '</p><p>')}</p>`
-      await supabase.from('sub_task_notes').insert({
-        sub_task_id: (newST as any).id,
-        title: `${sourceType} 발췌`,
-        content: safeHtml,
-      })
+    if (error) {
+      console.error(`오늘 업무 추가 실패 (${sourceType}: ${sourceName}):`, error.message)
+      setMode('failed')
+      setTimeout(dismiss, 2000)
+      return
     }
-
-    setSaving(false)
-    setMode('saved-link')
+    setMode('saved')
     window.getSelection()?.removeAllRanges()
     setTimeout(dismiss, 1200)
   }
@@ -160,125 +95,27 @@ export default function TextSelectionCapture({ sourceName, sourceType }: Props) 
         transform: 'translate(-50%, calc(-100% - 6px))',
         zIndex: 9999,
       }}
-      onMouseDown={e => e.stopPropagation()}
+      // 버튼을 눌러도 에디터 포커스·선택이 풀리지 않도록 기본 동작을 막는다
+      onMouseDown={e => { e.preventDefault(); e.stopPropagation() }}
     >
-      {mode === 'saved-memo' ? (
-        <div className="flex items-center gap-1.5 bg-[#5DBD97] text-white text-[11px] px-3 py-1.5 rounded-lg shadow-lg whitespace-nowrap">
-          ✓ 메모에 저장됨
-        </div>
-      ) : mode === 'saved-link' ? (
+      {mode === 'saved' ? (
         <div className="flex items-center gap-1.5 bg-[#3B82F6] text-white text-[11px] px-3 py-1.5 rounded-lg shadow-lg whitespace-nowrap">
-          ✓ 업무에 연동됨
+          ✓ 오늘 업무에 추가됨
         </div>
-      ) : mode === 'button' ? (
-        <div className="flex items-center gap-0 bg-[#4C7FE0]/90 backdrop-blur-sm rounded-lg shadow-lg overflow-hidden">
-          <button
-            onClick={() => setMode('memo')}
-            className="text-white text-[11px] px-2.5 py-1.5 hover:bg-white/10 transition-colors whitespace-nowrap"
-          >
-            💡 메모
-          </button>
-          <div className="w-px h-4 bg-white/20 flex-shrink-0" />
-          <button
-            onClick={() => setMode('link-item')}
-            className="text-white text-[11px] px-2.5 py-1.5 hover:bg-white/10 transition-colors whitespace-nowrap"
-          >
-            📌 업무 연동
-          </button>
+      ) : mode === 'failed' ? (
+        <div className="flex items-center gap-1.5 bg-[#EF4444] text-white text-[11px] px-3 py-1.5 rounded-lg shadow-lg whitespace-nowrap">
+          추가 실패 — 저장되지 않았습니다
         </div>
-      ) : mode === 'memo' ? (
-        <div className="bg-white/95 backdrop-blur-xl border border-gray-200 rounded-xl shadow-2xl p-3 w-60">
-          <div className="flex gap-1 mb-2 flex-wrap">
-            {TAG_OPTIONS.map(({ tag: t, label, cls }) => (
-              <button
-                key={t}
-                onClick={() => setTag(t)}
-                className={`text-[9px] px-2 py-0.5 rounded-full border font-medium transition-colors ${
-                  tag === t ? 'bg-[#4C7FE0] text-white border-[#4C7FE0]' : cls
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          <input
-            autoFocus
-            value={title}
-            onChange={e => setTitle(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === 'Enter' && !e.nativeEvent.isComposing) saveMemo()
-              if (e.key === 'Escape') dismiss()
-            }}
-            placeholder="메모 제목 (Enter 저장)"
-            className="w-full text-xs text-gray-700 border-b border-gray-100 pb-1.5 mb-2 focus:outline-none bg-transparent"
-          />
-          <p className="text-[9px] text-gray-300 leading-relaxed line-clamp-2 mb-2">
-            {float.text.slice(0, 60)}{float.text.length > 60 ? '…' : ''}
-          </p>
-          <p className="text-[9px] text-gray-300 mb-2">출처: {sourceType} · {sourceName.slice(0, 20)}</p>
-          <div className="flex gap-1.5 justify-end">
-            <button
-              onClick={dismiss}
-              className="text-[10px] text-gray-400 hover:text-gray-600 px-2 py-0.5 transition-colors"
-            >
-              취소
-            </button>
-            <button
-              onClick={saveMemo}
-              disabled={saving || !title.trim()}
-              className="text-[10px] bg-[#4C7FE0] text-white px-3 py-1 rounded-lg hover:bg-[#3A6CC8] disabled:opacity-40 transition-colors"
-            >
-              {saving ? '저장 중…' : '저장'}
-            </button>
-          </div>
-        </div>
-      ) : mode === 'link-item' ? (
-        <div className="bg-white/95 backdrop-blur-xl border border-gray-200 rounded-xl shadow-2xl p-3 w-64">
-          <p className="text-[10px] text-gray-500 mb-1.5 font-medium">어떤 업무에 추가할까요?</p>
-          <input
-            autoFocus
-            value={itemSearch}
-            onChange={e => setItemSearch(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Escape') dismiss() }}
-            placeholder="업무명 검색…"
-            className="w-full text-xs text-gray-700 border-b border-gray-100 pb-1.5 mb-1.5 focus:outline-none bg-transparent"
-          />
-          {itemSearching && (
-            <p className="text-[9px] text-gray-300 mb-1">불러오는 중…</p>
-          )}
-          {!itemSearching && itemSearch.trim().length > 0 &&
-            allItems.filter(i => i.title.includes(itemSearch.trim()) || i.groupName.includes(itemSearch.trim())).length === 0 && (
-            <p className="text-[9px] text-gray-300 mb-1">결과 없음</p>
-          )}
-          <div className="flex flex-col gap-0.5 max-h-36 overflow-y-auto">
-            {(itemSearch.trim()
-              ? allItems.filter(i => i.title.includes(itemSearch.trim()) || i.groupName.includes(itemSearch.trim()))
-              : allItems.slice(0, 8)
-            ).map(item => (
-              <button
-                key={item.id}
-                onClick={() => linkToItem(item)}
-                disabled={saving}
-                className="text-left text-[10px] px-2 py-1.5 rounded-lg hover:bg-blue-50 transition-colors disabled:opacity-40"
-              >
-                {item.groupName && (
-                  <span className="text-gray-400 text-[9px]">{item.groupName} · </span>
-                )}
-                <span className="text-gray-700 font-medium">{item.title}</span>
-              </button>
-            ))}
-          </div>
-          <div className="flex justify-between items-center mt-2">
-            <p className="text-[9px] text-gray-300">업무 설명에 발췌 추가됨</p>
-            <button
-              onClick={dismiss}
-              className="text-[10px] text-gray-400 hover:text-gray-600 px-2 py-0.5 transition-colors"
-            >
-              취소
-            </button>
-          </div>
-        </div>
-      ) : null}
+      ) : (
+        <button
+          onClick={addToToday}
+          disabled={saving}
+          title="고른 글자를 금주 업무의 오늘 요일에 즉석 할 일로 추가"
+          className="bg-[#4C7FE0]/90 backdrop-blur-sm rounded-lg shadow-lg text-white text-[11px] px-2.5 py-1.5 hover:bg-[#3A6CC8] transition-colors whitespace-nowrap disabled:opacity-60"
+        >
+          {saving ? '추가 중…' : '📌 오늘 업무로'}
+        </button>
+      )}
     </div>,
     document.body
   )
