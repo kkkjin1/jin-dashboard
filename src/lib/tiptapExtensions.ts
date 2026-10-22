@@ -4,7 +4,7 @@
 import { Extension, InputRule, mergeAttributes, wrappingInputRule } from '@tiptap/core'
 import type { Editor } from '@tiptap/react'
 import { Plugin, PluginKey, Selection, TextSelection, type Transaction } from '@tiptap/pm/state'
-import { Slice, type Node as PMNode } from '@tiptap/pm/model'
+import { Slice, type Node as PMNode, type Mark as PMMark } from '@tiptap/pm/model'
 import StarterKit from '@tiptap/starter-kit'
 import OrderedList from '@tiptap/extension-ordered-list'
 import { Color, TextStyle } from '@tiptap/extension-text-style'
@@ -573,6 +573,55 @@ export function toggleVoiceAtSelection(editor: Editor, target: VoiceTarget): boo
   return setVoiceAtSelection(editor, blocks.every(b => b.node.attrs.voice === target) ? null : target)
 }
 
+// ── Enter로 줄을 나누면 빨간펜·형광펜 끊기 ─────────────────────────────────────
+// Tiptap 기본 Enter(splitBlock/splitListItem)는 keepMarks라 Alt+1(글자색)/Alt+2(형광펜)가 다음 줄로
+// 따라 넘어갔다. Enter가 만든 트랜잭션 직후 저장 서식(storedMarks)에서 두 서식만 빼, 새 줄에서
+// 치는 글자는 서식 없이 시작하게 한다. 굵게·글자크기 등 다른 서식은 그대로 둔다.
+function stripPenMarks(marks: readonly PMMark[]): PMMark[] | null {
+  let changed = false
+  const next: PMMark[] = []
+  for (const m of marks) {
+    if (m.type.name === 'highlight') { changed = true; continue }
+    if (m.type.name === 'textStyle' && m.attrs.color) {
+      changed = true
+      const rest = { ...m.attrs, color: null }
+      if (Object.values(rest).some(v => v != null)) next.push(m.type.create(rest))
+      continue
+    }
+    next.push(m)
+  }
+  return changed ? next : null
+}
+
+export const EnterClearsPen = Extension.create<unknown, { armed: boolean }>({
+  name: 'enterClearsPen',
+  priority: 1000,  // StarterKit·ListItem의 Enter보다 먼저 — 표시만 하고 false로 원래 Enter에 넘긴다
+  addStorage() { return { armed: false } },
+  addKeyboardShortcuts() {
+    return {
+      Enter: () => {
+        this.storage.armed = true
+        // Enter가 아무 변경도 못 만든 경우 다음 입력에 엉뚱하게 적용되지 않도록 바로 해제
+        setTimeout(() => { this.storage.armed = false }, 0)
+        return false
+      },
+    }
+  },
+  addProseMirrorPlugins() {
+    const storage = this.storage
+    return [new Plugin({
+      key: new PluginKey('enterClearsPen'),
+      appendTransaction(trs, _old, state) {
+        if (!storage.armed || !trs.some(tr => tr.docChanged)) return null
+        storage.armed = false
+        if (!state.selection.empty) return null
+        const next = stripPenMarks(state.storedMarks ?? state.selection.$from.marks())
+        return next ? state.tr.setStoredMarks(next) : null
+      },
+    })]
+  },
+})
+
 // 모듈 레벨 상수 — 렌더마다 새 참조 생성 방지 (Tiptap v3에서 extensions 참조 변경 시 refreshEditorInstance 호출됨)
 // Quick Memo/생각스케치가 공유하는 최소 코어. Quick Memo 전용 기능(Image 붙여넣기 등)은
 // 각 에디터가 이 배열 위에 자신만 추가한다.
@@ -591,6 +640,7 @@ export const BASE_TIPTAP_EXTENSIONS = [
   DetailsContent,
   QaAttribute,
   VoiceAttribute,
+  EnterClearsPen,
 ]
 
 // ── Ctrl+Enter 토글 열기/닫기 ─────────────────────────────────────────────────
