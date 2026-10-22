@@ -5,9 +5,10 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useState, useMemo, useRef } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { Calendar, ChevronLeft, ChevronRight, CheckSquare, Lightbulb, Settings, TrendingUp } from 'lucide-react'
+import { Calendar, ChevronDown, ChevronLeft, ChevronRight, CheckSquare, Lightbulb, Settings, TrendingUp } from 'lucide-react'
 import type { AgendaGroup, AgendaSubTask, ManualAchievement, AchievementType } from '@/types'
 import { colorKeyFromName, CATEGORY_PALETTE } from '@/lib/categoryColors'
+import AgendaRetroDrawer, { retroWritten } from '@/components/project/AgendaRetroDrawer'
 
 const ACH_TYPES: AchievementType[] = ['기획', '운영', '개선']
 const ACH_COLOR: Record<AchievementType, string> = { '기획': '#6B8FB3', '운영': '#7BAE94', '개선': '#D9A484' }
@@ -26,6 +27,8 @@ const QUICK_PERIODS: QuickPeriod[] = ['주간', '당월', '분기', '상반기',
 interface AchievementRow {
   id: string
   groupId: string
+  /** 세부task 행만 — 소속 안건 id(완료 안건 카드 아래로 묶을 때 사용) */
+  agendaId?: string
   title: string
   achievementType: AchievementType | null
   source: 'auto' | 'manual'
@@ -36,6 +39,19 @@ interface AchievementRow {
 interface SubTaskWithGroup extends AgendaSubTask {
   group_id: string
 }
+
+// 완료된 안건 — completed_at(완료로 바꾼 날) 기준으로 기간 필터
+interface DoneAgenda {
+  id: string
+  groupId: string
+  title: string
+  date: Date
+  retroWritten: boolean
+}
+
+interface RetroRow { agenda_item_id: string; outcome: string; feedback: string; changes: string; lessons: string }
+
+function formatMD(d: Date) { return `${d.getMonth() + 1}/${d.getDate()}` }
 
 interface PeriodRange { start: Date; end: Date; label: string }
 
@@ -118,6 +134,9 @@ export default function CompletedPage() {
   const [groups, setGroups] = useState<AgendaGroup[]>([])
   const [subTasks, setSubTasks] = useState<SubTaskWithGroup[]>([])
   const [manualItems, setManualItems] = useState<ManualAchievement[]>([])
+  const [doneAgendas, setDoneAgendas] = useState<DoneAgenda[]>([])
+  const [collapsedAgendas, setCollapsedAgendas] = useState<Set<string>>(new Set())
+  const [retroFor, setRetroFor] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   const [quickPeriod, setQuickPeriod] = useState<QuickPeriod>('당월')
@@ -128,14 +147,20 @@ export default function CompletedPage() {
 
   useEffect(() => {
     async function load() {
-      const [{ data: gData }, { data: iData }, { data: stData }, { data: maData }] = await Promise.all([
+      const [{ data: gData }, { data: iData }, { data: stData }, { data: maData }, { data: rData }] = await Promise.all([
         supabase.from('agenda_groups').select('*').order('sort_order'),
-        supabase.from('agenda_items').select('id, group_id'),
+        supabase.from('agenda_items').select('id, group_id, title, status, completed_at'),
         supabase.from('agenda_sub_tasks').select('id, agenda_item_id, title, status, sort_order, achievement_type, created_at, updated_at').eq('status', 'done'),
         supabase.from('manual_achievements').select('*').order('created_at', { ascending: false }),
+        supabase.from('agenda_retros').select('agenda_item_id, outcome, feedback, changes, lessons'),
       ])
       setGroups((gData ?? []) as AgendaGroup[])
-      const itemGroupMap: Record<string, string> = Object.fromEntries(((iData ?? []) as { id: string; group_id: string }[]).map(i => [i.id, i.group_id]))
+      const items = (iData ?? []) as { id: string; group_id: string; title: string; status: string; completed_at: string | null }[]
+      const itemGroupMap: Record<string, string> = Object.fromEntries(items.map(i => [i.id, i.group_id]))
+      const written = new Set(((rData ?? []) as RetroRow[]).filter(retroWritten).map(r => r.agenda_item_id))
+      setDoneAgendas(items
+        .filter(i => i.status === 'done' && i.completed_at)
+        .map(i => ({ id: i.id, groupId: i.group_id, title: i.title, date: new Date(`${i.completed_at}T00:00:00`), retroWritten: written.has(i.id) })))
       setSubTasks(
         ((stData ?? []) as AgendaSubTask[])
           .map(st => ({ ...st, group_id: itemGroupMap[st.agenda_item_id] }))
@@ -151,7 +176,7 @@ export default function CompletedPage() {
 
   const allRows: AchievementRow[] = useMemo(() => [
     ...subTasks.map((st): AchievementRow => ({
-      id: st.id, groupId: st.group_id, title: st.title, achievementType: st.achievement_type ?? null,
+      id: st.id, groupId: st.group_id, agendaId: st.agenda_item_id, title: st.title, achievementType: st.achievement_type ?? null,
       source: 'auto', date: new Date(st.updated_at),
     })),
     ...manualItems.map((m): AchievementRow => ({
@@ -166,6 +191,25 @@ export default function CompletedPage() {
     () => filterType === '전체' ? currentRows : currentRows.filter(r => r.achievementType === filterType),
     [currentRows, filterType]
   )
+
+  // 이 기간에 완료된 안건 → 카드. 카드 아래에는 그 안건의 완료 세부task를 기간과 무관하게 모두 묶는다.
+  // 건수(N건 완료·통계 카드)는 기존대로 세부task·수기 성과 기준을 유지한다.
+  const shownAgendas = useMemo(() => doneAgendas.filter(a => inRange(a.date, range)), [doneAgendas, range])
+  const shownAgendaIds = useMemo(() => new Set(shownAgendas.map(a => a.id)), [shownAgendas])
+  const nestedByAgenda = useMemo(() => {
+    const m: Record<string, AchievementRow[]> = {}
+    for (const r of allRows) {
+      if (!r.agendaId || !shownAgendaIds.has(r.agendaId)) continue
+      if (filterType !== '전체' && r.achievementType !== filterType) continue
+      ;(m[r.agendaId] ??= []).push(r)
+    }
+    for (const k of Object.keys(m)) m[k].sort((a, b) => a.date.getTime() - b.date.getTime())
+    return m
+  }, [allRows, shownAgendaIds, filterType])
+
+  function toggleAgenda(id: string) {
+    setCollapsedAgendas(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n })
+  }
 
   const total = currentRows.length
   const delta = total - prevRows.length
@@ -202,6 +246,50 @@ export default function CompletedPage() {
     }
   }
 
+  function renderRow(row: AchievementRow, nested: boolean) {
+    return (
+      <div key={row.id} className="group/row flex items-center gap-2.5 transition-colors hover:bg-[rgba(var(--ink-rgb),0.04)]"
+        style={{ padding: nested ? '9px 16px 9px 54px' : '11px 16px', borderBottom: nested ? undefined : '0.5px solid rgba(var(--ink-rgb),0.06)' }}>
+        {row.source === 'auto' ? (
+          <Link href={`/subtasks/${row.id}`}
+            style={{ flex: 1, fontSize: 13, color: 'rgba(var(--text-rgb),1)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+            className="hover:underline">
+            {row.title}
+          </Link>
+        ) : (
+          <span style={{ flex: 1, fontSize: 13, color: 'rgba(var(--text-rgb),1)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.title}</span>
+        )}
+        <div className="flex items-center gap-2.5 flex-shrink-0">
+          <span style={{
+            width: 42, textAlign: 'center', fontSize: 10, fontWeight: 600, padding: '2px 0', borderRadius: 999,
+            background: row.source === 'auto' ? 'rgba(var(--ink-rgb),0.06)' : 'rgba(76,127,224,0.15)',
+            color: row.source === 'auto' ? 'rgba(var(--text-rgb),0.4)' : 'var(--accent-badge-text)',
+          }}>
+            {row.source === 'auto' ? '자동' : '수기'}
+          </span>
+          <select value={row.achievementType ?? ''} onChange={e => updateRowType(row, (e.target.value || null) as AchievementType | null)}
+            style={{
+              width: 78, fontSize: 10, fontWeight: 600, padding: '3px 4px', borderRadius: 999, border: 'none', cursor: 'pointer', outline: 'none', textAlign: 'center', textAlignLast: 'center',
+              background: row.achievementType ? `${ACH_COLOR[row.achievementType]}2A` : 'rgba(var(--ink-rgb),0.06)',
+              color: row.achievementType ? ACH_COLOR[row.achievementType] : 'rgba(var(--text-rgb),0.35)',
+            }}>
+            <option value="" style={{ background: 'var(--select-option-bg)', color: 'rgba(var(--text-rgb),1)' }}>미분류</option>
+            {ACH_TYPES.map(t => <option key={t} value={t} style={{ background: 'var(--select-option-bg)', color: 'rgba(var(--text-rgb),1)' }}>{t}</option>)}
+          </select>
+          <div style={{ width: 16, flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
+            {row.source === 'manual' && (
+              <button onClick={() => deleteManualAchievement(row.id)}
+                className="opacity-0 group-hover/row:opacity-100 transition-all"
+                style={{ fontSize: 12, color: 'rgba(var(--text-rgb),0.3)' }}>
+                ×
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   const defaultAddMonth = range ? ym(range.start) : ym(new Date())
 
   const overviewCards = [
@@ -218,6 +306,11 @@ export default function CompletedPage() {
 
   return (
     <div className="h-full flex flex-col overflow-hidden font-sans">
+      <AgendaRetroDrawer agendaId={retroFor} onClose={written => {
+        setDoneAgendas(prev => prev.map(a => a.id === retroFor ? { ...a, retroWritten: written } : a))
+        setRetroFor(null)
+      }} />
+
       {addModalGroup && (
         <AddAchievementModal
           group={addModalGroup}
@@ -307,7 +400,10 @@ export default function CompletedPage() {
         ) : (
           <div className="pb-6">
             {groups.map((g, idx) => {
-              const groupRows = typeFilteredRows.filter(r => r.groupId === g.id)
+              const groupCount = typeFilteredRows.filter(r => r.groupId === g.id).length
+              const groupAgendaCount = shownAgendas.filter(a => a.groupId === g.id).length
+              const groupAgendas = shownAgendas.filter(a => a.groupId === g.id && (filterType === '전체' || (nestedByAgenda[a.id]?.length ?? 0) > 0))
+              const groupRows = typeFilteredRows.filter(r => r.groupId === g.id && !(r.agendaId && shownAgendaIds.has(r.agendaId)))
               const groupColor = groupColorOf(g)
               return (
                 <div key={g.id}
@@ -318,7 +414,7 @@ export default function CompletedPage() {
                       <span style={{ width: 32, flexShrink: 0, fontSize: 13, opacity: 0.6, color: groupColor, userSelect: 'none', cursor: 'grab' }}>⠿</span>
                       <span style={{ width: 8, height: 8, borderRadius: '50%', background: groupColor, flexShrink: 0, marginRight: 8 }} />
                       <span style={{ fontSize: 13, fontWeight: 800, color: 'rgba(var(--text-rgb),1)' }}>{g.name}</span>
-                      <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 600, color: hexToRgba(groupColor, 0.85) }}>{groupRows.length}건 완료</span>
+                      <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 600, color: hexToRgba(groupColor, 0.85) }}>{groupCount}건 완료{groupAgendaCount > 0 && ` · 안건 ${groupAgendaCount}건`}</span>
                     </div>
                     <button onClick={() => setAddModalGroup(g)}
                       className="transition-colors"
@@ -328,7 +424,7 @@ export default function CompletedPage() {
                   </div>
 
                   {/* 컬럼 라벨 서브행 — 본문 행과 동일한 좌우 패딩/컬럼 폭을 공유해 정렬선을 맞춤 */}
-                  {groupRows.length > 0 && (
+                  {(groupRows.length > 0 || groupAgendas.length > 0) && (
                     <div className="flex items-center" style={{ padding: '10px 16px 8px', borderBottom: '0.5px solid rgba(var(--ink-rgb),0.06)' }}>
                       <span style={{ flex: 1, fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>업무명</span>
                       <div className="flex items-center gap-2.5 flex-shrink-0">
@@ -340,52 +436,50 @@ export default function CompletedPage() {
                   )}
 
                   {/* 본문 행 */}
-                  {groupRows.length === 0 ? (
+                  {groupRows.length === 0 && groupAgendas.length === 0 ? (
                     <div style={{ padding: '22px 16px', textAlign: 'center', fontSize: 12, color: 'rgba(var(--text-rgb),0.3)' }}>
                       이 기간에 완료된 항목이 없습니다
                     </div>
                   ) : (
-                    groupRows.map(row => (
-                      <div key={row.id} className="group/row flex items-center gap-2.5 transition-colors hover:bg-[rgba(var(--ink-rgb),0.04)]"
-                        style={{ padding: '11px 16px', borderBottom: '0.5px solid rgba(var(--ink-rgb),0.06)' }}>
-                        {row.source === 'auto' ? (
-                          <Link href={`/subtasks/${row.id}`}
-                            style={{ flex: 1, fontSize: 13, color: 'rgba(var(--text-rgb),1)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                            className="hover:underline">
-                            {row.title}
-                          </Link>
-                        ) : (
-                          <span style={{ flex: 1, fontSize: 13, color: 'rgba(var(--text-rgb),1)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.title}</span>
-                        )}
-                        <div className="flex items-center gap-2.5 flex-shrink-0">
-                          <span style={{
-                            width: 42, textAlign: 'center', fontSize: 10, fontWeight: 600, padding: '2px 0', borderRadius: 999,
-                            background: row.source === 'auto' ? 'rgba(var(--ink-rgb),0.06)' : 'rgba(76,127,224,0.15)',
-                            color: row.source === 'auto' ? 'rgba(var(--text-rgb),0.4)' : 'var(--accent-badge-text)',
-                          }}>
-                            {row.source === 'auto' ? '자동' : '수기'}
-                          </span>
-                          <select value={row.achievementType ?? ''} onChange={e => updateRowType(row, (e.target.value || null) as AchievementType | null)}
-                            style={{
-                              width: 78, fontSize: 10, fontWeight: 600, padding: '3px 4px', borderRadius: 999, border: 'none', cursor: 'pointer', outline: 'none', textAlign: 'center', textAlignLast: 'center',
-                              background: row.achievementType ? `${ACH_COLOR[row.achievementType]}2A` : 'rgba(var(--ink-rgb),0.06)',
-                              color: row.achievementType ? ACH_COLOR[row.achievementType] : 'rgba(var(--text-rgb),0.35)',
-                            }}>
-                            <option value="" style={{ background: 'var(--select-option-bg)', color: 'rgba(var(--text-rgb),1)' }}>미분류</option>
-                            {ACH_TYPES.map(t => <option key={t} value={t} style={{ background: 'var(--select-option-bg)', color: 'rgba(var(--text-rgb),1)' }}>{t}</option>)}
-                          </select>
-                          <div style={{ width: 16, flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
-                            {row.source === 'manual' && (
-                              <button onClick={() => deleteManualAchievement(row.id)}
-                                className="opacity-0 group-hover/row:opacity-100 transition-all"
-                                style={{ fontSize: 12, color: 'rgba(var(--text-rgb),0.3)' }}>
-                                ×
+                    <>
+                      {groupAgendas.map(a => {
+                        const nested = nestedByAgenda[a.id] ?? []
+                        const open = !collapsedAgendas.has(a.id)
+                        return (
+                          <div key={a.id} style={{ borderBottom: '0.5px solid rgba(var(--ink-rgb),0.06)' }}>
+                            <div className="flex items-center gap-2.5" style={{ padding: '12px 16px', background: hexToRgba(groupColor, 0.06) }}>
+                              <button onClick={() => toggleAgenda(a.id)} disabled={nested.length === 0}
+                                style={{ width: 14, flexShrink: 0, display: 'flex', justifyContent: 'center', color: 'rgba(var(--text-rgb),0.45)', opacity: nested.length === 0 ? 0.25 : 1 }}>
+                                {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
                               </button>
-                            )}
+                              <span style={{ flexShrink: 0, fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 999, background: hexToRgba(groupColor, 0.2), color: 'rgba(var(--text-rgb),0.75)' }}>안건</span>
+                              <Link href={`/project/items/${a.id}`}
+                                style={{ flex: 1, fontSize: 13, fontWeight: 700, color: 'rgba(var(--text-rgb),1)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                className="hover:underline">
+                                {a.title}
+                              </Link>
+                              <div className="flex items-center gap-2.5 flex-shrink-0">
+                                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                                  {nested.length > 0 && `세부 ${nested.length}건 · `}{formatMD(a.date)} 완료
+                                </span>
+                                <button onClick={() => setRetroFor(a.id)} title="업무 회고 열기"
+                                  className="transition-opacity hover:opacity-75"
+                                  style={{
+                                    width: 78, textAlign: 'center', fontSize: 10, fontWeight: 600, padding: '3px 0', borderRadius: 999,
+                                    background: a.retroWritten ? 'rgba(123,174,148,0.18)' : 'rgba(217,164,132,0.18)',
+                                    color: a.retroWritten ? '#5E9A7C' : '#C08560',
+                                  }}>
+                                  {a.retroWritten ? '회고 작성' : '회고 미작성'}
+                                </button>
+                                <span style={{ width: 16, flexShrink: 0 }} />
+                              </div>
+                            </div>
+                            {open && nested.map(row => renderRow(row, true))}
                           </div>
-                        </div>
-                      </div>
-                    ))
+                        )
+                      })}
+                      {groupRows.map(row => renderRow(row, false))}
+                    </>
                   )}
                 </div>
               )

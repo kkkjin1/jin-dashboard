@@ -184,6 +184,8 @@ export interface AgendaItem {
   roadmap_rank?: number | null
   /** v59 — 파생된 연도 계획(annual_goal_year_plans). 값 있음 = 목표 연계 실무, null = 일반 실무 */
   annual_goal_year_plan_id?: string | null
+  /** v62 — 완료로 바꾼 날(YYYY-MM-DD). 완료 해제 시 null. 완료성과 기간 필터 기준 */
+  completed_at?: string | null
 }
 
 export interface AgendaUpdate {

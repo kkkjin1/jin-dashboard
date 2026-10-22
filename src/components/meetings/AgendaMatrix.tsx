@@ -9,6 +9,7 @@ import { GlassSelect } from '@/components/ui/GlassSelect'
 import { DateCellPicker } from '@/components/ui/MiniDatePicker'
 import { CATEGORY_PALETTE, colorKeyFromName } from '@/lib/categoryColors'
 import { yearPlanSourceLabel } from '@/lib/yearPlan'
+import { todayYmd } from '@/lib/tiptapExtensions'
 
 // ── 상수 ────────────────────────────────────────────────────────────
 const STATUS_COLOR: Record<string, string> = { active: '#3B82F6', hold: '#6366F1', done: '#10B981' }
@@ -265,8 +266,9 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
   async function cycleStatus(item: AgendaItem) {
     const order: AgendaItem['status'][] = ['active', 'hold', 'done']
     const next = order[(order.indexOf(item.status) + 1) % order.length]
-    await supabase.from('agenda_items').update({ status: next }).eq('id', item.id)
-    setItems(p => p.map(i => i.id === item.id ? { ...i, status: next } : i))
+    const completed_at = next === 'done' ? todayYmd() : null
+    await supabase.from('agenda_items').update({ status: next, completed_at }).eq('id', item.id)
+    setItems(p => p.map(i => i.id === item.id ? { ...i, status: next, completed_at } : i))
   }
   async function cycleSubTaskStatus(st: AgendaSubTask) {
     const order: AgendaSubTask['status'][] = ['active', 'hold', 'done']

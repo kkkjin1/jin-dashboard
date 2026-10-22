@@ -8,7 +8,9 @@ import { useUserSetting } from '@/hooks/useUserSetting'
 import type { AgendaItem, AgendaSubTask, Attachment, Member, LearningResource } from '@/types'
 import TiptapEditor from '@/components/TiptapEditor'
 import ProjectSourceSelect from '@/components/project/ProjectSourceSelect'
+import AgendaRetroDrawer from '@/components/project/AgendaRetroDrawer'
 import { revealVoiceBlock, showVoiceNotice } from '@/lib/executiveVoices'
+import { todayYmd } from '@/lib/tiptapExtensions'
 
 const STATUS_CYCLE = ['active', 'hold', 'done'] as const
 type Status = typeof STATUS_CYCLE[number]
@@ -495,6 +497,7 @@ export default function AgendaItemDetailPage() {
   const [newSTTitle,    setNewSTTitle]    = useState('')
   const [deletingST,    setDeletingST]    = useState<string | null>(null)
   const [expandFor,     setExpandFor]     = useState<string | null>(null)
+  const [retroOpen,     setRetroOpen]     = useState(false)
   // 좌우 분할 보기(lg 이상에서만 적용) — 안건 본문과 하위태스크를 각각 독립 스크롤. 기기별 선호는 localStorage
   const [splitView,     setSplitView]     = useState(true)
   useEffect(() => {
@@ -682,12 +685,14 @@ export default function AgendaItemDetailPage() {
   }, [focusSTId, subTasks.length])
 
   // 의사결정 탭 "원본 →" — note(세부task 메모 id)를 선택하고 voice(발언 id) 줄로 스크롤·강조. 로드 직후 한 번만.
-  const noteParam = searchParams.get('note'), voiceParam = searchParams.get('voice')
+  // retro=1 이면 업무 회고 서랍을 열고 그 안(받은 피드백 칸)에서 voice 줄을 찾는다
+  const noteParam = searchParams.get('note'), voiceParam = searchParams.get('voice'), retroParam = searchParams.get('retro')
   const voiceLinkDone = useRef(false)
   useEffect(() => {
-    if (loading || voiceLinkDone.current || (!noteParam && !voiceParam)) return
+    if (loading || voiceLinkDone.current || (!noteParam && !voiceParam && !retroParam)) return
     voiceLinkDone.current = true
     if (!item) { showVoiceNotice('원본 안건을 찾지 못했습니다 — 삭제되었을 수 있습니다.'); return }
+    if (retroParam) queueMicrotask(() => setRetroOpen(true))
     if (noteParam && focusSTId) {
       const st = subTasks.find(s => s.id === focusSTId)
       const found = st && (st.currentNote?.id === noteParam || st.historyNotes.some(n => n.id === noteParam))
@@ -695,7 +700,7 @@ export default function AgendaItemDetailPage() {
       queueMicrotask(() => setSelectedNoteIds(p => ({ ...p, [focusSTId]: noteParam })))
     }
     if (voiceParam) setTimeout(() => revealVoiceBlock(voiceParam), 250)
-  }, [loading, item, subTasks, focusSTId, noteParam, voiceParam])
+  }, [loading, item, subTasks, focusSTId, noteParam, voiceParam, retroParam])
 
   // 크게 편집 ESC 닫기
   useEffect(() => {
@@ -731,9 +736,10 @@ export default function AgendaItemDetailPage() {
   async function cycleStatus() {
     if (!item) return
     const next = STATUS_CYCLE[(STATUS_CYCLE.indexOf(item.status as Status) + 1) % STATUS_CYCLE.length]
-    const { error } = await supabase.from('agenda_items').update({ status: next }).eq('id', id)
+    const completed_at = next === 'done' ? todayYmd() : null
+    const { error } = await supabase.from('agenda_items').update({ status: next, completed_at }).eq('id', id)
     setSaveError(error ? SAVE_ERROR_MSG : '')
-    setItem(p => p ? { ...p, status: next } : p)
+    setItem(p => p ? { ...p, status: next, completed_at } : p)
   }
 
   async function cycleSTStatus(st: SubTaskWithNote) {
@@ -1015,6 +1021,13 @@ export default function AgendaItemDetailPage() {
                 className={`text-xs px-2.5 py-1 rounded-full border font-semibold transition-all ${STATUS_CLS[item.status as Status]}`}>
                 {STATUS_LABEL[item.status as Status]}
               </button>
+              {item.status === 'done' && (
+                <button onClick={() => setRetroOpen(true)}
+                  className="text-xs px-2.5 py-1 rounded-full font-semibold transition-opacity hover:opacity-75"
+                  style={{ background: 'rgba(123,174,148,0.16)', color: '#5E9A7C', border: '1px solid rgba(123,174,148,0.35)' }}>
+                  업무 회고
+                </button>
+              )}
               {subTasks.length > 0 && (
                 <span className="text-xs text-[rgba(var(--text-rgb),0.5)] bg-white/[0.06] border border-white/[0.09] px-2.5 py-1 rounded-full">
                   하위태스크 {doneCount}/{subTasks.length}
@@ -1268,6 +1281,9 @@ export default function AgendaItemDetailPage() {
         )
       })()}
     </div>
+
+    {/* 업무 회고 서랍(완료된 안건) */}
+    <AgendaRetroDrawer agendaId={retroOpen ? id : null} onClose={() => setRetroOpen(false)} />
 
     {/* 학습자료 슬라이드 패널 — 백드롭 */}
     {panelResource && (
