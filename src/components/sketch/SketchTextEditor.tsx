@@ -13,7 +13,7 @@ import type { EditorView } from '@tiptap/pm/view'
 import type { JSONContent } from '@tiptap/core'
 import { Table, TableRow, TableHeader, TableCell } from '@tiptap/extension-table'
 import { CellSelection, TableMap, cellAround } from '@tiptap/pm/tables'
-import { BASE_TIPTAP_EXTENSIONS, ToggleInputRules, legacyToHtml, handleListKeymapWorkaround } from '@/lib/tiptapExtensions'
+import { BASE_TIPTAP_EXTENSIONS, ToggleInputRules, legacyToHtml, handleListKeymapWorkaround, moveBlockInToggle } from '@/lib/tiptapExtensions'
 import { FontSize, getCurrentBlockFontSize } from '@/lib/tiptapFontSize'
 import { parseSpreadsheetClipboard } from '@/lib/spreadsheetClipboard'
 import { TableDragHandle } from './TableDragHandle'
@@ -274,6 +274,8 @@ function MountedSketchEditor({
     }
     if (e.key === 'Tab') {
       e.preventDefault()
+      // 목록 밖이면 토글 층위 이동 — 위 토글 안으로 넣기 / 감싼 토글 밖으로 꺼내기
+      if (!ed.isActive('listItem')) { moveBlockInToggle(ed, e.shiftKey ? 'out' : 'in'); return true }
       e.shiftKey
         ? ed.chain().focus().liftListItem('listItem').run()
         : ed.chain().focus().sinkListItem('listItem').run()

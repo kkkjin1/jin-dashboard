@@ -5,7 +5,7 @@ import { useEditor, useEditorState, EditorContent } from '@tiptap/react'
 import Image from '@tiptap/extension-image'
 import { cleanPastedHTML } from '@/lib/htmlCleanup'
 import {
-  BASE_TIPTAP_EXTENSIONS, ToggleInputRules, legacyToHtml, handleListKeymapWorkaround, toggleDetailsAtSelection,
+  BASE_TIPTAP_EXTENSIONS, ToggleInputRules, legacyToHtml, handleListKeymapWorkaround, toggleDetailsAtSelection, moveBlockInToggle,
   QaShortcut, toggleQuestionAtSelection, isQuestionAtSelection,
   getVoiceAtSelection, setVoiceAtSelection, toggleVoiceAtSelection, type VoiceTarget,
 } from '@/lib/tiptapExtensions'
@@ -64,6 +64,7 @@ export default function TiptapEditor({
   const onEscapeRef          = useRef(onEscape)
   const onSelectionChangeRef = useRef(onSelectionChange)
   const enableVoiceRef       = useRef(enableVoice)
+  const enableToggleRef      = useRef(enableToggle)
   const editorRef            = useRef<ReturnType<typeof useEditor>>(null)
   useEffect(() => {
     onChangeRef.current = onChange
@@ -71,6 +72,7 @@ export default function TiptapEditor({
     onEscapeRef.current = onEscape
     onSelectionChangeRef.current = onSelectionChange
     enableVoiceRef.current = enableVoice
+    enableToggleRef.current = enableToggle
   })
   const [voiceMenuOpen, setVoiceMenuOpen] = useState(false)
   const voiceMenuRef = useRef<HTMLDivElement>(null)
@@ -103,7 +105,12 @@ export default function TiptapEditor({
     // Tab/Shift-Tab을 리스트 밖(또는 더 이상 들여쓰기/내어쓰기 불가한 위치)에서 누르면
     // sinkListItem/liftListItem이 실패(false)해 브라우저 기본 동작인 "다음 포커스 요소로 이동"이
     // 발생해 에디터 밖으로 커서가 튕겨나갔다 — 항상 여기서 처리하고 true를 반환해 막는다.
+    // 목록 밖이면(토글 화면) 토글 층위 이동 — 위 토글 안으로 넣기 / 감싼 토글 밖으로 꺼내기
     if (e.key === 'Tab') {
+      if (enableToggleRef.current && !ed.isActive('listItem')) {
+        moveBlockInToggle(ed, e.shiftKey ? 'out' : 'in')
+        return true
+      }
       e.shiftKey
         ? ed.chain().focus().liftListItem('listItem').run()
         : ed.chain().focus().sinkListItem('listItem').run()

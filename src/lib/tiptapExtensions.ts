@@ -265,6 +265,38 @@ const SyncedDetails = Details.extend({
       return view
     }
   },
+  // 토글 제목(summary)은 text*만 허용 — 일반 붙여넣기는 <p> 단위라 제목에 못 들어가고 내용 칸으로
+  // 밀려 빈 줄과 함께 들어갔다(Ctrl+Shift+V만 정상). 제목 안 붙여넣기는 글자(마크 유지)만 꺼내
+  // 한 줄로 이어 붙인다 — 여러 줄이면 공백으로 잇는다.
+  addProseMirrorPlugins() {
+    return [
+      ...(this.parent?.() ?? []),
+      new Plugin({
+        key: new PluginKey('detailsSummaryPaste'),
+        props: {
+          handlePaste(view, _event, slice) {
+            const { $from, $to } = view.state.selection
+            const summaryType = view.state.schema.nodes.detailsSummary
+            if ($from.parent.type !== summaryType || !$from.sameParent($to)) return false
+            const texts: PMNode[] = []
+            let prevBlock = false
+            slice.content.descendants(node => {
+              if (node.isText) { texts.push(node); prevBlock = false; return false }
+              if (node.isBlock && texts.length > 0 && !prevBlock) {
+                texts.push(view.state.schema.text(' '))
+                prevBlock = true
+              }
+              return true
+            })
+            while (texts.length && texts[texts.length - 1].text === ' ') texts.pop()
+            const tr = view.state.tr.replaceWith($from.pos, $to.pos, texts)
+            view.dispatch(tr.scrollIntoView())
+            return true
+          },
+        },
+      }),
+    ]
+  },
 })
 
 // ── 1on1 질문/답변 구분 ───────────────────────────────────────────────────────
@@ -602,6 +634,106 @@ export function toggleDetailsAtSelection(editor: Editor): boolean {
   return true
 }
 
+// ── 토글 층위·순서 이동 (Tab / Shift+Tab / Alt+Shift+↑↓) ─────────────────────────
+// 이동 단위: 커서가 토글 제목이면 그 토글 통째로, 아니면 커서를 품은 블록 중 토글 내용(또는 문서)의
+// 바로 아래 자식(문단·목록·토글 등). 목록 안 Tab/Shift+Tab은 호출부가 목록 들여쓰기로 먼저 처리한다.
+//  in  : 바로 위 형제 토글의 내용 끝으로 넣기(닫혀 있으면 열고, 내용이 빈 줄 하나뿐이면 그 줄을 대체)
+//  out : 감싼 토글 바로 아래로 꺼내기 — 뒤에 있던 형제들은 원래 토글 안에 그대로 남긴다
+//  up/down : 같은 층의 앞/뒤 형제와 자리 바꾸기, 층의 처음/끝이면 감싼 토글 바깥 앞/뒤로 빠져나간다
+export type ToggleMove = 'in' | 'out' | 'up' | 'down'
+
+export function moveBlockInToggle(editor: Editor, dir: ToggleMove): boolean {
+  const { state } = editor
+  const { schema } = state
+  const detailsType = schema.nodes.details
+  const contentType = schema.nodes.detailsContent
+  if (!detailsType || !contentType) return false
+  const { $from, from, to } = state.selection
+
+  let depth = -1
+  if ($from.parent.type === schema.nodes.detailsSummary) depth = $from.depth - 1
+  else {
+    for (let d = $from.depth; d > 0; d--) {
+      const parentType = $from.node(d - 1).type
+      if (parentType === contentType || d === 1) { depth = d; break }
+    }
+  }
+  if (depth < 1) return false
+
+  const node = $from.node(depth)
+  const pos = $from.before(depth)
+  const container = $from.node(depth - 1)
+  const index = $from.index(depth - 1)
+  const inToggle = container.type === contentType
+  // 감싼 토글(details) — container가 detailsContent일 때만
+  const outerPos = inToggle ? $from.before(depth - 2) : -1
+  const outer = inToggle ? $from.node(depth - 2) : null
+
+  let insertPos: number
+  let target: { pos: number; node: PMNode } | null = null
+  if (dir === 'in') {
+    if (index === 0) return false
+    const prev = container.child(index - 1)
+    if (prev.type !== detailsType) return false
+    const prevPos = pos - prev.nodeSize
+    target = { pos: prevPos, node: prev }
+    insertPos = prevPos + prev.nodeSize - 2  // 내용(detailsContent) 끝
+  } else if (dir === 'out') {
+    if (!outer) return false
+    insertPos = outerPos + outer.nodeSize
+  } else if (dir === 'up') {
+    if (index > 0) insertPos = pos - container.child(index - 1).nodeSize
+    else if (outer) insertPos = outerPos
+    else return false
+  } else {
+    if (index < container.childCount - 1) insertPos = pos + node.nodeSize + container.child(index + 1).nodeSize
+    else if (outer) insertPos = outerPos + outer.nodeSize
+    else return false
+  }
+
+  // 닫힌 토글 안으로 넣을 때: 먼저 열어 내용을 보이게 한 뒤 옮긴다 — 같은 트랜잭션에서 커서를
+  // 숨겨진 내용 안에 두면 detailsSelection 플러그인이 밖으로 밀어낸다(toggleDetailsAtSelection 참고).
+  if (target && !target.node.attrs.open) {
+    editor.view.dispatch(state.tr.setNodeMarkup(target.pos, undefined, { ...target.node.attrs, open: true }))
+  }
+
+  const tr = editor.state.tr
+  tr.insert(insertPos, node)
+  const delFrom = tr.mapping.map(pos, 1)
+  tr.delete(delFrom, delFrom + node.nodeSize)
+  let start = tr.mapping.slice(1).map(insertPos, -1)
+
+  // 빠져나온 자리의 토글 내용이 비면 빈 줄 하나를 채운다(detailsContent는 block+)
+  if (inToggle) {
+    const $old = tr.doc.resolve(delFrom)
+    if ($old.parent.type === contentType && $old.parent.childCount === 0) {
+      const mark = tr.steps.length
+      tr.insert(delFrom, schema.nodes.paragraph.create())
+      start = tr.mapping.slice(mark).map(start)
+    }
+  }
+  // 넣은 토글의 내용이 빈 줄 하나뿐이었으면 그 빈 줄을 대체한다
+  if (target) {
+    const content = target.node.lastChild
+    const only = content && content.childCount === 1 ? content.firstChild : null
+    if (only && only.type === schema.nodes.paragraph && only.content.size === 0) {
+      const $start = tr.doc.resolve(start)
+      const placeholderPos = $start.posAtIndex($start.index() - 1)
+      const mark = tr.steps.length
+      tr.delete(placeholderPos, placeholderPos + only.nodeSize)
+      start = tr.mapping.slice(mark).map(start)
+    }
+  }
+
+  const maxPos = start + node.nodeSize
+  const clamp = (p: number) => Math.min(Math.max(p, start + 1), maxPos - 1)
+  try {
+    tr.setSelection(TextSelection.create(tr.doc, clamp(start + (from - pos)), clamp(start + (to - pos))))
+  } catch { /* 선택 복원 실패 시 기본 매핑 유지 */ }
+  editor.view.dispatch(tr.scrollIntoView())
+  return true
+}
+
 // ── 노션식 토글 입력 규칙 (Quick Memo/생각스케치/회의록/프로젝트에만 추가) ─────────
 // "> " → 토글(현재 줄이 토글 제목), '" ' → 인용구. StarterKit Blockquote의 "> " 규칙보다
 // 먼저 매칭되도록 priority를 올린다(input rule은 priority 높은 확장부터 첫 매칭만 적용).
@@ -611,7 +743,12 @@ export const ToggleInputRules = Extension.create({
   // TiptapEditor는 editorProps.handleKeyDown에서 먼저 처리하지만(저장 단축키보다 우선), 생각스케치처럼
   // 자체 Ctrl+Enter 처리가 없는 에디터용으로 여기서도 잡는다(기본값은 HardBreak 삽입).
   addKeyboardShortcuts() {
-    return { 'Mod-Enter': () => toggleDetailsAtSelection(this.editor) }
+    return {
+      'Mod-Enter': () => toggleDetailsAtSelection(this.editor),
+      // Tab/Shift+Tab은 각 에디터의 handleKeyDown에서 목록 처리 뒤에 moveBlockInToggle을 부른다
+      'Alt-Shift-ArrowUp': () => moveBlockInToggle(this.editor, 'up'),
+      'Alt-Shift-ArrowDown': () => moveBlockInToggle(this.editor, 'down'),
+    }
   },
   addInputRules() {
     const { schema } = this.editor
