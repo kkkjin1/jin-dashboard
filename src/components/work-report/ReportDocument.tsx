@@ -3,6 +3,8 @@
 import type { WorkReport, WorkReportEntry, WorkReportItem, WorkReportTopic } from '@/types'
 import { S, CONTENT_MAX_WIDTH, hasContent, POINT_LABEL, entryPointText, fmtPeriodLabel } from './style'
 import { ITEM_SECTIONS, ITEM_SECTION_META, isItemWritten, sortItems } from './items'
+import RichText from './RichText'
+import { htmlToMarkdown } from '@/lib/tiptapMarkdown'
 
 // 보고 1건을 "읽는" 문서 형태로 렌더링하는 순수 컨텐츠 — 작성 화면의 "문서로 보기"
 // (ReportFullViewModal)가 이 컴포넌트를 그대로 쓴다. Archive에서 개별 회차를 읽고 싶을 때도
@@ -23,7 +25,8 @@ export function reportToMarkdown(
   rows: { entry: WorkReportEntry; topic: WorkReportTopic }[],
   items: WorkReportItem[],
 ): string {
-  const text = (v: string | null | undefined) => (hasContent(v) ? v!.trim() : '(작성된 내용 없음)')
+  // 서술 칸은 편집기 HTML(2026-10-22~) 또는 예전 순수 텍스트 — 둘 다 마크다운으로 맞춘다
+  const text = (v: string | null | undefined) => (hasContent(v) ? htmlToMarkdown(v) : '(작성된 내용 없음)')
   // 여러 줄 값을 목록 항목 아래에 들여 쓴다 — 줄바꿈이 목록 밖으로 새지 않게.
   const sub = (label: string, v: string) => {
     const [first, ...rest] = v.trim().split('\n')
@@ -38,7 +41,7 @@ export function reportToMarkdown(
   rows.forEach(({ entry }, i) => {
     out.push(`### 2.${i + 1} ${entry.topic_title_snapshot}`, '', '**이번 업데이트**', '', text(entry.report_text), '')
     const point = entryPointText(entry)
-    if (hasContent(point)) out.push(`**${POINT_LABEL}**`, '', point.trim(), '')
+    if (hasContent(point)) out.push(`**${POINT_LABEL}**`, '', htmlToMarkdown(point), '')
   })
 
   out.push('## 3. 운영 · 이슈 · 의사결정', '')
@@ -64,9 +67,9 @@ function Block({ label, value }: { label: string; value: string }) {
   return (
     <div className="mb-3">
       <p className="text-[12px] font-semibold mb-1" style={{ color: S.t3 }}>{label}</p>
-      <p className="text-[13.5px] leading-[1.75] whitespace-pre-wrap" style={{ color: S.t1 }}>
-        {value || <span style={{ color: S.t4 }}>(작성된 내용 없음)</span>}
-      </p>
+      {hasContent(value)
+        ? <RichText value={value} style={{ fontSize: 13.5, lineHeight: 1.75, color: S.t1 }} />
+        : <p className="text-[13.5px]" style={{ color: S.t4 }}>(작성된 내용 없음)</p>}
     </div>
   )
 }
@@ -75,9 +78,11 @@ export default function ReportDocument({ report, rows, items }: Props) {
   return (
     <div style={{ maxWidth: CONTENT_MAX_WIDTH }}>
       <p className="text-[14px] font-bold mb-2" style={{ color: S.t1 }}>1. 핵심 요약</p>
-      <p className="text-[13.5px] leading-[1.8] whitespace-pre-wrap mb-6" style={{ color: S.t1 }}>
-        {report.summary || <span style={{ color: S.t4 }}>(작성된 내용 없음)</span>}
-      </p>
+      <div className="mb-6">
+        {hasContent(report.summary)
+          ? <RichText value={report.summary} style={{ fontSize: 13.5, lineHeight: 1.8, color: S.t1 }} />
+          : <p className="text-[13.5px]" style={{ color: S.t4 }}>(작성된 내용 없음)</p>}
+      </div>
 
       <p className="text-[14px] font-bold mb-3" style={{ color: S.t1 }}>2. 주요 내용</p>
       {rows.length === 0 && <p className="text-[12.5px] mb-6" style={{ color: S.t4 }}>포함된 주제가 없습니다.</p>}
@@ -130,9 +135,9 @@ export default function ReportDocument({ report, rows, items }: Props) {
       )}
 
       <p className="text-[14px] font-bold mb-2" style={{ color: S.t1 }}>4. 다음 단계</p>
-      <p className="text-[13.5px] leading-[1.8] whitespace-pre-wrap" style={{ color: S.t1 }}>
-        {report.next_steps || <span style={{ color: S.t4 }}>(작성된 내용 없음)</span>}
-      </p>
+      {hasContent(report.next_steps)
+        ? <RichText value={report.next_steps} style={{ fontSize: 13.5, lineHeight: 1.8, color: S.t1 }} />
+        : <p className="text-[13.5px]" style={{ color: S.t4 }}>(작성된 내용 없음)</p>}
     </div>
   )
 }

@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { S } from './style'
+import { S, hasContent } from './style'
+import RichText from './RichText'
 
 // RIGHT는 "이 주제/섹션의 히스토리" 단일 역할이다(전후비교 탭 제거) — topic이든 고정
 // 섹션이든 page.tsx가 동일한 모양(HistoryItem[])으로 미리 계산해 넘기므로, 이 컴포넌트는
@@ -123,7 +124,7 @@ export function HistoryNav({ pick }: { pick: HistoryPick }) {
 export default function ContextPanel({ title, items, showFullHistoryLink, onOpenFullHistory }: Props) {
   const pick = useHistoryPick(items)
   const { asc, item } = pick
-  const hasValue = !!(item?.value ?? '').trim()
+  const hasValue = hasContent(item?.value)
 
   return (
     // LEFT(TopicOutline)와 같은 폭 전략 — 1366/1440에서는 좁게, 1920+에서 조금 더 넓혀
@@ -146,27 +147,24 @@ export default function ContextPanel({ title, items, showFullHistoryLink, onOpen
             {item.fields ? (
               <div className="space-y-4">
                 {item.fields.map(f => {
-                  const has = !!f.value.trim()
+                  const has = hasContent(f.value)
                   return (
                     <div key={f.label}>
                       <p className="text-[11px] font-semibold mb-1" style={{ color: S.t3 }}>{f.label}</p>
-                      <p
-                        className="rounded-lg px-3 py-2.5 text-[12.5px] leading-[1.7] whitespace-pre-wrap break-words"
-                        style={{ color: has ? S.t2 : S.t4, background: 'rgba(var(--ink-rgb),0.03)', border: `1px solid ${S.border}` }}
-                      >
-                        {has ? f.value : '(작성된 내용 없음)'}
-                      </p>
+                      <RichText
+                        value={has ? f.value : '(작성된 내용 없음)'}
+                        className="rounded-lg px-3 py-2.5"
+                        style={{ fontSize: 12.5, lineHeight: 1.7, color: has ? S.t2 : S.t4, background: 'rgba(var(--ink-rgb),0.03)', border: `1px solid ${S.border}` }}
+                      />
                     </div>
                   )
                 })}
               </div>
             ) : (
-              <p
-                className="text-[12.5px] leading-[1.7] whitespace-pre-wrap break-words"
-                style={{ color: hasValue ? S.t2 : S.t4 }}
-              >
-                {hasValue ? item.value : '(내용 없음)'}
-              </p>
+              <RichText
+                value={hasValue ? item.value : '(내용 없음)'}
+                style={{ fontSize: 12.5, lineHeight: 1.7, color: hasValue ? S.t2 : S.t4 }}
+              />
             )}
 
             {showFullHistoryLink && (

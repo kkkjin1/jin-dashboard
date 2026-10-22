@@ -14,7 +14,7 @@ import ReportFullViewModal from '@/components/work-report/ReportFullViewModal'
 import { reportToMarkdown } from '@/components/work-report/ReportDocument'
 import ItemSectionPanel, { type ItemSectionPanelHandle } from '@/components/work-report/ItemSectionPanel'
 import { ITEM_SECTIONS, ITEM_SECTION_META, parseItemSelection, sortItems, isItemWritten, itemsToText } from '@/components/work-report/items'
-import { S, fmtPeriodLabel, fmtDateFull, addDaysToDateStr, todayStr, hasContent, isEntryWritten, POINT_LABEL, entryPointText, type TopicChangeBadge } from '@/components/work-report/style'
+import { S, fmtPeriodLabel, fmtDateFull, addDaysToDateStr, todayStr, hasContent, plainOf, isEntryWritten, POINT_LABEL, entryPointText, type TopicChangeBadge } from '@/components/work-report/style'
 
 // TOP LEVEL — "보고서 작성"(한 주제에 집중해서 깊게 작성) / "보고 아카이브"(과거 참고) 2-way.
 // 예전의 "테이블 작성"(이번 회차 전체 topic을 표로 편집)은 아카이브 "전체 비교"와 역할이
@@ -27,7 +27,8 @@ const FIXED_HISTORY_TITLE: Record<FixedSectionKey, string> = {
 
 function computeBadge(entry: WorkReportEntry, prev: WorkReportEntry | undefined): TopicChangeBadge {
   if (!prev) return 'new'
-  if ((prev.report_text ?? '').trim() !== (entry.report_text ?? '').trim()) return 'updated'
+  // 예전 텍스트 ↔ 편집기 HTML 형식 차이는 변경으로 보지 않는다(style.ts plainOf)
+  if (plainOf(prev.report_text) !== plainOf(entry.report_text)) return 'updated'
   return 'unchanged'
 }
 

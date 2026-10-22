@@ -736,3 +736,7 @@ details.details[open] > summary::before { transform: rotate(90deg); }
   vertical-align: 1px;
   user-select: none; pointer-events: none;
 }
+
+/* 업무보고 서술 칸(2026-10-22 서식 편집기 전환) — 편집기/읽기 클래스의 15px·고정 색 대신
+   업무보고 화면이 칸마다 정한 글자 크기·줄 간격·색(S.t1/t2…)을 그대로 물려받는다. */
+.wr-rich :is(.tiptap-input-dark, .note-html-dark) { font-size: inherit; line-height: inherit; color: inherit; --note-color: currentColor; }

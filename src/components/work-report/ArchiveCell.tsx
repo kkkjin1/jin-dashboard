@@ -1,6 +1,7 @@
 'use client'
 
 import { S, hasContent } from './style'
+import RichText from './RichText'
 
 // 전체 비교(다수 topic row × 다수 report col)와 주제 히스토리(단일 topic row × 다수 report
 // col) 두 grid가 공유하는 cell 렌더러. 필드 1개(고정 섹션: 요약/이슈/다음단계)와 최대 3개
@@ -43,20 +44,13 @@ export default function ArchiveCell({ fields, dense, onClick }: Props) {
               {f.label && (
                 <p className="text-[10px] font-semibold mb-0.5" style={{ color: S.t4 }}>{f.label}</p>
               )}
-              <p
-                className="text-[12px] leading-[1.55] whitespace-pre-wrap"
-                style={{
-                  // 첫 field(주로 "이번 업데이트"/고정 섹션 본문)를 나머지보다 진하게 —
-                  // 같은 회색 톤으로 다 같이 보이지 않게 최소한의 위계만 준다.
-                  color: i === 0 ? S.t1 : S.t2,
-                  display: '-webkit-box',
-                  WebkitBoxOrient: 'vertical',
-                  WebkitLineClamp: dense ? 3 : 8,
-                  overflow: 'hidden',
-                }}
-              >
-                {f.value}
-              </p>
+              <RichText
+                value={f.value}
+                maxLines={dense ? 3 : 8}
+                // 첫 field(주로 "이번 업데이트"/고정 섹션 본문)를 나머지보다 진하게 —
+                // 같은 회색 톤으로 다 같이 보이지 않게 최소한의 위계만 준다.
+                style={{ fontSize: 12, lineHeight: 1.55, color: i === 0 ? S.t1 : S.t2 }}
+              />
             </div>
           ))}
         </div>

@@ -6,7 +6,9 @@ import { ChevronDown, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import type { WorkReport, WorkReportEntry, WorkReportTopic } from '@/types'
 import { useAutosave } from '@/hooks/useAutosave'
 import { useCanonicalSync, canonicalStatusText } from '@/hooks/useCanonicalSync'
-import { S, WRITING_CONTENT_WIDTH, POINT_LABEL, entryPointText } from './style'
+import TiptapEditor from '@/components/TiptapEditor'
+import { S, WRITING_CONTENT_WIDTH, POINT_LABEL, entryPointText, hasContent } from './style'
+import RichText from './RichText'
 import { isFixedKey, type FixedSectionKey } from './TopicOutline'
 import { useHistoryPick, type HistoryItem } from './ContextPanel'
 
@@ -70,7 +72,7 @@ function subscribeWide(cb: () => void) {
   return () => mq.removeEventListener('change', cb)
 }
 
-// 입력칸 높이(textarea 우하단 끌기) — 새로고침하면 기본 높이로 돌아가던 문제(2026-10-21)로
+// 입력칸 높이(칸 우하단 끌기) — 새로고침하면 기본 높이로 돌아가던 문제(2026-10-21)로
 // 칸 종류별로 이 브라우저에 기억한다. 고정 섹션은 summary/issues/next_steps, 주제는 update/point/memo.
 const BOX_H_KEY_PREFIX = 'work-report-box-height:'
 
@@ -93,10 +95,10 @@ function loadPrevColWidth(): number {
 
 // 직전 칸 — 6줄까지만 보이고 넘치면 "…더보기"로 펼친다(줄 높이가 과거 내용 때문에 터지지 않게).
 function PrevCell({ value }: { value: string | undefined }) {
-  const has = !!value?.trim()
+  const has = hasContent(value)
   const [open, setOpen] = useState(false)
   const [overflow, setOverflow] = useState(false)
-  const textRef = useRef<HTMLParagraphElement>(null)
+  const textRef = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
     const el = textRef.current
     if (!el || open) return
@@ -105,19 +107,12 @@ function PrevCell({ value }: { value: string | undefined }) {
   }, [value, open])
   return (
     <div className="min-w-0 px-3 py-3" style={{ fontSize: 12.5, lineHeight: 1.65 }}>
-      <p
+      <RichText
         ref={textRef}
-        className="whitespace-pre-wrap break-words"
-        style={{
-          color: has ? S.t2 : S.t4,
-          display: open ? 'block' : '-webkit-box',
-          WebkitBoxOrient: 'vertical',
-          WebkitLineClamp: open ? undefined : PREV_CLAMP_LINES,
-          overflow: open ? 'visible' : 'hidden',
-        }}
-      >
-        {value === undefined ? '' : has ? value : '—'}
-      </p>
+        value={value === undefined ? '' : has ? value! : '—'}
+        maxLines={open ? undefined : PREV_CLAMP_LINES}
+        style={{ fontSize: 12.5, lineHeight: 1.65, color: has ? S.t2 : S.t4 }}
+      />
       {(overflow || open) && (
         <button onClick={() => setOpen(o => !o)} className="text-[11px] font-medium mt-1" style={{ color: S.accentText }}>
           {open ? '접기' : '…더보기'}
@@ -155,7 +150,7 @@ function TextBox({
 }) {
   const [savedHeight] = useState(() => loadBoxHeight(heightKey))
   // 내용이나 옆 칸 때문에 바뀐 높이는 저장하지 않도록, 사용자가 누르고 뗀 사이에 바뀐 경우만 저장한다
-  function trackResize(e: React.PointerEvent<HTMLTextAreaElement>) {
+  function trackResize(e: React.PointerEvent<HTMLDivElement>) {
     if (!heightKey) return
     const el = e.currentTarget
     const before = el.offsetHeight
@@ -164,6 +159,40 @@ function TextBox({
       if (after === before) return
       try { window.localStorage.setItem(BOX_H_KEY_PREFIX + heightKey, String(after)) } catch { /* 무시 */ }
     }, { once: true })
+  }
+  // 글 아래 빈 여백을 눌러도 입력이 시작되게 — 편집기 높이는 내용만큼이라, 칸을 끌어 늘린
+  // 아래쪽은 편집기 밖이다. 마지막 줄 끝으로 커서를 놓는다(우하단 끌기 손잡이 동작은 막지 않음).
+  function focusEnd(e: React.MouseEvent<HTMLDivElement>) {
+    if (e.target !== e.currentTarget) return
+    const pm = e.currentTarget.querySelector<HTMLElement>('.ProseMirror')
+    if (!pm) return
+    setTimeout(() => {
+      pm.focus()
+      const range = document.createRange()
+      range.selectNodeContents(pm)
+      range.collapse(false)
+      const sel = window.getSelection()
+      sel?.removeAllRanges()
+      sel?.addRange(range)
+    }, 0)
+  }
+  const boxStyle: React.CSSProperties = {
+    position: 'relative',
+    width: '100%',
+    height: savedHeight ?? (fill ? '100%' : undefined),
+    minHeight,
+    // callout은 예전에 accentDim(0.15) 배경 전체를 채워 "파란 박스"처럼 튀었다 —
+    // 왼쪽 accent bar 하나로도 이번 업데이트/다음 액션과는 다른 성격(결정/요청)임이
+    // 충분히 구분되므로 배경은 아주 옅은 tint로만 남긴다.
+    background: variant === 'cell' ? 'transparent' : variant === 'callout' ? 'rgba(76,127,224,0.05)' : 'rgba(var(--ink-rgb),0.03)',
+    border: variant === 'cell' ? 'none' : variant === 'primary' ? `1px solid ${S.borderStrong}` : `1px solid ${S.border}`,
+    borderLeft: variant === 'callout' ? `3px solid ${S.accent}` : undefined,
+    borderRadius: variant === 'cell' ? 0 : S.r,
+    // 편집기 자체가 위아래 8px 여백을 가지므로 칸 여백은 그만큼 줄인다(예전 textarea 12px과 같은 글 위치)
+    padding: variant === 'callout' ? '4px 14px 4px 12px' : '4px 14px',
+    color: S.t1,
+    fontSize: 13.5,
+    lineHeight: 1.7,
   }
   return (
     <div style={fill ? { height: '100%' } : undefined}>
@@ -182,32 +211,29 @@ function TextBox({
         </div>
       )}
       {helper && <p className="text-[11px] mb-1.5" style={{ color: S.t4 }}>{helper}</p>}
-      <textarea
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        readOnly={readOnly}
-        placeholder={placeholder}
-        onPointerDown={trackResize}
-        style={{
-          width: '100%',
-          height: savedHeight ?? (fill ? '100%' : undefined),
-          display: 'block',
-          minHeight,
-          resize: 'vertical',
-          // callout은 예전에 accentDim(0.15) 배경 전체를 채워 "파란 박스"처럼 튀었다 —
-          // 왼쪽 accent bar 하나로도 이번 업데이트/다음 액션과는 다른 성격(결정/요청)임이
-          // 충분히 구분되므로 배경은 아주 옅은 tint로만 남긴다.
-          background: variant === 'cell' ? 'transparent' : variant === 'callout' ? 'rgba(76,127,224,0.05)' : 'rgba(var(--ink-rgb),0.03)',
-          border: variant === 'cell' ? 'none' : variant === 'primary' ? `1px solid ${S.borderStrong}` : `1px solid ${S.border}`,
-          borderLeft: variant === 'callout' ? `3px solid ${S.accent}` : undefined,
-          borderRadius: variant === 'cell' ? 0 : S.r,
-          padding: variant === 'callout' ? '12px 14px 12px 12px' : '12px 14px',
-          color: S.t1,
-          fontSize: 13.5,
-          lineHeight: 1.7,
-          outline: 'none',
-        }}
-      />
+      {/* 서식 편집기(2026-10-22) — 다른 화면과 같은 마크다운 입력(- · 1. · # · ** · "> " 토글)·
+          Alt+1 빨강/Alt+2 형광. 툴바는 숨긴다(2번 대조 표 칸이 좁아 칸마다 붙으면 지저분함).
+          확정 보고(readOnly)는 편집기 대신 읽기 표시. 바깥에서 값을 바꾸려면 key로 다시 띄운다
+          (편집기는 처음 값만 읽음 — 임시본 적용 참고). */}
+      {readOnly ? (
+        <div className="wr-rich" style={{ ...boxStyle, height: undefined, padding: variant === 'callout' ? '12px 14px 12px 12px' : '12px 14px' }}>
+          <RichText value={value} style={{ fontSize: 13.5, lineHeight: 1.7, color: S.t1 }} />
+        </div>
+      ) : (
+        <div
+          className="wr-rich"
+          onPointerDown={trackResize}
+          onMouseDown={focusEnd}
+          style={{ ...boxStyle, resize: 'vertical', overflow: 'auto', cursor: 'text' }}
+        >
+          {placeholder && !hasContent(value) && (
+            <span className="absolute pointer-events-none select-none" style={{ top: 12, left: variant === 'callout' ? 12 : 14, color: S.t4 }}>
+              {placeholder}
+            </span>
+          )}
+          <TiptapEditor value={value} onChange={onChange} dark hideToolbar enableToggle minHeight={Math.max(40, minHeight - 24)} />
+        </div>
+      )}
     </div>
   )
 }
@@ -305,6 +331,9 @@ const ReportEditorPanel = forwardRef<ReportEditorPanelHandle, Props>(function Re
 
   const activeAutosave = isFixed ? reportAutosave : entryAutosave
 
+  // 임시본 적용 시 편집기를 다시 띄우는 번호 — 편집기는 처음 값만 읽으므로 state만 바꾸면 화면이 그대로다
+  const [recoverSeq, setRecoverSeq] = useState(0)
+
   function applyRecovered() {
     if (!activeAutosave.recovered) return
     if (isFixed) {
@@ -318,6 +347,7 @@ const ReportEditorPanel = forwardRef<ReportEditorPanelHandle, Props>(function Re
       setExecText(entryPointText({ executive_point: v.executive_point ?? '', next_action: v.next_action ?? '' }))
       setMemoText(v.working_memo ?? '')
     }
+    setRecoverSeq(n => n + 1)
     activeAutosave.discardRecovered()
   }
 
@@ -354,7 +384,7 @@ const ReportEditorPanel = forwardRef<ReportEditorPanelHandle, Props>(function Re
           <p className="text-[12px] mb-4" style={{ color: S.t4 }}>{meta.placeholder}</p>
           {recoveredBanner}
           <TextBox
-            key={selection}
+            key={`${selection}:${recoverSeq}`}
             heightKey={selection}
             label=""
             value={value}
@@ -562,7 +592,7 @@ const ReportEditorPanel = forwardRef<ReportEditorPanelHandle, Props>(function Re
           <span className="text-[12px] font-bold" style={{ color: S.t1 }}>이번 업데이트</span>,
           '진행 상황 · 변화된 수치',
           hValue(0),
-          <TextBox label="" value={reportText} onChange={setReportText} minHeight={360} heightKey="update"
+          <TextBox label="" value={reportText} onChange={setReportText} minHeight={360} heightKey="update" key={`update:${recoverSeq}`}
             placeholder="자유롭게 줄글로 작성합니다." readOnly={readOnly} variant="cell" fill />,
         )}
         {fieldTable(
@@ -570,7 +600,7 @@ const ReportEditorPanel = forwardRef<ReportEditorPanelHandle, Props>(function Re
           <span className="text-[12px] font-bold" style={{ color: S.t1 }}>{POINT_LABEL}</span>,
           '경영진 판단 요청 · 다음 보고까지 할 일',
           hValue(1),
-          <TextBox label="" value={execText} onChange={setExecText} minHeight={240} heightKey="point"
+          <TextBox label="" value={execText} onChange={setExecText} minHeight={240} heightKey="point" key={`point:${recoverSeq}`}
             placeholder="경영진 전달·판단 요청, 다음 액션을 적습니다." readOnly={readOnly} variant="cell" fill />,
         )}
 
@@ -581,7 +611,7 @@ const ReportEditorPanel = forwardRef<ReportEditorPanelHandle, Props>(function Re
           </button>,
           '보고서에 포함되지 않음',
           hValue(2),
-          <TextBox label="" value={memoText} onChange={setMemoText} minHeight={240} heightKey="memo"
+          <TextBox label="" value={memoText} onChange={setMemoText} minHeight={240} heightKey="memo" key={`memo:${recoverSeq}`}
             placeholder="CFO 미팅, 지급률 재계산 등 기억용 raw note" readOnly={readOnly} variant="cell" fill />,
         ) : (
           <section className="rounded-[10px] overflow-hidden" style={{ border: `1px solid ${S.border}` }}>

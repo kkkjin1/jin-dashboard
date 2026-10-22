@@ -1,7 +1,8 @@
 'use client'
 
 import { X } from 'lucide-react'
-import { S } from './style'
+import { S, hasContent } from './style'
+import RichText from './RichText'
 
 // 전체 비교/주제 히스토리 grid의 cell을 클릭했을 때 그 회차·주제(혹은 고정 섹션)의 전체
 // 내용을 보여주는 공용 모달. topic entry(최대 3필드)와 고정 섹션(요약/이슈/다음단계, 1필드)
@@ -19,17 +20,17 @@ interface Props {
 }
 
 function FieldBlock({ label, value }: Field) {
-  if (!value) return null
+  if (!hasContent(value)) return null
   return (
     <div className="mb-4">
       <p className="text-[11px] font-semibold mb-1.5" style={{ color: S.t3 }}>{label}</p>
-      <div className="text-[13px] leading-[1.7] whitespace-pre-wrap" style={{ color: S.t2 }}>{value}</div>
+      <RichText value={value} style={{ fontSize: 13, lineHeight: 1.7, color: S.t2 }} />
     </div>
   )
 }
 
 export default function EntryDetailModal({ title, reportLabel, fields, onClose }: Props) {
-  const hasAny = fields.some(f => (f.value ?? '').trim())
+  const hasAny = fields.some(f => hasContent(f.value))
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-6" style={{ background: 'rgba(0,0,0,0.65)' }}>
       <div className="absolute inset-0" onClick={onClose} />

@@ -4,6 +4,8 @@
 // 통해 Light Theme에서도 자동으로 대응되도록 var() 참조로 구성한다. alpha(투명도)는
 // 기존 값을 그대로 유지 — 값이 바뀌는 건 밝기(백/흑) 기준점 뿐이다.
 
+import { legacyToHtml } from '@/lib/tiptapExtensions'
+
 export const S = {
   bg: 'var(--bg-page)',
   panel: 'var(--surface-panel)',
@@ -91,7 +93,23 @@ export function todayStr(): string {
 // 동일 기준을 공유해야 두 표시가 서로 모순되지 않는다. working_memo는 "내 메모"일 뿐
 // 보고 내용이 아니므로 의도적으로 기준에서 제외한다.
 export function hasContent(text: string | null | undefined): boolean {
-  return !!(text ?? '').trim()
+  const t = (text ?? '').trim()
+  if (!t.startsWith('<')) return !!t
+  return /<img\b/i.test(t) || !!plainOf(t)
+}
+
+// 업무보고 서술 칸(핵심요약·다음단계·2번 주제 3칸)은 2026-10-22부터 서식 편집기(Tiptap) HTML로
+// 저장된다 — 그 전에 쓴 값은 순수 텍스트로 남아 있어 두 형식이 섞인다. 빈 칸 판정·내용 비교는
+// 태그를 걷어낸 글자로 한다(빈 편집기 '<p></p>'를 작성됨으로, 같은 글의 텍스트→HTML 전환을
+// "업데이트됨"으로 보지 않게). 서버 렌더에서도 불리므로 DOM 없이 정규식으로만 처리한다.
+export function plainOf(text: string | null | undefined): string {
+  const t = (text ?? '').trim()
+  if (!t.startsWith('<')) return t
+  return t
+    .replace(/<\/(p|h[1-6]|li|summary|div)>|<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&')
+    .split('\n').map(l => l.trim()).filter(Boolean).join('\n')
 }
 
 // 2번 주제의 "전달 포인트 · 다음 액션" 칸(2026-10-19) — 예전에는 경영진 전달 포인트와 다음 액션이
@@ -104,6 +122,8 @@ export function entryPointText(entry: { executive_point: string; next_action: st
   const next = entry.next_action ?? ''
   if (!hasContent(next)) return exec
   if (!hasContent(exec)) return next
+  // 한쪽이라도 편집기 HTML이면 둘 다 HTML로 바꿔 잇는다(텍스트 줄바꿈으로 이으면 형식이 섞임)
+  if (exec.trimStart().startsWith('<') || next.trimStart().startsWith('<')) return legacyToHtml(exec) + legacyToHtml(next)
   return `${exec.trimEnd()}\n${next}`
 }
 

@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { WorkReport, WorkReportEntry, WorkReportTopic } from '@/types'
-import { S, selectClass, selectStyle, fmtPeriodLabel, hasContent, WRITING_CONTENT_WIDTH, POINT_LABEL, entryPointText } from './style'
+import { S, selectClass, selectStyle, fmtPeriodLabel, hasContent, plainOf, WRITING_CONTENT_WIDTH, POINT_LABEL, entryPointText } from './style'
+import RichText from './RichText'
 
 // "주제 히스토리" — "전체 비교"(여러 topic × 여러 report를 가로로 훑기)와 역할이 뚜렷이
 // 갈리는 화면이어야 한다: 여기는 하나의 topic을 골라 시간축을 위(최신)→아래(과거)로 깊게
@@ -25,22 +26,15 @@ interface Props {
 function Field({ label, value, emphasis }: { label: string; value: string; emphasis?: boolean }) {
   const [open, setOpen] = useState(false)
   if (!hasContent(value)) return null
-  const long = value.length > 160
+  const long = plainOf(value).length > 160
   return (
     <div className="mb-3.5 last:mb-0">
       <p className="text-[10.5px] font-semibold mb-1" style={{ color: S.t4 }}>{label}</p>
-      <p
-        className="text-[13px] leading-[1.65] whitespace-pre-wrap"
-        style={{
-          color: emphasis ? S.t1 : S.t2,
-          display: '-webkit-box',
-          WebkitBoxOrient: 'vertical',
-          WebkitLineClamp: open ? undefined : 4,
-          overflow: open ? 'visible' : 'hidden',
-        }}
-      >
-        {value}
-      </p>
+      <RichText
+        value={value}
+        maxLines={open ? undefined : 4}
+        style={{ fontSize: 13, lineHeight: 1.65, color: emphasis ? S.t1 : S.t2 }}
+      />
       {long && (
         <button onClick={() => setOpen(o => !o)} className="text-[11px] font-medium underline mt-1" style={{ color: S.t4 }}>
           {open ? '접기' : '펼쳐보기'}
