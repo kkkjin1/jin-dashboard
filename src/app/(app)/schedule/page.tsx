@@ -368,7 +368,7 @@ export default function SchedulePage() {
       fetchMembers(),
       supabase.from('meetings').select('id, title, meeting_date, category').not('meeting_date', 'is', null),
       supabase.from('task_todos').select('*, tasks(id, title, short_name, part)').eq('done', false).limit(500),
-      supabase.from('agenda_sub_tasks').select('id, title, target_date, agenda_items(id, title, agenda_groups(category))').not('target_date', 'is', null).neq('status', 'done'),
+      supabase.from('agenda_sub_tasks').select('id, title, target_date, agenda_items(id, title, agenda_groups(category))').not('target_date', 'is', null).neq('status', 'done').neq('kind', 'record'),
       supabase.from('quick_todos').select('*').eq('done', false).order('sort_order'),
       supabase.from('schedule_items').select('*').order('start_hour'),
     ]).then(async ([t, m, { data: mtgs, error: mtgErr }, { data: allTodos, error: todosErr }, { data: subTaskData, error: stErr }, { data: qtData, error: qtErr }, { data: siData, error: siErr }]) => {

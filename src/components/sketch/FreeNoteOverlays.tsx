@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import dynamic from 'next/dynamic'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { Trash2, RotateCw, Pen, Highlighter, Maximize2 } from 'lucide-react'
 import { CATEGORY_PALETTE, type CategoryColorKey } from '@/lib/categoryColors'
@@ -10,6 +11,9 @@ import { SketchTextEditor } from './SketchTextEditor'
 import { useAutosave } from '@/hooks/useAutosave'
 import type { AutosaveFailureReason, AutosaveStatus } from '@/lib/autosave/types'
 import type { SketchCard, SketchEdge, SketchFrame, SketchTableData } from '@/types'
+
+// 카드 안 인라인 마인드맵 편집용 — React Flow가 무거워서 인라인 카드가 있을 때만 불러온다
+const SketchCanvas = dynamic(() => import('./SketchCanvas'), { ssr: false })
 
 const COLOR_KEYS = Object.keys(CATEGORY_PALETTE) as CategoryColorKey[]
 // 구조색(카드/셀 기본 텍스트) — CATEGORY_PALETTE(사용자 콘텐츠색)와 별개로, 카드 배경이
@@ -310,7 +314,7 @@ const CORNERS: { key: Corner; style: React.CSSProperties }[] = [
 
 // ── 공용 프레임: 드래그 이동 / 코너 리사이즈 / 자유 회전 핸들 ────────────────────
 function OverlayFrame({
-  box, selected, minWidth, minHeight, keepAspectRatio, accentColor, onSelect, onChange, onDelete, children, toolbar,
+  box, selected, minWidth, minHeight, keepAspectRatio, accentColor, onSelect, onChange, onDelete, children, toolbar, noRotate,
 }: {
   box: OverlayBox
   selected: boolean
@@ -323,6 +327,8 @@ function OverlayFrame({
   onDelete: () => void
   children: React.ReactNode
   toolbar?: React.ReactNode
+  /** 회전 핸들 숨김 — 안에 React Flow처럼 화면 좌표를 쓰는 편집기가 있으면 회전 시 좌표가 어긋난다 */
+  noRotate?: boolean
 }) {
   const rootRef = useRef<HTMLDivElement>(null)
   const [live, setLive] = useState<OverlayBox | null>(null)
@@ -412,14 +418,14 @@ function OverlayFrame({
       {children}
       {selected && (
         <>
-          <div
+          {!noRotate && <div
             className="absolute left-1/2 flex items-center justify-center rounded-full nodrag"
             style={{ top: -30, width: 20, height: 20, marginLeft: -10, background: 'var(--surface-tooltip)', border: `1.5px solid ${accentColor}`, cursor: 'grab' }}
             onPointerDown={startRotate}
             title="드래그해서 회전"
           >
             <RotateCw size={11} color={accentColor} />
-          </div>
+          </div>}
           {CORNERS.map(c => (
             <div
               key={c.key}
@@ -882,7 +888,7 @@ function cardAbsolutePosition(card: SketchCard, frames: SketchFrame[]): { x: num
 }
 
 export function MindmapCardOverlay({
-  box, childBoardId, selected, onSelect, onChange, onDelete, onExpand, refreshToken, supabase,
+  box, childBoardId, selected, onSelect, onChange, onDelete, onExpand, refreshToken, supabase, inline,
 }: {
   box: OverlayBox
   childBoardId: string
@@ -894,6 +900,8 @@ export function MindmapCardOverlay({
   /** 확장 모달을 닫을 때마다 값을 바꿔서 미리보기를 새로 불러오게 한다 */
   refreshToken: number
   supabase: SupabaseClient
+  /** 카드 안에서 바로 편집(N·F·Tab·왼쪽 이동/오른쪽 입력 전부) — 미리보기 + 전체화면 확장 대신 */
+  inline?: boolean
 }) {
   const [title, setTitle] = useState('마인드맵')
   const [cards, setCards] = useState<SketchCard[]>([])
@@ -940,6 +948,29 @@ export function MindmapCardOverlay({
     })
     return () => cancelAnimationFrame(raf)
   }, [cards, frames, box.width, box.height])
+
+  if (inline) {
+    return (
+      <OverlayFrame box={box} selected={selected} minWidth={320} minHeight={240} accentColor={MINDMAP_ACCENT} onSelect={onSelect} onChange={onChange} onDelete={onDelete} noRotate>
+        <div className="w-full h-full rounded-lg flex flex-col overflow-hidden"
+          style={{ background: 'var(--bg-page)', border: '1.5px solid rgba(76,127,224,0.38)' }}>
+          {/* 이 줄을 잡고 카드 전체를 옮긴다 — 아래 캔버스 안에서는 카드 이동 대신 마인드맵 조작 */}
+          <div className="h-3.5 flex-shrink-0 cursor-move" style={{ background: 'rgba(76,127,224,0.14)' }} title="잡고 끌어서 이동" />
+          <div className="flex-1 min-h-0 px-2 pt-1.5 pb-1 nodrag"
+            onPointerDown={e => {
+              e.stopPropagation()
+              onSelect()
+              // React Flow 빈 곳은 클릭해도 포커스를 가져가지 않아서, 자유노트 본문 커서가 그대로 남아
+              // 이어서 친 글자가 본문으로 들어갔다 — 이 카드 밖에 있는 포커스는 여기서 풀어준다.
+              const active = document.activeElement as HTMLElement | null
+              if (active && active !== document.body && !e.currentTarget.contains(active)) active.blur()
+            }}>
+            <SketchCanvas boardId={childBoardId} compact />
+          </div>
+        </div>
+      </OverlayFrame>
+    )
+  }
 
   const positions = cards.map(c => cardAbsolutePosition(c, frames))
   const minX = positions.length ? Math.min(...positions.map(p => p.x)) - 20 : 0

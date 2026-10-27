@@ -30,7 +30,7 @@ export default function SketchBoardList() {
     supabase.from('sketch_boards').select('*, sketch_cards(count)').order('updated_at', { ascending: false })
       .then(({ data }) => {
         const rows = (data ?? []) as BoardWithCount[]
-        setBoards(rows.filter(b => !b.parent_board_id))
+        setBoards(rows.filter(b => !b.parent_board_id && !b.agenda_item_id))
         setLoading(false)
       })
   }, [])

@@ -170,6 +170,7 @@ export default function TodayTodoWidget() {
       .from('agenda_sub_tasks')
       .select('id, title, status, sort_order')
       .eq('agenda_item_id', task.id)
+      .neq('kind', 'record')
       .order('sort_order')
     const todos: LinkTodo[] = (data ?? []).map((s: any) => ({ id: s.id, content: s.title, done: s.status === 'done', sort_order: s.sort_order }))
     setLinkPopup(prev => prev ? { ...prev, todos } : null)

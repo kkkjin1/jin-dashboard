@@ -44,7 +44,7 @@ export default function QuickTaskInput() {
     Promise.all([
       supabase.from('agenda_groups').select('id, name, color, category, sort_order, is_open, created_at'),
       supabase.from('agenda_items').select('id, title, group_id, status').neq('status', 'done'),
-      supabase.from('agenda_sub_tasks').select('id, title, agenda_item_id, status').neq('status', 'done'),
+      supabase.from('agenda_sub_tasks').select('id, title, agenda_item_id, status').neq('status', 'done').neq('kind', 'record'),
     ]).then(([{ data: g }, { data: i }, { data: s }]) => {
       setGroups((g ?? []) as AgendaGroup[])
       setItems((i ?? []) as AgendaItem[])

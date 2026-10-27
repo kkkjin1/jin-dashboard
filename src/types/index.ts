@@ -211,6 +211,12 @@ export interface AgendaSubTask {
   target_date?: string | null
   achievement_type?: AchievementType | null
   tags?: string[]
+  /** 기획 기록 박스 색(planBoxColors 키) — null이면 유리(기본) (schema_v64) */
+  color?: string | null
+  /** 'task' = 실행 task(목록·일정에 노출), 'record' = 기획 기록 박스(안건 상세 B에만) (schema_v65) */
+  kind?: 'task' | 'record'
+  /** 기획 기록 박스 본문 (schema_v63) */
+  body?: string
   created_at: string
   updated_at: string
 }
@@ -222,6 +228,10 @@ export interface SubTaskNote {
   content: string
   created_at: string
   edited_at?: string | null
+  /** 히스토리 박스 순서 — null이면 작성일 최신순 (schema_v63) */
+  sort_order?: number | null
+  /** 히스토리 박스 좌우 위치(px) (schema_v63) */
+  offset_x?: number
 }
 
 // ── 연간목표 ────────────────────────────────────────────────────
@@ -325,6 +335,9 @@ export interface SketchBoard {
   /** 자유노트의 "마인드맵 카드"가 만든 자식 보드일 때만 값이 있음(board_type='mindmap').
    *  목록 화면(SketchBoardList)은 이 값이 있는 보드를 숨긴다. */
   parent_board_id: string | null
+  /** 안건 상세 "업무 개요 · 메모"의 떠 있는 요소를 담는 숨김 보드일 때만 값이 있음(schema_v64).
+   *  목록 화면은 이 값이 있는 보드도 숨긴다. */
+  agenda_item_id?: string | null
   created_at: string
   updated_at: string
 }

@@ -12,8 +12,12 @@ import { Pen, Highlighter, Table2, AlignCenter, PaintBucket } from 'lucide-react
 import type { EditorView } from '@tiptap/pm/view'
 import type { JSONContent } from '@tiptap/core'
 import { Table, TableRow, TableHeader, TableCell } from '@tiptap/extension-table'
+import Image from '@tiptap/extension-image'
 import { CellSelection, TableMap, cellAround } from '@tiptap/pm/tables'
-import { BASE_TIPTAP_EXTENSIONS, ToggleInputRules, legacyToHtml, handleListKeymapWorkaround, moveBlockInToggle } from '@/lib/tiptapExtensions'
+import {
+  BASE_TIPTAP_EXTENSIONS, ToggleInputRules, legacyToHtml, handleListKeymapWorkaround, moveBlockInToggle,
+  getVoiceAtSelection, toggleVoiceAtSelection, VOICE_TARGETS, type VoiceTarget,
+} from '@/lib/tiptapExtensions'
 import { FontSize, getCurrentBlockFontSize } from '@/lib/tiptapFontSize'
 import { parseSpreadsheetClipboard } from '@/lib/spreadsheetClipboard'
 import { TableDragHandle } from './TableDragHandle'
@@ -63,6 +67,10 @@ const SKETCH_EXTENSIONS = [
   Table.configure({ resizable: true, HTMLAttributes: { class: 'sketch-table' } }),
   TableRow, StyledTableHeader, StyledTableCell,
 ]
+// 안건 메모(업무 개요) 화면용 — 예전 TiptapEditor로 쓴 메모에 붙여넣은 이미지(base64)가 들어 있어서,
+// 이미지 스키마가 없으면 편집하는 순간 이미지가 벗겨진 채 저장된다. 스키마만 넣고, 새로 붙여넣는
+// 이미지는 생각스케치와 똑같이 FreeNoteCanvas가 떠 있는 이미지로 만든다.
+const SKETCH_EXTENSIONS_WITH_IMAGE = [...SKETCH_EXTENSIONS, Image.configure({ allowBase64: true })]
 
 // Excel/Sheets 셀 범위 → Table 노드 JSON. 셀 안 줄바꿈은 문단으로 나눈다.
 function matrixToTableJson(matrix: string[][]): JSONContent {
@@ -154,6 +162,12 @@ export interface SketchTextEditorProps {
   scrollOnInitialFocus?: boolean
   /** 바깥에서 "포커스가 없으면 스크롤 없이 문서 끝에 커서" 를 호출할 수 있게 채워주는 ref */
   focusEndRef?: React.RefObject<(() => void) | null>
+  /** 경영진 의견 줄 표시(Alt+3 CEO / Alt+4 CSO / 툴바) — TiptapEditor의 enableVoice와 같은 표시 */
+  enableVoice?: boolean
+  /** 기존 본문 안 이미지(base64) 보존 — 안건 메모 화면에서만 */
+  allowImages?: boolean
+  /** document 표면의 최소 높이(px) — 기본 200(자유노트 본문). 세부task 히스토리 박스는 낮게 */
+  docMinHeight?: number
 }
 
 function surfaceClassName(variant: SketchTextEditorVariant): string {
@@ -164,7 +178,7 @@ function surfaceClassName(variant: SketchTextEditorVariant): string {
 
 /** 비편집 상태 — 가벼운 정적 HTML 프리뷰. Tiptap 인스턴스 없음. */
 function SketchPreview({
-  content, fallbackFontSize, placeholder, textColor, variant, onMouseDown,
+  content, fallbackFontSize, placeholder, textColor, variant, onMouseDown, docMinHeight,
 }: {
   content: string
   fallbackFontSize: number
@@ -172,12 +186,13 @@ function SketchPreview({
   textColor: string
   variant: SketchTextEditorVariant
   onMouseDown: (e: React.MouseEvent) => void
+  docMinHeight: number
 }) {
   const empty = isContentEmpty(content)
   const className = surfaceClassName(variant)
   const style: React.CSSProperties = {
     color: textColor, fontSize: fallbackFontSize, cursor: 'text', whiteSpace: 'pre-wrap', overflowWrap: 'break-word',
-    ...(variant === 'document' ? { minHeight: 200 } : {}),
+    ...(variant === 'document' ? { minHeight: docMinHeight } : {}),
   }
   // ol/h1 등이 .tiptap-input의 "직계 자식"이어야 globals.css의 `.tiptap-input > ol` 류
   // 선택자(리스트 마커, heading 여백)가 먹는다 — 그래서 내용을 감싸는 별도 wrapper
@@ -205,7 +220,7 @@ function SketchPreview({
 
 /** 편집 상태 — 실제 Tiptap 인스턴스가 마운트되는 동안만 존재(언마운트 시 editor.destroy()). */
 function MountedSketchEditor({
-  content, onContentChange, onExitEdit, fallbackFontSize, textColor, variant, initialCaretPosRef, scrollOnInitialFocus, focusEndRef,
+  content, onContentChange, onExitEdit, fallbackFontSize, textColor, variant, initialCaretPosRef, scrollOnInitialFocus, focusEndRef, enableVoice, allowImages, docMinHeight,
 }: {
   content: string
   onContentChange: (html: string) => void
@@ -216,6 +231,9 @@ function MountedSketchEditor({
   initialCaretPosRef: React.RefObject<CaretPos | null>
   scrollOnInitialFocus: boolean
   focusEndRef?: React.RefObject<(() => void) | null>
+  enableVoice?: boolean
+  allowImages?: boolean
+  docMinHeight: number
 }) {
   const onContentChangeRef = useRef(onContentChange)
   const onExitEditRef = useRef(onExitEdit)
@@ -229,9 +247,12 @@ function MountedSketchEditor({
   const [tableBarPos, setTableBarPos] = useState<{ top: number; left: number } | null>(null)
   // 본문(document)은 포커스가 빠져도 마운트를 유지하므로 툴바만 포커스 있을 때 보인다
   const [focused, setFocused] = useState(false)
+  const [currentVoice, setCurrentVoice] = useState<VoiceTarget | null>(null)
+  const enableVoiceRef = useRef(enableVoice)
   useEffect(() => {
     onContentChangeRef.current = onContentChange
     onExitEditRef.current = onExitEdit
+    enableVoiceRef.current = enableVoice
   })
 
   const adjustFontSize = useCallback((delta: number) => {
@@ -256,6 +277,11 @@ function MountedSketchEditor({
       e.preventDefault()
       ed.chain().focus().toggleHighlight({ color: HILITE }).run()
       return true
+    }
+    // 경영진 의견 표시 — TiptapEditor와 같은 조건(e.code 판별, 한글 조합 중 무시, 대상 줄 없으면 기본 동작)
+    if (enableVoiceRef.current && e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.isComposing && e.keyCode !== 229
+      && (e.code === 'Digit3' || e.code === 'Digit4')) {
+      return toggleVoiceAtSelection(ed, e.code === 'Digit3' ? 'CEO' : 'CSO')
     }
     if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.code === 'Period' || e.code === 'Comma')) {
       e.preventDefault()
@@ -299,13 +325,13 @@ function MountedSketchEditor({
   }, [])
 
   const editor = useEditor({
-    extensions: SKETCH_EXTENSIONS,
+    extensions: allowImages ? SKETCH_EXTENSIONS_WITH_IMAGE : SKETCH_EXTENSIONS,
     content: toSketchHtml(content),
     editorProps: {
       attributes: {
         class: surfaceClassName(variant),
         style: `color:${textColor}; font-size:${fallbackFontSize}px; white-space:pre-wrap; overflow-wrap:break-word;`
-          + (variant === 'document' ? ' min-height:200px;' : ''),
+          + (variant === 'document' ? ` min-height:${docMinHeight}px;` : ''),
       },
       handleKeyDown: stableKeyDown,
       handlePaste: stablePaste,
@@ -324,6 +350,7 @@ function MountedSketchEditor({
       setInTable(nowInTable)
       if (!nowInTable) setShadeOpen(false)
       setCellCentered(nowInTable && (editor.getAttributes('tableCell').align ?? editor.getAttributes('tableHeader').align) === 'center')
+      setCurrentVoice(enableVoiceRef.current ? getVoiceAtSelection(editor) : null)
     }
     const handleBlur = () => { setFocused(false); setShadeOpen(false); onExitEditRef.current() }
     const handleFocus = () => { setFocused(true) }
@@ -512,6 +539,21 @@ function MountedSketchEditor({
           onClick={() => editor.chain().focus().toggleHighlight({ color: HILITE }).run()}
           title="형광펜 (Alt+2)"
         ><Highlighter size={12} /></button>
+        {enableVoice && (
+          <>
+            <div className="w-px h-3.5 mx-0.5 flex-shrink-0" style={{ background: 'rgba(var(--ink-rgb),0.16)' }} />
+            {VOICE_TARGETS.map(t => (
+              <button
+                key={t}
+                className="h-5 px-1.5 flex items-center justify-center rounded text-[10px] font-semibold opacity-70 hover:opacity-100 hover:bg-[rgba(var(--ink-rgb),0.08)] transition-opacity flex-shrink-0"
+                style={{ color: textColor, background: currentVoice === t ? 'rgba(var(--ink-rgb),0.14)' : undefined, opacity: currentVoice === t ? 1 : undefined }}
+                onMouseDown={e => e.preventDefault()}
+                onClick={() => { editor.commands.focus(); toggleVoiceAtSelection(editor, t) }}
+                title={`경영진 의견 줄 표시 · ${t} (${t === 'CEO' ? 'Alt+3' : 'Alt+4'}) — 다시 누르면 해제`}
+              >{t}</button>
+            ))}
+          </>
+        )}
         <div className="w-px h-3.5 mx-0.5 flex-shrink-0" style={{ background: 'rgba(var(--ink-rgb),0.16)' }} />
         <button
           className="w-5 h-5 flex items-center justify-center rounded opacity-70 hover:opacity-100 hover:bg-[rgba(107,182,199,0.18)] transition-opacity flex-shrink-0"
@@ -541,7 +583,7 @@ function MountedSketchEditor({
 /** 진입점 — editing 여부에 따라 프리뷰/Tiptap을 스위칭한다. */
 export function SketchTextEditor({
   content, onContentChange, editing, onEnterEdit, onExitEdit, fallbackFontSize, placeholder, textColor, variant = 'card',
-  caretPosRef: externalCaretPosRef, scrollOnInitialFocus = true, focusEndRef,
+  caretPosRef: externalCaretPosRef, scrollOnInitialFocus = true, focusEndRef, enableVoice, allowImages, docMinHeight = 200,
 }: SketchTextEditorProps) {
   const internalCaretPosRef = useRef<CaretPos | null>(null)
   const caretPosRef = externalCaretPosRef ?? internalCaretPosRef
@@ -554,6 +596,7 @@ export function SketchTextEditor({
         placeholder={placeholder}
         textColor={textColor}
         variant={variant}
+        docMinHeight={docMinHeight}
         onMouseDown={e => {
           e.stopPropagation()
           caretPosRef.current = { x: e.clientX, y: e.clientY }
@@ -574,6 +617,9 @@ export function SketchTextEditor({
       initialCaretPosRef={caretPosRef}
       scrollOnInitialFocus={scrollOnInitialFocus}
       focusEndRef={focusEndRef}
+      enableVoice={enableVoice}
+      allowImages={allowImages}
+      docMinHeight={docMinHeight}
     />
   )
 }

@@ -1035,7 +1035,7 @@ export default function HomePage() {
         { data: mData },  { data: mmData }, { data: jData },
         { data: qtData }, { data: doneStData },
       ] = await Promise.all([
-        sb.current.from('agenda_sub_tasks').select('*, agenda_items(id, title, agenda_groups(name, color, category)), sub_task_notes(created_at, edited_at, content)').eq('status', 'active').order('sort_order').limit(100),
+        sb.current.from('agenda_sub_tasks').select('*, agenda_items(id, title, agenda_groups(name, color, category)), sub_task_notes(created_at, edited_at, content)').eq('status', 'active').neq('kind', 'record').order('sort_order').limit(100),
         // schedule_tag는 배정 시점의 스냅샷이라 자정이 지나도 갱신되지 않음 — target_date를 기준으로 오늘/금주 분류
         // 완료 항목도 금주 업무에 취소선으로 남기기 위해 최근 60일치 완료분을 함께 읽는다.
         sb.current.from('task_todos').select('*, tasks(id, title, short_name, part)').or(`done.eq.false,target_date.gte.${shiftDateStr(today, -60)}`).order('sort_order').limit(200),
@@ -1046,7 +1046,7 @@ export default function HomePage() {
         // 금주 업무 7열이 요일별로 보여주므로 일정 탭과 같이 미완료 전체를 읽고, '오늘'은 화면에서 거른다.
         // 완료 항목도 취소선으로 남겨 보여주기 위해 최근 60일치 완료분을 함께 읽는다.
         sb.current.from('quick_todos').select('*').or(`done.eq.false,target_date.gte.${shiftDateStr(today, -60)}`).order('sort_order'),
-        sb.current.from('agenda_sub_tasks').select('*, agenda_items(id, title, agenda_groups(name, color, category)), sub_task_notes(created_at, edited_at, content)').eq('status', 'done').gte('target_date', shiftDateStr(today, -60)).order('sort_order').limit(100),
+        sb.current.from('agenda_sub_tasks').select('*, agenda_items(id, title, agenda_groups(name, color, category)), sub_task_notes(created_at, edited_at, content)').eq('status', 'done').neq('kind', 'record').gte('target_date', shiftDateStr(today, -60)).order('sort_order').limit(100),
       ])
 
       setSubTasks((stData ?? []) as SubTaskWithContext[])

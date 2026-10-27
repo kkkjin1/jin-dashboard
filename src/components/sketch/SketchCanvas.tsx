@@ -326,11 +326,21 @@ function frameToNode(frame: SketchFrame, handlers: Omit<FrameData, 'title' | 'co
 }
 
 // ── 메인 컴포넌트 ──────────────────────────────────────────────────────────────
-function SketchCanvasInner({ boardId, onBack }: { boardId: string; onBack?: () => void }) {
+function SketchCanvasInner({ boardId, onBack, compact }: { boardId: string; onBack?: () => void; compact?: boolean }) {
   const supabase = createClient()
   const [theme] = useTheme()
   const { screenToFlowPosition } = useReactFlow()
   const wrapperRef = useRef<HTMLDivElement>(null)
+  // compact(자유노트 카드 안 인라인) — 한 화면에 여러 개가 함께 떠 있을 수 있어서, N/F/Tab/되돌리기
+  // 단축키는 마지막으로 클릭한 캔버스에서만 받는다(그 밖을 클릭하면 비활성).
+  const rootRef = useRef<HTMLDivElement>(null)
+  const activeRef = useRef(!compact)
+  useEffect(() => {
+    if (!compact) return
+    const onDown = (e: PointerEvent) => { activeRef.current = !!rootRef.current?.contains(e.target as globalThis.Node) }
+    document.addEventListener('pointerdown', onDown, true)
+    return () => document.removeEventListener('pointerdown', onDown, true)
+  }, [compact])
 
   const [initialViewport, setInitialViewport] = useState<{ x: number; y: number; zoom: number } | null>(null)
   const [viewportReady, setViewportReady] = useState(false)
@@ -816,6 +826,7 @@ function SketchCanvasInner({ boardId, onBack }: { boardId: string; onBack?: () =
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
+      if (!activeRef.current) return
       // Ctrl/Cmd+Z(되돌리기), Ctrl/Cmd+Shift+Z 또는 Ctrl+Y(다시하기) — 텍스트
       // 편집 중(contenteditable/input)에는 브라우저 기본 undo/redo에 맡기고 여기서
       // 가로채지 않는다.
@@ -1140,11 +1151,15 @@ function SketchCanvasInner({ boardId, onBack }: { boardId: string; onBack?: () =
 
   const cardCount = nodes.filter(n => n.type === 'sticky').length
 
+  const btnCls = compact
+    ? 'flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-medium transition-colors flex-shrink-0'
+    : 'flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-[12.5px] font-medium transition-colors flex-shrink-0'
+
   return (
-    <div className="h-full flex flex-col overflow-hidden">
+    <div ref={rootRef} className="h-full flex flex-col overflow-hidden">
       {/* 툴바 */}
-      <div className="flex-shrink-0 flex items-center gap-3 pt-6 pb-3">
-        {onBack ? (
+      <div className={`flex-shrink-0 flex items-center ${compact ? 'gap-2 pt-0 pb-1.5' : 'gap-3 pt-6 pb-3'}`}>
+        {compact ? null : onBack ? (
           // 자유노트의 마인드맵 카드에서 확장했을 때 — 페이지 이동 대신 모달을 닫는다.
           <button onClick={onBack} title="닫기" className="p-1.5 rounded-lg transition-colors flex-shrink-0"
             style={{ color: 'var(--text-muted)' }}
@@ -1165,7 +1180,7 @@ function SketchCanvasInner({ boardId, onBack }: { boardId: string; onBack?: () =
           onChange={e => setNameInput(e.target.value)}
           onBlur={saveBoardName}
           onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
-          className="text-[18px] font-bold bg-transparent focus:outline-none min-w-0"
+          className={`${compact ? 'text-[12px] flex-1' : 'text-[18px]'} font-bold bg-transparent focus:outline-none min-w-0`}
           style={{ color: 'var(--text-primary)' }}
         />
         <span className="text-[11px] flex-shrink-0" style={{ color: 'rgba(var(--text-rgb),0.3)' }}>카드 {cardCount}개</span>
@@ -1173,7 +1188,7 @@ function SketchCanvasInner({ boardId, onBack }: { boardId: string; onBack?: () =
         {/* 프레임 생성 버튼 */}
         <button
           onClick={() => setIsCreatingFrame(v => !v)}
-          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-[12.5px] font-medium transition-colors flex-shrink-0"
+          className={btnCls}
           style={{
             background: isCreatingFrame ? 'rgba(76,127,224,0.35)' : 'rgba(var(--ink-rgb),0.05)',
             border: `1px solid ${isCreatingFrame ? 'rgba(76,127,224,0.6)' : 'rgba(var(--ink-rgb),0.1)'}`,
@@ -1187,7 +1202,7 @@ function SketchCanvasInner({ boardId, onBack }: { boardId: string; onBack?: () =
 
         <button
           onClick={handleAddButtonClick}
-          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-[12.5px] font-medium transition-colors flex-shrink-0"
+          className={btnCls}
           style={{ background: 'rgba(76,127,224,0.18)', border: '1px solid rgba(76,127,224,0.35)', color: 'var(--accent-soft)' }}
         >
           <Plus size={13} /> 새 카드
@@ -1244,12 +1259,12 @@ function SketchCanvasInner({ boardId, onBack }: { boardId: string; onBack?: () =
           >
             <Background variant={BackgroundVariant.Dots} gap={22} size={1.4} color="rgba(var(--ink-rgb),0.14)" style={{ background: 'var(--bg-page)' }} />
             <Controls showInteractive={false} />
-            <MiniMap
+            {!compact && <MiniMap
               pannable zoomable
               maskColor={theme === 'dark' ? 'rgba(15,19,25,0.6)' : 'rgba(246,247,249,0.6)'}
               style={{ background: 'var(--surface-primary)', border: '1px solid rgba(var(--ink-rgb),0.09)' }}
               nodeColor={n => CATEGORY_PALETTE[(n.data as CardData)?.color]?.solid ?? '#6B9BE0'}
-            />
+            />}
           </ReactFlow>
         )}
 
@@ -1291,7 +1306,7 @@ function SketchCanvasInner({ boardId, onBack }: { boardId: string; onBack?: () =
         )}
       </div>
 
-      <p className="text-center text-[11px] pt-2 flex-shrink-0" style={{ color: 'rgba(var(--text-rgb),0.28)' }}>
+      <p className={`text-center ${compact ? 'text-[10px] pt-1' : 'text-[11px] pt-2'} flex-shrink-0 truncate`} style={{ color: 'rgba(var(--text-rgb),0.28)' }}>
         {isCreatingFrame
           ? <>드래그해서 프레임 영역을 그리세요 · <span className="font-mono">Esc</span>로 취소</>
           : cardCount === 0
@@ -1302,10 +1317,10 @@ function SketchCanvasInner({ boardId, onBack }: { boardId: string; onBack?: () =
   )
 }
 
-export default function SketchCanvas({ boardId, onBack }: { boardId: string; onBack?: () => void }) {
+export default function SketchCanvas({ boardId, onBack, compact }: { boardId: string; onBack?: () => void; compact?: boolean }) {
   return (
     <ReactFlowProvider>
-      <SketchCanvasInner boardId={boardId} onBack={onBack} />
+      <SketchCanvasInner boardId={boardId} onBack={onBack} compact={compact} />
     </ReactFlowProvider>
   )
 }

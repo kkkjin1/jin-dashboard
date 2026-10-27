@@ -1,12 +1,12 @@
 ﻿'use client'
 
 import { useEffect, useState, useRef, useMemo, Fragment } from 'react'
+import { planBoxColor } from '@/lib/planBoxColors'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { AgendaGroup, AgendaItem, AgendaSubTask, Attachment, Member, YearPlanPriority } from '@/types'
 import TiptapEditor from '@/components/TiptapEditor'
 import { GlassSelect } from '@/components/ui/GlassSelect'
-import { DateCellPicker } from '@/components/ui/MiniDatePicker'
 import { CATEGORY_PALETTE, colorKeyFromName } from '@/lib/categoryColors'
 import { yearPlanSourceLabel } from '@/lib/yearPlan'
 import { todayYmd } from '@/lib/tiptapExtensions'
@@ -32,17 +32,10 @@ function hexToRgba(hex: string, alpha: number) {
 
 const S = { bd: '1px solid rgba(var(--ink-rgb),0.08)', bdL: '1px solid rgba(var(--ink-rgb),0.14)', bg: "var(--surface-panel)", bgRow: 'rgba(var(--ink-rgb),0.02)', t1: 'rgba(var(--text-rgb),1)', t2: 'rgba(var(--text-rgb),0.7)', t3: 'rgba(var(--text-rgb),0.4)' }
 
-function stDateLabel(date: string, today: string, tomorrow: string): string {
-  if (date === today) return '오늘'
-  if (date === tomorrow) return '내일'
-  const d = new Date(date + 'T00:00:00')
-  return `${d.getMonth()+1}/${d.getDate()}`
-}
 
 
 // ── 드래그 소스 추적 (모듈 레벨 — React state/dataTransfer 우회) ────
 let _dragItemId: string | null = null
-let _dragSTId: string | null = null
 let _dragGroupId: string | null = null
 
 // 프로젝트 출처(v59) — 목표 연계 실무(annual_goal_year_plan_id 있음) / 일반 실무(없음)
@@ -80,7 +73,6 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
   }
 
   const [openGroups,    setOpenGroups]    = useState<Set<string>>(new Set())
-  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set())
 
   const [addingGroup, setAddingGroup] = useState(false)
   const [newGName,    setNewGName]    = useState('')
@@ -97,14 +89,10 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
   const [editGColor,     setEditGColor]     = useState(GROUP_COLORS[0])
   const [editingItemId,  setEditingItemId]  = useState<string | null>(null)
   const [editITitle,     setEditITitle]     = useState('')
-  const [editingSTId,    setEditingSTId]    = useState<string | null>(null)
-  const [editSTTitle,    setEditSTTitle]    = useState('')
 
   const [members,       setMembers]       = useState<Member[]>([])
-  const [subTasks,      setSubTasks]      = useState<AgendaSubTask[]>([])
-  const [addingSubTask, setAddingSubTask] = useState<string | null>(null)
-  const [newSTTitle,    setNewSTTitle]    = useState('')
-  const [deletingST,    setDeletingST]    = useState<string | null>(null)
+  // 안건 상세 B의 히스토리 박스(kind='record') — 목록엔 안 넣고 안건 줄에 개수·색 점만
+  const [planRecords,   setPlanRecords]   = useState<AgendaSubTask[]>([])
   const [dndErr,        setDndErr]        = useState<string>('')
   const [showDoneGroups, setShowDoneGroups] = useState<Set<string>>(new Set())
   function toggleShowDone(groupId: string) {
@@ -114,20 +102,10 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
   const [draggingItemId,  setDraggingItemId]  = useState<string | null>(null)
   const [dragOverGroupId, setDragOverGroupId] = useState<string | null>(null)
   const [dragOverItemId,  setDragOverItemId]  = useState<string | null>(null)
-  const [draggingSTId,    setDraggingSTId]    = useState<string | null>(null)
-  const [dragOverSTId,    setDragOverSTId]    = useState<string | null>(null)
 
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
   const isAll = category === '전체'
 
-  const sched = useMemo(() => {
-    const d = new Date()
-    const pad = (n: number) => String(n).padStart(2, '0')
-    const fmt = (dt: Date) => `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}`
-    const tom = new Date(d); tom.setDate(d.getDate()+1)
-    const fri = new Date(d); fri.setDate(d.getDate() + (5 - d.getDay() + 7) % 7)
-    return { today: fmt(d), tomorrow: fmt(tom), friday: fmt(fri) }
-  }, [])
 
   const memberColors = useMemo(() =>
     Object.fromEntries(members.map((m, i) => [m.id, MEMBER_COLORS[i % MEMBER_COLORS.length]])),
@@ -151,9 +129,9 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
       void loadPlanRefs(fetchedItems)
       if (fetchedItems.length > 0) {
         const { data: stData } = await supabase.from('agenda_sub_tasks').select('*').in('agenda_item_id', fetchedItems.map(i => i.id)).order('sort_order')
-        setSubTasks((stData ?? []) as AgendaSubTask[])
-      } else { setSubTasks([]) }
-    } else { setItems([]); setSubTasks([]) }
+        setPlanRecords(((stData ?? []) as AgendaSubTask[]).filter(st => st.kind === 'record'))
+      } else { setPlanRecords([]) }
+    } else { setItems([]); setPlanRecords([]) }
 
     const { data: memberListData } = await supabase.from('members').select('id, name').is('archived_at', null).order('name')
     setMembers((memberListData ?? []) as Member[])
@@ -213,17 +191,6 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
     await supabase.from('agenda_items').delete().eq('id', itemId)
     setItems(p => p.filter(i => i.id !== itemId)); setDeletingItem(null)
   }
-  function toggleExpandedItem(itemId: string) { setExpandedItems(prev => { const s = new Set(prev); s.has(itemId) ? s.delete(itemId) : s.add(itemId); return s }) }
-  async function addSubTask(itemId: string) {
-    const title = newSTTitle.trim(); if (!title) { setAddingSubTask(null); return }
-    const { data } = await supabase.from('agenda_sub_tasks').insert({ agenda_item_id: itemId, title, status: 'active', sort_order: subTasks.filter(st => st.agenda_item_id === itemId).length }).select().single()
-    if (data) setSubTasks(p => [...p, data as AgendaSubTask])
-    setNewSTTitle(''); setAddingSubTask(null)
-  }
-  async function deleteSubTask(stId: string) {
-    await supabase.from('agenda_sub_tasks').delete().eq('id', stId)
-    setSubTasks(p => p.filter(st => st.id !== stId)); setDeletingST(null)
-  }
   async function updateGroup(groupId: string) {
     const name = editGName.trim(); if (!name) { setEditingGroupId(null); return }
     await supabase.from('agenda_groups').update({ name, color: editGColor }).eq('id', groupId)
@@ -234,34 +201,10 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
     await supabase.from('agenda_items').update({ title }).eq('id', itemId)
     setItems(p => p.map(i => i.id === itemId ? { ...i, title } : i)); setEditingItemId(null)
   }
-  async function updateSubTaskDate(stId: string, date: string | null) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('agenda_sub_tasks') as any).update({ target_date: date }).eq('id', stId)
-    setSubTasks(p => p.map(s => s.id === stId ? { ...s, target_date: date } : s))
-  }
-  async function updateSubTask(stId: string) {
-    const title = editSTTitle.trim(); if (!title) { setEditingSTId(null); return }
-    await supabase.from('agenda_sub_tasks').update({ title }).eq('id', stId)
-    setSubTasks(p => p.map(s => s.id === stId ? { ...s, title } : s)); setEditingSTId(null)
-  }
   async function updateItemAssignee(itemId: string, assigneeId: string | null) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await supabase.from('agenda_items').update({ assignee_id: assigneeId } as any).eq('id', itemId)
     setItems(p => p.map(i => i.id === itemId ? { ...i, assignee_id: assigneeId } : i))
-  }
-  async function updateSubTaskAssignee(stId: string, assigneeId: string | null) {
-    await supabase.from('agenda_sub_tasks').update({ assignee_id: assigneeId }).eq('id', stId)
-    setSubTasks(p => p.map(s => s.id === stId ? { ...s, assignee_id: assigneeId } : s))
-  }
-  async function updateSubTaskMidDate(stId: string, date: string | null) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('agenda_sub_tasks') as any).update({ mid_date: date }).eq('id', stId)
-    setSubTasks(p => p.map(s => s.id === stId ? { ...s, mid_date: date } : s))
-  }
-  async function updateSubTaskDueDate(stId: string, date: string | null) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('agenda_sub_tasks') as any).update({ due_date: date }).eq('id', stId)
-    setSubTasks(p => p.map(s => s.id === stId ? { ...s, due_date: date } : s))
   }
   async function cycleStatus(item: AgendaItem) {
     const order: AgendaItem['status'][] = ['active', 'hold', 'done']
@@ -270,22 +213,10 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
     await supabase.from('agenda_items').update({ status: next, completed_at }).eq('id', item.id)
     setItems(p => p.map(i => i.id === item.id ? { ...i, status: next, completed_at } : i))
   }
-  async function cycleSubTaskStatus(st: AgendaSubTask) {
-    const order: AgendaSubTask['status'][] = ['active', 'hold', 'done']
-    const next = order[(order.indexOf(st.status) + 1) % order.length]
-    await supabase.from('agenda_sub_tasks').update({ status: next }).eq('id', st.id)
-    setSubTasks(p => p.map(s => s.id === st.id ? { ...s, status: next } : s))
-  }
   async function moveItemToGroup(itemId: string, newGroupId: string) {
     setItems(p => p.map(i => i.id === itemId ? { ...i, group_id: newGroupId } : i))
     const { error } = await supabase.from('agenda_items').update({ group_id: newGroupId }).eq('id', itemId)
     if (error) { setDndErr(`범주 이동 실패: ${error.message}`); setTimeout(() => setDndErr(''), 4000) }
-  }
-  async function moveSubTaskToItem(stId: string, newItemId: string) {
-    const newSortOrder = subTasks.filter(s => s.agenda_item_id === newItemId).length
-    setSubTasks(p => p.map(s => s.id === stId ? { ...s, agenda_item_id: newItemId, sort_order: newSortOrder } : s))
-    const { error } = await supabase.from('agenda_sub_tasks').update({ agenda_item_id: newItemId, sort_order: newSortOrder }).eq('id', stId)
-    if (error) { setDndErr(`task 이동 실패: ${error.message}`); setTimeout(() => setDndErr(''), 4000) }
   }
   async function reorderGroup(dragId: string, targetId: string) {
     const sortedG = [...groups].sort((a, b) => a.sort_order - b.sort_order)
@@ -315,22 +246,6 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
     for (let i = 0; i < newOrder.length; i++) {
       const { error } = await supabase.from('agenda_items').update({ sort_order: i }).eq('id', newOrder[i].id)
       if (error) { setDndErr(`순서 저장 실패: ${error.message}`); setTimeout(() => setDndErr(''), 4000); return }
-    }
-  }
-  async function reorderSubTask(dragId: string, targetId: string) {
-    const draggedST = subTasks.find(s => s.id === dragId)
-    if (!draggedST) { setDndErr(`task 못 찾음: ${dragId.slice(0, 8)}`); setTimeout(() => setDndErr(''), 4000); return }
-    const groupSTs = subTasks.filter(s => s.agenda_item_id === draggedST.agenda_item_id).sort((a, b) => a.sort_order - b.sort_order)
-    const dragIdx = groupSTs.findIndex(s => s.id === dragId)
-    const targetIdx = groupSTs.findIndex(s => s.id === targetId)
-    if (dragIdx < 0 || targetIdx < 0 || dragIdx === targetIdx) return
-    const newOrder = [...groupSTs]
-    const [moved] = newOrder.splice(dragIdx, 1)
-    newOrder.splice(targetIdx, 0, moved)
-    setSubTasks(p => p.map(st => { const idx = newOrder.findIndex(s => s.id === st.id); return idx >= 0 ? { ...st, sort_order: idx } : st }))
-    for (let i = 0; i < newOrder.length; i++) {
-      const { error } = await supabase.from('agenda_sub_tasks').update({ sort_order: i }).eq('id', newOrder[i].id)
-      if (error) { setDndErr(`task 순서 저장 실패: ${error.message}`); setTimeout(() => setDndErr(''), 4000); return }
     }
   }
 
@@ -409,7 +324,7 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                         className="flex items-center gap-2 group/grow cursor-pointer transition-all px-4 py-4">
                         <span
                           draggable
-                          onDragStart={e => { e.stopPropagation(); _dragGroupId = group.id; _dragItemId = null; _dragSTId = null; e.dataTransfer.effectAllowed = 'move'; setDraggingGroupId(group.id) }}
+                          onDragStart={e => { e.stopPropagation(); _dragGroupId = group.id; _dragItemId = null; e.dataTransfer.effectAllowed = 'move'; setDraggingGroupId(group.id) }}
                           onDragEnd={e => { e.stopPropagation(); _dragGroupId = null; setDraggingGroupId(null); setDragOverGroupId(null) }}
                           onClick={e => e.stopPropagation()}
                           title="드래그하여 범주 이동"
@@ -465,23 +380,19 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
 
                   {/* ── 안건 목록 ── */}
                   {isOpen && visibleGroupItems.map(item => {
-                    const itemSubTasks = subTasks.filter(st => st.agenda_item_id === item.id).sort((a, b) => a.sort_order - b.sort_order)
-                    const isItemExpanded = expandedItems.has(item.id)
+                    const itemRecords = planRecords.filter(r => r.agenda_item_id === item.id)
                     const activeColor = item.status === 'active' ? (group.category ? catPalette(group.category).solid : group.color) : STATUS_COLOR[item.status]
                     return (
                       <Fragment key={item.id}>
                         <div
                           className="group/irow flex hover:bg-[rgba(var(--ink-rgb),0.03)] transition-colors"
-                          style={{ borderBottom: isItemExpanded ? 'none' : '1px solid rgba(var(--ink-rgb),0.05)', opacity: draggingItemId === item.id ? 0.35 : 1, borderTop: dragOverItemId === item.id ? '2px solid #3B82F6' : undefined, cursor: 'pointer' }}
+                          style={{ borderBottom: '1px solid rgba(var(--ink-rgb),0.05)', opacity: draggingItemId === item.id ? 0.35 : 1, borderTop: dragOverItemId === item.id ? '2px solid #3B82F6' : undefined, cursor: 'pointer' }}
                           onDragOver={e => {
                             if (_dragItemId) {
                               e.preventDefault(); e.dataTransfer.dropEffect = 'move'
                               const di = items.find(i => i.id === _dragItemId)
                               if (di?.group_id === group.id) { setDragOverItemId(item.id); setDragOverGroupId(null) }
                               else { setDragOverGroupId(group.id); setDragOverItemId(null) }
-                            } else if (_dragSTId) {
-                              e.preventDefault(); e.dataTransfer.dropEffect = 'move'
-                              setDragOverItemId(item.id); setDragOverGroupId(null)
                             }
                           }}
                           onDrop={e => {
@@ -493,26 +404,19 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                                 if (di) { if (di.group_id !== group.id) moveItemToGroup(dragId, group.id); else reorderItem(dragId, item.id) }
                               }
                               setDraggingItemId(null); setDragOverGroupId(null); setDragOverItemId(null)
-                            } else if (_dragSTId) {
-                              const dragId = _dragSTId; _dragSTId = null
-                              const ds = subTasks.find(s => s.id === dragId)
-                              if (ds && ds.agenda_item_id !== item.id) moveSubTaskToItem(dragId, item.id)
-                              setDraggingSTId(null); setDragOverItemId(null)
                             }
                           }}
                           onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverItemId(null) }}
-                          onClick={() => toggleExpandedItem(item.id)}
+                          onClick={() => router.push(`/project/items/${item.id}`)}
                           onMouseEnter={() => router.prefetch(`/project/items/${item.id}`)}
                         >
                           <div style={{ flex: 1, minWidth: 180, padding: '16px 16px', display: 'flex', alignItems: 'center' }}>
                             <div className="flex items-center gap-2 w-full">
                               <span draggable
-                                onDragStart={e => { e.stopPropagation(); _dragItemId = item.id; _dragSTId = null; e.dataTransfer.effectAllowed = 'move'; setDraggingItemId(item.id) }}
+                                onDragStart={e => { e.stopPropagation(); _dragItemId = item.id; e.dataTransfer.effectAllowed = 'move'; setDraggingItemId(item.id) }}
                                 onDragEnd={e => { e.stopPropagation(); _dragItemId = null; setDraggingItemId(null); setDragOverGroupId(null); setDragOverItemId(null) }}
                                 onClick={e => e.stopPropagation()}
                                 style={{ cursor: 'grab', color: S.t3, fontSize: 14, userSelect: 'none', flexShrink: 0, lineHeight: 1 }}>⠿</span>
-                              <button onClick={e => { e.stopPropagation(); toggleExpandedItem(item.id) }}
-                                style={{ fontSize: 8, color: S.t3, background: 'none', border: 'none', cursor: 'pointer', padding: 0, lineHeight: 1, transition: 'transform .15s', transform: isItemExpanded ? 'rotate(90deg)' : 'rotate(0deg)', flexShrink: 0, width: 10 }}>▶</button>
                               <button onClick={e => { e.stopPropagation(); cycleStatus(item) }}
                                 style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: activeColor, border: 'none', cursor: 'pointer', padding: 0 }} />
                               {editingItemId === item.id ? (
@@ -527,9 +431,12 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                                   {item.title}
                                 </span>
                               )}
-                              {itemSubTasks.length > 0 && (
-                                <span style={{ fontSize: 10, color: S.t3, background: 'rgba(var(--ink-rgb),0.1)', padding: '1px 6px', borderRadius: 99, flexShrink: 0 }}>
-                                  {itemSubTasks.filter(st => st.status !== 'done').length}/{itemSubTasks.length}
+                              {itemRecords.length > 0 && (
+                                <span title="히스토리" style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10, color: S.t3, flexShrink: 0 }}>
+                                  {itemRecords.slice(0, 3).map(r => (
+                                    <span key={r.id} style={{ width: 6, height: 6, borderRadius: '50%', background: planBoxColor(r.color)?.dot ?? 'rgba(var(--text-rgb),0.3)' }} />
+                                  ))}
+                                  <span style={{ marginLeft: 2 }}>히스토리 {itemRecords.length}</span>
                                 </span>
                               )}
                               {sourceLabel(item) && (
@@ -571,130 +478,6 @@ export default function AgendaMatrix({ category, allCats }: { category: string; 
                           </div>
                         </div>
 
-                        {isItemExpanded && itemSubTasks.map(st => (
-                          <div key={st.id}
-                            className="group/strow flex hover:bg-[rgba(59,130,246,0.04)] transition-colors"
-                            style={{ borderBottom: '1px solid rgba(var(--ink-rgb),0.04)', background: 'rgba(var(--ink-rgb),0.025)', opacity: draggingSTId === st.id ? 0.35 : 1, borderTop: dragOverSTId === st.id ? '2px solid #3B82F6' : undefined, cursor: 'pointer' }}
-                            onDragOver={e => { if (!_dragSTId) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverSTId(st.id) }}
-                            onDrop={e => {
-                              e.preventDefault()
-                              const dragId = _dragSTId; _dragSTId = null
-                              if (dragId && dragId !== st.id) {
-                                const ds = subTasks.find(s => s.id === dragId)
-                                if (ds) { if (ds.agenda_item_id !== st.agenda_item_id) moveSubTaskToItem(dragId, st.agenda_item_id); else reorderSubTask(dragId, st.id) }
-                              }
-                              setDraggingSTId(null); setDragOverSTId(null)
-                            }}
-                            onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverSTId(null) }}
-                            onClick={() => router.push(`/project/items/${item.id}?focus=${st.id}`)}
-                            onMouseEnter={() => router.prefetch(`/project/items/${item.id}`)}
-                          >
-                            <div style={{ flex: 1, minWidth: 180, padding: '12px 16px 12px 36px', display: 'flex', alignItems: 'center' }}>
-                              <div className="flex items-center gap-2">
-                                <span draggable
-                                  onDragStart={e => { e.stopPropagation(); _dragSTId = st.id; _dragItemId = null; e.dataTransfer.effectAllowed = 'move'; setDraggingSTId(st.id) }}
-                                  onDragEnd={e => { e.stopPropagation(); _dragSTId = null; setDraggingSTId(null); setDragOverSTId(null) }}
-                                  onClick={e => e.stopPropagation()}
-                                  style={{ cursor: 'grab', color: S.t3, fontSize: 12, userSelect: 'none', flexShrink: 0, lineHeight: 1 }}>⠿</span>
-                                <button onClick={e => { e.stopPropagation(); cycleSubTaskStatus(st) }}
-                                  style={{ width: 14, height: 14, borderRadius: 3, flexShrink: 0, border: `1.5px solid ${st.status === 'done' ? '#10B981' : st.status === 'hold' ? '#6366F1' : (group.category ? catPalette(group.category).solid : group.color)}`, background: st.status === 'done' ? '#10B981' : st.status === 'hold' ? 'rgba(99,102,241,0.2)' : 'transparent', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
-                                  {st.status === 'done' && <span style={{ color: 'white', fontSize: 9, fontWeight: 800, lineHeight: 1 }}>✓</span>}
-                                  {st.status === 'hold' && <span style={{ color: '#6366F1', fontSize: 7, lineHeight: 1 }}>▶</span>}
-                                </button>
-                                {editingSTId === st.id ? (
-                                  <input autoFocus value={editSTTitle} onChange={e => setEditSTTitle(e.target.value)}
-                                    onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) updateSubTask(st.id); if (e.key === 'Escape') setEditingSTId(null) }}
-                                    className="border border-[rgba(var(--ink-rgb),0.15)] rounded px-2 py-0.5 text-xs focus:outline-none flex-1 min-w-0 bg-transparent"
-                                    style={{ color: S.t2 }} onClick={e => e.stopPropagation()} />
-                                ) : (
-                                  <span style={{ fontSize: 13, color: st.status === 'done' ? S.t3 : S.t2, textDecoration: st.status === 'done' ? 'line-through' : 'none', lineHeight: 1.35 }}>
-                                    {st.title}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            <div style={{ width: 90, borderLeft: '1px solid rgba(var(--ink-rgb),0.04)', display: 'flex', alignItems: 'center', padding: '0 12px', fontSize: 11,
-                              color: st.status === 'done' ? '#10B981' : st.status === 'hold' ? '#6366F1' : 'rgba(var(--text-rgb),0.35)' }}>
-                              {STATUS_LABEL[st.status]}
-                            </div>
-                            <div style={{ width: 120, padding: '6px 10px', borderLeft: '1px solid rgba(var(--ink-rgb),0.04)', display: 'flex', alignItems: 'center' }}>
-                              <GlassSelect
-                                value={st.assignee_id ?? ''}
-                                onChange={v => updateSubTaskAssignee(st.id, v || null)}
-                                options={members.map(m => ({ value: m.id, label: m.name, color: memberColors[m.id] }))}
-                                placeholder="-"
-                                variant="inline"
-                              />
-                            </div>
-                            {/* ── 일정 칼럼 ── */}
-                            <div style={{ width: 130, padding: '6px 10px', borderLeft: '1px solid rgba(var(--ink-rgb),0.04)', display: 'flex', alignItems: 'center' }} onClick={e => e.stopPropagation()}>
-                              {st.assignee_id ? (
-                                /* 담당자 있음 → 중간보고 + 완료일 2개 */
-                                <div className="flex flex-col gap-0.5 w-full" onClick={e => e.stopPropagation()}>
-                                  <DateCellPicker label="중" value={st.mid_date ?? null} color="var(--accent-badge-text)" onChange={v => updateSubTaskMidDate(st.id, v)} />
-                                  <DateCellPicker label="완" value={st.due_date ?? null} color="#86EFAC" onChange={v => updateSubTaskDueDate(st.id, v)} />
-                                </div>
-                              ) : (
-                                /* 담당자 없음 → 완료일 1개 + 오늘/내일/금주 퀵버튼 */
-                                <div className="flex items-center gap-1 w-full">
-                                  {st.target_date ? (
-                                    <button onClick={() => updateSubTaskDate(st.id, null)}
-                                      style={{ fontSize: 9, padding: '2px 8px', borderRadius: 999, fontWeight: 600, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap',
-                                        background: st.target_date === sched.today ? 'rgba(220,38,38,0.18)' : st.target_date === sched.tomorrow ? 'rgba(245,158,11,0.18)' : 'rgba(59,130,246,0.18)',
-                                        color: st.target_date === sched.today ? 'var(--error-badge-text)' : st.target_date === sched.tomorrow ? 'var(--quick-todo-text)' : 'var(--accent-badge-text)' }}>
-                                      {stDateLabel(st.target_date, sched.today, sched.tomorrow)} ×
-                                    </button>
-                                  ) : (
-                                    <div className="opacity-0 group-hover/strow:opacity-100 transition-all flex items-center gap-0.5">
-                                      <button onClick={() => updateSubTaskDate(st.id, sched.today)}  className="text-[9px] px-1.5 py-0.5 rounded-full bg-[rgba(220,38,38,0.12)]  text-red-400   border border-[rgba(220,38,38,0.2)]  font-medium">오늘</button>
-                                      <button onClick={() => updateSubTaskDate(st.id, sched.tomorrow)} className="text-[9px] px-1.5 py-0.5 rounded-full bg-[rgba(245,158,11,0.12)] text-amber-400 border border-[rgba(245,158,11,0.2)] font-medium">내일</button>
-                                      <button onClick={() => updateSubTaskDate(st.id, sched.friday)}  className="text-[9px] px-1.5 py-0.5 rounded-full bg-[rgba(59,130,246,0.12)]  text-blue-400  border border-[rgba(59,130,246,0.2)]  font-medium">금주</button>
-                                      <label className="relative cursor-pointer text-[rgba(var(--text-rgb),0.3)] hover:text-[rgba(var(--text-rgb),0.6)] text-[10px] leading-none" title="날짜 선택">
-                                        ⊕<input type="date" className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" onChange={e => e.target.value && updateSubTaskDate(st.id, e.target.value)} />
-                                      </label>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                            {/* ── 비고 칼럼 ── */}
-                            <div style={{ width: 70, padding: '6px 8px', borderLeft: '1px solid rgba(var(--ink-rgb),0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={e => e.stopPropagation()}>
-                              <div className="opacity-0 group-hover/strow:opacity-100 transition-all flex items-center gap-1.5">
-                                {editingSTId !== st.id && (
-                                  <button onClick={() => { setEditingSTId(st.id); setEditSTTitle(st.title) }} className="text-[10px] text-[rgba(var(--text-rgb),0.4)] hover:text-[rgba(var(--text-rgb),0.7)]">수정</button>
-                                )}
-                                {deletingST === st.id ? (
-                                  <>
-                                    <button onClick={() => deleteSubTask(st.id)} className="text-[10px] text-red-400 font-semibold">삭제</button>
-                                    <button onClick={() => setDeletingST(null)} className="text-[10px] text-[rgba(var(--text-rgb),0.4)]">취소</button>
-                                  </>
-                                ) : (
-                                  <button onClick={() => setDeletingST(st.id)} className="text-[10px] text-[rgba(var(--text-rgb),0.25)] hover:text-red-400">삭제</button>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-
-                        {isItemExpanded && (
-                          <div style={{ borderBottom: '1px solid rgba(var(--ink-rgb),0.04)', background: 'rgba(var(--ink-rgb),0.025)' }}>
-                            {addingSubTask === item.id ? (
-                              <div className="flex items-center gap-2 px-10 py-2">
-                                <input autoFocus value={newSTTitle} onChange={e => setNewSTTitle(e.target.value)}
-                                  onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) addSubTask(item.id); if (e.key === 'Escape') { setAddingSubTask(null); setNewSTTitle('') } }}
-                                  placeholder="하위 태스크 입력 후 Enter"
-                                  className="flex-1 border border-[rgba(var(--ink-rgb),0.15)] rounded-lg px-3 py-1.5 text-sm focus:outline-none bg-transparent text-[rgba(var(--text-rgb),1)]" />
-                                <button onClick={() => addSubTask(item.id)} className="text-xs bg-[rgba(27,58,107,0.3)] text-[var(--accent-badge-text)] border border-[rgba(27,58,107,0.5)] px-3 py-1.5 rounded-lg">추가</button>
-                                <button onClick={() => { setAddingSubTask(null); setNewSTTitle('') }} className="text-xs text-[rgba(var(--text-rgb),0.4)] px-2">취소</button>
-                              </div>
-                            ) : (
-                              <div onClick={() => setAddingSubTask(item.id)}
-                                className="flex items-center gap-1 px-10 py-3 text-xs text-[rgba(var(--text-rgb),0.35)] hover:text-[rgba(var(--text-rgb),0.6)] hover:bg-[rgba(var(--ink-rgb),0.04)] cursor-pointer transition-colors">
-                                ＋ 하위 태스크
-                              </div>
-                            )}
-                          </div>
-                        )}
                       </Fragment>
                     )
                   })}

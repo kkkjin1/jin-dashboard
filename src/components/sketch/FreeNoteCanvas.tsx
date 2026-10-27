@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { createClient } from '@/lib/supabase/client'
@@ -61,8 +61,24 @@ function fitWithinMax(width: number, height: number, max: number): { width: numb
   return { width: Math.round(width * scale), height: Math.round(height * scale) }
 }
 
-export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
+// 안건 상세 왼쪽 "업무 개요 · 메모"처럼 다른 화면 안에 넣을 때 — 본문 글은 그 화면의 원래
+// 칸(agenda_items.description)에 저장하고, 떠 있는 요소(포스트잇·이미지·표·마인드맵 카드)만
+// 숨김 보드(boardId)에 저장한다. 그래서 의사결정 탭·검색 등 원래 칸을 읽는 곳은 그대로 동작한다.
+export interface FreeNoteEmbed {
+  initialBody: string
+  saveBody: (html: string) => PromiseLike<{ error: unknown }>
+  autosave: { entityType: string; entityId: string; fieldKey: string }
+  /** 툴바 왼쪽 제목 자리에 들어갈 내용(보드 이름 입력·뒤로가기 대신) */
+  title?: ReactNode
+  /** 툴바 오른쪽 끝에 붙일 버튼(예: 크게 보기/닫기) */
+  actions?: ReactNode
+}
+
+export default function FreeNoteCanvas({ boardId, embed }: { boardId: string; embed?: FreeNoteEmbed }) {
   const supabase = createClient()
+  const rootRef = useRef<HTMLDivElement>(null)
+  const embedRef = useRef(embed)
+  useEffect(() => { embedRef.current = embed })
   const scrollRef = useRef<HTMLDivElement>(null)
   const innerRef = useRef<HTMLDivElement>(null)
   // SketchTextEditor는 자체 DOM을 소유하므로 직접 조작하지 않는다 — 이 ref는 오직
@@ -117,7 +133,7 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
         // 세션 편집 화면에서 이미 재현/수정된 것과 동일한 종류의 false positive) —
         // canonical 로드 직후 autosaveBody를 그 값으로 맞춰 훅의 mount-time 비교가
         // 정확한 기준값을 보게 한다.
-        setAutosaveBody(b.note_body ?? '')
+        setAutosaveBody(embedRef.current ? embedRef.current.initialBody : (b.note_body ?? ''))
       }
       setElements((elRes.data ?? []) as SketchNoteElement[])
       setLoading(false)
@@ -134,18 +150,32 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
   // ── 본문(note_body) 저장 ─────────────────────────────────────────────────
   const bodySaveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const bodyAutosave = useAutosave({
-    supabase, enabled: isEditingBody, entityType: 'sketch_board', entityId: boardId, fieldKey: 'note_body', value: autosaveBody,
+    supabase, enabled: isEditingBody, value: autosaveBody,
+    ...(embed?.autosave ?? { entityType: 'sketch_board', entityId: boardId, fieldKey: 'note_body' }),
   })
 
   function saveBodyCanonical(html: string) {
-    supabase.from('sketch_boards').update({ note_body: html }).eq('id', boardId)
-      .then(({ error }) => setSaveError(error ? SAVE_ERROR_MSG : ''))
+    const req = embedRef.current
+      ? embedRef.current.saveBody(html)
+      : supabase.from('sketch_boards').update({ note_body: html }).eq('id', boardId)
+    req.then(({ error }) => setSaveError(error ? SAVE_ERROR_MSG : ''))
   }
+
+  // 다른 화면에 넣었을 때는 화면을 벗어나는 순간 저장 대기 중인 본문을 바로 보낸다
+  // (자유노트 보드는 기존 동작 그대로 — 디바운스 500ms 안에 나가면 autosave 버퍼로 복구)
+  const pendingBodyRef = useRef<string | null>(null)
+  useEffect(() => () => {
+    if (!embedRef.current || pendingBodyRef.current === null) return
+    clearTimeout(bodySaveTimer.current)
+    // supabase 쿼리는 then을 붙여야 실제로 요청이 나간다
+    embedRef.current.saveBody(pendingBodyRef.current).then(() => {})
+  }, [])
 
   function persistBody(html: string) {
     setAutosaveBody(html)
     clearTimeout(bodySaveTimer.current)
-    bodySaveTimer.current = setTimeout(() => saveBodyCanonical(html), 500)
+    pendingBodyRef.current = html
+    bodySaveTimer.current = setTimeout(() => { pendingBodyRef.current = null; saveBodyCanonical(html) }, 500)
   }
 
   // 복구 배너 "적용" — state를 되돌린 뒤, 대기 중이던 canonical debounce는 지우고
@@ -224,6 +254,8 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
       const active = document.activeElement as HTMLElement | null
       const tag = active?.tagName?.toLowerCase()
       if (tag === 'input' || tag === 'textarea' || active?.getAttribute('contenteditable') === 'true') return
+      // 카드 안 인라인 마인드맵은 그 안의 카드를 Delete로 지우는 경우라 카드 전체를 지우지 않는다(휴지통 버튼으로만)
+      if (embedRef.current && elementsRef.current.find(el => el.id === selectedId)?.type === 'mindmap') return
       e.preventDefault()
       void handleDelete(selectedId)
     }
@@ -349,7 +381,7 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
     const { data, error } = await supabase.from('sketch_note_elements')
       .insert({
         board_id: boardId, type: 'mindmap', content: childBoard.id as string, color: 'blue',
-        position_x: pos.x, position_y: pos.y, width: 380, height: 240, rotation: 0,
+        position_x: pos.x, position_y: pos.y, width: embedRef.current ? 640 : 380, height: embedRef.current ? 420 : 240, rotation: 0,
       })
       .select().single()
     if (error || !data) {
@@ -361,13 +393,18 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
     const el = data as SketchNoteElement
     setElements(prev => [...prev, el])
     setSelectedId(el.id)
-    setExpandedMindmap({ elementId: el.id, boardId: childBoard.id as string })
+    // 다른 화면에 넣었을 때는 만들자마자 전체화면 편집기를 띄우지 않는다 — 화면 전체가 바뀌어
+    // 다른 페이지로 넘어간 것처럼 보였다. 편집은 카드 더블클릭(또는 확장 아이콘)으로 연다.
+    if (!embedRef.current) setExpandedMindmap({ elementId: el.id, boardId: childBoard.id as string })
   }, [boardId, pickCreatePos])
 
   // ── 이미지 붙여넣기(본문 타이핑 중에도 동작) ─────────────────────────────
   useEffect(() => {
     async function onPaste(e: ClipboardEvent) {
       if (!e.clipboardData) return
+      // 다른 화면에 넣었을 때는 이 캔버스 안에서 붙여넣은 것만 받는다 — 같은 화면의 다른
+      // 편집기(예: 오른쪽 세부task 기록)에 붙여넣은 이미지가 여기 떠 있는 이미지로 생기지 않게
+      if (embedRef.current && !rootRef.current?.contains(e.target as Node)) return
       // 본문/포스트잇 편집기(.ProseMirror) 안에서 붙여넣은 셀 범위는 편집기가 직접
       // 문서 흐름 안의 표로 넣는다(SketchTextEditor handlePaste) — 여기서 떠있는 표를
       // 또 만들면 중복되므로 손대지 않는다. Excel 클립보드엔 이미지 사본도 같이 실려
@@ -532,9 +569,10 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
   )
 
   return (
-    <div className="h-full flex flex-col overflow-hidden">
+    <div ref={rootRef} className="h-full flex flex-col overflow-hidden">
       {/* 툴바 */}
-      <div className="flex-shrink-0 flex items-center gap-3 pt-6 pb-3">
+      <div className={`flex-shrink-0 flex items-center gap-3 ${embed ? 'pt-1' : 'pt-6'} pb-3`}>
+        {embed ? embed.title : (<>
         <Link href="/sketch" className="p-1.5 rounded-lg transition-colors flex-shrink-0"
           style={{ color: 'var(--text-muted)' }}
           onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(var(--ink-rgb),0.06)')}
@@ -549,6 +587,7 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
           className="text-[18px] font-bold bg-transparent focus:outline-none min-w-0"
           style={{ color: 'var(--text-primary)' }}
         />
+        </>)}
 
         <button
           onClick={() => void createMindmap()}
@@ -573,6 +612,7 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
         </button>
         {uploading && <span className="text-[11px] flex-shrink-0" style={{ color: 'rgba(var(--text-rgb),0.4)' }}>이미지 업로드 중…</span>}
         <AutosaveStatusHint status={bodyAutosave.status} failureReason={bodyAutosave.failureReason} />
+        {embed?.actions}
       </div>
 
       {/* Autosave: 본문 복구 배너 — 자동 적용하지 않고 사용자가 선택 */}
@@ -615,6 +655,8 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
               placeholder="여기에 바로 적어보세요…"
               textColor="var(--text-primary)"
               variant="document"
+              enableVoice={!!embed}
+              allowImages={!!embed}
               caretPosRef={bodyCaretPosRef}
               scrollOnInitialFocus={savedScrollTop === null}
             />
@@ -647,6 +689,7 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
                   onExpand={() => setExpandedMindmap({ elementId: el.id, boardId: el.content })}
                   refreshToken={mindmapRefreshTick}
                   supabase={supabase}
+                  inline={!!embed}
                 />
               )
             }
@@ -689,6 +732,7 @@ export default function FreeNoteCanvas({ boardId }: { boardId: string }) {
       <p className="text-center text-[11px] pt-2 flex-shrink-0" style={{ color: 'rgba(var(--text-rgb),0.28)' }}>
         바로 타이핑하세요 · <span className="font-mono">Ctrl+V</span>로 이미지 붙여넣기(크기·회전 조절 가능) ·
         <span className="font-mono">Alt+1</span> 빨간펜 · <span className="font-mono">Alt+2</span> 형광펜 ·
+        {embed && <><span className="font-mono">Alt+3/4</span> 경영진 의견(CEO/CSO) · </>}
         마인드맵 카드는 더블클릭(또는 확장 아이콘)으로 편집 · 엑셀 셀 범위 <span className="font-mono">Ctrl+V</span>는 본문 줄 사이에 표로 삽입 · 선택 후 <span className="font-mono">Delete</span>로 삭제
       </p>
 
