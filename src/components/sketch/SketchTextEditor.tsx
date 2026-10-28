@@ -130,7 +130,7 @@ export interface CaretPos { x: number; y: number }
 // 저장된 HTML은 그대로 쓴다 — legacyToHtml은 HTML이면 연속 빈 문단을 1개로 합치는데
 // (Quick Memo용 붙여넣기 정리), 스케치에서는 사용자가 글을 화면 위쪽으로 올리려고 일부러
 // 넣은 빈 줄이 클릭(프리뷰↔편집 전환)할 때마다 사라지는 원인이었다. 옛 평문만 변환한다.
-function toSketchHtml(content: string): string {
+export function toSketchHtml(content: string): string {
   if (content && content.trimStart().startsWith('<')) return content
   return legacyToHtml(content)
 }
