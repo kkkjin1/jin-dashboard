@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { WorkReport, WorkReportEntry, WorkReportItem, WorkReportItemSection, WorkReportTopic } from '@/types'
@@ -68,7 +68,16 @@ function DateField({ value, disabled, onCommit, emphasis = false }: { value: str
 
 // [정기 | 수시] 전환(2026-10-28) — 수시보고는 별도 표(adhoc_reports)·별도 화면이라, 수시를 고르면 정기 화면을
 // 통째로 그리지 않는다(정기의 직전 회차·이월 계산과 섞일 여지를 없앰). ?kind=adhoc 로 새로고침해도 유지.
+// useSearchParams는 Suspense 안에서만 빌드가 통과한다(dev에선 안 드러남 — 2026-10-28 Vercel 빌드 실패).
 export default function WorkReportPage() {
+  return (
+    <Suspense fallback={null}>
+      <WorkReportRouter />
+    </Suspense>
+  )
+}
+
+function WorkReportRouter() {
   const supabase = useMemo(() => createClient(), [])
   const router = useRouter()
   const searchParams = useSearchParams()
