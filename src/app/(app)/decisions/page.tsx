@@ -80,7 +80,7 @@ const PERIODS: { key: Period; label: string; months: number }[] = [
   { key: '3m', label: '3개월', months: 3 },
   { key: '6m', label: '6개월', months: 6 },
 ]
-const SOURCE_TYPES: VoiceSourceType[] = ['meeting', 'agenda', 'subtask', 'retro']
+const SOURCE_TYPES: VoiceSourceType[] = ['meeting', 'agenda', 'subtask', 'retro', 'adhoc']
 // 참고 회의록이 이만큼(글자 수)을 넘으면 길다고 알리기만 한다 — 자동으로 자르지 않음
 const LONG_REF_CHARS = 30000
 

@@ -130,8 +130,8 @@ function PrevCell({ value }: { value: string | undefined }) {
 //   cell    : 2번 주제 대조 표의 이번 칸 — 표 칸이 테두리·배경을 맡으므로 textarea는 맨몸으로 칸을 채운다
 type TextBoxVariant = 'primary' | 'callout' | 'default' | 'cell'
 
-function TextBox({
-  label, secondaryLabel, helper, value, onChange, minHeight, placeholder, readOnly, statusLabel, variant = 'default', fill = false, heightKey,
+export function TextBox({
+  label, secondaryLabel, helper, value, onChange, minHeight, placeholder, readOnly, statusLabel, variant = 'default', fill = false, heightKey, enableVoice = false,
 }: {
   label: string
   secondaryLabel?: string
@@ -147,6 +147,8 @@ function TextBox({
   fill?: boolean
   // 지정하면 사용자가 끌어서 바꾼 높이를 이 키로 기억해 다음에도 그 높이로 연다
   heightKey?: string
+  // 경영진 의견 줄 표시(Alt+3/4) — 수시보고에서만 켠다(의사결정 탭이 모으는 출처)
+  enableVoice?: boolean
 }) {
   const [savedHeight] = useState(() => loadBoxHeight(heightKey))
   // 내용이나 옆 칸 때문에 바뀐 높이는 저장하지 않도록, 사용자가 누르고 뗀 사이에 바뀐 경우만 저장한다
@@ -231,7 +233,7 @@ function TextBox({
               {placeholder}
             </span>
           )}
-          <TiptapEditor value={value} onChange={onChange} dark hideToolbar enableToggle minHeight={Math.max(40, minHeight - 24)} />
+          <TiptapEditor value={value} onChange={onChange} dark hideToolbar enableToggle enableVoice={enableVoice} minHeight={Math.max(40, minHeight - 24)} />
         </div>
       )}
     </div>

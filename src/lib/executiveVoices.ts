@@ -1,14 +1,14 @@
-// 경영진 의견 아카이브 — 회의록·안건 본문·세부task 메모·업무 회고(받은 피드백 칸) HTML에서 Alt+3/Alt+4로 표시한 줄(data-voice)만
+// 경영진 의견 아카이브 — 회의록·안건 본문·세부task 메모·업무 회고(받은 피드백 칸)·수시보고(보고 내용/결과 칸) HTML에서 Alt+3/Alt+4로 표시한 줄(data-voice)만
 // 모아 의사결정 탭에 보여준다. 원본 HTML은 읽기만 하고 별도 테이블에 복사하지 않는다.
 // HTML 파싱(DOMParser)을 쓰므로 클라이언트에서만 호출한다.
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { VOICE_TARGETS, type VoiceTarget, legacyToHtml, legacyPlainText, newVoiceId, todayYmd } from '@/lib/tiptapExtensions'
 
-export type VoiceSourceType = 'meeting' | 'agenda' | 'subtask' | 'retro'
+export type VoiceSourceType = 'meeting' | 'agenda' | 'subtask' | 'retro' | 'adhoc'
 // spoken=발언일(회의 날짜) · recorded=기록일(메모 작성일) · marked=표시일(Alt+3/4 누른 날) · unknown=날짜 미상
 export type VoiceDateKind = 'spoken' | 'recorded' | 'marked' | 'unknown'
 
-export const SOURCE_LABEL: Record<VoiceSourceType, string> = { meeting: '회의록', agenda: '안건', subtask: '세부 Task', retro: '업무 회고' }
+export const SOURCE_LABEL: Record<VoiceSourceType, string> = { meeting: '회의록', agenda: '안건', subtask: '세부 Task', retro: '업무 회고', adhoc: '수시보고' }
 export const DATE_KIND_LABEL: Record<VoiceDateKind, string> = { spoken: '발언일', recorded: '기록일', marked: '표시일', unknown: '날짜 미상' }
 
 // 경영진 회의록 = meetings.category '경영진' (회의록 범주 고정 태그, 의사결정 탭이 원래 쓰던 기준)
@@ -16,7 +16,7 @@ export const EXEC_MEETING_CATEGORY = '경영진'
 
 export interface VoiceSource {
   type: VoiceSourceType
-  rowId: string            // meeting_notes / agenda_items / sub_task_notes / agenda_retros 의 id
+  rowId: string            // meeting_notes / agenda_items / sub_task_notes / agenda_retros / adhoc_reports 의 id
   title: string            // 회의 제목 / 안건 제목 / 세부task 제목
   context: string | null   // 회의: 노트 제목 · 안건: 그룹명(또는 연동 회의) · 세부task: 상위 안건 제목
   date: string | null      // YYYY-MM-DD
@@ -52,6 +52,7 @@ export interface VoiceRawData {
   subTaskNotes: { id: string; sub_task_id: string; title: string | null; content: string | null; created_at: string }[]
   subTasks: Record<string, { id: string; title: string; agenda_item_id: string | null; agendaTitle: string | null }>
   retros: { id: string; agenda_item_id: string; feedback: string | null; agendaTitle: string | null }[]
+  adhocReports: { id: string; report_date: string; title: string; audience: string; body: string; result: string }[]
   errors: string[]
 }
 
@@ -60,16 +61,21 @@ const VOICE_PATTERN = '%data-voice=%'
 // 표시가 있는 행만 좁혀 가져온다(이미지가 든 큰 HTML 전체를 받지 않도록). 세 출처는 병렬, 이름 정보는 id로 한 번 더.
 export async function fetchVoiceRawData(sb: SupabaseClient): Promise<VoiceRawData> {
   const errors: string[] = []
-  const [mn, ai, sn, rt] = await Promise.all([
+  const [mn, ai, sn, rt, adBody, adResult] = await Promise.all([
     sb.from('meeting_notes').select('id, meeting_id, title, content').ilike('content', VOICE_PATTERN),
     sb.from('agenda_items').select('id, title, description, agenda_groups(name)').ilike('description', VOICE_PATTERN),
     sb.from('sub_task_notes').select('id, sub_task_id, title, content, created_at').ilike('content', VOICE_PATTERN),
     sb.from('agenda_retros').select('id, agenda_item_id, feedback, agenda_items(title)').ilike('feedback', VOICE_PATTERN),
+    // 두 칸을 or()로 묶으면 패턴의 %가 걸러지지 않아 0건이 돼(2026-10-28 확인) 칸별로 따로 받아 합친다
+    sb.from('adhoc_reports').select('id, report_date, title, audience, body, result').ilike('body', VOICE_PATTERN),
+    sb.from('adhoc_reports').select('id, report_date, title, audience, body, result').ilike('result', VOICE_PATTERN),
   ])
   if (mn.error) errors.push(`회의록: ${mn.error.message}`)
   if (ai.error) errors.push(`안건: ${ai.error.message}`)
   if (sn.error) errors.push(`세부 Task 메모: ${sn.error.message}`)
   if (rt.error) errors.push(`업무 회고: ${rt.error.message}`)
+  const adErr = adBody.error ?? adResult.error
+  if (adErr) errors.push(`수시보고: ${adErr.message}`)
   const meetingNotes = (mn.data ?? []) as VoiceRawData['meetingNotes']
   const subTaskNotes = (sn.data ?? []) as VoiceRawData['subTaskNotes']
   const meetingIds = [...new Set(meetingNotes.map(n => n.meeting_id))]
@@ -101,7 +107,11 @@ export async function fetchVoiceRawData(sb: SupabaseClient): Promise<VoiceRawDat
   const retros = ((rt.data ?? []) as { id: string; agenda_item_id: string; feedback: string | null; agenda_items: { title: string } | { title: string }[] | null }[])
     .map(r => ({ id: r.id, agenda_item_id: r.agenda_item_id, feedback: r.feedback, agendaTitle: (Array.isArray(r.agenda_items) ? r.agenda_items[0]?.title : r.agenda_items?.title) ?? null }))
 
-  return { meetingNotes, meetings, meetingAgendas, agendaItems, subTaskNotes, subTasks, retros, errors }
+  const adhocById = new Map<string, VoiceRawData['adhocReports'][number]>()
+  for (const r of [...(adBody.data ?? []), ...(adResult.data ?? [])] as VoiceRawData['adhocReports']) adhocById.set(r.id, r)
+  const adhocReports = [...adhocById.values()]
+
+  return { meetingNotes, meetings, meetingAgendas, agendaItems, subTaskNotes, subTasks, retros, adhocReports, errors }
 }
 
 // 안건 하나에 걸린 표시 줄만 — 업무 회고 서랍의 "받은 피드백" 칸.
@@ -139,7 +149,7 @@ export async function fetchAgendaVoiceRawData(sb: SupabaseClient, agendaId: stri
 
   return {
     meetingNotes: (mn.data ?? []) as VoiceRawData['meetingNotes'], meetings, meetingAgendas: {}, agendaItems,
-    subTaskNotes: (sn.data ?? []) as VoiceRawData['subTaskNotes'], subTasks, retros: [], errors,
+    subTaskNotes: (sn.data ?? []) as VoiceRawData['subTaskNotes'], subTasks, retros: [], adhocReports: [], errors,
   }
 }
 
@@ -330,6 +340,25 @@ export function extractVoiceOccurrences(raw: VoiceRawData): VoiceOccurrence[] {
           relatedAgendas: [],
         },
       })
+    }
+  }
+  // 수시보고 — 보고 내용·결과 두 칸. 날짜는 보고일(그 자리에서 들은 말이므로 발언일로 본다)
+  for (const r of raw.adhocReports) {
+    const reported = validDate(r.report_date)
+    for (const [html, part] of [[r.body, '보고 내용'], [r.result, '결과 · 피드백']] as const) {
+      for (const { el } of voiceElements(html ?? '')) {
+        const voiceId = el.getAttribute('data-voice-id'), voiceAt = validDate(el.getAttribute('data-voice-at'))
+        out.push({
+          voice: el.getAttribute('data-voice') as VoiceTarget, voiceId, text: voiceText(el),
+          source: {
+            type: 'adhoc', rowId: r.id, title: r.title.trim() || '(제목 없음)',
+            context: r.audience.trim() ? `${r.audience.trim()} · ${part}` : part,
+            date: reported ?? voiceAt, dateKind: reported ? 'spoken' : voiceAt ? 'marked' : 'unknown',
+            href: `/work-report${q({ kind: 'adhoc', id: r.id, voice: voiceId })}`,
+            relatedAgendas: [],
+          },
+        })
+      }
     }
   }
   return out

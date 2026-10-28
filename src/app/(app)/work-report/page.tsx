@@ -3,6 +3,7 @@
 export const dynamic = 'force-dynamic'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { WorkReport, WorkReportEntry, WorkReportItem, WorkReportItemSection, WorkReportTopic } from '@/types'
 import TopicOutline, { isFixedKey, type OutlineTopicRow, type FixedSectionKey } from '@/components/work-report/TopicOutline'
@@ -12,6 +13,7 @@ import RestoreTopicModal from '@/components/work-report/RestoreTopicModal'
 import ArchiveView from '@/components/work-report/ArchiveView'
 import ReportFullViewModal from '@/components/work-report/ReportFullViewModal'
 import { reportToMarkdown } from '@/components/work-report/ReportDocument'
+import AdhocReportView, { ReportKindSwitch } from '@/components/work-report/AdhocReportView'
 import ItemSectionPanel, { type ItemSectionPanelHandle } from '@/components/work-report/ItemSectionPanel'
 import { ITEM_SECTIONS, ITEM_SECTION_META, parseItemSelection, sortItems, isItemWritten, itemsToText } from '@/components/work-report/items'
 import { S, fmtPeriodLabel, fmtDateFull, addDaysToDateStr, todayStr, hasContent, plainOf, isEntryWritten, POINT_LABEL, entryPointText, type TopicChangeBadge } from '@/components/work-report/style'
@@ -64,8 +66,21 @@ function DateField({ value, disabled, onCommit, emphasis = false }: { value: str
   )
 }
 
+// [정기 | 수시] 전환(2026-10-28) — 수시보고는 별도 표(adhoc_reports)·별도 화면이라, 수시를 고르면 정기 화면을
+// 통째로 그리지 않는다(정기의 직전 회차·이월 계산과 섞일 여지를 없앰). ?kind=adhoc 로 새로고침해도 유지.
 export default function WorkReportPage() {
   const supabase = useMemo(() => createClient(), [])
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const kind = searchParams.get('kind') === 'adhoc' ? 'adhoc' : 'regular'
+  const kindSwitch = <ReportKindSwitch kind={kind} onChange={k => router.replace(k === 'adhoc' ? '/work-report?kind=adhoc' : '/work-report', { scroll: false })} />
+  if (kind === 'adhoc') {
+    return <AdhocReportView supabase={supabase} kindSwitch={kindSwitch} initialId={searchParams.get('id')} initialVoice={searchParams.get('voice')} />
+  }
+  return <RegularReportView supabase={supabase} kindSwitch={kindSwitch} />
+}
+
+function RegularReportView({ supabase, kindSwitch }: { supabase: ReturnType<typeof createClient>; kindSwitch: React.ReactNode }) {
 
   const [loading, setLoading] = useState(true)
   const [topics, setTopics] = useState<WorkReportTopic[]>([])
@@ -701,6 +716,7 @@ export default function WorkReportPage() {
           <div className="flex items-center gap-x-4 gap-y-2 px-6 py-3 flex-shrink-0 flex-wrap" style={{ borderBottom: `1px solid ${S.border}` }}>
             <div className="flex items-center gap-3">
               <p className="text-[15px] font-semibold" style={{ color: S.t1 }}>업무보고</p>
+              {kindSwitch}
               <div className="flex items-center gap-1 rounded-xl p-1" style={{ background: 'rgba(var(--ink-rgb),0.04)' }}>
                 {([['write', '작성'], ['archive', '아카이브']] as const).map(([k, label]) => (
                   <button

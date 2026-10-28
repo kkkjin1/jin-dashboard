@@ -477,6 +477,18 @@ export interface WorkReport {
   finalized_at: string | null
 }
 
+/** 수시보고(v67) — 정기보고(work_reports)와 회차·이월 로직을 공유하지 않는 별도 기록. body/result는 편집기 HTML. */
+export interface AdhocReport {
+  id: string
+  report_date: string
+  title: string
+  audience: string
+  body: string
+  result: string
+  created_at: string
+  updated_at: string
+}
+
 /** 3-1 운영사항 / 3-2 이슈사항 / 3-3 의사결정사항 (schema_v58) */
 export type WorkReportItemSection = 'operation' | 'issue' | 'decision'
 
