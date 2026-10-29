@@ -199,6 +199,8 @@ const WEEK_GRID_COLS = `minmax(${WEEK_COL_MIN}px, 0.9fr) repeat(5, minmax(${WEEK
 const WEEK_GRID_MIN_W = WEEK_COL_MIN * 7
 // 금주 업무 즉석 할일 요일 이동용 드래그 데이터 타입 (타임라인용 'tl-extra'와 구분)
 const WEEK_QUICK_DND = 'week-quick-id'
+// '이전 N건' 모달에서 요일 열로 끌어 옮길 때 — 할 일(task_todos)·세부task(agenda_sub_tasks). 값은 JSON {kind, id}
+const WEEK_MOVE_DND = 'week-move-item'
 // 금주 업무 섹션 높이 — 내용 높이 기준, 공간 부족 시 최소 200까지 축소, 업무가 많아도 340에서 멈춤(열 안 스크롤)
 const WEEK_MIN_H = 200
 // 화면 비율 맞춤 — 노트북(2880×1800, 배율 200% → 홈 높이 752px) 화면이 기준.
@@ -966,6 +968,10 @@ export default function HomePage() {
   const [weekOffset,    setWeekOffset]    = useState(0)   // 금주 업무 주 이동 (0 = 이번 주)
   const [weekDropDate,  setWeekDropDate]  = useState<string | null>(null)   // 즉석 할일 드래그 중 강조할 요일 열
   const [weekPickerOpen, setWeekPickerOpen] = useState(false)
+  const [olderOpen,     setOlderOpen]     = useState(false)   // 직전주 열 '이전 N건' 모달
+  const [olderDragging, setOlderDragging] = useState(false)   // 모달에서 끄는 중 — 아래 요일 열에 놓을 수 있게 모달을 잠깐 투명·클릭 통과
+  const [olderSel,      setOlderSel]      = useState<Set<string>>(new Set())   // 모달 일괄 선택(WeekItem.key)
+  const [olderConfirmDelete, setOlderConfirmDelete] = useState(false)   // 일괄 삭제는 두 번 눌러 실행
   const [hoveredStId,   setHoveredStId]   = useState<string | null>(null)
   const [datePickerStId,setDatePickerStId] = useState<string | null>(null)
   // 초기값을 epoch(고정값)로 둬서 SSR과 클라이언트 첫 렌더가 항상 일치하게 함 —
@@ -1204,6 +1210,55 @@ export default function HomePage() {
   }, [subTasks, stSort])
 
   // 완료해도 목록에서 빼지 않고 취소선으로 남김 — 다시 누르면 완료 취소
+  useEffect(() => {
+    if (!olderOpen) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeOlder() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [olderOpen])
+
+  function closeOlder() {
+    setOlderOpen(false)
+    setOlderSel(new Set())
+    setOlderConfirmDelete(false)
+  }
+
+  // 할 일(task_todos) 날짜 옮기기 — '이전 N건' 모달에서 요일 열로 끌어 놓을 때
+  async function moveTaskTodo(id: string, date: string) {
+    const cur = allTaskTodos.find(t => t.id === id)
+    if (!cur || cur.target_date === date) return
+    setAllTaskTodos(p => p.map(t => t.id === id ? { ...t, target_date: date } : t))
+    const { error } = await sb.current.from('task_todos').update({ target_date: date }).eq('id', id)
+    if (error) {
+      console.error('할 일 날짜 이동 실패:', error.message)
+      setAllTaskTodos(p => p.map(t => t.id === id ? { ...t, target_date: cur.target_date } : t))
+    }
+  }
+
+  // '이전 N건' 모달 일괄 처리 — 확인 = 완료 처리(체크박스와 같은 함수), 삭제 = 실제 삭제(세부task는 안건 상세에서도 사라짐)
+  function completeOlderItems(items: { kind: string; todo?: TodayTodo; quick?: QuickTodo; st?: SubTaskWithContext }[]) {
+    for (const it of items) {
+      if (it.kind === 'todo' && it.todo && !it.todo.done) void toggleTask(it.todo.id)
+      else if (it.kind === 'quick' && it.quick && !it.quick.done) void toggleQuickTodo(it.quick.id)
+      else if (it.kind === 'agenda' && it.st && it.st.status !== 'done') void completeSubTask(it.st.id)
+    }
+  }
+  async function deleteOlderItems(items: { kind: string; todo?: TodayTodo; quick?: QuickTodo; st?: SubTaskWithContext }[]) {
+    const todoIds = items.flatMap(it => (it.kind === 'todo' && it.todo ? [it.todo.id] : []))
+    const stIds = items.flatMap(it => (it.kind === 'agenda' && it.st ? [it.st.id] : []))
+    for (const it of items) if (it.kind === 'quick' && it.quick) removeQuickTodo(it.quick.id)
+    if (todoIds.length) {
+      const { error } = await sb.current.from('task_todos').delete().in('id', todoIds)
+      if (error) console.error('할 일 삭제 실패:', error.message)
+      else setAllTaskTodos(p => p.filter(t => !todoIds.includes(t.id)))
+    }
+    if (stIds.length) {
+      const { error } = await sb.current.from('agenda_sub_tasks').delete().in('id', stIds)
+      if (error) console.error('세부task 삭제 실패:', error.message)
+      else setSubTasks(p => p.filter(st => !stIds.includes(st.id)))
+    }
+  }
+
   async function toggleTask(id: string) {
     const cur = allTaskTodos.find(t => t.id === id)
     if (!cur) return
@@ -1496,6 +1551,9 @@ export default function HomePage() {
   weekCols[0].sort((a, b) => a.date.localeCompare(b.date))
   weekCols[6].sort((a, b) => a.date.localeCompare(b.date))
   const olderOpenCount = olderItems.length   // 지난주보다 이전 미완료는 개수만 ('이전 N건')
+  // 완료·삭제·이동으로 목록에서 빠진 항목은 선택에서도 자동으로 빠지게 현재 목록 기준으로 센다
+  const olderSelItems = olderItems.filter(it => olderSel.has(it.key))
+  const olderSelCount = olderSelItems.length
   // 하단 3박스 — 박스 높이는 기준 3행 × 배수 그대로, 그 안의 행 수만 늘림 (행 높이 ≥ 기준 32px)
   const BOTTOM_ROWS = Math.max(BASE_BOTTOM_ROWS, Math.floor(BASE_BOTTOM_ROWS * homeFit.vs + 1e-6))
   const bottomRowH = `calc(${BOTTOM_ROW_H}px * var(--vs, 1) * ${BASE_BOTTOM_ROWS / BOTTOM_ROWS})`
@@ -1924,13 +1982,20 @@ export default function HomePage() {
                 const colDate = secondary ? null : weekDays[ci - 1]
                 // 즉석 할일 드롭 대상 — 월~금은 그 날짜로 이동, '다음주로 연기' 열은 연기 표시. 직전주 열은 날짜가 정해지지 않아 제외
                 const dropKey = ci === 6 ? 'defer' : colDate
-                const isQuickDrag = (e: React.DragEvent) => e.dataTransfer.types.includes(WEEK_QUICK_DND)
+                const isQuickDrag = (e: React.DragEvent) => e.dataTransfer.types.includes(WEEK_QUICK_DND) || (!!colDate && e.dataTransfer.types.includes(WEEK_MOVE_DND))
                 const isDropTarget = !!dropKey && weekDropDate === dropKey
                 return (
                   <div key={`b${ci}`} data-week-body={ci} className="scrollbar-hide"
                     onDragOver={dropKey ? e => { if (!isQuickDrag(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (weekDropDate !== dropKey) setWeekDropDate(dropKey) } : undefined}
                     onDragLeave={dropKey ? e => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setWeekDropDate(d => d === dropKey ? null : d) } : undefined}
                     onDrop={dropKey ? e => {
+                      const moved = colDate ? e.dataTransfer.getData(WEEK_MOVE_DND) : ''
+                      if (moved && colDate) {
+                        setWeekDropDate(null); e.preventDefault()
+                        const { kind, id: mid } = JSON.parse(moved) as { kind: 'todo' | 'agenda'; id: string }
+                        if (kind === 'todo') void moveTaskTodo(mid, colDate); else void assignSubTaskDate(mid, colDate)
+                        return
+                      }
                       const id = e.dataTransfer.getData(WEEK_QUICK_DND); setWeekDropDate(null); if (!id) return; e.preventDefault()
                       if (colDate) { moveQuickTodo(id, colDate); return }
                       const cur = quickTodos.find(t => t.id === id)
@@ -1953,7 +2018,9 @@ export default function HomePage() {
                         : items.map(item => renderWeekItem(item, secondary))}
                     {/* 항목이 많으면 열 본문 안에서 스크롤 (스크롤바 숨김) — 직전주 열 끝에 '이전 N건' */}
                     {!loading && ci === 0 && olderOpenCount > 0 && (
-                      <p title="지난주보다 이전 날짜의 미완료" style={{ padding: '3px 0 2px 22px', fontSize: 10.5, color: TEXT3, opacity: 0.75, whiteSpace: 'nowrap' }}>이전 {olderOpenCount}건</p>
+                      <button type="button" title="지난주보다 이전 날짜의 미완료 — 눌러서 보기" onClick={() => setOlderOpen(true)}
+                        className="hover:underline"
+                        style={{ padding: '3px 0 2px 22px', fontSize: 10.5, color: TEXT3, opacity: 0.85, whiteSpace: 'nowrap', background: 'none', border: 'none', cursor: 'pointer' }}>이전 {olderOpenCount}건 ›</button>
                     )}
                   </div>
                 )
@@ -1973,6 +2040,71 @@ export default function HomePage() {
             </div>
             </div>
           </section>
+
+          {/* '이전 N건' 모달 — 지난주보다 이전 날짜의 미완료. 스크롤로 보고, 항목을 끌어 요일 열에 놓으면 그 날짜로 옮김.
+              끄는 동안엔 모달을 투명·클릭 통과로 바꿔 아래 요일 열이 드롭을 받게 한다. ESC·바깥 클릭으로 닫힘 */}
+          {olderOpen && (
+            <div onClick={closeOlder}
+              style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+                background: 'rgba(0,0,0,0.28)', opacity: olderDragging ? 0 : 1, pointerEvents: olderDragging ? 'none' : 'auto', transition: 'opacity 120ms ease' }}>
+              <div onClick={e => e.stopPropagation()} role="dialog" aria-label="이전 미완료"
+                style={{ width: 'min(420px, 100%)', maxHeight: '70vh', display: 'flex', flexDirection: 'column', background: 'var(--surface-elevated)', border: '1px solid rgba(var(--ink-rgb),0.12)', borderRadius: 14, boxShadow: '0 16px 40px rgba(0,0,0,0.25)' }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, padding: '14px 16px 8px' }}>
+                  <span style={{ fontSize: 13.5, fontWeight: 600, color: TEXT1 }}>이전 미완료</span>
+                  <span style={{ fontSize: 11.5, color: TEXT3 }}>{olderItems.length}건 · 끌어서 요일에 놓으면 그 날짜로 이동</span>
+                  <button type="button" aria-label="닫기" onClick={closeOlder}
+                    style={{ marginLeft: 'auto', fontSize: 16, lineHeight: 1, color: TEXT3, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>×</button>
+                </div>
+                {olderItems.length > 0 && (
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 16px 6px', fontSize: 11.5, color: TEXT2, cursor: 'pointer', userSelect: 'none' }}>
+                    <input type="checkbox" checked={olderSelCount === olderItems.length}
+                      ref={el => { if (el) el.indeterminate = olderSelCount > 0 && olderSelCount < olderItems.length }}
+                      onChange={() => { setOlderConfirmDelete(false); setOlderSel(olderSelCount === olderItems.length ? new Set() : new Set(olderItems.map(it => it.key))) }}
+                      style={{ accentColor: 'var(--accent-tint-text)', cursor: 'pointer' }} />
+                    전체 선택
+                  </label>
+                )}
+                <div style={{ overflowY: 'auto', padding: '0 16px 12px', minHeight: 0 }}>
+                  {olderItems.length === 0
+                    ? <p style={{ fontSize: 12, color: TEXT3, padding: '8px 0' }}>남은 항목이 없어요</p>
+                    : [...olderItems].sort((a, b) => a.date.localeCompare(b.date)).map(item => (
+                        <div key={item.key}
+                          style={{ display: 'flex', alignItems: 'flex-start', gap: 8, borderRadius: 6, background: olderSel.has(item.key) ? 'rgba(var(--accent-tint-rgb),0.10)' : undefined }}
+                          // 행 자체의 드래그(타임라인용 데이터·즉석 할일 id)에 요일 이동용 데이터를 덧붙인다
+                          onDragStart={e => {
+                            if (item.kind === 'todo' || item.kind === 'agenda') e.dataTransfer.setData(WEEK_MOVE_DND, JSON.stringify({ kind: item.kind, id: item.kind === 'todo' ? item.todo!.id : item.st!.id }))
+                            e.dataTransfer.effectAllowed = 'copyMove'
+                            // 바로 숨기면 브라우저가 드래그를 취소할 수 있어 다음 틱에
+                            setTimeout(() => setOlderDragging(true), 0)
+                          }}
+                          onDragEnd={() => setOlderDragging(false)}>
+                          <input type="checkbox" aria-label="선택" checked={olderSel.has(item.key)}
+                            onChange={() => { setOlderConfirmDelete(false); setOlderSel(p => { const n = new Set(p); if (n.has(item.key)) n.delete(item.key); else n.add(item.key); return n }) }}
+                            style={{ marginTop: `calc(7px + 21px * (var(--vs, 1) - 1))`, accentColor: 'var(--accent-tint-text)', cursor: 'pointer', flexShrink: 0 }} />
+                          <div style={{ flex: 1, minWidth: 0 }}>{renderWeekItem(item, true)}</div>
+                        </div>
+                      ))}
+                </div>
+                {olderSelCount > 0 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderTop: '1px solid rgba(var(--ink-rgb),0.08)' }}>
+                    <span style={{ fontSize: 12, color: TEXT2 }}>{olderSelCount}개 선택</span>
+                    <button type="button" onClick={() => { completeOlderItems(olderSelItems); setOlderSel(new Set()) }}
+                      style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 600, color: '#38BE98', background: 'rgba(56,190,152,0.12)', border: '1px solid rgba(56,190,152,0.35)', borderRadius: 7, padding: '4px 12px', cursor: 'pointer' }}>
+                      확인
+                    </button>
+                    <button type="button"
+                      onClick={() => {
+                        if (!olderConfirmDelete) { setOlderConfirmDelete(true); return }
+                        void deleteOlderItems(olderSelItems); setOlderSel(new Set()); setOlderConfirmDelete(false)
+                      }}
+                      style={{ fontSize: 12, fontWeight: 600, color: '#E5484D', background: olderConfirmDelete ? 'rgba(229,72,77,0.16)' : 'rgba(229,72,77,0.08)', border: '1px solid rgba(229,72,77,0.35)', borderRadius: 7, padding: '4px 12px', cursor: 'pointer' }}>
+                      {olderConfirmDelete ? '한 번 더 누르면 삭제' : '삭제'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* 금주 업무 ↔ 하단 3박스 section gap — 기본 36 × 배수. 공간이 모자라면(노트북) 금주 업무보다 먼저 접혀
               하단 marginTop만 남는다. 금주 업무가 상한에 닿은 뒤 남는 높이만 여기서 흡수(grow 0.001) */}
