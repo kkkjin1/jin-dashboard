@@ -35,12 +35,13 @@ const EXTENSIONS_WITH_TOGGLE = [...EXTENSIONS, ToggleInputRules]
 // enableQa: 질문 줄 지정(Ctrl+Alt+Q / 툴바 Q) — 1on1 기록 화면에서만
 const EXTENSIONS_WITH_QA = [...EXTENSIONS, QaShortcut]
 const EXTENSIONS_WITH_TOGGLE_QA = [...EXTENSIONS_WITH_TOGGLE, QaShortcut]
-// enableFontSize: 줄 단위 글자 크기(Ctrl+Shift+. 키우기 / Ctrl+Shift+, 줄이기) — 생각스케치와 같은 기능.
+// enableFontSize: 줄 단위 글자 크기(Ctrl+Shift+. 키우기 / Ctrl+Shift+, 줄이기).
+// 기본 크기를 10단계로 두고 1~20단계, 한 단계 = 1px. 10단계는 크기 표시를 지워 칸의 기본 크기를 따른다.
 // 지금은 수시보고(토글 켠 화면)에서만 쓰므로 토글과 함께인 조합만 둔다.
 const EXTENSIONS_WITH_TOGGLE_FONTSIZE = [...EXTENSIONS_WITH_TOGGLE, FontSize]
-const FONT_SIZE_MIN = 9
-const FONT_SIZE_MAX = 48
-const FONT_SIZE_STEP = 1.5
+const FONT_LEVEL_DEFAULT = 10
+const FONT_LEVEL_MIN = 1
+const FONT_LEVEL_MAX = 20
 
 interface Props {
   value: string
@@ -115,13 +116,6 @@ export default function TiptapEditor({
     if (enableVoiceRef.current && e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.isComposing && e.keyCode !== 229
       && (e.code === 'Digit3' || e.code === 'Digit4')) {
       return toggleVoiceAtSelection(ed, e.code === 'Digit3' ? 'CEO' : 'CSO')
-    }
-    if (enableFontSizeRef.current && (e.ctrlKey || e.metaKey) && e.shiftKey && (e.code === 'Period' || e.code === 'Comma')) {
-      e.preventDefault()
-      const current = getCurrentBlockFontSize(ed.state, fontSizeBaseRef.current)
-      const delta = e.code === 'Period' ? FONT_SIZE_STEP : -FONT_SIZE_STEP
-      ed.chain().focus().setBlockFontSize(Math.min(FONT_SIZE_MAX, Math.max(FONT_SIZE_MIN, +(current + delta).toFixed(1)))).run()
-      return true
     }
     // Tab/Shift-Tab을 리스트 밖(또는 더 이상 들여쓰기/내어쓰기 불가한 위치)에서 누르면
     // sinkListItem/liftListItem이 실패(false)해 브라우저 기본 동작인 "다음 포커스 요소로 이동"이
@@ -218,6 +212,37 @@ export default function TiptapEditor({
       editor.off('update', handleUpdate)
       editor.off('selectionUpdate', handleSelection)
     }
+  }, [editor])
+
+  // 글자 크기 단축키 — handleKeyDown이 아니라 편집기 DOM에 직접(capture) 건다. ProseMirror는 한글 조합 중·직후의
+  // keydown을 handleKeyDown에 넘기지 않아서, 한글을 치다 바로 누르면 무시됐다(2026-10-29 "가끔만 됨"의 원인).
+  // 조합 중이면 조합이 끝난 뒤에 적용한다(조합 중 문서를 바꾸면 입력 중 글자가 깨질 수 있음).
+  useEffect(() => {
+    if (!editor) return
+    const dom = editor.view.dom
+    const apply = (dir: 1 | -1) => {
+      const base = fontSizeBaseRef.current
+      const current = getCurrentBlockFontSize(editor.state, base)
+      const level = Math.min(FONT_LEVEL_MAX, Math.max(FONT_LEVEL_MIN, Math.round(current - base) + FONT_LEVEL_DEFAULT))
+      const next = Math.min(FONT_LEVEL_MAX, Math.max(FONT_LEVEL_MIN, level + dir))
+      if (next === level && current === base + (level - FONT_LEVEL_DEFAULT)) return
+      if (next === FONT_LEVEL_DEFAULT) editor.chain().focus().unsetBlockFontSize().run()
+      else editor.chain().focus().setBlockFontSize(base + (next - FONT_LEVEL_DEFAULT)).run()
+    }
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!enableFontSizeRef.current || !(e.ctrlKey || e.metaKey) || !e.shiftKey) return
+      if (e.code !== 'Period' && e.code !== 'Comma') return
+      e.preventDefault()
+      e.stopPropagation()
+      const dir = e.code === 'Period' ? 1 : -1
+      if (e.isComposing || editor.view.composing) {
+        dom.addEventListener('compositionend', () => setTimeout(() => apply(dir), 0), { once: true })
+        return
+      }
+      apply(dir)
+    }
+    dom.addEventListener('keydown', onKeyDown, true)
+    return () => dom.removeEventListener('keydown', onKeyDown, true)
   }, [editor])
 
   useEffect(() => {
