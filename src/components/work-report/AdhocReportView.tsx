@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { CalendarDays, UserRound, FileText } from 'lucide-react'
+import { CalendarDays, UserRound, FileText, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import type { AdhocReport } from '@/types'
 import { useAutosave } from '@/hooks/useAutosave'
 import { useCanonicalSync, canonicalStatusText } from '@/hooks/useCanonicalSync'
@@ -40,6 +40,8 @@ type ListRow = Pick<AdhocReport, 'id' | 'report_date' | 'title' | 'audience' | '
 type Draft = Pick<AdhocReport, 'report_date' | 'title' | 'audience' | 'body' | 'result'>
 
 const LIST_COLS = 'id, report_date, title, audience, created_at'
+// 왼쪽 목록 접힘 상태 기억(이 브라우저에서만)
+const LIST_OPEN_KEY = 'adhoc-report:list-open'
 
 // 보고일 최신순, 같은 날이면 나중에 만든 것 먼저
 const byRecent = (a: ListRow, b: ListRow) => b.report_date.localeCompare(a.report_date) || b.created_at.localeCompare(a.created_at)
@@ -64,14 +66,20 @@ export default function AdhocReportView({
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [query, setQuery] = useState('')
-  // 검색은 서버에서 id만 받아 거른다 — 본문을 목록에 내려받지 않기 위함
-  // 결과는 어떤 검색어의 것인지 함께 둔다 — 검색어를 지우면 effect 없이 바로 전체 목록
-  const [match, setMatch] = useState<{ q: string; ids: Set<string> } | null>(null)
   const [creating, setCreating] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
   // 좁은 화면: 목록 ↔ 편집 한쪽만
   const [mobileEditing, setMobileEditing] = useState(false)
+  // 넓은 화면: 왼쪽 목록 접기 — 접으면 편집 칸이 넓어진다
+  const [listOpen, setListOpen] = useState(() => {
+    try { return window.localStorage.getItem(LIST_OPEN_KEY) !== '0' } catch { return true }
+  })
+  function toggleList() {
+    setListOpen(o => {
+      try { window.localStorage.setItem(LIST_OPEN_KEY, o ? '0' : '1') } catch { /* 무시 */ }
+      return !o
+    })
+  }
 
   useEffect(() => {
     let alive = true
@@ -89,28 +97,10 @@ export default function AdhocReportView({
   }, [supabase, initialId])
 
   useEffect(() => {
-    const q = query.trim()
-    if (!q) return
-    let alive = true
-    const t = setTimeout(() => {
-      // ilike 패턴의 , ( ) 는 or() 구문을 깨므로 공백으로 바꾼다
-      const p = `%${q.replace(/[,()%_]/g, ' ')}%`
-      void supabase.from('adhoc_reports').select('id')
-        .or(`title.ilike.${p},audience.ilike.${p},body.ilike.${p},result.ilike.${p}`)
-        .then(({ data }) => { if (alive) setMatch({ q, ids: new Set((data ?? []).map((r: { id: string }) => r.id)) }) })
-    }, 250)
-    return () => { alive = false; clearTimeout(t) }
-  }, [query, supabase])
-
-  useEffect(() => {
     if (!notice) return
     const t = setTimeout(() => setNotice(null), 2200)
     return () => clearTimeout(t)
   }, [notice])
-
-  const q = query.trim()
-  const matchIds = q && match?.q === q ? match.ids : null
-  const visible = useMemo(() => (matchIds ? rows.filter(r => matchIds.has(r.id)) : rows), [rows, matchIds])
 
   async function handleCreate() {
     if (creating) return
@@ -118,7 +108,6 @@ export default function AdhocReportView({
     const { data, error } = await supabase.from('adhoc_reports').insert({ report_date: todayStr() }).select(LIST_COLS).single()
     setCreating(false)
     if (error || !data) { setNotice('새 수시보고를 만들지 못했습니다'); return }
-    setQuery('')
     setRows(prev => [data as ListRow, ...prev].sort(byRecent))
     setSelectedId((data as ListRow).id)
     setMobileEditing(true)
@@ -170,30 +159,31 @@ export default function AdhocReportView({
       </div>
 
       <div className="flex-1 min-h-0 flex">
-        {/* 왼쪽 목록 — 제목·대상·보고일만(본문 미노출) */}
+        {/* 왼쪽 목록 — 제목·대상·보고일만(본문 미노출). 검색칸은 2026-10-29 사용자 요청으로 제거 */}
         <div
-          className={`${mobileEditing ? 'hidden' : 'flex'} md:flex flex-col w-full md:w-[280px] flex-shrink-0 min-h-0`}
+          className={`${mobileEditing ? 'hidden' : 'flex'} ${listOpen ? 'md:flex' : 'md:hidden'} flex-col w-full md:w-[280px] flex-shrink-0 min-h-0`}
           style={{ borderRight: `1px solid ${S.border}` }}
         >
-          <div className="px-3 pt-3 pb-2">
-            <input
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-              placeholder="제목·대상·내용 검색"
-              className="w-full text-[12px] px-2.5 py-1.5 rounded-lg focus:outline-none"
-              style={{ background: 'rgba(var(--ink-rgb),0.05)', border: `1px solid ${S.border}`, color: S.t1 }}
-            />
-            <p className="mt-2 text-[10.5px] font-semibold" style={{ color: S.t4 }}>
-              수시보고 {matchIds ? `${visible.length} / ${rows.length}` : rows.length}건
-            </p>
+          {/* 닫기 아이콘을 맨 앞에 — 닫은 뒤 남는 띠의 열기 아이콘과 같은 자리 */}
+          <div className="flex items-center gap-1.5 px-2 pt-3 pb-2">
+            <button
+              onClick={toggleList}
+              title="목록 닫기"
+              className="hidden md:flex items-center justify-center w-6 h-6 rounded-md transition-colors hover:bg-[rgba(var(--ink-rgb),0.06)]"
+              style={{ color: S.t3 }}
+            >
+              <PanelLeftClose size={15} />
+            </button>
+            <p className="text-[12.5px] font-semibold" style={{ color: S.t2 }}>수시보고 내역</p>
+            <span className="text-[11px]" style={{ color: S.t4 }}>{rows.length}건</span>
           </div>
           <div className="flex-1 min-h-0 overflow-y-auto px-2 pb-3">
             {loading && <p className="px-2 py-3 text-[12px]" style={{ color: S.t4 }}>불러오는 중…</p>}
             {loadError && <p className="px-2 py-3 text-[12px]" style={{ color: S.danger }}>불러오지 못했습니다: {loadError}</p>}
-            {!loading && !loadError && visible.length === 0 && (
-              <p className="px-2 py-3 text-[12px]" style={{ color: S.t4 }}>{rows.length === 0 ? '아직 수시보고가 없습니다.' : '검색 결과가 없습니다.'}</p>
+            {!loading && !loadError && rows.length === 0 && (
+              <p className="px-2 py-3 text-[12px]" style={{ color: S.t4 }}>아직 수시보고가 없습니다.</p>
             )}
-            {visible.map(r => {
+            {rows.map(r => {
               const active = r.id === selectedId
               const confirming = confirmDeleteId === r.id
               return (
@@ -224,6 +214,20 @@ export default function AdhocReportView({
           </div>
         </div>
 
+        {/* 목록을 닫으면 그 자리에 얇은 띠만 남기고, 닫기 아이콘이 있던 높이에 열기 아이콘 — 닫기 전후 위치가 같게 */}
+        {!listOpen && (
+          <div className="hidden md:flex flex-col items-start flex-shrink-0 w-10 px-2 pt-3" style={{ borderRight: `1px solid ${S.border}` }}>
+            <button
+              onClick={toggleList}
+              title="목록 열기"
+              className="flex items-center justify-center w-6 h-6 rounded-md transition-colors hover:bg-[rgba(var(--ink-rgb),0.06)]"
+              style={{ color: S.t3 }}
+            >
+              <PanelLeftOpen size={15} />
+            </button>
+          </div>
+        )}
+
         {/* 오른쪽 편집 */}
         <div className={`${mobileEditing ? 'block' : 'hidden'} md:block flex-1 min-w-0 min-h-0`}>
           {selectedId ? (
@@ -233,6 +237,7 @@ export default function AdhocReportView({
               id={selectedId}
               revealVoice={voiceForSelected}
               onSaved={handleSaved}
+              wide={!listOpen}
               onBack={() => setMobileEditing(false)}
               onNotice={setNotice}
             />
@@ -260,10 +265,11 @@ export default function AdhocReportView({
 }
 
 function AdhocEditor({
-  supabase, id, revealVoice, onSaved, onBack, onNotice,
+  supabase, id, revealVoice, onSaved, wide, onBack, onNotice,
 }: {
   supabase: SupabaseClient
   id: string
+  wide: boolean
   revealVoice: string | null
   onSaved: (row: AdhocReport) => void
   onBack: () => void
@@ -284,14 +290,16 @@ function AdhocEditor({
 
   if (error) return <p className="px-8 py-5 text-[12.5px]" style={{ color: S.danger }}>불러오지 못했습니다: {error}</p>
   if (!row) return <p className="px-8 py-5 text-[12.5px]" style={{ color: S.t4 }}>불러오는 중…</p>
-  return <AdhocForm supabase={supabase} row={row} revealVoice={revealVoice} onSaved={onSaved} onBack={onBack} onNotice={onNotice} />
+  return <AdhocForm supabase={supabase} row={row} revealVoice={revealVoice} onSaved={onSaved} wide={wide} onBack={onBack} onNotice={onNotice} />
 }
 
 function AdhocForm({
-  supabase, row, revealVoice, onSaved, onBack, onNotice,
+  supabase, row, revealVoice, onSaved, wide, onBack, onNotice,
 }: {
   supabase: SupabaseClient
   row: AdhocReport
+  // 왼쪽 목록을 접었을 때 — 글 폭 제한을 풀어 편집 칸을 화면 끝까지
+  wide: boolean
   revealVoice: string | null
   onSaved: (row: AdhocReport) => void
   onBack: () => void
@@ -358,7 +366,7 @@ function AdhocForm({
 
   return (
     <div className="h-full overflow-y-auto px-4 md:px-8 py-5">
-      <div style={{ maxWidth: WRITING_CONTENT_WIDTH }}>
+      <div style={{ maxWidth: wide ? undefined : WRITING_CONTENT_WIDTH }}>
         <button onClick={onBack} className="md:hidden mb-3 text-[12px] px-2 py-1 rounded-lg" style={{ color: S.t3, background: 'rgba(var(--ink-rgb),0.04)' }}>← 목록</button>
 
         {/* 아래 보고 내용 칸과 같은 라벨+박스 — 제목 입력 자리임이 바로 보이게 */}

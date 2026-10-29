@@ -7,7 +7,7 @@ import type { AnnualGoalItem, AnnualGoalTask, ImportanceLevel } from '@/types'
 import { GlassSelect } from '@/components/ui/GlassSelect'
 import { DateCellPicker } from '@/components/ui/MiniDatePicker'
 import { MONTH_KO, periodToDateRange, monthToDateRange, getWeekColumnsBetween, overlapsRange, type PeriodKey } from '@/lib/dateGrid'
-import { Filter, ChevronsUpDown } from 'lucide-react'
+import { Filter, ChevronsUpDown, Compass, UserPlus, Users, ClipboardCheck, Coins, GraduationCap, Network, Scale, MessageCircle, Server, CircleDashed, type LucideIcon } from 'lucide-react'
 
 // ── 상수 ────────────────────────────────────────────────────────────
 const STATUS_LABEL: Record<string, string> = { active: '진행필요', hold: '진행중', done: '진행완료' }
@@ -54,6 +54,30 @@ const BANNER_SPACER = <span aria-hidden className="invisible inline-block w-0 -m
 function bannerCaret(open: boolean) {
   return <span style={{ fontSize: 9, color: 'rgba(var(--text-rgb),0.4)', display: 'inline-block', transition: 'transform .15s', transform: open ? 'rotate(0deg)' : 'rotate(-90deg)' }}>▼</span>
 }
+// HRM 기능 관점(엑셀 1B.기능뷰 시트 F1~F10) — 과제의 hrm_function 값 그대로. 2026-10-01 재설계 때 뺐던 '기능' 보기를 되살림(2026-10-29)
+const HRM_FUNCTIONS = [
+  'F1. 인사기획·HR전략', 'F2. 채용·확보', 'F3. 인력운영·유지', 'F4. 평가·성과관리', 'F5. 보상',
+  'F6. 교육·육성', 'F7. 조직·직무설계', 'F8. 노무·ER', 'F9. 조직문화·커뮤니케이션', 'F10. HR운영·시스템',
+]
+const HRM_FUNCTION_SHORT: Record<string, string> = {
+  'F1. 인사기획·HR전략': '인사기획', 'F2. 채용·확보': '채용', 'F3. 인력운영·유지': '인력운영', 'F4. 평가·성과관리': '평가',
+  'F5. 보상': '보상', 'F6. 교육·육성': '교육', 'F7. 조직·직무설계': '조직설계', 'F8. 노무·ER': '노무',
+  'F9. 조직문화·커뮤니케이션': '조직문화', 'F10. HR운영·시스템': '시스템',
+}
+const HRM_FUNCTION_ICON: Record<string, LucideIcon> = {
+  'F1. 인사기획·HR전략': Compass, 'F2. 채용·확보': UserPlus, 'F3. 인력운영·유지': Users, 'F4. 평가·성과관리': ClipboardCheck,
+  'F5. 보상': Coins, 'F6. 교육·육성': GraduationCap, 'F7. 조직·직무설계': Network, 'F8. 노무·ER': Scale,
+  'F9. 조직문화·커뮤니케이션': MessageCircle, 'F10. HR운영·시스템': Server,
+}
+const FN_NONE = '__none__'   // 기능 값이 없는 과제 묶음
+// 기능 카드 머리줄 색 — 목록의 영역 카드(CATEGORY_SECTION_COLOR)와 같은 파스텔 톤. 보라 계열은 쓰지 않는다
+const HRM_FUNCTION_COLOR: Record<string, string> = {
+  'F1. 인사기획·HR전략': '#C7D5E3', 'F2. 채용·확보': '#DCEAE1', 'F3. 인력운영·유지': '#F3DED4', 'F4. 평가·성과관리': '#F3E7C6',
+  'F5. 보상': '#F1DCE4', 'F6. 교육·육성': '#D5E9E7', 'F7. 조직·직무설계': '#E8E4DC', 'F8. 노무·ER': '#DFE3E8',
+  'F9. 조직문화·커뮤니케이션': '#F5E1CC', 'F10. HR운영·시스템': '#E1EAD5',
+}
+function hrmFunctionLabel(fn: string) { return fn === FN_NONE ? '기능 미지정' : fn.replace(/^F\d+\.\s*/, '') }
+const FN_COL_W = 84   // 과제 표 기능 칸 폭(목록·기능 보기 공용 — 2026-10-29 사용자 선택)
 const HEAD_CELL: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: 'rgba(var(--text-rgb),0.4)', letterSpacing: '.05em', textTransform: 'uppercase', padding: '8px 12px', borderLeft: LINE }
 
 function taskProgress(itemTasks: AnnualGoalTask[]): { done: number; total: number; pct: number } {
@@ -201,7 +225,8 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
   const [dragOverTaskId, setDragOverTaskId] = useState<string | null>(null)
   const [dndErr, setDndErr] = useState('')
 
-  const [viewMode, setViewMode] = useState<'list' | 'roadmap'>('list')
+  const [viewMode, setViewMode] = useState<'list' | 'roadmap' | 'function'>('list')
+  const [closedFns, setClosedFns] = useState<Set<string>>(new Set())   // 기능 보기에서 접은 기능 묶음(기본은 모두 펼침)
   const [yearNav, setYearNav] = useState(() => new Date().getFullYear())
   const [zoom, setZoom] = useState<ZoomState>({ level: 'year' })
   const [topOnly, setTopOnly] = useState(false)
@@ -413,6 +438,7 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
         {segmentTrack(<>
           {segmentBtn(viewMode === 'list', () => setViewMode('list'), '목록')}
           {segmentBtn(viewMode === 'roadmap', () => { setViewMode('roadmap'); setZoom({ level: 'year' }) }, '로드맵')}
+          {segmentBtn(viewMode === 'function', () => setViewMode('function'), '기능')}
         </>)}
         <button onClick={toggleTopOnly} title="중요성이 '상'인 과제와 그 목표만 보기" {...toolBtn(topOnly)}>
           <Filter size={12} style={{ color: topOnly ? '#C0504D' : undefined }} />
@@ -443,7 +469,7 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
 
       {/* 오른쪽: 정렬 + 보기단위 + 펼치기 */}
       <div className="flex items-center gap-2 flex-wrap">
-        {viewMode === 'list' && segmentTrack(<>
+        {viewMode !== 'roadmap' && segmentTrack(<>
           {segmentBtn(scheduleUnit === 'month', () => setScheduleUnit('month'), '월')}
           {segmentBtn(scheduleUnit === 'week', () => setScheduleUnit('week'), '주')}
         </>)}
@@ -451,7 +477,16 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
           {segmentBtn(zoom.level === 'year', () => setZoom({ level: 'year' }), '월')}
           {segmentBtn(zoom.level === 'week', zoomToThisMonth, '주')}
         </>)}
-        {(() => {
+        {viewMode === 'function' && (() => {
+          const allOpen = closedFns.size === 0
+          return (
+            <button onClick={() => setClosedFns(allOpen ? new Set([...HRM_FUNCTIONS, FN_NONE]) : new Set())} {...toolBtn(false)}>
+              <ChevronsUpDown size={12} />
+              {allOpen ? '기능 모두 접기' : '기능 모두 펼치기'}
+            </button>
+          )
+        })()}
+        {viewMode !== 'function' && (() => {
           const sectionKeys = shownItems.map(i => i.id)   // 화면에 보이는 목표 기준 ('중요도 상만'이면 상 목표만)
           if (sectionKeys.length === 0) return null
           const allOpen = sectionKeys.every(k => openItems.has(k))
@@ -502,7 +537,7 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
       <div key={task.id}
         className="group/trow flex hover:bg-[rgba(59,130,246,0.04)] transition-colors"
         style={{ opacity: draggingTaskId === task.id ? 0.35 : 1, borderTop: dragOverTaskId === task.id ? '2px solid #3B82F6' : ROW_LINE, cursor: 'pointer' }}
-        draggable={!topOnly}
+        draggable={!topOnly && viewMode === 'list'}
         onDragStart={e => { e.stopPropagation(); _dragTaskId = task.id; e.dataTransfer.effectAllowed = 'move'; setDraggingTaskId(task.id) }}
         onDragEnd={e => { e.stopPropagation(); _dragTaskId = null; setDraggingTaskId(null); setDragOverTaskId(null) }}
         onDragOver={e => { if (!_dragTaskId) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverTaskId(task.id) }}
@@ -513,7 +548,7 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
       >
         <div style={{ flex: 1, minWidth: 200, padding: '12px 16px 12px 20px', display: 'flex', alignItems: 'center' }}>
           <div className="flex items-center gap-2 min-w-0">
-            {!topOnly && (
+            {!topOnly && viewMode === 'list' && (
               <span draggable
                 onDragStart={e => { e.stopPropagation(); _dragTaskId = task.id; e.dataTransfer.effectAllowed = 'move'; setDraggingTaskId(task.id) }}
                 onDragEnd={e => { e.stopPropagation(); _dragTaskId = null; setDraggingTaskId(null); setDragOverTaskId(null) }}
@@ -540,6 +575,13 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
             )}
           </div>
         </div>
+        {(
+          <div style={{ width: FN_COL_W, flexShrink: 0, padding: '7px 8px', borderLeft: S.bdL, display: 'flex', alignItems: 'center' }}>
+            {task.hrm_function
+              ? <span style={{ fontSize: 10.5, fontWeight: 600, color: S.t2, background: 'rgba(var(--ink-rgb),0.07)', padding: '1px 7px', borderRadius: 999, whiteSpace: 'nowrap' }}>{HRM_FUNCTION_SHORT[task.hrm_function] ?? task.hrm_function}</span>
+              : <span style={{ fontSize: 10, color: 'rgba(var(--text-rgb),0.2)' }}>-</span>}
+          </div>
+        )}
         {(extraCells ?? []).map(c => (
           <div key={c.key} style={{ width: c.width, padding: '7px 10px', borderLeft: S.bdL, display: 'flex', alignItems: 'center' }}>
             {c.content}
@@ -586,6 +628,7 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
     return (
       <div className="flex" style={{ borderTop: ROW_LINE, borderBottom: LINE }}>
         <div style={{ flex: 1, minWidth: 200, ...hd, borderLeft: 'none', paddingLeft: 20 }}>과제</div>
+        {<div style={{ width: FN_COL_W, flexShrink: 0, ...hd }}>기능</div>}
         {(extraHeaderCols ?? []).map(c => (
           <div key={c.key} style={{ width: c.width, ...hd }}>
             {c.onSortClick ? (
@@ -878,6 +921,68 @@ export default function AnnualRoadmap({ category, allCats, categoryLabels, onRen
                 </div>
               )}
             </div>
+          </div>
+        </div>
+        {schedulePicker}
+      </>
+    )
+  }
+
+  // ── 기능 보기 — 과제를 HR 기능(F1~F10)별로 다시 묶음. 영역 카드와 같은 모양, 과제마다 영역·목표 표시 ──
+  if (viewMode === 'function') {
+    const itemsById = Object.fromEntries(items.map(i => [i.id, i]))
+    // 영역 탭·'중요도' 필터를 그대로 따른다
+    const shownIds = new Set(shownItems.filter(i => isAll || i.category === category).map(i => i.id))
+    const scoped = tasks.filter(t => shownIds.has(t.item_id) && (!topOnly || isTopTask(t)))
+    const groups = [...HRM_FUNCTIONS, FN_NONE]
+      .map(fn => ({ fn, list: scoped.filter(t => (fn === FN_NONE ? !t.hrm_function || !HRM_FUNCTIONS.includes(t.hrm_function) : t.hrm_function === fn)) }))
+      .filter(g => g.list.length > 0)
+    return (
+      <>
+        {viewToggle}
+        <div className="flex-1 min-h-0 overflow-auto px-4 md:px-6" onClick={() => setPickerTaskId(null)}>
+          <div className="pb-4 space-y-3" style={{ width: '100%' }}>
+            {groups.length === 0 && <p style={{ fontSize: 12, color: S.t3, padding: '12px 4px' }}>표시할 과제가 없습니다.</p>}
+            {groups.map(({ fn, list }) => {
+              const Icon = fn === FN_NONE ? CircleDashed : HRM_FUNCTION_ICON[fn] ?? Server
+              const isOpen = !closedFns.has(fn)
+              const done = list.filter(t => t.status === 'done')
+              const visible = (showDoneItems.has(fn) ? list : list.filter(t => t.status !== 'done'))
+                .sort((a, b) => {
+                  const ia = itemsById[a.item_id], ib = itemsById[b.item_id]
+                  return (ia?.category ?? '').localeCompare(ib?.category ?? '') || (ia?.sort_order ?? 0) - (ib?.sort_order ?? 0) || a.sort_order - b.sort_order
+                })
+              return (
+                <div key={fn} className={CARD_CLASS} style={CARD_STYLE}>
+                  <div onClick={() => setClosedFns(p => { const n = new Set(p); if (n.has(fn)) n.delete(fn); else n.add(fn); return n })}
+                    className="flex items-center gap-2 px-4 py-4 cursor-pointer"
+                    style={{ background: HRM_FUNCTION_COLOR[fn] ?? '#E5E7EB', borderBottom: isOpen ? LINE : 'none' }}>
+                    {BANNER_SPACER}
+                    {bannerCaret(isOpen)}
+                    <Icon size={15} strokeWidth={1.75} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
+                    <span style={{ fontSize: 13, fontWeight: 700, color: S.t1, whiteSpace: 'nowrap' }}>{hrmFunctionLabel(fn)}</span>
+                    <span style={{ fontSize: 11, color: S.t3, background: 'rgba(var(--ink-rgb),0.1)', padding: '1px 7px', borderRadius: 99 }}>{list.length - done.length}</span>
+                  </div>
+                  {isOpen && (
+                    <>
+                      {renderColumnHeader(false)}
+                      {visible.map(task => {
+                        const it = itemsById[task.item_id]
+                        return renderTaskRow(task, NEUTRAL_ACCENT, it ? `${displayCat(it.category)} · ${it.title}` : undefined)
+                      })}
+                      {done.length > 0 && (
+                        <button onClick={() => toggleShowDone(fn)}
+                          className="w-full flex items-center gap-1.5 px-5 py-2 text-xs text-[rgba(var(--text-rgb),0.35)] hover:text-[rgba(var(--text-rgb),0.55)] hover:bg-[rgba(var(--ink-rgb),0.04)] transition-colors"
+                          style={{ borderTop: ROW_LINE }}>
+                          <span style={{ fontSize: 8, transform: showDoneItems.has(fn) ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block', transition: 'transform .15s' }}>▶</span>
+                          완료 {done.length}건
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              )
+            })}
           </div>
         </div>
         {schedulePicker}
