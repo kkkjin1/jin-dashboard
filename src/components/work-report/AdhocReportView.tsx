@@ -1,7 +1,8 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { CalendarDays, UserRound, FileText } from 'lucide-react'
 import type { AdhocReport } from '@/types'
 import { useAutosave } from '@/hooks/useAutosave'
 import { useCanonicalSync, canonicalStatusText } from '@/hooks/useCanonicalSync'
@@ -127,13 +128,24 @@ export default function AdhocReportView({
     setRows(prev => prev.map(r => (r.id === row.id ? { id: row.id, report_date: row.report_date, title: row.title, audience: row.audience, created_at: row.created_at } : r)).sort(byRecent))
   }, [])
 
-  function handleDeleted(id: string) {
-    setRows(prev => {
-      const next = prev.filter(r => r.id !== id)
-      setSelectedId(next[0]?.id ?? null)
-      return next
-    })
-    setMobileEditing(false)
+  // 목록 행의 삭제 — 브라우저 확인창 대신 두 번 눌러 삭제(첫 클릭은 "삭제 확인"으로 바뀌고 3초 뒤 원래대로)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  useEffect(() => {
+    if (!confirmDeleteId) return
+    const t = setTimeout(() => setConfirmDeleteId(null), 3000)
+    return () => clearTimeout(t)
+  }, [confirmDeleteId])
+
+  async function handleDelete(id: string) {
+    setConfirmDeleteId(null)
+    // 열려 있는 보고를 지우면 편집 화면을 먼저 닫아(저장 마무리) 지운 행에 다시 쓰지 않게 한다
+    if (id === selectedId) {
+      setSelectedId(rows.find(r => r.id !== id)?.id ?? null)
+      setMobileEditing(false)
+    }
+    const { error } = await supabase.from('adhoc_reports').delete().eq('id', id)
+    if (error) { setNotice('삭제하지 못했습니다'); return }
+    setRows(prev => prev.filter(r => r.id !== id))
     setNotice('삭제했습니다')
   }
 
@@ -183,20 +195,30 @@ export default function AdhocReportView({
             )}
             {visible.map(r => {
               const active = r.id === selectedId
+              const confirming = confirmDeleteId === r.id
               return (
-                <button
-                  key={r.id}
-                  onClick={() => { setSelectedId(r.id); setMobileEditing(true) }}
-                  className="w-full text-left px-2.5 py-2 rounded-lg mb-0.5 transition-colors"
-                  style={{ background: active ? S.accentDim : 'transparent' }}
-                >
-                  <p className="text-[12.5px] font-medium truncate" style={{ color: active ? S.accentText : r.title.trim() ? S.t1 : S.t4 }}>
-                    {r.title.trim() || '(제목 없음)'}
-                  </p>
-                  <p className="text-[11px] truncate mt-0.5" style={{ color: S.t4 }}>
-                    {fmtDateFull(r.report_date)}{r.audience.trim() ? ` · ${r.audience.trim()}` : ''}
-                  </p>
-                </button>
+                <div key={r.id} className="group relative mb-0.5">
+                  <button
+                    onClick={() => { setSelectedId(r.id); setMobileEditing(true) }}
+                    className="w-full text-left pl-2.5 pr-16 py-2 rounded-lg transition-colors"
+                    style={{ background: active ? S.accentDim : 'transparent' }}
+                  >
+                    <p className="text-[12.5px] font-medium truncate" style={{ color: active ? S.accentText : r.title.trim() ? S.t1 : S.t4 }}>
+                      {r.title.trim() || '(제목 없음)'}
+                    </p>
+                    <p className="text-[11px] truncate mt-0.5" style={{ color: S.t4 }}>
+                      {fmtDateFull(r.report_date)}{r.audience.trim() ? ` · ${r.audience.trim()}` : ''}
+                    </p>
+                  </button>
+                  {/* 마우스를 올렸을 때만 보임(확인 대기 중엔 계속 보임) */}
+                  <button
+                    onClick={() => (confirming ? void handleDelete(r.id) : setConfirmDeleteId(r.id))}
+                    className={`absolute right-1.5 top-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded-md text-[10.5px] transition-opacity ${confirming ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 focus:opacity-100'}`}
+                    style={{ color: S.danger, background: confirming ? 'rgba(229,72,77,0.12)' : 'rgba(var(--ink-rgb),0.05)' }}
+                  >
+                    {confirming ? '삭제 확인' : '삭제'}
+                  </button>
+                </div>
               )
             })}
           </div>
@@ -211,7 +233,6 @@ export default function AdhocReportView({
               id={selectedId}
               revealVoice={voiceForSelected}
               onSaved={handleSaved}
-              onDeleted={handleDeleted}
               onBack={() => setMobileEditing(false)}
               onNotice={setNotice}
             />
@@ -239,13 +260,12 @@ export default function AdhocReportView({
 }
 
 function AdhocEditor({
-  supabase, id, revealVoice, onSaved, onDeleted, onBack, onNotice,
+  supabase, id, revealVoice, onSaved, onBack, onNotice,
 }: {
   supabase: SupabaseClient
   id: string
   revealVoice: string | null
   onSaved: (row: AdhocReport) => void
-  onDeleted: (id: string) => void
   onBack: () => void
   onNotice: (msg: string) => void
 }) {
@@ -264,17 +284,16 @@ function AdhocEditor({
 
   if (error) return <p className="px-8 py-5 text-[12.5px]" style={{ color: S.danger }}>불러오지 못했습니다: {error}</p>
   if (!row) return <p className="px-8 py-5 text-[12.5px]" style={{ color: S.t4 }}>불러오는 중…</p>
-  return <AdhocForm supabase={supabase} row={row} revealVoice={revealVoice} onSaved={onSaved} onDeleted={onDeleted} onBack={onBack} onNotice={onNotice} />
+  return <AdhocForm supabase={supabase} row={row} revealVoice={revealVoice} onSaved={onSaved} onBack={onBack} onNotice={onNotice} />
 }
 
 function AdhocForm({
-  supabase, row, revealVoice, onSaved, onDeleted, onBack, onNotice,
+  supabase, row, revealVoice, onSaved, onBack, onNotice,
 }: {
   supabase: SupabaseClient
   row: AdhocReport
   revealVoice: string | null
   onSaved: (row: AdhocReport) => void
-  onDeleted: (id: string) => void
   onBack: () => void
   onNotice: (msg: string) => void
 }) {
@@ -286,9 +305,6 @@ function AdhocForm({
   const [body, setBody] = useState(row.body)
   const [result, setResult] = useState(row.result)
   const [recoverSeq, setRecoverSeq] = useState(0)
-  const [moreOpen, setMoreOpen] = useState(false)
-  const [confirmDelete, setConfirmDelete] = useState(false)
-  const moreRef = useRef<HTMLDivElement>(null)
 
   const draft: Draft = useMemo(
     () => ({ report_date: validDate, title, audience, body, result }),
@@ -310,13 +326,6 @@ function AdhocForm({
     return () => clearTimeout(t)
   }, [revealVoice])
 
-  useEffect(() => {
-    if (!moreOpen) return
-    const onDown = (e: MouseEvent) => { if (!moreRef.current?.contains(e.target as Node)) { setMoreOpen(false); setConfirmDelete(false) } }
-    document.addEventListener('mousedown', onDown)
-    return () => document.removeEventListener('mousedown', onDown)
-  }, [moreOpen])
-
   function applyRecovered() {
     const v = autosave.recovered?.value as Draft | undefined
     if (!v) return
@@ -330,7 +339,6 @@ function AdhocForm({
   }
 
   async function handleCopy() {
-    setMoreOpen(false)
     await canonical.flush()
     navigator.clipboard.writeText(adhocToMarkdown(draft)).then(
       () => onNotice('수시보고를 마크다운으로 복사했습니다'),
@@ -338,71 +346,66 @@ function AdhocForm({
     )
   }
 
-  async function handleDelete() {
-    const { error } = await supabase.from('adhoc_reports').delete().eq('id', row.id)
-    if (error) { onNotice('삭제하지 못했습니다'); return }
-    autosave.discardRecovered()
-    onDeleted(row.id)
+  // 제목 아래 정보 줄 — 3칸 균등 네모 박스. 아이콘+칸 이름은 왼쪽, 값은 오른쪽. 마우스를 올리면 살짝 진해짐
+  const metaBox = 'flex items-center gap-2 min-w-0 h-9 px-3 text-[13px] transition-colors hover:bg-[rgba(var(--ink-rgb),0.07)] focus-within:bg-[rgba(var(--ink-rgb),0.07)]'
+  const metaBoxStyle: React.CSSProperties = {
+    background: 'rgba(var(--ink-rgb),0.04)',
+    border: `1px solid ${S.border}`,
+    borderRadius: 8,
+    color: S.t1,
   }
-
-  const inputStyle: React.CSSProperties = { background: 'rgba(var(--ink-rgb),0.05)', border: `1px solid ${S.border}`, color: S.t1 }
+  const metaLabel = 'flex items-center gap-1.5 text-[12px] font-semibold flex-shrink-0'
 
   return (
     <div className="h-full overflow-y-auto px-4 md:px-8 py-5">
       <div style={{ maxWidth: WRITING_CONTENT_WIDTH }}>
-        <div className="flex items-center gap-2 mb-3">
-          <button onClick={onBack} className="md:hidden text-[12px] px-2 py-1 rounded-lg" style={{ color: S.t3, background: 'rgba(var(--ink-rgb),0.04)' }}>← 목록</button>
-          <input
-            type="date"
-            value={dateLocal}
-            onChange={e => { setDateLocal(e.target.value); if (e.target.value) setValidDate(e.target.value) }}
-            className="text-[12px] px-2 py-1 rounded-lg"
-            style={inputStyle}
-          />
-          <input
-            value={audience}
-            onChange={e => setAudience(e.target.value)}
-            placeholder="보고 대상 (예: 대표님, 피플본부장)"
-            className="flex-1 min-w-0 text-[12px] px-2.5 py-1 rounded-lg focus:outline-none"
-            style={inputStyle}
-          />
-          <span className="text-[10.5px] flex-shrink-0" style={{ color: S.t4 }}>{canonicalStatusText(canonical.status)}</span>
-          <div ref={moreRef} className="relative flex-shrink-0">
-            <button
-              onClick={() => { setMoreOpen(o => !o); setConfirmDelete(false) }}
-              className="w-7 h-7 flex items-center justify-center rounded-lg text-[14px]"
-              style={{ color: S.t3, background: 'rgba(var(--ink-rgb),0.04)' }}
-              title="더보기"
-            >
-              ⋯
-            </button>
-            {moreOpen && (
-              <div
-                className="absolute right-0 top-full mt-1 z-50 rounded-xl py-1"
-                style={{ width: 180, background: 'var(--surface-elevated)', border: `1px solid ${S.borderStrong}`, boxShadow: '0 12px 32px rgba(0,0,0,0.25)' }}
-              >
-                <button onClick={handleCopy} className="w-full text-left px-3 py-1.5 text-[12.5px]" style={{ color: S.t1 }}>마크다운 복사</button>
-                {/* 브라우저 확인창 대신 두 번 눌러 삭제 */}
-                <button
-                  onClick={() => (confirmDelete ? void handleDelete() : setConfirmDelete(true))}
-                  className="w-full text-left px-3 py-1.5 text-[12.5px]"
-                  style={{ color: S.danger }}
-                >
-                  {confirmDelete ? '한 번 더 누르면 삭제' : '삭제'}
-                </button>
-              </div>
-            )}
+        <button onClick={onBack} className="md:hidden mb-3 text-[12px] px-2 py-1 rounded-lg" style={{ color: S.t3, background: 'rgba(var(--ink-rgb),0.04)' }}>← 목록</button>
+
+        {/* 아래 보고 내용 칸과 같은 라벨+박스 — 제목 입력 자리임이 바로 보이게 */}
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[15px] font-bold" style={{ color: S.t1 }}>제목</span>
+            <span className="text-[10.5px]" style={{ color: S.t4 }}>{canonicalStatusText(canonical.status)}</span>
           </div>
+          <input
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+            placeholder="수시보고 제목을 입력하세요"
+            autoFocus={!row.title}
+            className="w-full text-[16px] font-semibold px-3.5 py-2 focus:outline-none"
+            style={{ color: S.t1, background: 'rgba(var(--ink-rgb),0.03)', border: `1px solid ${S.borderStrong}`, borderRadius: S.r }}
+          />
         </div>
 
-        <input
-          value={title}
-          onChange={e => setTitle(e.target.value)}
-          placeholder="제목"
-          autoFocus={!row.title}
-          className="w-full text-[18px] font-semibold mb-4 bg-transparent focus:outline-none"
-          style={{ color: S.t1 }}
-        />
+        {/* 제목 바로 아래 붙는 정보 줄 — 보고일 · 보고 대상 · 마크다운 복사 3칸 */}
+        <div className="grid grid-cols-3 gap-2 mt-2.5 mb-6">
+          <label className={metaBox} style={metaBoxStyle}>
+            <span className={metaLabel} style={{ color: S.t2 }}><CalendarDays size={14} strokeWidth={2} />보고일</span>
+            <span className="flex-1 min-w-0 flex justify-end">
+              <input
+                type="date"
+                value={dateLocal}
+                onChange={e => { setDateLocal(e.target.value); if (e.target.value) setValidDate(e.target.value) }}
+                className="bg-transparent focus:outline-none min-w-0 font-medium"
+                style={{ color: S.t1 }}
+              />
+            </span>
+          </label>
+          <label className={metaBox} style={metaBoxStyle}>
+            <span className={metaLabel} style={{ color: S.t2 }}><UserRound size={14} strokeWidth={2} />보고 대상</span>
+            <input
+              value={audience}
+              onChange={e => setAudience(e.target.value)}
+              placeholder="예: 대표님"
+              className="flex-1 min-w-0 bg-transparent focus:outline-none text-right font-medium"
+              style={{ color: S.t1 }}
+            />
+          </label>
+          <button onClick={handleCopy} className={`${metaBox} justify-between`} style={metaBoxStyle}>
+            <span className={metaLabel} style={{ color: S.t2 }}><FileText size={14} strokeWidth={2} />마크다운</span>
+            <span className="font-medium" style={{ color: S.t1 }}>복사하기</span>
+          </button>
+        </div>
 
         {autosave.recovered && (
           <div
@@ -422,25 +425,33 @@ function AdhocForm({
             key={`body:${recoverSeq}`}
             heightKey="adhoc:body"
             label="보고 내용"
+            largeLabel
             variant="primary"
             value={body}
             onChange={setBody}
             minHeight={320}
             readOnly={false}
             enableVoice
+            borderless
+            enableFontSize
           />
-          <TextBox
-            key={`result:${recoverSeq}`}
-            heightKey="adhoc:result"
-            label="결과 · 피드백"
-            secondaryLabel="Alt+3 CEO · Alt+4 CSO 표시 줄은 의사결정 탭에 모입니다"
-            variant="callout"
-            value={result}
-            onChange={setResult}
-            minHeight={200}
-            readOnly={false}
-            enableVoice
-          />
+          <div>
+            <TextBox
+              key={`result:${recoverSeq}`}
+              heightKey="adhoc:result"
+              label="결과 · 피드백"
+              largeLabel
+              variant="callout"
+              value={result}
+              onChange={setResult}
+              minHeight={200}
+              readOnly={false}
+              enableVoice
+              borderless
+              enableFontSize
+            />
+            <p className="text-[11px] mt-1.5" style={{ color: S.t4 }}>Alt+3 CEO · Alt+4 CSO 표시 줄은 의사결정 탭에 모입니다</p>
+          </div>
         </div>
       </div>
     </div>

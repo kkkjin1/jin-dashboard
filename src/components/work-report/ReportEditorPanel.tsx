@@ -131,7 +131,7 @@ function PrevCell({ value }: { value: string | undefined }) {
 type TextBoxVariant = 'primary' | 'callout' | 'default' | 'cell'
 
 export function TextBox({
-  label, secondaryLabel, helper, value, onChange, minHeight, placeholder, readOnly, statusLabel, variant = 'default', fill = false, heightKey, enableVoice = false,
+  label, secondaryLabel, helper, value, onChange, minHeight, placeholder, readOnly, statusLabel, variant = 'default', fill = false, heightKey, enableVoice = false, borderless = false, largeLabel = false, enableFontSize = false,
 }: {
   label: string
   secondaryLabel?: string
@@ -149,7 +149,14 @@ export function TextBox({
   heightKey?: string
   // 경영진 의견 줄 표시(Alt+3/4) — 수시보고에서만 켠다(의사결정 탭이 모으는 출처)
   enableVoice?: boolean
+  // 테두리·왼쪽 강조선 없이 옅은 배경만으로 칸을 구분(수시보고)
+  borderless?: boolean
+  // 칸 이름을 크게(수시보고)
+  largeLabel?: boolean
+  // 줄 단위 글자 크기 단축키 Ctrl+Shift+. / , (수시보고)
+  enableFontSize?: boolean
 }) {
+  const accentBar = variant === 'callout' && !borderless
   const [savedHeight] = useState(() => loadBoxHeight(heightKey))
   // 내용이나 옆 칸 때문에 바뀐 높이는 저장하지 않도록, 사용자가 누르고 뗀 사이에 바뀐 경우만 저장한다
   function trackResize(e: React.PointerEvent<HTMLDivElement>) {
@@ -187,11 +194,11 @@ export function TextBox({
     // 왼쪽 accent bar 하나로도 이번 업데이트/다음 액션과는 다른 성격(결정/요청)임이
     // 충분히 구분되므로 배경은 아주 옅은 tint로만 남긴다.
     background: variant === 'cell' ? 'transparent' : variant === 'callout' ? 'rgba(76,127,224,0.05)' : 'rgba(var(--ink-rgb),0.03)',
-    border: variant === 'cell' ? 'none' : variant === 'primary' ? `1px solid ${S.borderStrong}` : `1px solid ${S.border}`,
-    borderLeft: variant === 'callout' ? `3px solid ${S.accent}` : undefined,
+    border: variant === 'cell' || borderless ? 'none' : variant === 'primary' ? `1px solid ${S.borderStrong}` : `1px solid ${S.border}`,
+    borderLeft: accentBar ? `3px solid ${S.accent}` : undefined,
     borderRadius: variant === 'cell' ? 0 : S.r,
     // 편집기 자체가 위아래 8px 여백을 가지므로 칸 여백은 그만큼 줄인다(예전 textarea 12px과 같은 글 위치)
-    padding: variant === 'callout' ? '4px 14px 4px 12px' : '4px 14px',
+    padding: accentBar ? '4px 14px 4px 12px' : '4px 14px',
     color: S.t1,
     fontSize: 13.5,
     lineHeight: 1.7,
@@ -202,8 +209,8 @@ export function TextBox({
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-baseline gap-1.5">
             <span
-              className={variant === 'primary' ? 'text-[12.5px] font-bold' : 'text-[11px] font-semibold'}
-              style={{ color: variant === 'primary' ? S.t1 : S.t3 }}
+              className={largeLabel ? 'text-[15px] font-bold' : variant === 'primary' ? 'text-[12.5px] font-bold' : 'text-[11px] font-semibold'}
+              style={{ color: largeLabel || variant === 'primary' ? S.t1 : S.t3 }}
             >
               {label}
             </span>
@@ -218,7 +225,7 @@ export function TextBox({
           확정 보고(readOnly)는 편집기 대신 읽기 표시. 바깥에서 값을 바꾸려면 key로 다시 띄운다
           (편집기는 처음 값만 읽음 — 임시본 적용 참고). */}
       {readOnly ? (
-        <div className="wr-rich" style={{ ...boxStyle, height: undefined, padding: variant === 'callout' ? '12px 14px 12px 12px' : '12px 14px' }}>
+        <div className="wr-rich" style={{ ...boxStyle, height: undefined, padding: accentBar ? '12px 14px 12px 12px' : '12px 14px' }}>
           <RichText value={value} style={{ fontSize: 13.5, lineHeight: 1.7, color: S.t1 }} />
         </div>
       ) : (
@@ -229,11 +236,11 @@ export function TextBox({
           style={{ ...boxStyle, resize: 'vertical', overflow: 'auto', cursor: 'text' }}
         >
           {placeholder && !hasContent(value) && (
-            <span className="absolute pointer-events-none select-none" style={{ top: 12, left: variant === 'callout' ? 12 : 14, color: S.t4 }}>
+            <span className="absolute pointer-events-none select-none" style={{ top: 12, left: accentBar ? 12 : 14, color: S.t4 }}>
               {placeholder}
             </span>
           )}
-          <TiptapEditor value={value} onChange={onChange} dark hideToolbar enableToggle enableVoice={enableVoice} minHeight={Math.max(40, minHeight - 24)} />
+          <TiptapEditor value={value} onChange={onChange} dark hideToolbar enableToggle enableVoice={enableVoice} enableFontSize={enableFontSize} fontSizeBase={13.5} minHeight={Math.max(40, minHeight - 24)} />
         </div>
       )}
     </div>

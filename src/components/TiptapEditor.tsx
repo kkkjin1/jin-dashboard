@@ -10,6 +10,7 @@ import {
   getVoiceAtSelection, setVoiceAtSelection, toggleVoiceAtSelection, type VoiceTarget,
 } from '@/lib/tiptapExtensions'
 import { pmDocToMarkdown } from '@/lib/tiptapMarkdown'
+import { FontSize, getCurrentBlockFontSize } from '@/lib/tiptapFontSize'
 
 const TEXT_COLORS = [
   { hex: '#EF4444', label: 'red' },
@@ -34,6 +35,12 @@ const EXTENSIONS_WITH_TOGGLE = [...EXTENSIONS, ToggleInputRules]
 // enableQa: 질문 줄 지정(Ctrl+Alt+Q / 툴바 Q) — 1on1 기록 화면에서만
 const EXTENSIONS_WITH_QA = [...EXTENSIONS, QaShortcut]
 const EXTENSIONS_WITH_TOGGLE_QA = [...EXTENSIONS_WITH_TOGGLE, QaShortcut]
+// enableFontSize: 줄 단위 글자 크기(Ctrl+Shift+. 키우기 / Ctrl+Shift+, 줄이기) — 생각스케치와 같은 기능.
+// 지금은 수시보고(토글 켠 화면)에서만 쓰므로 토글과 함께인 조합만 둔다.
+const EXTENSIONS_WITH_TOGGLE_FONTSIZE = [...EXTENSIONS_WITH_TOGGLE, FontSize]
+const FONT_SIZE_MIN = 9
+const FONT_SIZE_MAX = 48
+const FONT_SIZE_STEP = 1.5
 
 interface Props {
   value: string
@@ -51,12 +58,15 @@ interface Props {
   enableQa?: boolean
   // enableVoice: 경영진 의견 줄 표시(Alt+3 CEO / Alt+4 CSO / 툴바) — 회의록·안건·세부task 메모·퀵메모에서만
   enableVoice?: boolean
+  // enableFontSize: 줄 단위 글자 크기 단축키. fontSizeBase는 크기 지정 안 된 줄의 기본 크기(px)
+  enableFontSize?: boolean
+  fontSizeBase?: number
 }
 
 const VOICE_SHORTCUTS: Record<VoiceTarget, string> = { CEO: 'Alt+3', CSO: 'Alt+4' }
 
 export default function TiptapEditor({
-  value, onChange, onSubmit, onEscape, onExpand, onSelectionChange, autoFocus, minHeight = 160, className, dark, hideToolbar, enableToggle, enableQa, enableVoice,
+  value, onChange, onSubmit, onEscape, onExpand, onSelectionChange, autoFocus, minHeight = 160, className, dark, hideToolbar, enableToggle, enableQa, enableVoice, enableFontSize, fontSizeBase = 13.5,
 }: Props) {
   // Refs로 콜백 최신값 유지 — useCallback deps를 [] 로 고정해 Tiptap이 매 렌더마다 options 변경을 감지하지 않도록 함
   const onChangeRef          = useRef(onChange)
@@ -65,6 +75,8 @@ export default function TiptapEditor({
   const onSelectionChangeRef = useRef(onSelectionChange)
   const enableVoiceRef       = useRef(enableVoice)
   const enableToggleRef      = useRef(enableToggle)
+  const enableFontSizeRef    = useRef(enableFontSize)
+  const fontSizeBaseRef      = useRef(fontSizeBase)
   const editorRef            = useRef<ReturnType<typeof useEditor>>(null)
   useEffect(() => {
     onChangeRef.current = onChange
@@ -73,6 +85,8 @@ export default function TiptapEditor({
     onSelectionChangeRef.current = onSelectionChange
     enableVoiceRef.current = enableVoice
     enableToggleRef.current = enableToggle
+    enableFontSizeRef.current = enableFontSize
+    fontSizeBaseRef.current = fontSizeBase
   })
   const [voiceMenuOpen, setVoiceMenuOpen] = useState(false)
   const voiceMenuRef = useRef<HTMLDivElement>(null)
@@ -101,6 +115,13 @@ export default function TiptapEditor({
     if (enableVoiceRef.current && e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.isComposing && e.keyCode !== 229
       && (e.code === 'Digit3' || e.code === 'Digit4')) {
       return toggleVoiceAtSelection(ed, e.code === 'Digit3' ? 'CEO' : 'CSO')
+    }
+    if (enableFontSizeRef.current && (e.ctrlKey || e.metaKey) && e.shiftKey && (e.code === 'Period' || e.code === 'Comma')) {
+      e.preventDefault()
+      const current = getCurrentBlockFontSize(ed.state, fontSizeBaseRef.current)
+      const delta = e.code === 'Period' ? FONT_SIZE_STEP : -FONT_SIZE_STEP
+      ed.chain().focus().setBlockFontSize(Math.min(FONT_SIZE_MAX, Math.max(FONT_SIZE_MIN, +(current + delta).toFixed(1)))).run()
+      return true
     }
     // Tab/Shift-Tab을 리스트 밖(또는 더 이상 들여쓰기/내어쓰기 불가한 위치)에서 누르면
     // sinkListItem/liftListItem이 실패(false)해 브라우저 기본 동작인 "다음 포커스 요소로 이동"이
@@ -163,7 +184,7 @@ export default function TiptapEditor({
 
   const editor = useEditor({
     extensions: enableToggle
-      ? (enableQa ? EXTENSIONS_WITH_TOGGLE_QA : EXTENSIONS_WITH_TOGGLE)
+      ? (enableQa ? EXTENSIONS_WITH_TOGGLE_QA : enableFontSize ? EXTENSIONS_WITH_TOGGLE_FONTSIZE : EXTENSIONS_WITH_TOGGLE)
       : (enableQa ? EXTENSIONS_WITH_QA : EXTENSIONS),
     content: legacyToHtml(value),
     editorProps: {
