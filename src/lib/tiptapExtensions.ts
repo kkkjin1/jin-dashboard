@@ -5,6 +5,7 @@ import { Extension, InputRule, mergeAttributes, wrappingInputRule } from '@tipta
 import type { Editor } from '@tiptap/react'
 import { Plugin, PluginKey, Selection, TextSelection, type Transaction } from '@tiptap/pm/state'
 import { Slice, type Node as PMNode, type Mark as PMMark } from '@tiptap/pm/model'
+import { canJoin } from '@tiptap/pm/transform'
 import StarterKit from '@tiptap/starter-kit'
 import Italic from '@tiptap/extension-italic'
 import OrderedList from '@tiptap/extension-ordered-list'
@@ -241,6 +242,30 @@ export const CustomOrderedList = OrderedList.extend({
     }
     if (type && type !== '1') attrs.type = type
     return ['ol', attrs, 0]
+  },
+  // 기본 규칙은 "4. " 입력 시 위쪽 목록과만 합친다 — 공백 줄로 갈라진 뒤 "1."이 된 줄을
+  // Backspace로 빼고 "4. "로 다시 달면 그 줄만 4번 목록이 되고, 바로 아래 붙은 원래 목록
+  // (start=1)은 따로 남아 5로 이어지지 않았다(2026-10-30 제보). 새 목록 바로 아래에 붙은
+  // 번호 목록이 있으면 합쳐서 아래 항목들이 새 번호를 이어받게 한다.
+  addInputRules() {
+    return (this.parent?.() ?? []).map(rule => new InputRule({
+      find: rule.find,
+      handler: props => {
+        const res = rule.handler(props)
+        if (res === null) return res
+        const { tr } = props.state
+        const { $from } = tr.selection
+        let d = $from.depth
+        while (d > 0 && $from.node(d).type.name !== this.name) d--
+        if (d === 0) return res
+        const after = $from.after(d)
+        const next = tr.doc.resolve(after).nodeAfter
+        if (next?.type.name === this.name && (!next.attrs.type || next.attrs.type === '1') && canJoin(tr.doc, after)) {
+          tr.join(after)
+        }
+        return res
+      },
+    }))
   },
 })
 
