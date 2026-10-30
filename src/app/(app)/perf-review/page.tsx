@@ -106,6 +106,46 @@ const RETRO_COLORS = [
   'var(--accent-primary)',                  // 3/3 — 파랑
 ]
 
+// 회고 3칸(잘한 것 / 아쉬운 것 / 이어갈 것) 중 내용이 있는 칸 수 (0~3)
+function countFilled(...vals: (string | null | undefined)[]): number {
+  return vals.filter(v => v != null && stripHtml(v).length > 2).length
+}
+
+// ─── RecordStrip — 상단 기록 현황: 주간은 그달의 주차, 당월은 그해 1~12월. 칩 색 = 회고 작성 칸 수 ──
+type RecordItem = { key: string; label: string; filled: number; current: boolean; future: boolean; divider?: boolean; onClick: () => void }
+function RecordStrip({ items }: { items: RecordItem[] }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
+      <span style={{ fontSize: 10.5, fontWeight: 600, color: S.t4, marginRight: 3, whiteSpace: 'nowrap' }}>기록</span>
+      {items.map(it => {
+        const filled = it.filled > 0
+        return (
+          <React.Fragment key={it.key}>
+          {/* 주차 칩들과 그달 월 회고 칩 사이 구분선 */}
+          {it.divider && <span aria-hidden style={{ width: 1, height: 14, background: 'rgba(var(--ink-rgb),0.14)', margin: '0 3px' }} />}
+          <button type="button" onClick={it.onClick}
+            title={`${it.label} — ${it.future ? '아직 오지 않은 기간' : filled ? `회고 ${it.filled}/3칸 작성` : '회고 미작성'}`}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 5, padding: '2px 8px 2px 6px', borderRadius: 20, cursor: 'pointer',
+              fontSize: 11, fontWeight: it.current ? 700 : 500, whiteSpace: 'nowrap',
+              color: it.current ? S.t1 : it.future ? S.t4 : S.t2,
+              background: it.current ? 'rgba(var(--ink-rgb),0.08)' : 'transparent',
+              border: `1px solid ${it.current ? 'rgba(var(--ink-rgb),0.28)' : 'rgba(var(--ink-rgb),0.09)'}`,
+              opacity: it.future ? 0.6 : 1,
+            }}>
+            {/* 작성 칸 수에 따라 점 색: 없음 = 빈 원, 1/3 초록, 2/3 황, 3/3 파랑 */}
+            <span style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+              background: filled ? RETRO_COLORS[it.filled] : 'transparent',
+              border: filled ? 'none' : '1.3px solid rgba(var(--ink-rgb),0.25)' }} />
+            {it.label}
+          </button>
+          </React.Fragment>
+        )
+      })}
+    </div>
+  )
+}
+
 // ─── WeekPills ─────────────────────────────────────────────────────────────
 interface PillsProps {
   weekStart: Date
@@ -304,7 +344,8 @@ function RetroField({ label, dotColor, headerBg, placeholder, editorKey, value, 
           {saved ? '저장됨' : placeholder}
         </span>
       </div>
-      <div style={{ flex: 1, overflow: 'hidden', padding: '2px 16px 6px' }}>
+      {/* 내용이 칸보다 길면 칸 안에서 스크롤 (전에는 hidden이라 잘리고 스크롤이 안 됐음) */}
+      <div className="scrollbar-hide" style={{ flex: 1, minHeight: 0, overflowY: 'auto', overscrollBehaviorY: 'contain', padding: '2px 16px 6px' }}>
         {value === null
           ? <div style={{ padding: '10px 0', fontSize: 11.5, color: S.t4 }}>불러오는 중...</div>
           : <TiptapEditor key={editorKey} value={value} onChange={onChange} dark hideToolbar minHeight={44} />
@@ -346,6 +387,18 @@ export default function CompletedTestPage() {
   const goodRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const badRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const nextRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // 기간별 회고 작성 칸 수 (period_key → 0~3) — 상단 기록 현황용. 입력할 때마다 현재 기간 값을 갱신
+  const [filledMap, setFilledMap] = useState<Record<string, number>>({})
+  useEffect(() => {
+    supabase.from('period_journals').select('period_key, good, bad, next_focus')
+      .then(({ data }) => {
+        const m: Record<string, number> = {}
+        for (const r of (data ?? []) as { period_key: string; good: string | null; bad: string | null; next_focus: string | null }[]) m[r.period_key] = countFilled(r.good, r.bad, r.next_focus)
+        setFilledMap(m)
+      })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const [open, setOpen] = useState({ meetings: true, completed: true, todos: true, schedule: true, memos: true, journals: true })
 
@@ -445,18 +498,21 @@ export default function CompletedTestPage() {
 
   function handleGoodChange(v: string) {
     setGood(v)
+    setFilledMap(m => ({ ...m, [periodKey]: countFilled(v, bad, nextFocus) }))
     setGoodSaved(false)
     if (goodRef.current) clearTimeout(goodRef.current)
     goodRef.current = setTimeout(async () => { await upsertJournal('good', v); setGoodSaved(true) }, 300)
   }
   function handleBadChange(v: string) {
     setBad(v)
+    setFilledMap(m => ({ ...m, [periodKey]: countFilled(good, v, nextFocus) }))
     setBadSaved(false)
     if (badRef.current) clearTimeout(badRef.current)
     badRef.current = setTimeout(async () => { await upsertJournal('bad', v); setBadSaved(true) }, 300)
   }
   function handleNextChange(v: string) {
     setNextFocus(v)
+    setFilledMap(m => ({ ...m, [periodKey]: countFilled(good, bad, v) }))
     setNextSaved(false)
     if (nextRef.current) clearTimeout(nextRef.current)
     nextRef.current = setTimeout(async () => { await upsertJournal('next_focus', v); setNextSaved(true) }, 300)
@@ -478,6 +534,31 @@ export default function CompletedTestPage() {
   const periodTitle = mode === 'weekly' ? fmtWeekTitle(weekStart) : fmtMonthTitle(selectedMonth)
   const periodRange = mode === 'weekly' ? fmtWeekRange(weekStart) : ''
   const retroLabel = mode === 'weekly' ? '이번 주 회고' : '이번 달 회고'
+
+  // 기록 현황 칩 — 주간: 보고 있는 주(월요일 기준)가 속한 달의 주차들 / 당월: 보고 있는 달이 속한 해의 1~12월
+  const recordItems = (() => {
+    if (mode === 'weekly') {
+      const y = weekStart.getFullYear(), mo = weekStart.getMonth()
+      const thisWeek = localDate(getWeekStart(new Date()))
+      const first = new Date(y, mo, 1)
+      let mon = addDays(first, (8 - (first.getDay() || 7)) % 7)   // 그달 첫 월요일
+      const out: RecordItem[] = []
+      while (mon.getMonth() === mo) {
+        const ws = mon, key = `week_${localDate(ws)}`
+        out.push({ key, label: `${weekOfMonth(ws)}주`, filled: filledMap[key] ?? 0, current: localDate(ws) === localDate(weekStart), future: localDate(ws) > thisWeek, onClick: () => setWeekStart(ws) })
+        mon = addDays(mon, 7)
+      }
+      // 그달 월 회고 작성 여부 — 누르면 당월 모드로 그 달을 연다
+      const ym = `${y}-${String(mo + 1).padStart(2, '0')}`, mKey = `month_${ym}`
+      out.push({ key: mKey, label: `${mo + 1}월 회고`, filled: filledMap[mKey] ?? 0, current: false, future: ym > nowYM, divider: true, onClick: () => { setSelectedMonth(ym); setMode('monthly') } })
+      return out
+    }
+    const y = selectedMonth.split('-')[0]
+    return Array.from({ length: 12 }, (_, i) => {
+      const ym = `${y}-${String(i + 1).padStart(2, '0')}`, key = `month_${ym}`
+      return { key, label: `${i + 1}월`, filled: filledMap[key] ?? 0, current: ym === selectedMonth, future: ym > nowYM, onClick: () => setSelectedMonth(ym) }
+    })
+  })()
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: S.bg, overflow: 'hidden' }}>
@@ -506,6 +587,8 @@ export default function CompletedTestPage() {
               </div>
               <button onClick={nextPeriod} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid rgba(var(--ink-rgb),0.09)`, background: 'rgba(var(--ink-rgb),0.055)', color: S.t3, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>›</button>
             </div>
+            {/* 기록 현황 — 어느 주/달에 회고를 썼는지 한눈에, 누르면 그 기간으로 이동 */}
+            <RecordStrip items={recordItems} />
           </div>
 
           {/* 우: 탭만 */}
