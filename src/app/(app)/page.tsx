@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect, useMemo, useCallback, Fragment } from 'react'
+import { useState, useRef, useEffect, useMemo, Fragment } from 'react'
 import { CATEGORY_PALETTE, MEMO_TAG, MEETING_CATEGORY, FIXED_MEETING_TAGS, colorKeyFromName, PART_COLOR } from '@/lib/categoryColors'
 import { useOrgData } from '@/hooks/useOrgData'
 import { createPortal } from 'react-dom'
@@ -191,10 +191,10 @@ function CardSection({
   )
 }
 
-// 금주 업무 열 — 월~금 5열(오늘 열만 1.4fr), 직전주 미완료·다음주로 연기는 열 아래 한 행.
-// 열 최소 폭 합보다 좁으면 금주 업무 columns 영역만 가로 스크롤된다.
-const WEEK_COL_MIN = 120, WEEK_TODAY_MIN = 170
-const WEEK_CARRY_H = 150   // 직전주·다음주 행 높이 (넘치면 스크롤바 없이 행 안에서 스크롤)
+// 금주 업무 7열 — 직전주 미완료 | 월~금 | 다음주로 연기, 모두 같은 폭 (오늘은 유리 테두리로만 강조).
+// 열이 좁은 만큼 업무명은 WEEK_ITEM_LINES줄까지 줄바꿈해 보여준다. 최소 폭 합보다 좁으면 columns 영역만 가로 스크롤.
+const WEEK_COL_MIN = 110
+const WEEK_ITEM_LINES = 4
 // 금주 업무 즉석 할일 요일 이동용 드래그 데이터 타입 (타임라인용 'tl-extra'와 구분)
 const WEEK_QUICK_DND = 'week-quick-id'
 // '이전 N건' 모달에서 요일 열로 끌어 옮길 때 — 할 일(task_todos)·세부task(agenda_sub_tasks). 값은 JSON {kind, id}
@@ -219,14 +219,14 @@ const BOTTOM_TASK_COLS = '56px minmax(0, 1fr) 50px 36px'
 const BOX_PAD_X = 22, BOX_PAD_Y = 12
 const BOX_FIRST_ROW_H = 36   // 퀵메모 입력 ↔ 과업 헤더 ↔ 회고 헤더
 const BOTTOM_ROW_H = 32      // 데이터 행
-const BOX_TITLE_H = 36   // 박스 제목 행 높이 (제목 위아래 여백 포함)
+const BOX_TITLE_H = 24   // 박스 제목 행 높이 — 제목을 위에 붙여 바로 아래 머리글 줄과 간격을 좁게
 
 // ── Timeline constants ─────────────────────────────────────────────────────
 const H_START = 9, H_END = 21
 const snap5 = (h: number) => Math.round(h * 12) / 12   // 타임라인 시간은 5분 단위
 // 세로 타임라인 — 위→아래로 시간이 흐른다. 시각은 칸 높이에 대한 %로 놓아 칸이 어떤 크기든 9~21시가 꽉 차고,
 // 칸이 TL_HOUR_MIN × 12보다 낮을 때만 스크롤한다 (측정값에 기대지 않아 zoom 배율과 무관)
-const TL_COL_W     = 'clamp(340px, 30%, 420px)'   // 홈 왼쪽 타임라인 열 폭
+const TL_COL_W     = 'clamp(306px, 27%, 378px)'   // 홈 왼쪽 타임라인 열 폭 (남는 폭은 금주 업무로)
 const TL_HOURS     = H_END - H_START
 const TL_HOUR_MIN  = 40
 const TL_GUTTER    = 44      // 왼쪽 시각 표시 칸
@@ -238,31 +238,23 @@ const TL_NOW       = '#E05252'
 const TL_TODO_DND  = 'tl-todo-id'   // '시간 미정' 칩 → 타임라인으로 끌어 시간 배치
 const tlPct = (h: number) => `${((h - H_START) / TL_HOURS) * 100}%`
 
-// 타임라인 카드 색 — 옅은 바탕 + 왼쪽 색 막대로 종류만 구분 (구글캘린더 / 회의 / 업무)
-type TlTone = { bg: string; bar: string }
+// 타임라인 카드 색 — 파스텔 바탕(투명도 높게) + 같은 색 계열 얇은 테두리로 종류만 구분 (구글캘린더 / 회의 / 업무)
+type TlTone = { bg: string; bd: string }
 const TL_TONES = {
-  gcal: { bg: 'rgba(66,133,244,0.17)',  bar: 'rgb(66,133,244)' },
-  meet: { bg: 'rgba(94,127,168,0.20)',  bar: 'rgb(94,127,168)' },
-  task: { bg: 'rgba(43,156,140,0.18)',  bar: 'rgb(43,156,140)' },
+  gcal: { bg: 'rgba(132,176,242,0.13)', bd: 'rgba(132,176,242,0.30)' },
+  meet: { bg: 'rgba(160,178,206,0.15)', bd: 'rgba(160,178,206,0.34)' },
+  task: { bg: 'rgba(124,206,190,0.14)', bd: 'rgba(124,206,190,0.34)' },
 } satisfies Record<string, TlTone>
 const tlCardStyle = (tone: TlTone): React.CSSProperties => ({
-  background: tone.bg, border: '1px solid rgba(var(--ink-rgb),0.07)', borderLeft: `3px solid ${tone.bar}`,
+  background: tone.bg, border: `1px solid ${tone.bd}`,
 })
 
 // ── TimelineCard — 회의·고정회의·할일·업무·드래그 항목 공통 카드 ─────────
-// 드래그로 이동/끝시간 조절, 움직이지 않고 떼면 클릭 — 제목이 잘린 경우에만 확대 팝오버를 연다.
-type TlCardInfo = {
-  title: string; subtitle?: string; range: string
-  bg: string; bd: string; light?: boolean   // light: 밝은 배경 — 글자색을 본문색으로
-  action?: { label: string; run: () => void }
-  anchor: { left: number; top: number; width: number; height: number }
-}
-// 위치·크기는 칸에 대한 % (calc 문자열), px는 한 줄/여러 줄 판단용 예상 높이
+// 박스에는 제목만(최대 2줄), 시간·전체 제목은 마우스를 올리면 툴팁으로. 드래그로 이동/끝시간 조절.
+// 위치·크기는 칸에 대한 % (calc 문자열), px는 한 줄/두 줄 판단용 예상 높이
 type TlGeom = { left: string; width: string; top: string; height: string; px: number }
-// 카드 안 글자가 잘렸는지 — 한 줄 칸은 가로, 줄바꿈 칸은 세로 넘침으로 판단
-function tlClipped(el: HTMLElement) {
-  return el.scrollHeight > el.clientHeight + 1 || Array.from(el.querySelectorAll('span')).some(sp => sp.scrollWidth > sp.clientWidth + 1)
-}
+// hover 툴팁 — 화면 좌표(zoom 환산 후)와 보여줄 내용
+type TlTip = { title: string; range: string; subtitle?: string; hint?: string; x: number; y: number }
 // 겹치는 카드끼리만 나란히 — 시작 순으로 빈 칸에 넣고, 서로 이어서 겹치는 묶음은 같은 칸 수로 나눈다 (구글캘린더 방식)
 type TlSlot = { key: string; hour: number; dur: number }
 function layoutTlSlots(slots: TlSlot[]) {
@@ -281,45 +273,37 @@ function layoutTlSlots(slots: TlSlot[]) {
   flush()
   return out
 }
-// 카드 안쪽 — 낮은 카드는 [제목 · 시간] 한 줄, 높은 카드는 시간 아래 제목을 줄바꿈해 보여준다
-function TlCardBody({ g, range, title, subtitle, padRight = 0 }: {
-  g: TlGeom; range: string; title: React.ReactNode; subtitle?: string; padRight?: number
-}) {
-  if (g.px < TL_COMPACT_H) return (
-    <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, minWidth: 0, paddingRight: padRight }}>
-      <span style={{ flex: 1, minWidth: 0, fontSize: 11.5, fontWeight: 600, color: TEXT1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3, letterSpacing: '-0.01em' }}>{title}</span>
-      <span style={{ flexShrink: 0, fontSize: 10, color: TEXT2, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{range}</span>
+// 카드 안쪽 — 제목만. 낮은 카드는 한 줄, 높은 카드는 두 줄까지 (넘치면 …)
+function TlCardBody({ g, title, padRight = 0 }: { g: TlGeom; title: React.ReactNode; padRight?: number }) {
+  const lines = g.px < TL_COMPACT_H ? 1 : 2
+  return (
+    <div style={{ fontSize: 11.5, fontWeight: 400, color: TEXT1, lineHeight: '16px', letterSpacing: '-0.01em', paddingRight: padRight, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: lines, WebkitBoxOrient: 'vertical', wordBreak: lines === 1 ? 'break-all' : 'keep-all', overflowWrap: 'anywhere' }}>
+      {title}
     </div>
   )
-  return (
-    <>
-      <div style={{ fontSize: 11.5, fontWeight: 600, color: TEXT1, lineHeight: 1.35, wordBreak: 'keep-all', overflowWrap: 'anywhere', paddingRight: padRight, letterSpacing: '-0.01em' }}>{title}</div>
-      <span style={{ fontSize: 10, color: TEXT2, lineHeight: 1.3, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontVariantNumeric: 'tabular-nums' }}>{range}</span>
-      {subtitle && <div style={{ fontSize: 10, color: TEXT3, lineHeight: 1.35, marginTop: 1, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{subtitle}</div>}
-    </>
-  )
 }
-function TimelineCard({ g, tone, title, prefix, subtitle, range, zIndex = 5, onDrag, onResize, onRemove, removeLabel = '빼기', onOpen }: {
+// 카드 위치 → hover 툴팁 좌표 (fixed 툴팁도 zoom 안에 있어 화면 px를 배율로 나눈다)
+function tlTipAt(el: HTMLElement, tip: Omit<TlTip, 'x' | 'y'>): TlTip {
+  const r = el.getBoundingClientRect()
+  const z = (el as HTMLElement & { currentCSSZoom?: number }).currentCSSZoom ?? 1
+  return { ...tip, x: (r.left + r.width / 2) / z, y: r.top / z }
+}
+function TimelineCard({ g, tone, title, prefix, subtitle, range, zIndex = 5, onDrag, onResize, onRemove, removeLabel = '빼기', onTip }: {
   g: TlGeom
   tone: TlTone; title: string; prefix?: string; subtitle?: string; range: string
   zIndex?: number
-  onDrag: (clientY: number, onClick: () => void) => void
+  onDrag: (clientY: number) => void
   onResize: (clientY: number) => void
   onRemove?: () => void
   removeLabel?: string
-  onOpen: (info: TlCardInfo) => void
+  onTip: (tip: TlTip | null) => void
 }) {
-  const rootRef = useRef<HTMLDivElement>(null)
-  const handleClick = () => {
-    const el = rootRef.current
-    if (!el || !tlClipped(el)) return
-    const r = el.getBoundingClientRect()
-    onOpen({ title: `${prefix ?? ''}${title}`, subtitle, range, bg: tone.bg, bd: tone.bar, light: true, anchor: { left: r.left, top: r.top, width: r.width, height: r.height } })
-  }
   const compact = g.px < TL_COMPACT_H
   return (
-    <div ref={rootRef} className="group"
-      onMouseDown={e => { e.preventDefault(); onDrag(e.clientY, handleClick) }}
+    <div className="group"
+      onMouseDown={e => { e.preventDefault(); onTip(null); onDrag(e.clientY) }}
+      onMouseEnter={e => onTip(tlTipAt(e.currentTarget, { title: `${prefix ?? ''}${title}`, range, subtitle }))}
+      onMouseLeave={() => onTip(null)}
       style={{
         position: 'absolute', left: g.left, width: g.width, top: g.top, height: g.height,
         borderRadius: 6, cursor: 'grab',
@@ -328,63 +312,18 @@ function TimelineCard({ g, tone, title, prefix, subtitle, range, zIndex = 5, onD
         display: 'flex', flexDirection: 'column', justifyContent: compact ? 'center' : 'flex-start',
         overflow: 'hidden', userSelect: 'none', zIndex,
       }}>
-      <TlCardBody g={g} range={range} title={<>{prefix}{title}</>} subtitle={compact ? undefined : subtitle} padRight={onRemove ? 14 : 0} />
-      <div onMouseDown={e => { e.stopPropagation(); e.preventDefault(); onResize(e.clientY) }}
+      <TlCardBody g={g} title={<>{prefix}{title}</>} padRight={onRemove ? 14 : 0} />
+      <div onMouseDown={e => { e.stopPropagation(); e.preventDefault(); onTip(null); onResize(e.clientY) }}
         style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 6, cursor: 'ns-resize' }} />
       {onRemove && (
         <button type="button" aria-label={removeLabel} title={removeLabel} className="opacity-0 group-hover:opacity-100"
           onMouseDown={e => e.stopPropagation()}
-          onClick={e => { e.stopPropagation(); onRemove() }}
+          onClick={e => { e.stopPropagation(); onTip(null); onRemove() }}
           style={{ position: 'absolute', right: 5, top: compact ? 'calc(50% - 7px)' : 5, width: 14, height: 14, background: 'rgba(var(--ink-rgb),0.10)', border: 'none', borderRadius: '50%', color: TEXT2, cursor: 'pointer', fontSize: 9, lineHeight: 1, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'opacity 120ms ease' }}>
           <X size={9} />
         </button>
       )}
     </div>
-  )
-}
-
-// ── TimelineCardPopover — 잘린 카드를 그 자리에서 조금 크게 보여주는 팝오버 (ESC·바깥 클릭으로 닫힘) ──
-function TimelineCardPopover({ info, onClose }: { info: TlCardInfo; onClose: () => void }) {
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') { e.preventDefault(); onClose() } }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [onClose])
-  // 원래 박스 중심에 맞춰 배치 — 화면 밖으로 나가지 않게 보정
-  const a = info.anchor
-  const width = Math.min(340, Math.max(260, a.width + 40))
-  const left = Math.min(Math.max(8, a.left + a.width / 2 - width / 2), window.innerWidth - width - 8)
-  const top = Math.max(8, a.top - 6)
-  const fg = info.light ? 'var(--text-primary)' : 'rgba(255,255,255,0.92)'
-  const fgSub = info.light ? 'var(--text-secondary)' : 'rgba(255,255,255,0.60)'
-  return createPortal(
-    <>
-      <div onMouseDown={onClose} style={{ position: 'fixed', inset: 0, zIndex: 69 }} />
-      <div style={{
-        position: 'fixed', left, top, width, zIndex: 70,
-        borderRadius: 10, padding: '9px 12px 11px',
-        background: `linear-gradient(${info.bg}, ${info.bg}), var(--surface-primary)`,
-        border: `1px solid ${info.bd}`,
-        boxShadow: '0 12px 32px rgba(0,0,0,0.28)',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
-          <span style={{ flex: 1, fontSize: 10.5, fontWeight: 600, color: fgSub }}>{info.range}</span>
-          <button onClick={onClose} aria-label="닫기 (ESC)" title="닫기 (ESC)"
-            style={{ display: 'flex', color: fgSub, background: 'none', border: 'none', cursor: 'pointer', padding: 1 }}><X size={13} /></button>
-        </div>
-        <div style={{ fontSize: 13, fontWeight: 500, color: fg, lineHeight: 1.45, wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>{info.title}</div>
-        {info.subtitle && <div style={{ fontSize: 11, color: fgSub, marginTop: 3, lineHeight: 1.45, wordBreak: 'break-word' }}>{info.subtitle}</div>}
-        {info.action && (
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
-            <button onClick={() => { const run = info.action!.run; onClose(); run() }}
-              style={{ fontSize: 11.5, fontWeight: 600, padding: '4px 11px', borderRadius: 7, border: `1px solid ${info.bd}`, background: 'var(--surface-primary)', color: 'var(--accent-tint-text)', cursor: 'pointer' }}>
-              {info.action.label}
-            </button>
-          </div>
-        )}
-      </div>
-    </>,
-    document.body
   )
 }
 
@@ -433,9 +372,7 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
   const viewportRef  = useRef<HTMLDivElement>(null)   // 세로 스크롤 칸
   const dateInputRef = useRef<HTMLInputElement>(null)
   const [ch, setCh] = useState(0)   // 칸 높이 — 카드를 한 줄/여러 줄로 그릴지 판단에만 쓴다
-  // 본문 zoom 배율 — fixed 툴팁 위치(화면 px)를 레이아웃 px로 환산할 때 나눈다
-  const cssZoom = () => (containerRef.current as (HTMLElement & { currentCSSZoom?: number }) | null)?.currentCSSZoom ?? 1
-  const [gTooltip, setGTooltip] = useState<{ ev: GoogleCalendarEvent; x: number; y: number } | null>(null)
+  const [tip, setTip] = useState<TlTip | null>(null)   // 카드 hover 툴팁 (전체 제목 + 시간)
 
   useEffect(() => {
     if (!containerRef.current) return
@@ -497,8 +434,8 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
   }, [scheduleItems])
 
   // 업무 일정은 드래그가 끝났을 때만 부모로 올려 DB에 저장
-  const onSiDrag   = (id: string, x: number, h: number, d: number, c?: () => void) => startCardDrag('move',   x, h, d, nh => setSiPos(p => ({ ...p, [id]: nh })), onUpdateScheduleItemPosition.bind(null, id), c)
-  const onSiResize = (id: string, x: number, h: number, d: number) => startCardDrag('resize', x, h, d, (nh, nd) => setSiDur(p => ({ ...p, [id]: nd })), onUpdateScheduleItemPosition.bind(null, id))
+  const onSiDrag   = (id: string, y: number, h: number, d: number) => startCardDrag('move',   y, h, d, nh => setSiPos(p => ({ ...p, [id]: nh })), onUpdateScheduleItemPosition.bind(null, id))
+  const onSiResize = (id: string, y: number, h: number, d: number) => startCardDrag('resize', y, h, d, (nh, nd) => setSiDur(p => ({ ...p, [id]: nd })), onUpdateScheduleItemPosition.bind(null, id))
 
   // ── Extras (외부에서 드래그된 항목) ────────────────────────────────────
   const [extras,   setExtras]   = useState<TLExtra[]>([])
@@ -597,9 +534,9 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
 
   // 카드 이동/끝시간 조절 공통 — 5분 단위로 스냅하고, 움직이는 동안 시간 범위 배지(live)를 띄운다.
   // hour/dur는 화면에 그려진 카드 값을 그대로 받는다 (저장 위치가 없는 카드의 기본 배치도 그대로 시작점)
-  // 움직이지 않고 마우스를 떼면 onClick (DB 저장도 생략)
+  // 움직이지 않고 마우스를 떼면 아무것도 저장하지 않는다
   function startCardDrag(mode: 'move' | 'resize', startY: number, hour: number, dur: number,
-    apply: (hour: number, dur: number) => void, onDone?: (hour: number, dur: number) => void, onClick?: () => void) {
+    apply: (hour: number, dur: number) => void, onDone?: (hour: number, dur: number) => void) {
     const r = containerRef.current?.getBoundingClientRect()
     if (!r || r.height === 0) return
     const pxPerHour = r.height / TL_HOURS
@@ -622,18 +559,15 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
       window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp)
       setLive(null)
       if (moved) onDone?.(cur.hour, cur.dur)
-      else onClick?.()
     }
     window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp)
   }
-  const onMDrag   = (id: string, y: number, h: number, d: number, c?: () => void) => startCardDrag('move',   y, h, d, nh => setMPos(p => ({ ...p, [id]: nh })), undefined, c)
+  const onMDrag   = (id: string, y: number, h: number, d: number) => startCardDrag('move',   y, h, d, nh => setMPos(p => ({ ...p, [id]: nh })))
   const onMResize = (id: string, y: number, h: number, d: number) => startCardDrag('resize', y, h, d, (nh, nd) => setMDur(p => ({ ...p, [id]: nd })))
-  const onTDrag   = (id: string, y: number, h: number, d: number, c?: () => void) => startCardDrag('move',   y, h, d, nh => setTPos(p => ({ ...p, [id]: nh })), undefined, c)
+  const onTDrag   = (id: string, y: number, h: number, d: number) => startCardDrag('move',   y, h, d, nh => setTPos(p => ({ ...p, [id]: nh })))
   const onTResize = (id: string, y: number, h: number, d: number) => startCardDrag('resize', y, h, d, (nh, nd) => setTDur(p => ({ ...p, [id]: nd })))
-  const onExDrag   = (id: string, y: number, h: number, d: number, c?: () => void) => startCardDrag('move',   y, h, d, nh => setExtraPos(p => ({ ...p, [id]: nh })), undefined, c)
+  const onExDrag   = (id: string, y: number, h: number, d: number) => startCardDrag('move',   y, h, d, nh => setExtraPos(p => ({ ...p, [id]: nh })))
   const onExResize = (id: string, y: number, h: number, d: number) => startCardDrag('resize', y, h, d, (nh, nd) => setExtraDur(p => ({ ...p, [id]: nd })))
-  const [openCard, setOpenCard] = useState<TlCardInfo | null>(null)
-  const closeCard = useCallback(() => setOpenCard(null), [])
 
   function onRemoveExtra(id: string) {
     setExtras(p => p.filter(e => e.id !== id))
@@ -760,17 +694,20 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
 
       {/* 시간 미정 — 아직 시간을 안 정한 오늘 할 일. 끌어서 아래 시각에 놓으면 배치된다 */}
       {untimedTodos.length > 0 && (
-        <div style={{ margin: '10px 14px 0', padding: '6px 8px', borderRadius: 8, border: '1px dashed rgba(var(--ink-rgb),0.16)', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 5, flexShrink: 0 }}>
-          <span style={{ fontSize: 10.5, color: TEXT3, marginRight: 2 }}>시간 미정</span>
+        <div style={{ margin: '10px 14px 0', padding: '0 8px', height: 34, borderRadius: 8, border: '1px dashed rgba(var(--ink-rgb),0.16)', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, minWidth: 0 }}>
+          <span style={{ fontSize: 10.5, color: TEXT3, flexShrink: 0 }}>시간 미정</span>
+          {/* 한 줄 고정 — 칩이 많으면 옆으로 스크롤 (타임라인 높이가 칩 수에 따라 변하지 않게) */}
+          <div className="scrollbar-hide" style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 5, overflowX: 'auto', overscrollBehaviorX: 'contain' }}>
           {untimedTodos.map(t => (
             <span key={t.id} draggable title={`${t.title} — 끌어서 시간에 놓기`}
               onDragStart={e => { e.dataTransfer.setData(TL_TODO_DND, t.id); e.dataTransfer.effectAllowed = 'move' }}
               onDragEnd={() => setDropIndicatorY(null)}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 5, maxWidth: '100%', fontSize: 11.5, color: TEXT1, padding: '3px 8px', borderRadius: 6, border: '1px solid rgba(var(--ink-rgb),0.10)', borderLeft: `3px solid ${TL_TONES.task.bar}`, background: CARD, cursor: 'grab', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              style={{ flexShrink: 0, maxWidth: 180, fontSize: 11.5, color: TEXT1, padding: '3px 8px', borderRadius: 6, ...tlCardStyle(TL_TONES.task), cursor: 'grab', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {t.title}
             </span>
           ))}
-          <span style={{ marginLeft: 'auto', fontSize: 10, color: TEXT3, opacity: 0.8, whiteSpace: 'nowrap' }}>끌어서 시간 배치 ↓</span>
+          </div>
+          <span style={{ flexShrink: 0, fontSize: 10, color: TEXT3, opacity: 0.8, whiteSpace: 'nowrap' }}>끌어서 배치 ↓</span>
         </div>
       )}
 
@@ -780,10 +717,11 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
           <span key={label} style={{ fontSize: 10.5, fontWeight: 500, color: TEXT3, letterSpacing: '0.02em', paddingLeft: 2, paddingBottom: 4, borderBottom: `1px solid ${DIVIDER}`, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>
         ))}
         {allDayEvents.length > 0 && (
-          <div style={{ gridColumn: 1, display: 'flex', flexWrap: 'wrap', gap: 4, minWidth: 0 }}>
+          // 한 줄 고정 — 종일 일정이 많으면 옆으로 스크롤
+          <div className="scrollbar-hide" style={{ gridColumn: 1, display: 'flex', gap: 4, minWidth: 0, overflowX: 'auto', overscrollBehaviorX: 'contain' }}>
             {allDayEvents.map(ev => (
               <button key={ev.id} type="button" title={`종일 · ${ev.title}`} onClick={() => onSelectGoogleEvent(ev)}
-                style={{ ...tlCardStyle(TL_TONES.gcal), maxWidth: '100%', borderRadius: 5, padding: '2px 7px', fontSize: 11, fontWeight: 600, color: TEXT1, cursor: 'pointer', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                style={{ ...tlCardStyle(TL_TONES.gcal), flexShrink: 0, maxWidth: 160, borderRadius: 5, padding: '2px 7px', fontSize: 11, fontWeight: 400, color: TEXT1, cursor: 'pointer', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 <span style={{ fontWeight: 400, color: TEXT2, marginRight: 4 }}>종일</span>{ev.title}
               </button>
             ))}
@@ -831,7 +769,7 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
           return (
             <TimelineCard key={m.id} g={cardGeom(`m:${m.id}`)}
               tone={TL_TONES.meet} title={m.title} range={rangeStr(hour, dur)}
-              onDrag={(cy, c) => onMDrag(m.id, cy, hour, dur, c)} onResize={cy => onMResize(m.id, cy, hour, dur)} onOpen={setOpenCard} />
+              onDrag={cy => onMDrag(m.id, cy, hour, dur)} onResize={cy => onMResize(m.id, cy, hour, dur)} onTip={setTip} />
           )
         })}
 
@@ -842,7 +780,7 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
           return (
             <TimelineCard key={fid} g={cardGeom(`f:${s.id}`)} zIndex={4}
               tone={TL_TONES.meet} prefix="↺ " title={s.title} range={rangeStr(hour, dur)}
-              onDrag={(cy, c) => onMDrag(fid, cy, hour, dur, c)} onResize={cy => onMResize(fid, cy, hour, dur)} onOpen={setOpenCard} />
+              onDrag={cy => onMDrag(fid, cy, hour, dur)} onResize={cy => onMResize(fid, cy, hour, dur)} onTip={setTip} />
           )
         })}
 
@@ -853,20 +791,9 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
           const compact = g.px < TL_COMPACT_H
           return (
             <div key={ev.id}
-              onClick={e => {
-                // 제목/시간이 잘린 짧은 박스는 전체 보기 먼저 (회의록 만들기는 팝오버 버튼으로)
-                if (!tlClipped(e.currentTarget)) { onSelectGoogleEvent(ev); return }
-                setGTooltip(null)
-                const r = e.currentTarget.getBoundingClientRect()
-                setOpenCard({ anchor: { left: r.left, top: r.top, width: r.width, height: r.height }, title: ev.title, range: rangeStr(ev.start_hour, ev.duration_hours), bg: TL_TONES.gcal.bg, bd: TL_TONES.gcal.bar, light: true,
-                  action: { label: '회의록 만들기 →', run: () => onSelectGoogleEvent(ev) } })
-              }}
-              onMouseEnter={e => {
-                const r = e.currentTarget.getBoundingClientRect()
-                const z = cssZoom()   // fixed 툴팁도 zoom 안에 있어 left/top이 배율만큼 곱해짐
-                setGTooltip({ ev, x: (r.left + r.width / 2) / z, y: r.top / z })
-              }}
-              onMouseLeave={() => setGTooltip(t => (t?.ev.id === ev.id ? null : t))}
+              onClick={() => { setTip(null); onSelectGoogleEvent(ev) }}
+              onMouseEnter={e => setTip(tlTipAt(e.currentTarget, { title: ev.title, range: rangeStr(ev.start_hour, ev.duration_hours), hint: '클릭하면 회의록 만들기·열기' }))}
+              onMouseLeave={() => setTip(null)}
               style={{
                 position: 'absolute', left: g.left, width: g.width, top: g.top, height: g.height,
                 borderRadius: 6, cursor: 'pointer',
@@ -875,29 +802,10 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
                 display: 'flex', flexDirection: 'column', justifyContent: compact ? 'center' : 'flex-start',
                 overflow: 'hidden', userSelect: 'none', zIndex: 5,
               }}>
-              <TlCardBody g={g} range={rangeStr(ev.start_hour, ev.duration_hours)} title={ev.title} />
+              <TlCardBody g={g} title={ev.title} />
             </div>
           )
         })}
-
-        {/* ── 구글캘린더 hover 미리보기 (박스가 짧아 텍스트가 잘려도 전체 내용 확인 가능) ── */}
-        {gTooltip && (
-          <div style={{
-            position: 'fixed', left: gTooltip.x, top: gTooltip.y - 8,
-            transform: 'translate(-50%, -100%)',
-            maxWidth: 260, padding: '8px 12px', borderRadius: 10,
-            background: 'var(--surface-tooltip)', border: '1px solid rgba(66,133,244,0.35)',
-            boxShadow: '0 12px 32px rgba(0,0,0,0.45)',
-            pointerEvents: 'none', zIndex: 9999,
-          }}>
-            <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--accent-tint-text)', marginBottom: 3 }}>
-              {`${hourToStr(gTooltip.ev.start_hour)} – ${hourToStr(gTooltip.ev.start_hour + gTooltip.ev.duration_hours)}`}
-            </div>
-            <div style={{ fontSize: 12.5, fontWeight: 500, color: TEXT1, whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: 1.4 }}>
-              {gTooltip.ev.title}
-            </div>
-          </div>
-        )}
 
         {/* ── 오늘 할 일 (시간을 정한 것만 — 나머지는 위 '시간 미정') ── */}
         {todos.filter(t => tPos[t.id] != null).map(t => {
@@ -905,8 +813,8 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
           return (
             <TimelineCard key={t.id} g={cardGeom(`t:${t.id}`)}
               tone={TL_TONES.task} title={t.title} range={rangeStr(hour, dur)}
-              onDrag={(cy, c) => onTDrag(t.id, cy, hour, dur, c)} onResize={cy => onTResize(t.id, cy, hour, dur)}
-              onRemove={() => unplaceTodo(t.id)} removeLabel="시간 미정으로 되돌리기" onOpen={setOpenCard} />
+              onDrag={cy => onTDrag(t.id, cy, hour, dur)} onResize={cy => onTResize(t.id, cy, hour, dur)}
+              onRemove={() => unplaceTodo(t.id)} removeLabel="시간 미정으로 되돌리기" onTip={setTip} />
           )
         })}
 
@@ -936,8 +844,8 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
           return (
             <TimelineCard key={ex.id} g={cardGeom(`x:${ex.id}`)} zIndex={6}
               tone={TL_TONES.task} title={ex.title} subtitle={ex.subtitle} range={rangeStr(hour, dur)}
-              onDrag={(cy, c) => onExDrag(ex.id, cy, hour, dur, c)} onResize={cy => onExResize(ex.id, cy, hour, dur)}
-              onRemove={() => onRemoveExtra(ex.id)} onOpen={setOpenCard} />
+              onDrag={cy => onExDrag(ex.id, cy, hour, dur)} onResize={cy => onExResize(ex.id, cy, hour, dur)}
+              onRemove={() => onRemoveExtra(ex.id)} onTip={setTip} />
           )
         })}
 
@@ -947,13 +855,29 @@ function DualLaneTimeline({ meetings, todos, scheduleItems, googleEvents, now, s
           return (
             <TimelineCard key={s.id} g={cardGeom(`s:${s.id}`)} zIndex={6}
               tone={TL_TONES.task} title={s.title} range={rangeStr(hour, dur)}
-              onDrag={(cy, c) => onSiDrag(s.id, cy, hour, dur, c)} onResize={cy => onSiResize(s.id, cy, hour, dur)}
-              onRemove={() => onRemoveScheduleItem(s.id)} removeLabel="삭제" onOpen={setOpenCard} />
+              onDrag={cy => onSiDrag(s.id, cy, hour, dur)} onResize={cy => onSiResize(s.id, cy, hour, dur)}
+              onRemove={() => onRemoveScheduleItem(s.id)} removeLabel="삭제" onTip={setTip} />
           )
         })}
       </div>
       </div>
-      {openCard && typeof document !== 'undefined' && <TimelineCardPopover info={openCard} onClose={closeCard} />}
+
+      {/* 카드 hover 툴팁 — 시간 + 전체 제목 (박스에는 제목만 2줄) */}
+      {tip && !live && (
+        <div style={{
+          position: 'fixed', left: tip.x, top: tip.y - 6,
+          transform: 'translate(-50%, -100%)',
+          width: 'max-content', maxWidth: 280, padding: '8px 11px', borderRadius: 9,
+          background: 'var(--surface-tooltip)', border: '1px solid rgba(var(--ink-rgb),0.12)',
+          boxShadow: '0 10px 28px rgba(0,0,0,0.28)',
+          pointerEvents: 'none', zIndex: 9999,
+        }}>
+          <div style={{ fontSize: 10.5, fontWeight: 600, color: TEXT2, marginBottom: 3, fontVariantNumeric: 'tabular-nums' }}>{tip.range}</div>
+          <div style={{ fontSize: 12.5, fontWeight: 600, color: TEXT1, lineHeight: 1.4, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{tip.title}</div>
+          {tip.subtitle && <div style={{ fontSize: 11, color: TEXT3, marginTop: 2, lineHeight: 1.4 }}>{tip.subtitle}</div>}
+          {tip.hint && <div style={{ fontSize: 10.5, color: TEXT3, marginTop: 4 }}>{tip.hint}</div>}
+        </div>
+      )}
     </div>
   )
 }
@@ -1639,11 +1563,12 @@ export default function HomePage() {
   }
   weekCols[0].sort((a, b) => a.date.localeCompare(b.date))
   weekCols[6].sort((a, b) => a.date.localeCompare(b.date))
-  // 요일 열(1~5 = 월~금) → 열 정의. 0 = 직전주 미완료, 6 = 다음주로 연기는 열 아래 행으로
-  const weekVisible = [1, 2, 3, 4, 5]
-  const weekColMin = (ci: number) => weekDays[ci - 1] === today ? WEEK_TODAY_MIN : WEEK_COL_MIN
-  const weekGridCols = weekVisible.map(ci => `minmax(${weekColMin(ci)}px, ${weekDays[ci - 1] === today ? 1.4 : 1}fr)`).join(' ')
-  const weekMinW = weekVisible.reduce((sum, ci) => sum + weekColMin(ci), 0)
+  // 열(0 = 직전주 미완료, 1~5 = 월~금, 6 = 다음주로 연기) → 열 정의
+  const weekVisible = [0, 1, 2, 3, 4, 5, 6]
+  const weekGridCols = `repeat(${weekVisible.length}, minmax(${WEEK_COL_MIN}px, 1fr))`
+  // 직전주 미완료 열은 지난주보다 이전 날짜의 미완료까지 모두 날짜순으로 (건수와 목록이 일치)
+  const weekColItems = (ci: number) => ci === 0 ? [...weekCols[0], ...olderItems].sort((a, b) => a.date.localeCompare(b.date)) : weekCols[ci]
+  const weekMinW = WEEK_COL_MIN * weekVisible.length
   const olderOpenCount = olderItems.length   // 지난주보다 이전 미완료는 개수만 ('이전 N건')
   // 완료·삭제·이동으로 목록에서 빠진 항목은 선택에서도 자동으로 빠지게 현재 목록 기준으로 센다
   const olderSelItems = olderItems.filter(it => olderSel.has(it.key))
@@ -1698,7 +1623,7 @@ export default function HomePage() {
     const body = (title: string, done: boolean, metaText: string, extra?: React.ReactNode) => (
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
-          <p title={title} style={{ fontSize: 12, fontWeight: 400, lineHeight: '17px', color: done ? TEXT3 : titleColor, textDecoration: done ? 'line-through' : 'none', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', wordBreak: 'keep-all', overflowWrap: 'anywhere', flex: 1, minWidth: 0, letterSpacing: '-0.01em' }}>{title}</p>
+          <p title={title} style={{ fontSize: 12, fontWeight: 400, lineHeight: '17px', color: done ? TEXT3 : titleColor, textDecoration: done ? 'line-through' : 'none', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: WEEK_ITEM_LINES, WebkitBoxOrient: 'vertical', wordBreak: 'keep-all', overflowWrap: 'anywhere', flex: 1, minWidth: 0, letterSpacing: '-0.01em' }}>{title}</p>
           {extra}
         </div>
         {metaText && <p style={{ fontSize: 10.5, lineHeight: '15px', color: TEXT3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{metaText}</p>}
@@ -2026,7 +1951,7 @@ export default function HomePage() {
 
           <div data-home="right" style={{ minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
           {/* ── 금주 업무 — 오른쪽 열의 주 작업면. 하단 3박스를 뺀 높이를 모두 쓰고, 항목이 많으면 열 안에서 스크롤 ── */}
-          <section data-home="week" style={{ ...cardBase(), borderRadius: 14, transition: 'none', position: 'relative', flex: '1 1 auto', minHeight: vs(WEEK_MIN_H), display: 'flex', flexDirection: 'column', paddingTop: 12, overflow: 'hidden' }}>
+          <section data-home="week" style={{ ...cardBase(), borderRadius: 14, transition: 'none', position: 'relative', flex: '87 1 0px', minHeight: vs(WEEK_MIN_H), display: 'flex', flexDirection: 'column', paddingTop: 12, overflow: 'hidden' }}>
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, height: vs(WEEK_TITLE_H), padding: '0 16px', flexShrink: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
                 <h2 style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 600, color: TEXT1, letterSpacing: '-0.02em', margin: 0, whiteSpace: 'nowrap' }}>
@@ -2070,8 +1995,8 @@ export default function HomePage() {
                 제목 행 아래 간격은 여기 paddingTop으로 둔다 — 오늘 열 유리 테두리가 이 간격까지 위로 올라가도 잘리지 않게 */}
             <div data-week-scroll style={{ position: 'relative', flex: '1 1 auto', minHeight: 0, minWidth: 0, width: '100%', padding: `${vs(WEEK_TITLE_GAP)} 6px 0`, overflowX: 'auto', overflowY: 'hidden', scrollbarWidth: 'thin', scrollbarColor: 'rgba(var(--ink-rgb),0.18) transparent' }}>
             <div style={{ height: '100%', minWidth: weekMinW, display: 'grid', gridTemplateColumns: weekGridCols, gridTemplateRows: 'auto minmax(0, 1fr)' }}>
-              {weekCols.map((items, ci) => {
-                if (!weekVisible.includes(ci)) return null
+              {weekVisible.map(ci => {
+                const items = weekColItems(ci)
                 const secondary = ci === 0 || ci === 6
                 const date = secondary ? null : weekDays[ci - 1]
                 const isTodayCol = date === today
@@ -2079,7 +2004,7 @@ export default function HomePage() {
                 return (
                   <div key={`h${ci}`} data-week-col={ci} className="group" style={{ gridRow: 1, gridColumn: weekVisible.indexOf(ci) + 1, position: 'relative', display: 'flex', alignItems: 'baseline', gap: 6, height: vs(WEEK_COLHEAD_H), padding: '0 12px', borderBottom: `1px solid ${DIVIDER}`, borderLeft: weekVisible.indexOf(ci) > 0 ? '1px solid rgba(var(--ink-rgb),0.05)' : undefined, paddingTop: vs(7) }}>
                     {secondary ? (
-                      <span style={{ fontSize: 12, fontWeight: 500, color: TEXT3 }}>{ci === 0 ? '직전주 미완료' : '다음주로 연기'}</span>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: ci === 0 && items.length > 0 ? '#C08A2E' : TEXT2, whiteSpace: 'nowrap' }}>{ci === 0 ? '직전주 미완료' : '다음주로 연기'}</span>
                     ) : (
                       <>
                         <span style={{ fontSize: 13.5, fontWeight: 600, color: isPast ? TEXT3 : TEXT1 }}>{'월화수목금'[ci - 1]}</span>
@@ -2097,15 +2022,16 @@ export default function HomePage() {
                   </div>
                 )
               })}
-              {weekCols.map((items, ci) => {
-                if (!weekVisible.includes(ci)) return null
+              {weekVisible.map(ci => {
+                const items = weekColItems(ci)
                 const secondary = ci === 0 || ci === 6
                 const colDate = secondary ? null : weekDays[ci - 1]
+                const dropKey = ci === 6 ? 'defer' : colDate   // 직전주 열은 날짜가 정해지지 않아 드롭 대상 아님
                 return (
                   <div key={`b${ci}`} data-week-body={ci} className="scrollbar-hide"
-                    {...(colDate ? weekDropProps(colDate, colDate) : {})}
+                    {...(dropKey ? weekDropProps(dropKey, colDate) : {})}
                     // 세로만 contain — 가로(틸트 휠)까지 막으면 바깥 가로 스크롤로 전달되지 않는다
-                    style={{ gridRow: 2, gridColumn: weekVisible.indexOf(ci) + 1, minHeight: 0, overflowY: 'auto', overscrollBehaviorY: 'contain', padding: `${vs(6)} 12px`, borderLeft: weekVisible.indexOf(ci) > 0 ? '1px solid rgba(var(--ink-rgb),0.05)' : undefined, transition: 'background 120ms ease', ...dropTargetStyle(!!colDate && weekDropDate === colDate) }}>
+                    style={{ gridRow: 2, gridColumn: weekVisible.indexOf(ci) + 1, minHeight: 0, overflowY: 'auto', overscrollBehaviorY: 'contain', padding: `${vs(6)} 12px`, borderLeft: weekVisible.indexOf(ci) > 0 ? '1px solid rgba(var(--ink-rgb),0.05)' : undefined, transition: 'background 120ms ease', ...dropTargetStyle(!!dropKey && weekDropDate === dropKey) }}>
                     {colDate && weekAddDate === colDate && (
                       <input autoFocus value={quickAddTitle}
                         onChange={e => setQuickAddTitle(e.target.value)}
@@ -2113,10 +2039,24 @@ export default function HomePage() {
                         placeholder={colDate === today ? '오늘 할 일 (Enter)' : `${shortDate(colDate)} 할 일 (Enter)`}
                         style={{ width: '100%', fontSize: 12.5, background: 'transparent', border: `1px solid ${DIVIDER}`, borderRadius: 6, padding: '5px 8px', color: TEXT1, outline: 'none', margin: '2px 0 4px' }} />
                     )}
+                    {!loading && ci === 0 && olderOpenCount > 0 && (
+                      <button type="button" title="지난주보다 이전 날짜의 미완료 — 골라서 확인·삭제" onClick={() => setOlderOpen(true)}
+                        className="hover:underline"
+                        style={{ display: 'block', padding: '2px 0 4px', fontSize: 10.5, color: TEXT3, whiteSpace: 'nowrap', background: 'none', border: 'none', cursor: 'pointer' }}>이전 {olderOpenCount}건 일괄 정리 ›</button>
+                    )}
                     {loading ? skel(2)
                       : items.length === 0 && secondary
-                        ? <p style={{ fontSize: 11.5, color: TEXT3, opacity: 0.6, padding: '6px 0' }}>없음</p>
-                        : items.map(item => renderWeekItem(item, secondary))}
+                        ? <p style={{ fontSize: 11.5, color: TEXT3, opacity: 0.6, padding: '6px 0' }}>{ci === 6 ? '없음 · 즉석 할 일을 끌어 놓으면 연기' : '없음'}</p>
+                        : items.map(item => secondary ? (
+                            // 직전주·다음주 항목 중 할 일·세부task는 요일 열로 끌면 그 날짜로 옮겨지도록 요일 이동용 데이터를 덧붙인다
+                            <div key={item.key}
+                              onDragStart={e => {
+                                if (item.kind === 'todo' || item.kind === 'agenda') e.dataTransfer.setData(WEEK_MOVE_DND, JSON.stringify({ kind: item.kind, id: item.kind === 'todo' ? item.todo!.id : item.st!.id }))
+                                e.dataTransfer.effectAllowed = 'copyMove'   // 타임라인(copy)·요일 열(move) 어느 쪽에도 놓을 수 있게
+                              }}>
+                              {renderWeekItem(item, true)}
+                            </div>
+                          ) : renderWeekItem(item, false))}
                   </div>
                 )
               })}
@@ -2135,44 +2075,6 @@ export default function HomePage() {
             </div>
             </div>
 
-            {/* 직전주 미완료 | 다음주로 연기 — 요일 열 아래 한 행. 항목은 끌어서 요일 열로 옮기고,
-                즉석 할 일을 '다음주로 연기' 칸에 놓으면 연기된다 */}
-            <div data-week-carry style={{ flexShrink: 0, display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', margin: '0 6px', borderTop: `1px solid ${DIVIDER}` }}>
-              {([[0, '직전주 미완료'], [6, '다음주로 연기']] as const).map(([ci, label]) => {
-                // 직전주 미완료 칸은 지난주보다 이전 날짜의 미완료까지 모두 날짜순으로 (건수와 목록이 일치)
-                const items = ci === 0 ? [...weekCols[0], ...olderItems].sort((a, b) => a.date.localeCompare(b.date)) : weekCols[ci]
-                const count = items.length
-                return (
-                  <div key={ci} data-week-carry-col={ci} className="scrollbar-hide"
-                    {...(ci === 6 ? weekDropProps('defer', null) : {})}
-                    style={{ minWidth: 0, height: vs(WEEK_CARRY_H), overflowY: 'auto', overscrollBehaviorY: 'contain', padding: `0 12px ${vs(6)}`, borderLeft: ci === 6 ? '1px solid rgba(var(--ink-rgb),0.05)' : undefined, transition: 'background 120ms ease', ...dropTargetStyle(ci === 6 && weekDropDate === 'defer') }}>
-                    {/* 제목 줄은 스크롤해도 위에 고정 */}
-                    <div style={{ position: 'sticky', top: 0, zIndex: 1, background: CARD, display: 'flex', alignItems: 'baseline', gap: 6, padding: `${vs(7)} 0 4px` }}>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: ci === 0 && count > 0 ? '#C08A2E' : TEXT2 }}>{label}</span>
-                      <span style={{ fontSize: 11, color: TEXT3, fontVariantNumeric: 'tabular-nums' }}>{count}</span>
-                      {ci === 0 && olderOpenCount > 0 && (
-                        <button type="button" title="지난주보다 이전 날짜의 미완료 — 골라서 확인·삭제" onClick={() => setOlderOpen(true)}
-                          className="hover:underline"
-                          style={{ marginLeft: 'auto', fontSize: 10.5, color: TEXT3, whiteSpace: 'nowrap', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>이전 {olderOpenCount}건 일괄 정리 ›</button>
-                      )}
-                    </div>
-                    {loading ? skel(1)
-                      : items.length === 0
-                        ? <p style={{ fontSize: 11.5, color: TEXT3, opacity: 0.6, padding: '2px 0' }}>{ci === 6 ? '없음 · 즉석 할 일을 끌어 놓으면 연기' : '없음'}</p>
-                        : <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', columnGap: 16 }}>{items.map(item => (
-                            // 할 일·세부task는 요일 열로 끌면 그 날짜로 옮겨지도록 요일 이동용 데이터를 덧붙인다 ('이전 N건' 모달과 같은 방식)
-                            <div key={item.key} style={{ minWidth: 0 }}
-                              onDragStart={e => {
-                                if (item.kind === 'todo' || item.kind === 'agenda') e.dataTransfer.setData(WEEK_MOVE_DND, JSON.stringify({ kind: item.kind, id: item.kind === 'todo' ? item.todo!.id : item.st!.id }))
-                                e.dataTransfer.effectAllowed = 'copyMove'   // 타임라인(copy)·요일 열(move) 어느 쪽에도 놓을 수 있게
-                              }}>
-                              {renderWeekItem(item, true)}
-                            </div>
-                          ))}</div>}
-                  </div>
-                )
-              })}
-            </div>
           </section>
 
           {/* '이전 N건' 모달 — 지난주보다 이전 날짜의 미완료. 스크롤로 보고, 항목을 끌어 요일 열에 놓으면 그 날짜로 옮김.
@@ -2243,20 +2145,27 @@ export default function HomePage() {
           {/* ── 하단 3박스 — 퀵메모 | 진행중 과업 | 회고. 한 개의 invisible grid를 공유해 행 높이/기준선 일치 ── */}
           {/* 박스는 각 열 뒤에 까는 배경(음수 margin으로 bleed) — 행 정렬 grid는 하나로 유지 */}
           <section data-home="bottom" style={{
-            flexShrink: 0, padding: `${vs(BOX_PAD_Y)} ${BOX_PAD_X}px`, display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', columnGap: BOX_PAD_X * 2 + 10,
-            gridTemplateRows: `${vs(BOX_TITLE_H)} ${vs(BOX_FIRST_ROW_H)} repeat(${BOTTOM_ROWS}, ${bottomRowH}) auto`,
+            // 기본 높이(BOTTOM_ROWS행) + 금주 업무와 87:11로 나눈 남는 높이 — 늘어난 만큼 목록 행이 더 보인다
+            flex: `11 0 calc(2 * ${vs(BOX_PAD_Y)} + ${vs(BOX_TITLE_H)} + ${vs(BOX_FIRST_ROW_H)} + ${BOTTOM_ROWS} * ${bottomRowH} + ${vs(8)} + 22px)`, minHeight: 0,
+            padding: `${vs(BOX_PAD_Y)} ${BOX_PAD_X}px`, display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', columnGap: BOX_PAD_X * 2 + 10,
+            gridTemplateRows: `${vs(BOX_TITLE_H)} ${vs(BOX_FIRST_ROW_H)} minmax(0, 1fr) auto`,
           }}>
             {[1, 2, 3].map(col => (
               <div key={`box${col}`} aria-hidden style={{ ...cardBase(), borderRadius: 14, transition: 'none', gridColumn: col, gridRow: '1 / -1', margin: `calc(-1 * ${vs(BOX_PAD_Y)}) -${BOX_PAD_X}px` }} />
             ))}
             {/* row 1: section title — 오늘의 타임라인 헤더와 같은 스타일 */}
             {([[1, '퀵메모', <StickyNote key="i" size={14} strokeWidth={2.2} style={{ color: '#70B8C4' }} />], [2, '진행중 과업', <Layers key="i" size={14} strokeWidth={2.2} style={{ color: '#5B7EC4' }} />], [3, '회고', <NotebookPen key="i" size={14} strokeWidth={2.2} style={{ color: '#C8A050' }} />]] as const).map(([col, label, icon]) => (
-              <h2 key={label} style={{ gridRow: 1, gridColumn: col, position: 'relative', display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 600, color: TEXT1, letterSpacing: '-0.02em', height: vs(BOX_TITLE_H), paddingBottom: vs(8), margin: 0 }}>
+              <h2 key={label} style={{ gridRow: 1, gridColumn: col, position: 'relative', display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 600, color: TEXT1, letterSpacing: '-0.02em', height: vs(BOX_TITLE_H), alignSelf: 'start', margin: 0 }}>
                 <span style={{ display: 'flex', alignItems: 'center' }}>{icon}</span>{label}
               </h2>
             ))}
 
-            {/* row 2: 과업 표 머리글 ↔ 회고 머리글 (퀵메모는 이 줄부터 바로 목록) */}
+            {/* row 2: 퀵메모 · 과업 표 · 회고 머리글 — 세 박스 첫 줄 층위를 맞춘다 */}
+            <div data-bottom="memo-header" style={{ position: 'relative', gridRow: 2, gridColumn: 1, height: vs(BOX_FIRST_ROW_H), display: 'flex', alignItems: 'center', gap: 10, padding: '0 6px', borderBottom: `1px solid ${DIVIDER}` }}>
+              <span style={{ width: 5, flexShrink: 0 }} />
+              <span style={{ flex: 1, fontSize: 12, fontWeight: 500, color: TEXT3 }}>제목</span>
+              <span style={{ fontSize: 12, fontWeight: 500, color: TEXT3 }}>날짜</span>
+            </div>
             <div data-bottom="journal-header" style={{ position: 'relative', gridRow: 2, gridColumn: 3, height: vs(BOX_FIRST_ROW_H), display: 'flex', alignItems: 'center', gap: 10, padding: '0 6px', borderBottom: `1px solid ${DIVIDER}` }}>
               <span style={{ fontSize: 12, fontWeight: 500, color: TEXT2, fontVariantNumeric: 'tabular-nums' }}>{fmtDate(today)}</span>
               <span style={{ fontSize: 11.5, color: todayJournal ? '#38BE98' : TEXT3 }}>{todayJournal ? '작성됨' : '미작성'}</span>
@@ -2275,7 +2184,7 @@ export default function HomePage() {
             {/* 데이터 영역 — 3열 모두 BOTTOM_ROWS 높이의 스크롤 셀 (행 높이 동일 → 첫 화면 행 정렬 유지, 스크롤바 숨김) */}
             {[1, 2].map(col => (
               <div key={`list${col}`} className="scrollbar-hide" data-bottom={col === 1 ? 'memo-list' : 'task-list'}
-                style={{ position: 'relative', gridColumn: col, gridRow: `${col === 1 ? 2 : 3} / ${3 + BOTTOM_ROWS}`, minHeight: 0, overflowY: 'auto', overscrollBehavior: 'contain' }}>
+                style={{ position: 'relative', gridColumn: col, gridRow: 3, minHeight: 0, overflowY: 'auto', overscrollBehavior: 'contain' }}>
                 {loading ? <div style={{ paddingTop: 4 }}>{skel(BOTTOM_ROWS)}</div>
                   : col === 1 ? bottomMemos.map(memo => {
                       const memoTag = memo.tag[0] ?? '기타'
@@ -2312,7 +2221,7 @@ export default function HomePage() {
 
             {/* 회고 — 전체 섹션(식사·감사·일반 포함)을 같은 행 높이로, BOTTOM_ROWS 높이 안에서 스크롤 */}
             <div className="scrollbar-hide" data-bottom="journal-sections"
-              style={{ position: 'relative', gridColumn: 3, gridRow: `3 / ${3 + BOTTOM_ROWS}`, minHeight: 0, overflowY: 'auto', overscrollBehavior: 'contain' }}>
+              style={{ position: 'relative', gridColumn: 3, gridRow: 3, minHeight: 0, overflowY: 'auto', overscrollBehavior: 'contain' }}>
               {(() => {
                 const parsed = parseSections(todayJournal?.content ?? '')
                 return SECTION_KEYS.map(k => (
@@ -2330,13 +2239,13 @@ export default function HomePage() {
             </div>
 
             {/* last row: 전체 보기 */}
-            <Link href="/memos" style={{ position: 'relative', gridRow: 3 + BOTTOM_ROWS, gridColumn: 1, fontSize: 12, color: TEXT3, textDecoration: 'none', paddingTop: vs(8), justifySelf: 'start' }}>
+            <Link href="/memos" style={{ position: 'relative', gridRow: 4, gridColumn: 1, fontSize: 12, color: TEXT3, textDecoration: 'none', paddingTop: vs(8), justifySelf: 'start' }}>
               전체 보기 →{memos.length > BOTTOM_ROWS ? <span style={{ marginLeft: 6, opacity: 0.7 }}>{memos.length}건</span> : null}
             </Link>
-            <Link href="/project" style={{ position: 'relative', gridRow: 3 + BOTTOM_ROWS, gridColumn: 2, fontSize: 12, color: TEXT3, textDecoration: 'none', paddingTop: vs(8), justifySelf: 'start' }}>
+            <Link href="/project" style={{ position: 'relative', gridRow: 4, gridColumn: 2, fontSize: 12, color: TEXT3, textDecoration: 'none', paddingTop: vs(8), justifySelf: 'start' }}>
               전체 보기 →{subTasks.length > BOTTOM_ROWS ? <span style={{ marginLeft: 6, opacity: 0.7 }}>{subTasks.length}건</span> : null}
             </Link>
-            <div style={{ position: 'relative', gridRow: 3 + BOTTOM_ROWS, gridColumn: 3, display: 'flex', alignItems: 'center', gap: 10, paddingTop: vs(8) }}>
+            <div style={{ position: 'relative', gridRow: 4, gridColumn: 3, display: 'flex', alignItems: 'center', gap: 10, paddingTop: vs(8) }}>
               <span style={{ fontSize: 12, color: jMsg.startsWith('저장 실패') ? '#C86868' : jMsg ? '#38BE98' : TEXT3, flex: 1 }}>
                 {jMsg || (jEdits ? '수정됨 · Ctrl+Enter 저장' : 'Ctrl+Enter 저장')}
               </span>
