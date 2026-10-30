@@ -1,12 +1,14 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { Member, OneOnOne, OneOnOneTemplate } from '@/types'
 import { format, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
+import OneOnOneSessionEditor, { TOP_ROW_H } from '@/components/one-on-one/OneOnOneSessionEditor'
+import QaCopyMenu from '@/components/one-on-one/QaCopyMenu'
 import MarkdownContent from '@/components/MarkdownContent'
 
 const T1 = 'rgba(var(--text-rgb),0.92)'
@@ -14,121 +16,85 @@ const T2 = 'rgba(var(--text-rgb),0.55)'
 const T3 = 'rgba(var(--text-rgb),0.35)'
 const BORDER = 'rgba(var(--ink-rgb),0.08)'
 
-function stripHtml(html: string): string {
-  return html.replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, ' ').replace(/\s+/g, ' ').trim()
-}
-
-function SessionPreviewCard({ session, memberId, isSelected, onClick }: {
-  session: OneOnOne; memberId: string; isSelected: boolean; onClick: () => void
-}) {
-  const dateLabel = session.session_date
-    ? format(parseISO(session.session_date), 'yy.M.d (E)', { locale: ko })
-    : '날짜 미지정'
-  const preview = stripHtml(session.notes[0]?.content ?? '').slice(0, 60)
-
+function StripArrow({ dir, disabled, onClick }: { dir: 'left' | 'right'; disabled: boolean; onClick: () => void }) {
   return (
-    <div
-      onClick={onClick}
+    <button onClick={onClick} disabled={disabled} aria-label={dir === 'left' ? '최근 회차 쪽으로' : '이전 회차 쪽으로'}
       style={{
-        padding: '11px 14px',
-        borderRadius: 12,
-        cursor: 'pointer',
-        background: isSelected ? 'rgba(76,127,224,0.16)' : 'rgba(var(--ink-rgb),0.04)',
-        border: `1px solid ${isSelected ? 'rgba(76,127,224,0.35)' : BORDER}`,
-        transition: 'background 120ms, border-color 120ms',
-      }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
-        <p style={{ fontSize: 13, fontWeight: 600, color: isSelected ? 'var(--accent-badge-text)' : T1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>
-          {session.title || '제목 없음'}
-        </p>
-        {session.next_appointment && (
-          <span style={{ fontSize: 10, color: '#fbbf24', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 10, padding: '1px 6px', marginLeft: 8, flexShrink: 0 }}>약속</span>
-        )}
-      </div>
-      <p style={{ fontSize: 11, color: isSelected ? 'rgba(147,197,253,0.6)' : T3, marginBottom: preview ? 4 : 0 }}>{dateLabel}</p>
-      {preview && (
-        <p style={{ fontSize: 11, color: isSelected ? 'rgba(147,197,253,0.55)' : T3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{preview}</p>
-      )}
-    </div>
+        flexShrink: 0, width: 24, height: 40, margin: dir === 'left' ? '0 6px 0 0' : '0 0 0 6px', borderRadius: 8,
+        border: `1px solid ${BORDER}`, background: 'rgba(var(--ink-rgb),0.04)', color: T2, fontSize: 15, lineHeight: 1,
+        cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.3 : 1, transition: 'opacity 120ms, background 120ms',
+      }}
+      onMouseEnter={e => { if (!disabled) e.currentTarget.style.background = 'rgba(var(--ink-rgb),0.1)' }}
+      onMouseLeave={e => (e.currentTarget.style.background = 'rgba(var(--ink-rgb),0.04)')}>
+      {dir === 'left' ? '‹' : '›'}
+    </button>
   )
 }
 
-function SessionDetail({ session, memberId }: { session: OneOnOne; memberId: string }) {
-  const dateLabel = session.session_date
-    ? format(parseISO(session.session_date), 'yyyy년 M월 d일 (E)', { locale: ko })
-    : '날짜 미지정'
-
-  return (
-    <div className="surface-card rounded-2xl overflow-hidden" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      {/* 헤더 */}
-      <div style={{ padding: '14px 20px', borderBottom: `1px solid ${BORDER}`, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexShrink: 0 }}>
-        <div style={{ minWidth: 0 }}>
-          <p style={{ fontSize: 11, color: T3, marginBottom: 3 }}>{dateLabel}</p>
-          <p style={{ fontSize: 16, fontWeight: 600, color: T1, lineHeight: 1.3 }}>{session.title || '제목 없음'}</p>
-        </div>
-        <Link href={`/one-on-one/${memberId}/${session.id}`}
-          style={{ fontSize: 11, color: T3, border: `1px solid ${BORDER}`, borderRadius: 8, padding: '5px 12px', textDecoration: 'none', flexShrink: 0, whiteSpace: 'nowrap', transition: 'color 150ms, background 150ms', background: 'transparent' }}
-          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = T1; (e.currentTarget as HTMLElement).style.background = 'rgba(var(--ink-rgb),0.06)' }}
-          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = T3; (e.currentTarget as HTMLElement).style.background = 'transparent' }}>
-          편집 →
-        </Link>
-      </div>
-
-      {/* 내용 */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px' }} className="scrollbar-hide">
-        {/* 다음 약속 */}
-        {session.next_appointment && (
-          <div style={{ background: 'rgba(245,158,11,0.09)', border: '1px solid rgba(245,158,11,0.18)', borderRadius: 10, padding: '10px 14px', marginBottom: 16 }}>
-            <p style={{ fontSize: 11, fontWeight: 600, color: '#fbbf24', marginBottom: 5, letterSpacing: '0.02em' }}>약속 내용</p>
-            <p style={{ fontSize: 13, lineHeight: 1.65, color: 'rgba(253,230,138,0.82)', whiteSpace: 'pre-wrap' }}>{session.next_appointment}</p>
-          </div>
-        )}
-
-        {/* 노트 본문 — HTML 렌더링 */}
-        {session.notes.length > 0 ? (
-          session.notes.map((note, i) => (
-            <div key={i} style={{ marginBottom: i < session.notes.length - 1 ? 20 : 0 }}>
-              {note.title && i > 0 && (
-                <p style={{ fontSize: 11, fontWeight: 600, color: T3, marginBottom: 6, letterSpacing: '0.03em', textTransform: 'uppercase' }}>{note.title}</p>
-              )}
-              <MarkdownContent content={note.content} dark className="text-[13px]" />
-            </div>
-          ))
-        ) : (
-          <p style={{ fontSize: 13, textAlign: 'center', color: T3, paddingTop: 40 }}>노트가 없습니다</p>
-        )}
-      </div>
-    </div>
-  )
-}
-
+// 대상자 1on1 — 2단계(대상자 → 이 화면). 왼쪽 = 지금 작성 중인(live) 회차 편집, 오른쪽 = 회차 칩 + 미리보기.
+// 오른쪽에서 칩을 눌러도 미리보기만 바뀌고 왼쪽 live 편집창은 그대로다. live를 바꾸는 건
+// "+ 새 1on1"과 미리보기의 "왼쪽에서 편집" 버튼뿐. live 회차는 ?s= 로 주소에 남겨
+// 새로고침·예전 상세 링크(리다이렉트)가 같은 회차로 온다.
 export default function MemberOneOnOnePage() {
   const { memberId } = useParams<{ memberId: string }>()
-  const router = useRouter()
   const supabase = createClient()
 
   const [member, setMember] = useState<Member | null>(null)
   const [sessions, setSessions] = useState<OneOnOne[]>([])
   const [templates, setTemplates] = useState<OneOnOneTemplate[]>([])
-  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
+  const [liveId, setLiveId] = useState<string | null>(null)          // 왼쪽 편집창
+  const [previewId, setPreviewId] = useState<string | null>(null)    // 오른쪽 미리보기(null이면 live 직전 회차)
   const [showModal, setShowModal] = useState(false)
   const [creating, setCreating] = useState(false)
-  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set())
+  const [actionsSlot, setActionsSlot] = useState<HTMLDivElement | null>(null)
+
+  // 회차 칩 줄 ‹ › 화살표 — 넘칠 때만 보이고, 더 갈 쪽이 없으면 흐리게
+  const stripRef = useRef<HTMLDivElement>(null)
+  const [stripEdge, setStripEdge] = useState({ left: false, right: false })
+  function updateStripEdge() {
+    const el = stripRef.current
+    if (!el) return
+    const left = el.scrollLeft > 1
+    const right = el.scrollLeft + el.clientWidth < el.scrollWidth - 1
+    setStripEdge(prev => (prev.left === left && prev.right === right) ? prev : { left, right })
+  }
+  function scrollStrip(dir: 1 | -1) {
+    const el = stripRef.current
+    if (el) el.scrollBy({ left: dir * Math.max(140, el.clientWidth - 140), behavior: 'smooth' })
+  }
+  useEffect(() => {
+    const el = stripRef.current
+    if (!el) return
+    updateStripEdge()
+    const ro = new ResizeObserver(updateStripEdge)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [member, sessions.length, liveId])
 
   useEffect(() => {
     Promise.all([
       supabase.from('members').select('*').eq('id', memberId).single(),
-      supabase.from('one_on_ones').select('*').eq('member_id', memberId).order('session_date', { ascending: false }),
+      supabase.from('one_on_ones').select('*').eq('member_id', memberId)
+        .order('session_date', { ascending: false }).order('created_at', { ascending: false }),
       supabase.from('one_on_one_template').select('*').order('updated_at', { ascending: false }),
     ]).then(([{ data: m }, { data: s }, { data: t }]) => {
       if (m) setMember(m as Member)
       const list = (s ?? []) as OneOnOne[]
       setSessions(list)
-      if (list.length > 0) setSelectedSessionId(list[0].id)
+      const fromUrl = new URLSearchParams(window.location.search).get('s')
+      const initial = list.find(x => x.id === fromUrl) ?? list[0]
+      if (initial) setLiveId(initial.id)
       setTemplates((t ?? []) as OneOnOneTemplate[])
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [memberId])
+
+  // 왼쪽 live 회차 교체 — 미리보기는 새 live의 직전 회차로 되돌린다
+  function setLive(id: string | null) {
+    setLiveId(id)
+    setPreviewId(null)
+    try { window.history.replaceState(null, '', id ? `?s=${id}` : window.location.pathname) } catch {}
+  }
 
   async function createSession(templateId: string | null) {
     setCreating(true)
@@ -144,41 +110,114 @@ export default function MemberOneOnOnePage() {
     const today = new Date().toISOString().slice(0, 10)
     const { data } = await supabase.from('one_on_ones')
       .insert({ member_id: memberId, session_date: today, notes: initialNotes })
-      .select('id').single()
+      .select('*').single()
     setCreating(false)
     setShowModal(false)
-    if (data) router.push(`/one-on-one/${memberId}/${(data as { id: string }).id}`)
+    if (data) {
+      const created = data as OneOnOne
+      setSessions(prev => [created, ...prev])
+      setLive(created.id)
+    }
   }
 
-  function toggleCheck(id: string) {
-    setCheckedIds(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s })
+  // 왼쪽에서 제목·날짜·내용을 바꾸면 오른쪽 칩·미리보기에도 바로 반영
+  function handleSessionChange(id: string, updates: Partial<OneOnOne>) {
+    setSessions(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s))
   }
 
-  function toggleCheckAll() {
-    const allIds = sessions.map(s => s.id)
-    const allChecked = allIds.every(id => checkedIds.has(id))
-    setCheckedIds(allChecked ? new Set() : new Set(allIds))
-  }
-
-  async function deleteChecked() {
-    if (checkedIds.size === 0) return
-    if (!confirm(`선택한 ${checkedIds.size}개 1on1을 삭제하시겠습니까?`)) return
-    await supabase.from('one_on_ones').delete().in('id', Array.from(checkedIds))
-    setSessions(prev => prev.filter(s => !checkedIds.has(s.id)))
-    if (selectedSessionId && checkedIds.has(selectedSessionId)) setSelectedSessionId(null)
-    setCheckedIds(new Set())
+  function handleDeleted(id: string) {
+    const idx = sessions.findIndex(s => s.id === id)
+    const rest = sessions.filter(s => s.id !== id)
+    setSessions(rest)
+    setLive(rest[Math.min(Math.max(idx, 0), rest.length - 1)]?.id ?? null)
   }
 
   if (!member) return (
     <div style={{ padding: 32, color: T3, fontSize: 14 }} className="animate-pulse">불러오는 중...</div>
   )
 
-  const selectedSession = sessions.find(s => s.id === selectedSessionId) ?? null
+  // 미리보기 대상 — 직접 고른 칩, 없으면 live 바로 이전(더 오래된) 회차
+  const liveIdx = sessions.findIndex(s => s.id === liveId)
+  const preview = sessions.find(s => s.id === previewId && s.id !== liveId)
+    ?? (liveIdx >= 0 ? sessions[liveIdx + 1] : undefined)
+    ?? null
+  const previewContent = preview?.notes?.[0]?.content ?? ''
+
+  // 오른쪽 칸 내용: 1행 회차 칩(편집기 제목 행과 같은 높이) · 2행 미리보기 머리줄 · 3행 본문(스크롤)
+  const sidePanel = (
+    <>
+      <div style={{ height: TOP_ROW_H, flexShrink: 0, display: 'flex', alignItems: 'center', padding: '0 12px', borderBottom: `1px solid ${BORDER}` }}>
+        {(stripEdge.left || stripEdge.right) && (
+          <StripArrow dir="left" disabled={!stripEdge.left} onClick={() => scrollStrip(-1)} />
+        )}
+        <div ref={stripRef} onScroll={updateStripEdge} style={{ display: 'flex', gap: 6, overflowX: 'auto', minWidth: 0, flex: 1 }} className="scrollbar-hide">
+          {sessions.map(s => {
+            const isLive = s.id === liveId
+            const sel = s.id === preview?.id
+            const dateLabel = s.session_date ? format(parseISO(s.session_date), 'yy.M.d (E)', { locale: ko }) : '날짜 없음'
+            return (
+              <button key={s.id} onClick={() => { if (!isLive) setPreviewId(s.id) }} disabled={isLive}
+                title={isLive ? '왼쪽에서 작성 중' : (s.title || '제목 없음')}
+                style={{
+                  flexShrink: 0, width: 132, textAlign: 'left', padding: '6px 10px', borderRadius: 10,
+                  cursor: isLive ? 'default' : 'pointer', opacity: isLive ? 0.55 : 1,
+                  background: sel ? 'rgba(76,127,224,0.16)' : 'rgba(var(--ink-rgb),0.04)',
+                  border: `1px ${isLive ? 'dashed' : 'solid'} ${sel ? 'rgba(76,127,224,0.4)' : isLive ? 'rgba(var(--ink-rgb),0.25)' : BORDER}`,
+                  transition: 'background 120ms, border-color 120ms',
+                }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: sel ? 'var(--accent-badge-text)' : T2 }}>{dateLabel}</span>
+                  {isLive
+                    ? <span style={{ fontSize: 9, color: T2, marginLeft: 'auto', flexShrink: 0 }}>작성 중</span>
+                    : s.next_appointment && <span title="다음 약속 있음" style={{ width: 6, height: 6, borderRadius: '50%', background: '#fbbf24', marginLeft: 'auto', flexShrink: 0 }} />}
+                </div>
+                <p style={{ fontSize: 12, color: sel ? T1 : T2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2 }}>{s.title || '제목 없음'}</p>
+              </button>
+            )
+          })}
+        </div>
+        {(stripEdge.left || stripEdge.right) && (
+          <StripArrow dir="right" disabled={!stripEdge.right} onClick={() => scrollStrip(1)} />
+        )}
+      </div>
+
+      {preview ? (
+        <>
+          <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px 8px', borderBottom: `1px solid ${BORDER}` }}>
+            <span style={{ fontSize: 10, fontWeight: 600, color: T3, letterSpacing: '0.04em', flexShrink: 0 }}>미리보기</span>
+            <span style={{ fontSize: 12, fontWeight: 600, color: T2, flexShrink: 0 }}>
+              {preview.session_date ? format(parseISO(preview.session_date), 'yyyy.M.d (E)', { locale: ko }) : '날짜 없음'}
+            </span>
+            <span style={{ fontSize: 13, color: T1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>{preview.title || '(제목 없음)'}</span>
+            <QaCopyMenu compact getContent={() => previewContent}
+              header={`[1on1] ${member.name} · ${preview.session_date ?? '날짜 없음'}${preview.title ? ` · ${preview.title}` : ''}`} />
+            <button onClick={() => setLive(preview.id)} title="이 회차를 왼쪽 편집창으로 가져옵니다"
+              style={{ fontSize: 11, color: T3, background: 'none', border: `1px solid ${BORDER}`, borderRadius: 7, padding: '2px 8px', cursor: 'pointer', flexShrink: 0 }}>
+              ← 왼쪽에서 편집
+            </button>
+          </div>
+          <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide" style={{ padding: '12px 16px 20px' }}>
+            {previewContent
+              ? <MarkdownContent content={previewContent} dark expandToggles className="text-[13px]" />
+              : <p style={{ fontSize: 12, color: T3 }}>기록 내용 없음</p>}
+            {preview.next_appointment && (
+              <div style={{ marginTop: 14, paddingTop: 10, borderTop: `1px dashed ${BORDER}` }}>
+                <span style={{ fontSize: 10, fontWeight: 600, color: '#fbbf24' }}>이때 정한 다음 약속</span>
+                <p style={{ fontSize: 12, color: T2, whiteSpace: 'pre-wrap', lineHeight: 1.6, marginTop: 4 }}>{preview.next_appointment}</p>
+              </div>
+            )}
+          </div>
+        </>
+      ) : (
+        <p style={{ flex: 1, fontSize: 12, color: T3, textAlign: 'center', padding: '40px 0' }}>미리볼 다른 회차가 없습니다</p>
+      )}
+    </>
+  )
 
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', padding: '16px 20px' }}>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       {/* 상단 헤더 */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexShrink: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px 10px', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <Link href="/one-on-one"
             style={{ fontSize: 12, color: T3, textDecoration: 'none', transition: 'color 150ms' }}
@@ -195,67 +234,32 @@ export default function MemberOneOnOnePage() {
             <span style={{ fontSize: 11, color: T3, background: 'rgba(var(--ink-rgb),0.07)', border: `1px solid ${BORDER}`, borderRadius: 6, padding: '1px 7px' }}>{member.part}</span>
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {checkedIds.size > 0 && (
-            <button onClick={deleteChecked}
-              style={{ fontSize: 12, padding: '5px 12px', borderRadius: 8, background: 'rgba(239,68,68,0.85)', color: '#fff', border: 'none', cursor: 'pointer' }}>
-              {checkedIds.size}개 삭제
-            </button>
-          )}
-          <button onClick={() => setShowModal(true)}
-            style={{ fontSize: 12, padding: '6px 14px', borderRadius: 8, background: 'rgba(76,127,224,0.15)', color: 'var(--accent-badge-text)', border: '1px solid rgba(76,127,224,0.3)', cursor: 'pointer', transition: 'background 150ms' }}
-            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(76,127,224,0.22)')}
-            onMouseLeave={e => (e.currentTarget.style.background = 'rgba(76,127,224,0.15)')}>
-            + 새 1on1
-          </button>
-        </div>
+        {/* live 회차의 일자·복사·다운로드·삭제 — 편집창이 portal로 채운다 */}
+        <div ref={setActionsSlot} style={{ flex: 1, minWidth: 0, display: 'flex', justifyContent: 'flex-end', margin: '0 12px' }} />
+        <button onClick={() => setShowModal(true)}
+          style={{ fontSize: 12, padding: '6px 14px', borderRadius: 8, background: 'rgba(76,127,224,0.15)', color: 'var(--accent-badge-text)', border: '1px solid rgba(76,127,224,0.3)', cursor: 'pointer', transition: 'background 150ms' }}
+          onMouseEnter={e => (e.currentTarget.style.background = 'rgba(76,127,224,0.22)')}
+          onMouseLeave={e => (e.currentTarget.style.background = 'rgba(76,127,224,0.15)')}>
+          + 새 1on1
+        </button>
       </div>
 
       {sessions.length === 0 ? (
         <div style={{ textAlign: 'center', paddingTop: 64, color: T3, fontSize: 13 }}>아직 1on1 기록이 없습니다</div>
       ) : (
-        <div style={{ display: 'flex', gap: 14, flex: 1, minHeight: 0 }}>
-          {/* 좌측: 세션 목록 */}
-          <div style={{ width: 240, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-              <input type="checkbox"
-                checked={sessions.length > 0 && sessions.every(s => checkedIds.has(s.id))}
-                onChange={toggleCheckAll}
-                style={{ width: 12, height: 12, accentColor: T2, cursor: 'pointer' }} />
-              <span style={{ fontSize: 11, color: T3 }}>전체 선택</span>
-            </div>
-            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }} className="scrollbar-hide">
-              {sessions.map(session => (
-                <div key={session.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
-                  <input type="checkbox"
-                    checked={checkedIds.has(session.id)}
-                    onChange={() => toggleCheck(session.id)}
-                    onClick={e => e.stopPropagation()}
-                    style={{ width: 12, height: 12, accentColor: T2, cursor: 'pointer', marginTop: 12, flexShrink: 0 }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <SessionPreviewCard
-                      session={session}
-                      memberId={memberId}
-                      isSelected={session.id === selectedSessionId}
-                      onClick={() => setSelectedSessionId(session.id)}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* 우측: 세션 상세 */}
-          <div style={{ flex: 1, minWidth: 0, minHeight: 0 }}>
-            {selectedSession ? (
-              <SessionDetail session={selectedSession} memberId={memberId} />
-            ) : (
-              <div style={{ textAlign: 'center', paddingTop: 64, color: T3, fontSize: 13 }}>세션을 선택하세요</div>
-            )}
-          </div>
+        <div style={{ flex: 1, minHeight: 0, borderTop: `1px solid ${BORDER}` }}>
+          {liveId ? (
+            <OneOnOneSessionEditor key={liveId}
+              memberId={memberId} sessionId={liveId}
+              sidePanel={sidePanel}
+              actionsSlot={actionsSlot}
+              onSessionChange={handleSessionChange}
+              onDeleted={handleDeleted} />
+          ) : (
+            <div style={{ textAlign: 'center', paddingTop: 64, color: T3, fontSize: 13 }}>회차를 선택하세요</div>
+          )}
         </div>
       )}
-
       {/* 새 1on1 모달 */}
       {showModal && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.55)' }}

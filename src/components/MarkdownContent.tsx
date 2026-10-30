@@ -151,8 +151,8 @@ function renderLine(line: string, keyVal: string | number, dark?: boolean, lineN
   return <p key={k} {...la} className={c.body}>{parseInline(line, `${k}`)}</p>
 }
 
-function ToggleBlock({ title, lines, blockKey, dark, startLine }: { title: string; lines: string[]; blockKey: string; dark?: boolean; startLine?: number }) {
-  const [open, setOpen] = useState(false)
+function ToggleBlock({ title, lines, blockKey, dark, startLine, defaultOpen }: { title: string; lines: string[]; blockKey: string; dark?: boolean; startLine?: number; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(!!defaultOpen)
   const toggleText = dark ? 'text-[rgba(var(--text-rgb),0.6)] hover:text-[rgba(var(--text-rgb),0.9)]' : 'text-gray-600 hover:text-gray-900'
   const arrowColor = dark ? 'text-[rgba(var(--text-rgb),0.35)]' : 'text-gray-400'
   const borderColor = dark ? 'border-[rgba(var(--ink-rgb),0.08)]' : 'border-gray-100'
@@ -178,10 +178,12 @@ function ToggleBlock({ title, lines, blockKey, dark, startLine }: { title: strin
   )
 }
 
-export default function MarkdownContent({ content, className, dark }: { content: string; className?: string; dark?: boolean }) {
+// expandToggles: 저장된 노션식 토글(<details>)을 전부 펼친 채로 보여준다(1on1 이전 기록 미리보기 등)
+export default function MarkdownContent({ content, className, dark, expandToggles }: { content: string; className?: string; dark?: boolean; expandToggles?: boolean }) {
   // Tiptap HTML: bullet 문자로 시작하는 <p>에 hanging indent 전처리 후 렌더링
   if (content.trimStart().startsWith('<')) {
-    const processed = preprocessBulletHtml(collapseEmptyParagraphs(content))
+    let processed = preprocessBulletHtml(collapseEmptyParagraphs(content))
+    if (expandToggles) processed = processed.replace(/<details(?![^>]*\bopen\b)/g, '<details open')
     return <div className={`${dark ? 'note-html-dark' : 'note-html'} ${className ?? ''}`} dangerouslySetInnerHTML={{ __html: processed }} />
   }
   const lines = content.split('\n')
@@ -202,7 +204,7 @@ export default function MarkdownContent({ content, className, dark }: { content:
         i++
       }
       nodes.push(
-        <ToggleBlock key={`toggle-${i}`} title={title} lines={contentLines} blockKey={`toggle-${i}`} dark={dark} startLine={titleLine} />
+        <ToggleBlock key={`toggle-${i}`} title={title} lines={contentLines} blockKey={`toggle-${i}`} dark={dark} startLine={titleLine} defaultOpen={expandToggles} />
       )
       continue
     }

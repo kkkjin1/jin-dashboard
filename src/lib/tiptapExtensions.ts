@@ -6,6 +6,7 @@ import type { Editor } from '@tiptap/react'
 import { Plugin, PluginKey, Selection, TextSelection, type Transaction } from '@tiptap/pm/state'
 import { Slice, type Node as PMNode, type Mark as PMMark } from '@tiptap/pm/model'
 import StarterKit from '@tiptap/starter-kit'
+import Italic from '@tiptap/extension-italic'
 import OrderedList from '@tiptap/extension-ordered-list'
 import { Color, TextStyle } from '@tiptap/extension-text-style'
 import Highlight from '@tiptap/extension-highlight'
@@ -353,6 +354,23 @@ export const QaShortcut = Extension.create({
   addKeyboardShortcuts() {
     return { 'Mod-Alt-q': () => toggleQuestionAtSelection(this.editor) }
   },
+  // 줄 맨 앞에서 "Q. " (q도 됨)을 치면 그 글자는 지우고 질문 줄로 바꾼다 — Q 배지는 CSS가 그린다.
+  // 바로 Backspace를 누르면 Tiptap 기본 undoInputRule로 "Q. " 글자 상태로 되돌아간다.
+  addInputRules() {
+    return [
+      new InputRule({
+        find: /^[Qq]\.\s$/,
+        handler: ({ state, range }) => {
+          const $from = state.doc.resolve(range.from)
+          const node = $from.parent
+          if (!QA_TYPES.includes(node.type.name) || node.attrs.qa === 'q') return null
+          const { tr } = state
+          tr.delete(range.from, range.to)
+          tr.setNodeMarkup($from.before(), undefined, { ...node.attrs, qa: 'q' })   // 블록 시작 위치는 삭제로 안 밀림
+        },
+      }),
+    ]
+  },
 })
 
 // ── 경영진 의견 표시 ──────────────────────────────────────────────────────────
@@ -625,8 +643,16 @@ export const EnterClearsPen = Extension.create<unknown, { armed: boolean }>({
 // 모듈 레벨 상수 — 렌더마다 새 참조 생성 방지 (Tiptap v3에서 extensions 참조 변경 시 refreshEditorInstance 호출됨)
 // Quick Memo/생각스케치가 공유하는 최소 코어. Quick Memo 전용 기능(Image 붙여넣기 등)은
 // 각 에디터가 이 배열 위에 자신만 추가한다.
+// 기울임은 Ctrl+I·툴바로만 — "text * text * text"처럼 별표를 그냥 쓰면 *…* 입력/붙여넣기
+// 규칙이 별표를 지우고 기울임으로 바꿔버려서 그 자동 변환만 끈다(기존 기울임 HTML은 그대로 읽힘).
+const ItalicNoMarkdown = Italic.extend({
+  addInputRules() { return [] },
+  addPasteRules() { return [] },
+})
+
 export const BASE_TIPTAP_EXTENSIONS = [
-  StarterKit.configure({ orderedList: false }),  // StarterKit v3에 Underline 포함
+  StarterKit.configure({ orderedList: false, italic: false }),  // StarterKit v3에 Underline 포함
+  ItalicNoMarkdown,
   CustomOrderedList,
   TextStyle,
   Color,
