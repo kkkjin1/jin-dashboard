@@ -1,3 +1,4 @@
+import { requireUser } from '@/lib/supabase/requireUser'
 import type { NextRequest } from 'next/server'
 
 export interface RssItem {
@@ -57,6 +58,9 @@ function parseRSS(xml: string, sourceLabel: string): RssItem[] {
 }
 
 export async function GET(request: NextRequest) {
+  const denied = await requireUser()
+  if (denied) return denied
+
   const url = request.nextUrl.searchParams.get('url')
   const label = request.nextUrl.searchParams.get('label') ?? ''
 

@@ -1,3 +1,4 @@
+import { requireUser } from '@/lib/supabase/requireUser'
 // data.go.kr API — 법제처 입법예고 + 고용노동부 보도자료
 // 환경변수: DATAGO_API_KEY (https://www.data.go.kr → 마이페이지 → 인증키)
 import type { NextRequest } from 'next/server'
@@ -74,6 +75,9 @@ async function fetchMoelPress(key: string): Promise<DatagoItem[]> {
 }
 
 export async function GET(request: NextRequest) {
+  const denied = await requireUser()
+  if (denied) return denied
+
   const type = request.nextUrl.searchParams.get('type') ?? 'legislation'
   const key = process.env.DATAGO_API_KEY
 

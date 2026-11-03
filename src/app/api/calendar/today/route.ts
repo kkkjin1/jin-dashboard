@@ -1,3 +1,4 @@
+import { requireUser } from '@/lib/supabase/requireUser'
 import { NextRequest, NextResponse } from 'next/server'
 
 // 새 패키지 의존성 없이 fetch만으로 구현 (googleapis 등 무거운 SDK 불필요)
@@ -57,6 +58,9 @@ const H_START = 9, H_END = 21
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
 export async function GET(req: NextRequest) {
+  const denied = await requireUser()
+  if (denied) return denied
+
   let accessToken: string
   try {
     accessToken = await getAccessToken()

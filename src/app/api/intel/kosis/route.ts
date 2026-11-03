@@ -1,3 +1,4 @@
+import { requireUser } from '@/lib/supabase/requireUser'
 // KOSIS 통계청 API — 임금·고용 실수치
 // 환경변수: KOSIS_API_KEY (https://kosis.kr/openapi/agree.do)
 import type { NextRequest } from 'next/server'
@@ -75,6 +76,9 @@ async function fetchKosisTable(
 }
 
 export async function GET(_request: NextRequest) {
+  const denied = await requireUser()
+  if (denied) return denied
+
   const key = process.env.KOSIS_API_KEY
 
   if (!key) {

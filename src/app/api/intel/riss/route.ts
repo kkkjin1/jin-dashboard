@@ -1,3 +1,4 @@
+import { requireUser } from '@/lib/supabase/requireUser'
 // RISS 학술논문 검색 API (data.go.kr)
 // 환경변수: RISS_API_KEY
 // 발급: data.go.kr → "RISS 학술논문" 검색 → 활용신청
@@ -16,6 +17,9 @@ interface RissRawItem {
 }
 
 export async function GET(request: NextRequest) {
+  const denied = await requireUser()
+  if (denied) return denied
+
   const key = process.env.RISS_API_KEY
 
   if (!key) {
