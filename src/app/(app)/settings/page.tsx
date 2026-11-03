@@ -8,6 +8,7 @@ import { ko } from 'date-fns/locale'
 import { NAV_ITEMS } from '@/lib/nav-config'
 import { isTeamActive } from '@/hooks/useOrgData'
 import type { OrgTeam, OrgPart } from '@/hooks/useOrgData'
+import DataBackupSection from '@/components/settings/DataBackupSection'
 
 // ── 메뉴 (Desktop Sidebar/Mobile TopNav와 동일한 canonical 목록) ──────
 const ALL_NAV = NAV_ITEMS.map(i => ({ href: i.href, label: i.label }))
@@ -830,6 +831,9 @@ export default function SettingsPage() {
           <p className="text-[10px] px-4 py-2" style={{ color: 'rgba(var(--text-rgb),0.2)', borderTop: '1px solid rgba(var(--ink-rgb),0.04)' }}>홈·설정은 항상 표시됩니다</p>
         </div>
       </section>
+
+      {/* ══ 데이터 백업 ══════════════════════════════════════════ */}
+      <DataBackupSection />
     </div>
     </div>
   )
