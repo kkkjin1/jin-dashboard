@@ -8,8 +8,19 @@ import TiptapEditor from '@/components/TiptapEditor'
 import { openQuickMemo, registerQuickMemoHeartbeat } from '@/lib/quickMemo'
 import { useTheme } from '@/lib/theme'
 import type { MemoTag } from '@/types'
+import { CATEGORY_PALETTE, MEETING_CATEGORY, colorKeyFromName } from '@/lib/categoryColors'
 
-const TAGS: MemoTag[] = ['업무관련', '회의관련', '아이디어', '공지']
+// 회의록 탭(MeetingNotesNew)과 같은 기본값 — 실제 목록은 user_preferences.meetings_cat_order에서 읽음
+const DEFAULT_MEETING_CATS = ['개인', '경영진', '기타']
+
+function meetingCatStyle(cat: string): { background: string; color: string; borderColor: string } {
+  const key = MEETING_CATEGORY[cat] ?? colorKeyFromName(cat)
+  const p = CATEGORY_PALETTE[key]
+  return { background: p.bg, color: p.text, borderColor: p.border }
+}
+
+// '공지'는 빠른 메모에서 뺌 — 메모함에서 메모별 공지 고정 버튼으로만 지정
+const TAGS: MemoTag[] = ['업무관련', '회의관련', '아이디어']
 
 const TAG_COLORS: Record<MemoTag, string> = {
   '업무관련': 'bg-[rgba(79,141,255,0.15)] text-[#4F8DFF] border-[rgba(79,141,255,0.3)]',
@@ -90,6 +101,9 @@ export default function QuickMemoPage() {
   const [title,        setTitle]        = useState('')
   const [content,      setContent]      = useState('')
   const [tag,          setTag]          = useState<MemoTag>('업무관련')
+  // "회의관련" 저장 시 회의록 범주 — 기본 '기타', 회의록 탭에 설정된 범주 중에서 고름
+  const [meetingCat,   setMeetingCat]   = useState('기타')
+  const [meetingCats,  setMeetingCats]  = useState<string[]>(DEFAULT_MEETING_CATS)
   const [saving,       setSaving]       = useState(false)
   const [savedMsg,     setSavedMsg]     = useState('')
   const [saveError,    setSaveError]    = useState('')
@@ -192,6 +206,21 @@ export default function QuickMemoPage() {
   const [pickerItems,    setPickerItems]    = useState<AgendaItemOption[]>([])
   const [pickerLoading,  setPickerLoading]  = useState(false)
   const [subTaskCreated, setSubTaskCreated] = useState('')
+
+  // 회의록 탭 범주 목록: DB(canonical) → 없으면 이 기기 localStorage → 기본값
+  useEffect(() => {
+    let local: string[] | null = null
+    try {
+      const s = localStorage.getItem('meetings_cat_order')
+      if (s) { const v = JSON.parse(s); if (Array.isArray(v) && v.length > 0) local = v as string[] }
+    } catch {}
+    if (local) setMeetingCats(local)
+    supabase.from('user_preferences').select('value').eq('key', 'meetings_cat_order').maybeSingle()
+      .then(({ data }) => {
+        if (Array.isArray(data?.value) && (data.value as string[]).length > 0) setMeetingCats(data.value as string[])
+      })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     supabase.from('agenda_groups').select('id, name, color').order('sort_order').then(({ data }) => {
@@ -364,7 +393,7 @@ export default function QuickMemoPage() {
 
   // ── 저장 ─────────────────────────────────────────────────────────────────
   // "회의관련" 태그는 quick_memos가 아니라 회의록 탭(meetings + meeting_notes)에
-  // '기타' 카테고리로 저장한다 — 정확한 범주는 사용자가 회의록 탭에서 직접 재분류.
+  // 사용자가 고른 범주(기본 '기타')로 저장한다.
   // 예전엔 제목의 날짜를 파싱해 project_meetings(아무 화면도 읽지 않는 테이블)에
   // 저장했다가 메모함/Ctrl+K 어디서도 안 보이는 사고가 있었음(2026-09-02) — 날짜
   // 추측 로직 자체를 없애고, 실제로 화면에 보이는 회의록 테이블로 명확히 저장한다.
@@ -380,7 +409,7 @@ export default function QuickMemoPage() {
     if (tag === '회의관련') {
       const today = new Date().toISOString().slice(0, 10)
       const { data: newMeeting, error: meetingError } = await supabase.from('meetings')
-        .insert({ title: title.trim(), meeting_date: today, category: '기타' })
+        .insert({ title: title.trim(), meeting_date: today, category: meetingCat || '기타' })
         .select('id, title, meeting_date, category').single()
       if (meetingError || !newMeeting) {
         setSaving(false)
@@ -400,7 +429,7 @@ export default function QuickMemoPage() {
         return
       }
       if (window.opener) window.opener.dispatchEvent(new CustomEvent('quick-meeting-created', { detail: newMeeting }))
-      setSavedMsg('회의록에 저장됨!')
+      setSavedMsg(`회의록(${meetingCat || '기타'})에 저장됨!`)
     } else {
       const { data: newMemo, error } = await supabase.from('quick_memos')
         .insert({ title: title.trim(), content, tag: [tag] })
@@ -454,7 +483,7 @@ export default function QuickMemoPage() {
     appendToArchive({ title: title.trim(), content, tag, savedAt: Date.now() })
     if (savedQid) removeDraftEntry(savedQid)
     setSaving(false)
-    setTitle(''); setContent(''); setTag('업무관련')
+    setTitle(''); setContent(''); setTag('업무관련'); setMeetingCat('기타')
     setEditorKey(k => k + 1)
     setTimeout(() => { setSavedMsg(''); titleRef.current?.focus() }, 1200)
   }
@@ -627,9 +656,21 @@ export default function QuickMemoPage() {
       />
 
       {tag === '회의관련' && (
-        <p className="text-xs mb-2 px-0.5 text-[#A78BFA]">
-          📋 회의록 탭 &gt; &lsquo;기타&rsquo; 범주에 저장됩니다 — 필요하면 회의록 탭에서 범주를 옮겨주세요
-        </p>
+        <div className="mb-2 px-0.5">
+          <div className="flex items-center flex-wrap gap-1.5">
+            <span className="text-[11px] mr-0.5" style={{ color: 'var(--text-muted)' }}>📋 회의록 범주</span>
+            {(meetingCats.includes('기타') ? meetingCats : [...meetingCats, '기타']).map(c => (
+              <button key={c} type="button"
+                onClick={() => setMeetingCat(c)}
+                className="text-[11px] px-2 py-0.5 rounded-full border transition-colors"
+                style={meetingCat === c
+                  ? meetingCatStyle(c)
+                  : { background: 'rgba(var(--ink-rgb),0.05)', color: 'var(--text-muted)', borderColor: 'rgba(var(--ink-rgb),0.08)' }}>
+                {c}
+              </button>
+            ))}
+          </div>
+        </div>
       )}
 
       {/* 본문 */}
