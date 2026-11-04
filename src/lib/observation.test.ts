@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { teamMembers, observationError, observationColumns, toggleId, filterByObservedMember, observationLabel, OBS_TAG } from './observation'
+import { teamMembers, observationError, observationColumns, toggleId, filterByObservedMember, observationLabel, obsTitleFromContent, memoSaveTitle, OBS_TAG } from './observation'
 
 const org = [
   { id: 't1', name: '인사관리팀', parts: [] },
@@ -47,6 +47,28 @@ describe('저장 값', () => {
   it('칩 누르기 = 켜고 끄기', () => {
     expect(toggleId(['a'], 'b')).toEqual(['a', 'b'])
     expect(toggleId(['a', 'b'], 'a')).toEqual(['b'])
+  })
+})
+
+describe('팀원관찰 제목 자동 생성(제목 칸 없음)', () => {
+  it('본문 첫 줄이 제목', () => {
+    expect(obsTitleFromContent('<p></p><p>  채용 일정 &amp; 면접 조율 잘함 </p><p>둘째 줄</p>')).toBe('채용 일정 & 면접 조율 잘함')
+  })
+  it('목록·줄바꿈 첫 항목도', () => {
+    expect(obsTitleFromContent('<ul><li><p>첫 항목</p></li></ul>')).toBe('첫 항목')
+    expect(obsTitleFromContent('<p>위<br>아래</p>')).toBe('위')
+  })
+  it('40자 넘으면 줄인다', () => {
+    const t = obsTitleFromContent('<p>' + '가'.repeat(50) + '</p>')
+    expect(t).toBe('가'.repeat(40) + '…')
+  })
+  it('본문이 비면 빈 제목 → 저장 막힘', () => {
+    expect(obsTitleFromContent('<p></p>')).toBe('')
+    expect(memoSaveTitle(OBS_TAG, '', '<p></p>')).toBe('')
+  })
+  it('다른 범주는 입력한 제목 그대로', () => {
+    expect(memoSaveTitle('업무관련', ' 제목 ', '<p>본문</p>')).toBe('제목')
+    expect(memoSaveTitle(OBS_TAG, '', '<p>본문</p>')).toBe('본문')
   })
 })
 

@@ -12,7 +12,7 @@ import { CATEGORY_PALETTE, MEETING_CATEGORY, colorKeyFromName } from '@/lib/cate
 import { useOrgData } from '@/hooks/useOrgData'
 import { fetchMembers } from '@/lib/tasks'
 import type { Member } from '@/types'
-import { OBS_TAG, OBS_KINDS, OBS_TEAM_NAME, teamMembers, observationError, observationColumns, toggleId, type ObsKind } from '@/lib/observation'
+import { OBS_TAG, OBS_KINDS, OBS_TEAM_NAME, teamMembers, observationError, observationColumns, toggleId, memoSaveTitle, type ObsKind } from '@/lib/observation'
 
 // 회의록 탭(MeetingNotesNew)과 같은 기본값 — 실제 목록은 user_preferences.meetings_cat_order에서 읽음
 const DEFAULT_MEETING_CATS = ['개인', '경영진', '기타']
@@ -434,9 +434,11 @@ export default function QuickMemoPage() {
   // 저장했다가 메모함/Ctrl+K 어디서도 안 보이는 사고가 있었음(2026-09-02) — 날짜
   // 추측 로직 자체를 없애고, 실제로 화면에 보이는 회의록 테이블로 명확히 저장한다.
   async function handleSave() {
-    if (!title.trim()) return
     const obsErr = observationError(tag, obsMembers)
     if (obsErr) { setSaveError(obsErr); return }
+    // 팀원관찰은 제목 칸이 없다 — 본문 첫 줄이 제목
+    const saveTitle = memoSaveTitle(tag, title, content)
+    if (!saveTitle) { if (tag === OBS_TAG) setSaveError('관찰 내용을 적어 주세요'); return }
     setSaving(true)
     setSaveError('')
 
@@ -470,7 +472,7 @@ export default function QuickMemoPage() {
       setSavedMsg(`회의록(${meetingCat || '기타'})에 저장됨!`)
     } else {
       const { data: newMemo, error } = await supabase.from('quick_memos')
-        .insert({ title: title.trim(), content, tag: [tag], ...observationColumns(tag, obsMembers, obsKind) })
+        .insert({ title: saveTitle, content, tag: [tag], ...observationColumns(tag, obsMembers, obsKind) })
         .select('id').single()
       if (error) {
         setSaving(false)
@@ -518,7 +520,7 @@ export default function QuickMemoPage() {
 
     // DB 저장이 실제로 성공했을 때만 — 그래도 즉시 파기하지 않고 보관함으로 옮겨
     // "성공한 것처럼 보였지만 실은 안 됐던" 경우에 대비한 유예기간을 둠
-    appendToArchive({ title: title.trim(), content, tag, savedAt: Date.now(), obsMembers, obsKind })
+    appendToArchive({ title: saveTitle, content, tag, savedAt: Date.now(), obsMembers, obsKind })
     if (savedQid) removeDraftEntry(savedQid)
     setSaving(false)
     setTitle(''); setContent(''); setTag('업무관련'); setMeetingCat('기타')
@@ -674,7 +676,11 @@ export default function QuickMemoPage() {
       <div className="flex gap-1.5 mb-3">
         {TAGS.map(t => (
           <button key={t}
-            onClick={() => { setTag(t); saveDraft(title, content, t) }}
+            onClick={() => {
+              // 팀원관찰로 바꾸면 제목 칸이 사라지므로 본문에 바로 쓸 수 있게 편집기를 다시 띄워 포커스
+              if (t === OBS_TAG && tag !== OBS_TAG) setEditorKey(k => k + 1)
+              setTag(t); saveDraft(title, content, t)
+            }}
             className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${tag === t
               ? TAG_COLORS[t]
               : 'bg-[rgba(var(--ink-rgb),0.05)] text-[var(--text-muted)] border-[rgba(var(--ink-rgb),0.08)] hover:bg-[rgba(var(--ink-rgb),0.08)] hover:text-[var(--text-hover-muted)]'}`}>
@@ -683,8 +689,8 @@ export default function QuickMemoPage() {
         ))}
       </div>
 
-      {/* 제목 */}
-      <input
+      {/* 제목 — 팀원관찰은 제목 없이 본문 첫 줄이 제목이 된다 */}
+      {tag !== OBS_TAG && <input
         ref={titleRef}
         value={title}
         onChange={e => { setTitle(e.target.value); saveDraft(e.target.value, content, tag) }}
@@ -692,10 +698,10 @@ export default function QuickMemoPage() {
           if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey) e.preventDefault()
           if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); handleSave() }
         }}
-        placeholder={tag === '회의관련' ? '호균님 미팅' : tag === OBS_TAG ? '관찰 한 줄 요약 (Ctrl+Enter 저장)' : '제목 (Ctrl+Enter 저장)'}
+        placeholder={tag === '회의관련' ? '호균님 미팅' : '제목 (Ctrl+Enter 저장)'}
         className="w-full text-sm placeholder:text-[var(--text-muted)] border border-[rgba(var(--ink-rgb),0.08)] rounded-lg px-3 py-2 focus:outline-none focus:border-[rgba(var(--ink-rgb),0.2)] mb-1.5"
         style={{ background: 'rgba(var(--ink-rgb),0.06)', color: 'var(--text-primary)' }}
-      />
+      />}
 
       {tag === '회의관련' && (
         <div className="mb-2 px-0.5">
@@ -754,6 +760,7 @@ export default function QuickMemoPage() {
         style={{ background: 'rgba(var(--ink-rgb),0.06)' }}>
         <TiptapEditor enableToggle enableVoice
           key={editorKey}
+          autoFocus={tag === OBS_TAG}
           value={content}
           onChange={v => { setContent(v); saveDraft(title, v, tag) }}
           onSubmit={handleSave}
@@ -883,7 +890,7 @@ export default function QuickMemoPage() {
           )}
           <button
             onClick={handleSave}
-            disabled={!title.trim() || saving}
+            disabled={!memoSaveTitle(tag, title, content) || saving}
             className="text-xs bg-[rgba(76,127,224,0.1)] text-[rgba(var(--text-rgb),0.85)] border border-[rgba(var(--ink-rgb),0.08)] px-4 py-2 rounded-lg hover:bg-[rgba(76,127,224,0.18)] disabled:opacity-30 transition-colors flex-shrink-0"
             style={{ boxShadow: 'inset 0 1px 0 rgba(var(--ink-rgb),0.07)' }}>
             {savedMsg || (saving ? '저장 중...' : '저장')}

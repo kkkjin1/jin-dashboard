@@ -33,6 +33,23 @@ export function observationColumns(tag: string, memberIds: string[], kind: ObsKi
   return { observed_member_ids: [...new Set(memberIds)], observation_kind: kind }
 }
 
+const OBS_TITLE_MAX = 40
+
+/** 팀원관찰은 제목 칸이 없다 — 본문 첫 줄(글자만, 40자까지)을 제목으로 쓴다. 본문이 비면 '' */
+export function obsTitleFromContent(html: string): string {
+  const text = html
+    .replace(/<(br|\/p|\/li|\/h\d|\/summary|\/div)[^>]*>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')
+  const line = text.split('\n').map(l => l.replace(/\s+/g, ' ').trim()).find(Boolean) ?? ''
+  return line.length > OBS_TITLE_MAX ? line.slice(0, OBS_TITLE_MAX) + '…' : line
+}
+
+/** 저장할 제목 — 팀원관찰이면 본문 첫 줄, 아니면 입력한 제목 */
+export function memoSaveTitle(tag: string, title: string, contentHtml: string): string {
+  return tag === OBS_TAG ? (title.trim() || obsTitleFromContent(contentHtml)) : title.trim()
+}
+
 export function toggleId(ids: string[], id: string): string[] {
   return ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]
 }
