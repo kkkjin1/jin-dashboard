@@ -79,6 +79,9 @@ export interface QuickMemo {
   content: string
   tag: MemoTag[]
   created_at: string
+  // 팀원관찰 메모(schema_v72) — 관찰 대상 팀원 id, 칭찬/개선
+  observed_member_ids?: string[] | null
+  observation_kind?: string | null
 }
 
 export interface ManualAchievement {

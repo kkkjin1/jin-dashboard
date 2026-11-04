@@ -9,6 +9,10 @@ import { openQuickMemo, registerQuickMemoHeartbeat } from '@/lib/quickMemo'
 import { useTheme } from '@/lib/theme'
 import type { MemoTag } from '@/types'
 import { CATEGORY_PALETTE, MEETING_CATEGORY, colorKeyFromName } from '@/lib/categoryColors'
+import { useOrgData } from '@/hooks/useOrgData'
+import { fetchMembers } from '@/lib/tasks'
+import type { Member } from '@/types'
+import { OBS_TAG, OBS_KINDS, OBS_TEAM_NAME, teamMembers, observationError, observationColumns, toggleId, type ObsKind } from '@/lib/observation'
 
 // 회의록 탭(MeetingNotesNew)과 같은 기본값 — 실제 목록은 user_preferences.meetings_cat_order에서 읽음
 const DEFAULT_MEETING_CATS = ['개인', '경영진', '기타']
@@ -20,7 +24,7 @@ function meetingCatStyle(cat: string): { background: string; color: string; bord
 }
 
 // '공지'는 빠른 메모에서 뺌 — 메모함에서 메모별 공지 고정 버튼으로만 지정
-const TAGS: MemoTag[] = ['업무관련', '회의관련', '아이디어']
+const TAGS: MemoTag[] = ['업무관련', '회의관련', '아이디어', OBS_TAG]
 
 const TAG_COLORS: Record<MemoTag, string> = {
   '업무관련': 'bg-[rgba(79,141,255,0.15)] text-[#4F8DFF] border-[rgba(79,141,255,0.3)]',
@@ -28,13 +32,19 @@ const TAG_COLORS: Record<MemoTag, string> = {
   '아이디어': 'bg-[rgba(249,158,11,0.15)] text-[#F99E0B] border-[rgba(249,158,11,0.3)]',
   '공지':     'bg-[rgba(239,68,68,0.15)] text-[#FC8181] border-[rgba(239,68,68,0.3)]',
   '완료':     'bg-[rgba(91,98,112,0.15)] text-[#7B8290] border-[rgba(91,98,112,0.3)]',
+  [OBS_TAG]:  'bg-[rgba(56,190,152,0.15)] text-[#2FA582] border-[rgba(56,190,152,0.3)]',
+}
+
+const OBS_KIND_STYLE: Record<ObsKind, { background: string; color: string; borderColor: string }> = {
+  '칭찬': { background: 'rgba(56,190,152,0.15)', color: '#2FA582', borderColor: 'rgba(56,190,152,0.35)' },
+  '개선': { background: 'rgba(249,158,11,0.15)', color: '#D98708', borderColor: 'rgba(249,158,11,0.35)' },
 }
 
 // 팝업마다 고유 id(qid)로 각자 독립된 슬롯에 저장 — 여러 창을 동시에 열어놔도
 // 서로 덮어쓰지 않고, 크래시가 나도 열려 있던 창 수만큼 각자 복구 가능하다.
 const DRAFTS_KEY = 'quick_memo_drafts'
 
-type DraftEntry = { title: string; content: string; tag: MemoTag; updatedAt: number }
+type DraftEntry = { title: string; content: string; tag: MemoTag; updatedAt: number; obsMembers?: string[]; obsKind?: ObsKind | null }
 type DraftMap = Record<string, DraftEntry>
 
 function readDrafts(): DraftMap {
@@ -64,7 +74,7 @@ const ARCHIVE_KEY = 'quick_memo_archive'
 const ARCHIVE_RETENTION_MS = 3 * 24 * 60 * 60 * 1000 // 3일
 const ARCHIVE_MAX = 50
 
-type ArchiveEntry = { title: string; content: string; tag: MemoTag; savedAt: number }
+type ArchiveEntry = { title: string; content: string; tag: MemoTag; savedAt: number; obsMembers?: string[]; obsKind?: ObsKind | null }
 
 function readArchive(): ArchiveEntry[] {
   try {
@@ -104,6 +114,12 @@ export default function QuickMemoPage() {
   // "회의관련" 저장 시 회의록 범주 — 기본 '기타', 회의록 탭에 설정된 범주 중에서 고름
   const [meetingCat,   setMeetingCat]   = useState('기타')
   const [meetingCats,  setMeetingCats]  = useState<string[]>(DEFAULT_MEETING_CATS)
+  // "팀원관찰" 저장 시 관찰 대상(인사관리팀, 여러 명)과 칭찬/개선
+  const [obsMembers,   setObsMembers]   = useState<string[]>([])
+  const [obsKind,      setObsKind]      = useState<ObsKind | null>(null)
+  const [allMembers,   setAllMembers]   = useState<Member[]>([])
+  const { org } = useOrgData()
+  const obsCandidates = useMemo(() => teamMembers(org, allMembers), [org, allMembers])
   const [saving,       setSaving]       = useState(false)
   const [savedMsg,     setSavedMsg]     = useState('')
   const [saveError,    setSaveError]    = useState('')
@@ -147,6 +163,7 @@ export default function QuickMemoPage() {
 
   function restoreFromArchive(e: ArchiveEntry) {
     setTitle(e.title); setContent(e.content); setTag(e.tag)
+    setObsMembers(e.obsMembers ?? []); setObsKind(e.obsKind ?? null)
     setEditorKey(k => k + 1)
     setShowArchive(false)
     setTimeout(() => titleRef.current?.focus(), 30)
@@ -174,6 +191,7 @@ export default function QuickMemoPage() {
       setAutosaveEntityId(id)
       const d = drafts[id]
       setTitle(d.title ?? ''); setContent(d.content ?? ''); setTag(d.tag ?? '업무관련')
+      setObsMembers(d.obsMembers ?? []); setObsKind(d.obsKind ?? null)
       setEditorKey(k => k + 1)
     } else {
       // 2개 이상 남아있음 — 사용자가 고를 때까지 qid 미확정
@@ -186,6 +204,7 @@ export default function QuickMemoPage() {
     qidRef.current = o.id
     setAutosaveEntityId(o.id)
     setTitle(o.title); setContent(o.content); setTag(o.tag)
+    setObsMembers(o.obsMembers ?? []); setObsKind(o.obsKind ?? null)
     setEditorKey(k => k + 1)
     setOrphans([])
     setTimeout(() => titleRef.current?.focus(), 30)
@@ -241,7 +260,21 @@ export default function QuickMemoPage() {
   // entityId(qid)가 아직 없으면 enabled=false로 완전히 비활성. canonical
   // agenda_groups/agenda_items/agenda_sub_tasks/meetings/meeting_notes/quick_memos는
   // 항상 production(`supabase`)을 쓴다.
-  const draftValue = useMemo(() => ({ title, content, tag }), [title, content, tag])
+  const draftValue = useMemo(() => ({ title, content, tag, obsMembers, obsKind }), [title, content, tag, obsMembers, obsKind])
+
+  // 팀원관찰 대상 후보(인사관리팀) — 팀원 목록은 항상 production에서
+  useEffect(() => { fetchMembers().then(setAllMembers) }, [])
+
+  function pickObsMember(id: string) {
+    const next = toggleId(obsMembers, id)
+    setObsMembers(next); setSaveError('')
+    saveDraft(title, content, tag, { members: next, kind: obsKind })
+  }
+  function pickObsKind(k: ObsKind) {
+    const next = obsKind === k ? null : k
+    setObsKind(next)
+    saveDraft(title, content, tag, { members: obsMembers, kind: next })
+  }
   const autosave = useAutosave({
     supabase: activeSupabase,
     enabled: isHolderState && !!autosaveEntityId,
@@ -253,23 +286,26 @@ export default function QuickMemoPage() {
 
   function applyRecovered() {
     if (!autosave.recovered) return
-    const v = autosave.recovered.value as { title: string; content: string; tag: MemoTag }
+    const v = autosave.recovered.value as { title: string; content: string; tag: MemoTag; obsMembers?: string[]; obsKind?: ObsKind | null }
     setTitle(v.title ?? ''); setContent(v.content ?? ''); setTag(v.tag ?? '업무관련')
+    setObsMembers(v.obsMembers ?? []); setObsKind(v.obsKind ?? null)
     setEditorKey(k => k + 1)
     autosave.discardRecovered()
   }
 
   // ── 자동저장 ── 이 창 고유 슬롯(qid)에만 씀, 다른 창과 절대 안 겹침 ─────────
-  const saveDraft = useCallback((t: string, c: string, tg: MemoTag) => {
+  // 관찰 대상·종류는 인자로 안 넘기면 현재 값 — 제목/본문/범주 호출부는 그대로 둔다
+  const saveDraft = useCallback((t: string, c: string, tg: MemoTag, obs?: { members: string[]; kind: ObsKind | null }) => {
     if (!isHolder.current || !qidRef.current) return
     if (t || c) {
-      writeDraftEntry(qidRef.current, { title: t, content: c, tag: tg, updatedAt: Date.now() })
+      const o = obs ?? { members: obsMembers, kind: obsKind }
+      writeDraftEntry(qidRef.current, { title: t, content: c, tag: tg, updatedAt: Date.now(), obsMembers: o.members, obsKind: o.kind })
       setAutoSaved(true)
       setTimeout(() => setAutoSaved(false), 1500)
     } else {
       removeDraftEntry(qidRef.current)
     }
-  }, [])
+  }, [obsMembers, obsKind])
 
   // beforeunload: 아무것도 하지 않음 — draft는 localStorage에 그대로 남아 다음 열기 시 복원
 
@@ -399,6 +435,8 @@ export default function QuickMemoPage() {
   // 추측 로직 자체를 없애고, 실제로 화면에 보이는 회의록 테이블로 명확히 저장한다.
   async function handleSave() {
     if (!title.trim()) return
+    const obsErr = observationError(tag, obsMembers)
+    if (obsErr) { setSaveError(obsErr); return }
     setSaving(true)
     setSaveError('')
 
@@ -432,7 +470,7 @@ export default function QuickMemoPage() {
       setSavedMsg(`회의록(${meetingCat || '기타'})에 저장됨!`)
     } else {
       const { data: newMemo, error } = await supabase.from('quick_memos')
-        .insert({ title: title.trim(), content, tag: [tag] })
+        .insert({ title: title.trim(), content, tag: [tag], ...observationColumns(tag, obsMembers, obsKind) })
         .select('id').single()
       if (error) {
         setSaving(false)
@@ -480,10 +518,11 @@ export default function QuickMemoPage() {
 
     // DB 저장이 실제로 성공했을 때만 — 그래도 즉시 파기하지 않고 보관함으로 옮겨
     // "성공한 것처럼 보였지만 실은 안 됐던" 경우에 대비한 유예기간을 둠
-    appendToArchive({ title: title.trim(), content, tag, savedAt: Date.now() })
+    appendToArchive({ title: title.trim(), content, tag, savedAt: Date.now(), obsMembers, obsKind })
     if (savedQid) removeDraftEntry(savedQid)
     setSaving(false)
     setTitle(''); setContent(''); setTag('업무관련'); setMeetingCat('기타')
+    setObsMembers([]); setObsKind(null)
     setEditorKey(k => k + 1)
     setTimeout(() => { setSavedMsg(''); titleRef.current?.focus() }, 1200)
   }
@@ -617,8 +656,11 @@ export default function QuickMemoPage() {
             </button>
             <button
               onClick={() => {
-                const v = autosave.conflict?.serverContent as { title: string; content: string; tag: MemoTag } | undefined
-                if (v) { setTitle(v.title ?? ''); setContent(v.content ?? ''); setTag(v.tag ?? '업무관련'); setEditorKey(k => k + 1) }
+                const v = autosave.conflict?.serverContent as { title: string; content: string; tag: MemoTag; obsMembers?: string[]; obsKind?: ObsKind | null } | undefined
+                if (v) {
+                  setTitle(v.title ?? ''); setContent(v.content ?? ''); setTag(v.tag ?? '업무관련')
+                  setObsMembers(v.obsMembers ?? []); setObsKind(v.obsKind ?? null); setEditorKey(k => k + 1)
+                }
                 autosave.resolveConflict('take-theirs')
               }}
               className="underline underline-offset-2">
@@ -650,7 +692,7 @@ export default function QuickMemoPage() {
           if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey) e.preventDefault()
           if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); handleSave() }
         }}
-        placeholder={tag === '회의관련' ? '호균님 미팅' : '제목 (Ctrl+Enter 저장)'}
+        placeholder={tag === '회의관련' ? '호균님 미팅' : tag === OBS_TAG ? '관찰 한 줄 요약 (Ctrl+Enter 저장)' : '제목 (Ctrl+Enter 저장)'}
         className="w-full text-sm placeholder:text-[var(--text-muted)] border border-[rgba(var(--ink-rgb),0.08)] rounded-lg px-3 py-2 focus:outline-none focus:border-[rgba(var(--ink-rgb),0.2)] mb-1.5"
         style={{ background: 'rgba(var(--ink-rgb),0.06)', color: 'var(--text-primary)' }}
       />
@@ -669,6 +711,40 @@ export default function QuickMemoPage() {
                 {c}
               </button>
             ))}
+          </div>
+        </div>
+      )}
+
+      {tag === OBS_TAG && (
+        <div className="mb-2 px-0.5 flex flex-col gap-1.5">
+          <div className="flex items-center flex-wrap gap-1.5">
+            <span className="text-[11px] mr-0.5" style={{ color: 'var(--text-muted)' }}>👤 관찰 대상</span>
+            {obsCandidates.length === 0 ? (
+              <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                설정 &gt; 조직에서 &lsquo;{OBS_TEAM_NAME}&rsquo; 팀과 소속 인원을 찾지 못했어요
+              </span>
+            ) : obsCandidates.map(m => (
+              <button key={m.id} type="button" onClick={() => pickObsMember(m.id)}
+                className="text-[11px] px-2 py-0.5 rounded-full border transition-colors"
+                style={obsMembers.includes(m.id)
+                  ? { background: 'rgba(76,127,224,0.18)', color: 'var(--accent-badge-text)', borderColor: 'rgba(76,127,224,0.45)' }
+                  : { background: 'rgba(var(--ink-rgb),0.05)', color: 'var(--text-muted)', borderColor: 'rgba(var(--ink-rgb),0.08)' }}>
+                {m.name}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center flex-wrap gap-1.5">
+            <span className="text-[11px] mr-0.5" style={{ color: 'var(--text-muted)' }}>🏷 종류</span>
+            {OBS_KINDS.map(k => (
+              <button key={k} type="button" onClick={() => pickObsKind(k)}
+                className="text-[11px] px-2 py-0.5 rounded-full border transition-colors"
+                style={obsKind === k
+                  ? OBS_KIND_STYLE[k]
+                  : { background: 'rgba(var(--ink-rgb),0.05)', color: 'var(--text-muted)', borderColor: 'rgba(var(--ink-rgb),0.08)' }}>
+                {k}
+              </button>
+            ))}
+            <span className="text-[10.5px]" style={{ color: 'var(--text-muted)' }}>(선택)</span>
           </div>
         </div>
       )}

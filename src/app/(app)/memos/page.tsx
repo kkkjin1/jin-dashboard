@@ -13,6 +13,10 @@ import { ko } from 'date-fns/locale'
 import type { QuickMemo, MemoTag } from '@/types'
 import MarkdownContent from '@/components/MarkdownContent'
 import SmartTextarea from '@/components/SmartTextarea'
+import { fetchMembers } from '@/lib/tasks'
+import { useOrgData } from '@/hooks/useOrgData'
+import { OBS_TAG, teamMembers, filterByObservedMember, observationLabel } from '@/lib/observation'
+import type { Member } from '@/types'
 const TiptapEditor = dynamic(() => import('@/components/TiptapEditor'), { ssr: false })
 
 function stripHtml(html: string): string {
@@ -80,12 +84,14 @@ interface MemoListRowProps {
   onDrop?: () => void
   isOpen?: boolean
   pinned?: boolean
+  /** 팀원관찰 메모의 대상·종류 표시 ("홍길동 · 칭찬") */
+  obsLabel?: string | null
 }
 
 // 카테고리 섹션을 대체하는 카드 — 문서 아이콘 / 제목줄(태그+날짜+더보기) / 내용 프리뷰 2번째 줄
 // 개별 카드는 테두리 없이 배경톤으로만 구분(리스트 전체를 감싸는 바깥 박스가 테두리를 담당).
 // 열려있는 카드만 강조색 테두리로 구분
-function MemoListRow({ memo, onEdit, onDelete, draggable: drag, onDragStart, onDragOver, onDrop, isOpen, pinned }: MemoListRowProps) {
+function MemoListRow({ memo, onEdit, onDelete, draggable: drag, onDragStart, onDragOver, onDrop, isOpen, pinned, obsLabel }: MemoListRowProps) {
   const visibleTags = memo.tag.slice(0, 2)
   const extraCount = memo.tag.length - visibleTags.length
   const [menuOpen, setMenuOpen] = useState(false)
@@ -120,6 +126,12 @@ function MemoListRow({ memo, onEdit, onDelete, draggable: drag, onDragStart, onD
             {memo.title}
           </p>
           <div className="flex items-center gap-1 flex-shrink-0">
+            {obsLabel && (
+              <span className="text-[10px] px-2 py-1 rounded-full border font-medium"
+                style={{ background: 'rgba(76,127,224,0.12)', color: 'var(--accent-badge-text)', borderColor: 'rgba(76,127,224,0.3)' }}>
+                👤 {obsLabel}
+              </span>
+            )}
             {visibleTags.map(t => (
               <span key={t} className="text-[10px] px-2 py-1 rounded-full border font-medium" style={memoTagStyle(t)}>{t}</span>
             ))}
@@ -469,6 +481,13 @@ export default function MemosPage() {
   const [addCatValue, setAddCatValue] = useState('')
   const addCatInputRef = useRef<HTMLInputElement>(null)
   const [filterTag, setFilterTag] = useState('전체')
+  // 팀원관찰 — 팀원별 걸러 보기(null = 전부), 이름 표시용 팀원 목록
+  const [obsFilter, setObsFilter] = useState<string | null>(null)
+  const [allMembers, setAllMembers] = useState<Member[]>([])
+  const { org } = useOrgData()
+  const obsCandidates = useMemo(() => teamMembers(org, allMembers), [org, allMembers])
+  const nameById = useMemo(() => Object.fromEntries(allMembers.map(m => [m.id, m.name])), [allMembers])
+  useEffect(() => { fetchMembers().then(setAllMembers) }, [])
   const [searchQuery, setSearchQuery] = useState('')
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
   const [prevFilterKey, setPrevFilterKey] = useState('전체|')
@@ -633,15 +652,19 @@ export default function MemosPage() {
   // '최근 메모' 영역 — 선택된 필터(+검색어)에 해당하는 메모를 시간순 단일 리스트로 병합
   // 전체 필터에서는 공지(고정 영역에 이미 노출)를 제외한 나머지를 합친다
   const mainListMemos = useMemo(() => {
-    const base = filterTag === '전체' ? memos.filter(m => !m.tag.includes('공지')) : memos.filter(m => m.tag.includes(filterTag))
+    const tagged = filterTag === '전체' ? memos.filter(m => !m.tag.includes('공지')) : memos.filter(m => m.tag.includes(filterTag))
+    const base = filterTag === OBS_TAG ? filterByObservedMember(tagged, obsFilter) : tagged
     return base
       .filter(m => memoMatchesSearch(m, searchTrimmed))
       .sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? ''))
-  }, [memos, filterTag, searchTrimmed])
+  }, [memos, filterTag, searchTrimmed, obsFilter])
+
+  // 팀원관찰은 메모함 범주 설정에 없어도 항상 걸러 보기 칩으로 보인다(빠른 메모 고정 범주)
+  const filterCats = categories.includes(OBS_TAG) ? categories : [...categories, OBS_TAG]
 
   // 리스트가 길어져도 한 번에 다 렌더링하지 않고 필요한 만큼만 노출 — 필터/검색 바뀌면 다시 처음 구간부터
   // (effect 대신 렌더 중 "key가 바뀌면 리셋" 패턴 사용: https://react.dev/learn/you-might-not-need-an-effect)
-  const filterKey = `${filterTag}|${searchTrimmed}`
+  const filterKey = `${filterTag}|${searchTrimmed}|${obsFilter ?? ''}`
   if (filterKey !== prevFilterKey) {
     setPrevFilterKey(filterKey)
     setVisibleCount(PAGE_SIZE)
@@ -730,7 +753,7 @@ export default function MemosPage() {
       {/* 태그 필터 chip — 얇은 높이(기존 대비 1.5배), pill이 아닌 --radius 수준의 사각 radius, 카테고리 색 dot. 범주 추가/삭제 가능 */}
       <div className="flex-shrink-0 flex items-center justify-between gap-2 mb-4">
         <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide">
-          {['전체', ...categories].map(tag => {
+          {['전체', ...filterCats].map(tag => {
             const active = filterTag === tag
             const activeColor = tag === '전체' ? 'var(--accent-primary)' : memoTagSolid(tag)
             return (
@@ -753,7 +776,7 @@ export default function MemosPage() {
                 )}
                 {tag === '전체' && <span className="opacity-80">{memos.length}</span>}
                 {/* 범주 삭제 — hover 시에만 노출 (전체는 삭제 불가) */}
-                {tag !== '전체' && (
+                {tag !== '전체' && tag !== OBS_TAG && (
                   <button onClick={e => { e.stopPropagation(); deleteCategory(tag) }}
                     className={`opacity-0 group-hover:opacity-100 transition-opacity leading-none text-[12px] ${active ? 'text-[rgba(var(--text-rgb),0.7)] hover:text-white' : 'text-[rgba(var(--text-rgb),0.4)] hover:text-red-400'}`}>
                     ×
@@ -792,6 +815,24 @@ export default function MemosPage() {
         </div>
       </div>
 
+      {/* 팀원관찰 — 팀원별 걸러 보기 */}
+      {filterTag === OBS_TAG && (
+        <div className="flex-shrink-0 flex items-center gap-1.5 flex-wrap -mt-2 mb-4">
+          <span className="text-[11px] mr-1 text-[var(--text-muted)]">👤 팀원</span>
+          {[{ id: null as string | null, name: '전체' }, ...obsCandidates].map(m => {
+            const active = obsFilter === m.id
+            const count = m.id ? filterByObservedMember(memos.filter(x => x.tag.includes(OBS_TAG)), m.id).length : null
+            return (
+              <button key={m.id ?? 'all'} onClick={() => setObsFilter(m.id)}
+                className={`text-[11px] leading-none font-medium rounded-lg border transition-all ${active ? 'text-white' : 'text-[rgba(var(--text-rgb),0.55)] border-[rgba(var(--ink-rgb),0.09)] hover:text-[rgba(var(--text-rgb),0.8)]'}`}
+                style={{ padding: '7px 10px', background: active ? 'var(--accent-primary)' : 'transparent', borderColor: active ? 'var(--accent-primary)' : undefined }}>
+                {m.name}{count !== null && <span className="opacity-70 ml-1">{count}</span>}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
       {/* 본문 — 좌: 리스트, 우: 선택된 메모 상세 패널 */}
       <div className="flex-1 min-h-0 flex gap-4 overflow-hidden">
       {/* 콘텐츠 — 고정 영역 + 시간순 통합 리스트. 상세 패널과 대칭 이루는 바깥 박스 */}
@@ -810,7 +851,7 @@ export default function MemosPage() {
                 <MemoListRow key={memo.id} memo={memo} onEdit={setEditing} onDelete={deleteMemo}
                   draggable onDragStart={() => setDraggingId(memo.id)}
                   onDragOver={e => e.preventDefault()} onDrop={() => handleDropOnTag(memo.tag[0] ?? '업무관련')}
-                  isOpen={editing?.id === memo.id} pinned />
+                  isOpen={editing?.id === memo.id} pinned obsLabel={observationLabel(memo, nameById)} />
               ))}
             </div>
           )}
@@ -854,7 +895,7 @@ export default function MemosPage() {
                       <MemoListRow memo={memo} onEdit={setEditing} onDelete={deleteMemo}
                         draggable onDragStart={() => setDraggingId(memo.id)}
                         onDragOver={e => e.preventDefault()} onDrop={() => handleDropOnTag(memo.tag[0] ?? '업무관련')}
-                        isOpen={editing?.id === memo.id} />
+                        isOpen={editing?.id === memo.id} obsLabel={observationLabel(memo, nameById)} />
                     </div>
                   )
                 })

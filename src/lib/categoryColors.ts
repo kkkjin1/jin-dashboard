@@ -31,7 +31,7 @@ export const ARCHIVE_CATEGORY: Record<string, CategoryColorKey> = {
 };
 
 export const MEMO_TAG: Record<string, CategoryColorKey> = {
-  '공지': 'amber', '업무관련': 'blue', '회의관련': 'teal', '아이디어': 'lilac', '완료': 'neutral',
+  '공지': 'amber', '업무관련': 'blue', '회의관련': 'teal', '아이디어': 'lilac', '완료': 'neutral', '팀원관찰': 'green',
 };
 
 export const PART_COLOR: Record<string, CategoryColorKey> = {
