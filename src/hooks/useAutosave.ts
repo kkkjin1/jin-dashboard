@@ -32,6 +32,7 @@ import type {
   AutosaveStatus,
   UseAutosaveResult,
 } from '@/lib/autosave/types'
+import { shouldPurge } from '@/lib/autosave/versionHistory'
 
 const BACKOFF_MS = [2000, 4000, 8000, 15000]
 const BACKOFF_SLOW_MS = 30000
@@ -120,6 +121,19 @@ function classifyError(err: unknown): AutosaveFailureReason {
   if (msg.includes('fetch') || msg.includes('network')) return 'network'
   if (status && status >= 500) return 'server_error'
   return 'unknown'
+}
+
+// 기록 정리(schema_v71 purge_stale_content_versions): 1시간 무변경 칸은 최근 1개만 남긴다.
+// 저장 때마다 부르면 낭비라 탭당 10분에 한 번. 실패해도 저장에는 영향 없음(다음 기회에 다시).
+// supabase 요청은 then이 있어야 실제로 나간다 — fire-and-forget이라도 .then 필수.
+let lastPurgeAt: number | null = null
+function maybePurgeStaleVersions(supabase: SupabaseClient) {
+  const now = Date.now()
+  if (!shouldPurge(lastPurgeAt, now)) return
+  lastPurgeAt = now
+  supabase.rpc('purge_stale_content_versions').then(({ error }) => {
+    if (error) console.warn('[autosave] 기록 정리 실패(무시하고 다음에 재시도):', error.message)
+  })
 }
 
 export interface UseAutosaveOptions<T> {
@@ -372,6 +386,7 @@ export function useAutosave<T>({
           entity_type: et2, entity_id: eid2, field_key: fk2, version_no: versionNo2,
           content: contentPayload2, content_hash: newHash, source: source2, user_id: userId2,
         })
+        maybePurgeStaleVersions(supabase!)
       }
     }
 

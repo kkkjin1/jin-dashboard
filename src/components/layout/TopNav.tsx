@@ -11,6 +11,7 @@ import {
   GripVertical, Eye, EyeOff, X,
 } from 'lucide-react'
 import ThemeToggle from '@/components/layout/ThemeToggle'
+import { RecentHistoryButton } from '@/components/RecentHistoryPanel'
 import { NAV_ITEMS } from '@/lib/nav-config'
 
 // Desktop Sidebar와 동일한 canonical 메뉴 목록(@/lib/nav-config)을 사용한다.
@@ -266,7 +267,10 @@ export default function TopNav() {
           </div>
           <span className="text-sm font-semibold" style={{ color: 'rgba(var(--text-rgb), 1)' }}>인사기획 워크</span>
         </div>
-        <ThemeToggle size={28} iconSize={15} />
+        <div className="flex items-center gap-1">
+          <RecentHistoryButton size={28} iconSize={15} />
+          <ThemeToggle size={28} iconSize={15} />
+        </div>
       </header>
 
       {/* ── 모바일 하단 네비: 핵심 메뉴 + 더보기 ── */}

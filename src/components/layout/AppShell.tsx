@@ -7,6 +7,7 @@ import QuickMemoPanel from '@/components/memo/QuickMemoPanel'
 import MobileMemoSheet from '@/components/memo/MobileMemoSheet'
 import GlobalSearch from '@/components/GlobalSearch'
 import GlobalEscBlur from '@/components/GlobalEscBlur'
+import RecentHistoryPanel from '@/components/RecentHistoryPanel'
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false)
@@ -41,6 +42,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <MobileMemoSheet />
       <GlobalSearch />
       <GlobalEscBlur />
+      <RecentHistoryPanel />
     </div>
   )
 }

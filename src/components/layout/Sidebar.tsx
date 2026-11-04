@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { clearAllAutosaveBuffers } from '@/hooks/useAutosave'
 import ShortcutIcons from '@/components/ShortcutIcons'
+import { RecentHistoryButton } from '@/components/RecentHistoryPanel'
 import ThemeToggle from '@/components/layout/ThemeToggle'
 import { ChevronLeft, ChevronRight, LogOut } from 'lucide-react'
 import { NAV_SECTIONS, NAV_HREFS } from '@/lib/nav-config'
@@ -225,6 +226,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
         >
           <ShortcutIcons size={collapsed ? 24 : 26} tooltipSide={collapsed ? 'right' : 'top'} />
           <ThemeToggle size={collapsed ? 24 : 26} />
+          <RecentHistoryButton size={collapsed ? 24 : 26} />
         </div>
         {collapsed ? (
           <button onClick={handleLogout} title="로그아웃"
