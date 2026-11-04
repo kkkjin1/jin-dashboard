@@ -10,7 +10,8 @@
     "db:rls-rules-test": "node --test scripts/lib/rls-rules.test.mjs",
     "db:security-check": "npm run db:rls-rules-test && node scripts/db-security-check.mjs",
     "backup:restore": "node scripts/restore-backup.mjs",
-    "backup:rehearsal": "node scripts/restore-rehearsal.mjs"
+    "backup:rehearsal": "node scripts/restore-rehearsal.mjs",
+    "test": "vitest run"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",
@@ -50,8 +51,10 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.9",
+    "jsdom": "^26.1.0",
     "pg": "8.23.1",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.7"
   }
 }
