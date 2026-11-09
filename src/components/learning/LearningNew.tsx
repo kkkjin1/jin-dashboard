@@ -7,6 +7,7 @@ import type { LearningResource } from '@/types'
 import { useUserSetting } from '@/hooks/useUserSetting'
 import LearningSearchToolbar, { type StatusFilter, type MediaFilter } from './LearningSearchToolbar'
 import LearningSection from './LearningSection'
+import BookShelf from './BookShelf'
 import { getStatus } from './LearningRow'
 
 const DEFAULT_TAGS = ['HR', '경제', '리더십', '평가보상', '데이터', '조직문화', '기획']
@@ -23,6 +24,9 @@ export default function LearningNew() {
 
   const { value: customTags, save: saveCustomTags } = useUserSetting<string[]>('learning_custom_tags', DEFAULT_TAGS)
   const { value: siteShortcuts } = useUserSetting<SiteShortcut[]>('learning_site_shortcuts', [])
+  const { value: view, save: saveView } = useUserSetting<'category' | 'shelf'>('learning_view', 'category')
+  const shelf = view === 'shelf'
+  const { value: tagColors, save: saveTagColors } = useUserSetting<Record<string, string>>('learning_tag_colors', {})
 
   // 필터 상태
   const [search,       setSearch]       = useState('')
@@ -98,10 +102,43 @@ export default function LearningNew() {
     return hasActiveFilter ? entries.filter(([, items]) => items.length > 0) : entries
   }, [filtered, customTags, hasActiveFilter])
 
-  function renameTag(oldTag: string, newTag: string) {
+  // ── 분야(범주) 이름 변경·삭제 — 목록과 자료의 태그를 같이 바꾼다 ──────────
+  // (예전엔 목록 이름만 바뀌어 자료가 옛 태그로 남고 미분류로 빠지는 버그가 있었음)
+  async function retagResources(match: string, fn: (tags: string[]) => string[]): Promise<number> {
+    const affected = resources.filter(r => (r.tags ?? []).includes(match))
+    setResources(prev => prev.map(r => (r.tags ?? []).includes(match) ? { ...r, tags: fn(r.tags ?? []) } : r))
+    const results = await Promise.all(affected.map(r =>
+      supabase.from('learning_resources').update({ tags: fn(r.tags ?? []) }).eq('id', r.id)))
+    const failed = results.filter(x => x.error)
+    if (failed.length) console.error('학습자료 태그 갱신 실패:', failed[0].error?.message)
+    return failed.length
+  }
+
+  async function renameCategory(oldTag: string, newTag: string): Promise<number> {
     const name = newTag.trim()
-    if (!name || name === oldTag || customTags.includes(name)) return
+    if (!name || name === oldTag || name === '미분류' || name === '전체' || customTags.includes(name)) return 0
     saveCustomTags(customTags.map(t => t === oldTag ? name : t))
+    if (tagColors[oldTag]) {
+      const rest = Object.fromEntries(Object.entries(tagColors).filter(([k]) => k !== oldTag))
+      saveTagColors({ ...rest, [name]: tagColors[oldTag] })
+    }
+    const failed = await retagResources(oldTag, tags => tags.map(t => t === oldTag ? name : t))
+    if (failed) alert(`범주 이름 변경 중 자료 ${failed}건 저장 실패 — 새로고침 후 확인해 주세요`)
+    return failed
+  }
+
+  // 자료는 지우지 않고 태그만 떼어 미분류로 보낸다. 취소하면 false.
+  async function deleteCategory(target: string): Promise<boolean> {
+    const n = resources.filter(r => (r.tags ?? []).includes(target)).length
+    const msg = n
+      ? `"${target}" 범주를 삭제할까요?\n이 범주가 붙은 학습자료 ${n}건은 지워지지 않고 미분류로 옮겨집니다.`
+      : `"${target}" 범주를 삭제할까요?`
+    if (!confirm(msg)) return false
+    saveCustomTags(customTags.filter(t => t !== target))
+    if (tagColors[target]) saveTagColors(Object.fromEntries(Object.entries(tagColors).filter(([k]) => k !== target)))
+    const failed = await retagResources(target, tags => tags.filter(t => t !== target))
+    if (failed) alert(`범주 삭제 중 자료 ${failed}건 저장 실패 — 새로고침 후 확인해 주세요`)
+    return true
   }
 
   return (
@@ -113,13 +150,22 @@ export default function LearningNew() {
           <h1 className="text-[20px] font-bold" style={{ color: 'rgba(var(--text-rgb),1)' }}>학습자료</h1>
           <p className="text-[12px] mt-0.5" style={{ color: 'rgba(var(--text-rgb),0.35)' }}>아티클, 도서, 강의 등 학습 자료를 관리하세요.</p>
         </div>
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          <div className="rounded-full p-1 flex gap-0.5" style={{ background: 'rgba(var(--ink-rgb),0.04)', border: '1px solid rgba(var(--ink-rgb),0.08)' }}>
+            {([['category', '범주별'], ['shelf', '📚 책장']] as const).map(([k, l]) => (
+              <button key={k} onClick={() => { saveView(k); setAdding(false) }}
+                className="text-[12px] px-3 py-1 rounded-full font-medium"
+                style={view === k ? { background: 'var(--accent-primary)', color: '#fff' } : { color: 'rgba(var(--text-rgb),0.55)' }}>
+                {l}
+              </button>
+            ))}
+          </div>
           <button
             onClick={() => setAdding(true)}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-medium transition-colors"
             style={{ background: 'rgba(76,127,224,0.18)', border: '1px solid rgba(76,127,224,0.35)', color: 'var(--accent-soft)' }}
           >
-            + 새 자료
+            {shelf ? '+ 책 추가' : '+ 새 자료'}
           </button>
         </div>
       </div>
@@ -144,6 +190,12 @@ export default function LearningNew() {
         </div>
       )}
 
+      {shelf ? (
+        <BookShelf resources={resources} setResources={setResources} customTags={customTags} saveCustomTags={saveCustomTags}
+          onRenameTag={renameCategory} onDeleteTag={deleteCategory}
+          tagColors={tagColors} onSetTagColor={(t, c) => saveTagColors({ ...tagColors, [t]: c })}
+          adding={adding} setAdding={setAdding} />
+      ) : (<>
       {/* 새 자료 입력 폼 */}
       {adding && (
         <div
@@ -200,6 +252,7 @@ export default function LearningNew() {
         statusFilter={statusFilter} setStatusFilter={setStatusFilter}
         mediaFilter={mediaFilter}   setMediaFilter={setMediaFilter}
         customTags={customTags}     setCustomTags={saveCustomTags}
+        onRenameTag={renameCategory} onDeleteTag={deleteCategory}
         total={filtered.length}
       />
 
@@ -235,12 +288,13 @@ export default function LearningNew() {
                 resources={items}
                 onNavigate={id => router.push(`/learning/${id}`)}
                 onCycleStatus={cycleStatus}
-                onRenameTag={renameTag}
+                onRenameTag={renameCategory}
               />
             ))}
           </div>
         )}
       </div>
+      </>)}
     </div>
   )
 }

@@ -122,6 +122,16 @@ export interface LearningResource {
   notes: NoteEntry[]
   created_at: string
   updated_at: string
+  // v73 — 책장 보기용 (책이 아니어도 칸은 있음)
+  author?: string
+  rating?: number | null
+  finished_at?: string | null
+  progress?: number | null
+  takeaway?: string
+  reason?: string
+  quotes?: string[]
+  applies?: { text: string; done: boolean }[]
+  linked_agenda_ids?: string[]
 }
 
 export interface OneOnOne {

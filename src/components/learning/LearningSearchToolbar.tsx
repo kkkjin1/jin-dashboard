@@ -19,12 +19,14 @@ interface Props {
   setMediaFilter: (v: MediaFilter) => void
   customTags: string[]
   setCustomTags: (next: string[]) => void
+  onRenameTag: (oldTag: string, newTag: string) => void
+  onDeleteTag: (tag: string) => void
   total: number
 }
 
 export default function LearningSearchToolbar({
   search, setSearch, statusFilter, setStatusFilter, mediaFilter, setMediaFilter,
-  customTags, setCustomTags,
+  customTags, setCustomTags, onRenameTag, onDeleteTag,
   total,
 }: Props) {
   const [mediaOpen, setMediaOpen] = useState(false)
@@ -63,11 +65,12 @@ export default function LearningSearchToolbar({
   function commitEditTag() {
     const name = editValue.trim()
     if (!name || name === editingTag) { setEditingTag(null); return }
-    setCustomTags(customTags.map(t => t === editingTag ? name : t))
+    // 목록 이름만 바꾸면 자료 쪽 태그가 옛 이름으로 남아 미분류로 빠짐 → 상위에서 자료 태그까지 같이 바꾼다
+    if (editingTag) onRenameTag(editingTag, name)
     setEditingTag(null)
   }
   function deleteTag(tag: string) {
-    setCustomTags(customTags.filter(t => t !== tag))
+    onDeleteTag(tag)
   }
   function commitAddTag() {
     const name = addValue.trim()
