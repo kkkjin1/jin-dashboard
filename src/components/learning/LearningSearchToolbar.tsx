@@ -1,14 +1,21 @@
 'use client'
 
 import { useRef, useEffect, useState } from 'react'
-import { Search, ChevronDown, Plus, X } from 'lucide-react'
+import { Search, ChevronDown, Plus, X, Tags, BookOpen, LayoutGrid, type LucideIcon } from 'lucide-react'
+import { tagIcon } from './LearningSection'
+import { MEDIA_ICON, MEDIA_COLOR } from './LearningRow'
 
 export type StatusFilter = '전체' | '보기전' | '보는중' | '완료'
 export type MediaFilter  = '전체' | '책' | '영상' | '아티클' | '강의' | '기타'
 
 const STATUS_OPTIONS: StatusFilter[] = ['전체', '보기전', '보는중', '완료']
 const MEDIA_OPTIONS:  MediaFilter[]  = ['전체', '책', '영상', '아티클', '강의', '기타']
-const MEDIA_EMOJI: Record<string, string> = { 전체: '🔍', 책: '📚', 영상: '🎬', 아티클: '📄', 강의: '🎓', 기타: '📌' }
+const CTRL_H = 48  // 툴바 컨트롤 높이 (기존 30의 1.6배)
+// 매체 아이콘·색 — 카드 안 자료 아이콘과 같은 체계 (책=주황 펼친 책)
+const M_ICON: Record<string, LucideIcon> = { 전체: LayoutGrid, 책: BookOpen, ...MEDIA_ICON }
+const M_COLOR: Record<string, string> = { 전체: '#64748B', 책: '#EA580C', ...MEDIA_COLOR }
+// 상태별 색
+const STATUS_COLOR: Record<StatusFilter, string> = { 전체: '#2563EB', 보기전: '#64748B', 보는중: '#D97706', 완료: '#16A34A' }
 
 interface Props {
   search: string
@@ -22,19 +29,24 @@ interface Props {
   onRenameTag: (oldTag: string, newTag: string) => void
   onDeleteTag: (tag: string) => void
   total: number
+  tagColors?: Record<string, string>  // 범주색 (카드 아이콘 배지와 같은 색)
+  right?: React.ReactNode  // 오른쪽 끝 (범주별/책장 전환·새 자료 버튼)
 }
 
 export default function LearningSearchToolbar({
   search, setSearch, statusFilter, setStatusFilter, mediaFilter, setMediaFilter,
   customTags, setCustomTags, onRenameTag, onDeleteTag,
-  total,
+  total, tagColors = {}, right,
 }: Props) {
   const [mediaOpen, setMediaOpen] = useState(false)
   const mediaRef = useRef<HTMLDivElement>(null)
+  const [tagsOpen, setTagsOpen] = useState(false)   // 범주 관리 팝오버
+  const tagsRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     function onDown(e: MouseEvent) {
       if (mediaRef.current && !mediaRef.current.contains(e.target as Node)) setMediaOpen(false)
+      if (tagsRef.current && !tagsRef.current.contains(e.target as Node)) setTagsOpen(false)
     }
     document.addEventListener('mousedown', onDown)
     return () => document.removeEventListener('mousedown', onDown)
@@ -82,9 +94,16 @@ export default function LearningSearchToolbar({
     position: 'absolute', top: 'calc(100% + 4px)', right: 0, zIndex: 100,
     background: 'var(--dropdown-panel-bg)', border: '1px solid rgba(var(--ink-rgb),0.1)',
     borderRadius: 12, backdropFilter: 'blur(20px)', boxShadow: '0 16px 40px rgba(0,0,0,0.45)',
-    minWidth: 110, padding: 4,
+    minWidth: 160, padding: 4,
   }
 
+  const MediaI = M_ICON[mediaFilter]
+  const mediaC = M_COLOR[mediaFilter]
+  const mediaOn = mediaFilter !== '전체'
+
+  const ctrlBox: React.CSSProperties = { height: CTRL_H, borderRadius: 12, background: 'rgba(var(--ink-rgb),0.04)', border: '1px solid rgba(var(--ink-rgb),0.08)' }
+
+  // 한 줄 툴바: [검색] [상태 세그먼트] [매체 ▾] [범주 관리 ▾] ······ 총 n개
   return (
     <div
       className="flex-shrink-0 pb-3"
@@ -92,149 +111,173 @@ export default function LearningSearchToolbar({
     >
       <div className="flex items-center gap-2">
         {/* 검색 */}
-        <div
-          className="flex items-center gap-2 flex-1 px-3 py-2 rounded-xl"
-          style={{ background: 'rgba(var(--ink-rgb),0.06)', border: '1px solid rgba(var(--ink-rgb),0.09)' }}
-        >
-          <Search size={13} style={{ color: 'rgba(var(--text-rgb),0.35)', flexShrink: 0 }} />
+        <div className="flex items-center gap-2 px-3.5" style={{ ...ctrlBox, width: 280 }}>
+          <Search size={15} style={{ color: '#2563EB', opacity: 0.75, flexShrink: 0 }} />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="제목, 출처 검색..."
-            className="flex-1 bg-transparent text-[13px] focus:outline-none placeholder:text-[rgba(var(--text-rgb),0.25)]"
+            placeholder="제목, 출처 검색"
+            className="flex-1 min-w-0 bg-transparent text-[13px] focus:outline-none placeholder:text-[rgba(var(--text-rgb),0.3)]"
             style={{ color: 'rgba(var(--text-rgb),1)' }}
           />
+          {search && (
+            <button onClick={() => setSearch('')} style={{ color: 'rgba(var(--text-rgb),0.35)' }}><X size={12} /></button>
+          )}
         </div>
 
-        {/* 상태 필터 pills */}
-        <div className="flex items-center gap-1.5 flex-shrink-0">
-          {STATUS_OPTIONS.map(s => (
-            <button
-              key={s}
-              onClick={() => setStatusFilter(s)}
-              className="text-[12px] px-3 py-1.5 rounded-full transition-all flex-shrink-0"
-              style={
-                statusFilter === s
-                  ? { background: 'var(--accent-primary)', color: '#fff', fontWeight: 500 }
-                  : { background: 'rgba(var(--ink-rgb),0.05)', color: 'rgba(var(--text-rgb),0.4)', border: '1px solid rgba(var(--ink-rgb),0.08)' }
-              }
-            >
-              {s}
-            </button>
-          ))}
+        {/* 상태 — 세그먼트 컨트롤, 칸마다 상태색 점 + 선택 칸은 상태색 */}
+        <div className="flex items-center p-1 flex-shrink-0" style={ctrlBox}>
+          {STATUS_OPTIONS.map(st => {
+            const c = STATUS_COLOR[st]
+            const on = statusFilter === st
+            return (
+              <button
+                key={st}
+                onClick={() => setStatusFilter(st)}
+                className="flex items-center gap-1.5 text-[13px] px-3 h-full rounded-lg transition-all"
+                style={on
+                  ? { background: 'var(--surface-primary)', color: c, fontWeight: 600, boxShadow: `0 1px 3px rgba(var(--ink-rgb),0.12), inset 0 0 0 1px ${c}33` }
+                  : { color: 'rgba(var(--text-rgb),0.5)' }}
+              >
+                {st !== '전체' && <span className="rounded-full" style={{ width: 6, height: 6, background: c, opacity: on ? 1 : 0.6 }} />}
+                {st}
+              </button>
+            )
+          })}
         </div>
 
-        {/* 미디어 필터 드롭다운 */}
+        {/* 매체 필터 드롭다운 — 가로 넓게, 아이콘 색 */}
         <div ref={mediaRef} style={{ position: 'relative', flexShrink: 0 }}>
           <button
             onClick={() => setMediaOpen(v => !v)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl transition-colors"
-            style={{
-              background: mediaFilter !== '전체' ? 'rgba(76,127,224,0.12)' : 'rgba(var(--ink-rgb),0.06)',
-              border: mediaFilter !== '전체' ? '1px solid rgba(76,127,224,0.3)' : '1px solid rgba(var(--ink-rgb),0.09)',
-            }}
+            className="flex items-center gap-2 px-3.5 transition-colors"
+            style={{ ...ctrlBox, width: 160, ...(mediaOn ? { background: `${mediaC}12`, border: `1px solid ${mediaC}40` } : {}) }}
           >
-            <span className="text-[14px]">{MEDIA_EMOJI[mediaFilter]}</span>
-            <span className="text-[12px]" style={{ color: mediaFilter !== '전체' ? 'var(--accent-text)' : 'rgba(var(--text-rgb),0.5)' }}>{mediaFilter}</span>
-            <ChevronDown size={11} style={{ color: 'rgba(var(--text-rgb),0.35)' }} />
+            <MediaI size={15} style={{ color: mediaC }} />
+            <span className="text-[13px] flex-1 text-left" style={{ color: mediaOn ? mediaC : 'rgba(var(--text-rgb),0.6)', fontWeight: mediaOn ? 600 : 400 }}>
+              {mediaOn ? mediaFilter : '매체 전체'}
+            </span>
+            <ChevronDown size={13} style={{ color: 'rgba(var(--text-rgb),0.35)' }} />
           </button>
           {mediaOpen && (
-            <div style={dropdownBase}>
-              {MEDIA_OPTIONS.map(m => (
-                <button
-                  key={m}
-                  onClick={() => { setMediaFilter(m); setMediaOpen(false) }}
-                  className="w-full text-left text-[12px] px-3 py-1.5 rounded-lg transition-colors flex items-center gap-2"
-                  style={{ color: mediaFilter === m ? 'rgba(var(--text-rgb),1)' : 'rgba(var(--text-rgb),0.5)', background: mediaFilter === m ? 'rgba(var(--ink-rgb),0.08)' : 'transparent' }}
-                  onMouseEnter={e => { if (mediaFilter !== m) (e.currentTarget.style.background = 'rgba(var(--ink-rgb),0.05)') }}
-                  onMouseLeave={e => { if (mediaFilter !== m) (e.currentTarget.style.background = 'transparent') }}
-                >
-                  <span>{MEDIA_EMOJI[m]}</span>{m}
-                </button>
-              ))}
+            <div style={{ ...dropdownBase, left: 0, right: 'auto', width: 160 }}>
+              {MEDIA_OPTIONS.map(m => {
+                const I = M_ICON[m]; const c = M_COLOR[m]; const on = mediaFilter === m
+                return (
+                  <button
+                    key={m}
+                    onClick={() => { setMediaFilter(m); setMediaOpen(false) }}
+                    className="w-full text-left text-[13px] px-3 py-2 rounded-lg transition-colors flex items-center gap-2.5"
+                    style={{ color: on ? c : 'rgba(var(--text-rgb),0.7)', fontWeight: on ? 600 : 400, background: on ? `${c}14` : 'transparent' }}
+                    onMouseEnter={e => { if (!on) (e.currentTarget.style.background = 'rgba(var(--ink-rgb),0.05)') }}
+                    onMouseLeave={e => { if (!on) (e.currentTarget.style.background = 'transparent') }}
+                  >
+                    <I size={15} style={{ color: c }} />{m === '전체' ? '매체 전체' : m}
+                  </button>
+                )
+              })}
             </div>
           )}
         </div>
 
-        <span className="text-[11px] flex-shrink-0" style={{ color: 'rgba(var(--text-rgb),0.35)' }}>총 {total}개</span>
-      </div>
-
-      {/* 범주 관리 pills — 드래그로 순서 변경(그리드 배치 순서), 더블클릭 이름변경, 호버 시 삭제 */}
-      <div className="flex items-center gap-1.5 flex-wrap pt-2.5" style={{ borderTop: '1px solid rgba(var(--ink-rgb),0.05)', marginTop: 4 }}>
-        {customTags.map((tag, index) => (
-          <div
-            key={tag}
-            draggable={editingTag !== tag}
-            onDragStart={() => onTagDragStart(index)}
-            onDragOver={e => onTagDragOver(e, index)}
-            onDrop={onTagDrop}
-            className="relative flex-shrink-0"
-            style={{ cursor: editingTag === tag ? 'default' : 'grab' }}
-            onMouseEnter={() => setHoveredTag(tag)}
-            onMouseLeave={() => setHoveredTag(null)}
-          >
-            {editingTag === tag ? (
-              <input
-                autoFocus
-                value={editValue}
-                onChange={e => setEditValue(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' && !e.nativeEvent.isComposing) commitEditTag()
-                  if (e.key === 'Escape') setEditingTag(null)
-                }}
-                onBlur={commitEditTag}
-                className="text-[11px] px-2.5 py-1 rounded-full focus:outline-none"
-                style={{
-                  background: 'rgba(76,127,224,0.12)', border: '1px solid rgba(76,127,224,0.4)', color: 'rgba(var(--text-rgb),1)',
-                  width: `${Math.max(editValue.length * 12 + 24, 56)}px`,
-                }}
-              />
-            ) : (
-              <button
-                onDoubleClick={() => startEditTag(tag)}
-                className="text-[11px] px-2.5 py-1 rounded-full transition-all"
-                style={{ background: 'rgba(var(--ink-rgb),0.05)', color: 'rgba(var(--text-rgb),0.5)', border: '1px solid rgba(var(--ink-rgb),0.08)' }}
-              >
-                {tag}
-              </button>
-            )}
-            {editingTag !== tag && hoveredTag === tag && (
-              <button
-                onClick={e => { e.stopPropagation(); deleteTag(tag) }}
-                className="absolute -top-1 -right-1 flex items-center justify-center rounded-full"
-                style={{ width: 13, height: 13, background: 'rgba(220,60,60,0.85)', color: '#fff' }}
-              >
-                <X size={7} />
-              </button>
-            )}
-          </div>
-        ))}
-
-        {addingTag ? (
-          <input
-            autoFocus
-            value={addValue}
-            onChange={e => setAddValue(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === 'Enter' && !e.nativeEvent.isComposing) commitAddTag()
-              if (e.key === 'Escape') { setAddingTag(false); setAddValue('') }
-            }}
-            onBlur={commitAddTag}
-            placeholder="범주명"
-            className="text-[11px] px-2.5 py-1 rounded-full focus:outline-none flex-shrink-0"
-            style={{ background: 'rgba(var(--ink-rgb),0.06)', border: '1px solid rgba(var(--ink-rgb),0.2)', color: 'rgba(var(--text-rgb),1)', width: 68 }}
-          />
-        ) : (
+        {/* 범주 관리 — 예전 2번째 줄 pill들을 팝오버로 */}
+        <div ref={tagsRef} style={{ position: 'relative', flexShrink: 0 }}>
           <button
-            onClick={() => setAddingTag(true)}
-            className="flex items-center justify-center rounded-full flex-shrink-0 transition-colors"
-            style={{ width: 20, height: 20, background: 'rgba(var(--ink-rgb),0.05)', border: '1px solid rgba(var(--ink-rgb),0.08)', color: 'rgba(var(--text-rgb),0.35)' }}
-            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(var(--ink-rgb),0.09)')}
-            onMouseLeave={e => (e.currentTarget.style.background = 'rgba(var(--ink-rgb),0.05)')}
+            onClick={() => setTagsOpen(v => !v)}
+            className="flex items-center gap-2 px-3.5 transition-colors"
+            style={{ ...ctrlBox, ...(tagsOpen ? { background: 'rgba(13,148,136,0.1)', border: '1px solid rgba(13,148,136,0.3)' } : {}) }}
           >
-            <Plus size={10} />
+            <Tags size={15} style={{ color: '#0D9488' }} />
+            <span className="text-[13px]" style={{ color: 'rgba(var(--text-rgb),0.6)' }}>범주 <b style={{ color: '#0D9488', fontWeight: 600 }}>{customTags.length}</b></span>
+            <ChevronDown size={13} style={{ color: 'rgba(var(--text-rgb),0.35)' }} />
           </button>
-        )}
+          {tagsOpen && (
+            <div style={{ ...dropdownBase, left: 0, right: 'auto', width: 320, padding: 10 }}>
+              <div className="flex items-center gap-1.5 flex-wrap">
+              {customTags.map((tag, index) => (
+                <div
+                  key={tag}
+                  draggable={editingTag !== tag}
+                  onDragStart={() => onTagDragStart(index)}
+                  onDragOver={e => onTagDragOver(e, index)}
+                  onDrop={onTagDrop}
+                  className="relative flex-shrink-0"
+                  style={{ cursor: editingTag === tag ? 'default' : 'grab' }}
+                  onMouseEnter={() => setHoveredTag(tag)}
+                  onMouseLeave={() => setHoveredTag(null)}
+                >
+                  {editingTag === tag ? (
+                    <input
+                      autoFocus
+                      value={editValue}
+                      onChange={e => setEditValue(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' && !e.nativeEvent.isComposing) commitEditTag()
+                        if (e.key === 'Escape') setEditingTag(null)
+                      }}
+                      onBlur={commitEditTag}
+                      className="text-[11px] px-2.5 py-1 rounded-full focus:outline-none"
+                      style={{
+                        background: 'rgba(76,127,224,0.12)', border: '1px solid rgba(76,127,224,0.4)', color: 'rgba(var(--text-rgb),1)',
+                        width: `${Math.max(editValue.length * 12 + 24, 56)}px`,
+                      }}
+                    />
+                  ) : (
+                    <button
+                      onDoubleClick={() => startEditTag(tag)}
+                      className="flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-full transition-all"
+                      style={(() => { const c = tagColors[tag] ?? '#94A3B8'; return { background: `${c}14`, color: c, border: `1px solid ${c}33` } })()}
+                    >
+                      {(() => { const I = tagIcon(tag); return <I size={11} /> })()}
+                      {tag}
+                    </button>
+                  )}
+                  {editingTag !== tag && hoveredTag === tag && (
+                    <button
+                      onClick={e => { e.stopPropagation(); deleteTag(tag) }}
+                      className="absolute -top-1 -right-1 flex items-center justify-center rounded-full"
+                      style={{ width: 13, height: 13, background: 'rgba(220,60,60,0.85)', color: '#fff' }}
+                    >
+                      <X size={7} />
+                    </button>
+                  )}
+                </div>
+              ))}
+
+              {addingTag ? (
+                <input
+                  autoFocus
+                  value={addValue}
+                  onChange={e => setAddValue(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && !e.nativeEvent.isComposing) commitAddTag()
+                    if (e.key === 'Escape') { setAddingTag(false); setAddValue('') }
+                  }}
+                  onBlur={commitAddTag}
+                  placeholder="범주명"
+                  className="text-[11px] px-2.5 py-1 rounded-full focus:outline-none flex-shrink-0"
+                  style={{ background: 'rgba(var(--ink-rgb),0.06)', border: '1px solid rgba(var(--ink-rgb),0.2)', color: 'rgba(var(--text-rgb),1)', width: 68 }}
+                />
+              ) : (
+                <button
+                  onClick={() => setAddingTag(true)}
+                  className="flex items-center justify-center rounded-full flex-shrink-0 transition-colors"
+                  style={{ width: 20, height: 20, background: 'rgba(var(--ink-rgb),0.05)', border: '1px solid rgba(var(--ink-rgb),0.08)', color: 'rgba(var(--text-rgb),0.35)' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(var(--ink-rgb),0.09)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'rgba(var(--ink-rgb),0.05)')}
+                >
+                  <Plus size={10} />
+                </button>
+              )}
+              </div>
+              <p className="text-[10.5px] mt-2.5" style={{ color: 'rgba(var(--text-rgb),0.35)' }}>끌어서 순서 변경 · 더블클릭 이름 변경 · 마우스 올리고 × 삭제</p>
+            </div>
+          )}
+        </div>
+
+        <span className="text-[12px] flex-shrink-0 ml-1" style={{ color: 'rgba(var(--text-rgb),0.4)' }}>총 {total}개</span>
+
+        {right && <div className="ml-auto flex items-center gap-2 flex-shrink-0">{right}</div>}
       </div>
     </div>
   )

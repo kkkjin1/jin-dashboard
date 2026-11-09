@@ -9,6 +9,7 @@ import LearningSearchToolbar, { type StatusFilter, type MediaFilter } from './Le
 import LearningSection from './LearningSection'
 import BookShelf from './BookShelf'
 import { getStatus } from './LearningRow'
+import { resolveTagColors, NO_TAG_COLOR } from '@/lib/learningTagColors'
 
 const DEFAULT_TAGS = ['HR', '경제', '리더십', '평가보상', '데이터', '조직문화', '기획']
 
@@ -27,6 +28,7 @@ export default function LearningNew() {
   const { value: view, save: saveView } = useUserSetting<'category' | 'shelf'>('learning_view', 'category')
   const shelf = view === 'shelf'
   const { value: tagColors, save: saveTagColors } = useUserSetting<Record<string, string>>('learning_tag_colors', {})
+  const coverColorMap = useMemo(() => resolveTagColors(customTags, tagColors), [customTags, tagColors])
 
   // 필터 상태
   const [search,       setSearch]       = useState('')
@@ -141,6 +143,28 @@ export default function LearningNew() {
     return true
   }
 
+  // 범주별/책장 전환 + 새 자료 버튼. 범주별 보기에선 검색 줄 오른쪽(같은 높이 48)으로, 책장 보기에선 제목 오른쪽
+  const viewControls = (tall: boolean) => (
+    <>
+      <div className="rounded-xl p-1 flex gap-0.5" style={{ height: tall ? 48 : undefined, background: 'rgba(var(--ink-rgb),0.04)', border: '1px solid rgba(var(--ink-rgb),0.08)' }}>
+        {([['category', '범주별'], ['shelf', '📚 책장']] as const).map(([k, l]) => (
+          <button key={k} onClick={() => { saveView(k); setAdding(false) }}
+            className={`${tall ? 'text-[13px] px-4' : 'text-[12px] px-3 py-1'} rounded-lg font-medium`}
+            style={view === k ? { background: 'var(--accent-primary)', color: '#fff' } : { color: 'rgba(var(--text-rgb),0.55)' }}>
+            {l}
+          </button>
+        ))}
+      </div>
+      <button
+        onClick={() => setAdding(true)}
+        className="flex items-center gap-2 px-4 rounded-xl text-[13px] font-medium transition-colors"
+        style={{ height: tall ? 48 : 36, background: 'rgba(76,127,224,0.18)', border: '1px solid rgba(76,127,224,0.35)', color: 'var(--accent-soft)' }}
+      >
+        {shelf ? '+ 책 추가' : '+ 새 자료'}
+      </button>
+    </>
+  )
+
   return (
     <div className="h-full flex flex-col overflow-hidden" style={{ background: 'var(--bg-page)' }}>
 
@@ -149,24 +173,6 @@ export default function LearningNew() {
         <div>
           <h1 className="text-[20px] font-bold" style={{ color: 'rgba(var(--text-rgb),1)' }}>학습자료</h1>
           <p className="text-[12px] mt-0.5" style={{ color: 'rgba(var(--text-rgb),0.35)' }}>아티클, 도서, 강의 등 학습 자료를 관리하세요.</p>
-        </div>
-        <div className="ml-auto flex items-center gap-2">
-          <div className="rounded-full p-1 flex gap-0.5" style={{ background: 'rgba(var(--ink-rgb),0.04)', border: '1px solid rgba(var(--ink-rgb),0.08)' }}>
-            {([['category', '범주별'], ['shelf', '📚 책장']] as const).map(([k, l]) => (
-              <button key={k} onClick={() => { saveView(k); setAdding(false) }}
-                className="text-[12px] px-3 py-1 rounded-full font-medium"
-                style={view === k ? { background: 'var(--accent-primary)', color: '#fff' } : { color: 'rgba(var(--text-rgb),0.55)' }}>
-                {l}
-              </button>
-            ))}
-          </div>
-          <button
-            onClick={() => setAdding(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-medium transition-colors"
-            style={{ background: 'rgba(76,127,224,0.18)', border: '1px solid rgba(76,127,224,0.35)', color: 'var(--accent-soft)' }}
-          >
-            {shelf ? '+ 책 추가' : '+ 새 자료'}
-          </button>
         </div>
       </div>
 
@@ -194,7 +200,7 @@ export default function LearningNew() {
         <BookShelf resources={resources} setResources={setResources} customTags={customTags} saveCustomTags={saveCustomTags}
           onRenameTag={renameCategory} onDeleteTag={deleteCategory}
           tagColors={tagColors} onSetTagColor={(t, c) => saveTagColors({ ...tagColors, [t]: c })}
-          adding={adding} setAdding={setAdding} />
+          adding={adding} setAdding={setAdding} toolbarRight={viewControls(true)} />
       ) : (<>
       {/* 새 자료 입력 폼 */}
       {adding && (
@@ -254,6 +260,8 @@ export default function LearningNew() {
         customTags={customTags}     setCustomTags={saveCustomTags}
         onRenameTag={renameCategory} onDeleteTag={deleteCategory}
         total={filtered.length}
+        tagColors={coverColorMap}
+        right={viewControls(true)}
       />
 
       {/* 본문 — 한 행에 최대 4칸, 넘치면 다음 행으로 (가로 스크롤 없음) */}
@@ -289,6 +297,7 @@ export default function LearningNew() {
                 onNavigate={id => router.push(`/learning/${id}`)}
                 onCycleStatus={cycleStatus}
                 onRenameTag={renameCategory}
+                coverColor={coverColorMap[tag] ?? NO_TAG_COLOR}
               />
             ))}
           </div>

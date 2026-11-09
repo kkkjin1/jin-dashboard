@@ -2,7 +2,9 @@
 
 // 학습자료 > 📚 책장 보기 — media_type='책'인 자료만 표지 카드로 보여주고, 오른쪽에서 책 기록(별점·완독일·한 줄 정리·
 // 밑줄 문장·업무 적용·연결 안건)을 바로 고친다. 상태는 기존 학습자료와 같은 tags의 _doing/_done을 쓴다(schema_v73 칸 추가).
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Search, ChevronDown, Tags, X } from 'lucide-react'
+import { tagIcon } from './LearningSection'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import type { LearningResource } from '@/types'
@@ -25,6 +27,8 @@ const T1 = 'rgba(var(--text-rgb),0.92)'
 const T2 = 'rgba(var(--text-rgb),0.55)'
 const T3 = 'rgba(var(--text-rgb),0.3)'
 const LINE = 'rgba(var(--ink-rgb),0.08)'
+// 툴바 컨트롤 공통 (범주별 보기 LearningSearchToolbar와 같은 크기·모양)
+const CTRL: React.CSSProperties = { height: 48, borderRadius: 12, background: 'rgba(var(--ink-rgb),0.04)', border: '1px solid rgba(var(--ink-rgb),0.08)' }
 
 interface Props {
   resources: LearningResource[]
@@ -33,6 +37,7 @@ interface Props {
   saveCustomTags: (next: string[]) => void
   onRenameTag: (oldTag: string, newTag: string) => Promise<number>
   onDeleteTag: (tag: string) => Promise<boolean>
+  toolbarRight?: React.ReactNode  // 검색 줄 오른쪽 끝 (범주별/책장 전환·책 추가) — 범주별 보기와 같은 자리
   tagColors: Record<string, string>
   onSetTagColor: (tag: string, color: string) => void
   adding: boolean
@@ -130,7 +135,7 @@ function BlurInput({ value, onSave, placeholder, className, style, multiline }: 
 }
 
 export default function BookShelf({
-  resources, setResources, customTags, saveCustomTags, onRenameTag, onDeleteTag, tagColors, onSetTagColor, adding, setAdding,
+  resources, setResources, customTags, saveCustomTags, onRenameTag, onDeleteTag, tagColors, onSetTagColor, adding, setAdding, toolbarRight,
 }: Props) {
   const supabase = createClient()
   const [status, setStatus] = useState<Status | 'all'>('all')
@@ -152,6 +157,13 @@ export default function BookShelf({
   const [agendas, setAgendas] = useState<{ id: string; title: string; hidden: boolean }[]>([])
   const [linking, setLinking] = useState(false)
   const [linkQuery, setLinkQuery] = useState('')
+  const [tagOpen, setTagOpen] = useState(false)   // 분야 드롭다운
+  const tagRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    function onDown(e: MouseEvent) { if (tagRef.current && !tagRef.current.contains(e.target as Node)) setTagOpen(false) }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [])
 
   const books = useMemo(() => resources.filter(r => r.media_type === '책'), [resources])
   const colorMap = useMemo(() => resolveTagColors(customTags, tagColors), [customTags, tagColors])
@@ -178,6 +190,13 @@ export default function BookShelf({
   }, [books, status, tag, search, customTags])
 
   const sel = books.find(b => b.id === selectedId) ?? list[0] ?? null
+  // 분야별 선반 묶음 (분야 목록 순서, 미분류는 맨 뒤, 빈 분야 제외)
+  const shelves = useMemo(() => {
+    const order = [...customTags, '미분류']
+    const map = new Map<string, LearningResource[]>(order.map(t => [t, []]))
+    list.forEach(b => { const t = bookTag(b, customTags); (map.get(t) ?? map.get('미분류')!).push(b) })
+    return Array.from(map.entries()).filter(([, items]) => items.length > 0)
+  }, [list, customTags])
   const count = (s: Status) => books.filter(b => getStatus(b.tags ?? []) === s).length
   const year = todayYmd().slice(0, 4)
   const doneThisYear = books.filter(b => getStatus(b.tags ?? []) === 'done' && (b.finished_at ?? '').startsWith(year)).length
@@ -278,58 +297,89 @@ export default function BookShelf({
 
   return (
     <div className="flex-1 min-h-0 flex flex-col gap-3">
-      {/* 숫자 + 필터 */}
-      <div className="flex-shrink-0 flex items-center gap-3 flex-wrap">
-        {[
-          { k: `${year} 완독`, v: doneThisYear, c: '#16A34A' },
-          { k: '읽는 중', v: count('doing'), c: '#D97706' },
-          { k: '읽을 책', v: count('todo'), c: T2 },
-        ].map(s => (
-          <div key={s.k} className="rounded-xl px-3.5 py-1.5" style={{ background: 'rgba(var(--ink-rgb),0.04)', border: `1px solid ${LINE}` }}>
-            <span className="text-[11px] mr-2" style={{ color: T3 }}>{s.k}</span>
-            <span className="text-[15px] font-bold" style={{ color: s.c }}>{s.v}권</span>
-          </div>
-        ))}
-        <div className="rounded-full p-1 flex gap-0.5" style={{ background: 'rgba(var(--ink-rgb),0.04)', border: `1px solid ${LINE}` }}>
-          {([['all', `전체 ${books.length}`], ['todo', `읽을 책 ${count('todo')}`], ['doing', `읽는 중 ${count('doing')}`], ['done', `완독 ${count('done')}`]] as const).map(([k, l]) => (
-            <button key={k} onClick={() => setStatus(k)}
-              className="text-[12px] px-3 py-1 rounded-full font-medium"
-              style={status === k ? { background: 'var(--accent-primary)', color: '#fff' } : { color: T2 }}>{l}</button>
-          ))}
+      {/* 한 줄 툴바 — 범주별 보기와 같은 높이(48)·같은 자리. [검색] [상태 세그먼트] [분야 ▾] 올해 완독 ······ [범주별|책장] [+ 책 추가] */}
+      <div className="flex-shrink-0 flex items-center gap-2">
+        <div className="flex items-center gap-2 px-3.5" style={{ ...CTRL, width: 280 }}>
+          <Search size={15} style={{ color: '#2563EB', opacity: 0.75, flexShrink: 0 }} />
+          <input
+            value={search} onChange={e => setSearch(e.target.value)} placeholder="제목, 저자 검색"
+            className="flex-1 min-w-0 bg-transparent text-[13px] focus:outline-none placeholder:text-[rgba(var(--text-rgb),0.3)]"
+            style={{ color: T1 }}
+          />
+          {search && <button onClick={() => setSearch('')} style={{ color: T3 }}><X size={12} /></button>}
         </div>
-        <input
-          value={search} onChange={e => setSearch(e.target.value)} placeholder="제목·저자 검색"
-          className="text-[12px] px-3 py-1.5 rounded-lg bg-transparent focus:outline-none w-40 placeholder:text-[rgba(var(--text-rgb),0.3)]"
-          style={{ color: T1, border: `1px solid ${LINE}` }}
-        />
-      </div>
-      <div className="flex-shrink-0 flex gap-1.5 flex-wrap">
-        {['전체', ...tagsInUse].map(t => renaming === t ? (
-          <input key={t} autoFocus value={renameValue} onChange={e => setRenameValue(e.target.value)}
-            onBlur={() => renameTag(t)}
-            onKeyDown={e => {
-              if (e.key === 'Enter' && !e.nativeEvent.isComposing) (e.currentTarget as HTMLInputElement).blur()
-              if (e.key === 'Escape') setRenaming(null)
-            }}
-            className="text-[12px] px-2.5 py-1 rounded-full bg-transparent focus:outline-none w-28"
-            style={{ color: T1, border: '1px solid var(--accent-primary)' }} />
-        ) : (
-          <span key={t} className="group relative inline-flex">
-            <button onClick={() => setTag(t)}
-              onDoubleClick={() => { if (t !== '전체' && t !== '미분류') { setRenaming(t); setRenameValue(t) } }}
-              title={t !== '전체' && t !== '미분류' ? '더블클릭해서 이름 바꾸기' : undefined}
-              className="text-[12px] px-2.5 py-1 rounded-full border"
-              style={chip(tag === t, t === '전체' ? undefined : colorOf(t))}>
-              {t === '전체' ? '# 전체 분야' : `# ${t}`}
+
+        <div className="flex items-center p-1 flex-shrink-0" style={CTRL}>
+          {([['all', '전체', books.length, '#2563EB'], ['todo', '읽을 책', count('todo'), '#64748B'], ['doing', '읽는 중', count('doing'), '#D97706'], ['done', '완독', count('done'), '#16A34A']] as const).map(([k, l, n, c]) => {
+            const on = status === k
+            return (
+              <button key={k} onClick={() => setStatus(k)}
+                className="flex items-center gap-1.5 text-[13px] px-3 h-full rounded-lg transition-all"
+                style={on
+                  ? { background: 'var(--surface-primary)', color: c, fontWeight: 600, boxShadow: `0 1px 3px rgba(var(--ink-rgb),0.12), inset 0 0 0 1px ${c}33` }
+                  : { color: 'rgba(var(--text-rgb),0.5)' }}>
+                {k !== 'all' && <span className="rounded-full" style={{ width: 6, height: 6, background: c, opacity: on ? 1 : 0.6 }} />}
+                {l}<span className="tabular-nums" style={{ opacity: 0.6, fontWeight: 400 }}>{n}</span>
+              </button>
+            )
+          })}
+        </div>
+
+        {/* 분야 — 고르면 필터, 더블클릭 이름 바꾸기, × 삭제 (예전 2번째 줄 칩들) */}
+        <div ref={tagRef} className="relative flex-shrink-0">
+          {(() => { const on = tag !== '전체'; const c = on ? colorOf(tag) : '#0D9488'; return (
+            <button onClick={() => setTagOpen(v => !v)}
+              className="flex items-center gap-2 px-3.5 transition-colors"
+              style={{ ...CTRL, minWidth: 150, ...(on || tagOpen ? { background: `${c}12`, border: `1px solid ${c}40` } : {}) }}>
+              <Tags size={15} style={{ color: c }} />
+              <span className="text-[13px] flex-1 text-left" style={{ color: on ? c : T2, fontWeight: on ? 600 : 400 }}>{on ? tag : '분야 전체'}</span>
+              <ChevronDown size={13} style={{ color: T3 }} />
             </button>
-            {t !== '전체' && t !== '미분류' && (
-              <button onClick={() => deleteTag(t)} title="분야 삭제"
-                className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full text-[10px] leading-none hidden group-hover:flex items-center justify-center"
-                style={{ background: '#EF4444', color: '#fff' }}>×</button>
-            )}
-          </span>
-        ))}
-        {tagsInUse.some(t => t !== '미분류') && <span className="text-[11px] self-center ml-1" style={{ color: T3 }}>더블클릭: 이름 바꾸기 · 마우스 올리고 ×: 삭제</span>}
+          ) })()}
+          {tagOpen && (
+            <div className="absolute z-[100] rounded-xl" style={{ top: 'calc(100% + 4px)', left: 0, width: 320, padding: 10, background: 'var(--dropdown-panel-bg)', border: '1px solid rgba(var(--ink-rgb),0.1)', backdropFilter: 'blur(20px)', boxShadow: '0 16px 40px rgba(0,0,0,0.25)' }}>
+              <div className="flex gap-1.5 flex-wrap">
+                {['전체', ...tagsInUse].map(t => renaming === t ? (
+                  <input key={t} autoFocus value={renameValue} onChange={e => setRenameValue(e.target.value)}
+                    onBlur={() => renameTag(t)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && !e.nativeEvent.isComposing) (e.currentTarget as HTMLInputElement).blur()
+                      if (e.key === 'Escape') setRenaming(null)
+                    }}
+                    className="text-[11px] px-2.5 py-1 rounded-full bg-transparent focus:outline-none w-28"
+                    style={{ color: T1, border: '1px solid var(--accent-primary)' }} />
+                ) : (
+                  <span key={t} className="group relative inline-flex">
+                    {(() => {
+                      const c = t === '전체' ? '#64748B' : colorOf(t); const on = tag === t; const I = tagIcon(t)
+                      return (
+                        <button onClick={() => { setTag(t); setTagOpen(false) }}
+                          onDoubleClick={() => { if (t !== '전체' && t !== '미분류') { setRenaming(t); setRenameValue(t) } }}
+                          title={t !== '전체' && t !== '미분류' ? '더블클릭해서 이름 바꾸기' : undefined}
+                          className="flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-full"
+                          style={on ? { background: c, color: '#fff', border: `1px solid ${c}` } : { background: `${c}14`, color: c, border: `1px solid ${c}33` }}>
+                          {t !== '전체' && <I size={11} />}{t === '전체' ? '분야 전체' : t}
+                        </button>
+                      )
+                    })()}
+                    {t !== '전체' && t !== '미분류' && (
+                      <button onClick={() => deleteTag(t)} title="분야 삭제"
+                        className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full text-[10px] leading-none hidden group-hover:flex items-center justify-center"
+                        style={{ background: '#EF4444', color: '#fff' }}>×</button>
+                    )}
+                  </span>
+                ))}
+              </div>
+              <p className="text-[10.5px] mt-2.5" style={{ color: T3 }}>누르면 거르기 · 더블클릭 이름 바꾸기 · 마우스 올리고 × 삭제</p>
+            </div>
+          )}
+        </div>
+
+        <span className="text-[12px] flex-shrink-0 ml-1" style={{ color: T3 }}>
+          {year} 완독 <b style={{ color: '#16A34A', fontWeight: 600 }}>{doneThisYear}권</b>
+        </span>
+
+        {toolbarRight && <div className="ml-auto flex items-center gap-2 flex-shrink-0">{toolbarRight}</div>}
       </div>
 
       {error && (
@@ -376,47 +426,61 @@ export default function BookShelf({
               <p className="text-[12px]" style={{ color: T3 }}>위의 &quot;+ 책 추가&quot;로 넣거나, 기존 자료의 매체를 📚 책으로 바꾸면 여기 보여요</p>
             </div>
           ) : (
-            <div className="grid gap-3 content-start" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))' }}>
-              {list.map(b => {
-                const st = getStatus(b.tags ?? [])
-                const m = STATUS_META[st]
-                const t = bookTag(b, customTags)
-                const active = sel?.id === b.id
+            // 분야별 유리 선반(한 줄에 2개) — 분야마다 유리 박스 하나, 안에 표지를 꽂아 둔 듯 나열. 표지 클릭 → 오른쪽 상세
+            <div className="grid grid-cols-2 gap-3 content-start">
+              {shelves.map(([t, items]) => {
+                const c = colorOf(t)
+                const I = tagIcon(t)
+                const done = items.filter(b => getStatus(b.tags ?? []) === 'done').length
                 return (
-                  <button key={b.id} onClick={() => { setSelectedId(b.id); setLinking(false) }}
-                    className="text-left rounded-xl p-3 flex gap-3 border transition-colors"
+                  <section key={t} className="rounded-2xl overflow-hidden"
                     style={{
-                      background: active ? 'rgba(var(--ink-rgb),0.07)' : 'rgba(var(--ink-rgb),0.03)',
-                      borderColor: active ? 'var(--accent-primary)' : LINE,
+                      background: 'linear-gradient(160deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.25) 100%)',
+                      backdropFilter: 'blur(14px) saturate(1.4)', WebkitBackdropFilter: 'blur(14px) saturate(1.4)',
+                      border: '1px solid rgba(var(--ink-rgb),0.07)',
+                      boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.8), 0 1px 2px rgba(var(--ink-rgb),0.04), 0 10px 26px -14px rgba(var(--ink-rgb),0.18)',
                     }}>
-                    <Cover book={b} color={colorOf(t)} />
-                    <div className="flex-1 min-w-0 flex flex-col gap-1">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{ color: m.color, background: m.bg }}>{m.label}</span>
-                        <span className="text-[10.5px] truncate" style={{ color: colorOf(t) }}># {t}</span>
-                      </div>
-                      <p className="text-[13.5px] font-semibold truncate" style={{ color: T1 }}>{b.title || '제목 없음'}</p>
-                      <p className="text-[11.5px] truncate" style={{ color: T3 }}>{b.author || '저자 미입력'}</p>
-                      {st === 'done' && (
-                        <div className="flex items-center gap-2 mt-auto">
-                          <Stars value={b.rating} />
-                          <span className="text-[10.5px]" style={{ color: T3 }}>{b.finished_at ?? ''}</span>
-                        </div>
-                      )}
-                      {st === 'doing' && (
-                        <div className="mt-auto flex items-center gap-2">
-                          <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(var(--ink-rgb),0.08)' }}>
-                            <div className="h-full" style={{ width: `${b.progress ?? 0}%`, background: '#F59E0B' }} />
-                          </div>
-                          <span className="text-[10.5px]" style={{ color: T3 }}>{b.progress ?? 0}%</span>
-                        </div>
-                      )}
-                      {st === 'todo' && b.reason && <p className="mt-auto text-[11px] truncate" style={{ color: T2 }}>읽는 이유 · {b.reason}</p>}
+                    <div className="flex items-center gap-2.5 px-3.5" style={{ height: 54, borderBottom: '1px solid rgba(var(--ink-rgb),0.06)' }}>
+                      <span className="flex items-center justify-center flex-shrink-0 rounded-lg" style={{ width: 26, height: 26, background: `${c}1F` }}>
+                        <I size={14} style={{ color: c }} />
+                      </span>
+                      <span className="text-[14px] font-bold flex-1 truncate" style={{ color: T1 }}>{t}</span>
+                      <span className="text-[10.5px] tabular-nums" style={{ color: 'rgba(var(--text-rgb),0.4)' }}>{items.length}권</span>
+                      <span className="flex items-center gap-1.5 flex-shrink-0">
+                        <span className="text-[10.5px] tabular-nums" style={{ color: 'rgba(var(--text-rgb),0.45)' }}>
+                          완독 <b style={{ color: done ? c : undefined, fontWeight: 600 }}>{done}</b>/{items.length}
+                        </span>
+                        <span className="rounded-full overflow-hidden" style={{ width: 40, height: 4, background: 'rgba(var(--ink-rgb),0.08)' }}>
+                          <span className="block h-full rounded-full" style={{ width: `${(done / items.length) * 100}%`, background: c }} />
+                        </span>
+                      </span>
                     </div>
-                  </button>
+                    {/* 선반: 표지들 + 아래 받침 선 */}
+                    <div className="px-4 pt-4 pb-3">
+                      <div className="flex flex-wrap gap-x-4 gap-y-5">
+                        {items.map(b => {
+                          const active = sel?.id === b.id
+                          return (
+                            <button key={b.id} onClick={() => { setSelectedId(b.id); setLinking(false) }}
+                              title={`${b.title}${b.author ? ' · ' + b.author : ''}`}
+                              className="flex flex-col items-center gap-1.5 transition-transform hover:-translate-y-1"
+                              style={{ width: 92 }}>
+                              <span className="rounded-md" style={{ outline: active ? '2px solid var(--accent-primary)' : 'none', outlineOffset: 3 }}>
+                                <Cover book={b} color={c} big />
+                              </span>
+                              <span className="text-[11px] w-full truncate text-center" style={{ color: active ? T1 : T2, fontWeight: active ? 600 : 400 }}>
+                                {b.title || '제목 없음'}
+                              </span>
+                            </button>
+                          )
+                        })}
+                      </div>
+                      <div className="mt-3 h-[3px] rounded-full" style={{ background: `linear-gradient(90deg, ${c}55, rgba(var(--ink-rgb),0.06) 60%, transparent)` }} />
+                    </div>
+                  </section>
                 )
               })}
-              {list.length === 0 && <p className="text-[13px] py-10" style={{ color: T3 }}>해당하는 책이 없어요</p>}
+              {list.length === 0 && <p className="col-span-2 text-[13px] py-10" style={{ color: T3 }}>해당하는 책이 없어요</p>}
             </div>
           )}
         </div>
