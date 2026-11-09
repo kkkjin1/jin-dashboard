@@ -177,7 +177,7 @@ export default function BookShelf({
 
   const tagsInUse = useMemo(() => {
     const set = new Set(books.map(b => bookTag(b, customTags)))
-    return [...customTags.filter(t => set.has(t)), ...(set.has('미분류') ? ['미분류'] : [])]
+    return [...customTags.filter(t => set.has(t)), ...(set.has('미분류') && !customTags.includes('미분류') ? ['미분류'] : [])]
   }, [books, customTags])
 
   const list = useMemo(() => {
@@ -192,7 +192,7 @@ export default function BookShelf({
   const sel = books.find(b => b.id === selectedId) ?? list[0] ?? null
   // 분야별 선반 묶음 (분야 목록 순서, 미분류는 맨 뒤, 빈 분야 제외)
   const shelves = useMemo(() => {
-    const order = [...customTags, '미분류']
+    const order = customTags.includes('미분류') ? customTags : [...customTags, '미분류']
     const map = new Map<string, LearningResource[]>(order.map(t => [t, []]))
     list.forEach(b => { const t = bookTag(b, customTags); (map.get(t) ?? map.get('미분류')!).push(b) })
     return Array.from(map.entries()).filter(([, items]) => items.length > 0)
@@ -410,7 +410,7 @@ export default function BookShelf({
           <select value={addTag} onChange={e => setAddTag(e.target.value)}
             className="text-[12px] px-2 py-1 rounded-lg focus:outline-none [&>option]:bg-[var(--select-option-bg)]"
             style={{ background: 'rgba(var(--ink-rgb),0.05)', border: `1px solid ${LINE}`, color: colorOf(addTag) }}>
-            {[...customTags, '미분류'].map(x => <option key={x} value={x}># {x}</option>)}
+            {(customTags.includes('미분류') ? customTags : [...customTags, '미분류']).map(x => <option key={x} value={x}># {x}</option>)}
           </select>
           <button onClick={addBook} className="text-[12px] px-3 py-1 rounded-lg" style={{ background: 'var(--accent-primary)', color: '#fff' }}>추가</button>
           <button onClick={() => setAdding(false)} className="text-[12px] px-2" style={{ color: T3 }}>취소</button>

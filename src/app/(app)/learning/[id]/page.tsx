@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useUserSetting } from '@/hooks/useUserSetting'
+import { MEDIA_SETTING_KEY, DEFAULT_MEDIA } from '@/lib/learningMedia'
 import type { LearningResource, NoteEntry } from '@/types'
 import { generateLearningMd, downloadMd } from '@/lib/markdown'
 import SmartTextarea from '@/components/SmartTextarea'
@@ -33,7 +34,8 @@ export default function LearningDetailPage() {
     'learning_custom_tags',
     ['HR', '경제', '리더십', '평가보상', '데이터', '조직문화', '기획']
   )
-  const MEDIA_TYPES = ['책', '영상', '아티클', '강의', '기타']
+  // 매체 목록은 학습자료 목록 화면에서 편집(추가·이름변경·삭제)하는 사용자 설정을 따른다
+  const { value: mediaList } = useUserSetting<string[]>(MEDIA_SETTING_KEY, DEFAULT_MEDIA)
   const MEDIA_ICONS: Record<string, string> = {
     '책': '📚', '영상': '🎬', '아티클': '📄', '강의': '🎓', '기타': '📌',
   }
@@ -200,14 +202,14 @@ export default function LearningDetailPage() {
         <div>
           <label className="text-xs font-semibold block mb-1.5" style={{ color: T3, letterSpacing: '.04em' }}>매체</label>
           <div className="flex gap-1.5 flex-wrap">
-            {MEDIA_TYPES.map(type => (
+            {[...mediaList, ...(resource.media_type && !mediaList.includes(resource.media_type) ? [resource.media_type] : [])].map(type => (
               <button key={type}
                 onClick={() => updateResource({ media_type: resource.media_type === type ? null : type })}
                 className="text-xs px-3 py-1 rounded-full border transition-all"
                 style={resource.media_type === type
                   ? { background: 'var(--accent-primary)', color: 'rgba(220,230,252,0.9)', borderColor: 'rgba(76,127,224,0.5)' }
                   : { background: 'rgba(var(--ink-rgb),0.05)', color: T2, borderColor: 'rgba(var(--ink-rgb),0.09)' }}>
-                {MEDIA_ICONS[type]} {type}
+                {MEDIA_ICONS[type] ?? '🔖'} {type}
               </button>
             ))}
           </div>

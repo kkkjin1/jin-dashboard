@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { LearningResource } from '@/types'
@@ -10,6 +10,11 @@ import LearningSection from './LearningSection'
 import BookShelf from './BookShelf'
 import { getStatus } from './LearningRow'
 import { resolveTagColors, NO_TAG_COLOR } from '@/lib/learningTagColors'
+import { MEDIA_SETTING_KEY, DEFAULT_MEDIA, LOCKED_MEDIA, FALLBACK_MEDIA } from '@/lib/learningMedia'
+
+// '미분류' = 범주 태그가 없는 자료가 모이는 곳. 2026-11-09부터 범주 목록에 '미분류'가 있으면 그 상자가 일반 범주처럼
+// 옮기기·이름변경·삭제되고(태그 없는 자료도 거기 보임), 목록에 없을 때만 남는 자료를 위한 자동 상자를 띄운다.
+const UNCAT = '미분류'
 
 const DEFAULT_TAGS = ['HR', '경제', '리더십', '평가보상', '데이터', '조직문화', '기획']
 
@@ -28,6 +33,7 @@ export default function LearningNew() {
   const { value: view, save: saveView } = useUserSetting<'category' | 'shelf'>('learning_view', 'category')
   const shelf = view === 'shelf'
   const { value: tagColors, save: saveTagColors } = useUserSetting<Record<string, string>>('learning_tag_colors', {})
+  const { value: mediaTypes, save: saveMediaTypes } = useUserSetting<string[]>(MEDIA_SETTING_KEY, DEFAULT_MEDIA)
   const coverColorMap = useMemo(() => resolveTagColors(customTags, tagColors), [customTags, tagColors])
 
   // 필터 상태
@@ -60,6 +66,80 @@ export default function LearningNew() {
     setAdding(false); setAddTitle(''); setAddSource(''); setAddTag('')
   }
 
+  // ── 범주 순서(상자 ⠿ 끌기) — 범주 추가는 툴바 [범주 관리]에서(그리드 끝 추가 상자는 스크롤이 생겨 뺐다) ──
+  function moveCategory(tag: string, target: string, after: boolean) {
+    if (tag === target || !customTags.includes(tag) || !customTags.includes(target)) return
+    const rest = customTags.filter(t => t !== tag)
+    const at = rest.indexOf(target) + (after ? 1 : 0)
+    const next = [...rest.slice(0, at), tag, ...rest.slice(at)]
+    if (next.join('|') !== customTags.join('|')) saveCustomTags(next)
+  }
+
+  // ── 매체 추가·이름변경·삭제 — 목록과 자료의 media_type 을 같이 바꾼다('책'은 잠금) ──
+  async function setMediaOf(match: string, next: string | null): Promise<number> {
+    const affected = resources.filter(r => r.media_type === match)
+    setResources(prev => prev.map(r => r.media_type === match ? { ...r, media_type: next } : r))
+    const results = await Promise.all(affected.map(r => supabase.from('learning_resources').update({ media_type: next }).eq('id', r.id)))
+    const failed = results.filter(x => x.error).length
+    if (failed) console.error('학습자료 매체 갱신 실패:', results.find(x => x.error)?.error?.message)
+    return failed
+  }
+  function addMedia(raw: string) {
+    const name = raw.trim()
+    if (!name || name === '전체' || mediaTypes.includes(name)) return
+    saveMediaTypes([...mediaTypes, name])
+  }
+  async function renameMedia(oldName: string, raw: string) {
+    const name = raw.trim()
+    if (!name || name === oldName || name === '전체' || oldName === LOCKED_MEDIA || mediaTypes.includes(name)) return
+    saveMediaTypes(mediaTypes.map(m => m === oldName ? name : m))
+    if (mediaFilter === oldName) setMediaFilter(name)
+    const failed = await setMediaOf(oldName, name)
+    if (failed) alert(`매체 이름 변경 중 자료 ${failed}건 저장 실패 — 새로고침 후 확인해 주세요`)
+  }
+  async function deleteMedia(target: string) {
+    if (target === LOCKED_MEDIA) return
+    const n = resources.filter(r => r.media_type === target).length
+    const to = target !== FALLBACK_MEDIA && mediaTypes.includes(FALLBACK_MEDIA) ? FALLBACK_MEDIA : null
+    const msg = n ? `"${target}" 매체를 삭제할까요?\n이 매체 자료 ${n}건은 지워지지 않고 ${to ? `'${to}'로` : '매체 없음으로'} 옮겨집니다.` : `"${target}" 매체를 삭제할까요?`
+    if (!confirm(msg)) return
+    saveMediaTypes(mediaTypes.filter(m => m !== target))
+    if (mediaFilter === target) setMediaFilter('전체')
+    const failed = await setMediaOf(target, to)
+    if (failed) alert(`매체 삭제 중 자료 ${failed}건 저장 실패 — 새로고침 후 확인해 주세요`)
+  }
+  function reorderMedia(next: string[]) { saveMediaTypes(next) }
+
+  // ── 범주 상자 ⠿ 끌기 — 브라우저 기본 drag&drop 대신 포인터를 따라가며, 놓은 상자의 왼쪽/오른쪽 절반으로 앞·뒤를 정한다 ──
+  const boxEls = useRef(new Map<string, HTMLDivElement>())
+  const [boxDrag, setBoxDrag] = useState<string | null>(null)
+  const [boxDrop, setBoxDrop] = useState<{ tag: string; after: boolean } | null>(null)
+  function startBoxDrag(e: React.PointerEvent, tag: string) {
+    if (e.button !== 0) return
+    e.preventDefault()
+    let target: { tag: string; after: boolean } | null = null
+    setBoxDrag(tag)
+    const onMove = (ev: PointerEvent) => {
+      let hit: { tag: string; after: boolean } | null = null
+      for (const [t, el] of boxEls.current) {
+        if (!customTags.includes(t)) continue
+        const r = el.getBoundingClientRect()
+        if (ev.clientX >= r.left && ev.clientX <= r.right && ev.clientY >= r.top && ev.clientY <= r.bottom) { hit = { tag: t, after: ev.clientX > (r.left + r.right) / 2 }; break }
+      }
+      if (hit?.tag !== target?.tag || hit?.after !== target?.after) { target = hit; setBoxDrop(hit) }
+    }
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onUp)
+      setBoxDrag(null); setBoxDrop(null)
+      if (target) moveCategory(tag, target.tag, target.after)
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onUp)
+  }
+
   async function cycleStatus(r: LearningResource) {
     const cur = getStatus(r.tags ?? [])
     const next: Status = cur === 'todo' ? 'doing' : cur === 'doing' ? 'done' : 'todo'
@@ -88,21 +168,24 @@ export default function LearningNew() {
   }, [resources, search, statusFilter, mediaFilter])
 
   // ── 카테고리별 그룹 ────────────────────────────────────
-  const allTags = [...customTags, '미분류']
   const hasActiveFilter = search.trim() !== '' || statusFilter !== '전체' || mediaFilter !== '전체'
   const groups = useMemo(() => {
     const map = new Map<string, LearningResource[]>()
-    allTags.forEach(t => map.set(t, []))
+    customTags.forEach(t => map.set(t, []))
+    const orphans: LearningResource[] = []
     filtered.forEach(r => {
-      const tags = r.tags ?? []
-      const cat  = tags.find(t => customTags.includes(t)) ?? '미분류'
-      const key  = map.has(cat) ? cat : '미분류'
-      map.get(key)!.push(r)
+      const cat = (r.tags ?? []).find(t => customTags.includes(t))
+      if (cat) map.get(cat)!.push(r)
+      else if (map.has(UNCAT)) map.get(UNCAT)!.push(r)   // 범주 없는 자료 → '미분류' 범주 상자
+      else orphans.push(r)
     })
     const entries = Array.from(map.entries())
+    // '미분류' 범주를 지웠는데 범주 없는 자료가 남아 있으면 그 자료만 모아 맨 뒤에 자동 상자로(옮기기·편집 불가)
+    if (orphans.length) entries.push([UNCAT, orphans])
     // 필터/검색 중이 아니면 자료가 없는 카테고리도 구조 확인용으로 노출
     return hasActiveFilter ? entries.filter(([, items]) => items.length > 0) : entries
   }, [filtered, customTags, hasActiveFilter])
+  const allTags = groups.map(([t]) => t)
 
   // ── 분야(범주) 이름 변경·삭제 — 목록과 자료의 태그를 같이 바꾼다 ──────────
   // (예전엔 목록 이름만 바뀌어 자료가 옛 태그로 남고 미분류로 빠지는 버그가 있었음)
@@ -118,7 +201,7 @@ export default function LearningNew() {
 
   async function renameCategory(oldTag: string, newTag: string): Promise<number> {
     const name = newTag.trim()
-    if (!name || name === oldTag || name === '미분류' || name === '전체' || customTags.includes(name)) return 0
+    if (!name || name === oldTag || name === '전체' || customTags.includes(name)) return 0
     saveCustomTags(customTags.map(t => t === oldTag ? name : t))
     if (tagColors[oldTag]) {
       const rest = Object.fromEntries(Object.entries(tagColors).filter(([k]) => k !== oldTag))
@@ -257,6 +340,8 @@ export default function LearningNew() {
         search={search}             setSearch={setSearch}
         statusFilter={statusFilter} setStatusFilter={setStatusFilter}
         mediaFilter={mediaFilter}   setMediaFilter={setMediaFilter}
+        mediaTypes={mediaTypes}
+        onAddMedia={addMedia} onRenameMedia={renameMedia} onDeleteMedia={deleteMedia} onReorderMedia={reorderMedia}
         customTags={customTags}     setCustomTags={saveCustomTags}
         onRenameTag={renameCategory} onDeleteTag={deleteCategory}
         total={filtered.length}
@@ -285,21 +370,34 @@ export default function LearningNew() {
           </div>
         ) : (
           <div
-            className="grid gap-3 pb-3"
+            className={`grid gap-3 pb-3 ${boxDrag ? 'select-none' : ''}`}
             style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(500px, 1fr))', maxWidth: 'calc(4 * 500px + 3 * 12px)' }}
           >
-            {groups.map(([tag, items]) => (
-              <LearningSection
-                key={tag}
-                tag={tag}
-                allTags={allTags}
-                resources={items}
-                onNavigate={id => router.push(`/learning/${id}`)}
-                onCycleStatus={cycleStatus}
-                onRenameTag={renameCategory}
-                coverColor={coverColorMap[tag] ?? NO_TAG_COLOR}
-              />
-            ))}
+            {groups.map(([tag, items]) => {
+              const own = customTags.includes(tag)   // 범주 목록에 있는 상자만 옮기기·이름변경·삭제
+              const dropHere = boxDrag && boxDrop?.tag === tag && boxDrag !== tag
+              return (
+                <div key={tag} className="relative" style={{ opacity: boxDrag === tag ? 0.4 : 1 }}
+                  ref={el => { if (el) boxEls.current.set(tag, el); else boxEls.current.delete(tag) }}>
+                  {dropHere && (
+                    <span aria-hidden className="absolute top-2 bottom-2 rounded-full z-20"
+                      style={{ width: 3, background: 'var(--accent-primary)', [boxDrop!.after ? 'right' : 'left']: -8 }} />
+                  )}
+                  <LearningSection
+                    tag={tag}
+                    allTags={allTags}
+                    resources={items}
+                    onNavigate={id => router.push(`/learning/${id}`)}
+                    onCycleStatus={cycleStatus}
+                    onRenameTag={renameCategory}
+                    coverColor={coverColorMap[tag] ?? NO_TAG_COLOR}
+                    editable={own}
+                    onHandlePointerDown={own ? e => startBoxDrag(e, tag) : undefined}
+                    onDelete={own ? () => { void deleteCategory(tag) } : undefined}
+                  />
+                </div>
+              )
+            })}
           </div>
         )}
       </div>

@@ -40,14 +40,17 @@ interface Props {
   onCycleStatus: (r: LearningResource) => void
   onRenameTag: (oldTag: string, newTag: string) => void
   coverColor?: string  // 이 범주의 책 미니 표지 색 (책장 분야색)
+  editable?: boolean   // 범주 목록에 있는 상자만 이름변경·삭제·옮기기(자동 '미분류' 상자는 false)
+  onHandlePointerDown?: (e: React.PointerEvent) => void  // 머리줄 ⠿ — 끌어서 범주 순서 바꾸기
+  onDelete?: () => void  // 머리줄 ✕ — 범주 삭제(자료는 남음)
 }
 
-export default function LearningSection({ tag, resources, onNavigate, onCycleStatus, onRenameTag, coverColor }: Props) {
+export default function LearningSection({ tag, resources, onNavigate, onCycleStatus, onRenameTag, coverColor, editable: editableProp, onHandlePointerDown, onDelete }: Props) {
   // 범주색 = 책장 분야색 (미니 표지와 같은 색)
   const color = coverColor ?? '#94A3B8'
   const doneCount = resources.filter(r => getStatus(r.tags ?? []) === 'done').length
   const Icon = tagIcon(tag)
-  const editable = tag !== '미분류'
+  const editable = editableProp ?? tag !== '미분류'
   const books  = resources.filter(r => r.media_type === '책')
   const others = resources.filter(r => r.media_type !== '책')
     .map((r, i) => ({ r, i })).sort((x, y) => otherRank(x.r) - otherRank(y.r) || x.i - y.i).map(x => x.r)
@@ -85,9 +88,17 @@ export default function LearningSection({ tag, resources, onNavigate, onCycleSta
     >
       {/* 카드 헤더 — 범주명 클릭해서 바로 이름 변경 (미분류 제외) */}
       <div
-        className="relative flex items-center gap-2.5 px-3.5 flex-shrink-0"
-        style={{ height: HEAD_H, borderBottom: '1px solid rgba(var(--ink-rgb),0.06)' }}
+        className="group/head relative flex items-center gap-2.5 px-3.5 flex-shrink-0"
+        style={{ height: HEAD_H, borderBottom: '1px solid rgba(var(--ink-rgb),0.06)', paddingLeft: onHandlePointerDown ? 6 : undefined }}
       >
+        {/* ⠿ 끌어서 범주 상자 순서 바꾸기 */}
+        {onHandlePointerDown && (
+          <span onPointerDown={onHandlePointerDown} title="끌어서 범주 순서 바꾸기" aria-label={`${tag} 순서 바꾸기`}
+            className="flex items-center justify-center rounded-md select-none touch-none flex-shrink-0 cursor-grab active:cursor-grabbing transition-colors"
+            style={{ width: 18, height: 28, fontSize: 14, color: 'rgba(var(--text-rgb),0.28)' }}
+            onMouseEnter={e => (e.currentTarget.style.color = 'var(--accent-soft)')}
+            onMouseLeave={e => (e.currentTarget.style.color = 'rgba(var(--text-rgb),0.28)')}>⠿</span>
+        )}
         {/* 아이콘 배지 */}
         <span
           className="flex items-center justify-center flex-shrink-0 rounded-lg"
@@ -136,6 +147,11 @@ export default function LearningSection({ tag, resources, onNavigate, onCycleSta
           </span>
         ) : (
           <span className="text-[10.5px] flex-shrink-0" style={{ color: 'rgba(var(--text-rgb),0.3)' }}>0</span>
+        )}
+        {onDelete && !editing && (
+          <button onClick={e => { e.stopPropagation(); onDelete() }} title="범주 삭제(자료는 지우지 않음)" aria-label={`${tag} 범주 삭제`}
+            className="opacity-0 group-hover/head:opacity-100 flex items-center justify-center rounded-md flex-shrink-0 transition-opacity text-[12px]"
+            style={{ width: 22, height: 22, color: 'rgba(220,60,60,0.8)' }}>✕</button>
         )}
       </div>
 

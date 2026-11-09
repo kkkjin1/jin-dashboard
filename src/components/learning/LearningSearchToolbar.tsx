@@ -4,16 +4,20 @@ import { useRef, useEffect, useState } from 'react'
 import { Search, ChevronDown, Plus, X, Tags, BookOpen, LayoutGrid, type LucideIcon } from 'lucide-react'
 import { tagIcon } from './LearningSection'
 import { MEDIA_ICON, MEDIA_COLOR } from './LearningRow'
+import { LOCKED_MEDIA } from '@/lib/learningMedia'
 
 export type StatusFilter = '전체' | '보기전' | '보는중' | '완료'
-export type MediaFilter  = '전체' | '책' | '영상' | '아티클' | '강의' | '기타'
+// 매체는 사용자 설정 목록(추가·이름변경·삭제 가능, lib/learningMedia) — '전체' 또는 그 목록 중 하나
+export type MediaFilter  = string
 
 const STATUS_OPTIONS: StatusFilter[] = ['전체', '보기전', '보는중', '완료']
-const MEDIA_OPTIONS:  MediaFilter[]  = ['전체', '책', '영상', '아티클', '강의', '기타']
 const CTRL_H = 48  // 툴바 컨트롤 높이 (기존 30의 1.6배)
 // 매체 아이콘·색 — 카드 안 자료 아이콘과 같은 체계 (책=주황 펼친 책)
 const M_ICON: Record<string, LucideIcon> = { 전체: LayoutGrid, 책: BookOpen, ...MEDIA_ICON }
 const M_COLOR: Record<string, string> = { 전체: '#64748B', 책: '#EA580C', ...MEDIA_COLOR }
+// 새로 만든 매체는 '기타'와 같은 아이콘·색 (아이콘은 표에서 바로 고른다 — 함수로 고르면 '렌더 중 컴포넌트 생성' 경고)
+const OTHER_ICON = MEDIA_ICON['기타']
+const mColor = (m: string) => M_COLOR[m] ?? MEDIA_COLOR['기타']
 // 상태별 색
 const STATUS_COLOR: Record<StatusFilter, string> = { 전체: '#2563EB', 보기전: '#64748B', 보는중: '#D97706', 완료: '#16A34A' }
 
@@ -24,6 +28,11 @@ interface Props {
   setStatusFilter: (v: StatusFilter) => void
   mediaFilter: MediaFilter
   setMediaFilter: (v: MediaFilter) => void
+  mediaTypes: string[]
+  onAddMedia: (name: string) => void
+  onRenameMedia: (oldName: string, newName: string) => void
+  onDeleteMedia: (name: string) => void
+  onReorderMedia: (next: string[]) => void
   customTags: string[]
   setCustomTags: (next: string[]) => void
   onRenameTag: (oldTag: string, newTag: string) => void
@@ -35,6 +44,7 @@ interface Props {
 
 export default function LearningSearchToolbar({
   search, setSearch, statusFilter, setStatusFilter, mediaFilter, setMediaFilter,
+  mediaTypes, onAddMedia, onRenameMedia, onDeleteMedia, onReorderMedia,
   customTags, setCustomTags, onRenameTag, onDeleteTag,
   total, tagColors = {}, right,
 }: Props) {
@@ -97,8 +107,37 @@ export default function LearningSearchToolbar({
     minWidth: 160, padding: 4,
   }
 
-  const MediaI = M_ICON[mediaFilter]
-  const mediaC = M_COLOR[mediaFilter]
+  const MediaI = M_ICON[mediaFilter] ?? OTHER_ICON
+  const mediaC = mColor(mediaFilter)
+  const MEDIA_OPTIONS: MediaFilter[] = ['전체', ...mediaTypes]
+
+  // ── 매체 편집(드롭다운 안): 이름변경·삭제·끌어서 순서·추가. '책'은 책장 보기가 써서 잠금 ──
+  const [mediaEdit, setMediaEdit] = useState(false)
+  const [mEditing, setMEditing] = useState<string | null>(null)
+  const [mEditValue, setMEditValue] = useState('')
+  const [mAdding, setMAdding] = useState(false)
+  const [mAddValue, setMAddValue] = useState('')
+  const mDragIndex = useRef<number | null>(null)
+  function commitMediaRename() {
+    const name = mEditValue.trim()
+    if (mEditing && name && name !== mEditing) onRenameMedia(mEditing, name)
+    setMEditing(null)
+  }
+  function commitMediaAdd() {
+    const name = mAddValue.trim()
+    if (name) onAddMedia(name)
+    setMAdding(false); setMAddValue('')
+  }
+  function onMediaDragOver(e: React.DragEvent, index: number) {
+    e.preventDefault()
+    const from = mDragIndex.current
+    if (from === null || from === index) return
+    const next = [...mediaTypes]
+    const [item] = next.splice(from, 1)
+    next.splice(index, 0, item)
+    mDragIndex.current = index
+    onReorderMedia(next)
+  }
   const mediaOn = mediaFilter !== '전체'
 
   const ctrlBox: React.CSSProperties = { height: CTRL_H, borderRadius: 12, background: 'rgba(var(--ink-rgb),0.04)', border: '1px solid rgba(var(--ink-rgb),0.08)' }
@@ -160,9 +199,45 @@ export default function LearningSearchToolbar({
             <ChevronDown size={13} style={{ color: 'rgba(var(--text-rgb),0.35)' }} />
           </button>
           {mediaOpen && (
-            <div style={{ ...dropdownBase, left: 0, right: 'auto', width: 160 }}>
+            <div style={{ ...dropdownBase, left: 0, right: 'auto', width: 220 }}>
               {MEDIA_OPTIONS.map(m => {
-                const I = M_ICON[m]; const c = M_COLOR[m]; const on = mediaFilter === m
+                const I = M_ICON[m] ?? OTHER_ICON; const c = mColor(m); const on = mediaFilter === m
+                const idx = mediaTypes.indexOf(m)
+                const locked = m === '전체' || m === LOCKED_MEDIA
+                if (mediaEdit && m !== '전체') {
+                  // 편집 모드: ⠿ 끌어서 순서 · 이름 클릭해서 변경 · ✕ 삭제 ('책'은 잠금)
+                  return (
+                    <div key={m}
+                      draggable={mEditing !== m}
+                      onDragStart={() => { mDragIndex.current = idx }}
+                      onDragOver={e => onMediaDragOver(e, idx)}
+                      onDrop={e => { e.preventDefault(); mDragIndex.current = null }}
+                      className="group/m flex items-center gap-2 px-2 py-1.5 rounded-lg"
+                      style={{ cursor: mEditing === m ? 'default' : 'grab' }}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(var(--ink-rgb),0.05)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                      <span className="text-[12px] select-none" style={{ color: 'rgba(var(--text-rgb),0.3)' }}>⠿</span>
+                      <I size={14} style={{ color: c, flexShrink: 0 }} />
+                      {mEditing === m ? (
+                        <input autoFocus value={mEditValue} onChange={e => setMEditValue(e.target.value)} onBlur={commitMediaRename}
+                          onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) commitMediaRename(); if (e.key === 'Escape') setMEditing(null) }}
+                          className="flex-1 min-w-0 text-[13px] px-1.5 py-0.5 rounded focus:outline-none"
+                          style={{ background: 'rgba(76,127,224,0.12)', border: '1px solid rgba(76,127,224,0.4)', color: 'rgba(var(--text-rgb),1)' }} />
+                      ) : (
+                        <button onClick={() => { if (!locked) { setMEditing(m); setMEditValue(m) } }}
+                          title={locked ? '책장 보기에 쓰여서 바꿀 수 없어요' : '눌러서 이름 바꾸기'}
+                          className="flex-1 min-w-0 text-left text-[13px] truncate" style={{ color: 'rgba(var(--text-rgb),0.8)', cursor: locked ? 'default' : 'text' }}>
+                          {m}{locked && <span className="ml-1 text-[10.5px]" style={{ color: 'rgba(var(--text-rgb),0.35)' }}>고정</span>}
+                        </button>
+                      )}
+                      {!locked && mEditing !== m && (
+                        <button onClick={() => onDeleteMedia(m)} title="매체 삭제(자료는 지우지 않음)"
+                          className="opacity-0 group-hover/m:opacity-100 flex items-center justify-center rounded-full flex-shrink-0"
+                          style={{ width: 16, height: 16, background: 'rgba(220,60,60,0.85)', color: '#fff' }}><X size={9} /></button>
+                      )}
+                    </div>
+                  )
+                }
                 return (
                   <button
                     key={m}
@@ -176,6 +251,24 @@ export default function LearningSearchToolbar({
                   </button>
                 )
               })}
+              {/* 매체 편집 줄 */}
+              <div className="mt-1 pt-1.5 px-1 flex flex-col gap-1" style={{ borderTop: '1px solid rgba(var(--ink-rgb),0.08)' }}>
+                {mediaEdit && (mAdding ? (
+                  <input autoFocus value={mAddValue} onChange={e => setMAddValue(e.target.value)} onBlur={commitMediaAdd} placeholder="새 매체 이름"
+                    onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) commitMediaAdd(); if (e.key === 'Escape') { setMAdding(false); setMAddValue('') } }}
+                    className="text-[12.5px] px-2 py-1 rounded-lg focus:outline-none"
+                    style={{ background: 'rgba(var(--ink-rgb),0.06)', border: '1px solid rgba(var(--ink-rgb),0.15)', color: 'rgba(var(--text-rgb),1)' }} />
+                ) : (
+                  <button onClick={() => setMAdding(true)} className="flex items-center gap-1.5 text-left text-[12.5px] px-2 py-1 rounded-lg" style={{ color: 'rgba(var(--text-rgb),0.55)' }}>
+                    <Plus size={12} /> 매체 추가
+                  </button>
+                ))}
+                <button onClick={() => { setMediaEdit(v => !v); setMEditing(null); setMAdding(false) }}
+                  className="text-left text-[12px] px-2 py-1 rounded-lg" style={{ color: mediaEdit ? 'var(--accent-soft)' : 'rgba(var(--text-rgb),0.45)', fontWeight: mediaEdit ? 600 : 400 }}>
+                  {mediaEdit ? '✓ 편집 끝내기' : '✎ 매체 편집'}
+                </button>
+                {mediaEdit && <p className="text-[10.5px] px-2 pb-0.5" style={{ color: 'rgba(var(--text-rgb),0.35)' }}>끌어서 순서 · 이름 눌러 변경 · × 삭제(자료는 남음)</p>}
+              </div>
             </div>
           )}
         </div>
