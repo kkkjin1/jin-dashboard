@@ -2009,7 +2009,7 @@ export default function HomePage() {
                       <>
                         <span style={{ fontSize: 13.5, fontWeight: 600, color: isPast ? TEXT3 : TEXT1 }}>{'월화수목금'[ci - 1]}</span>
                         <span style={{ fontSize: 11.5, color: TEXT3, fontVariantNumeric: 'tabular-nums' }}>{shortDate(date!)}</span>
-                        {isTodayCol && <span style={{ fontSize: 10.5, fontWeight: 500, color: 'var(--accent-tint-text)', background: 'rgba(var(--accent-tint-rgb),0.12)', padding: '1px 6px', borderRadius: 4, alignSelf: 'center', marginTop: -7 }}>오늘</span>}
+                        {isTodayCol && <span style={{ fontSize: 9.5, fontWeight: 500, color: 'var(--accent-tint-text)', background: 'rgba(var(--accent-tint-rgb),0.12)', padding: '1px 4px', borderRadius: 4, whiteSpace: 'nowrap', flexShrink: 0, alignSelf: 'center', marginTop: -7 }}>오늘</span>}
                       </>
                     )}
                     {items.length > 0 && <span style={{ marginLeft: 2, fontSize: 11, color: TEXT3, opacity: 0.8, fontVariantNumeric: 'tabular-nums' }}>{items.length}</span>}
