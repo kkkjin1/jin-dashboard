@@ -377,8 +377,9 @@ export default function AgendaItemDetailPage() {
 
   // ── 할 일(체크 한 줄) ───────────────────────────────────────────
   async function addTask(title: string): Promise<boolean> {
+    // 날짜 없이 추가하면 홈 어디에도 안 나오므로 오늘로 넣는다(홈 빠른 추가와 동일). 필요하면 날짜 칩에서 바꾸거나 지운다.
     const { data, error } = await supabase.from('agenda_sub_tasks')
-      .insert({ agenda_item_id: id, title, status: 'active', kind: 'task', sort_order: subTasks.length })
+      .insert({ agenda_item_id: id, title, status: 'active', kind: 'task', sort_order: subTasks.length, target_date: sched.today })
       .select().single()
     if (error || !data) { setSaveError(CREATE_ERROR_MSG); return false }
     setSaveError('')

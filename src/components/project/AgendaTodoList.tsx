@@ -1,7 +1,7 @@
 'use client'
 
 // 안건 상세 하단 "할 일" — 실행 task(agenda_sub_tasks, kind='task')를 체크 한 줄로.
-// 날짜(target_date)를 넣으면 홈 오늘·금주 업무에 그대로 나온다(기존 연동 그대로).
+// 새로 추가하면 오늘 날짜(target_date)가 들어가 홈 금주 업무에 나온다. 날짜 칩에서 바꾸거나 지울 수 있다.
 // 기록은 위 히스토리 박스에 쓰는 구조라 여기엔 펼치기·노트·첨부가 없다.
 import { useEffect, useState } from 'react'
 import type { AgendaSubTask, Member } from '@/types'
@@ -167,7 +167,7 @@ export default function AgendaTodoList({ tasks, members, sched, onAdd, onToggleD
       <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-[rgba(var(--ink-rgb),0.06)]">
         <span className="text-[13px] font-semibold text-[rgba(var(--text-rgb),0.9)]">할 일</span>
         <span className="text-[11px] text-[rgba(var(--text-rgb),0.4)]">{doneCount}/{tasks.length}</span>
-        <span className="text-[11px] text-[rgba(var(--text-rgb),0.35)]">· 날짜를 넣으면 홈 오늘·금주 업무에 나옵니다</span>
+        <span className="text-[11px] text-[rgba(var(--text-rgb),0.35)]">· 추가하면 오늘 날짜로 홈 금주 업무에 나옵니다 (날짜 칩에서 변경)</span>
         <span className="flex-1" />
         <label className="flex items-center gap-2 w-full sm:w-[340px] border border-[rgba(var(--ink-rgb),0.1)] rounded-lg px-2.5 py-1.5">
           <span aria-hidden="true" className="text-[13px] text-[rgba(var(--text-rgb),0.4)]">＋</span>
