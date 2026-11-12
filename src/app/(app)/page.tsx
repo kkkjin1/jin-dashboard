@@ -1351,6 +1351,7 @@ export default function HomePage() {
   }
 
   async function assignSubTaskDate(id: string, date: string) {
+    if (subTasks.find(st => st.id === id)?.target_date === date) { setDatePickerStId(null); setHoveredStId(null); return }   // 같은 요일에 다시 놓으면 저장 안 함
     setSubTasks(p => p.map(st => st.id === id ? { ...st, target_date: date } : st))
     await sb.current.from('agenda_sub_tasks').update({ target_date: date }).eq('id', id)
     setDatePickerStId(null)
@@ -2047,16 +2048,18 @@ export default function HomePage() {
                     {loading ? skel(2)
                       : items.length === 0 && secondary
                         ? <p style={{ fontSize: 11.5, color: TEXT3, opacity: 0.6, padding: '6px 0' }}>{ci === 6 ? '없음 · 즉석 할 일을 끌어 놓으면 연기' : '없음'}</p>
-                        : items.map(item => secondary ? (
-                            // 직전주·다음주 항목 중 할 일·세부task는 요일 열로 끌면 그 날짜로 옮겨지도록 요일 이동용 데이터를 덧붙인다
+                        : items.map(item => (item.kind === 'todo' || item.kind === 'agenda') ? (
+                            // 할 일·세부task(안건 할 일)는 요일 열로 끌면 그 날짜로 옮겨지도록 요일 이동용 데이터를 덧붙인다
+                            // (직전주·다음주 열뿐 아니라 월~금 열 안에서 다른 요일로 옮길 때도 필요)
                             <div key={item.key}
                               onDragStart={e => {
-                                if (item.kind === 'todo' || item.kind === 'agenda') e.dataTransfer.setData(WEEK_MOVE_DND, JSON.stringify({ kind: item.kind, id: item.kind === 'todo' ? item.todo!.id : item.st!.id }))
+                                e.dataTransfer.setData(WEEK_MOVE_DND, JSON.stringify({ kind: item.kind, id: item.kind === 'todo' ? item.todo!.id : item.st!.id }))
                                 e.dataTransfer.effectAllowed = 'copyMove'   // 타임라인(copy)·요일 열(move) 어느 쪽에도 놓을 수 있게
-                              }}>
-                              {renderWeekItem(item, true)}
+                              }}
+                              onDragEnd={() => setWeekDropDate(null)}>
+                              {renderWeekItem(item, secondary)}
                             </div>
-                          ) : renderWeekItem(item, false))}
+                          ) : renderWeekItem(item, secondary))}
                   </div>
                 )
               })}
