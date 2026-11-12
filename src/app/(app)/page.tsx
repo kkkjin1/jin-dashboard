@@ -1586,16 +1586,26 @@ export default function HomePage() {
 
   // 금주 업무 드롭 대상 — 요일(colDate)은 그 날짜로 이동, 'defer'(다음주로 연기)는 연기 표시
   function weekDropProps(dropKey: string, colDate: string | null) {
-    const isQuickDrag = (e: React.DragEvent) => e.dataTransfer.types.includes(WEEK_QUICK_DND) || (!!colDate && e.dataTransfer.types.includes(WEEK_MOVE_DND))
+    const isQuickDrag = (e: React.DragEvent) => e.dataTransfer.types.includes(WEEK_QUICK_DND) || e.dataTransfer.types.includes(WEEK_MOVE_DND)
     return {
       onDragOver: (e: React.DragEvent) => { if (!isQuickDrag(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (weekDropDate !== dropKey) setWeekDropDate(dropKey) },
       onDragLeave: (e: React.DragEvent) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setWeekDropDate(d => d === dropKey ? null : d) },
       onDrop: (e: React.DragEvent) => {
-        const moved = colDate ? e.dataTransfer.getData(WEEK_MOVE_DND) : ''
-        if (moved && colDate) {
+        const moved = e.dataTransfer.getData(WEEK_MOVE_DND)
+        if (moved) {
           setWeekDropDate(null); e.preventDefault()
           const { kind, id: mid } = JSON.parse(moved) as { kind: 'todo' | 'agenda'; id: string }
-          if (kind === 'todo') void moveTaskTodo(mid, colDate); else void assignSubTaskDate(mid, colDate)
+          let target = colDate
+          if (!target) {
+            // '다음주로 연기' — 할 일·세부task는 연기 표시 칸이 없어 날짜 자체를 다음 주로 옮긴다
+            // (보고 있는 주의 항목은 같은 요일 다음 주, 그 이전 항목은 다음 주 월요일)
+            const cur = kind === 'todo'
+              ? allTaskTodos.find(t => t.id === mid)?.target_date
+              : subTasks.find(st => st.id === mid)?.target_date
+            if (cur && cur > weekSunday) return   // 이미 다음 주 이후면 그대로
+            target = cur && cur >= weekMonday ? shiftDateStr(cur, 7) : nextMonday
+          }
+          if (kind === 'todo') void moveTaskTodo(mid, target); else void assignSubTaskDate(mid, target)
           return
         }
         const id = e.dataTransfer.getData(WEEK_QUICK_DND); setWeekDropDate(null); if (!id) return; e.preventDefault()
