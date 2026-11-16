@@ -440,6 +440,16 @@ const ItemSectionPanel = forwardRef<ItemSectionPanelHandle, Props>(function Item
   const [carrying, setCarrying] = useState<string | null>(null)
   const [colWidths, setColWidths] = useState<number[]>(loadColWidths)
   const colWidthsRef = useRef(colWidths)
+  // 표 상자 폭 — 정한 열 너비 합보다 좁아지면 비율 배치로 바꾼다(가로 스크롤 방지)
+  const scrollBoxRef = useRef<HTMLDivElement>(null)
+  const [boxW, setBoxW] = useState(0)
+  useEffect(() => {
+    const el = scrollBoxRef.current
+    if (!el) return
+    const ro = new ResizeObserver(() => setBoxW(el.clientWidth))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
   useEffect(() => { colWidthsRef.current = colWidths }, [colWidths])
 
   // 생각스케치 표(startColResize)와 같은 방식 — 경계에서 pointerdown 후 window에서 이동/해제를 받는다.
@@ -770,11 +780,16 @@ const ItemSectionPanel = forwardRef<ItemSectionPanelHandle, Props>(function Item
   }
 
   // 그리드 열: 행번호 · [직전 보고] · 타이틀 · 세부내용(남는 폭) · 비고 · 삭제
+  // 칸이 좁으면 열들이 정한 너비 비율대로 함께 줄어든다 — 예전엔 고정 px라 화면이 좁을 때 가로
+  // 스크롤이 생기고, 넘기면 빈 비고·삭제 열만 보였다(2026-11-16). 넓으면 예전처럼 세부내용이 남는 폭을 채운다.
   const [wPrev, wTitle, wDetail, wSummary] = colWidths
+  const fullWidth = 74 + (showPrev ? wPrev : 0) + wTitle + wDetail + wSummary
+  const narrow = boxW > 0 && boxW < fullWidth
+  const col = (w: number) => (narrow ? `minmax(${MIN_COL_WIDTH}px, ${w}fr)` : `${w}px`)
   const gridTemplateColumns = [
-    '44px', showPrev ? `${wPrev}px` : null, `${wTitle}px`, `minmax(${wDetail}px, 1fr)`, `${wSummary}px`, '30px',
+    '44px', showPrev ? col(wPrev) : null, col(wTitle), narrow ? col(wDetail) : `minmax(${wDetail}px, 1fr)`, col(wSummary), '30px',
   ].filter(Boolean).join(' ')
-  const gridMinWidth = 74 + (showPrev ? wPrev : 0) + wTitle + wDetail + wSummary
+  const gridMinWidth = 74 + MIN_COL_WIDTH * (showPrev ? 4 : 3)
   const headers: { label: string; widthIndex: number | null }[] = [
     { label: 'No', widthIndex: null },
     ...(showPrev ? [{ label: '직전 보고', widthIndex: 0 }] : []),
@@ -811,7 +826,9 @@ const ItemSectionPanel = forwardRef<ItemSectionPanelHandle, Props>(function Item
           {prevReport && !readOnly ? '위쪽 직전 보고 항목 중 이어갈 것만 "이어가기"로 가져오고, 새 항목은 아래 행 추가로 씁니다.' : ''}
         </p>
 
-        <div className="relative rounded-xl overflow-x-auto" style={{ boxShadow: GLASS_SHADOW }}>
+        {/* 유리 테두리(GlassEdge)는 스크롤 밖 바깥 상자에 둔다 — 안에 두면 가로로 넘길 때 표 중간에 테두리가 남는다 */}
+        <div className="relative rounded-xl overflow-hidden" style={{ boxShadow: GLASS_SHADOW }}>
+        <div ref={scrollBoxRef} className="overflow-x-auto">
           <div
             ref={gridRef}
             tabIndex={-1}
@@ -927,6 +944,7 @@ const ItemSectionPanel = forwardRef<ItemSectionPanelHandle, Props>(function Item
               </button>
             )}
           </div>
+        </div>
           <GlassEdge />
         </div>
 

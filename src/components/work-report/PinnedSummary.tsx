@@ -31,6 +31,8 @@ interface Props {
   hidePrev?: boolean
   // 미리보기가 닫혀 있을 때 — 제목행 오른쪽 끝에 '완성본 미리보기' 여는 버튼
   onOpenPreview?: () => void
+  // 2번 주요 내용 화면 — 편집 칸 높이의 35%를 차지하고 칸이 그만큼 늘어난다(요약 35 : 안건 65, 2026-11-16)
+  fillHeight?: boolean
 }
 
 // 상단 칸 최대 높이 — 넘치면 칸 안에서 스크롤(아래 편집 칸 + 한 화면 맞춤을 위해)
@@ -49,7 +51,7 @@ function subscribeWide(cb: () => void) {
 }
 
 const PinnedSummary = forwardRef<PinnedSummaryHandle, Props>(function PinnedSummary({
-  supabase, report, prevReport, readOnly, onReportSaved, maxWidth, hidePrev = false, onOpenPreview,
+  supabase, report, prevReport, readOnly, onReportSaved, maxWidth, hidePrev = false, onOpenPreview, fillHeight = false,
 }, ref) {
   const [summaryText, setSummaryText] = useState(report.summary)
   const [recoverSeq, setRecoverSeq] = useState(0)
@@ -100,9 +102,13 @@ const PinnedSummary = forwardRef<PinnedSummaryHandle, Props>(function PinnedSumm
   const cols = showPrev ? `${prevColW}px minmax(0, 1fr)` : 'minmax(0, 1fr)'
 
   return (
-    <div className="flex-shrink-0 px-8 pt-4 pb-3" style={{ borderBottom: `1px solid ${S.border}` }} ref={boxRef}>
+    <div
+      className={`px-8 pt-4 pb-3 ${fillHeight ? 'flex flex-col min-h-0' : 'flex-shrink-0'}`}
+      style={{ borderBottom: `1px solid ${S.border}`, ...(fillHeight ? { flex: '0 0 35%' } : null) }}
+      ref={boxRef}
+    >
     {/* 아래 2번 주제 대조 표와 같은 폭·같은 왼쪽 열 너비 — 두 표의 세로선이 맞게 */}
-    <div style={{ maxWidth: `var(--wr-max, ${maxWidth ?? WRITING_CONTENT_WIDTH + (showPrev ? prevColW : 0)}px)` }}>
+    <div className={fillHeight ? 'flex flex-col flex-1 min-h-0' : undefined} style={{ maxWidth: `var(--wr-max, ${maxWidth ?? WRITING_CONTENT_WIDTH + (showPrev ? prevColW : 0)}px)` }}>
       <SectionTitle
         compact
         no={<Sparkles size={13} />}
@@ -132,7 +138,7 @@ const PinnedSummary = forwardRef<PinnedSummaryHandle, Props>(function PinnedSumm
         </div>
       )}
 
-      <section className="relative rounded-xl overflow-hidden" style={{ boxShadow: GLASS_SHADOW }}>
+      <section className={`relative rounded-xl overflow-hidden ${fillHeight ? 'flex flex-col flex-1 min-h-0' : ''}`} style={{ boxShadow: GLASS_SHADOW }}>
         {/* 머리 바 — 아래 안건 '이번 업데이트' 바와 같은 모양: [직전 보고 · 다음 단계 | 이번 요약 · 날짜 · 저장 상태] */}
         <div className="grid" style={{ gridTemplateColumns: cols, background: SECTION_BAR_BG, borderBottom: `1px solid ${SECTION_BORDER}` }}>
           {showPrev && (
@@ -151,21 +157,23 @@ const PinnedSummary = forwardRef<PinnedSummaryHandle, Props>(function PinnedSumm
             <span className="ml-auto text-[10.5px] flex-shrink-0" style={{ color: S.t3 }}>{canonicalStatusText(canonical.status)}</span>
           </div>
         </div>
-        <div className="grid" style={{ gridTemplateColumns: cols }}>
+        <div className={`grid ${fillHeight ? 'flex-1 min-h-0' : ''}`} style={{ gridTemplateColumns: cols, ...(fillHeight ? { gridTemplateRows: 'minmax(0, 1fr)' } : null) }}>
           {showPrev && (
-            <div className="min-w-0 scrollbar-none" style={{ maxHeight: SUMMARY_MAX_H, overflowY: 'auto' }}>
+            <div className="min-w-0 scrollbar-none" style={{ maxHeight: fillHeight ? undefined : SUMMARY_MAX_H, overflowY: 'auto' }}>
               <PrevCell value={prevReport!.next_steps} />
             </div>
           )}
-          <div className="min-w-0" style={{ background: 'rgba(76,127,224,0.035)', borderLeft: showPrev ? `1px solid ${S.border}` : undefined }}>
+          <div className="min-w-0" style={{ ...(fillHeight ? { height: '100%' } : null), background: 'rgba(76,127,224,0.035)', borderLeft: showPrev ? `1px solid ${S.border}` : undefined }}>
             <TextBox
               key={`pinned-summary:${recoverSeq}`}
               label=""
               value={summaryText}
               onChange={setSummaryText}
               minHeight={60}
-              maxHeight={SUMMARY_MAX_H}
-              heightKey="pinned-summary"
+              maxHeight={fillHeight ? undefined : SUMMARY_MAX_H}
+              // 비율 모드에선 끌어서 정한 높이를 쓰지 않는다(35% 고정)
+              heightKey={fillHeight ? undefined : 'pinned-summary'}
+              fill={fillHeight}
               placeholder="이번 보고의 핵심을 3~5줄로 요약합니다."
               readOnly={readOnly}
               variant="cell"

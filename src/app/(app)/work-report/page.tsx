@@ -71,7 +71,6 @@ function DateField({ value, disabled, onCommit, emphasis = false }: { value: str
 // [정기 | 수시] 전환(2026-10-28) — 수시보고는 별도 표(adhoc_reports)·별도 화면이라, 수시를 고르면 정기 화면을
 // 통째로 그리지 않는다(정기의 직전 회차·이월 계산과 섞일 여지를 없앰). ?kind=adhoc 로 새로고침해도 유지.
 // useSearchParams는 Suspense 안에서만 빌드가 통과한다(dev에선 안 드러남 — 2026-10-28 Vercel 빌드 실패).
-const PREVIEW_KEY = 'work-report-live-preview'
 
 // 화면 폭 판정(미리보기 배치용) — 1700px+ = 넓은 모니터, 1024px+ = 데스크톱(lg)
 function useMinWidth(px: number): boolean {
@@ -141,21 +140,19 @@ function RegularReportView({ supabase, kindSwitch }: { supabase: ReturnType<type
   const [copyNotice, setCopyNotice] = useState<string | null>(null)
   const [contextDrawerOpen, setContextDrawerOpen] = useState(false)
   // 완성본 미리보기(2026-11-16)
-  // - 넓은 모니터(1700px+): 기본으로 오른쪽에 붙인다(닫기/열기를 이 브라우저에 기억).
+  // - 넓은 모니터(1700px+): 늘 열린 채로 시작해 오른쪽에 붙인다(행 폭의 33%, 최소 400px).
   // - 노트북(1024~1699px): 기본은 닫힘(작성 칸을 넓게). 버튼으로 열면 목차를 이름표만 남긴 좁은 칸,
   //   핵심 요약은 이번 보고 칸만으로 줄여 폭을 확보하고 그 자리에 미리보기를 붙인다(compact).
   const isWide = useMinWidth(1700)
   const isLg = useMinWidth(1024)
-  const [previewOpen, setPreviewOpen] = useState(() => {
-    try { return window.localStorage.getItem(PREVIEW_KEY) !== '0' } catch { return true }
-  })
+  // 모니터에선 들어올 때마다 미리보기를 연 상태로 시작한다(닫아도 다음 방문엔 다시 열림, 2026-11-16)
+  const [previewOpen, setPreviewOpen] = useState(true)
   const [laptopPreview, setLaptopPreview] = useState(false)
   const docked = isLg && (isWide ? previewOpen : laptopPreview)
   const compact = isLg && !isWide && laptopPreview
   function setPreview(open: boolean) {
     if (isWide) {
       setPreviewOpen(open)
-      try { window.localStorage.setItem(PREVIEW_KEY, open ? '1' : '0') } catch { /* 무시 */ }
     } else {
       setLaptopPreview(open)
     }
@@ -1024,7 +1021,7 @@ function RegularReportView({ supabase, kindSwitch }: { supabase: ReturnType<type
               {/* 미리보기가 열려 있으면 가운데는 작성 칸 최대 폭(대조 표 880+230 / 3-x 표 1200 + 좌우 여백)까지만
                   쓰고, 남는 폭은 미리보기가 가져간다 — 가운데와 미리보기 사이 빈 여백이 생기지 않게. */}
               <div
-                className={`flex-1 min-w-0 h-full overflow-hidden flex flex-col ${docked ? '[--wr-max:none]' : ''} ${docked && isWide ? '[flex:0_1_1180px]' : ''}`}
+                className={`flex-1 min-w-0 h-full overflow-hidden flex flex-col ${docked ? '[--wr-max:none]' : ''}`}
                 // 3열(목차·본문·미리보기) 모두 같은 옅은 회색 판 — 아래 끝은 같은 줄에서 끊기고 페이지 여백이 드러난다.
                 // 칸 구분은 얇은 세로선만.
                 style={{ background: 'rgba(var(--ink-rgb),0.015)', borderLeft: '1px solid rgba(var(--ink-rgb),0.07)' }}
@@ -1040,6 +1037,7 @@ function RegularReportView({ supabase, kindSwitch }: { supabase: ReturnType<type
                   maxWidth={itemSection ? 1200 : undefined}
                   hidePrev={compact}
                   onOpenPreview={isLg && !docked ? () => setPreview(true) : undefined}
+                  fillHeight={!!itemSection || !isFixedKey(selection)}
                 />
                 <div className="flex-1 min-h-0">
                 {itemSection ? (
@@ -1114,14 +1112,15 @@ function RegularReportView({ supabase, kindSwitch }: { supabase: ReturnType<type
 
               {/* 닫혀 있을 때 여는 버튼은 상단 핵심 요약 제목행 오른쪽 끝(onOpenPreview) */}
               {docked ? (
-                <div className="h-full min-w-0" style={{ ...(isWide ? { flex: '1 1 400px', minWidth: 400 } : { flex: '0 0 420px' }), borderLeft: '1px solid rgba(var(--ink-rgb),0.07)' }}>
+                <div className="h-full min-w-0" style={{ ...(isWide ? { flex: '0 0 33%', minWidth: 400 } : { flex: '0 0 420px' }), borderLeft: '1px solid rgba(var(--ink-rgb),0.07)' }}>
                   <ReportLivePreview
                     report={currentReport}
                     rows={fullViewRows}
                     items={allItems.filter(i => i.report_id === currentReport.id)}
                     activeKey={selection}
                     onClose={() => setPreview(false)}
-                    fitToPage={isWide}
+                    // 미리보기 폭을 줄인 뒤(33%) 한 화면 맞춤이 글자를 너무 작게 만들어 끔 — 원래 크기 + 스크롤(2026-11-16)
+                    fitToPage={false}
                   />
                 </div>
               ) : null}
