@@ -2,8 +2,10 @@
 
 import type { WorkReport, WorkReportEntry, WorkReportItem, WorkReportTopic } from '@/types'
 import { S, CONTENT_MAX_WIDTH, hasContent, POINT_LABEL, entryPointText, fmtPeriodLabel } from './style'
-import { ITEM_SECTIONS, ITEM_SECTION_META, isItemWritten, sortItems } from './items'
+import { ITEM_SECTIONS, ITEM_SECTION_META, isItemWritten, sortItems, itemSelectionKey } from './items'
+import { Sparkles } from 'lucide-react'
 import RichText from './RichText'
+import { SECTION_BAR_BG, SECTION_BORDER, KindChip } from './SectionTitle'
 import { htmlToMarkdown } from '@/lib/tiptapMarkdown'
 
 // 보고 1건을 "읽는" 문서 형태로 렌더링하는 순수 컨텐츠 — 작성 화면의 "문서로 보기"
@@ -16,6 +18,30 @@ interface Props {
   report: WorkReport
   rows: { entry: WorkReportEntry; topic: WorkReportTopic }[]
   items: WorkReportItem[]   // 이 회차의 3-1/3-2/3-3 항목 전체
+  // 작성 화면 옆 완성본 미리보기(2026-11-16) — 지금 쓰는 칸(목차 selection 키)을 옅게 강조한다.
+  // 각 칸에 data-sec(=selection 키)을 달아 미리보기가 그 위치로 스크롤한다.
+  activeKey?: string
+}
+
+// 문서 제목 서식(2026-11-16) — 큰 제목은 작성 화면 제목행과 같은 번호 배지, 작은 제목은 왼쪽 막대.
+function H2({ no, title, className = 'mb-2.5', bare }: { no?: React.ReactNode; title: string; className?: string; bare?: boolean }) {
+  return (
+    <div className={`flex items-center gap-2 pb-1.5 ${className}`} style={{ borderBottom: `1.5px solid ${SECTION_BORDER}` }}>
+      {no && bare && no}
+      {no && !bare && <span className="flex items-center text-[11px] font-bold px-1.5 min-h-[18px] rounded-md tabular-nums" style={{ background: SECTION_BAR_BG, color: S.t1 }}>{no}</span>}
+      <span className="text-[14px] font-bold" style={{ color: S.t1 }}>{title}</span>
+    </div>
+  )
+}
+function H3({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-[13.5px] font-semibold mb-2 pl-2" style={{ color: S.t1, borderLeft: `3px solid ${S.accent}` }}>{children}</p>
+  )
+}
+
+const ACTIVE_BG = 'rgba(245,194,71,0.16)'
+function secStyle(active: boolean): React.CSSProperties | undefined {
+  return active ? { background: ACTIVE_BG, boxShadow: `0 0 0 6px ${ACTIVE_BG}`, borderRadius: 4 } : undefined
 }
 
 // 같은 내용을 마크다운으로 — "마크다운 복사"로 Claude 앱 PPT 프로젝트에 붙여넣는 용도(2026-10-19).
@@ -74,21 +100,23 @@ function Block({ label, value }: { label: string; value: string }) {
   )
 }
 
-export default function ReportDocument({ report, rows, items }: Props) {
+export default function ReportDocument({ report, rows, items, activeKey }: Props) {
   return (
     <div style={{ maxWidth: CONTENT_MAX_WIDTH }}>
-      <p className="text-[14px] font-bold mb-2" style={{ color: S.t1 }}>1. 핵심 요약</p>
-      <div className="mb-6">
+      <div data-sec="summary">
+      <H2 no={<Sparkles size={11} />} title="핵심 요약" />
+      <div className="mb-6" style={secStyle(activeKey === 'summary')}>
         {hasContent(report.summary)
           ? <RichText value={report.summary} style={{ fontSize: 13.5, lineHeight: 1.8, color: S.t1 }} />
           : <p className="text-[13.5px]" style={{ color: S.t4 }}>(작성된 내용 없음)</p>}
       </div>
+      </div>
 
-      <p className="text-[14px] font-bold mb-3" style={{ color: S.t1 }}>2. 주요 내용</p>
+      <H2 title="주요 내용" className="mb-3" />
       {rows.length === 0 && <p className="text-[12.5px] mb-6" style={{ color: S.t4 }}>포함된 주제가 없습니다.</p>}
       {rows.map(({ entry }, i) => (
-        <div key={entry.id} className="mb-5 pl-1">
-          <p className="text-[13.5px] font-semibold mb-2" style={{ color: S.t1 }}>2.{i + 1} {entry.topic_title_snapshot}</p>
+        <div key={entry.id} data-sec={entry.topic_id} className="mb-5 pl-1" style={secStyle(activeKey === entry.topic_id)}>
+          <H3><span style={{ color: S.t3 }}>안건{i + 1}</span> {entry.topic_title_snapshot}</H3>
           <Block label="내용" value={entry.report_text} />
           {/* 향후 Feedback Loop 자리 — 전달 포인트(결정/요청) 바로 아래가 보고 후 피드백이
               가장 먼저 달리는 지점이다. 지금은 표시하지 않는다(work_report_feedback 테이블 없음). */}
@@ -96,13 +124,13 @@ export default function ReportDocument({ report, rows, items }: Props) {
         </div>
       ))}
 
-      <p className="text-[14px] font-bold mt-6 mb-3" style={{ color: S.t1 }}>3. 운영 · 이슈 · 의사결정</p>
+      <H2 title="운영 · 이슈 · 의사결정" className="mt-6 mb-3" />
       {ITEM_SECTIONS.map(sec => {
         const list = sortItems(items.filter(i => i.section === sec && isItemWritten(i)))
         const meta = ITEM_SECTION_META[sec]
         return (
-          <div key={sec} className="mb-5 pl-1">
-            <p className="text-[13.5px] font-semibold mb-2" style={{ color: S.t1 }}>{meta.no}. {meta.title}</p>
+          <div key={sec} data-sec={itemSelectionKey(sec)} className="mb-5 pl-1" style={secStyle(activeKey === itemSelectionKey(sec))}>
+            <p className="flex items-center gap-1.5 text-[13.5px] font-semibold mb-2" style={{ color: S.t1 }}><KindChip kind={sec} size="sm" />{meta.title}</p>
             {list.length === 0 ? (
               <p className="text-[12.5px]" style={{ color: S.t4 }}>(등록된 항목 없음)</p>
             ) : (
@@ -134,10 +162,12 @@ export default function ReportDocument({ report, rows, items }: Props) {
         </div>
       )}
 
-      <p className="text-[14px] font-bold mb-2" style={{ color: S.t1 }}>4. 다음 단계</p>
+      <div data-sec="next_steps" style={secStyle(activeKey === 'next_steps')}>
+      <H2 no={<KindChip kind="next" size="sm" />} title="다음 단계" bare />
       {hasContent(report.next_steps)
         ? <RichText value={report.next_steps} style={{ fontSize: 13.5, lineHeight: 1.8, color: S.t1 }} />
         : <p className="text-[13.5px]" style={{ color: S.t4 }}>(작성된 내용 없음)</p>}
+      </div>
     </div>
   )
 }

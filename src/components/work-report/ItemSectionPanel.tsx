@@ -2,12 +2,14 @@
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { createPortal } from 'react-dom'
 import { GripVertical, Plus, X } from 'lucide-react'
 import type { WorkReport, WorkReportItem, WorkReportItemSection } from '@/types'
 import { useCanonicalSync } from '@/hooks/useCanonicalSync'
 import { parseSpreadsheetClipboard } from '@/lib/spreadsheetClipboard'
 import { S, fmtPeriodLabel, hasContent } from './style'
 import { ITEM_SECTION_META, type ItemDraft } from './items'
+import { SectionTitle, KindChip, GlassEdge, GLASS_SHADOW, SECTION_BAR_BG, SECTION_BORDER } from './SectionTitle'
 
 // 3-1/3-2/3-3 한 섹션의 CENTER 편집 화면 — 엑셀식 3열 그리드(타이틀 · 세부내용 · 비고).
 // 주요 내용은 2번 주제별 본문에 쓰고, 여기는 "잔가지"를 빠르게 쌓는 곳이라(2026-10-02 개편)
@@ -163,28 +165,79 @@ function Cell({ value, onChange, col, readOnly, onKeyDown, onPaste, onFocus, cel
   )
 }
 
-// 직전 보고 칸 — 읽기 전용 참고값. 타이틀·세부내용만 3줄까지 보이고, 비고 포함 전체는 title 툴팁.
-function prevTooltip(p: WorkReportItem) {
-  return [p.title.trim() || '(제목 없음)', p.detail.trim(), p.summary.trim() && `비고: ${p.summary.trim()}`]
-    .filter(Boolean).join('\n')
+// 직전 보고 칸 — 읽기 전용 참고값(2026-11-16 배치 정리). 타이틀 한 줄(굵게) + 세부내용 한 줄.
+// 칸을 누르면 타이틀·세부내용·비고 전체를 모달로 본다(길어서 잘린 내용 확인용).
+function PrevItemModal({ prev, onClose }: { prev: WorkReportItem; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+  const block = (label: string, v: string) => (
+    <div>
+      <p className="text-[11px] font-bold mb-1" style={{ color: S.t3 }}>{label}</p>
+      <p className="text-[13px] whitespace-pre-wrap break-words leading-[1.7]" style={{ color: v ? S.t1 : S.t4 }}>{v || '—'}</p>
+    </div>
+  )
+  return createPortal(
+    // 포털이어도 React 이벤트는 표(칸 클릭·셀 선택·키 처리)까지 올라간다 — 여기서 끊는다(안 끊으면 닫자마자 다시 열림)
+    <div
+      onClick={e => { e.stopPropagation(); onClose() }}
+      onMouseDown={e => e.stopPropagation()}
+      onKeyDown={e => e.stopPropagation()}
+      className="fixed inset-0 z-[70] flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.3)' }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        role="dialog"
+        aria-label="직전 보고 항목"
+        className="relative w-full max-w-[520px] max-h-[70vh] flex flex-col rounded-xl overflow-hidden"
+        style={{ background: 'var(--surface-elevated)', boxShadow: `${GLASS_SHADOW}, 0 16px 40px rgba(0,0,0,0.22)` }}
+      >
+        <div className="flex items-center gap-2 px-4 py-3" style={{ background: SECTION_BAR_BG, borderBottom: `1px solid ${SECTION_BORDER}` }}>
+          <span className="text-[11px] font-bold px-1.5 py-[1px] rounded-md" style={{ background: 'rgba(var(--ink-rgb),0.07)', color: S.t3 }}>직전 보고</span>
+          <span className="text-[14px] font-bold truncate min-w-0" style={{ color: S.t1 }}>{prev.title.trim() || '(제목 없음)'}</span>
+          <button onClick={onClose} aria-label="닫기" className="ml-auto p-1 rounded hover:bg-[rgba(var(--ink-rgb),0.08)] flex-shrink-0">
+            <X size={14} style={{ color: S.t3 }} />
+          </button>
+        </div>
+        <div className="flex-1 min-h-0 overflow-y-auto scrollbar-none px-4 py-4 space-y-4">
+          {block('세부내용', prev.detail.trim())}
+          {block('비고', prev.summary.trim())}
+        </div>
+        <GlassEdge />
+      </div>
+    </div>,
+    document.body,
+  )
 }
 
 function PrevCell({ prev, style, ...rest }: { prev: WorkReportItem | null | undefined; style?: React.CSSProperties } & React.HTMLAttributes<HTMLDivElement>) {
+  const [open, setOpen] = useState(false)
   const detail = prev?.detail.trim() ?? ''
   return (
-    <div
-      {...rest}
-      title={prev ? prevTooltip(prev) : undefined}
-      className="select-none"
-      style={{ borderLeft: `1px solid ${S.border}`, background: PREV_BG, padding: '7px 10px', minWidth: 0, ...style }}
-    >
-      {prev && (
-        <p className="line-clamp-3 break-words" style={{ fontSize: 12, lineHeight: 1.55, color: S.t3 }}>
-          <span style={{ fontWeight: 600 }}>{prev.title.trim() || '(제목 없음)'}</span>
-          {detail && <span> · {detail}</span>}
-        </p>
-      )}
-    </div>
+    <>
+      <div
+        {...rest}
+        onClick={prev ? () => setOpen(true) : undefined}
+        title={prev ? '눌러서 전체 보기' : undefined}
+        className={`select-none ${prev ? 'cursor-pointer hover:brightness-[0.97]' : ''}`}
+        style={{ borderLeft: `1px solid ${S.border}`, background: PREV_BG, padding: '8px 10px', minWidth: 0, ...style }}
+      >
+        {prev && (
+          <>
+            <p className="truncate" style={{ fontSize: 12, fontWeight: 700, lineHeight: 1.5, color: S.t2 }}>
+              {prev.title.trim() || '(제목 없음)'}
+            </p>
+            {detail && (
+              <p className="truncate mt-0.5" style={{ fontSize: 11.5, lineHeight: 1.55, color: S.t3 }}>{detail}</p>
+            )}
+          </>
+        )}
+      </div>
+      {open && prev && <PrevItemModal prev={prev} onClose={() => setOpen(false)} />}
+    </>
   )
 }
 
@@ -719,11 +772,11 @@ const ItemSectionPanel = forwardRef<ItemSectionPanelHandle, Props>(function Item
   // 그리드 열: 행번호 · [직전 보고] · 타이틀 · 세부내용(남는 폭) · 비고 · 삭제
   const [wPrev, wTitle, wDetail, wSummary] = colWidths
   const gridTemplateColumns = [
-    '30px', showPrev ? `${wPrev}px` : null, `${wTitle}px`, `minmax(${wDetail}px, 1fr)`, `${wSummary}px`, '30px',
+    '44px', showPrev ? `${wPrev}px` : null, `${wTitle}px`, `minmax(${wDetail}px, 1fr)`, `${wSummary}px`, '30px',
   ].filter(Boolean).join(' ')
-  const gridMinWidth = 60 + (showPrev ? wPrev : 0) + wTitle + wDetail + wSummary
+  const gridMinWidth = 74 + (showPrev ? wPrev : 0) + wTitle + wDetail + wSummary
   const headers: { label: string; widthIndex: number | null }[] = [
-    { label: '', widthIndex: null },
+    { label: 'No', widthIndex: null },
     ...(showPrev ? [{ label: '직전 보고', widthIndex: 0 }] : []),
     ...COLS.map((c, ci) => ({ label: COL_LABEL[c], widthIndex: ci + 1 })),
     { label: '', widthIndex: null },
@@ -739,22 +792,26 @@ const ItemSectionPanel = forwardRef<ItemSectionPanelHandle, Props>(function Item
   }
 
   return (
-    <div className="h-full overflow-y-auto px-8 py-5">
-      <div style={{ maxWidth: GRID_MAX_WIDTH }}>
-        <div className="flex items-baseline gap-3 mb-1">
-          <p className="text-[16px] font-semibold" style={{ color: S.t1 }}>{meta.no}. {meta.title}</p>
-          {/* 2주 이상 지난 회차는 기존 아카이브 → 전체 비교에서 본다(직전 보고는 표 안 첫 열). */}
-          <button onClick={onOpenHistory} className="ml-auto text-[11px] font-medium underline underline-offset-2 hover:opacity-80"
-            style={{ color: S.t3 }}>
-            과거 보고 보기 →
-          </button>
-        </div>
-        <p className="text-[12px] mb-4" style={{ color: S.t4 }}>
+    <div className="h-full overflow-y-auto scrollbar-none px-8 py-5">
+      <div style={{ maxWidth: `var(--wr-max, ${GRID_MAX_WIDTH}px)` }}>
+        {/* 제목행 — 위 고정 "1 핵심 요약"·2.x 주제와 같은 층위(번호 배지 3-x + 제목).
+            2주 이상 지난 회차는 기존 아카이브 → 전체 비교에서 본다(직전 보고는 표 안 첫 열). */}
+        <SectionTitle
+          badge={<KindChip kind={section} />}
+          title={meta.title}
+          right={
+            <button onClick={onOpenHistory} className="text-[11px] font-medium underline underline-offset-2 hover:opacity-80"
+              style={{ color: S.t3 }}>
+              과거 보고 보기 →
+            </button>
+          }
+        />
+        <p className="text-[12px] mb-3" style={{ color: S.t4 }}>
           {meta.helper}{' '}
           {prevReport && !readOnly ? '위쪽 직전 보고 항목 중 이어갈 것만 "이어가기"로 가져오고, 새 항목은 아래 행 추가로 씁니다.' : ''}
         </p>
 
-        <div className="rounded-xl overflow-x-auto" style={{ border: `1px solid ${S.border}` }}>
+        <div className="relative rounded-xl overflow-x-auto" style={{ boxShadow: GLASS_SHADOW }}>
           <div
             ref={gridRef}
             tabIndex={-1}
@@ -769,12 +826,17 @@ const ItemSectionPanel = forwardRef<ItemSectionPanelHandle, Props>(function Item
             style={{ display: 'grid', gridTemplateColumns, width: '100%', minWidth: gridMinWidth }}
           >
             {headers.map((h, i) => (
-              <div key={i} className="relative px-2.5 py-2 text-[11px] font-semibold select-none"
+              // 표 머리줄 — 프로젝트 탭 범주 머리처럼 블루그레이 바(모든 열 같은 톤)
+              <div key={i} className="relative px-3 py-2.5 text-[12px] font-bold select-none"
                 title={h.widthIndex === 0 && prevReport ? `${fmtPeriodLabel(prevReport.period_start, prevReport.period_end)} 보고` : undefined}
                 style={{
-                  color: h.widthIndex === 0 ? S.t4 : S.t3,
-                  background: h.widthIndex === 0 ? PREV_BG : S.panel,
-                  borderLeft: h.widthIndex !== null ? `1px solid ${S.border}` : undefined,
+                  // 머리줄은 모든 열 같은 바탕·글자색(직전 보고 열도 통일, 2026-11-16)
+                  color: S.t1,
+                  background: SECTION_BAR_BG,
+                  // 행 번호 열(44px)은 'No'가 들어가게 여백 없이 가운데
+                  ...(i === 0 ? { paddingLeft: 0, paddingRight: 0, textAlign: 'center' as const } : null),
+                  borderLeft: h.widthIndex !== null ? `1px solid ${SECTION_BORDER}` : undefined,
+                  borderBottom: `1px solid ${SECTION_BORDER}`,
                 }}>
                 {h.label}
                 {h.widthIndex !== null && (
@@ -865,6 +927,7 @@ const ItemSectionPanel = forwardRef<ItemSectionPanelHandle, Props>(function Item
               </button>
             )}
           </div>
+          <GlassEdge />
         </div>
 
         {addError && (

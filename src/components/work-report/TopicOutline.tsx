@@ -5,6 +5,7 @@ import { Plus, GripVertical, Pencil, X, Archive } from 'lucide-react'
 import type { WorkReportEntry, WorkReportItemSection, WorkReportTopic } from '@/types'
 import { S, BADGE_LABEL, BADGE_COLOR, isEntryWritten, type TopicChangeBadge } from './style'
 import { ITEM_SECTIONS, ITEM_SECTION_META, itemSelectionKey } from './items'
+import { KindChip, type KindKey } from './SectionTitle'
 
 export const FIXED_KEYS = ['summary', 'issues', 'next_steps'] as const
 export type FixedSectionKey = typeof FIXED_KEYS[number]
@@ -39,6 +40,8 @@ interface Props {
   // 텍스트 섹션은 목차에서 빠졌다 — 내용은 3-2 화면 하단에 읽기 전용으로 남는다.)
   itemWritten: Record<WorkReportItemSection, boolean>
   nextStepsWritten: boolean
+  // 좁은 목차(노트북에서 미리보기를 옆에 붙일 때) — 이름표(안건N·운영/이슈/결정/다음)만, 제목은 툴팁
+  compact?: boolean
 }
 
 // 목차 dot(●/○/◉) — "작성됨/미작성/현재 선택" 3-state. 헤더 진행률과 같은
@@ -55,7 +58,7 @@ function StatusDot({ state }: { state: DotState }) {
   return <span aria-hidden className="flex-shrink-0 rounded-full" style={{ width: 6, height: 6, border: `1.5px solid ${S.t4}` }} />
 }
 
-function SectionLabel({ n, label, active, dot, onClick }: { n: string; label: string; active: boolean; dot: DotState; onClick: () => void }) {
+function SectionLabel({ kind, label, active, dot, onClick }: { kind: KindKey; label: string; active: boolean; dot: DotState; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
@@ -66,7 +69,7 @@ function SectionLabel({ n, label, active, dot, onClick }: { n: string; label: st
         fontWeight: active ? 600 : 500,
       }}
     >
-      <span className="truncate">{n}. {label}</span>
+      <span className="flex items-center gap-1.5 min-w-0"><KindChip kind={kind} size="sm" /><span className="truncate">{label}</span></span>
       <StatusDot state={dot} />
     </button>
   )
@@ -75,7 +78,7 @@ function SectionLabel({ n, label, active, dot, onClick }: { n: string; label: st
 export default function TopicOutline({
   rows, allActiveTopics, selection, onSelect, readOnly,
   onAddTopic, onRenameTopic, onReorder, onRemoveFromReport, onArchiveTopic, onOpenRestore,
-  summaryWritten, itemWritten, nextStepsWritten,
+  itemWritten, nextStepsWritten, compact = false,
 }: Props) {
   const [adding, setAdding] = useState(false)
   const [newTitle, setNewTitle] = useState('')
@@ -120,6 +123,40 @@ export default function TopicOutline({
   function dotFor(key: string, written: boolean): DotState {
     if (selection === key) return 'selected'
     return written ? 'written' : 'empty'
+  }
+
+  if (compact) {
+    const cell = (key: string, active: boolean, label: React.ReactNode, title: string, dot: DotState) => (
+      <button
+        key={key}
+        onClick={() => onSelect(key)}
+        title={title}
+        className="w-full flex flex-col items-center gap-1 py-1.5 rounded-lg transition-colors"
+        style={{ background: active ? S.accentDim : 'transparent' }}
+      >
+        {label}
+        <StatusDot state={dot} />
+      </button>
+    )
+    return (
+      <div className="h-full flex flex-col w-[64px] px-1.5 pt-3 pb-3 gap-0.5 overflow-y-auto scrollbar-none" style={{ flexShrink: 0 }}>
+        <p className="text-[9.5px] font-bold text-center mb-1" style={{ color: S.t3 }}>주요 내용</p>
+        {rows.map((row, i) => {
+          const active = selection === row.topic.id
+          return cell(row.topic.id, active,
+            <span className="text-[11px] font-bold tabular-nums" style={{ color: active ? S.accentText : S.t2 }}>안건{i + 1}</span>,
+            row.entry.topic_title_snapshot,
+            active ? 'selected' : isEntryWritten(row.entry) ? 'written' : 'empty')
+        })}
+        <div className="my-1.5 mx-1" style={{ borderTop: `1px solid ${S.border}` }} />
+        <p className="text-[9.5px] font-bold text-center mb-1" style={{ color: S.t3 }}>운영·이슈</p>
+        {ITEM_SECTIONS.map(sec => {
+          const key = itemSelectionKey(sec)
+          return cell(key, selection === key, <KindChip kind={sec} size="sm" />, ITEM_SECTION_META[sec].title, dotFor(key, itemWritten[sec]))
+        })}
+        {cell('next_steps', selection === 'next_steps', <KindChip kind="next" size="sm" />, '다음 단계', dotFor('next_steps', nextStepsWritten))}
+      </div>
+    )
   }
 
   return (
@@ -172,9 +209,8 @@ export default function TopicOutline({
       )}
 
       <div className="flex-1 overflow-y-auto overflow-x-hidden px-1 pb-3" style={{ scrollbarWidth: 'thin' }}>
-        <SectionLabel n="1" label="핵심 요약" active={selection === 'summary'} dot={dotFor('summary', summaryWritten)} onClick={() => onSelect('summary')} />
-
-        <p className="px-2.5 mt-2 mb-1 text-[11.5px] font-semibold" style={{ color: S.t3 }}>2. 주요 내용</p>
+        {/* 핵심 요약은 작성 화면 위 고정 칸에 늘 보이므로 목차에서 뺐다(2026-11-16) — 목차는 두 묶음만. */}
+        <p className="px-2.5 mb-1 text-[12px] font-bold mt-1" style={{ color: S.t2 }}>주요 내용</p>
 
         {rows.length === 0 && (
           <p className="px-2.5 pb-1.5 text-[11.5px]" style={{ color: S.t4 }}>등록된 주제가 없습니다.</p>
@@ -221,7 +257,8 @@ export default function TopicOutline({
                       <GripVertical size={11} className="flex-shrink-0 opacity-0 group-hover/topic:opacity-40 cursor-grab" style={{ color: S.t3 }} />
                     )}
                     <span className="text-[12.5px] truncate flex-1" style={{ color: active ? S.accentText : S.t2, fontWeight: active ? 600 : 400 }}>
-                      2.{i + 1} {row.entry.topic_title_snapshot}
+                      <span className="text-[10.5px] font-semibold mr-1 tabular-nums" style={{ color: active ? S.accentText : S.t4 }}>안건{i + 1}</span>
+                      {row.entry.topic_title_snapshot}
                     </span>
                     <StatusDot state={active ? 'selected' : isEntryWritten(row.entry) ? 'written' : 'empty'} />
                   </button>
@@ -274,15 +311,15 @@ export default function TopicOutline({
         </div>
 
         <div className="mt-3 pt-2" style={{ borderTop: `1px solid ${S.border}` }}>
-          <p className="px-2.5 mb-1 text-[11.5px] font-semibold" style={{ color: S.t3 }}>3. 운영 · 이슈 · 의사결정</p>
+          <p className="px-2.5 mb-1 text-[12px] font-bold" style={{ color: S.t2 }}>운영 · 이슈 · 의사결정</p>
           {ITEM_SECTIONS.map(sec => {
             const key = itemSelectionKey(sec)
             return (
-              <SectionLabel key={sec} n={ITEM_SECTION_META[sec].no} label={ITEM_SECTION_META[sec].title}
+              <SectionLabel key={sec} kind={sec} label={ITEM_SECTION_META[sec].title}
                 active={selection === key} dot={dotFor(key, itemWritten[sec])} onClick={() => onSelect(key)} />
             )
           })}
-          <SectionLabel n="4" label="다음 단계" active={selection === 'next_steps'} dot={dotFor('next_steps', nextStepsWritten)} onClick={() => onSelect('next_steps')} />
+          <SectionLabel kind="next" label="다음 단계" active={selection === 'next_steps'} dot={dotFor('next_steps', nextStepsWritten)} onClick={() => onSelect('next_steps')} />
         </div>
       </div>
     </div>

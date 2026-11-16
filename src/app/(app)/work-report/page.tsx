@@ -2,12 +2,14 @@
 
 export const dynamic = 'force-dynamic'
 
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { WorkReport, WorkReportEntry, WorkReportItem, WorkReportItemSection, WorkReportTopic } from '@/types'
 import TopicOutline, { isFixedKey, type OutlineTopicRow, type FixedSectionKey } from '@/components/work-report/TopicOutline'
 import ReportEditorPanel, { type ReportEditorPanelHandle } from '@/components/work-report/ReportEditorPanel'
+import PinnedSummary, { type PinnedSummaryHandle } from '@/components/work-report/PinnedSummary'
+import ReportLivePreview from '@/components/work-report/ReportLivePreview'
 import ContextPanel, { type HistoryItem } from '@/components/work-report/ContextPanel'
 import RestoreTopicModal from '@/components/work-report/RestoreTopicModal'
 import ArchiveView from '@/components/work-report/ArchiveView'
@@ -69,6 +71,17 @@ function DateField({ value, disabled, onCommit, emphasis = false }: { value: str
 // [정기 | 수시] 전환(2026-10-28) — 수시보고는 별도 표(adhoc_reports)·별도 화면이라, 수시를 고르면 정기 화면을
 // 통째로 그리지 않는다(정기의 직전 회차·이월 계산과 섞일 여지를 없앰). ?kind=adhoc 로 새로고침해도 유지.
 // useSearchParams는 Suspense 안에서만 빌드가 통과한다(dev에선 안 드러남 — 2026-10-28 Vercel 빌드 실패).
+const PREVIEW_KEY = 'work-report-live-preview'
+
+// 화면 폭 판정(미리보기 배치용) — 1700px+ = 넓은 모니터, 1024px+ = 데스크톱(lg)
+function useMinWidth(px: number): boolean {
+  return useSyncExternalStore(
+    cb => { const mq = window.matchMedia(`(min-width: ${px}px)`); mq.addEventListener('change', cb); return () => mq.removeEventListener('change', cb) },
+    () => window.matchMedia(`(min-width: ${px}px)`).matches,
+    () => true,
+  )
+}
+
 export default function WorkReportPage() {
   return (
     <Suspense fallback={null}>
@@ -109,9 +122,17 @@ function RegularReportView({ supabase, kindSwitch }: { supabase: ReturnType<type
   // readOnly만 바뀌므로 명시적으로 호출해야 한다(ReportEditorPanelHandle 참고).
   const editorRef = useRef<ReportEditorPanelHandle>(null)
   const itemPanelRef = useRef<ItemSectionPanelHandle>(null)
+  const summaryRef = useRef<PinnedSummaryHandle>(null)
+  // 목차의 "1. 핵심 요약"은 아래 칸을 바꾸지 않고 위 고정 칸으로 커서만 옮긴다.
+  function handleOutlineSelect(id: string) {
+    if (id === 'summary') { summaryRef.current?.focus(); return }
+    setSelection(id)
+  }
 
   const [currentReportId, setCurrentReportId] = useState<string | null>(null)
-  const [selection, setSelection] = useState<string>('summary')
+  // 'summary'는 이제 "주제 미선택" 기본값 — 핵심 요약은 위 고정 칸(PinnedSummary)이 늘 보여주므로
+  // 주제가 있으면 첫 주제를 아래 편집 칸에 연다(아래 selection 파생 참고).
+  const [rawSelection, setSelection] = useState<string>('summary')
   const [mode, setMode] = useState<Mode>('write')
   const [fullViewOpen, setFullViewOpen] = useState(false)
   // ⋯ > 마크다운 복사 — 입력 대기 중인 저장을 먼저 밀어 넣은 뒤, 반영된 state로 복사한다(copyReq 증가 → effect).
@@ -119,6 +140,26 @@ function RegularReportView({ supabase, kindSwitch }: { supabase: ReturnType<type
   const copyHandled = useRef(0)
   const [copyNotice, setCopyNotice] = useState<string | null>(null)
   const [contextDrawerOpen, setContextDrawerOpen] = useState(false)
+  // 완성본 미리보기(2026-11-16)
+  // - 넓은 모니터(1700px+): 기본으로 오른쪽에 붙인다(닫기/열기를 이 브라우저에 기억).
+  // - 노트북(1024~1699px): 기본은 닫힘(작성 칸을 넓게). 버튼으로 열면 목차를 이름표만 남긴 좁은 칸,
+  //   핵심 요약은 이번 보고 칸만으로 줄여 폭을 확보하고 그 자리에 미리보기를 붙인다(compact).
+  const isWide = useMinWidth(1700)
+  const isLg = useMinWidth(1024)
+  const [previewOpen, setPreviewOpen] = useState(() => {
+    try { return window.localStorage.getItem(PREVIEW_KEY) !== '0' } catch { return true }
+  })
+  const [laptopPreview, setLaptopPreview] = useState(false)
+  const docked = isLg && (isWide ? previewOpen : laptopPreview)
+  const compact = isLg && !isWide && laptopPreview
+  function setPreview(open: boolean) {
+    if (isWide) {
+      setPreviewOpen(open)
+      try { window.localStorage.setItem(PREVIEW_KEY, open ? '1' : '0') } catch { /* 무시 */ }
+    } else {
+      setLaptopPreview(open)
+    }
+  }
   const [topicDrawerOpen, setTopicDrawerOpen] = useState(false)
   const [restoreOpen, setRestoreOpen] = useState(false)
   const [topicHistoryEntries, setTopicHistoryEntries] = useState<WorkReportEntry[]>([])
@@ -206,17 +247,6 @@ function RegularReportView({ supabase, kindSwitch }: { supabase: ReturnType<type
   useEffect(() => { if (currentReportId) void ensureEntries(currentReportId) }, [currentReportId, ensureEntries])
   useEffect(() => { if (prevReport) void ensureEntries(prevReport.id) }, [prevReport, ensureEntries])
 
-  const itemSection = parseItemSelection(selection)
-
-  useEffect(() => {
-    if (isFixedKey(selection) || parseItemSelection(selection)) return
-    let cancelled = false
-    supabase.from('work_report_entries').select('*').eq('topic_id', selection).then(({ data }) => {
-      if (!cancelled) setTopicHistoryEntries((data as WorkReportEntry[]) ?? [])
-    })
-    return () => { cancelled = true }
-  }, [selection, supabase])
-
   const outlineRows: OutlineTopicRow[] = useMemo(() => {
     return [...entries]
       .sort((a, b) => a.sort_order - b.sort_order)
@@ -228,6 +258,19 @@ function RegularReportView({ supabase, kindSwitch }: { supabase: ReturnType<type
       })
       .filter((r): r is OutlineTopicRow => !!r)
   }, [entries, topicsById, prevEntryByTopic])
+
+  const selection = rawSelection === 'summary' && outlineRows.length > 0 ? outlineRows[0].topic.id : rawSelection
+  const itemSection = parseItemSelection(selection)
+
+  useEffect(() => {
+    if (isFixedKey(selection) || parseItemSelection(selection)) return
+    let cancelled = false
+    supabase.from('work_report_entries').select('*').eq('topic_id', selection).then(({ data }) => {
+      if (!cancelled) setTopicHistoryEntries((data as WorkReportEntry[]) ?? [])
+    })
+    return () => { cancelled = true }
+  }, [selection, supabase])
+
 
   const allActiveTopics = useMemo(() => topics.filter(t => t.status === 'active'), [topics])
   // "기존 주제 불러오기" 후보 — active이면서 이번 report에 아직 entry가 없는 topic.
@@ -578,6 +621,7 @@ function RegularReportView({ supabase, kindSwitch }: { supabase: ReturnType<type
       // 스냅샷에서 빠질 수 있다(2026-09-14 재검증에서 확인된 결함 수정).
       await editorRef.current?.flushPending()
       await itemPanelRef.current?.flushPending()
+      await summaryRef.current?.flushPending()
       const { data } = await supabase
         .from('work_reports').update({ status: 'final', finalized_at: new Date().toISOString() })
         .eq('id', currentReport.id).select().single()
@@ -605,6 +649,7 @@ function RegularReportView({ supabase, kindSwitch }: { supabase: ReturnType<type
     if (isCurrent) {
       await editorRef.current?.flushPending()
       await itemPanelRef.current?.flushPending()
+      await summaryRef.current?.flushPending()
     }
     const deletedId = target.id
     // final 회차는 DB 트리거(protect_final_work_report, v56/v57)가 DELETE를 막고, 자식
@@ -683,6 +728,7 @@ function RegularReportView({ supabase, kindSwitch }: { supabase: ReturnType<type
     setMoreOpen(false)
     await editorRef.current?.flushPending()
     await itemPanelRef.current?.flushPending()
+    await summaryRef.current?.flushPending()
     setCopyReq(n => n + 1)
   }
 
@@ -952,7 +998,7 @@ function RegularReportView({ supabase, kindSwitch }: { supabase: ReturnType<type
                   rows={outlineRows}
                   allActiveTopics={allActiveTopics}
                   selection={selection}
-                  onSelect={setSelection}
+                  onSelect={handleOutlineSelect}
                   readOnly={readOnly}
                   onAddTopic={handleAddTopic}
                   onRenameTopic={handleRenameTopic}
@@ -963,6 +1009,7 @@ function RegularReportView({ supabase, kindSwitch }: { supabase: ReturnType<type
                   summaryWritten={summaryWritten}
                   itemWritten={itemWritten}
                   nextStepsWritten={nextStepsWritten}
+                  compact={compact}
                 />
               </div>
 
@@ -974,7 +1021,27 @@ function RegularReportView({ supabase, kindSwitch }: { supabase: ReturnType<type
                 목차
               </button>
 
-              <div className="flex-1 min-w-0 h-full overflow-hidden">
+              {/* 미리보기가 열려 있으면 가운데는 작성 칸 최대 폭(대조 표 880+230 / 3-x 표 1200 + 좌우 여백)까지만
+                  쓰고, 남는 폭은 미리보기가 가져간다 — 가운데와 미리보기 사이 빈 여백이 생기지 않게. */}
+              <div
+                className={`flex-1 min-w-0 h-full overflow-hidden flex flex-col ${docked ? '[--wr-max:none]' : ''} ${docked && isWide ? '[flex:0_1_1180px]' : ''}`}
+                // 3열(목차·본문·미리보기) 모두 같은 옅은 회색 판 — 아래 끝은 같은 줄에서 끊기고 페이지 여백이 드러난다.
+                // 칸 구분은 얇은 세로선만.
+                style={{ background: 'rgba(var(--ink-rgb),0.015)', borderLeft: '1px solid rgba(var(--ink-rgb),0.07)' }}
+              >
+                <PinnedSummary
+                  key={currentReport.id}
+                  ref={summaryRef}
+                  supabase={supabase}
+                  report={currentReport}
+                  prevReport={prevReport}
+                  readOnly={readOnly}
+                  onReportSaved={handleReportSaved}
+                  maxWidth={itemSection ? 1200 : undefined}
+                  hidePrev={compact}
+                  onOpenPreview={isLg && !docked ? () => setPreview(true) : undefined}
+                />
+                <div className="flex-1 min-h-0">
                 {itemSection ? (
                   <ItemSectionPanel
                     key={`${currentReport.id}:${selection}`}
@@ -1014,14 +1081,18 @@ function RegularReportView({ supabase, kindSwitch }: { supabase: ReturnType<type
                     onPrevTopic={goPrevTopic}
                     onNextTopic={goNextTopic}
                     onAddTopic={handleAddTopic}
+                    topicNo={selectedTopicIndex >= 0 ? `안건${selectedTopicIndex + 1}` : undefined}
+                    onOpenContext={docked ? () => setContextDrawerOpen(true) : undefined}
                     historyItems={isFixedKey(selection) ? undefined : historyItems}
                     onOpenFullHistory={() => { setArchiveJumpTopicId(selectedTopic?.id ?? null); setMode('archive') }}
                   />
                 )}
+                </div>
               </div>
 
               {/* 3-x 서브 안건은 직전 보고를 표 첫 열로 보여주므로 RIGHT 히스토리를 띄우지 않는다
                   (장기 히스토리는 표 상단 "과거 보고 보기" → 아카이브 전체 비교). */}
+              {/* 넓은 화면에서 미리보기가 오른쪽을 차지하면 4번 다음 단계 히스토리(RIGHT)는 이 버튼 서랍으로 연다 */}
               {!itemSection && <button
                 onClick={() => setContextDrawerOpen(true)}
                 className="lg:hidden flex-shrink-0 self-start mt-3 mr-2 px-2.5 py-1.5 rounded-lg text-[11px]"
@@ -1031,7 +1102,7 @@ function RegularReportView({ supabase, kindSwitch }: { supabase: ReturnType<type
               </button>}
 
               {/* 2번 주제는 데스크톱에서 편집 화면 안 대조 열(ReportEditorPanel)이 히스토리를 맡는다. */}
-              {!itemSection && isFixedKey(selection) && <div className="hidden lg:block h-full" style={{ background: 'rgba(var(--ink-rgb),0.015)' }}>
+              {!itemSection && isFixedKey(selection) && <div className={`hidden ${docked ? '' : 'lg:block'} h-full`} style={{ background: 'rgba(var(--ink-rgb),0.015)' }}>
                 <ContextPanel
                   key={`${currentReport.id}:${selection}`}
                   title={historyTitle}
@@ -1041,6 +1112,20 @@ function RegularReportView({ supabase, kindSwitch }: { supabase: ReturnType<type
                 />
               </div>}
 
+              {/* 닫혀 있을 때 여는 버튼은 상단 핵심 요약 제목행 오른쪽 끝(onOpenPreview) */}
+              {docked ? (
+                <div className="h-full min-w-0" style={{ ...(isWide ? { flex: '1 1 400px', minWidth: 400 } : { flex: '0 0 420px' }), borderLeft: '1px solid rgba(var(--ink-rgb),0.07)' }}>
+                  <ReportLivePreview
+                    report={currentReport}
+                    rows={fullViewRows}
+                    items={allItems.filter(i => i.report_id === currentReport.id)}
+                    activeKey={selection}
+                    onClose={() => setPreview(false)}
+                    fitToPage={isWide}
+                  />
+                </div>
+              ) : null}
+
               {topicDrawerOpen && (
                 <div className="fixed inset-0 z-40 lg:hidden" style={{ background: 'rgba(0,0,0,0.55)' }} onClick={() => setTopicDrawerOpen(false)}>
                   <div className="absolute inset-y-0 left-0 h-full" style={{ background: S.panel }} onClick={e => e.stopPropagation()}>
@@ -1048,7 +1133,7 @@ function RegularReportView({ supabase, kindSwitch }: { supabase: ReturnType<type
                       rows={outlineRows}
                       allActiveTopics={allActiveTopics}
                       selection={selection}
-                      onSelect={id => { setSelection(id); setTopicDrawerOpen(false) }}
+                      onSelect={id => { handleOutlineSelect(id); setTopicDrawerOpen(false) }}
                       readOnly={readOnly}
                       onAddTopic={handleAddTopic}
                       onRenameTopic={handleRenameTopic}
@@ -1065,7 +1150,7 @@ function RegularReportView({ supabase, kindSwitch }: { supabase: ReturnType<type
               )}
 
               {contextDrawerOpen && !itemSection && (
-                <div className="fixed inset-0 z-40 lg:hidden" style={{ background: 'rgba(0,0,0,0.55)' }} onClick={() => setContextDrawerOpen(false)}>
+                <div className={`fixed inset-0 z-40 ${docked && isFixedKey(selection) ? '' : 'lg:hidden'}`} style={{ background: 'rgba(0,0,0,0.55)' }} onClick={() => setContextDrawerOpen(false)}>
                   <div className="absolute inset-y-0 right-0 h-full" style={{ background: S.panel }} onClick={e => e.stopPropagation()}>
                     <ContextPanel
                       key={`${currentReport.id}:${selection}`}
