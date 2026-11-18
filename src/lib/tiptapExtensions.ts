@@ -248,7 +248,26 @@ export const CustomOrderedList = OrderedList.extend({
   // (start=1)은 따로 남아 5로 이어지지 않았다(2026-10-30 제보). 새 목록 바로 아래에 붙은
   // 번호 목록이 있으면 합쳐서 아래 항목들이 새 번호를 이어받게 한다.
   addInputRules() {
-    return (this.parent?.() ?? []).map(rule => new InputRule({
+    // 번호 목록 "첫 항목" 맨 앞에서 "4. "를 치면 그 목록 번호를 4부터로 바꾼다(2026-11-18 제보).
+    // 공백 줄로 갈라져 "1."이 된 줄의 글자만 지우고 "4. "를 치면, 기본 규칙은 목록 안이라 동작하지
+    // 않아 "1. 4. …"처럼 글자로 남고 아래 항목도 2로 남았다. 첫 항목에서만 받는다 — 중간 항목은
+    // 위아래 번호와 어긋나 어느 쪽을 맞출지 애매하므로 기존대로 글자로 둔다.
+    const renumberFirstItem = new InputRule({
+      find: /^(\d+)\.\s$/,
+      handler: ({ state, range, match }) => {
+        const $from = state.doc.resolve(range.from)
+        if ($from.parent.type.name !== 'paragraph' || $from.depth < 3 || range.from !== $from.start()) return null
+        const liDepth = $from.depth - 1
+        const list = $from.node(liDepth - 1)
+        if ($from.node(liDepth).type.name !== 'listItem' || list.type.name !== this.name) return null
+        if ($from.index(liDepth) !== 0 || $from.index(liDepth - 1) !== 0) return null
+        const n = parseInt(match[1], 10)
+        if (!Number.isFinite(n) || n < 1) return null
+        state.tr.delete(range.from, range.to)
+        state.tr.setNodeMarkup($from.before(liDepth - 1), undefined, { ...list.attrs, start: n })
+      },
+    })
+    return [renumberFirstItem, ...(this.parent?.() ?? []).map(rule => new InputRule({
       find: rule.find,
       handler: props => {
         const res = rule.handler(props)
@@ -265,7 +284,7 @@ export const CustomOrderedList = OrderedList.extend({
         }
         return res
       },
-    }))
+    }))]
   },
 })
 

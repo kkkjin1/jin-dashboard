@@ -172,3 +172,53 @@ describe('syncSelectionFromDom (화면 선택 ↔ 편집기 선택)', () => {
     el.remove()
   })
 })
+
+// ── 공백 줄로 갈라진 아래 번호 목록 다시 매기기 — 2026-11-18 제보 회귀 방지 ──
+describe('번호 목록 "4. " 다시 입력 → 아래 항목이 이어받음', () => {
+  const START = '<ol><li><p>일</p></li><li><p>이</p></li><li><p>삼</p><ol><li><p>가</p></li><li><p>나</p></li></ol></li></ol><p></p><ol><li><p>사</p></li><li><p>오</p></li></ol>'
+  function typeWithRules(ed: Editor, s: string) {
+    for (const ch of s) {
+      const { from, to } = ed.state.selection
+      const handled = ed.view.someProp('handleTextInput', f => f(ed.view, from, to, ch, () => ed.state.tr.insertText(ch, from, to)))
+      if (!handled) ed.view.dispatch(ed.state.tr.insertText(ch, from, to))
+    }
+  }
+  function lowerList(ed: Editor) {
+    let found: import('@tiptap/pm/model').Node | null = null
+    ed.state.doc.forEach(n => { if (n.type.name === 'orderedList') found = n })
+    return found as unknown as import('@tiptap/pm/model').Node
+  }
+  function placeAt(ed: Editor, text: string, end: boolean) {
+    let pos = -1
+    ed.state.doc.descendants((n, p) => { if (pos < 0 && n.isText && n.text === text) pos = p + (end ? text.length : 0) })
+    ed.view.dispatch(ed.state.tr.setSelection(TextSelection.create(ed.state.doc, pos)))
+  }
+
+  it('"1."이 된 줄의 글자를 지우고 그 자리에 "4. " → 목록이 4부터, 아래 줄은 5', () => {
+    const ed = makeEditor(START)
+    placeAt(ed, '사', true)
+    ed.view.dispatch(ed.state.tr.delete(ed.state.selection.from - 1, ed.state.selection.from))
+    typeWithRules(ed, '4. 사')
+    const list = lowerList(ed)
+    expect(list.attrs.start).toBe(4)
+    expect(list.childCount).toBe(2)
+    expect(list.textContent).toBe('사오')
+  })
+
+  it('첫 항목 글자 앞에 "4. " → 같은 결과(글자로 남지 않음)', () => {
+    const ed = makeEditor(START)
+    placeAt(ed, '사', false)
+    typeWithRules(ed, '4. ')
+    const list = lowerList(ed)
+    expect(list.attrs.start).toBe(4)
+    expect(list.textContent).toBe('사오')
+  })
+
+  it('중간 항목 앞의 "4. "는 기존대로 글자로 둔다', () => {
+    const ed = makeEditor(START)
+    placeAt(ed, '오', false)
+    typeWithRules(ed, '4. ')
+    expect(lowerList(ed).attrs.start).toBe(1)
+    expect(lowerList(ed).textContent).toBe('사4. 오')
+  })
+})

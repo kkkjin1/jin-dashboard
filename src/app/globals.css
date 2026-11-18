@@ -740,3 +740,20 @@ details.details[open] > summary::before { transform: rotate(90deg); }
 /* 업무보고 서술 칸(2026-10-22 서식 편집기 전환) — 편집기/읽기 클래스의 15px·고정 색 대신
    업무보고 화면이 칸마다 정한 글자 크기·줄 간격·색(S.t1/t2…)을 그대로 물려받는다. */
 .wr-rich :is(.tiptap-input-dark, .note-html-dark) { font-size: inherit; line-height: inherit; color: inherit; --note-color: currentColor; }
+
+/* ── 수시보고 슬라이드 나눔 줄(--- 입력) · 확대보기 (2026-11-18) ──
+   편집 칸의 가로줄은 "여기서 다음 장"이라는 표시가 보이게 점선 + 작은 라벨.
+   확대보기 슬라이드는 글자 크기를 바깥에서 px로 정하므로 제목(h1~h3)을 rem 대신 em으로 맞춘다. */
+.adhoc-slide-editor :is(.tiptap-input, .tiptap-input-dark) hr {
+  position: relative; border: none; border-top: 2px dashed rgba(76,127,224,0.55); margin: 22px 0 18px; overflow: visible;
+}
+.adhoc-slide-editor :is(.tiptap-input, .tiptap-input-dark) hr::after {
+  content: '슬라이드 나눔'; position: absolute; right: 0; top: -10px; padding: 0 6px; font-size: 10.5px; line-height: 18px;
+  color: rgba(76,127,224,0.9); background: var(--bg-page); border-radius: 4px;
+}
+.adhoc-slide-editor :is(.tiptap-input, .tiptap-input-dark) hr.ProseMirror-selectednode { border-top-color: rgba(76,127,224,1); }
+.adhoc-slide-body h1 { font-size: 1.45em; margin: 0.2em 0 0.35em; }
+.adhoc-slide-body h2 { font-size: 1.25em; margin: 0.2em 0 0.3em; }
+.adhoc-slide-body h3 { font-size: 1.1em; margin: 0.15em 0 0.25em; }
+.adhoc-slide-body p + p { margin-top: 0.2em; }
+.adhoc-slide-body img { max-width: 100%; max-height: 520px; object-fit: contain; }

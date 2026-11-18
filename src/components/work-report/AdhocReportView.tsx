@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { CalendarDays, UserRound, FileText, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { CalendarDays, UserRound, FileText, PanelLeftClose, PanelLeftOpen, Presentation } from 'lucide-react'
 import type { AdhocReport } from '@/types'
 import { useAutosave } from '@/hooks/useAutosave'
 import { useCanonicalSync, canonicalStatusText } from '@/hooks/useCanonicalSync'
@@ -10,6 +10,7 @@ import { revealVoiceBlock } from '@/lib/executiveVoices'
 import { htmlToMarkdown } from '@/lib/tiptapMarkdown'
 import { TextBox } from './ReportEditorPanel'
 import { S, WRITING_CONTENT_WIDTH, fmtDateFull, todayStr, hasContent } from './style'
+import AdhocSlideShow, { splitSlides } from './AdhocSlideShow'
 
 // 수시보고(2026-10-28) — 정기보고(work_reports)와 표·화면을 완전히 나눴다. 정기보고의 직전 회차·이월·
 // 보고일 기본값이 모두 work_reports 목록 순서로 계산되므로, 같은 표에 섞으면 그 계산이 깨진다.
@@ -313,6 +314,9 @@ function AdhocForm({
   const [body, setBody] = useState(row.body)
   const [result, setResult] = useState(row.result)
   const [recoverSeq, setRecoverSeq] = useState(0)
+  // 확대보기(슬라이드) — 본문에 그은 가로줄(---)마다 한 장
+  const [showSlides, setShowSlides] = useState(false)
+  const slideCount = useMemo(() => Math.max(splitSlides(body).length, 1), [body])
 
   const draft: Draft = useMemo(
     () => ({ report_date: validDate, title, audience, body, result }),
@@ -385,8 +389,8 @@ function AdhocForm({
           />
         </div>
 
-        {/* 제목 바로 아래 붙는 정보 줄 — 보고일 · 보고 대상 · 마크다운 복사 3칸 */}
-        <div className="grid grid-cols-3 gap-2 mt-2.5 mb-6">
+        {/* 제목 바로 아래 붙는 정보 줄 — 보고일 · 보고 대상 · 마크다운 복사 · 확대보기 */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2.5 mb-6">
           <label className={metaBox} style={metaBoxStyle}>
             <span className={metaLabel} style={{ color: S.t2 }}><CalendarDays size={14} strokeWidth={2} />보고일</span>
             <span className="flex-1 min-w-0 flex justify-end">
@@ -413,6 +417,10 @@ function AdhocForm({
             <span className={metaLabel} style={{ color: S.t2 }}><FileText size={14} strokeWidth={2} />마크다운</span>
             <span className="font-medium" style={{ color: S.t1 }}>복사하기</span>
           </button>
+          <button onClick={() => setShowSlides(true)} className={`${metaBox} justify-between`} style={metaBoxStyle} title="보고 내용을 슬라이드로 크게 보기 (--- 줄마다 한 장)">
+            <span className={metaLabel} style={{ color: S.t2 }}><Presentation size={14} strokeWidth={2} />확대보기</span>
+            <span className="font-medium" style={{ color: S.t1 }}>{slideCount}장</span>
+          </button>
         </div>
 
         {autosave.recovered && (
@@ -429,6 +437,7 @@ function AdhocForm({
         )}
 
         <div className="flex flex-col gap-4">
+          <div className="adhoc-slide-editor">
           <TextBox
             key={`body:${recoverSeq}`}
             heightKey="adhoc:body"
@@ -443,6 +452,8 @@ function AdhocForm({
             borderless
             enableFontSize
           />
+          <p className="text-[11px] mt-1.5" style={{ color: S.t4 }}>빈 줄에 <b>---</b> 를 치면 가로줄이 그어지고, 확대보기에서 그 자리부터 다음 장으로 넘어갑니다</p>
+          </div>
           <div>
             <TextBox
               key={`result:${recoverSeq}`}
@@ -462,6 +473,9 @@ function AdhocForm({
           </div>
         </div>
       </div>
+      {showSlides && (
+        <AdhocSlideShow title={title} audience={audience} reportDate={validDate} body={body} onClose={() => setShowSlides(false)} />
+      )}
     </div>
   )
 }
