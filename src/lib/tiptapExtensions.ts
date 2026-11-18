@@ -8,6 +8,7 @@ import { Slice, type Node as PMNode, type Mark as PMMark } from '@tiptap/pm/mode
 import { canJoin } from '@tiptap/pm/transform'
 import StarterKit from '@tiptap/starter-kit'
 import Italic from '@tiptap/extension-italic'
+import HorizontalRule from '@tiptap/extension-horizontal-rule'
 import OrderedList from '@tiptap/extension-ordered-list'
 import { Color, TextStyle } from '@tiptap/extension-text-style'
 import Highlight from '@tiptap/extension-highlight'
@@ -707,6 +708,43 @@ export const EnterClearsPen = Extension.create<unknown, { armed: boolean }>({
   },
 })
 
+// ── 가로줄(--- 입력): 끌어서 옮기기 + × 바로 삭제 (2026-11-18, 수시보고 슬라이드 나눔) ──
+// 저장 HTML은 그대로 <hr>(renderHTML 미변경) — 편집 화면에서만 [⠿ 손잡이][줄][×] 묶음으로 그린다.
+// 노드를 draggable로 두면 ProseMirror가 줄 묶음을 끌 때 노드째 옮겨 준다(놓은 자리로 이동).
+// ×는 누르는 순간 그 줄만 지운다(편집기 클릭으로 처리되지 않게 stopEvent로 막음).
+export const MovableHorizontalRule = HorizontalRule.extend({
+  draggable: true,
+  addNodeView() {
+    return ({ editor, getPos }) => {
+      const dom = document.createElement('div')
+      dom.className = 'hr-block'
+      const handle = document.createElement('span')
+      handle.className = 'hr-handle'
+      handle.textContent = '⠿'
+      handle.title = '끌어서 옮기기'
+      const line = document.createElement('hr')
+      const del = document.createElement('button')
+      del.type = 'button'
+      del.className = 'hr-delete'
+      del.textContent = '×'
+      del.title = '이 줄 지우기'
+      del.addEventListener('mousedown', e => e.preventDefault())
+      del.addEventListener('click', e => {
+        e.preventDefault()
+        const pos = typeof getPos === 'function' ? getPos() : undefined
+        if (typeof pos !== 'number' || !editor.isEditable) return
+        editor.chain().focus().deleteRange({ from: pos, to: pos + 1 }).run()
+      })
+      dom.append(handle, line, del)
+      return {
+        dom,
+        stopEvent: (e: Event) => e.target === del,
+        ignoreMutation: () => true,
+      }
+    }
+  },
+})
+
 // 모듈 레벨 상수 — 렌더마다 새 참조 생성 방지 (Tiptap v3에서 extensions 참조 변경 시 refreshEditorInstance 호출됨)
 // Quick Memo/생각스케치가 공유하는 최소 코어. Quick Memo 전용 기능(Image 붙여넣기 등)은
 // 각 에디터가 이 배열 위에 자신만 추가한다.
@@ -718,7 +756,8 @@ const ItalicNoMarkdown = Italic.extend({
 })
 
 export const BASE_TIPTAP_EXTENSIONS = [
-  StarterKit.configure({ orderedList: false, italic: false }),  // StarterKit v3에 Underline 포함
+  StarterKit.configure({ orderedList: false, italic: false, horizontalRule: false }),  // StarterKit v3에 Underline 포함
+  MovableHorizontalRule,
   ItalicNoMarkdown,
   CustomOrderedList,
   TextStyle,

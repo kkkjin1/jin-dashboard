@@ -222,3 +222,25 @@ describe('번호 목록 "4. " 다시 입력 → 아래 항목이 이어받음', 
     expect(lowerList(ed).textContent).toBe('사4. 오')
   })
 })
+
+describe('가로줄(슬라이드 나눔) 편집 묶음 — 2026-11-18', () => {
+  it('편집 화면은 [⠿][줄][×]로 그려도 저장 HTML은 그대로 <hr>', () => {
+    const ed = makeEditor('<p>가</p><hr><p>나</p>')
+    expect(ed.view.dom.querySelector('.hr-block .hr-handle')).not.toBeNull()
+    expect(ed.getHTML()).toBe('<p>가</p><hr><p>나</p>')
+  })
+  it('× 누르면 그 줄만 지워진다', () => {
+    const ed = makeEditor('<p>가</p><hr><p>나</p><hr><p>다</p>')
+    ;(ed.view.dom.querySelectorAll('.hr-delete')[0] as HTMLButtonElement).click()
+    expect(ed.getHTML()).toBe('<p>가</p><p>나</p><hr><p>다</p>')
+  })
+  it('--- 입력하면 가로줄이 생긴다', () => {
+    const ed = makeEditor('<p></p>')
+    for (const ch of '---') {
+      const { from, to } = ed.state.selection
+      const ok = ed.view.someProp('handleTextInput', f => f(ed.view, from, to, ch, () => ed.state.tr.insertText(ch, from, to)))
+      if (!ok) ed.view.dispatch(ed.state.tr.insertText(ch, from, to))
+    }
+    expect(ed.getHTML()).toContain('<hr>')
+  })
+})
