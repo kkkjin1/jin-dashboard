@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { getDevPilotClient } from '@/lib/supabase/devPilotClient'
 import { useAutosave, clearAutosaveBuffer } from '@/hooks/useAutosave'
+import { broadcastMemo } from '@/lib/memoSync'
 import TiptapEditor from '@/components/TiptapEditor'
 import { openQuickMemo, registerQuickMemoHeartbeat } from '@/lib/quickMemo'
 import { useTheme } from '@/lib/theme'
@@ -480,6 +481,7 @@ export default function QuickMemoPage() {
         return
       }
       canonicalQuickMemoId = newMemo?.id ?? null
+      if (newMemo?.id) broadcastMemo({ type: 'created', id: newMemo.id })
       if (window.opener) window.opener.dispatchEvent(new CustomEvent('quick-memo-saved'))
       setSavedMsg('저장됨!')
     }

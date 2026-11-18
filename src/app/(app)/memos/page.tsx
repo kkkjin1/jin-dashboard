@@ -1,23 +1,21 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Search, FileText, MoreVertical, ChevronDown, Calendar, User, List, Plus } from 'lucide-react'
-import { CATEGORY_PALETTE, MEMO_TAG, colorKeyFromName } from '@/lib/categoryColors'
-import dynamic from 'next/dynamic'
+import { Search, FileText, MoreVertical, ChevronDown, List, Plus } from 'lucide-react'
 import { MemoPageSkeleton } from '@/components/ui/Skeleton'
 import { createClient } from '@/lib/supabase/client'
-import { useAutosave, clearAutosaveBuffer } from '@/hooks/useAutosave'
+import { clearAutosaveBuffer } from '@/hooks/useAutosave'
 import { useUserSetting } from '@/hooks/useUserSetting'
 import { format, parseISO, isToday, isYesterday } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import type { QuickMemo, MemoTag } from '@/types'
-import MarkdownContent from '@/components/MarkdownContent'
 import SmartTextarea from '@/components/SmartTextarea'
 import { fetchMembers } from '@/lib/tasks'
 import { useOrgData } from '@/hooks/useOrgData'
 import { OBS_TAG, teamMembers, filterByObservedMember, observationLabel } from '@/lib/observation'
 import type { Member } from '@/types'
-const TiptapEditor = dynamic(() => import('@/components/TiptapEditor'), { ssr: false })
+import MemoDetailPanel, { pill, pOn, pOff, DROPDOWN_STYLE, memoTagStyle, memoTagSolid, withTag, withoutTag } from '@/components/memo/MemoDetailPanel'
+import { broadcastMemo, subscribeMemoSync, openMemoPopup } from '@/lib/memoSync'
 
 function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
@@ -48,31 +46,7 @@ function dateDividerLabel(iso: string | null | undefined): string {
   } catch { return '' }
 }
 
-const pill  = 'text-xs px-3.5 py-1.5 rounded-full border font-medium transition-all whitespace-nowrap'
-const pOn  = 'bg-[var(--accent-primary)] text-white border-[var(--accent-primary)] shadow-sm'
-const pOff = 'bg-[rgba(var(--ink-rgb),0.06)] backdrop-blur-xl border-[rgba(var(--ink-rgb),0.09)] text-[rgba(var(--text-rgb),0.5)] hover:bg-[rgba(var(--ink-rgb),0.1)] hover:text-[rgba(var(--text-rgb),1)]'
-
-// 상세 패널의 수정모드 에디터 박스에 쓰는 프레임 톤
-const FRAME_STYLE: React.CSSProperties = { background: 'rgba(var(--ink-rgb),0.035)', border: '1px solid rgba(var(--ink-rgb),0.07)' }
-const DROPDOWN_STYLE: React.CSSProperties = { background: 'var(--surface-tooltip)', border: '1px solid rgba(var(--ink-rgb),0.1)', boxShadow: '0 12px 32px rgba(0,0,0,0.4)' }
-
 function inlineDraftKey(tag: MemoTag) { return `memo_inlineadd_draft_${tag}` }
-
-function memoTagStyle(tag: string) {
-  const c = CATEGORY_PALETTE[MEMO_TAG[tag] ?? colorKeyFromName(tag)]
-  return { background: c.bg, color: c.text, borderColor: c.border }
-}
-function memoTagSolid(tag: string): string {
-  return CATEGORY_PALETTE[MEMO_TAG[tag] ?? colorKeyFromName(tag)].solid
-}
-
-// 태그 배열에서 제거 시 최소 1개는 남긴다 (빈 태그 메모 방지)
-function withoutTag(tags: MemoTag[], t: MemoTag): MemoTag[] {
-  return tags.length > 1 ? tags.filter(x => x !== t) : tags
-}
-function withTag(tags: MemoTag[], t: MemoTag): MemoTag[] {
-  return tags.includes(t) ? tags : [...tags, t]
-}
 
 interface MemoListRowProps {
   memo: QuickMemo
@@ -166,307 +140,6 @@ function MemoListRow({ memo, onEdit, onDelete, draggable: drag, onDragStart, onD
           </p>
         )}
       </div>
-    </div>
-  )
-}
-
-interface MemoDetailPanelProps {
-  memo: QuickMemo
-  categories: MemoTag[]
-  onSave: (id: string, title: string, content: string, tags: MemoTag[]) => void
-  onAutoSave: (id: string, title: string, content: string, tags: MemoTag[]) => Promise<void>
-  onDelete: (id: string) => Promise<boolean>
-  onClose: () => void
-}
-
-// 메모 클릭 시 우측에 도킹되는 상세 패널 — 기존 폼/자동저장 로직을 그대로 재사용하고
-// 겉모습(액션 툴바, 다중 태그 칩, 읽기/수정 모드)만 확장한다
-function MemoDetailPanel({ memo, categories, onSave, onAutoSave, onDelete, onClose }: MemoDetailPanelProps) {
-  const [title, setTitle] = useState(memo.title)
-  const [content, setContent] = useState(memo.content)
-  const [tags, setTags] = useState<MemoTag[]>(memo.tag)
-  const [viewMode, setViewMode] = useState<'read' | 'edit'>('read')
-  const [autoSaveStatus, setAutoSaveStatus] = useState<'saving' | 'saved' | null>(null)
-  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  const isFirstRender = useRef(true)
-  const pendingSaveDataRef = useRef<{ title: string; content: string; tags: MemoTag[] } | null>(null)
-  const onAutoSaveRef = useRef(onAutoSave)
-  const supabase = createClient()
-
-  // 기존 메모 편집 보호(autosave_drafts/content_versions) — quick_memos.id가 이미
-  // 실존하므로 quick/page.tsx·MobileMemoSheet.tsx(신규 작성, temp qid→rebind)와 달리
-  // qid/rebind가 필요 없다. entityId=memo.id로 고정, fieldKey='draft' 하나에
-  // {title, content, tags}를 통째로 담아 이미 배포된 quick_memo entity 설계(단일
-  // draft 필드)를 그대로 재사용. canonical UPDATE(아래 1.5초 debounce autoSave)는
-  // 손대지 않고 병행 기록만 하는 안전망 — meeting_note(B-5)/one_on_one/project_item
-  // 등 기존 entity 편집 화면과 동일하게 dev-pilot 아닌 production supabase를 그대로
-  // 쓴다(entity_id가 이미 실존하는 canonical id라 dev-pilot 격리 대상인 create-flow
-  // temp id와는 다름).
-  const draftValue = useMemo(() => ({ title, content, tags }), [title, content, tags])
-  const autosave = useAutosave({
-    supabase,
-    enabled: true,
-    entityType: 'quick_memo',
-    entityId: memo.id,
-    fieldKey: 'draft',
-    value: draftValue,
-  })
-
-  function applyRecovered() {
-    if (!autosave.recovered) return
-    const v = autosave.recovered.value as { title: string; content: string; tags: MemoTag[] }
-    setTitle(v.title ?? '')
-    setContent(v.content ?? '')
-    setTags(v.tags ?? memo.tag)
-    autosave.discardRecovered()
-  }
-
-  const [tagPickerOpen, setTagPickerOpen] = useState(false)
-  const [moveOpen, setMoveOpen] = useState(false)
-  const [moreOpen, setMoreOpen] = useState(false)
-  const tagPickerRef = useRef<HTMLDivElement>(null)
-  const moveRef = useRef<HTMLDivElement>(null)
-  const moreRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => { onAutoSaveRef.current = onAutoSave }, [onAutoSave])
-
-  // 팝오버 바깥 클릭 시 닫기 (태그 추가 / 이동 / 더보기 공용)
-  useEffect(() => {
-    function onDown(e: MouseEvent) {
-      if (tagPickerRef.current && !tagPickerRef.current.contains(e.target as Node)) setTagPickerOpen(false)
-      if (moveRef.current && !moveRef.current.contains(e.target as Node)) setMoveOpen(false)
-      if (moreRef.current && !moreRef.current.contains(e.target as Node)) setMoreOpen(false)
-    }
-    document.addEventListener('mousedown', onDown)
-    return () => document.removeEventListener('mousedown', onDown)
-  }, [])
-
-  // unmount 시 pending 저장 즉시 flush (패널 닫기·다른 메모 선택 모두 unmount를 유발)
-  useEffect(() => {
-    return () => {
-      const d = pendingSaveDataRef.current
-      if (d && d.title.trim()) {
-        onAutoSaveRef.current(memo.id, d.title, d.content, d.tags)
-      }
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  useEffect(() => {
-    if (isFirstRender.current) { isFirstRender.current = false; return }
-    if (!title.trim()) return
-    setAutoSaveStatus('saving')
-    clearTimeout(autoSaveTimer.current)
-    pendingSaveDataRef.current = { title, content, tags }
-    autoSaveTimer.current = setTimeout(async () => {
-      pendingSaveDataRef.current = null
-      await onAutoSave(memo.id, title, content, tags)
-      setAutoSaveStatus('saved')
-      setTimeout(() => setAutoSaveStatus(null), 2000)
-    }, 1500)
-    return () => clearTimeout(autoSaveTimer.current)
-  }, [title, content, tags])
-
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
-
-  async function handleDelete() {
-    const ok = await onDelete(memo.id)
-    if (ok) onClose()
-  }
-
-  function commitSave() {
-    onSave(memo.id, title, content, tags)
-    setViewMode('read')
-  }
-
-  function togglePin() {
-    setTags(prev => prev.includes('공지') ? withoutTag(prev, '공지') : withTag(prev, '공지'))
-  }
-
-  const createdLabel = (() => {
-    try { return format(parseISO(memo.created_at), 'yyyy.MM.dd (eee) HH:mm', { locale: ko }) } catch { return '' }
-  })()
-
-  const pickerCandidates = categories.filter(t => !tags.includes(t))
-
-  return (
-    <div className="h-full flex flex-col overflow-hidden">
-      <div className="flex-shrink-0 px-5 pt-5">
-        {/* 상단: 라벨 + 닫기 */}
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-[11px] font-semibold text-[rgba(var(--text-rgb),0.4)] uppercase tracking-wide">메모 상세</span>
-          <button onClick={onClose} className="text-[rgba(var(--text-rgb),0.28)] hover:text-[rgba(var(--text-rgb),0.7)] text-lg leading-none flex-shrink-0 transition-colors">×</button>
-        </div>
-
-        {/* Autosave: 복구 배너 — 새로고침/크래시로 유실될 뻔한 마지막 입력 복원. 자동 적용하지 않고 사용자가 직접 선택 */}
-        {autosave.recovered && (
-          <div className="mb-3 px-3 py-2 rounded-lg text-xs flex items-center gap-2"
-            style={{ background: 'rgba(76,127,224,0.1)', border: '1px solid rgba(76,127,224,0.3)', color: 'var(--accent-badge-text)' }}>
-            <span className="flex-1">복구 가능한 자동저장 내용이 있습니다</span>
-            <button onClick={applyRecovered} className="underline underline-offset-2">적용</button>
-            <button onClick={() => autosave.discardRecovered()} className="underline underline-offset-2">무시</button>
-          </div>
-        )}
-
-        {/* Autosave: 충돌 배너 — 자동 병합하지 않고 사용자가 선택 */}
-        {autosave.conflict && (
-          <div className="mb-3 px-3 py-2 rounded-lg text-xs flex flex-col gap-1.5"
-            style={{ background: 'rgba(249,158,11,0.1)', border: '1px solid rgba(249,158,11,0.35)', color: 'var(--quick-todo-text)' }}>
-            <span>다른 창/기기에서 이 메모가 변경되었습니다 — 자동 병합하지 않습니다.</span>
-            <div className="flex items-center gap-2">
-              <button onClick={() => autosave.resolveConflict('keep-mine')} className="underline underline-offset-2">
-                내 내용 유지(덮어쓰기)
-              </button>
-              <button
-                onClick={() => {
-                  const v = autosave.conflict?.serverContent as { title: string; content: string; tags: MemoTag[] } | undefined
-                  if (v) { setTitle(v.title ?? ''); setContent(v.content ?? ''); setTags(v.tags ?? memo.tag) }
-                  autosave.resolveConflict('take-theirs')
-                }}
-                className="underline underline-offset-2">
-                서버 내용 사용
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* 액션 툴바 — 고정/수정/이동/더보기(삭제) */}
-        <div className="flex items-center gap-1 mb-3">
-          <button onClick={togglePin}
-            className={`flex items-center gap-1 text-[11px] font-medium px-2.5 py-1.5 rounded-lg transition-all ${
-              tags.includes('공지') ? 'bg-[#4C7FE0]/25 text-[var(--accent-badge-text)]' : 'text-[rgba(var(--text-rgb),0.45)] hover:bg-[rgba(var(--ink-rgb),0.06)] hover:text-[rgba(var(--text-rgb),0.7)]'
-            }`}>
-            📌 고정
-          </button>
-          <button onClick={() => setViewMode(v => v === 'edit' ? 'read' : 'edit')}
-            className={`flex items-center gap-1 text-[11px] font-medium px-2.5 py-1.5 rounded-lg transition-all ${
-              viewMode === 'edit' ? 'bg-[#4C7FE0]/25 text-[var(--accent-badge-text)]' : 'text-[rgba(var(--text-rgb),0.45)] hover:bg-[rgba(var(--ink-rgb),0.06)] hover:text-[rgba(var(--text-rgb),0.7)]'
-            }`}>
-            ✎ 수정
-          </button>
-          <div className="relative" ref={moveRef}>
-            <button onClick={() => setMoveOpen(v => !v)}
-              className="flex items-center gap-1 text-[11px] font-medium px-2.5 py-1.5 rounded-lg text-[rgba(var(--text-rgb),0.45)] hover:bg-[rgba(var(--ink-rgb),0.06)] hover:text-[rgba(var(--text-rgb),0.7)] transition-all">
-              ↗ 이동
-            </button>
-            {moveOpen && (
-              <div className="absolute left-0 top-full mt-1 py-1 rounded-xl z-10 min-w-[170px]" style={DROPDOWN_STYLE}>
-                <button
-                  onClick={() => {
-                    // TODO: 메모를 다른 카테고리/폴더로 이동하는 기능. 현재는 폴더 개념이 없어
-                    // 태그 편집(위 칩)이 사실상 이동 역할을 겸함 — 별도 폴더 구조가 생기면 여기서 구현
-                    setMoveOpen(false)
-                  }}
-                  className="w-full text-left text-xs px-3 py-2 text-[rgba(var(--text-rgb),0.4)] cursor-not-allowed">
-                  카테고리 이동 (준비 중)
-                </button>
-              </div>
-            )}
-          </div>
-          <div className="relative ml-auto" ref={moreRef}>
-            <button onClick={() => setMoreOpen(v => !v)}
-              className="flex items-center justify-center w-7 h-7 rounded-lg text-[rgba(var(--text-rgb),0.45)] hover:bg-[rgba(var(--ink-rgb),0.06)] hover:text-[rgba(var(--text-rgb),0.7)] transition-all">
-              ⋯
-            </button>
-            {moreOpen && (
-              <div className="absolute right-0 top-full mt-1 py-1 rounded-xl z-10 min-w-[110px]" style={DROPDOWN_STYLE}>
-                <button onClick={() => { setMoreOpen(false); handleDelete() }}
-                  className="w-full text-left text-xs px-3 py-2 text-red-400/80 hover:bg-red-400/10 hover:text-red-400 transition-colors">
-                  삭제
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* 태그 칩(다중) + 태그 추가 */}
-        <div className="flex items-center gap-1.5 flex-wrap mb-3">
-          {tags.map(t => (
-            <span key={t} className="text-xs pl-3 pr-1.5 py-1 rounded-full border font-medium flex items-center gap-1" style={memoTagStyle(t)}>
-              {t}
-              <button onClick={() => setTags(prev => withoutTag(prev, t))}
-                className="opacity-50 hover:opacity-100 transition-opacity leading-none text-[13px]">×</button>
-            </span>
-          ))}
-          <div className="relative" ref={tagPickerRef}>
-            <button onClick={() => setTagPickerOpen(v => !v)} className={`${pill} ${pOff} !text-[11px] !px-2.5 !py-1`}>
-              + 태그 추가
-            </button>
-            {tagPickerOpen && (
-              <div className="absolute left-0 top-full mt-1 py-1 rounded-xl z-10 min-w-[130px]" style={DROPDOWN_STYLE}>
-                {pickerCandidates.length === 0 ? (
-                  <p className="text-[11px] text-[rgba(var(--text-rgb),0.3)] px-3 py-2 whitespace-nowrap">모든 태그가 선택됨</p>
-                ) : pickerCandidates.map(t => (
-                  <button key={t} onClick={() => { setTags(prev => withTag(prev, t)); setTagPickerOpen(false) }}
-                    className="w-full text-left text-xs px-3 py-2 text-[rgba(var(--text-rgb),0.7)] hover:bg-[rgba(var(--ink-rgb),0.06)] transition-colors flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: memoTagSolid(t) }} />
-                    {t}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* 제목 — 읽기 모드에서는 정적 표시, 수정 모드에서만 편집 가능 */}
-        {viewMode === 'edit' ? (
-          <input value={title} onChange={e => setTitle(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') commitSave() }}
-            placeholder="제목"
-            className="w-full text-base font-semibold text-[rgba(var(--text-rgb),1)] pb-2 mb-1.5 focus:outline-none bg-transparent flex-shrink-0 placeholder:text-[rgba(var(--text-rgb),0.3)]"
-            style={{ borderBottom: '1px solid rgba(var(--ink-rgb),0.06)' }} />
-        ) : (
-          <h2 className="text-base font-semibold text-[rgba(var(--text-rgb),1)] pb-2 mb-1.5">{title || '(제목 없음)'}</h2>
-        )}
-        {/* 작성일 + 작성자 */}
-        <div className="flex items-center gap-4 mb-3">
-          {createdLabel && (
-            <div className="flex items-center gap-1.5 text-[11px] text-[rgba(var(--text-rgb),0.35)]">
-              <Calendar size={12} /> {createdLabel}
-            </div>
-          )}
-          <div className="flex items-center gap-1.5 text-[11px] text-[rgba(var(--text-rgb),0.35)]">
-            <User size={12} /> 김진일
-          </div>
-        </div>
-        <div className="h-px bg-[rgba(var(--ink-rgb),0.07)]" />
-      </div>
-
-      {/* 스크롤 본문 — 내용(읽기/수정). 1인 툴 특성상 관련메모/댓글은 실효성 없어 제외 */}
-      <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide mx-5 pt-4 pb-4">
-        <p className="text-[11px] font-semibold text-[rgba(var(--text-rgb),0.4)] uppercase tracking-wide mb-2">내용</p>
-        {viewMode === 'edit' ? (
-          <div className="rounded-2xl overflow-hidden" style={FRAME_STYLE}>
-            <TiptapEditor
-              dark
-              value={content}
-              onChange={setContent}
-              onSubmit={commitSave}
-              autoFocus
-              minHeight={220}
-              className="p-3"
-            />
-          </div>
-        ) : (
-          content ? <MarkdownContent content={content} dark /> : <p className="text-[rgba(var(--text-rgb),0.25)] text-sm">내용 없음</p>
-        )}
-      </div>
-
-      {/* 하단: 자동저장 상태 + 저장 (삭제는 오조작 방지를 위해 상단 ⋯더보기로 이동) */}
-      {viewMode === 'edit' && (
-        <div className="flex justify-end items-center gap-3 flex-shrink-0 p-5 pt-4">
-          <p className="text-[10px] text-[rgba(var(--text-rgb),0.28)]">
-            {autoSaveStatus === 'saving' ? '저장 중…' :
-             autoSaveStatus === 'saved'  ? '✓ 자동저장됨' :
-             'Ctrl+Enter 저장 · Esc 닫기'}
-          </p>
-          <button onClick={commitSave} className={`${pill} ${pOn}`}>저장</button>
-        </div>
-      )}
     </div>
   )
 }
@@ -565,16 +238,36 @@ export default function MemosPage() {
       })
   }, [])
 
+  // 팝업창(/memo/view·/memo/quick)에서 저장·삭제·새로 만든 메모를 목록에 바로 반영
+  useEffect(() => subscribeMemoSync(msg => {
+    if (msg.type === 'updated') {
+      const u = msg.memo
+      setMemos(prev => prev.map(m => m.id === u.id ? { ...m, title: u.title, content: u.content, tag: u.tag } : m))
+    } else if (msg.type === 'deleted') {
+      setMemos(prev => prev.filter(m => m.id !== msg.id))
+      setEditing(prev => (prev?.id === msg.id ? null : prev))
+    } else if (msg.type === 'created') {
+      supabase.from('quick_memos').select('*').eq('id', msg.id).single()
+        .then(({ data }) => {
+          if (!data) return
+          setMemos(prev => prev.some(m => m.id === msg.id) ? prev : [data as QuickMemo, ...prev])
+        })
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [])
+
   async function autoSave(id: string, title: string, content: string, tags: MemoTag[]) {
     if (!title.trim()) return
     await supabase.from('quick_memos').update({ title: title.trim(), content: content.trim(), tag: tags }).eq('id', id)
     setMemos(prev => prev.map(m => m.id === id ? { ...m, title: title.trim(), content: content.trim(), tag: tags } : m))
+    broadcastMemo({ type: 'updated', memo: { id, title: title.trim(), content: content.trim(), tag: tags } })
   }
 
   async function saveEdit(id: string, title: string, content: string, tags: MemoTag[]) {
     if (!title.trim()) return
     await supabase.from('quick_memos').update({ title: title.trim(), content: content.trim(), tag: tags }).eq('id', id)
     setMemos(prev => prev.map(m => m.id === id ? { ...m, title: title.trim(), content: content.trim(), tag: tags } : m))
+    broadcastMemo({ type: 'updated', memo: { id, title: title.trim(), content: content.trim(), tag: tags } })
   }
 
   async function handleAddSave() {
@@ -584,6 +277,7 @@ export default function MemosPage() {
       .select().single()
     if (error || !data) return
     setMemos(prev => [data as QuickMemo, ...prev])
+    broadcastMemo({ type: 'created', id: (data as QuickMemo).id })
     try { localStorage.removeItem(QUICK_DRAFT_KEY) } catch {}
     setNewTitle(''); setNewContent(''); setShowAddForm(false)
   }
@@ -594,7 +288,7 @@ export default function MemosPage() {
     const { data } = await supabase.from('quick_memos')
       .insert({ title: inlineTitle.trim(), content: inlineContent.trim(), tag: inlineTags })
       .select().single()
-    if (data) setMemos(prev => [data as QuickMemo, ...prev])
+    if (data) { setMemos(prev => [data as QuickMemo, ...prev]); broadcastMemo({ type: 'created', id: (data as QuickMemo).id }) }
     try { localStorage.removeItem(inlineDraftKey(inlineTags[0] ?? '업무관련')) } catch {}
     setInlineTags(null); setInlineTitle(''); setInlineContent('')
   }
@@ -610,6 +304,7 @@ export default function MemosPage() {
     clearAutosaveBuffer('quick_memo', id, 'draft')
     setMemos(prev => prev.filter(m => m.id !== id))
     setEditing(prev => (prev?.id === id ? null : prev))
+    broadcastMemo({ type: 'deleted', id })
     return true
   }
 
@@ -621,6 +316,7 @@ export default function MemosPage() {
     const nextTags = withTag(memo.tag, tag)
     await supabase.from('quick_memos').update({ tag: nextTags }).eq('id', draggingId)
     setMemos(prev => prev.map(m => m.id === draggingId ? { ...m, tag: nextTags } : m))
+    broadcastMemo({ type: 'updated', memo: { id: memo.id, title: memo.title, content: memo.content, tag: nextTags } })
     setDraggingId(null)
   }
 
@@ -924,11 +620,11 @@ export default function MemosPage() {
         </div>
       </div>
 
-      {/* 우측 상세 패널 — 데스크톱: 선택 여부와 무관하게 항상 5:5 도킹(빈 상태 포함) / 좁은 화면: 선택 시에만 drawer 오버레이 */}
+      {/* 우측 상세 패널 — 데스크톱: 선택 여부와 무관하게 항상 1:3 도킹(빈 상태 포함) / 좁은 화면: 선택 시에만 drawer 오버레이 */}
       <div
         className={editing
-          ? 'fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-sm md:static md:inset-auto md:z-auto md:bg-transparent md:backdrop-blur-none md:flex-shrink-0 md:w-1/2'
-          : 'hidden md:flex md:w-1/2 md:flex-shrink-0'}
+          ? 'fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-sm md:static md:inset-auto md:z-auto md:bg-transparent md:backdrop-blur-none md:flex-shrink-0 md:w-3/4'
+          : 'hidden md:flex md:w-3/4 md:flex-shrink-0'}
         onClick={editing ? () => setEditing(null) : undefined}>
         <div
           className={editing
@@ -937,7 +633,7 @@ export default function MemosPage() {
           style={{ background: 'rgba(var(--ink-rgb),0.06)', border: '1px solid rgba(var(--ink-rgb),0.09)', boxShadow: editing ? '0 8px 28px rgba(0,0,0,0.3)' : undefined }}
           onClick={editing ? (e => e.stopPropagation()) : undefined}>
           {editing ? (
-            <MemoDetailPanel key={editing.id} memo={editing} categories={categories} onSave={saveEdit} onAutoSave={autoSave} onDelete={deleteMemo} onClose={() => setEditing(null)} />
+            <MemoDetailPanel key={editing.id} memo={editing} categories={categories} onSave={saveEdit} onAutoSave={autoSave} onDelete={deleteMemo} onClose={() => setEditing(null)} onPopout={() => openMemoPopup(editing.id)} />
           ) : (
             <div className="h-full flex items-center justify-center">
               <p className="text-[rgba(var(--text-rgb),0.2)] text-sm">메모를 선택하면 여기에 표시됩니다</p>
