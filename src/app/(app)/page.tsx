@@ -1692,7 +1692,12 @@ export default function HomePage() {
       const q = item.quick, done = q.done
       return (
         <ListRow key={item.key} style={rowStyle} draggable
-          onDragStart={e => { e.dataTransfer.setData(WEEK_QUICK_DND, q.id); e.dataTransfer.effectAllowed = 'move' }}
+          onDragStart={e => {
+            // 요일 열에 놓으면 요일 이동(WEEK_QUICK_DND), 타임라인에 놓으면 시간 배치(tl-extra) — 둘 다 실어 보낸다
+            e.dataTransfer.setData(WEEK_QUICK_DND, q.id)
+            e.dataTransfer.setData('tl-extra', JSON.stringify({ id: `quick_${q.id}`, title: q.title, subtitle: '즉석' }))
+            e.dataTransfer.effectAllowed = 'copyMove'
+          }}
           onDragEnd={() => setWeekDropDate(null)}>
           <div className="group" style={rowInner}>
             {check(done, () => toggleQuickTodo(q.id))}

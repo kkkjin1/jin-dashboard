@@ -16,7 +16,7 @@ import Image from '@tiptap/extension-image'
 import { CellSelection, TableMap, cellAround } from '@tiptap/pm/tables'
 import {
   BASE_TIPTAP_EXTENSIONS, ToggleInputRules, legacyToHtml, handleListKeymapWorkaround, moveBlockInToggle,
-  getVoiceAtSelection, toggleVoiceAtSelection, VOICE_TARGETS, type VoiceTarget,
+  getVoiceAtSelection, toggleVoiceAtSelection, syncSelectionFromDom, VOICE_TARGETS, type VoiceTarget,
 } from '@/lib/tiptapExtensions'
 import { FontSize, getCurrentBlockFontSize } from '@/lib/tiptapFontSize'
 import { parseSpreadsheetClipboard } from '@/lib/spreadsheetClipboard'
@@ -268,6 +268,7 @@ function MountedSketchEditor({
     if (!ed) return false
     if (e.altKey && e.key === '1') {
       e.preventDefault()
+      syncSelectionFromDom(ed)   // 편집기 선택이 화면 선택과 어긋나 있으면 위쪽 서식이 풀리는 버그 방지
       ed.isActive('textStyle', { color: RED })
         ? ed.chain().focus().unsetColor().run()
         : ed.chain().focus().setColor(RED).run()
@@ -275,6 +276,7 @@ function MountedSketchEditor({
     }
     if (e.altKey && e.key === '2') {
       e.preventDefault()
+      syncSelectionFromDom(ed)
       ed.chain().focus().toggleHighlight({ color: HILITE }).run()
       return true
     }

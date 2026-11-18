@@ -3,7 +3,7 @@
 // 보정. 두 에디터가 동일한 문서 스키마/Markdown input rule을 쓰도록 이 모듈만 참조한다.
 import { Extension, InputRule, mergeAttributes, wrappingInputRule } from '@tiptap/core'
 import type { Editor } from '@tiptap/react'
-import { Plugin, PluginKey, Selection, TextSelection, type Transaction } from '@tiptap/pm/state'
+import { AllSelection, Plugin, PluginKey, Selection, TextSelection, type Transaction } from '@tiptap/pm/state'
 import { Slice, type Node as PMNode, type Mark as PMMark } from '@tiptap/pm/model'
 import { canJoin } from '@tiptap/pm/transform'
 import StarterKit from '@tiptap/starter-kit'
@@ -634,6 +634,29 @@ function stripPenMarks(marks: readonly PMMark[]): PMMark[] | null {
     next.push(m)
   }
   return changed ? next : null
+}
+
+// ── Alt+1/Alt+2 전에 화면 선택을 편집기 선택으로 맞추기 ─────────────────────────
+// 사용자 신고(2026-11-18, 빠른 메모): 11행 일부를 블록 잡고 Alt+1 → 11행은 안 바뀌고 위쪽 행의
+// 빨간펜/형광펜이 풀림, Ctrl+Z 한 번에 복원. 서식 명령은 편집기(ProseMirror)가 기억하는 선택에만
+// 적용되므로, 편집기 선택이 화면 선택보다 뒤처져(예: 앞서 서식을 준 위쪽 범위) 남아 있었던 것.
+// 그 상태의 Alt+1은 "이미 빨강 → 끄기"로 판단해 위쪽 서식을 지운다. 명령 직전에 화면(DOM) 선택을
+// 읽어 다르면 편집기 선택을 그것으로 맞춘다. 표 칸 선택·이미지 선택 등은 건드리지 않는다.
+export function syncSelectionFromDom(editor: Editor) {
+  const view = editor.view
+  const cur = view.state.selection
+  if (!(cur instanceof TextSelection) && !(cur instanceof AllSelection)) return
+  const sel = view.dom.ownerDocument.getSelection()
+  if (!sel || sel.rangeCount === 0 || !sel.anchorNode || !sel.focusNode) return
+  if (!view.dom.contains(sel.anchorNode) || !view.dom.contains(sel.focusNode)) return
+  try {
+    const anchor = view.posAtDOM(sel.anchorNode, sel.anchorOffset)
+    const head = view.posAtDOM(sel.focusNode, sel.focusOffset)
+    if (cur.anchor === anchor && cur.head === head) return
+    // Ctrl+A(전체 선택)는 화면상 위치가 문서 끝 경계와 1~2칸 다를 수 있어 그대로 둔다
+    if (cur instanceof AllSelection && Math.min(anchor, head) <= 2 && Math.max(anchor, head) >= view.state.doc.content.size - 2) return
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, anchor, head)))
+  } catch { /* DOM 위치를 못 읽으면 기존 선택 유지 */ }
 }
 
 export const EnterClearsPen = Extension.create<unknown, { armed: boolean }>({

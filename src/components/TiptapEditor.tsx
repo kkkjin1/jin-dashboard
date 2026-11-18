@@ -7,7 +7,7 @@ import { cleanPastedHTML } from '@/lib/htmlCleanup'
 import {
   BASE_TIPTAP_EXTENSIONS, ToggleInputRules, legacyToHtml, handleListKeymapWorkaround, toggleDetailsAtSelection, moveBlockInToggle,
   QaShortcut, toggleQuestionAtSelection, isQuestionAtSelection,
-  getVoiceAtSelection, setVoiceAtSelection, toggleVoiceAtSelection, type VoiceTarget,
+  getVoiceAtSelection, setVoiceAtSelection, toggleVoiceAtSelection, syncSelectionFromDom, type VoiceTarget,
 } from '@/lib/tiptapExtensions'
 import { pmDocToMarkdown } from '@/lib/tiptapMarkdown'
 import { FontSize, getCurrentBlockFontSize } from '@/lib/tiptapFontSize'
@@ -102,12 +102,14 @@ export default function TiptapEditor({
     const ed = editorRef.current
     if (!ed) return false
     if (e.altKey && e.key === '1') {
+      syncSelectionFromDom(ed)   // 편집기 선택이 화면 선택과 어긋나 있으면 위쪽 서식이 풀리는 버그 방지
       ed.isActive('textStyle', { color: '#EF4444' })
         ? ed.chain().focus().unsetColor().run()
         : ed.chain().focus().setColor('#EF4444').run()
       return true
     }
     if (e.altKey && e.key === '2') {
+      syncSelectionFromDom(ed)
       ed.chain().focus().toggleHighlight({ color: '#FEF08A' }).run()
       return true
     }

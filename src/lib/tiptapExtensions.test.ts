@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest'
 import { Editor } from '@tiptap/core'
 import { TextSelection } from '@tiptap/pm/state'
-import { BASE_TIPTAP_EXTENSIONS, legacyToHtml, legacyPlainText, moveBlockInToggle } from './tiptapExtensions'
+import { BASE_TIPTAP_EXTENSIONS, legacyToHtml, legacyPlainText, moveBlockInToggle, syncSelectionFromDom } from './tiptapExtensions'
 
 // ── 예전 형식(순수 텍스트) 회의록 → HTML ────────────────────────────────────
 describe('legacyToHtml (예전 형식 회의록 변환)', () => {
@@ -143,5 +143,32 @@ describe('편집기 왕복 저장 — 저장된 HTML을 다시 열어도 내용 
     expect(out).toContain('<li>')
     expect(out).toContain('data-qa="q"')
     expect(out).toContain('<mark')
+  })
+})
+
+// ── Alt+1 전에 화면 선택 동기화 — 2026-11-18 빠른 메모 "위쪽 행 서식 풀림" 회귀 방지 ──
+describe('syncSelectionFromDom (화면 선택 ↔ 편집기 선택)', () => {
+  it('편집기 선택이 위쪽 빨강 범위에 남아 있어도 Alt+1은 화면에서 잡은 글자에만 적용된다', () => {
+    const el = document.createElement('div'); document.body.appendChild(el)
+    const ed = new Editor({ element: el, extensions: BASE_TIPTAP_EXTENSIONS,
+      content: '<p>7행 <span style="color:#EF4444">빨강글자</span></p><p>11행 새글자</p>' })
+    editor = ed
+    // 편집기 선택: 7행 "빨강글자" (예전에 서식 준 범위가 남은 상태)
+    let redFrom = -1
+    ed.state.doc.descendants((n, p) => { if (n.isText && n.text === '빨강글자') redFrom = p })
+    ed.view.dispatch(ed.state.tr.setSelection(TextSelection.create(ed.state.doc, redFrom, redFrom + 4)))
+    // 화면 선택: 11행 "새글자" — 편집기에는 아직 반영 안 된 상태를 흉내(이벤트 없이 DOM만 바꿈)
+    const textNode = [...el.querySelectorAll('p')][1].firstChild as Text
+    const off = textNode.data.indexOf('새글자')
+    const domSel = document.getSelection()!
+    const observer = (ed.view as unknown as { domObserver: { stop(): void; start(): void } }).domObserver
+    observer.stop()
+    domSel.setBaseAndExtent(textNode, off, textNode, off + 3)
+    observer.start()
+    syncSelectionFromDom(ed)
+    ed.isActive('textStyle', { color: '#EF4444' }) ? ed.chain().unsetColor().run() : ed.chain().setColor('#EF4444').run()
+    expect(ed.getHTML()).toContain('<span style="color: rgb(239, 68, 68);">빨강글자</span>')
+    expect(ed.getHTML()).toMatch(/11행 <span style="color: (rgb\(239, 68, 68\)|#EF4444);">새글자<\/span>/)
+    el.remove()
   })
 })
