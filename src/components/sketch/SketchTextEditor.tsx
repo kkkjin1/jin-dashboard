@@ -20,6 +20,7 @@ import {
 } from '@/lib/tiptapExtensions'
 import { FontSize, getCurrentBlockFontSize } from '@/lib/tiptapFontSize'
 import { parseSpreadsheetClipboard } from '@/lib/spreadsheetClipboard'
+import { cleanPastedHTML } from '@/lib/htmlCleanup'
 import { TableDragHandle } from './TableDragHandle'
 
 const RED = '#EF4444'
@@ -337,6 +338,8 @@ function MountedSketchEditor({
       },
       handleKeyDown: stableKeyDown,
       handlePaste: stablePaste,
+      // Windows Chrome 클립보드 래퍼의 줄바꿈이 토글 안 앞뒤 빈 줄(<br>)로 들어가는 것 방지 — TiptapEditor와 동일
+      transformPastedHTML: (html: string) => cleanPastedHTML(html),
       transformPastedText: (text: string) => text.replace(/\n{3,}/g, '\n\n'),
     },
   })

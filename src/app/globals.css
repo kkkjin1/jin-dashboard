@@ -532,6 +532,10 @@ html, body {
 }
 .tiptap-input, .tiptap-input-dark, .note-html, .note-html-dark { color: var(--note-color); line-height: 1.7; font-size: 15px; }
 .tiptap-input p, .tiptap-input-dark p, .note-html p, .note-html-dark p { margin: 0; min-height: 1.5em; }
+/* 빨간펜(Alt+1, 저장값 color:#EF4444) — 화면 표시만 살짝 크게·더 밝은 빨강. 저장 데이터·Alt+1 판별은 그대로 */
+:is(.tiptap-input, .tiptap-input-dark, .note-html, .note-html-dark) :is([style*="#ef4444" i], [style*="rgb(239, 68, 68)"]) {
+  color: #FF5A5A !important; font-size: 1.06em;
+}
 .tiptap-input p + p, .tiptap-input-dark p + p, .note-html p + p, .note-html-dark p + p { margin-top: 2px; }
 .tiptap-input h1, .tiptap-input-dark h1, .note-html h1, .note-html-dark h1 { font-size: 1.2rem; font-weight: 700; color: var(--note-h1-color); margin: 0.5rem 0 0.25rem; }
 .tiptap-input h2, .tiptap-input-dark h2, .note-html h2, .note-html-dark h2 { font-size: 1.05rem; font-weight: 600; color: var(--note-h2-color); margin: 0.4rem 0 0.2rem; }
