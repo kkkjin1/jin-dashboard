@@ -10,6 +10,7 @@ import {
   getVoiceAtSelection, setVoiceAtSelection, toggleVoiceAtSelection, syncSelectionFromDom, type VoiceTarget,
 } from '@/lib/tiptapExtensions'
 import { pmDocToMarkdown } from '@/lib/tiptapMarkdown'
+import { isTodayTodoKey, addSelectionToToday } from '@/lib/todayTodoCapture'
 import { FontSize, getCurrentBlockFontSize } from '@/lib/tiptapFontSize'
 
 const TEXT_COLORS = [
@@ -119,6 +120,8 @@ export default function TiptapEditor({
       && (e.code === 'Digit3' || e.code === 'Digit4')) {
       return toggleVoiceAtSelection(ed, e.code === 'Digit3' ? 'CEO' : 'CSO')
     }
+    // Alt+5 — 블록 잡은 글을 홈 '오늘 할 일'로 (모든 편집기 공통)
+    if (isTodayTodoKey(e)) { e.preventDefault(); return addSelectionToToday(ed) }
     // Tab/Shift-Tab을 리스트 밖(또는 더 이상 들여쓰기/내어쓰기 불가한 위치)에서 누르면
     // sinkListItem/liftListItem이 실패(false)해 브라우저 기본 동작인 "다음 포커스 요소로 이동"이
     // 발생해 에디터 밖으로 커서가 튕겨나갔다 — 항상 여기서 처리하고 true를 반환해 막는다.

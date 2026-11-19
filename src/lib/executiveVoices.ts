@@ -4,11 +4,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { VOICE_TARGETS, type VoiceTarget, legacyToHtml, legacyPlainText, newVoiceId, todayYmd } from '@/lib/tiptapExtensions'
 
-export type VoiceSourceType = 'meeting' | 'agenda' | 'subtask' | 'retro' | 'adhoc'
+export type VoiceSourceType = 'meeting' | 'agenda' | 'subtask' | 'retro' | 'adhoc' | 'sketch'
 // spoken=발언일(회의 날짜) · recorded=기록일(메모 작성일) · marked=표시일(Alt+3/4 누른 날) · unknown=날짜 미상
 export type VoiceDateKind = 'spoken' | 'recorded' | 'marked' | 'unknown'
 
-export const SOURCE_LABEL: Record<VoiceSourceType, string> = { meeting: '회의록', agenda: '안건', subtask: '세부 Task', retro: '업무 회고', adhoc: '수시보고' }
+export const SOURCE_LABEL: Record<VoiceSourceType, string> = { meeting: '회의록', agenda: '안건', subtask: '세부 Task', retro: '업무 회고', adhoc: '수시보고', sketch: '생각스케치' }
 export const DATE_KIND_LABEL: Record<VoiceDateKind, string> = { spoken: '발언일', recorded: '기록일', marked: '표시일', unknown: '날짜 미상' }
 
 // 경영진 회의록 = meetings.category '경영진' (회의록 범주 고정 태그, 의사결정 탭이 원래 쓰던 기준)
@@ -53,6 +53,7 @@ export interface VoiceRawData {
   subTasks: Record<string, { id: string; title: string; agenda_item_id: string | null; agendaTitle: string | null }>
   retros: { id: string; agenda_item_id: string; feedback: string | null; agendaTitle: string | null }[]
   adhocReports: { id: string; report_date: string; title: string; audience: string; body: string; result: string }[]
+  sketchBoards: { id: string; name: string; note_body: string | null }[]
   errors: string[]
 }
 
@@ -61,7 +62,7 @@ const VOICE_PATTERN = '%data-voice=%'
 // 표시가 있는 행만 좁혀 가져온다(이미지가 든 큰 HTML 전체를 받지 않도록). 세 출처는 병렬, 이름 정보는 id로 한 번 더.
 export async function fetchVoiceRawData(sb: SupabaseClient): Promise<VoiceRawData> {
   const errors: string[] = []
-  const [mn, ai, sn, rt, adBody, adResult] = await Promise.all([
+  const [mn, ai, sn, rt, adBody, adResult, sk] = await Promise.all([
     sb.from('meeting_notes').select('id, meeting_id, title, content').ilike('content', VOICE_PATTERN),
     sb.from('agenda_items').select('id, title, description, agenda_groups(name)').ilike('description', VOICE_PATTERN),
     sb.from('sub_task_notes').select('id, sub_task_id, title, content, created_at').ilike('content', VOICE_PATTERN),
@@ -69,6 +70,8 @@ export async function fetchVoiceRawData(sb: SupabaseClient): Promise<VoiceRawDat
     // 두 칸을 or()로 묶으면 패턴의 %가 걸러지지 않아 0건이 돼(2026-10-28 확인) 칸별로 따로 받아 합친다
     sb.from('adhoc_reports').select('id, report_date, title, audience, body, result').ilike('body', VOICE_PATTERN),
     sb.from('adhoc_reports').select('id, report_date, title, audience, body, result').ilike('result', VOICE_PATTERN),
+    // 단독 생각스케치 본문(안건상세 안 생각스케치는 안건 본문에 저장되므로 위 agenda_items로 잡힌다)
+    sb.from('sketch_boards').select('id, name, note_body').ilike('note_body', VOICE_PATTERN),
   ])
   if (mn.error) errors.push(`회의록: ${mn.error.message}`)
   if (ai.error) errors.push(`안건: ${ai.error.message}`)
@@ -76,6 +79,7 @@ export async function fetchVoiceRawData(sb: SupabaseClient): Promise<VoiceRawDat
   if (rt.error) errors.push(`업무 회고: ${rt.error.message}`)
   const adErr = adBody.error ?? adResult.error
   if (adErr) errors.push(`수시보고: ${adErr.message}`)
+  if (sk.error) errors.push(`생각스케치: ${sk.error.message}`)
   const meetingNotes = (mn.data ?? []) as VoiceRawData['meetingNotes']
   const subTaskNotes = (sn.data ?? []) as VoiceRawData['subTaskNotes']
   const meetingIds = [...new Set(meetingNotes.map(n => n.meeting_id))]
@@ -111,7 +115,9 @@ export async function fetchVoiceRawData(sb: SupabaseClient): Promise<VoiceRawDat
   for (const r of [...(adBody.data ?? []), ...(adResult.data ?? [])] as VoiceRawData['adhocReports']) adhocById.set(r.id, r)
   const adhocReports = [...adhocById.values()]
 
-  return { meetingNotes, meetings, meetingAgendas, agendaItems, subTaskNotes, subTasks, retros, adhocReports, errors }
+  const sketchBoards = (sk.data ?? []) as VoiceRawData['sketchBoards']
+
+  return { meetingNotes, meetings, meetingAgendas, agendaItems, subTaskNotes, subTasks, retros, adhocReports, sketchBoards, errors }
 }
 
 // 안건 하나에 걸린 표시 줄만 — 업무 회고 서랍의 "받은 피드백" 칸.
@@ -149,7 +155,7 @@ export async function fetchAgendaVoiceRawData(sb: SupabaseClient, agendaId: stri
 
   return {
     meetingNotes: (mn.data ?? []) as VoiceRawData['meetingNotes'], meetings, meetingAgendas: {}, agendaItems,
-    subTaskNotes: (sn.data ?? []) as VoiceRawData['subTaskNotes'], subTasks, retros: [], adhocReports: [], errors,
+    subTaskNotes: (sn.data ?? []) as VoiceRawData['subTaskNotes'], subTasks, retros: [], adhocReports: [], sketchBoards: [], errors,
   }
 }
 
@@ -359,6 +365,21 @@ export function extractVoiceOccurrences(raw: VoiceRawData): VoiceOccurrence[] {
           },
         })
       }
+    }
+  }
+  // 생각스케치 — 날짜는 표시일(Alt+3/4 누른 날)
+  for (const b of raw.sketchBoards ?? []) {
+    for (const { el } of voiceElements(b.note_body ?? '')) {
+      const voiceId = el.getAttribute('data-voice-id'), voiceAt = validDate(el.getAttribute('data-voice-at'))
+      out.push({
+        voice: el.getAttribute('data-voice') as VoiceTarget, voiceId, text: voiceText(el),
+        source: {
+          type: 'sketch', rowId: b.id, title: b.name?.trim() || '(제목 없음)', context: null,
+          date: voiceAt, dateKind: voiceAt ? 'marked' : 'unknown',
+          href: `/sketch/${b.id}`,
+          relatedAgendas: [],
+        },
+      })
     }
   }
   return out

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { extractVoiceOccurrences, htmlToPlainText, type VoiceRawData } from './executiveVoices'
 
 function raw(p: Partial<VoiceRawData>): VoiceRawData {
-  return { meetingNotes: [], meetings: {}, meetingAgendas: {}, agendaItems: [], subTaskNotes: [], subTasks: {}, retros: [], adhocReports: [], errors: [], ...p }
+  return { meetingNotes: [], meetings: {}, meetingAgendas: {}, agendaItems: [], subTaskNotes: [], subTasks: {}, retros: [], adhocReports: [], sketchBoards: [], errors: [], ...p }
 }
 
 describe('경영진 의견(Alt+3/4) 모으기', () => {
@@ -29,6 +29,15 @@ describe('경영진 의견(Alt+3/4) 모으기', () => {
       meetingNotes: [{ id: 'n1', meeting_id: 'm1', title: null, content: '<p>그냥</p><p data-voice="XYZ">이상한 값</p>' }],
     }))
     expect(occ).toHaveLength(0)
+  })
+
+  it('생각스케치 본문 표시는 표시일로 모이고 원본은 보드로 이동', () => {
+    const occ = extractVoiceOccurrences(raw({
+      sketchBoards: [{ id: 'b1', name: '평가 구상', note_body: '<p>메모</p><p data-voice="CEO" data-voice-id="v9" data-voice-at="2026-11-19">등급 단순화</p>' }],
+    }))
+    expect(occ).toHaveLength(1)
+    expect(occ[0]).toMatchObject({ voice: 'CEO', text: '등급 단순화' })
+    expect(occ[0].source).toMatchObject({ type: 'sketch', title: '평가 구상', date: '2026-11-19', dateKind: 'marked', href: '/sketch/b1' })
   })
 })
 

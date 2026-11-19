@@ -21,6 +21,7 @@ import {
 import { FontSize, getCurrentBlockFontSize } from '@/lib/tiptapFontSize'
 import { parseSpreadsheetClipboard } from '@/lib/spreadsheetClipboard'
 import { cleanPastedHTML } from '@/lib/htmlCleanup'
+import { isTodayTodoKey, addSelectionToToday } from '@/lib/todayTodoCapture'
 import { TableDragHandle } from './TableDragHandle'
 
 const RED = '#EF4444'
@@ -286,6 +287,8 @@ function MountedSketchEditor({
       && (e.code === 'Digit3' || e.code === 'Digit4')) {
       return toggleVoiceAtSelection(ed, e.code === 'Digit3' ? 'CEO' : 'CSO')
     }
+    // Alt+5 — 블록 잡은 글을 홈 '오늘 할 일'로 (모든 편집기 공통)
+    if (isTodayTodoKey(e)) { e.preventDefault(); return addSelectionToToday(ed) }
     if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.code === 'Period' || e.code === 'Comma')) {
       e.preventDefault()
       adjustFontSize(e.code === 'Period' ? FONT_SIZE_STEP : -FONT_SIZE_STEP)

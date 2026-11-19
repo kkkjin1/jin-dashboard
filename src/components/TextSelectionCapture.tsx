@@ -7,6 +7,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { createClient } from '@/lib/supabase/client'
 import { todayYmd } from '@/lib/tiptapExtensions'
+import { toTodoTitle } from '@/lib/todayTodoCapture'
 
 interface Props {
   sourceName: string
@@ -20,13 +21,6 @@ interface FloatPos {
 }
 
 type Mode = 'button' | 'saved' | 'failed'
-
-// 즉석 할 일 제목은 한 줄 — 여러 줄을 골랐으면 " / "로 잇고 너무 길면 자른다
-const MAX_TITLE = 200
-function toTodoTitle(text: string): string {
-  const one = text.split('\n').map(l => l.trim()).filter(Boolean).join(' / ').replace(/\s+/g, ' ')
-  return one.length > MAX_TITLE ? `${one.slice(0, MAX_TITLE)}…` : one
-}
 
 export default function TextSelectionCapture({ sourceName, sourceType }: Props) {
   const [float, setFloat] = useState<FloatPos | null>(null)
