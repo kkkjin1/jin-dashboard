@@ -14,6 +14,7 @@ import { generateTaskMd, downloadMd } from '@/lib/markdown'
 import dynamic from 'next/dynamic'
 import MarkdownContent from '@/components/MarkdownContent'
 import TextSelectionCapture from '@/components/TextSelectionCapture'
+import { pastedImageItem } from '@/lib/clipboardImage'
 const FullscreenNoteEditor = dynamic(() => import('@/components/FullscreenNoteEditor'), { ssr: false })
 const TiptapEditor = dynamic(() => import('@/components/TiptapEditor'), { ssr: false })
 
@@ -549,8 +550,7 @@ export default function TaskDetailPage() {
     // input/textarea에서는 기본 붙여넣기 유지
     const tag = (e.target as HTMLElement).tagName
     if (tag === 'INPUT' || tag === 'TEXTAREA') return
-    const items = Array.from(e.clipboardData.items)
-    const imageItem = items.find(item => item.type.startsWith('image/'))
+    const imageItem = pastedImageItem(e.clipboardData)   // 글이 같이 실린 오피스 복사는 글로 둔다
     if (!imageItem) return
     e.preventDefault()
     const blob = imageItem.getAsFile()

@@ -1240,26 +1240,29 @@ export function mergeNextParagraphOnDelete(editor: Editor): boolean {
   // Must also be the last item at every enclosing list level above this one —
   // if some ancestor list has a following sibling item, that's
   // pullAncestorSiblingOnDelete's case, not this one.
+  // 바깥 목록이 문서 바로 아래가 아니라 토글(detailsContent) 등 다른 블록 안에 있을 수도 있다 —
+  // listItem/list 쌍이 끊기는 곳에서 멈추고, 그 자리(container)에서 목록 다음 형제를 찾는다.
+  // (예전엔 문서 바로 아래 목록만 처리해 토글 안 빈 불릿에서 Delete가 먹지 않았다 — 2026-11-19)
   let depth = liDepth - 2
   while (depth >= 1) {
     const ownerLi = $from.node(depth)
     const ownerList = $from.node(depth - 1)
-    if (!ownerLi || ownerLi.type.name !== 'listItem') return false
-    if (!ownerList || (ownerList.type.name !== 'orderedList' && ownerList.type.name !== 'bulletList')) return false
+    if (ownerLi.type.name !== 'listItem') break
+    if (ownerList.type.name !== 'orderedList' && ownerList.type.name !== 'bulletList') break
     if ($from.index(depth - 1) !== ownerList.childCount - 1) return false
     depth -= 2
   }
 
-  // depth 1 is always the outermost enclosing list (the document's direct
-  // child) once we're nested at least 3 deep — whatever follows it belongs to
-  // the document itself, not to any list.
-  const docIndex = $from.index(0)
-  if (docIndex + 1 >= state.doc.childCount) return false
-  const nextNode = state.doc.child(docIndex + 1)
-  if (nextNode.type.name !== 'paragraph') return false
+  // depth = 가장 바깥 목록을 품은 블록(문서 또는 토글 본문 등)의 깊이, depth + 1 = 가장 바깥 목록
+  const container = $from.node(depth)
+  const listIndex = $from.index(depth)
+  if (listIndex + 1 >= container.childCount) return false
+  const nextNode = container.child(listIndex + 1)
+  // 일반 문단뿐 아니라 제목(h1~h3)처럼 글줄 블록이면 그 글을 끌어올린다(코드블록은 제외)
+  if (!nextNode.isTextblock || nextNode.type.name === 'codeBlock') return false
 
   const insertPos = $from.pos
-  const nextFrom = $from.after(1)
+  const nextFrom = $from.after(depth + 1)
   const nextTo = nextFrom + nextNode.nodeSize
 
   return editor.chain().focus().command(({ tr, dispatch }) => {

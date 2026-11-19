@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useEditor, useEditorState, EditorContent } from '@tiptap/react'
 import Image from '@tiptap/extension-image'
+import { pastedImageItem } from '@/lib/clipboardImage'
 import { cleanPastedHTML } from '@/lib/htmlCleanup'
 import {
   BASE_TIPTAP_EXTENSIONS, ToggleInputRules, legacyToHtml, handleListKeymapWorkaround, toggleDetailsAtSelection, moveBlockInToggle,
@@ -145,23 +146,18 @@ export default function TiptapEditor({
   }, [])
 
   const stablePaste = useCallback((_view: unknown, e: ClipboardEvent) => {
-    const items = e.clipboardData?.items
-    if (!items) return false
-    for (const item of Array.from(items)) {
-      if (item.type.startsWith('image/')) {
-        e.preventDefault()
-        const blob = item.getAsFile()
-        if (!blob) continue
-        const reader = new FileReader()
-        reader.onload = ev => {
-          const src = ev.target?.result as string
-          editorRef.current?.chain().focus().setImage({ src }).run()
-        }
-        reader.readAsDataURL(blob)
-        return true
-      }
+    // 글이 같이 실려 있으면(오피스 앱 복사) 그림 사본은 무시하고 글로 붙여넣는다
+    const item = pastedImageItem(e.clipboardData)
+    const blob = item?.getAsFile()
+    if (!blob) return false
+    e.preventDefault()
+    const reader = new FileReader()
+    reader.onload = ev => {
+      const src = ev.target?.result as string
+      editorRef.current?.chain().focus().setImage({ src }).run()
     }
-    return false
+    reader.readAsDataURL(blob)
+    return true
   }, [])
 
   const stableDrop = useCallback((_view: unknown, e: DragEvent, _slice: unknown, moved: boolean) => {

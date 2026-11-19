@@ -555,6 +555,13 @@ html, body {
 .tiptap-input :is(ol, ul) ul > li::before, .tiptap-input-dark :is(ol, ul) ul > li::before, .note-html :is(ol, ul) ul > li::before, .note-html-dark :is(ol, ul) ul > li::before { content: "•"; position: absolute; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
 .tiptap-input :is(ol, ul) :is(ol, ul) :is(ol, ul), .tiptap-input-dark :is(ol, ul) :is(ol, ul) :is(ol, ul), .note-html :is(ol, ul) :is(ol, ul) :is(ol, ul), .note-html-dark :is(ol, ul) :is(ol, ul) :is(ol, ul) { padding-left: 1.1rem; }
 .tiptap-input :is(ol, ul) :is(ol, ul) :is(ol, ul) > li::before, .tiptap-input-dark :is(ol, ul) :is(ol, ul) :is(ol, ul) > li::before, .note-html :is(ol, ul) :is(ol, ul) :is(ol, ul) > li::before, .note-html-dark :is(ol, ul) :is(ol, ul) :is(ol, ul) > li::before { content: "•"; position: absolute; left: -1.1rem; width: 0.9rem; text-align: center; font-size: 1.5em; line-height: 1.13; top: 0; }
+/* 불릿 안의 불릿(ul > li > ul): ○ — 위 규칙대로면 원형 불릿만 쓴 목록에서 Tab으로 2단계가 돼도 똑같이 •로
+   그려져 들여쓰기가 안 된 것처럼 보였다(2026-11-19). 글리프 크기·줄 맞춤은 아래 깊이4+ ○와 같다.
+   불릿 3겹(ul ul ul)은 다시 •, 깊이4+는 아래 규칙(더 뒤·같은 specificity)이 ○로 덮는다. */
+.tiptap-input ul > li > ul > li::before, .tiptap-input-dark ul > li > ul > li::before, .note-html ul > li > ul > li::before, .note-html-dark ul > li > ul > li::before { content: "○"; font-size: 0.5em; line-height: 3.4; }
+.tiptap-input ul > li > ul > li > ul > li::before, .tiptap-input-dark ul > li > ul > li > ul > li::before, .note-html ul > li > ul > li > ul > li::before, .note-html-dark ul > li > ul > li > ul > li::before { content: "•"; font-size: 1.5em; line-height: 1.13; }
+/* 바로 위 규칙(ul 3겹)이 깊이4 ○ 규칙보다 specificity가 높아 깊이4+까지 •로 덮으므로 깊이4+는 ○로 되돌린다 */
+.tiptap-input :is(ol, ul) > li > :is(ol, ul) > li > :is(ol, ul) > li > :is(ol, ul) > li::before, .tiptap-input-dark :is(ol, ul) > li > :is(ol, ul) > li > :is(ol, ul) > li > :is(ol, ul) > li::before, .note-html :is(ol, ul) > li > :is(ol, ul) > li > :is(ol, ul) > li > :is(ol, ul) > li::before, .note-html-dark :is(ol, ul) > li > :is(ol, ul) > li > :is(ol, ul) > li > :is(ol, ul) > li::before { content: "○"; font-size: 0.5em; line-height: 3.4; }
 /* 깊이4+: ○ (hollow circle) — 깊이3 규칙보다 specificity가 높아 override됨.
    깊이3(•)과 동일하게 실제 글리프를 line-height로 본문 줄(1.7em)에 맞춰 앉히는 방식 —
    .md-preview의 ol ol ol ol(같은 line-height:1.7 베이스)에 이미 검증된 font-size/line-height

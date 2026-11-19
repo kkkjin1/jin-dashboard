@@ -7,6 +7,7 @@ import type { AgendaSubTask, Attachment, Member, AgendaItemStatus, LearningResou
 import { useUserSetting } from '@/hooks/useUserSetting'
 import { revealVoiceBlock, showVoiceNotice } from '@/lib/executiveVoices'
 import dynamic from 'next/dynamic'
+import { pastedImageItem } from '@/lib/clipboardImage'
 const TiptapEditor = dynamic(() => import('@/components/TiptapEditor'), { ssr: false })
 
 interface SubTaskNote {
@@ -236,8 +237,7 @@ export default function SubTaskDetailPage() {
   async function handlePaste(e: React.ClipboardEvent) {
     const tag = (e.target as HTMLElement).tagName
     if (tag === 'INPUT' || tag === 'TEXTAREA') return
-    const items = Array.from(e.clipboardData.items)
-    const imageItem = items.find(item => item.type.startsWith('image/'))
+    const imageItem = pastedImageItem(e.clipboardData)   // 글이 같이 실린 오피스 복사는 글로 둔다
     if (!imageItem) return
     e.preventDefault()
     const blob = imageItem.getAsFile()

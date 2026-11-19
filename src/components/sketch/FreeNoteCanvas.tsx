@@ -14,6 +14,7 @@ import {
   AutosaveStatusHint, type OverlayBox,
 } from './FreeNoteOverlays'
 import { SketchTextEditor, type CaretPos } from './SketchTextEditor'
+import { pastedImageItem } from '@/lib/clipboardImage'
 
 // 마인드맵 카드를 확장할 때만 필요한 무거운 캔버스(React Flow)라, 자유노트를 열 때마다
 // 같이 불러오지 않도록 지연 로딩한다.
@@ -411,8 +412,8 @@ export default function FreeNoteCanvas({ boardId, embed }: { boardId: string; em
       // 올 수 있어 이미지 판정보다 먼저 확인한다.
       const inEditor = (e.target as HTMLElement | null)?.closest?.('.ProseMirror')
       if (inEditor && parseSpreadsheetClipboard(e.clipboardData)) return
-      const items = Array.from(e.clipboardData.items)
-      const imageItem = items.find(item => item.type.startsWith('image/'))
+      // 오피스 앱(PPT 등)에서 글을 복사하면 그림 사본도 같이 실린다 — 글이 있으면 이미지로 처리하지 않는다
+      const imageItem = pastedImageItem(e.clipboardData)
       if (!imageItem) {
         // 이미지가 아니면 Excel/Google Sheets 셀 범위인지 확인 — 맞으면 실제 Table
         // 요소를 만들고, 현재 포커스된 편집 영역(텍스트 카드 등)에도 원본 paste가
