@@ -16,7 +16,7 @@ import Image from '@tiptap/extension-image'
 import { CellSelection, TableMap, cellAround } from '@tiptap/pm/tables'
 import {
   BASE_TIPTAP_EXTENSIONS, ToggleInputRules, legacyToHtml, handleListKeymapWorkaround, moveBlockInToggle,
-  getVoiceAtSelection, toggleVoiceAtSelection, syncSelectionFromDom, VOICE_TARGETS, type VoiceTarget,
+  getVoiceAtSelection, toggleVoiceAtSelection, cyclePenColor, cycleHighlight, VOICE_TARGETS, type VoiceTarget,
 } from '@/lib/tiptapExtensions'
 import { FontSize, getCurrentBlockFontSize } from '@/lib/tiptapFontSize'
 import { parseSpreadsheetClipboard } from '@/lib/spreadsheetClipboard'
@@ -25,7 +25,6 @@ import { isTodayTodoKey, addSelectionToToday } from '@/lib/todayTodoCapture'
 import { TableDragHandle } from './TableDragHandle'
 
 const RED = '#EF4444'
-const HILITE = '#FEF08A'
 const MIN_FONT_SIZE = 9
 const MAX_FONT_SIZE = 48
 const FONT_SIZE_STEP = 1.5
@@ -268,20 +267,9 @@ function MountedSketchEditor({
   const stableKeyDown = useCallback((_view: unknown, e: KeyboardEvent) => {
     const ed = editorRef.current
     if (!ed) return false
-    if (e.altKey && e.key === '1') {
-      e.preventDefault()
-      syncSelectionFromDom(ed)   // 편집기 선택이 화면 선택과 어긋나 있으면 위쪽 서식이 풀리는 버그 방지
-      ed.isActive('textStyle', { color: RED })
-        ? ed.chain().focus().unsetColor().run()
-        : ed.chain().focus().setColor(RED).run()
-      return true
-    }
-    if (e.altKey && e.key === '2') {
-      e.preventDefault()
-      syncSelectionFromDom(ed)
-      ed.chain().focus().toggleHighlight({ color: HILITE }).run()
-      return true
-    }
+    // Alt+1 빨강→파랑→흐림→해제, Alt+2 노랑→초록→분홍→해제 (화면 선택 동기화 포함)
+    if (e.altKey && e.key === '1') { e.preventDefault(); cyclePenColor(ed); return true }
+    if (e.altKey && e.key === '2') { e.preventDefault(); cycleHighlight(ed); return true }
     // 경영진 의견 표시 — TiptapEditor와 같은 조건(e.code 판별, 한글 조합 중 무시, 대상 줄 없으면 기본 동작)
     if (enableVoiceRef.current && e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.isComposing && e.keyCode !== 229
       && (e.code === 'Digit3' || e.code === 'Digit4')) {
@@ -536,16 +524,14 @@ function MountedSketchEditor({
         <button
           className="w-5 h-5 flex items-center justify-center rounded opacity-70 hover:opacity-100 hover:bg-[rgba(239,68,68,0.15)] transition-opacity flex-shrink-0"
           style={{ color: RED }} onMouseDown={e => e.preventDefault()}
-          onClick={() => (editor.isActive('textStyle', { color: RED })
-            ? editor.chain().focus().unsetColor().run()
-            : editor.chain().focus().setColor(RED).run())}
-          title="강조 · 빨간펜 (Alt+1)"
+          onClick={() => cyclePenColor(editor)}
+          title="글자색 (Alt+1: 빨강→파랑→흐림→해제)"
         ><Pen size={12} /></button>
         <button
           className="w-5 h-5 flex items-center justify-center rounded opacity-70 hover:opacity-100 hover:bg-[rgba(234,179,8,0.18)] transition-opacity flex-shrink-0"
           style={{ color: '#EAB308' }} onMouseDown={e => e.preventDefault()}
-          onClick={() => editor.chain().focus().toggleHighlight({ color: HILITE }).run()}
-          title="형광펜 (Alt+2)"
+          onClick={() => cycleHighlight(editor)}
+          title="형광펜 (Alt+2: 노랑→초록→분홍→해제)"
         ><Highlighter size={12} /></button>
         {enableVoice && (
           <>

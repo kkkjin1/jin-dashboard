@@ -8,7 +8,7 @@ import { cleanPastedHTML } from '@/lib/htmlCleanup'
 import {
   BASE_TIPTAP_EXTENSIONS, ToggleInputRules, legacyToHtml, handleListKeymapWorkaround, toggleDetailsAtSelection, moveBlockInToggle,
   QaShortcut, toggleQuestionAtSelection, isQuestionAtSelection,
-  getVoiceAtSelection, setVoiceAtSelection, toggleVoiceAtSelection, syncSelectionFromDom, type VoiceTarget,
+  getVoiceAtSelection, setVoiceAtSelection, toggleVoiceAtSelection, cyclePenColor, cycleHighlight, type VoiceTarget,
 } from '@/lib/tiptapExtensions'
 import { pmDocToMarkdown } from '@/lib/tiptapMarkdown'
 import { isTodayTodoKey, addSelectionToToday } from '@/lib/todayTodoCapture'
@@ -103,18 +103,9 @@ export default function TiptapEditor({
     if (e.key === 'Escape') { onEscapeRef.current?.(); return true }
     const ed = editorRef.current
     if (!ed) return false
-    if (e.altKey && e.key === '1') {
-      syncSelectionFromDom(ed)   // 편집기 선택이 화면 선택과 어긋나 있으면 위쪽 서식이 풀리는 버그 방지
-      ed.isActive('textStyle', { color: '#EF4444' })
-        ? ed.chain().focus().unsetColor().run()
-        : ed.chain().focus().setColor('#EF4444').run()
-      return true
-    }
-    if (e.altKey && e.key === '2') {
-      syncSelectionFromDom(ed)
-      ed.chain().focus().toggleHighlight({ color: '#FEF08A' }).run()
-      return true
-    }
+    // Alt+1 빨강→파랑→흐림→해제, Alt+2 노랑→초록→분홍→해제 (화면 선택 동기화 포함)
+    if (e.altKey && e.key === '1') { cyclePenColor(ed); return true }
+    if (e.altKey && e.key === '2') { cycleHighlight(ed); return true }
     // 경영진 의견 표시 — e.code로 판별(macOS Option+숫자는 e.key가 특수문자). 한글 조합 중에는 무시하고,
     // 표시할 줄을 특정 못 하면 false로 넘겨 기본 동작을 막지 않는다.
     if (enableVoiceRef.current && e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.isComposing && e.keyCode !== 229

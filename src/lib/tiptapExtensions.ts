@@ -679,6 +679,42 @@ export function syncSelectionFromDom(editor: Editor) {
   } catch { /* DOM 위치를 못 읽으면 기존 선택 유지 */ }
 }
 
+// ── Alt+1 / Alt+2 누를 때마다 색 바꾸기 (2026-11-19) ─────────────────────────────
+// Alt+1 글자색: 빨강 → 파랑 → 흐림(덜 중요) → 해제. Alt+2 형광펜: 노랑 → 초록 → 분홍 → 해제.
+// 형광펜에 파랑을 안 넣는 이유: 토글 제목 음영이 파랑 계열이라 구분이 안 된다.
+// 목록에 없는 색(툴바로 고른 주황 등)이면 첫 색부터 시작한다.
+export const PEN_COLORS = ['#EF4444', '#3B82F6', '#9CA3AF'] as const
+export const HILITE_COLORS = ['#FEF08A', '#BBF7D0', '#FBCFE8'] as const
+
+function nextInCycle(cycle: readonly string[], current: unknown): string | null {
+  const i = typeof current === 'string' ? cycle.findIndex(c => c.toLowerCase() === current.toLowerCase()) : -1
+  return i === -1 ? cycle[0] : (cycle[i + 1] ?? null)
+}
+
+export function cyclePenColor(editor: Editor) {
+  syncSelectionFromDom(editor)
+  const next = nextInCycle(PEN_COLORS, editor.getAttributes('textStyle').color)
+  if (next) editor.chain().focus().setColor(next).run()
+  else editor.chain().focus().unsetColor().run()
+}
+
+export function cycleHighlight(editor: Editor) {
+  syncSelectionFromDom(editor)
+  const next = nextInCycle(HILITE_COLORS, editor.isActive('highlight') ? editor.getAttributes('highlight').color : null)
+  if (next) editor.chain().focus().setHighlight({ color: next }).run()
+  else editor.chain().focus().unsetHighlight().run()
+}
+
+// Ctrl+Y 취소선 (Ctrl+U 밑줄·Ctrl+I 기울임은 Tiptap 기본). 기본 Ctrl+Y(다시 실행)보다 먼저 잡는다 —
+// 다시 실행은 Ctrl+Shift+Z로 계속 된다.
+export const StrikeShortcut = Extension.create({
+  name: 'strikeShortcut',
+  priority: 1000,
+  addKeyboardShortcuts() {
+    return { 'Mod-y': () => this.editor.commands.toggleStrike() }
+  },
+})
+
 export const EnterClearsPen = Extension.create<unknown, { armed: boolean }>({
   name: 'enterClearsPen',
   priority: 1000,  // StarterKit·ListItem의 Enter보다 먼저 — 표시만 하고 false로 원래 Enter에 넘긴다
@@ -773,6 +809,7 @@ export const BASE_TIPTAP_EXTENSIONS = [
   QaAttribute,
   VoiceAttribute,
   EnterClearsPen,
+  StrikeShortcut,
 ]
 
 // ── Ctrl+Enter 토글 열기/닫기 ─────────────────────────────────────────────────

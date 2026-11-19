@@ -8,6 +8,7 @@ import { CATEGORY_PALETTE, type CategoryColorKey } from '@/lib/categoryColors'
 import { snapRotation } from '@/lib/sketchGeometry'
 import { parseSpreadsheetClipboard } from '@/lib/spreadsheetClipboard'
 import { SketchTextEditor } from './SketchTextEditor'
+import { PEN_COLORS, HILITE_COLORS } from '@/lib/tiptapExtensions'
 import { useAutosave } from '@/hooks/useAutosave'
 import type { AutosaveFailureReason, AutosaveStatus } from '@/lib/autosave/types'
 import type { SketchCard, SketchEdge, SketchFrame, SketchTableData } from '@/types'
@@ -59,7 +60,6 @@ function CompactRecoveryBanner({ onApply, onDiscard }: { onApply: () => void; on
 // SketchCanvas.tsx의 카드 에디터가 이미 쓰는 block(줄) 단위 font-size 조절 +
 // Alt+1(빨간펜)/Alt+2(형광펜) 토글을 자유노트 쪽 텍스트에도 그대로 적용한다.
 const RED = '#EF4444'
-const HILITE = '#FEF08A'
 const MIN_FONT_SIZE = 9
 const MAX_FONT_SIZE = 48
 const FONT_SIZE_STEP = 1.5
@@ -142,20 +142,27 @@ function peekCurrentBlockFontSize(root: HTMLElement, fallback: number): number {
   return block ? getBlockFontSize(block, fallback) : fallback
 }
 
-// 다른 서식은 없어도 "빨간펜"(Alt+1)/"형광펜"(Alt+2)만은 지원 — 선택 영역 있으면
-// 그 부분만, 없으면 토글.
+// 다른 서식은 없어도 Alt+1 글자색/Alt+2 형광펜만은 지원 — Tiptap 편집기와 같은 순환
+// (빨강→파랑→흐림→해제 / 노랑→초록→분홍→해제). 선택 영역 있으면 그 부분만.
+function hexToRgb(hex: string) {
+  const n = parseInt(hex.slice(1), 16)
+  return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`
+}
+function nextCycleColor(cycle: readonly string[], current: string): string | null {
+  const cur = current.replace(/\s+/g, '').toLowerCase()
+  const i = cycle.findIndex(c => hexToRgb(c).replace(/\s+/g, '') === cur || c.toLowerCase() === cur)
+  return i === -1 ? cycle[0] : (cycle[i + 1] ?? null)
+}
 function toggleRedPen() {
   document.execCommand('styleWithCSS', false, 'true')
-  const current = document.queryCommandValue('foreColor')
-  const isRed = current === 'rgb(239, 68, 68)' || current.toLowerCase() === RED.toLowerCase()
-  document.execCommand('foreColor', false, isRed ? BASE_TEXT : RED)
+  const next = nextCycleColor(PEN_COLORS, document.queryCommandValue('foreColor'))
+  document.execCommand('foreColor', false, next ?? BASE_TEXT)
 }
 function toggleHighlight() {
   document.execCommand('styleWithCSS', false, 'true')
   const cmd = document.queryCommandSupported?.('hiliteColor') ? 'hiliteColor' : 'backColor'
-  const current = document.queryCommandValue(cmd)
-  const isHi = current === 'rgb(254, 240, 138)' || current.toLowerCase() === HILITE.toLowerCase()
-  document.execCommand(cmd, false, isHi ? 'transparent' : HILITE)
+  const next = nextCycleColor(HILITE_COLORS, document.queryCommandValue(cmd))
+  document.execCommand(cmd, false, next ?? 'transparent')
 }
 
 // Chrome contentEditable에서 Enter를 연달아 눌러 빈 줄을 여러 개 만들면, 두 번째부터
@@ -195,6 +202,8 @@ export function BlockFormatBar({ editorRef, fallbackSize, className }: {
     function onKeyDown(e: KeyboardEvent) {
       if (e.altKey && e.key === '1') { e.preventDefault(); toggleRedPen(); return }
       if (e.altKey && e.key === '2') { e.preventDefault(); toggleHighlight(); return }
+      // Ctrl+Y 취소선 (Ctrl+U 밑줄·Ctrl+I 기울임은 브라우저 기본)
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'y') { e.preventDefault(); document.execCommand('strikeThrough'); return }
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.code === 'Period' || e.code === 'Comma')) {
         e.preventDefault(); e.stopPropagation()
         adjust(e.code === 'Period' ? FONT_SIZE_STEP : -FONT_SIZE_STEP)
@@ -240,14 +249,14 @@ export function BlockFormatBar({ editorRef, fallbackSize, className }: {
         style={{ color: RED }}
         onMouseDown={e => e.preventDefault()}
         onClick={toggleRedPen}
-        title="강조 · 빨간펜 (Alt+1)"
+        title="글자색 (Alt+1: 빨강→파랑→흐림→해제)"
       ><Pen size={12} /></button>
       <button
         className="w-5 h-5 flex items-center justify-center rounded opacity-70 hover:opacity-100 hover:bg-[rgba(234,179,8,0.18)] transition-opacity flex-shrink-0"
         style={{ color: '#EAB308' }}
         onMouseDown={e => e.preventDefault()}
         onClick={toggleHighlight}
-        title="형광펜 (Alt+2)"
+        title="형광펜 (Alt+2: 노랑→초록→분홍→해제)"
       ><Highlighter size={12} /></button>
     </div>
   )
