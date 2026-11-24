@@ -217,7 +217,7 @@ export default function AdhocReportView({
             <p className="text-[12.5px] font-semibold" style={{ color: S.t2 }}>수시보고 내역</p>
             <span className="text-[11px]" style={{ color: S.t4 }}>{rows.length}건</span>
           </div>
-          <div className="flex-1 min-h-0 overflow-y-auto px-2 pb-3">
+          <div className="flex-1 min-h-0 overflow-y-auto scrollbar-none px-2 pb-3">
             {loading && <p className="px-2 py-3 text-[12px]" style={{ color: S.t4 }}>불러오는 중…</p>}
             {loadError && <p className="px-2 py-3 text-[12px]" style={{ color: S.danger }}>불러오지 못했습니다: {loadError}</p>}
             {!loading && !loadError && rows.length === 0 && (
@@ -424,7 +424,7 @@ function AdhocForm({
   const metaLabel = 'flex items-center gap-1.5 text-[12px] font-semibold flex-shrink-0'
 
   return (
-    <div className="h-full overflow-y-auto px-4 md:px-8 py-5">
+    <div className="h-full overflow-y-auto scrollbar-none px-4 md:px-8 py-5">
       <div style={{ maxWidth: wide ? undefined : WRITING_CONTENT_WIDTH }}>
         <button onClick={onBack} className="md:hidden mb-3 text-[12px] px-2 py-1 rounded-lg" style={{ color: S.t3, background: 'rgba(var(--ink-rgb),0.04)' }}>← 목록</button>
 
@@ -502,6 +502,7 @@ function AdhocForm({
             value={body}
             onChange={setBody}
             minHeight={320}
+            autoGrow
             readOnly={false}
             enableVoice
             borderless
@@ -519,6 +520,7 @@ function AdhocForm({
               value={result}
               onChange={setResult}
               minHeight={200}
+              autoGrow
               readOnly={false}
               enableVoice
               borderless

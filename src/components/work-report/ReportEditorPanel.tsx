@@ -158,7 +158,7 @@ export function PrevCell({ value }: { value: string | undefined }) {
 type TextBoxVariant = 'primary' | 'callout' | 'default' | 'cell'
 
 export function TextBox({
-  label, secondaryLabel, helper, value, onChange, minHeight, placeholder, readOnly, statusLabel, variant = 'default', fill = false, heightKey, enableVoice = false, borderless = false, largeLabel = false, enableFontSize = false, maxHeight,
+  label, secondaryLabel, helper, value, onChange, minHeight, placeholder, readOnly, statusLabel, variant = 'default', fill = false, heightKey, enableVoice = false, borderless = false, largeLabel = false, enableFontSize = false, maxHeight, autoGrow = false,
 }: {
   label: string
   secondaryLabel?: string
@@ -184,9 +184,12 @@ export function TextBox({
   enableFontSize?: boolean
   // 최대 높이 — 넘치면 칸 안에서 스크롤(상단 고정 핵심 요약이 한 화면을 다 먹지 않게)
   maxHeight?: number
+  // 칸 안 스크롤 없이 항상 글 길이만큼 늘어나게(수시보고) — 끌어서 정한 높이는 '최소 높이'로만 쓴다
+  autoGrow?: boolean
 }) {
   const accentBar = variant === 'callout' && !borderless
   const [savedHeight] = useState(() => loadBoxHeight(heightKey))
+  const [growMin, setGrowMin] = useState(savedHeight)
   // 내용이나 옆 칸 때문에 바뀐 높이는 저장하지 않도록, 사용자가 누르고 뗀 사이에 바뀐 경우만 저장한다
   function trackResize(e: React.PointerEvent<HTMLDivElement>) {
     if (!heightKey) return
@@ -195,6 +198,8 @@ export function TextBox({
     window.addEventListener('pointerup', () => {
       const after = el.offsetHeight
       if (after === before) return
+      // autoGrow: 끈 높이를 최소 높이로 바꾸고 고정 높이는 풀어서, 글보다 작게 줄여도 칸 안 스크롤이 생기지 않게
+      if (autoGrow) { el.style.height = ''; setGrowMin(after) }
       try { window.localStorage.setItem(BOX_H_KEY_PREFIX + heightKey, String(after)) } catch { /* 무시 */ }
     }, { once: true })
   }
@@ -217,8 +222,8 @@ export function TextBox({
   const boxStyle: React.CSSProperties = {
     position: 'relative',
     width: '100%',
-    height: savedHeight ?? (fill ? '100%' : undefined),
-    minHeight,
+    height: autoGrow ? undefined : savedHeight ?? (fill ? '100%' : undefined),
+    minHeight: autoGrow && growMin ? Math.max(minHeight, growMin) : minHeight,
     maxHeight,
     // callout은 예전에 accentDim(0.15) 배경 전체를 채워 "파란 박스"처럼 튀었다 —
     // 왼쪽 accent bar 하나로도 이번 업데이트/다음 액션과는 다른 성격(결정/요청)임이
@@ -260,7 +265,7 @@ export function TextBox({
         </div>
       ) : (
         <div
-          className={`wr-rich ${maxHeight ? 'scrollbar-none' : ''}`}
+          className={`wr-rich ${maxHeight || autoGrow ? 'scrollbar-none' : ''}`}
           onPointerDown={trackResize}
           onMouseDown={focusEnd}
           style={{ ...boxStyle, resize: 'vertical', overflow: 'auto', cursor: 'text' }}
