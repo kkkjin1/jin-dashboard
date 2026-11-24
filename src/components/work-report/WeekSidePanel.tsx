@@ -70,20 +70,15 @@ export default function WeekSidePanel({ supabase, onClose }: { supabase: Supabas
 
   const sections: Section[] = useMemo(() => {
     const { cols, weekDays, olderItems } = board
-    const isWeekend = !weekDays.includes(today)
     const out: Section[] = []
     out.push({ id: 'prev', label: '직전주 미완료', items: [...cols[0], ...olderItems].sort((a, b) => a.date.localeCompare(b.date)), tone: 'warn', showDate: true, defaultOpen: false })
-    const pastGroups: { label: string; items: WeekItem[] }[] = []
+    // 요일은 날짜순(월→금). 이번 주의 지난 요일은 오늘 위에 흐리게 펼쳐 둔다 — 맨 아래 두면 스크롤해야 보여서(2026-11-24 지적)
     weekDays.forEach((d, i) => {
       const label = `${DOW[i]} ${shortDate(d)}`
       if (d === today) out.push({ id: 'today', label: '오늘', sub: label, items: cols[i + 1], tone: 'today', defaultOpen: true, fixedOpen: true })
-      else if (d > today) out.push({ id: `d${i}`, label, items: cols[i + 1], defaultOpen: true })
-      else pastGroups.push({ label, items: cols[i + 1] })
+      else if (d < today && weekOffset === 0) out.push({ id: `p${i}`, label, items: cols[i + 1], tone: 'muted', defaultOpen: true })
+      else out.push({ id: `d${i}`, label, items: cols[i + 1], defaultOpen: true })
     })
-    // 전주를 볼 때는 요일 전체가 지난 날이라 펼쳐서 요일별로 (펼침 기억도 이번 주와 따로)
-    if (pastGroups.length) out.push(weekOffset < 0
-      ? { id: 'pastweek', label: '요일별', items: pastGroups.flatMap(g => g.items), groups: pastGroups, defaultOpen: true }
-      : { id: 'past', label: '지난 요일', items: pastGroups.flatMap(g => g.items), groups: pastGroups, tone: 'muted', defaultOpen: isWeekend })
     out.push({ id: 'defer', label: '다음주로 연기', items: cols[6], showDate: true, defaultOpen: false })
     return out
   }, [board, today, weekOffset])
@@ -185,7 +180,7 @@ export default function WeekSidePanel({ supabase, onClose }: { supabase: Supabas
         )}
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto px-2 pb-4">
+      <div className="flex-1 min-h-0 overflow-y-auto scrollbar-none px-2 pb-4">
         {loading && <p className="px-2 py-3 text-[12px]" style={{ color: S.t4 }}>불러오는 중…</p>}
         {error && <p className="px-2 py-3 text-[12px]" style={{ color: S.danger }}>불러오지 못했습니다: {error}</p>}
         {!loading && !error && sections.map(s => {
@@ -212,7 +207,7 @@ export default function WeekSidePanel({ supabase, onClose }: { supabase: Supabas
                           {g.items.length ? g.items.map(it => renderItem(it)) : <p className="px-2 pb-1 text-[11px]" style={{ color: S.t4 }}>없음</p>}
                         </div>
                       ))
-                    : s.items.map(it => renderItem(it, s.showDate))
+                    : <div style={s.tone === 'muted' ? { opacity: 0.7 } : undefined}>{s.items.map(it => renderItem(it, s.showDate))}</div>
               )}
             </section>
           )
