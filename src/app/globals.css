@@ -721,6 +721,43 @@ details.details[open] > summary::before { transform: rotate(90deg); }
   vertical-align: 1px;
 }
 
+/* ── 세로바(인용구, Alt+3 · 줄 맨 앞 '" ') ── 편집기·읽기·생각스케치·업무보고 공통(2026-11-24: 스타일이 없어 Alt+3이 안 보였다).
+   경영진 의견 줄(얇은 2px 색 막대)과 헷갈리지 않게 회색 3px 막대 + 살짝 들여쓰기 */
+:is(.tiptap-input, .tiptap-input-dark, .note-html, .note-html-dark, .freenote-body, .wr-rich) blockquote {
+  border-left: 3px solid rgba(var(--ink-rgb), 0.28);
+  padding-left: 0.85em;
+  margin: 0.3em 0 0.3em 0.15em;
+  color: inherit;
+  font-style: normal;
+}
+:is(.tiptap-input, .tiptap-input-dark, .note-html, .note-html-dark, .freenote-body, .wr-rich) blockquote > :first-child { margin-top: 0; }
+:is(.tiptap-input, .tiptap-input-dark, .note-html, .note-html-dark, .freenote-body, .wr-rich) blockquote > :last-child { margin-bottom: 0; }
+/* Alt+3 세로선은 줄 속성(data-quote) — 고른 줄에만, 목록 안에서도 줄 단위. 경영진 의견(안쪽 그림자 막대)과 같이 써도 둘 다 보이게 테두리로 */
+:is(.tiptap-input, .tiptap-input-dark, .note-html, .note-html-dark, .freenote-body, .wr-rich) [data-quote="1"] {
+  border-left: 3px solid rgba(var(--ink-rgb), 0.28);
+  padding-left: 0.85em;
+}
+/* 편집기는 세로선 층(.quote-bar-layer, tiptapExtensions quoteBarPlugin)이 묶음마다 선 1개를 그린다 → 줄마다 그리던 선은 끔(들여쓰기는 유지).
+   읽기 전용 화면(편집기 아님)은 아래 줄 단위 선을 그대로 쓴다 */
+.ProseMirror.has-quote-bars { position: relative; }
+.ProseMirror.has-quote-bars [data-quote="1"] { border-left-color: transparent; }
+.ProseMirror.has-quote-bars li > [data-quote="1"]::before { display: none; }
+.quote-bar-layer { position: absolute; left: 0; top: 0; width: 0; height: 0; pointer-events: none; user-select: none; }
+/* 목록 줄이면 번호·불릿 기호 앞(그 줄 맨 왼쪽)에 선 — 기호는 li 왼쪽 바깥(::before)에 그려져 글자 테두리로는 기호와 글자 사이에 생겼다(2026-11-24 제보).
+   --qoff = 그 목록의 기호 자리 폭(아래 목록 스타일의 padding-left와 같은 값) */
+:is(.tiptap-input, .tiptap-input-dark, .note-html, .note-html-dark) li > [data-quote="1"] {
+  border-left: none; padding-left: 0; position: relative;
+}
+:is(.tiptap-input, .tiptap-input-dark, .note-html, .note-html-dark) li > [data-quote="1"]::before {
+  content: ''; position: absolute; top: 0; bottom: 0; width: 3px; border-radius: 1px;
+  left: calc(-1 * var(--qoff, 1.2rem)); /* 기호 자리 맨 왼쪽 = 일반 줄 세로선과 같은 세로 위치 */
+  background: rgba(var(--ink-rgb), 0.28);
+}
+:is(.tiptap-input, .tiptap-input-dark, .note-html, .note-html-dark) > ol > li { --qoff: 1.4rem; }
+:is(.tiptap-input, .tiptap-input-dark, .note-html, .note-html-dark) > ul > li { --qoff: 1.2rem; }
+:is(.tiptap-input, .tiptap-input-dark, .note-html, .note-html-dark) :is(ol, ul) ol > li { --qoff: 1.2rem; }
+:is(.tiptap-input, .tiptap-input-dark, .note-html, .note-html-dark) :is(ol, ul) ul > li { --qoff: 1.1rem; }
+
 /* ── 경영진 의견 줄 (data-voice="CEO|CSO") ── 에디터·읽기모드 공통. 왼쪽 얇은 막대 + 끝에 작은 라벨.
    막대는 inset 그림자라 질문 줄(data-qa)의 border-left와 겹쳐도 둘 다 보인다 */
 .tiptap-input [data-voice], .tiptap-input-dark [data-voice], .note-html [data-voice], .note-html-dark [data-voice] {

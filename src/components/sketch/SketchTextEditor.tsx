@@ -15,7 +15,7 @@ import { Table, TableRow, TableHeader, TableCell } from '@tiptap/extension-table
 import Image from '@tiptap/extension-image'
 import { CellSelection, TableMap, cellAround } from '@tiptap/pm/tables'
 import {
-  BASE_TIPTAP_EXTENSIONS, ToggleInputRules, legacyToHtml, handleListKeymapWorkaround, moveBlockInToggle,
+  BASE_TIPTAP_EXTENSIONS, ToggleInputRules, legacyToHtml, handleListKeymapWorkaround, moveBlockInToggle, indentListLine,
   getVoiceAtSelection, toggleVoiceAtSelection, cyclePenColor, cycleHighlight, VOICE_TARGETS, type VoiceTarget,
 } from '@/lib/tiptapExtensions'
 import { FontSize, getCurrentBlockFontSize } from '@/lib/tiptapFontSize'
@@ -297,9 +297,7 @@ function MountedSketchEditor({
       e.preventDefault()
       // 목록 밖이면 토글 층위 이동 — 위 토글 안으로 넣기 / 감싼 토글 밖으로 꺼내기
       if (!ed.isActive('listItem')) { moveBlockInToggle(ed, e.shiftKey ? 'out' : 'in'); return true }
-      e.shiftKey
-        ? ed.chain().focus().liftListItem('listItem').run()
-        : ed.chain().focus().sinkListItem('listItem').run()
+      indentListLine(ed, e.shiftKey ? 'out' : 'in') // 커서만 있으면 그 줄만, 블록이면 잡힌 줄 전부
       return true
     }
     return handleListKeymapWorkaround(ed, e)

@@ -66,3 +66,43 @@ describe('항목 안 빈 줄 Backspace', () => {
     expect(r.html).toBe('<ul><li><p>가</p><p>나</p></li></ul>')
   })
 })
+
+// Tab/Shift+Tab: 커서만 있으면 그 줄만, 블록 잡으면 잡힌 줄 전부 (2026-11-24)
+import { indentListLine } from './tiptapExtensions'
+describe('줄 단위 들여쓰기', () => {
+  const mk = (html: string) => new Editor({ extensions: [...BASE_TIPTAP_EXTENSIONS, ToggleInputRules], content: html })
+  const at = (ed: Editor, text: string, end?: string) => {
+    let a = -1, b = -1
+    ed.state.doc.descendants((n, p) => { if (n.isText && n.text === text) a = end ? p : p + 1; if (end && n.isText && n.text === end) b = p + n.text.length }) // 블록 = 첫 글자 앞 ~ 마지막 글자 뒤(화면에 칠해지는 범위)
+    ed.view.dispatch(ed.state.tr.setSelection(TextSelection.create(ed.state.doc, a, b < 0 ? a : b)))
+  }
+  const html = (ed: Editor) => ed.getHTML().replace(/<p><\/p>$/, '')
+  it('제보 그대로: 중간 Enter로 하위 항목을 데려간 줄을 Tab → 그 줄만 들어가고 A·B는 제 단계', () => {
+    const ed = mk('<ul><li><p>가나</p></li><li><p>다라</p><ul><li><p>A</p></li><li><p>B</p></li></ul></li></ul>')
+    at(ed, '다라')
+    expect(indentListLine(ed, 'in')).toBe(true)
+    expect(html(ed)).toBe('<ul><li><p>가나</p><ul><li><p>다라</p></li><li><p>A</p></li><li><p>B</p></li></ul></li></ul>')
+    ed.destroy()
+  })
+  it('블록 잡고 Tab → 잡힌 줄 전부 들어감', () => {
+    const ed = mk('<ul><li><p>가</p></li><li><p>나</p></li><li><p>다</p></li></ul>')
+    at(ed, '나', '다')
+    indentListLine(ed, 'in')
+    expect(html(ed)).toBe('<ul><li><p>가</p><ul><li><p>나</p></li><li><p>다</p></li></ul></li></ul>')
+    ed.destroy()
+  })
+  it('Shift+Tab 커서만 → 그 줄만 나오고 하위 항목은 제 단계(위 형제 밑으로)', () => {
+    const ed = mk('<ul><li><p>가</p><ul><li><p>나</p></li><li><p>다</p><ul><li><p>A</p></li></ul></li></ul></li></ul>')
+    at(ed, '다')
+    indentListLine(ed, 'out')
+    expect(html(ed)).toBe('<ul><li><p>가</p><ul><li><p>나</p><ul><li><p>A</p></li></ul></li></ul></li><li><p>다</p></li></ul>')
+    ed.destroy()
+  })
+  it('블록 잡고 Shift+Tab → 잡힌 줄 전부 나옴', () => {
+    const ed = mk('<ul><li><p>가</p><ul><li><p>나</p></li><li><p>다</p></li></ul></li></ul>')
+    at(ed, '나', '다')
+    indentListLine(ed, 'out')
+    expect(html(ed)).toBe('<ul><li><p>가</p></li><li><p>나</p></li><li><p>다</p></li></ul>')
+    ed.destroy()
+  })
+})

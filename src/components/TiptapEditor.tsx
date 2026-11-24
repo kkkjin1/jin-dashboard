@@ -6,7 +6,7 @@ import Image from '@tiptap/extension-image'
 import { pastedImageItem } from '@/lib/clipboardImage'
 import { cleanPastedHTML } from '@/lib/htmlCleanup'
 import {
-  BASE_TIPTAP_EXTENSIONS, ToggleInputRules, legacyToHtml, handleListKeymapWorkaround, toggleDetailsAtSelection, moveBlockInToggle,
+  BASE_TIPTAP_EXTENSIONS, ToggleInputRules, legacyToHtml, handleListKeymapWorkaround, toggleDetailsAtSelection, moveBlockInToggle, indentListLine,
   QaShortcut, toggleQuestionAtSelection, isQuestionAtSelection,
   getVoiceAtSelection, setVoiceAtSelection, toggleVoiceAtSelection, cyclePenColor, cycleHighlight, type VoiceTarget,
 } from '@/lib/tiptapExtensions'
@@ -123,9 +123,7 @@ export default function TiptapEditor({
         moveBlockInToggle(ed, e.shiftKey ? 'out' : 'in')
         return true
       }
-      e.shiftKey
-        ? ed.chain().focus().liftListItem('listItem').run()
-        : ed.chain().focus().sinkListItem('listItem').run()
+      indentListLine(ed, e.shiftKey ? 'out' : 'in') // 커서만 있으면 그 줄만, 블록이면 잡힌 줄 전부
       return true
     }
     // 생각스케치(SketchTextEditor.tsx)와 동일한 공용 함수를 그대로 호출 — 예전에는 이 핸들러가

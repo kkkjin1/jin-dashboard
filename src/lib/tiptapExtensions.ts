@@ -3,7 +3,8 @@
 // 보정. 두 에디터가 동일한 문서 스키마/Markdown input rule을 쓰도록 이 모듈만 참조한다.
 import { Extension, InputRule, mergeAttributes, wrappingInputRule } from '@tiptap/core'
 import type { Editor } from '@tiptap/react'
-import { AllSelection, Plugin, PluginKey, Selection, TextSelection, type Transaction } from '@tiptap/pm/state'
+import { AllSelection, Plugin, PluginKey, Selection, TextSelection, type EditorState, type Transaction } from '@tiptap/pm/state'
+import { Decoration, DecorationSet, type EditorView } from '@tiptap/pm/view'
 import { Slice, type Node as PMNode, type Mark as PMMark } from '@tiptap/pm/model'
 import { canJoin } from '@tiptap/pm/transform'
 import StarterKit from '@tiptap/starter-kit'
@@ -582,9 +583,139 @@ export const VoiceAttribute = Extension.create({
   },
 })
 
+// ── 세로선 줄 표시(Alt+3, 2026-11-24) ── 고른 줄 하나하나에 data-quote="1"을 단다(문서 구조는 그대로).
+// 처음엔 blockquote로 감쌌는데, 목록에서는 항목·하위 항목을 통째로 감싸 고르지 않은 줄까지 묶였다(제보) → 경영진 의견처럼 줄 속성으로.
+// 연달아 세로선을 켠 줄 묶음 — 문서 순서로 이어진 줄(사이에 세로선 없는 줄이 끼면 끊김). 순수 계산(테스트용)
+export function quoteRuns(doc: PMNode): number[][] {
+  const runs: number[][] = []
+  let cur: number[] | null = null
+  doc.descendants((node, pos) => {
+    if (!node.isTextblock) return true
+    if (node.attrs.quoteLine) { if (!cur) { cur = []; runs.push(cur) } cur.push(pos) }
+    else cur = null
+    return false
+  })
+  return runs
+}
+
+// 편집기 위 세로선 층(2026-11-24 "줄마다 따로 그린 선이 아니라 하나로"): 묶음마다 첫 줄 위~마지막 줄 아래를 잇는 선 1개.
+// 층은 문서 맨 앞 위젯(편집 불가·클릭 통과)으로 두고, 문서가 바뀌거나 크기가 바뀌면 위치를 다시 잰다.
+// 가로 위치 = 묶음 안 가장 왼쪽(목록 줄이면 번호·불릿 기호 자리 맨 왼쪽 = --qoff 만큼 더 왼쪽)
+const quoteBarKey = new PluginKey('quoteBars')
+function drawQuoteBars(view: EditorView, layer: HTMLElement) {
+  const host = view.dom as HTMLElement
+  const hr = host.getBoundingClientRect()
+  const ox = hr.left + host.clientLeft - host.scrollLeft, oy = hr.top + host.clientTop - host.scrollTop
+  const bars: string[] = []
+  for (const run of quoteRuns(view.state.doc)) {
+    let top = Infinity, bottom = -Infinity, left = Infinity
+    for (const pos of run) {
+      const el = view.nodeDOM(pos) as HTMLElement | null
+      if (!el || !el.getBoundingClientRect) continue
+      const r = el.getBoundingClientRect()
+      if (!r.height) continue
+      top = Math.min(top, r.top); bottom = Math.max(bottom, r.bottom)
+      const li = el.parentElement?.tagName === 'LI' ? el.parentElement : null
+      const qoff = li ? parseFloat(getComputedStyle(li).getPropertyValue('--qoff')) || 1.2 : 0
+      const remPx = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
+      left = Math.min(left, r.left - qoff * remPx)
+    }
+    if (!Number.isFinite(top)) continue
+    // 화면 화소 단위로 맞춘다 — 목록 줄이 섞이면 위치가 소수점(1.4rem=22.4px 등)이라 선이 두 화소에 번져 일반 줄 선보다
+    // 얇고 흐려 보였다(2026-11-24). 굵기도 화소 정수배로 고정
+    const dpr = window.devicePixelRatio || 1
+    const snap = (v: number) => Math.round(v * dpr) / dpr
+    const w = Math.max(1, Math.round(3 * dpr)) / dpr
+    const x = snap(left) - ox, y = snap(top) - oy, h = snap(bottom) - snap(top) // 화면 기준 위치를 화소에 맞춘 뒤 편집기 기준으로
+    bars.push(`<span style="position:absolute;left:${x}px;top:${y}px;height:${h}px;width:${w}px;border-radius:1.5px;background:rgba(var(--ink-rgb),0.28)"></span>`)
+  }
+  const html = bars.join('')
+  if (layer.innerHTML !== html) layer.innerHTML = html
+}
+// 편집기마다 따로 만든다(한 화면에 편집기가 여러 개면 층을 나눠 써야 해서)
+function makeQuoteBarPlugin(): Plugin {
+  const layer = typeof document !== 'undefined' ? document.createElement('div') : null
+  if (layer) {
+    layer.className = 'quote-bar-layer'
+    layer.contentEditable = 'false'
+    layer.setAttribute('aria-hidden', 'true')
+  }
+  return new Plugin({
+    key: quoteBarKey,
+    props: {
+      // 층을 담을 위젯 — 같은 key라 매번 같은 DOM을 재사용한다
+      decorations(state): DecorationSet | null {
+        if (!layer) return null
+        return DecorationSet.create(state.doc, [Decoration.widget(0, layer, { key: 'quote-bar-layer', side: -1, ignoreSelection: true })])
+      },
+      attributes: { class: 'has-quote-bars' },
+    },
+    view(view) {
+      if (!layer) return {}
+      let raf = 0
+      const redraw = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => drawQuoteBars(view, layer)) }
+      const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(redraw) : null
+      ro?.observe(view.dom)
+      redraw()
+      return {
+        update: () => redraw(),
+        destroy: () => { cancelAnimationFrame(raf); ro?.disconnect() },
+      }
+    },
+  })
+}
+
+export const QuoteLineAttribute = Extension.create({
+  name: 'quoteLineAttribute',
+  addProseMirrorPlugins() { return [makeQuoteBarPlugin()] },
+  addGlobalAttributes() {
+    return [{
+      types: VOICE_TYPES,
+      attributes: {
+        quoteLine: {
+          default: false,
+          keepOnSplit: false,
+          parseHTML: el => el.getAttribute('data-quote') === '1',
+          renderHTML: attrs => (attrs.quoteLine ? { 'data-quote': '1' } : {}),
+        },
+      },
+    }]
+  },
+})
+
+/** Alt+3 — 고른 줄(커서만 있으면 그 줄)이 모두 세로선이면 끄고, 아니면 모두 켠다. 대상 줄이 없으면 false */
+export function toggleQuoteLines(editor: Editor): boolean {
+  if (editor.view.composing) return false
+  const blocks = voiceBlocksInSelection(editor)
+  if (blocks.length === 0) return false
+  const on = !blocks.every(b => b.node.attrs.quoteLine)
+  const tr = editor.state.tr
+  for (const b of blocks) tr.setNodeMarkup(b.pos, undefined, { ...b.node.attrs, quoteLine: on })
+  editor.view.dispatch(tr)
+  return true
+}
+
+// 끌어서 고른 범위가 다음 줄 맨 앞(또는 이전 줄 맨 끝)에만 살짝 걸친 경우 그 줄은 뺀다(2026-11-24 제보:
+// 화면엔 2·3행만 칠해져 보여도 끝이 4행 맨 앞에 걸려 3줄이 잡히던 것). 줄 표시·Tab 범위 계산 공통
+export function trimmedSelectionRange(state: EditorState): { from: number; to: number } {
+  const { from, to, empty, $from, $to } = state.selection
+  if (empty) return { from, to }
+  let f = from, t = to
+  if ($to.parent.isTextblock && $to.parentOffset === 0 && $to.depth > 0) {
+    const prev = Selection.findFrom(state.doc.resolve($to.before()), -1, true)
+    if (prev && prev.$head.pos >= f) t = prev.$head.pos
+  }
+  if ($from.parent.isTextblock && $from.parentOffset === $from.parent.content.size && $from.depth > 0) {
+    const next = Selection.findFrom(state.doc.resolve($from.after()), 1, true)
+    if (next && next.$head.pos <= t) f = next.$head.pos
+  }
+  return f <= t ? { from: f, to: t } : { from, to }
+}
+
 function voiceBlocksInSelection(editor: Editor): { pos: number; node: PMNode }[] {
   const { state } = editor
-  const { $from, from, to, empty } = state.selection
+  const { $from, empty } = state.selection
+  const { from, to } = trimmedSelectionRange(state)
   const blocks: { pos: number; node: PMNode }[] = []
   if (empty) {
     if (VOICE_TYPES.includes($from.parent.type.name)) blocks.push({ pos: $from.before(), node: $from.parent })
@@ -808,6 +939,7 @@ export const BASE_TIPTAP_EXTENSIONS = [
   DetailsContent,
   QaAttribute,
   VoiceAttribute,
+  QuoteLineAttribute,
   EnterClearsPen,
   StrikeShortcut,
 ]
@@ -1348,6 +1480,71 @@ export function outdentEmptyContinuationOnBackspace(editor: Editor): boolean {
     dispatch(tr)
     return true
   }).run()
+}
+
+// Tab / Shift+Tab 들여쓰기·내어쓰기(2026-11-24 사용자 요청: "개별 행만, 블록 잡으면 묶인 행 전부").
+// - 블록을 잡았으면: 잡힌 항목 전부(기본 sink/liftListItem과 같음)
+// - 커서만 있으면: 그 줄만. 그 항목에 딸린 하위 목록(줄 중간 Enter로 나뉘며 뒤 조각에 따라온 하위 항목 등)은 제 단계에 그대로 둔다
+//   · 들여쓰기: 항목을 한 단계 넣은 뒤, 딸려 들어간 하위 항목들을 그 항목 바로 뒤 형제로 꺼낸다(원래 단계 유지)
+//   · 내어쓰기: 하위 항목들을 바로 위 형제 항목의 하위 목록 끝으로 먼저 옮기고(원래 단계 유지) 그 항목만 꺼낸다
+const LIST_TYPES = new Set(['bulletList', 'orderedList'])
+function nearestListItemDepth(editor: Editor): number {
+  const { $from } = editor.state.selection
+  for (let d = $from.depth; d > 0; d--) if ($from.node(d).type.name === 'listItem') return d
+  return -1
+}
+export function indentListLine(editor: Editor, dir: 'in' | 'out'): boolean {
+  const sel = editor.state.selection
+  const run = () => dir === 'in' ? editor.chain().focus().sinkListItem('listItem').run() : editor.chain().focus().liftListItem('listItem').run()
+  if (!sel.empty) {
+    // 다음 줄 맨 앞·이전 줄 맨 끝에만 걸친 줄은 빼고(화면에 칠해진 줄만) 들여쓰기
+    const { from, to } = trimmedSelectionRange(editor.state)
+    if (from !== sel.from || to !== sel.to) editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, from, to)))
+    return run()
+  }
+  const d = nearestListItemDepth(editor)
+  if (d < 0) return run()
+  const $f = editor.state.selection.$from
+  const li = $f.node(d)
+  const nested = li.childCount > 1 && LIST_TYPES.has(li.lastChild!.type.name) ? li.lastChild! : null
+  if (!nested) return run()
+  if (dir === 'in') {
+    if (!run()) return false
+    const d2 = nearestListItemDepth(editor)
+    if (d2 < 0) return true
+    const $2 = editor.state.selection.$from
+    const li2 = $2.node(d2)
+    const inner = li2.lastChild
+    if (!inner || !LIST_TYPES.has(inner.type.name) || li2.childCount < 2) return true
+    const liEnd = $2.after(d2)
+    const innerEnd = liEnd - 1, innerStart = innerEnd - inner.nodeSize
+    return editor.chain().command(({ tr, dispatch }) => {
+      if (!dispatch) return true
+      tr.delete(innerStart, innerEnd)
+      tr.insert(tr.mapping.map(liEnd), inner.content) // 항목 바로 뒤 형제로(같은 목록 안)
+      dispatch(tr)
+      return true
+    }).run()
+  }
+  // 내어쓰기: 바로 위 형제 항목이 있으면 하위 항목들을 그 항목 밑으로 먼저 넘긴다
+  const idx = $f.index(d - 1)
+  if (idx > 0) {
+    const list = $f.node(d - 1)
+    const prev = list.child(idx - 1)
+    const liStart = $f.before(d), liEnd = $f.after(d)
+    const prevEnd = liStart // 바로 위 형제 항목의 끝 = 이 항목의 시작
+    const nestedEnd = liEnd - 1, nestedStart = nestedEnd - nested.nodeSize
+    editor.chain().command(({ tr, dispatch }) => {
+      if (!dispatch) return true
+      tr.delete(nestedStart, nestedEnd)
+      const prevLast = prev.lastChild
+      if (prevLast && prevLast.type === nested.type && prev.childCount > 1) tr.insert(prevEnd - 2, nested.content) // 위 항목의 하위 목록 끝에 이어 붙임
+      else tr.insert(prevEnd - 1, nested) // 위 항목에 하위 목록이 없으면 통째로
+      dispatch(tr)
+      return true
+    }).run()
+  }
+  return run()
 }
 
 export function handleListKeymapWorkaround(editor: Editor, e: KeyboardEvent): boolean {
