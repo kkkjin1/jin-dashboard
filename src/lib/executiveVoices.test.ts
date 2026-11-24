@@ -5,7 +5,7 @@ function raw(p: Partial<VoiceRawData>): VoiceRawData {
   return { meetingNotes: [], meetings: {}, meetingAgendas: {}, agendaItems: [], subTaskNotes: [], subTasks: {}, retros: [], adhocReports: [], sketchBoards: [], errors: [], ...p }
 }
 
-describe('경영진 의견(Alt+3/4) 모으기', () => {
+describe('경영진 의견(Alt+Q/W) 모으기', () => {
   it('회의록에 표시한 줄은 회의 날짜를 발언일로 모인다', () => {
     const occ = extractVoiceOccurrences(raw({
       meetingNotes: [{ id: 'n1', meeting_id: 'm1', title: '노트', content: '<p>일반 줄</p><p data-voice="CEO" data-voice-id="v1" data-voice-at="2026-10-20">보상 재검토</p>' }],

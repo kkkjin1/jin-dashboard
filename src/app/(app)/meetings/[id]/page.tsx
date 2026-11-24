@@ -371,7 +371,7 @@ export default function MeetingDetailPage() {
   const [meetingPreview, setMeetingPreview] = useState<Pick<Meeting, 'id' | 'title' | 'meeting_date'> | null>(null)
   const [meetingPreviewLabel, setMeetingPreviewLabel] = useState('')
   const [meetingPreviewContent, setMeetingPreviewContent] = useState('')
-  // 미리보기 노트의 id·수정 시각 — 읽기 화면에서 의견 표시(Alt+3/4)를 저장할 때 쓴다
+  // 미리보기 노트의 id·수정 시각 — 읽기 화면에서 의견 표시(Alt+Q/W)를 저장할 때 쓴다
   const [meetingPreviewNote, setMeetingPreviewNote] = useState<{ id: string; updated_at: string } | null>(null)
   const [meetingPreviewLoading, setMeetingPreviewLoading] = useState(false)
   // RIGHT 범주 트리의 펼침 상태 — 이 안건 그룹은 기본 펼침, 다른 안건 그룹은 기본 접힘.

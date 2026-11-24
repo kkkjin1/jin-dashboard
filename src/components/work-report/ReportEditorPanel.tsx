@@ -174,7 +174,7 @@ export function TextBox({
   fill?: boolean
   // 지정하면 사용자가 끌어서 바꾼 높이를 이 키로 기억해 다음에도 그 높이로 연다
   heightKey?: string
-  // 경영진 의견 줄 표시(Alt+3/4) — 수시보고에서만 켠다(의사결정 탭이 모으는 출처)
+  // 경영진 의견 줄 표시(Alt+Q/W) — 수시보고에서만 켠다(의사결정 탭이 모으는 출처)
   enableVoice?: boolean
   // 테두리·왼쪽 강조선 없이 옅은 배경만으로 칸을 구분(수시보고)
   borderless?: boolean

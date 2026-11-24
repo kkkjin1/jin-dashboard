@@ -77,7 +77,7 @@ function parseLegacyLine(raw: string): LegacyLine {
 // 원문 번호를 지킨다 — 설명 줄·빈 줄로 끊긴 "2."가 새 목록 "1."로 보이지 않도록 start를 단다.
 // --ol-start는 CustomOrderedList.renderHTML과 같은 형태(저장된 HTML을 읽기 화면 CSS 카운터가 그대로 쓴다)
 // 목록 항목 글자도 에디터가 저장하는 형태(<li><p>…</p>)로 낸다 — 읽기 화면 줄 표시(data-vblk)가 문단 단위라서
-// 변환 결과를 그대로 저장해도 목록 줄에 Alt+3/4를 붙일 수 있다
+// 변환 결과를 그대로 저장해도 목록 줄에 Alt+Q/W를 붙일 수 있다
 function olOpen(start = 1): string {
   return `<ol${start !== 1 ? ` start="${start}"` : ''} style="--ol-start:${start - 1}">`
 }
@@ -1313,10 +1313,48 @@ export function mergeNextParagraphOnDelete(editor: Editor): boolean {
 }
 
 /** Backspace/Delete 키다운에서 위 네 보정을 순서대로 시도 — 처리했으면 true. */
+// 목록 항목 안의 "두 번째 이후 빈 줄"(불릿 없이 들여쓴 줄)에서 Backspace — 그 줄만 한 단계 왼쪽으로(2026-11-24 제보:
+// 편집기 기본 동작은 그 줄이 든 목록 항목 전체를 liftListItem으로 끌어내 위쪽 ○ 항목까지 같이 왼쪽으로 밀렸다).
+// - 그 줄이 항목의 마지막 줄 + 항목이 목록의 마지막이면: 목록 바로 뒤로 옮긴다(부모가 목록 항목이면 그 항목 안, 아니면 목록 밖 일반 줄)
+// - 그 밖(중간에 끼인 빈 줄)이면: 그 빈 줄만 지우고 커서는 윗줄 끝으로
+export function outdentEmptyContinuationOnBackspace(editor: Editor): boolean {
+  const { state } = editor
+  const { selection } = state
+  if (!selection.empty) return false
+  const { $from } = selection
+  if ($from.parentOffset !== 0 || $from.parent.type.name !== 'paragraph' || $from.parent.content.size !== 0) return false
+  const liDepth = $from.depth - 1
+  if (liDepth < 2) return false
+  const li = $from.node(liDepth)
+  if (li.type.name !== 'listItem' && li.type.name !== 'taskItem') return false
+  const idxInLi = $from.index(liDepth)
+  if (idxInLi === 0) return false // 항목의 첫 줄(불릿 줄)은 기존 처리에 맡긴다
+  const list = $from.node(liDepth - 1)
+  const pStart = $from.before($from.depth), pEnd = $from.after($from.depth)
+  const lastInLi = idxInLi === li.childCount - 1
+  const lastInList = $from.index(liDepth - 1) === list.childCount - 1
+  return editor.chain().focus().command(({ tr, dispatch }) => {
+    if (!dispatch) return true
+    if (lastInLi && lastInList) {
+      const listEnd = $from.after(liDepth - 1)
+      tr.insert(listEnd, state.schema.nodes.paragraph.create())
+      tr.delete(pStart, pEnd)
+      const at = tr.mapping.map(listEnd, -1) - (pEnd - pStart) + 1
+      tr.setSelection(TextSelection.near(tr.doc.resolve(Math.min(Math.max(at, 0), tr.doc.content.size)), 1))
+    } else {
+      tr.delete(pStart, pEnd)
+      tr.setSelection(TextSelection.near(tr.doc.resolve(pStart), -1))
+    }
+    dispatch(tr)
+    return true
+  }).run()
+}
+
 export function handleListKeymapWorkaround(editor: Editor, e: KeyboardEvent): boolean {
   if (e.key === 'Backspace' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
     if (removeEmptyListItemOnBackspace(editor)) return true
     if (spliceNestedListOnBackspace(editor)) return true
+    if (outdentEmptyContinuationOnBackspace(editor)) return true
   }
   if (e.key === 'Delete' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
     if (pullAncestorSiblingOnDelete(editor)) return true

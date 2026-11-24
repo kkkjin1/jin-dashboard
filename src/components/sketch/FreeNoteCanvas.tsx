@@ -656,7 +656,7 @@ export default function FreeNoteCanvas({ boardId, embed }: { boardId: string; em
               placeholder="여기에 바로 적어보세요…"
               textColor="var(--text-primary)"
               variant="document"
-              // 단독 생각스케치도 Alt+3/4 경영진 의견 표시 — 의사결정 탭이 sketch_boards.note_body도 모은다
+              // 단독 생각스케치도 Alt+Q/W 경영진 의견 표시 — 의사결정 탭이 sketch_boards.note_body도 모은다
               enableVoice
               allowImages={!!embed}
               caretPosRef={bodyCaretPosRef}
@@ -734,7 +734,7 @@ export default function FreeNoteCanvas({ boardId, embed }: { boardId: string; em
       <p className="text-center text-[11px] pt-2 flex-shrink-0" style={{ color: 'rgba(var(--text-rgb),0.28)' }}>
         바로 타이핑하세요 · <span className="font-mono">Ctrl+V</span>로 이미지 붙여넣기(크기·회전 조절 가능) ·
         <span className="font-mono">Alt+1</span> 글자색(빨강→파랑→흐림) · <span className="font-mono">Alt+2</span> 형광펜(노랑→초록→분홍) · <span className="font-mono">Ctrl+Y</span> 취소선 ·
-        <span className="font-mono">Alt+3/4</span> 경영진 의견(CEO/CSO) · <span className="font-mono">Alt+5</span> 오늘 할 일로 ·
+        <span className="font-mono">Alt+3</span> 세로바로 묶기 · <span className="font-mono">Alt+Q/W</span> 경영진 의견(CEO/CSO) · <span className="font-mono">Alt+`</span> 오늘 할 일로 ·
         마인드맵 카드는 더블클릭(또는 확장 아이콘)으로 편집 · 엑셀 셀 범위 <span className="font-mono">Ctrl+V</span>는 본문 줄 사이에 표로 삽입 · 선택 후 <span className="font-mono">Delete</span>로 삭제
       </p>
 

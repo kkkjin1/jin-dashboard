@@ -22,6 +22,7 @@ import { FontSize, getCurrentBlockFontSize } from '@/lib/tiptapFontSize'
 import { parseSpreadsheetClipboard } from '@/lib/spreadsheetClipboard'
 import { cleanPastedHTML } from '@/lib/htmlCleanup'
 import { isTodayTodoKey, addSelectionToToday } from '@/lib/todayTodoCapture'
+import { isQuoteKey, toggleQuoteAtSelection, voiceTargetOfKey } from '@/lib/editorShortcuts'
 import { TableDragHandle } from './TableDragHandle'
 
 const RED = '#EF4444'
@@ -163,7 +164,7 @@ export interface SketchTextEditorProps {
   scrollOnInitialFocus?: boolean
   /** 바깥에서 "포커스가 없으면 스크롤 없이 문서 끝에 커서" 를 호출할 수 있게 채워주는 ref */
   focusEndRef?: React.RefObject<(() => void) | null>
-  /** 경영진 의견 줄 표시(Alt+3 CEO / Alt+4 CSO / 툴바) — TiptapEditor의 enableVoice와 같은 표시 */
+  /** 경영진 의견 줄 표시(Alt+Q CEO / Alt+W CSO / 툴바) — TiptapEditor의 enableVoice와 같은 표시 */
   enableVoice?: boolean
   /** 기존 본문 안 이미지(base64) 보존 — 안건 메모 화면에서만 */
   allowImages?: boolean
@@ -270,12 +271,12 @@ function MountedSketchEditor({
     // Alt+1 빨강→파랑→흐림→해제, Alt+2 노랑→초록→분홍→해제 (화면 선택 동기화 포함)
     if (e.altKey && e.key === '1') { e.preventDefault(); cyclePenColor(ed); return true }
     if (e.altKey && e.key === '2') { e.preventDefault(); cycleHighlight(ed); return true }
-    // 경영진 의견 표시 — TiptapEditor와 같은 조건(e.code 판별, 한글 조합 중 무시, 대상 줄 없으면 기본 동작)
-    if (enableVoiceRef.current && e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.isComposing && e.keyCode !== 229
-      && (e.code === 'Digit3' || e.code === 'Digit4')) {
-      return toggleVoiceAtSelection(ed, e.code === 'Digit3' ? 'CEO' : 'CSO')
-    }
-    // Alt+5 — 블록 잡은 글을 홈 '오늘 할 일'로 (모든 편집기 공통)
+    // 경영진 의견 표시 Alt+Q CEO / Alt+W CSO(2026-11-24, 예전 Alt+3/4) — 표시할 줄을 특정 못 하면 false로 넘겨 기본 동작을 막지 않는다
+    const voice = enableVoiceRef.current ? voiceTargetOfKey(e) : null
+    if (voice) { if (toggleVoiceAtSelection(ed, voice)) { e.preventDefault(); return true } return false }
+    // Alt+3 — 고른 줄을 세로바(인용구)로 묶기/풀기(토글 안이면 그 본문 안에서)
+    if (isQuoteKey(e)) { e.preventDefault(); toggleQuoteAtSelection(ed); return true }
+    // Alt+` — 블록 잡은 글을 홈 '오늘 할 일'로 (모든 편집기 공통, 예전 Alt+5)
     if (isTodayTodoKey(e)) { e.preventDefault(); return addSelectionToToday(ed) }
     if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.code === 'Period' || e.code === 'Comma')) {
       e.preventDefault()
@@ -543,7 +544,7 @@ function MountedSketchEditor({
                 style={{ color: textColor, background: currentVoice === t ? 'rgba(var(--ink-rgb),0.14)' : undefined, opacity: currentVoice === t ? 1 : undefined }}
                 onMouseDown={e => e.preventDefault()}
                 onClick={() => { editor.commands.focus(); toggleVoiceAtSelection(editor, t) }}
-                title={`경영진 의견 줄 표시 · ${t} (${t === 'CEO' ? 'Alt+3' : 'Alt+4'}) — 다시 누르면 해제`}
+                title={`경영진 의견 줄 표시 · ${t} (${t === 'CEO' ? 'Alt+Q' : 'Alt+W'}) — 다시 누르면 해제`}
               >{t}</button>
             ))}
           </>

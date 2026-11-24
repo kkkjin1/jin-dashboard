@@ -16,7 +16,7 @@ import WeekSidePanel from './WeekSidePanel'
 // 수시보고(2026-10-28) — 정기보고(work_reports)와 표·화면을 완전히 나눴다. 정기보고의 직전 회차·이월·
 // 보고일 기본값이 모두 work_reports 목록 순서로 계산되므로, 같은 표에 섞으면 그 계산이 깨진다.
 // 회차·이월 개념 없이 한 건씩 쌓이는 아카이브: 왼쪽 목록(본문은 노출하지 않음) + 오른쪽 편집.
-// 보고 내용·결과 칸에서 Alt+3/4로 표시한 줄은 의사결정 탭에 출처 "수시보고"로 모인다.
+// 보고 내용·결과 칸에서 Alt+Q/W로 표시한 줄은 의사결정 탭에 출처 "수시보고"로 모인다.
 
 export type ReportKind = 'regular' | 'adhoc'
 
@@ -526,7 +526,7 @@ function AdhocForm({
               borderless
               enableFontSize
             />
-            <p className="text-[11px] mt-1.5" style={{ color: S.t4 }}>Alt+3 CEO · Alt+4 CSO 표시 줄은 의사결정 탭에 모입니다</p>
+            <p className="text-[11px] mt-1.5" style={{ color: S.t4 }}>Alt+Q CEO · Alt+W CSO 표시 줄은 의사결정 탭에 모입니다</p>
           </div>
         </div>
       </div>

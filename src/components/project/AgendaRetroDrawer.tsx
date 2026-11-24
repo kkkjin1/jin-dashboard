@@ -8,7 +8,7 @@ import { useAutosave } from '@/hooks/useAutosave'
 import { fetchAgendaVoiceRawData, extractVoiceOccurrences, mergeVoiceOccurrences, SOURCE_LABEL, type VoiceEntry } from '@/lib/executiveVoices'
 
 // 업무 회고 서랍(v62 agenda_retros) — 완료성과 안건 카드·안건 상세에서 연다.
-// 4칸: ① 성과 한 줄 ② 받은 피드백(이 안건의 Alt+3/4 줄 자동 모음 + 직접 추가) ③ 어떻게 바뀌었나 ④ 놓친 것 → 다음엔
+// 4칸: ① 성과 한 줄 ② 받은 피드백(이 안건의 Alt+Q/W 줄 자동 모음 + 직접 추가) ③ 어떻게 바뀌었나 ④ 놓친 것 → 다음엔
 // 저장: 칸마다 600ms 디바운스 upsert(agenda_item_id 기준 1행) + useAutosave 병행 기록(project_item / retro_*)
 
 type Field = 'outcome' | 'feedback' | 'changes' | 'lessons'
@@ -153,7 +153,7 @@ export default function AgendaRetroDrawer({ agendaId, onClose }: Props) {
                     style={{ border: '1px solid rgba(var(--ink-rgb),0.12)', color: 'rgba(var(--text-rgb),0.95)' }} />
                 </Section>
 
-                <Section no="②" title="받은 피드백" hint="이 안건에서 Alt+3/4로 표시한 줄이 자동으로 모입니다">
+                <Section no="②" title="받은 피드백" hint="이 안건에서 Alt+Q/W로 표시한 줄이 자동으로 모입니다">
                   {voices.length === 0 ? (
                     <p className="text-[12px] text-[rgba(var(--text-rgb),0.35)] px-1 pb-1">이 안건에 표시된 의견이 없습니다</p>
                   ) : (

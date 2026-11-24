@@ -5,7 +5,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { VOICE_TARGETS, type VoiceTarget, legacyToHtml, legacyPlainText, newVoiceId, todayYmd } from '@/lib/tiptapExtensions'
 
 export type VoiceSourceType = 'meeting' | 'agenda' | 'subtask' | 'retro' | 'adhoc' | 'sketch'
-// spoken=발언일(회의 날짜) · recorded=기록일(메모 작성일) · marked=표시일(Alt+3/4 누른 날) · unknown=날짜 미상
+// spoken=발언일(회의 날짜) · recorded=기록일(메모 작성일) · marked=표시일(Alt+Q/W 누른 날) · unknown=날짜 미상
 export type VoiceDateKind = 'spoken' | 'recorded' | 'marked' | 'unknown'
 
 export const SOURCE_LABEL: Record<VoiceSourceType, string> = { meeting: '회의록', agenda: '안건', subtask: '세부 Task', retro: '업무 회고', adhoc: '수시보고', sketch: '생각스케치' }
@@ -367,7 +367,7 @@ export function extractVoiceOccurrences(raw: VoiceRawData): VoiceOccurrence[] {
       }
     }
   }
-  // 생각스케치 — 날짜는 표시일(Alt+3/4 누른 날)
+  // 생각스케치 — 날짜는 표시일(Alt+Q/W 누른 날)
   for (const b of raw.sketchBoards ?? []) {
     for (const { el } of voiceElements(b.note_body ?? '')) {
       const voiceId = el.getAttribute('data-voice-id'), voiceAt = validDate(el.getAttribute('data-voice-at'))
@@ -459,7 +459,7 @@ function setVoiceAttrs(el: Element, target: VoiceTarget | null) {
 
 const plain = (html: string) => (new DOMParser().parseFromString(html, 'text/html').body.textContent ?? '').replace(/\s+/g, '')
 
-// 표시 규칙은 에디터(Alt+3/4)와 같다 — 고른 줄이 모두 이미 target이면 해제, 아니면 전부 target.
+// 표시 규칙은 에디터(Alt+Q/W)와 같다 — 고른 줄이 모두 이미 target이면 해제, 아니면 전부 target.
 // 속성(과 예전 형식의 목록 항목 문단 감싸기)만 바꾸고, 저장 전 글자 내용이 원문과 같은지 검사한다.
 export function applyVoiceToContent(content: string, sel: ReadSelection, target: VoiceTarget): ApplyVoiceResult {
   if (sel.kind === 'html') {

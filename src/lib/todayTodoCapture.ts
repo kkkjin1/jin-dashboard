@@ -1,4 +1,4 @@
-// Alt+5 — 편집기에서 블록 잡은 글을 홈 "오늘 할 일"(quick_todos, 오늘 날짜)로 바로 넣는다.
+// Alt+` (2026-11-24, 예전 Alt+5) — 편집기에서 블록 잡은 글을 홈 "오늘 할 일"(quick_todos, 오늘 날짜)로 바로 넣는다.
 // 회의·업무 상세의 "📌 오늘 업무로" 팝업(TextSelectionCapture)과 같은 테이블·같은 제목 규칙.
 // 화면마다 상태를 엮지 않도록 결과는 잠깐 뜨는 토스트(DOM 직접)로만 알린다.
 import type { Editor } from '@tiptap/core'
@@ -12,9 +12,9 @@ export function toTodoTitle(text: string): string {
   return one.length > MAX_TITLE ? `${one.slice(0, MAX_TITLE)}…` : one
 }
 
-/** Alt+5 판별 — e.code(맥 Option+숫자 대비), 한글 조합 중 무시 */
+/** Alt+` 판별(숫자 1 왼쪽 키) — e.code(맥 Option 대비), 한글 조합 중 무시 */
 export function isTodayTodoKey(e: KeyboardEvent): boolean {
-  return e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.isComposing && e.keyCode !== 229 && e.code === 'Digit5'
+  return e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.isComposing && e.code === 'Backquote'
 }
 
 function showToast(message: string, ok: boolean) {

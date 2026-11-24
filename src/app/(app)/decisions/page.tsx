@@ -135,7 +135,7 @@ export default function DecisionsPage() {
 
   function logDraftKey(persona: Persona) { return `decisions_log_draft_${persona}` }
 
-  // ── 모인 의견(Alt+3/4 표시) ──
+  // ── 모인 의견(Alt+Q/W 표시) ──
   const [leftView, setLeftView] = useState<'voices' | 'logs'>('voices')
   const [voices, setVoices] = useState<VoiceEntry[] | null>(null)
   const [voiceErrors, setVoiceErrors] = useState<string[]>([])
@@ -549,7 +549,7 @@ export default function DecisionsPage() {
                   ) : visibleVoices.length === 0 ? (
                     <div className="text-center py-14 text-[rgba(var(--text-rgb),0.3)] px-6">
                       <p className="text-sm mb-1">{personaVoices.length === 0 ? '아직 모인 의견이 없습니다' : '조건에 맞는 의견이 없습니다'}</p>
-                      <p className="text-xs">회의록·안건·세부 Task 메모에서 {activeTab} 발언 줄에 커서를 두고 {activeTab === 'CEO' ? 'Alt+3' : 'Alt+4'}을 누르면 여기에 모입니다</p>
+                      <p className="text-xs">회의록·안건·세부 Task 메모에서 {activeTab} 발언 줄에 커서를 두고 {activeTab === 'CEO' ? 'Alt+Q' : 'Alt+W'}를 누르면 여기에 모입니다</p>
                       {undatedHidden > 0 && <p className="text-xs mt-2">날짜 미상 {undatedHidden}건은 기간 필터 &lsquo;전체&rsquo;에서만 보입니다</p>}
                     </div>
                   ) : (

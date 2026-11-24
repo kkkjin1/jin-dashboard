@@ -1,6 +1,6 @@
 'use client'
 
-// 회의록 노트 읽기 화면 + 경영진 의견 표시(Alt+3 CEO / Alt+4 CSO).
+// 회의록 노트 읽기 화면 + 경영진 의견 표시(Alt+Q CEO / Alt+W CSO, 2026-11-24 예전 Alt+3/4).
 // 읽기 화면에서 줄을 클릭(또는 여러 줄 드래그)하고 단축키를 누르면 그 줄에 표시를 붙여 이 노트(meeting_notes)
 // 한 건만 바로 저장한다. 다른 곳에서 먼저 고쳤으면(updated_at 불일치) 저장하지 않고 최신 내용을 다시 불러온다.
 // 예전 형식(순수 텍스트) 노트는 표시할 때 "수정→저장"과 같은 변환으로 새 형식(HTML)이 되므로 노트마다 처음 한 번 확인한다.
@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase/client'
 import MarkdownContent from '@/components/MarkdownContent'
 import { applyVoiceToContent, isHtmlContent, withReadBlockMarkers, showVoiceNotice, type ReadSelection } from '@/lib/executiveVoices'
 import type { VoiceTarget } from '@/lib/tiptapExtensions'
+import { voiceTargetOfKey } from '@/lib/editorShortcuts'
 
 interface Props {
   noteId: string
@@ -40,8 +41,8 @@ export default function VoiceReadableNote({ noteId, content, updatedAt, onSaved,
 
   useEffect(() => {
     const onKey = async (e: KeyboardEvent) => {
-      if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || e.isComposing) return
-      if (e.code !== 'Digit3' && e.code !== 'Digit4') return
+      const voiceKey = voiceTargetOfKey(e)
+      if (!voiceKey) return
       const box = boxRef.current
       const sel = window.getSelection()
       if (!box || !sel || sel.rangeCount === 0) return
@@ -66,7 +67,7 @@ export default function VoiceReadableNote({ noteId, content, updatedAt, onSaved,
       const idx = [...new Set(els.map(el => Number(el.getAttribute(attr))).filter(n => Number.isInteger(n) && n >= 0))]
       if (idx.length === 0) { showVoiceNotice('표시할 줄을 찾지 못했습니다 — 줄을 클릭하거나 드래그한 뒤 눌러 주세요'); return }
 
-      const target: VoiceTarget = e.code === 'Digit3' ? 'CEO' : 'CSO'
+      const target: VoiceTarget = voiceKey
       const selection: ReadSelection = isHtml ? { kind: 'html', blocks: idx } : { kind: 'legacy', lines: idx }
       const result = applyVoiceToContent(cur, selection, target)
       if (!result.ok) { showVoiceNotice(result.reason); return }

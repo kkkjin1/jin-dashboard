@@ -12,6 +12,7 @@ import {
 } from '@/lib/tiptapExtensions'
 import { pmDocToMarkdown } from '@/lib/tiptapMarkdown'
 import { isTodayTodoKey, addSelectionToToday } from '@/lib/todayTodoCapture'
+import { isQuoteKey, toggleQuoteAtSelection, voiceTargetOfKey } from '@/lib/editorShortcuts'
 import { FontSize, getCurrentBlockFontSize } from '@/lib/tiptapFontSize'
 
 const TEXT_COLORS = [
@@ -59,14 +60,14 @@ interface Props {
   hideToolbar?: boolean
   enableToggle?: boolean
   enableQa?: boolean
-  // enableVoice: 경영진 의견 줄 표시(Alt+3 CEO / Alt+4 CSO / 툴바) — 회의록·안건·세부task 메모·퀵메모에서만
+  // enableVoice: 경영진 의견 줄 표시(Alt+Q CEO / Alt+W CSO / 툴바) — 회의록·안건·세부task 메모·퀵메모에서만
   enableVoice?: boolean
   // enableFontSize: 줄 단위 글자 크기 단축키. fontSizeBase는 크기 지정 안 된 줄의 기본 크기(px)
   enableFontSize?: boolean
   fontSizeBase?: number
 }
 
-const VOICE_SHORTCUTS: Record<VoiceTarget, string> = { CEO: 'Alt+3', CSO: 'Alt+4' }
+const VOICE_SHORTCUTS: Record<VoiceTarget, string> = { CEO: 'Alt+Q', CSO: 'Alt+W' }
 
 export default function TiptapEditor({
   value, onChange, onSubmit, onEscape, onExpand, onSelectionChange, autoFocus, minHeight = 160, className, dark, hideToolbar, enableToggle, enableQa, enableVoice, enableFontSize, fontSizeBase = 13.5,
@@ -106,13 +107,12 @@ export default function TiptapEditor({
     // Alt+1 빨강→파랑→흐림→해제, Alt+2 노랑→초록→분홍→해제 (화면 선택 동기화 포함)
     if (e.altKey && e.key === '1') { cyclePenColor(ed); return true }
     if (e.altKey && e.key === '2') { cycleHighlight(ed); return true }
-    // 경영진 의견 표시 — e.code로 판별(macOS Option+숫자는 e.key가 특수문자). 한글 조합 중에는 무시하고,
-    // 표시할 줄을 특정 못 하면 false로 넘겨 기본 동작을 막지 않는다.
-    if (enableVoiceRef.current && e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.isComposing && e.keyCode !== 229
-      && (e.code === 'Digit3' || e.code === 'Digit4')) {
-      return toggleVoiceAtSelection(ed, e.code === 'Digit3' ? 'CEO' : 'CSO')
-    }
-    // Alt+5 — 블록 잡은 글을 홈 '오늘 할 일'로 (모든 편집기 공통)
+    // 경영진 의견 표시 Alt+Q CEO / Alt+W CSO(2026-11-24, 예전 Alt+3/4) — 표시할 줄을 특정 못 하면 false로 넘겨 기본 동작을 막지 않는다
+    const voice = enableVoiceRef.current ? voiceTargetOfKey(e) : null
+    if (voice) { if (toggleVoiceAtSelection(ed, voice)) { e.preventDefault(); return true } return false }
+    // Alt+3 — 고른 줄을 세로바(인용구)로 묶기/풀기(토글 안이면 그 본문 안에서)
+    if (isQuoteKey(e)) { e.preventDefault(); toggleQuoteAtSelection(ed); return true }
+    // Alt+` — 블록 잡은 글을 홈 '오늘 할 일'로 (모든 편집기 공통, 예전 Alt+5)
     if (isTodayTodoKey(e)) { e.preventDefault(); return addSelectionToToday(ed) }
     // Tab/Shift-Tab을 리스트 밖(또는 더 이상 들여쓰기/내어쓰기 불가한 위치)에서 누르면
     // sinkListItem/liftListItem이 실패(false)해 브라우저 기본 동작인 "다음 포커스 요소로 이동"이
@@ -359,7 +359,7 @@ export default function TiptapEditor({
               <button type="button"
                 onMouseDown={e => { e.preventDefault(); setVoiceMenuOpen(v => !v) }}
                 className={btnCls(!!currentVoice, 'text-[11px] font-semibold')}
-                title="경영진 의견 줄 표시 (Alt+3 CEO · Alt+4 CSO)">{currentVoice ?? '의견'}</button>
+                title="경영진 의견 줄 표시 (Alt+Q CEO · Alt+W CSO)">{currentVoice ?? '의견'}</button>
               {voiceMenuOpen && (
                 <div className="absolute left-0 top-full mt-1 z-50 min-w-[150px] rounded-lg py-1 text-xs"
                   style={{ background: 'var(--dropdown-panel-bg)', border: '1px solid rgba(var(--ink-rgb),0.1)', boxShadow: 'var(--shadow-modal)' }}>
