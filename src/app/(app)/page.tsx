@@ -9,31 +9,18 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Search, Plus, FileText, Clock, NotebookPen, CalendarDays, CalendarCheck, Layers, StickyNote, Repeat2, X } from 'lucide-react'
 import ShortcutIcons from '@/components/ShortcutIcons'
-import type { TaskTodo, Meeting, QuickMemo, AgendaSubTask, ScheduleItem, QuickTodo } from '@/types'
+import type { Meeting, QuickMemo, ScheduleItem, QuickTodo } from '@/types'
 import { fetchMeetingNotesByMeetingIds, type MeetingNotesGrouped, type MeetingNoteRow } from '@/lib/meetingNotes'
-import { scheduleOccursOn, type MeetingRecurrence } from '@/lib/meetingSchedule'
+import { scheduleOccursOn } from '@/lib/meetingSchedule'
 import type { GoogleCalendarEvent } from '@/app/api/calendar/today/route'
 import { JournalFullscreenEditor, type DailyJournal, parseSections, serializeSections, SECTION_KEYS, SECTION_META, type SectionKey } from '@/components/home/DailyJournalWidget'
 import { useUserSetting } from '@/hooks/useUserSetting'
+import { buildWeekBoard, type WeekItem, type MeetingSchedule, type TodayTodo, type SubTaskWithContext } from '@/lib/weekBoard'
 import { format, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale'
 
 // ── Types ──────────────────────────────────────────────────────────────────
-interface MeetingSchedule extends MeetingRecurrence {
-  id: string
-  title: string
-  time: string
-  category?: string
-}
-
-type TodayTodo = Omit<TaskTodo, 'tasks'> & {
-  tasks: { id: string; title: string; short_name: string | null; part: string } | null
-}
-type SubTaskWithContext = AgendaSubTask & {
-  updated_at?: string | null
-  agenda_items: { id: string; title: string; agenda_groups: { name: string; color: string; category: string } | null } | null
-  sub_task_notes?: { created_at: string; edited_at: string | null; content: string | null }[]
-}
+// 금주 업무 분류 계산·관련 타입은 업무보고(수시보고) 오른쪽 패널과 공유 — src/lib/weekBoard.ts
 type TLExtra = { id: string; title: string; subtitle?: string }
 
 // ── Category Colors (고정 태그만; 팀명은 조직 설정에서 동적으로 옴) ──────────
@@ -1501,8 +1488,9 @@ export default function HomePage() {
   // 새 조회/상태 없음 — 이미 로드한 task_todos / agenda_sub_tasks / quick_todos / 고정회의를
   // 날짜(target_date)로만 재분류한다. 직전주 미완료 = 지난주 월~일 날짜의 미완료(그 이전은 건수만, 큰 화면에선 일부 노출),
   // 다음주 = 다음 주 월~일 날짜가 잡힌 항목(별도 '연기' 상태 필드는 없음).
-  const weekMonday  = shiftDateStr(today, 7 * weekOffset - ((dowOfDateStr(today) + 6) % 7))
-  const prevMonday  = shiftDateStr(weekMonday, -7)
+  const weekBoard = buildWeekBoard({ today, weekOffset, fixedSchedules, taskTodos: allTaskTodos, quickTodos, subTasks: [...subTasks, ...doneSubTasks] })
+  const { weekMonday, weekDays, weekSunday, nextMonday, olderItems } = weekBoard
+  const weekCols = weekBoard.cols
   const closeWeekPicker = () => setWeekPickerOpen(false)
   // 달력에서 고른 날짜가 속한 주 → 이번 주 기준 offset
   function weekOffsetOf(dateStr: string): number {
@@ -1510,60 +1498,6 @@ export default function HomePage() {
     const [a, b] = [mondayOf(today), mondayOf(dateStr)].map(s => { const [y, m, d] = s.split('-').map(Number); return Date.UTC(y, m - 1, d) })
     return Math.round((b - a) / (7 * 86400000))
   }
-  const weekDays    = [0, 1, 2, 3, 4].map(i => shiftDateStr(weekMonday, i))
-  const weekSunday  = shiftDateStr(weekMonday, 6)
-  const nextMonday  = shiftDateStr(weekMonday, 7)
-  const nextSunday  = shiftDateStr(weekMonday, 13)
-  const wkTomorrow  = shiftDateStr(today, 1)
-  type WeekItem = {
-    key: string; kind: 'todo' | 'quick' | 'agenda' | 'fixed'; title: string; meta: string; date: string
-    todo?: TodayTodo; quick?: QuickTodo; st?: SubTaskWithContext; fixed?: MeetingSchedule; fixedKey?: string
-  }
-  // 0 = 직전주 미완료, 1~5 = 월~금(이번 주 토·일은 금으로), 6 = 다음주, -1 = 표시 안 함, -2 = 지난주 이전 미완료
-  function weekCol(date: string | null | undefined): number {
-    if (!date) return -1
-    if (date < prevMonday) return -2
-    if (date < weekMonday) return 0
-    if (date <= weekSunday) { const i = weekDays.indexOf(date); return i >= 0 ? i + 1 : 5 }
-    if (date >= nextMonday && date <= nextSunday) return 6
-    return -1
-  }
-  const weekCols: WeekItem[][] = [[], [], [], [], [], [], []]
-  const olderItems: WeekItem[] = []   // 지난주보다 이전 날짜의 미완료 (기존엔 개수만 표시)
-  // 고정회의(일정 탭 반복/단발) — 보고 있는 주의 월~금 각 날짜에 일정 탭과 같은 규칙으로 배치 (다음주로 연기 열엔 넣지 않음)
-  weekDays.forEach((date, i) => {
-    fixedSchedules
-      .filter(s => scheduleOccursOn(s, date))
-      .sort((a, b) => a.time.localeCompare(b.time))
-      .forEach(s => weekCols[i + 1].push({ key: `fx_${date}_${s.id}`, kind: 'fixed', title: s.title, meta: s.time, date, fixed: s, fixedKey: `${date}_${s.id}` }))
-  })
-  for (const t of allTaskTodos) {
-    // target_date 없는 구 데이터는 schedule_tag 스냅샷으로 대체 (기존 오늘/금주 분류와 동일한 우선순위)
-    const date = t.target_date ?? (t.schedule_tag === 'today' ? today : t.schedule_tag === 'tomorrow' ? wkTomorrow : t.schedule_tag === 'this_week' ? weekDays[4] : null)
-    const c = weekCol(date)
-    if (t.done && (c === 0 || c === -2)) continue   // 직전주/이전 '미완료' 집계에서 완료분 제외
-    const it: WeekItem = { key: `td_${t.id}`, kind: 'todo', title: t.title, meta: t.tasks?.short_name ?? t.tasks?.title ?? '', date: date!, todo: t }
-    if (c === -2) olderItems.push(it)
-    if (c >= 0) weekCols[c].push(it)
-  }
-  for (const q of quickTodos) {
-    // 연기된 항목은 원래 날짜가 속한 주에서는 요일 대신 '다음주로 연기' 열로 — 다음 주에는 날짜 그대로 직전주 미완료로 잡힌다
-    const raw = weekCol(q.target_date)
-    const c = q.deferred && raw >= 1 && raw <= 5 ? 6 : raw
-    if (q.done && (c === 0 || c === -2)) continue   // 직전주/이전 '미완료' 집계에서 완료분 제외
-    const it: WeekItem = { key: `qt_${q.id}`, kind: 'quick', title: q.title, meta: q.deferred ? '연기' : '즉석 할 일', date: q.target_date!, quick: q }
-    if (c === -2) olderItems.push(it)
-    if (c >= 0) weekCols[c].push(it)
-  }
-  for (const st of [...subTasks, ...doneSubTasks].sort((a, b) => a.sort_order - b.sort_order)) {
-    const c = weekCol(st.target_date)
-    if (st.status === 'done' && (c === 0 || c === -2)) continue
-    const it: WeekItem = { key: `st_${st.id}`, kind: 'agenda', title: st.title, meta: st.agenda_items?.title ?? '', date: st.target_date!, st }
-    if (c === -2) olderItems.push(it)
-    if (c >= 0) weekCols[c].push(it)
-  }
-  weekCols[0].sort((a, b) => a.date.localeCompare(b.date))
-  weekCols[6].sort((a, b) => a.date.localeCompare(b.date))
   // 열(0 = 직전주 미완료, 1~5 = 월~금, 6 = 다음주로 연기) → 열 정의
   const weekVisible = [0, 1, 2, 3, 4, 5, 6]
   const weekGridCols = `repeat(${weekVisible.length}, minmax(${WEEK_COL_MIN}px, 1fr))`

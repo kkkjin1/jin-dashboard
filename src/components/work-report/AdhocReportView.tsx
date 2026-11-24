@@ -1,8 +1,8 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { CalendarDays, UserRound, FileText, PanelLeftClose, PanelLeftOpen, Presentation } from 'lucide-react'
+import { CalendarDays, CalendarCheck, UserRound, FileText, PanelLeftClose, PanelLeftOpen, Presentation } from 'lucide-react'
 import type { AdhocReport } from '@/types'
 import { useAutosave } from '@/hooks/useAutosave'
 import { useCanonicalSync, canonicalStatusText } from '@/hooks/useCanonicalSync'
@@ -11,6 +11,7 @@ import { htmlToMarkdown } from '@/lib/tiptapMarkdown'
 import { TextBox } from './ReportEditorPanel'
 import { S, WRITING_CONTENT_WIDTH, fmtDateFull, todayStr, hasContent } from './style'
 import AdhocSlideShow, { splitSlides } from './AdhocSlideShow'
+import WeekSidePanel from './WeekSidePanel'
 
 // 수시보고(2026-10-28) — 정기보고(work_reports)와 표·화면을 완전히 나눴다. 정기보고의 직전 회차·이월·
 // 보고일 기본값이 모두 work_reports 목록 순서로 계산되므로, 같은 표에 섞으면 그 계산이 깨진다.
@@ -43,6 +44,10 @@ type Draft = Pick<AdhocReport, 'report_date' | 'title' | 'audience' | 'body' | '
 const LIST_COLS = 'id, report_date, title, audience, created_at'
 // 왼쪽 목록 접힘 상태 기억(이 브라우저에서만)
 const LIST_OPEN_KEY = 'adhoc-report:list-open'
+// 오른쪽 금주 업무 패널(2026-11-24) — 본문(880) 옆에 패널이 들어갈 만큼 넓으면 붙여서, 좁으면(노트북) 버튼으로 여는 서랍으로
+const WEEK_PANEL_KEY = 'adhoc-report:week-panel'
+const WEEK_PANEL_W = 320
+const WEEK_PANEL_INLINE_MIN = WRITING_CONTENT_WIDTH + 64 + WEEK_PANEL_W + 24
 
 // 보고일 최신순, 같은 날이면 나중에 만든 것 먼저
 const byRecent = (a: ListRow, b: ListRow) => b.report_date.localeCompare(a.report_date) || b.created_at.localeCompare(a.created_at)
@@ -78,6 +83,30 @@ export default function AdhocReportView({
   function toggleList() {
     setListOpen(o => {
       try { window.localStorage.setItem(LIST_OPEN_KEY, o ? '0' : '1') } catch { /* 무시 */ }
+      return !o
+    })
+  }
+
+  // 금주 업무 패널 — pref는 넓은 화면에서 붙여 둘지(기억), drawer는 좁은 화면에서 잠깐 여는 서랍
+  const [weekPref, setWeekPref] = useState(() => {
+    try { return window.localStorage.getItem(WEEK_PANEL_KEY) !== '0' } catch { return true }
+  })
+  const [weekDrawer, setWeekDrawer] = useState(false)
+  const [roomy, setRoomy] = useState(false)
+  const workAreaRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = workAreaRef.current
+    if (!el) return
+    const ro = new ResizeObserver(() => setRoomy(el.clientWidth >= WEEK_PANEL_INLINE_MIN))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+  const weekInline = roomy && weekPref
+  const weekOpen = roomy ? weekPref : weekDrawer
+  function toggleWeekPanel() {
+    if (!roomy) { setWeekDrawer(o => !o); return }
+    setWeekPref(o => {
+      try { window.localStorage.setItem(WEEK_PANEL_KEY, o ? '0' : '1') } catch { /* 무시 */ }
       return !o
     })
   }
@@ -149,6 +178,16 @@ export default function AdhocReportView({
           {kindSwitch}
         </div>
         <div className="flex-1" />
+        <button
+          onClick={toggleWeekPanel}
+          title={weekOpen ? '금주 업무 닫기' : '금주 업무 보기'}
+          className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-colors"
+          style={weekOpen
+            ? { color: S.t1, background: 'rgba(var(--ink-rgb),0.08)', border: `1px solid ${S.borderStrong}` }
+            : { color: S.t2, background: 'transparent', border: `1px solid ${S.border}` }}
+        >
+          <CalendarCheck size={13} strokeWidth={2.2} style={{ color: '#5E8FBF' }} />금주 업무
+        </button>
         <button
           onClick={handleCreate}
           disabled={creating}
@@ -229,8 +268,10 @@ export default function AdhocReportView({
           </div>
         )}
 
+        {/* 편집 + 금주 업무 패널 — 이 영역 폭으로 패널을 붙일지(넓음) 서랍으로 띄울지(좁음) 정한다 */}
+        <div ref={workAreaRef} className={`${mobileEditing ? 'flex' : 'hidden'} md:flex flex-1 min-w-0 min-h-0 relative`}>
         {/* 오른쪽 편집 */}
-        <div className={`${mobileEditing ? 'block' : 'hidden'} md:block flex-1 min-w-0 min-h-0`}>
+        <div className="flex-1 min-w-0 min-h-0">
           {selectedId ? (
             <AdhocEditor
               key={selectedId}
@@ -250,6 +291,20 @@ export default function AdhocReportView({
               </div>
             </div>
           )}
+        </div>
+        {weekInline && (
+          <aside className="hidden md:block flex-shrink-0 min-h-0" style={{ width: WEEK_PANEL_W, borderLeft: `1px solid ${S.border}` }}>
+            <WeekSidePanel supabase={supabase} />
+          </aside>
+        )}
+        {!roomy && weekDrawer && (
+          <aside
+            className="hidden md:block absolute top-0 right-0 bottom-0 z-30"
+            style={{ width: WEEK_PANEL_W, borderLeft: `1px solid ${S.borderStrong}`, boxShadow: '-12px 0 32px rgba(0,0,0,0.18)' }}
+          >
+            <WeekSidePanel supabase={supabase} onClose={() => setWeekDrawer(false)} />
+          </aside>
+        )}
         </div>
       </div>
 
