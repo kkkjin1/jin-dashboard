@@ -828,7 +828,7 @@ export function TableOverlay({
             OverlayFrame까지 올려보내 카드 전체를 드래그할 수 있게 하고, 셀 포커스가
             들어와 편집 중일 때만 stopPropagation으로 텍스트 선택 드래그와 카드 이동을
             분리한다(요청사항: "표 몸통 드래그 vs 셀 편집" 상태 구분). */}
-        <div className="flex-1 min-h-0 overflow-auto rounded" onPointerDown={e => { if (isEditing) e.stopPropagation() }}>
+        <div className="flex-1 min-h-0 overflow-auto scrollbar-hide rounded" onPointerDown={e => { if (isEditing) e.stopPropagation() }}>
           <div className="relative inline-block">
             <table style={{ borderCollapse: 'collapse', tableLayout: 'fixed' }}>
               <colgroup>

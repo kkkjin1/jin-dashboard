@@ -317,7 +317,7 @@ export default function SketchBoardList() {
         {/* 오른쪽: 메인 화면 / 선택 노트 미리보기(읽기 전용) */}
         <section className="hidden md:flex flex-1 min-w-0 flex-col relative">
           {!selected ? (
-            <div className="flex-1 min-h-0 overflow-y-auto relative">
+            <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide relative">
               {/* 배경 색 번짐 */}
               <div className="pointer-events-none absolute inset-0 overflow-hidden">
                 <div className="absolute -top-32 -right-24 w-[420px] h-[420px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(76,127,224,0.16), transparent 70%)' }} />
@@ -418,7 +418,7 @@ export default function SketchBoardList() {
                 </button>
               </div>
 
-              <div className="relative flex-1 min-h-0 overflow-y-auto px-10 py-7" onDoubleClick={() => openBoard(selected.id)}>
+              <div className="relative flex-1 min-h-0 overflow-y-auto scrollbar-hide px-10 py-7" onDoubleClick={() => openBoard(selected.id)}>
                 {selected.board_type !== 'freenote' ? (
                   <p className="text-[13px]" style={{ color: 'var(--text-muted)' }}>마인드맵 보드입니다. 열기를 눌러 확인하세요.</p>
                 ) : !(texts.get(selected.id)) ? (

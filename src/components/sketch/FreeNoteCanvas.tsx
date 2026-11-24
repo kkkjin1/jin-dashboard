@@ -636,7 +636,7 @@ export default function FreeNoteCanvas({ boardId, embed }: { boardId: string; em
       )}
 
       {/* 문서 */}
-      <div ref={setScrollEl} className="flex-1 min-h-0 rounded-2xl overflow-auto relative" style={{ border: '1px solid rgba(var(--ink-rgb),0.08)', background: 'var(--bg-page)' }} onMouseDown={handleCanvasMouseDown}
+      <div ref={setScrollEl} className="flex-1 min-h-0 rounded-2xl overflow-auto scrollbar-hide relative" style={{ border: '1px solid rgba(var(--ink-rgb),0.08)', background: 'var(--bg-page)' }} onMouseDown={handleCanvasMouseDown}
         onMouseDownCapture={handleScrollAreaMouseDownCapture} onMouseMove={handleScrollAreaMouseMove}
         onWheel={cancelScrollGuard} onKeyDownCapture={cancelScrollGuard} onTouchStart={cancelScrollGuard} onScroll={handleScroll}>
         <div ref={innerRef} className="relative" style={{ minHeight, padding: '32px 40px', paddingBottom: Math.max(40, viewportHeight - 80) }}>
