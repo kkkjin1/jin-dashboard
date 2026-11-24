@@ -9,6 +9,7 @@ import { useAutosave } from '@/hooks/useAutosave'
 import { SketchTextEditor } from '@/components/sketch/SketchTextEditor'
 import { PLAN_BOX_COLORS, PLAN_BOX_COLOR_KEYS, planBoxColor, type PlanBoxColorKey } from '@/lib/planBoxColors'
 import type { AgendaSubTask } from '@/types'
+import { AGENDA_BAND_BG } from './AgendaTodoList'
 
 const BODY_SAVE_MS = 600
 
@@ -92,11 +93,9 @@ export default function PlanRecordBox({
   const boxStyle: React.CSSProperties = pal
     ? { background: pal.bg, border: `1px solid ${pal.line}` }
     : {
-        // 유리(기본) — 반투명 표면 + 흐림 + 윗변 하이라이트
-        background: 'color-mix(in srgb, var(--surface-primary) 62%, transparent)',
-        border: '1px solid rgba(var(--ink-rgb),0.08)',
-        backdropFilter: 'blur(10px)',
-        boxShadow: '0 1px 2px rgba(16,24,40,0.05), inset 0 1px 0 rgba(255,255,255,0.35)',
+        // 기본(색 없음) — 머리줄은 하늘색 띠, 펼친 본문은 히스토리 칸의 회색 바탕이 비치게(칸과 같은 층위, 2026-11-25. 예전엔 흰 유리 박스)
+        background: 'transparent',
+        border: '1px solid rgba(var(--ink-rgb),0.1)',
       }
 
   // 유리 박스의 backdrop-filter는 fixed 자식의 기준이 되어 색 선택 창이 잘리므로, 선택 창은 박스 밖(형제)에 둔다
@@ -104,7 +103,8 @@ export default function PlanRecordBox({
     <>
     <div id={`rec-${st.id}`} className="rounded-[14px] overflow-hidden group/rec transition-colors" style={boxStyle}>
       {/* 머리줄 — 이름 · 색 · 날짜 */}
-      <div className="flex items-center gap-2 px-3 py-2.5 cursor-pointer select-none" onClick={() => { if (!renaming) onToggle() }}>
+      <div className="flex items-center gap-2 px-3 py-2.5 cursor-pointer select-none" onClick={() => { if (!renaming) onToggle() }}
+        style={pal ? undefined : { background: AGENDA_BAND_BG, borderBottom: isOpen ? '1px solid rgba(var(--ink-rgb),0.07)' : undefined }}>
         <span className="text-[9px] flex-shrink-0" style={{ color: 'var(--text-muted)', display: 'inline-block', transition: 'transform .15s', transform: isOpen ? 'rotate(90deg)' : 'none' }}>▶</span>
         <button type="button" aria-label="박스 색 고르기" title="박스 색"
           onClick={e => {
@@ -160,7 +160,7 @@ export default function PlanRecordBox({
       {/* 본문 하나 */}
       {isOpen && (
         <div className="mx-1.5 mb-1.5 rounded-[10px] px-3.5 pb-3"
-          style={{ background: 'var(--surface-primary)', paddingTop: editing ? 34 : 10 }}>
+          style={{ background: pal ? 'var(--surface-primary)' : 'transparent', paddingTop: editing ? 34 : 10 }}>
           <SketchTextEditor
             content={body}
             onContentChange={html => { setBody(html); queueSave(html) }}

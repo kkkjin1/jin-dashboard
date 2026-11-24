@@ -5,6 +5,7 @@
 // 기록은 위 히스토리 박스에 쓰는 구조라 여기엔 펼치기·노트·첨부가 없다.
 import { useEffect, useState } from 'react'
 import type { AgendaSubTask, Member } from '@/types'
+import { ListChecks } from 'lucide-react'
 
 type Sched = { today: string; tomorrow: string; friday: string }
 
@@ -135,6 +136,13 @@ function TodoRow({ st, members, sched, onToggleDone, onDate, onAssignee, onRenam
   )
 }
 
+/** 안건 상세 칸들(업무 개요·히스토리·할 일)의 머리·바닥 띠 색 — "머리띠 창" 모양(2026-11-25) */
+export const AGENDA_BAND_BG = 'rgba(76,127,224,0.11)'
+/** 칸 본문(타이핑하는 곳) 바탕 — 흰색 대신 하늘색 띠와 어울리는 푸른 기 도는 옅은 회색. 반투명이라 다크 모드에서도 카드 위에 살짝만 얹힌다 */
+export const AGENDA_BODY_BG = 'rgba(90,110,145,0.07)'
+/** 칸 제목 아이콘 색 */
+export const AGENDA_ICON_COLOR = 'rgba(76,127,224,0.85)'
+
 export default function AgendaTodoList({ tasks, members, sched, onAdd, onToggleDone, onDate, onAssignee, onRename, onDelete, onToHistory }: {
   tasks: AgendaSubTask[]
   members: Member[]
@@ -164,12 +172,14 @@ export default function AgendaTodoList({ tasks, members, sched, onAdd, onToggleD
 
   return (
     <section aria-label="할 일" className="surface-card rounded-2xl overflow-hidden">
-      <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-[rgba(var(--ink-rgb),0.06)]">
-        <span className="text-[13px] font-semibold text-[rgba(var(--text-rgb),0.9)]">할 일</span>
+      <div className="flex flex-wrap items-center gap-2 px-4 py-2.5 border-b border-[rgba(var(--ink-rgb),0.07)]" style={{ background: AGENDA_BAND_BG }}>
+        <span className="flex items-center gap-2 text-[16px] font-semibold text-[rgba(var(--text-rgb),0.9)]">
+          <ListChecks size={17} style={{ color: AGENDA_ICON_COLOR }} aria-hidden="true" />할 일
+        </span>
         <span className="text-[11px] text-[rgba(var(--text-rgb),0.4)]">{doneCount}/{tasks.length}</span>
         <span className="text-[11px] text-[rgba(var(--text-rgb),0.35)]">· 추가하면 오늘 날짜로 홈 금주 업무에 나옵니다 (날짜 칩에서 변경)</span>
         <span className="flex-1" />
-        <label className="flex items-center gap-2 w-full sm:w-[340px] border border-[rgba(var(--ink-rgb),0.1)] rounded-lg px-2.5 py-1.5">
+        <label className="flex items-center gap-2 w-full bg-[var(--surface-primary)] border border-[rgba(var(--ink-rgb),0.1)] rounded-lg px-2.5 py-1.5">
           <span aria-hidden="true" className="text-[13px] text-[rgba(var(--text-rgb),0.4)]">＋</span>
           <input value={draft} onChange={e => setDraft(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) void submit() }}
@@ -178,9 +188,9 @@ export default function AgendaTodoList({ tasks, members, sched, onAdd, onToggleD
         </label>
       </div>
       {ordered.length === 0 ? (
-        <p className="text-xs text-[rgba(var(--text-rgb),0.4)] text-center py-5">할 일이 없습니다</p>
+        <p className="text-xs text-[rgba(var(--text-rgb),0.4)] text-center py-5" style={{ background: AGENDA_BODY_BG }}>할 일이 없습니다</p>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-7 px-4 pt-1 pb-2">
+        <div className="flex flex-col px-4 pt-1 pb-2" style={{ background: AGENDA_BODY_BG }}>
           {ordered.map(st => (
             <TodoRow key={st.id} st={st} members={members} sched={sched}
               onToggleDone={() => onToggleDone(st)}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode, type CSSProperties } from 'react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { createClient } from '@/lib/supabase/client'
@@ -73,6 +73,13 @@ export interface FreeNoteEmbed {
   title?: ReactNode
   /** 툴바 오른쪽 끝에 붙일 버튼(예: 크게 보기/닫기) */
   actions?: ReactNode
+  /** 박스 모양 바꾸기(안건 상세 시안 비교용) — 툴바 줄·문서 칸 겉모양만 덮어쓴다 */
+  toolbarClassName?: string
+  toolbarStyle?: CSSProperties
+  docClassName?: string
+  docStyle?: CSSProperties
+  /** 문서 칸 아래 단축키 안내 줄 숨기기(안건 상세 — 화면 높이에 딱 맞추려고) */
+  hideHint?: boolean
 }
 
 export default function FreeNoteCanvas({ boardId, embed }: { boardId: string; embed?: FreeNoteEmbed }) {
@@ -572,7 +579,7 @@ export default function FreeNoteCanvas({ boardId, embed }: { boardId: string; em
   return (
     <div ref={rootRef} className="h-full flex flex-col overflow-hidden">
       {/* 툴바 */}
-      <div className={`flex-shrink-0 flex items-center gap-3 ${embed ? 'pt-1' : 'pt-6'} pb-3`}>
+      <div className={`flex-shrink-0 flex items-center gap-3 ${embed?.toolbarClassName ?? `${embed ? 'pt-1' : 'pt-6'} pb-3`}`} style={embed?.toolbarStyle}>
         {embed ? embed.title : (<>
         <Link href="/sketch" className="p-1.5 rounded-lg transition-colors flex-shrink-0"
           style={{ color: 'var(--text-muted)' }}
@@ -636,7 +643,7 @@ export default function FreeNoteCanvas({ boardId, embed }: { boardId: string; em
       )}
 
       {/* 문서 */}
-      <div ref={setScrollEl} className="flex-1 min-h-0 rounded-2xl overflow-auto scrollbar-hide relative" style={{ border: '1px solid rgba(var(--ink-rgb),0.08)', background: 'var(--bg-page)' }} onMouseDown={handleCanvasMouseDown}
+      <div ref={setScrollEl} className={`flex-1 min-h-0 overflow-auto scrollbar-hide relative ${embed?.docClassName ?? 'rounded-2xl'}`} style={embed?.docStyle ?? { border: '1px solid rgba(var(--ink-rgb),0.08)', background: 'var(--bg-page)' }} onMouseDown={handleCanvasMouseDown}
         onMouseDownCapture={handleScrollAreaMouseDownCapture} onMouseMove={handleScrollAreaMouseMove}
         onWheel={cancelScrollGuard} onKeyDownCapture={cancelScrollGuard} onTouchStart={cancelScrollGuard} onScroll={handleScroll}>
         <div ref={innerRef} className="relative" style={{ minHeight, padding: '32px 40px', paddingBottom: Math.max(40, viewportHeight - 80) }}>
@@ -731,12 +738,12 @@ export default function FreeNoteCanvas({ boardId, embed }: { boardId: string; em
         </div>
       </div>
 
-      <p className="text-center text-[11px] pt-2 flex-shrink-0" style={{ color: 'rgba(var(--text-rgb),0.28)' }}>
+      {!embed?.hideHint && <p className="text-center text-[11px] pt-2 flex-shrink-0" style={{ color: 'rgba(var(--text-rgb),0.28)' }}>
         바로 타이핑하세요 · <span className="font-mono">Ctrl+V</span>로 이미지 붙여넣기(크기·회전 조절 가능) ·
         <span className="font-mono">Alt+1</span> 글자색(빨강→파랑→흐림) · <span className="font-mono">Alt+2</span> 형광펜(노랑→초록→분홍) · <span className="font-mono">Ctrl+Y</span> 취소선 ·
         <span className="font-mono">Alt+3</span> 세로바로 묶기 · <span className="font-mono">Alt+Q/W</span> 경영진 의견(CEO/CSO) · <span className="font-mono">Alt+`</span> 오늘 할 일로 ·
         마인드맵 카드는 더블클릭(또는 확장 아이콘)으로 편집 · 엑셀 셀 범위 <span className="font-mono">Ctrl+V</span>는 본문 줄 사이에 표로 삽입 · 선택 후 <span className="font-mono">Delete</span>로 삭제
-      </p>
+      </p>}
 
       {expandedMindmap && (
         <div className="fixed inset-0 z-50" style={{ background: 'var(--bg-page)' }}>

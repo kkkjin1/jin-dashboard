@@ -12,7 +12,8 @@ import AgendaRetroDrawer from '@/components/project/AgendaRetroDrawer'
 import { revealVoiceBlock, showVoiceNotice } from '@/lib/executiveVoices'
 import { todayYmd } from '@/lib/tiptapExtensions'
 import PlanRecordBox from '@/components/project/PlanRecordBox'
-import AgendaTodoList from '@/components/project/AgendaTodoList'
+import AgendaTodoList, { AGENDA_BAND_BG, AGENDA_BODY_BG, AGENDA_ICON_COLOR } from '@/components/project/AgendaTodoList'
+import { FileText, History } from 'lucide-react'
 import type { PlanBoxColorKey } from '@/lib/planBoxColors'
 
 // 업무 개요 · 메모 = 생각스케치 자유노트 화면 그대로(본문은 description, 떠 있는 요소는 안건별 숨김 보드)
@@ -77,6 +78,15 @@ export default function AgendaItemDetailPage() {
   const [retroOpen,     setRetroOpen]     = useState(false)
   // 좌우 분할 보기(lg 이상에서만 적용) — 안건 본문과 하위태스크를 각각 독립 스크롤. 기기별 선호는 localStorage
   const [splitView,     setSplitView]     = useState(true)
+  // 업무 개요 칸 "머리띠 창" 모양(2026-11-25) — 위 제목·버튼 줄과 아래 첨부 줄에 연한 파란 띠, 가운데 본문은 카드 바탕 한 겹.
+  // 예전엔 생각스케치 화면(회색 바탕·테두리 상자)을 흰 카드 안에 그대로 넣어 상자가 두 겹으로 보였다
+  const memoLook: Pick<FreeNoteEmbed, 'toolbarClassName' | 'toolbarStyle' | 'docClassName' | 'docStyle' | 'hideHint'> = {
+    toolbarClassName: 'px-4 py-2.5',
+    toolbarStyle: { background: AGENDA_BAND_BG, borderBottom: '1px solid rgba(var(--ink-rgb),0.07)' },
+    docClassName: 'rounded-none',
+    docStyle: { background: AGENDA_BODY_BG },
+    hideHint: true,
+  }
   useEffect(() => {
     try { if (localStorage.getItem('itemDetail.splitView') === '0') setSplitView(false) } catch {}
   }, [])
@@ -426,7 +436,7 @@ export default function AgendaItemDetailPage() {
   return (
     <>
     <div className="h-full overflow-y-auto">
-      <div className={`w-full mx-auto px-4 md:px-6 py-6 pb-16 flex flex-col gap-6 ${splitView ? 'max-w-3xl lg:max-w-none lg:ml-0' : 'max-w-3xl'}`}>
+      <div className={`w-full mx-auto px-4 md:px-6 py-6 flex flex-col gap-6 ${splitView ? 'max-w-3xl lg:max-w-none lg:ml-0' : 'max-w-3xl'}`}>
 
         {/* ── 브레드크럼 ── */}
         <div className="flex items-center gap-1.5 text-xs text-gray-400">
@@ -514,7 +524,8 @@ export default function AgendaItemDetailPage() {
 
         {/* ── 업무 개요 · 메모 — 생각스케치 자유노트 그대로 ── */}
         <div className="surface-card rounded-2xl overflow-hidden">
-          <div className="px-4 pt-3" style={{ height: '72vh', minHeight: 480 }}>
+          {/* 화면 높이에 맞춰 페이지 스크롤이 안 생기게 — 392px = 위 제목·상태 줄 + 첨부 줄 + 아래 여백(첨부가 여러 줄이면 그만큼만 넘침) */}
+          <div style={{ height: 'calc(100vh - 392px)', minHeight: 360 }}>
             {expandFor === 'description' ? (
               <div className="h-full flex items-center justify-center text-xs text-[rgba(var(--text-rgb),0.35)]">크게 보기에서 편집 중</div>
             ) : memoBoardId ? (
@@ -523,7 +534,12 @@ export default function AgendaItemDetailPage() {
                 boardId={memoBoardId}
                 embed={{
                   ...memoEmbedBase,
-                  title: <span className="text-xs font-semibold text-[rgba(var(--text-rgb),0.4)] uppercase tracking-wider flex-shrink-0">업무 개요 · 메모</span>,
+                  ...memoLook,
+                  title: (
+                    <span className="flex items-center gap-2 text-[16px] font-semibold text-[rgba(var(--text-rgb),0.9)] flex-shrink-0">
+                      <FileText size={17} style={{ color: AGENDA_ICON_COLOR }} aria-hidden="true" />업무 개요 · 메모
+                    </span>
+                  ),
                   actions: (
                     <button onClick={() => setExpandFor('description')}
                       className="text-[10px] text-[rgba(var(--text-rgb),0.35)] hover:text-[rgba(var(--text-rgb),0.7)] px-2 py-1 rounded hover:bg-[rgba(var(--ink-rgb),0.06)] transition-colors flex-shrink-0">
@@ -537,7 +553,7 @@ export default function AgendaItemDetailPage() {
             )}
           </div>
           {/* 업무 첨부파일 */}
-          <div className="border-t border-[rgba(var(--ink-rgb),0.06)] px-5 py-3" style={{ background: 'rgba(var(--ink-rgb),0.02)' }}>
+          <div className="border-t border-[rgba(var(--ink-rgb),0.07)] px-5 py-3" style={{ background: AGENDA_BAND_BG }}>
             <div className="flex items-center gap-2 mb-2">
               <span className="text-[10px] font-semibold text-[rgba(var(--text-rgb),0.35)] uppercase tracking-wider">업무 첨부파일</span>
               <label className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md cursor-pointer transition-colors ${uploadingFor === 'item' ? 'bg-[rgba(var(--ink-rgb),0.04)] text-[rgba(var(--text-rgb),0.25)]' : 'bg-[rgba(var(--ink-rgb),0.06)] border border-[rgba(var(--ink-rgb),0.1)] text-[rgba(var(--text-rgb),0.5)] hover:border-[rgba(var(--ink-rgb),0.2)] hover:text-[rgba(var(--text-rgb),0.8)]'}`}>
@@ -568,17 +584,19 @@ export default function AgendaItemDetailPage() {
         </div>
 
         {/* ── B: 기획 기록 + 실행 task (A와 같은 카드) ── */}
-        <div className={`flex flex-col ${splitView ? 'lg:flex-1 lg:min-w-0 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto scrollbar-hide' : ''}`}>
+        <div className={`flex flex-col gap-6 ${splitView ? 'lg:flex-1 lg:min-w-0 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto scrollbar-hide' : ''}`}>
         <div className="surface-card rounded-2xl overflow-hidden flex flex-col">
           {/* 기획 기록 */}
-          <div className="flex items-center gap-2 px-4 py-3 border-b border-[rgba(var(--ink-rgb),0.06)]">
-            <span className="text-[13px] font-semibold text-[rgba(var(--text-rgb),0.9)]">히스토리</span>
+          <div className="flex items-center gap-2 px-4 py-2.5 border-b border-[rgba(var(--ink-rgb),0.07)]" style={{ background: AGENDA_BAND_BG }}>
+            <span className="flex items-center gap-2 text-[16px] font-semibold text-[rgba(var(--text-rgb),0.9)]">
+              <History size={17} style={{ color: AGENDA_ICON_COLOR }} aria-hidden="true" />히스토리
+            </span>
             <span className="text-[11px] text-[rgba(var(--text-rgb),0.4)]">{records.length}</span>
             <span className="flex-1" />
             <button onClick={addRecord}
               className="text-xs px-3 py-1.5 rounded-lg border border-[rgba(var(--ink-rgb),0.1)] text-[rgba(var(--text-rgb),0.7)] hover:bg-[rgba(var(--ink-rgb),0.04)] transition-colors">＋ 히스토리 박스</button>
           </div>
-          <div className="p-3 flex flex-col gap-2.5" style={{ background: 'rgba(var(--ink-rgb),0.035)' }}>
+          <div className="p-3 flex flex-col gap-2.5" style={{ background: AGENDA_BODY_BG }}>
             {records.map(r => (
               <PlanRecordBox
                 key={r.id}
@@ -605,22 +623,22 @@ export default function AgendaItemDetailPage() {
           </div>
 
         </div>
+          {/* ── 할 일 (히스토리와 같은 열, 히스토리 아래 — 히스토리가 길어지면 그만큼 밑으로) — 체크 한 줄, 날짜는 홈 오늘·금주 업무와 연동 ── */}
+          <AgendaTodoList
+            tasks={tasks}
+            members={members}
+            sched={sched}
+            onAdd={addTask}
+            onToggleDone={st => setSTStatus(st.id, st.status === 'done' ? 'active' : 'done')}
+            onDate={updateSubTaskDate}
+            onAssignee={updateSTAssignee}
+            onRename={updateSTTitle}
+            onDelete={deleteSubTask}
+            onToHistory={stId => updateSTKind(stId, 'record')}
+          />
         </div>
         </div>
 
-        {/* ── 할 일 (전체 아래) — 체크 한 줄, 날짜는 홈 오늘·금주 업무와 연동 ── */}
-        <AgendaTodoList
-          tasks={tasks}
-          members={members}
-          sched={sched}
-          onAdd={addTask}
-          onToggleDone={st => setSTStatus(st.id, st.status === 'done' ? 'active' : 'done')}
-          onDate={updateSubTaskDate}
-          onAssignee={updateSTAssignee}
-          onRename={updateSTTitle}
-          onDelete={deleteSubTask}
-          onToHistory={stId => updateSTKind(stId, 'record')}
-        />
       </div>
 
       {/* 크게 편집 오버레이 */}
