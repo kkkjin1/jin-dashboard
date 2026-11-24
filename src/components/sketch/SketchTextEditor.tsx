@@ -170,6 +170,9 @@ export interface SketchTextEditorProps {
   allowImages?: boolean
   /** document 표면의 최소 높이(px) — 기본 200(자유노트 본문). 세부task 히스토리 박스는 낮게 */
   docMinHeight?: number
+  /** 회색 서식 바(글자크기·펜·CEO/CSO·표) 숨기기 — 기본 숨김(2026-11-25 사용자 요청으로 전 화면 제거).
+   *  단축키(Alt+1/2·Alt+Q/W·Ctrl+Shift+,/.)는 그대로, 카드 안 표 편집 버튼은 커서가 표 안일 때만 따로 띄운다 */
+  hideToolbar?: boolean
 }
 
 function surfaceClassName(variant: SketchTextEditorVariant): string {
@@ -222,8 +225,9 @@ function SketchPreview({
 
 /** 편집 상태 — 실제 Tiptap 인스턴스가 마운트되는 동안만 존재(언마운트 시 editor.destroy()). */
 function MountedSketchEditor({
-  content, onContentChange, onExitEdit, fallbackFontSize, textColor, variant, initialCaretPosRef, scrollOnInitialFocus, focusEndRef, enableVoice, allowImages, docMinHeight,
+  content, onContentChange, onExitEdit, fallbackFontSize, textColor, variant, initialCaretPosRef, scrollOnInitialFocus, focusEndRef, enableVoice, allowImages, docMinHeight, hideToolbar,
 }: {
+  hideToolbar?: boolean
   content: string
   onContentChange: (html: string) => void
   onExitEdit: () => void
@@ -503,7 +507,7 @@ function MountedSketchEditor({
           클릭 좌표로 잡는 캐럿도 한 줄 어긋났다. */}
       <div
         className={`nodrag nopan flex items-center gap-1 px-1.5 py-1 rounded-lg flex-shrink-0${variant === 'document' ? ' absolute left-0 z-10' : ''}`}
-        style={{ background: 'rgba(var(--ink-rgb),0.06)', border: '1px solid rgba(var(--ink-rgb),0.08)', width: 'fit-content', ...(variant === 'document' ? { bottom: '100%', marginBottom: 2, visibility: focused ? 'visible' : 'hidden' } : {}) }}
+        style={{ background: 'rgba(var(--ink-rgb),0.06)', border: '1px solid rgba(var(--ink-rgb),0.08)', width: 'fit-content', ...(variant === 'document' ? { bottom: '100%', marginBottom: 2, visibility: focused ? 'visible' : 'hidden' } : {}), ...(hideToolbar ? { display: 'none' } : {}) }}
         onPointerDown={e => e.stopPropagation()}
       >
         <button
@@ -556,6 +560,14 @@ function MountedSketchEditor({
         ><Table2 size={12} /></button>
         {inTable && variant !== 'document' && tableButtons}
       </div>
+      {/* 서식 바를 숨긴 카드: 커서가 표 안이면 표 편집 버튼만 따로 */}
+      {hideToolbar && inTable && variant !== 'document' && (
+        <div className="nodrag nopan flex items-center gap-1 px-1.5 py-1 rounded-lg flex-shrink-0"
+          style={{ background: 'rgba(var(--ink-rgb),0.06)', border: '1px solid rgba(var(--ink-rgb),0.08)', width: 'fit-content' }}
+          onPointerDown={e => e.stopPropagation()} onMouseDown={e => e.preventDefault()}>
+          {tableButtons}
+        </div>
+      )}
       {/* 본문(document): 표 편집 버튼은 커서가 있는 표 바로 위에 띄운다 (위치 계산은 위 useEffect) */}
       {variant === 'document' && focused && inTable && tableBarPos && (
         <div
@@ -576,7 +588,7 @@ function MountedSketchEditor({
 /** 진입점 — editing 여부에 따라 프리뷰/Tiptap을 스위칭한다. */
 export function SketchTextEditor({
   content, onContentChange, editing, onEnterEdit, onExitEdit, fallbackFontSize, placeholder, textColor, variant = 'card',
-  caretPosRef: externalCaretPosRef, scrollOnInitialFocus = true, focusEndRef, enableVoice, allowImages, docMinHeight = 200,
+  caretPosRef: externalCaretPosRef, scrollOnInitialFocus = true, focusEndRef, enableVoice, allowImages, docMinHeight = 200, hideToolbar = true,
 }: SketchTextEditorProps) {
   const internalCaretPosRef = useRef<CaretPos | null>(null)
   const caretPosRef = externalCaretPosRef ?? internalCaretPosRef
@@ -613,6 +625,7 @@ export function SketchTextEditor({
       enableVoice={enableVoice}
       allowImages={allowImages}
       docMinHeight={docMinHeight}
+      hideToolbar={hideToolbar}
     />
   )
 }

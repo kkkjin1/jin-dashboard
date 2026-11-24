@@ -80,6 +80,8 @@ export interface FreeNoteEmbed {
   docStyle?: CSSProperties
   /** 문서 칸 아래 단축키 안내 줄 숨기기(안건 상세 — 화면 높이에 딱 맞추려고) */
   hideHint?: boolean
+  /** 본문 위 회색 서식 바 숨기기 */
+  hideToolbar?: boolean
 }
 
 export default function FreeNoteCanvas({ boardId, embed }: { boardId: string; embed?: FreeNoteEmbed }) {
@@ -666,6 +668,7 @@ export default function FreeNoteCanvas({ boardId, embed }: { boardId: string; em
               // 단독 생각스케치도 Alt+Q/W 경영진 의견 표시 — 의사결정 탭이 sketch_boards.note_body도 모은다
               enableVoice
               allowImages={!!embed}
+              hideToolbar={embed?.hideToolbar}
               caretPosRef={bodyCaretPosRef}
               scrollOnInitialFocus={savedScrollTop === null}
             />

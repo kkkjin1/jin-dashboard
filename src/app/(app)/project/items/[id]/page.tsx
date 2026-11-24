@@ -80,12 +80,13 @@ export default function AgendaItemDetailPage() {
   const [splitView,     setSplitView]     = useState(true)
   // 업무 개요 칸 "머리띠 창" 모양(2026-11-25) — 위 제목·버튼 줄과 아래 첨부 줄에 연한 파란 띠, 가운데 본문은 카드 바탕 한 겹.
   // 예전엔 생각스케치 화면(회색 바탕·테두리 상자)을 흰 카드 안에 그대로 넣어 상자가 두 겹으로 보였다
-  const memoLook: Pick<FreeNoteEmbed, 'toolbarClassName' | 'toolbarStyle' | 'docClassName' | 'docStyle' | 'hideHint'> = {
+  const memoLook: Pick<FreeNoteEmbed, 'toolbarClassName' | 'toolbarStyle' | 'docClassName' | 'docStyle' | 'hideHint' | 'hideToolbar'> = {
     toolbarClassName: 'px-4 py-2.5',
     toolbarStyle: { background: AGENDA_BAND_BG, borderBottom: '1px solid rgba(var(--ink-rgb),0.07)' },
     docClassName: 'rounded-none',
     docStyle: { background: AGENDA_BODY_BG },
     hideHint: true,
+    hideToolbar: true,
   }
   useEffect(() => {
     try { if (localStorage.getItem('itemDetail.splitView') === '0') setSplitView(false) } catch {}

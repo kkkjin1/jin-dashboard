@@ -160,7 +160,7 @@ export default function PlanRecordBox({
       {/* 본문 하나 */}
       {isOpen && (
         <div className="mx-1.5 mb-1.5 rounded-[10px] px-3.5 pb-3"
-          style={{ background: pal ? 'var(--surface-primary)' : 'transparent', paddingTop: editing ? 34 : 10 }}>
+          style={{ background: pal ? 'var(--surface-primary)' : 'transparent', paddingTop: 10 }}>{/* 서식 바를 없애 위 34px 자리 비움도 뺐다(2026-11-25) */}
           <SketchTextEditor
             content={body}
             onContentChange={html => { setBody(html); queueSave(html) }}
@@ -175,6 +175,7 @@ export default function PlanRecordBox({
             allowImages
             docMinHeight={40}
             scrollOnInitialFocus={false}
+            hideToolbar
           />
           {prevNotes.length > 0 && (
             <div className="mt-3 pt-2 border-t border-[rgba(var(--ink-rgb),0.07)]">
